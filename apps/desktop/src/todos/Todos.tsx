@@ -103,10 +103,18 @@ export const Todos = (props: {
 
   const open = shownTodos(connected, todos);
 
-  const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
-    scope.includes(todo.home, todo.creator, todo.owner) || (todo.owner?.kind === "agent" && todo.owner.id === connected.padsOwner())));
+  const requested = createMemo(() => {
+    const agent = connected.padsRequest();
 
-  const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner) || (todo.owner?.kind === "agent" && todo.owner.id === connected.padsOwner())));
+    return active() && agent ? todos.all().filter(todo => todo.creator.kind === "agent" && todo.creator.id === agent) : [];
+  });
+
+  const includes = (todo: Todo) => scope.includes(todo.home, todo.creator, todo.owner)
+    || (todo.creator.kind === "agent" && todo.creator.id === connected.padsOwner());
+
+  const done = createMemo(() => doneTodos(todos.all()).filter(includes));
+
+  const inScope = createMemo(() => todos.all().filter(includes));
 
   const now = createMemo(() => nowTodos(inScope(), todos.handed() ?? [], new Set(connected.rail.nodes.filter(node => node.kind === "agent").map(node => node.id))));
 
@@ -310,6 +318,26 @@ export const Todos = (props: {
   let plusButton: HTMLButtonElement | undefined;
 
   const rowButtonOf = triageRowOf;
+  const requestedOpen = createMemo(() => requested().filter(todo => !todo.done));
+
+  createEffect(() => {
+    const items = requested();
+
+    if (!items.length) return;
+
+    if (items.some(todo => todo.done)) setUnfolded(true);
+
+    if (requestedOpen().length) return;
+    const first = items[0]!;
+
+    queueFocus(() => {
+      const target = rowButtonOf(first.id);
+
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "nearest" });
+    });
+    connected.finishPadsRequest();
+  });
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
   let namingNext: number | null = null;
@@ -331,6 +359,8 @@ export const Todos = (props: {
   const { revealed, arrivals, setRevealed, setRegrouped, assign } = createOwnerAssignment({
     connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.show(message),
   });
+
+  const requestedGroups = createMemo(() => [...arrivals(), ...requestedOpen().map(groupOf)]);
 
   createOwnerPicker({ todos,
     when: event => (!triage.on() || triageTarget(event)?.done === false) && (triage.on() || !rowTypeahead(event)),
@@ -779,7 +809,7 @@ export const Todos = (props: {
         </div>
       </Show>
       <Show when={listed().length > 0}>
-        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={connected.padsRequest} onFocused={connected.finishPadsRequest} arrivals={arrivals} unfold={() => filed() + todos.revealed()}>{group => {
+        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
