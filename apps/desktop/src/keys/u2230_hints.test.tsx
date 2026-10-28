@@ -95,8 +95,8 @@ const toBubble = async () => {
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
   rowOf("lead").focus();
   await settled();
-  await waitFor(() => expect(document.querySelector(".bubble-header")).not.toBeNull());
-  document.querySelector<HTMLElement>(".bubble-header")!.focus();
+  await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
+  document.querySelector<HTMLElement>(".terminal-tab")!.focus();
   await waitFor(() => expect(line()).toEqual(label("bubble")));
 };
 
@@ -153,7 +153,7 @@ describe("u2230 shortcut hints", () => {
         if (hint.keys === "⌘⌫") await answerQuestion(true);
 
         if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
-        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(place === "bubble" ? ".pane-screen" : ".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
+        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
         else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
         else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
       }
