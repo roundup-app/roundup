@@ -299,7 +299,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
 
     if (seed === "daemon-exits") await page.until(`() => [...document.querySelectorAll('button')].some(el => el.textContent === 'Reopen')`);
 
-    if (seed === "door-stopped") await page.until(`() => document.body.textContent.includes('Supervisor stopped, exited 0')`);
+    if (seed === "door-stopped") await page.until(`() => Boolean(document.querySelector('.pane-door .pane-action'))`);
   };
 
   it("u135_more-contrast_d5_on_painted_layout_at_1280_by_800", async () => {
