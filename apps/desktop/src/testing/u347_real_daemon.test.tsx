@@ -32,5 +32,5 @@ it("u2744a_shelf_scope_no_scope_button", async () => {
 
   tree[2] = { ...tree[2]!, name: "renamed root" };
   app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(screen.getByRole("button", { name: "add todo to renamed root" })).toBeTruthy());
+  await waitFor(() => expect(screen.getByRole("button", { name: `add todo to ${tree[2]!.name}` })).toBeTruthy());
 });
