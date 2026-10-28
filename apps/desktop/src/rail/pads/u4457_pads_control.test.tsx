@@ -91,13 +91,22 @@ describe("u4457 the Pads control opens the Shelf", () => {
     expect(document.querySelector(".rail-leaf")).toBeNull();
   });
 
-  it("u4457_a_todo_only_control_opens_its_todos_group", async () => {
-    await mount([], [todo(1, { title: "work", creator: by("a1"), owner: by("a1") })]);
-    await waitFor(() => expect(control("a1")).not.toBeNull());
+  it("u4457_a_todo_only_control_reveals_the_todos_it_counts_in_their_owner_groups", async () => {
+    await mount([], [
+      todo(1, { title: "unassigned work", creator: by("a1") }),
+      todo(2, { title: "delegated work", creator: by("a1"), owner: by("a2") }),
+      todo(3, { title: "finished work", creator: by("a1"), done: true }),
+    ]);
+    await waitFor(() => expect(control("a1")?.getAttribute("aria-label")).toBe("3 todos"));
+    fireEvent.click(document.querySelector<HTMLElement>('[role=treeitem][data-id="a2"] .name')!);
+    await waitFor(() => expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true"));
     fireEvent.click(control("a1")!);
     await waitFor(() => expect(screen.getByRole("tab", { name: /Todos/, selected: true })).toBeTruthy());
-    await waitFor(() => expect(group("a1")?.querySelector(".shelf-group-control")).toBe(document.activeElement));
-    expect(within(group("a1")!).getByRole("button", { name: /work/ })).toBeTruthy();
+    await waitFor(() => expect(within(group("unassigned")!).getByRole("button", { name: /unassigned work/ })).toBe(document.activeElement));
+    expect(group("unassigned")?.getAttribute("aria-expanded")).toBe("true");
+    expect(group("a2")?.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /finished work/ })).toBeTruthy();
+    expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true");
   });
 
   it("u4457_the_control_keeps_its_count_and_name", async () => {
