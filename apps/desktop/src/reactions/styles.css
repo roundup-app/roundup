@@ -34,12 +34,20 @@
 
 .reaction-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: flex-start;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-2) 0;
+  padding: var(--space-2);
   text-align: start;
+}
+
+.reaction-row:is([data-row-selected="true"], :focus-visible) {
+  background: var(--selected);
+}
+
+.reaction-row:is([data-row-selected="true"], :focus-visible):hover {
+  background: var(--selected-hover);
 }
 
 .reaction-row .reaction-name {
