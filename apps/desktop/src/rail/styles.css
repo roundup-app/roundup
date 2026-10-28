@@ -774,6 +774,7 @@
 .rail-row .name { flex: 1; }
 .rail-row .row-state { width: var(--space-4); flex: none; }
 .rail-row .row-controls { flex: none; }
+.rail-row:hover .row-controls { opacity: 1; pointer-events: auto; }
 .rail-row .rail-chevron { opacity: 0; pointer-events: none; }
 .rail-row:focus-within .rail-chevron,
 .rail-row[data-selected="true"] .rail-chevron { opacity: 1; pointer-events: auto; }

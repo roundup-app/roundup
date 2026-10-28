@@ -31,7 +31,8 @@ const rows = () => [...document.querySelectorAll("[role=tree] :is([data-part=ite
 
 describe("u4457 the Pads control opens the Shelf", () => {
   it("u4457_the_control_opens_the_shelf_on_pads_with_the_agents_group_expanded_and_focused", async () => {
-    await mount([padOf("notes", by("a1")), padOf("plan", by("a2"))]);
+    const pad = padOf("notes", by("a1"));
+    await mount([pad, padOf("plan", by("a2"))]);
     await waitFor(() => expect(control("a1")).not.toBeNull());
 
     fireEvent.click(control("a1")!);
@@ -39,7 +40,7 @@ describe("u4457 the Pads control opens the Shelf", () => {
     await waitFor(() => expect(screen.getByRole("tab", { name: /Pads/, selected: true })).toBeTruthy());
     await waitFor(() => expect(group("a1")?.querySelector(".shelf-group-control")).toBe(document.activeElement));
     expect(group("a1")?.getAttribute("aria-expanded")).toBe("true");
-    expect(within(group("a1")!).getByRole("button", { name: "notes" })).toBeTruthy();
+    expect(within(group("a1")!).getByRole("button", { name: pad.name })).toBeTruthy();
 
     fireEvent.click(control("a1")!);
     expect(document.activeElement).toBe(group("a1")?.querySelector(".shelf-group-control"));
@@ -81,7 +82,7 @@ describe("u4457 the Pads control opens the Shelf", () => {
     const rail = within(screen.getByRole("tree", { name: "Rail" }));
 
     fireEvent.keyDown(rail.getByRole("treeitem", { name: /auth/ }), { key: "ArrowRight" });
-    expect(rail.queryByRole("button", { name: "notes" })).toBeNull();
+    expect(rail.queryAllByRole("button").filter(button => button.closest("[data-pad], [data-todo]"))).toEqual([]);
     expect(document.querySelector(".rail-leaf")).toBeNull();
   });
 
