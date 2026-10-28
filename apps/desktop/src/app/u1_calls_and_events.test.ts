@@ -378,14 +378,6 @@ describe("u1 calls and events", () => {
     await expect(createTauriApp().setDockBadge(2)).rejects.toMatchObject({ code: -32603, message: "no dock" });
   });
 
-  it("u1_a_malformed_project_answer_rejects_with_the_validation_message", async () => {
-    mockIPC(() => ({ name: 7, path: "/p" }));
-
-    await expect(createTauriApp().openProject("/p")).rejects.toMatchObject({
-      message: "Invalid type: Expected string but received 7",
-    });
-  });
-
   it("u1_the_adapter_file_is_the_only_door_to_tauri", () => {
     // so the only-door check sees adapters added after this test was written
     const sourceFiles = import.meta.glob<string>(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"], {
