@@ -14,5 +14,12 @@
   "web_initial": "70 pass; U26 tree fixture hook times out under concurrent load; isolated run subsequently passes all 42 selected tests",
   "native_final": "cargo nextest run -p desktop: 137 passed, including all six S6 tests",
   "u52_final": "five U52 webview and native-adapter tests pass on the final implementation",
-  "related_observer_failure": "The unrestricted related scan reached U166, whose 240-second test budget elapsed while native fixture builds waited on Cargo locks (one build reported 4m53s). The scan was stopped after that failure; U166 is being rerun after fixture builds completed. No test timeout was changed."
+  "related_observer_failure": "The preceding run stopped an unrestricted related scan after U166 exceeded its budget during fixture compilation. On the merged fix head, U166 passed in the related scan (223.4 s); no timeout was changed.",
+  "fix_run": {
+    "validated_head": "2193adc9c64a8da170462c78aaf0e21cc2d99f31",
+    "native": "cargo nextest run -p desktop: 137 passed, 0 skipped, including all six S6 tests",
+    "focused_web": "U52 native adapter and first-run, U2, U3807: 42 tests passed in four files",
+    "rendered": "Dedicated headless agent-browser session, dark 1512x950: no/five recents, missing binary and failed recent open; D1-D14 and D16 pass. Refreshed PNGs stay untracked under head/.",
+    "cleanup": "Removed accidentally tracked target symlink; retained the local build directory. Merged origin/main and passed merge-loss."
+  }
 }
