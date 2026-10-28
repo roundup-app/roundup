@@ -89,6 +89,18 @@ timings with setup and retries distinguished. Keep T3779b’s baseline and shrin
 enforcement (including Python), now enabled through normal lint. The earlier consumer/timing audit remains in
 `../web-cost/`. This slice changes no product path or protected observer.
 
+## App timeout inventory and timing evidence (T4451a / T4451b)
+
+PR #4449 lowered 79 declarations in 49 App test files. That source inventory
+establishes no timing bound. [The evidence ledger](evidence-4451.md) records a
+complete seven-shard CI extraction, every affected file and original declaration,
+per-test results, retries, and deleted or replaced observers. Its historical
+measurements identify their own CI SHA. Skipped capture observers remain
+unmeasured; neither a missing entry nor the extractor's skipped-file placeholder
+justifies a cap. File totals include hooks and multiple tests and do not establish
+an individual callback's timeout requirement. #4451 stays open until its requested
+observer evidence and exact-test cap decisions are complete.
+
 ## Reuse
 
 Installed Oxlint 1.86.0 provides the parser, lexical scopes, plugin seam, configuration
