@@ -227,6 +227,9 @@ export const rpcFailureSchema = v.object({
   data: v.fallback(v.optional(v.variant("kind", [
     v.object({ kind: v.literal("events-expired"), oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)) }),
     v.object({ kind: v.literal("other-project") }),
+    v.object({ kind: v.literal("undo-parent"), id: v.string(), name: v.string() }),
+    v.object({ kind: v.literal("undo-identity"), id: v.string(), name: v.string() }),
+    v.object({ kind: v.literal("undo-pad-name"), name: v.string() }),
   ])), undefined),
 });
 

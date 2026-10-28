@@ -178,10 +178,23 @@ impl Store {
 
     /// Leaves `updated_at` alone: a Home is not an edit of the text.
     pub fn set_home(&self, name: &str, home: Option<&str>) -> rusqlite::Result<bool> {
+        let tx = self.db.unchecked_transaction()?;
         let changed = self.db.execute(
             "UPDATE pads SET home = ?2 WHERE key = ?1",
             params![key(name), home],
         )?;
+        let retained: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
+            [],
+            |r| r.get(0),
+        )?;
+        if retained && changed == 1 {
+            tx.execute(
+                "DELETE FROM rail_removal_items WHERE kind='pad-home' AND id=?",
+                [name],
+            )?;
+        }
+        tx.commit()?;
         Ok(changed == 1)
     }
 
