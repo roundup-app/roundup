@@ -181,7 +181,7 @@ export const todosCycle = (todos: Todos) => async (index: number): Promise<boole
 /** The Glyphs workload acts on nothing: it holds that ten working Glyphs stay in the Rail for the whole sample, under the one stream. */
 export const glyphsCycle = (working: () => number) => async (): Promise<boolean> => working() >= WORKING_GLYPHS;
 
-const SHELF_ROW = '.shelf [data-todo] .row-controls button[aria-label="Open"]';
+const SHELF_ROW = '.shelf [data-todo] .todo-row-button';
 
 const clickAt = (selector: string): boolean => {
   const target = document.querySelector(selector);
@@ -205,7 +205,7 @@ const observeLayerMovement = async (panel: "drawer" | "shelf", action: () => boo
   const edge = root.getBoundingClientRect().right;
   const todo = document.querySelector(SHELF_ROW)?.closest<HTMLElement>("[data-todo]")?.dataset.todo;
   const opening = element.dataset.open !== "true";
-  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .row-controls button[aria-label="Open"]` : ".drawer";
+  const target = panel === "shelf" ? ".shelf-tab[data-selected]" : opening ? `.shelf [data-todo="${todo}"] .todo-row-button` : ".drawer";
   const entry: LayerAction = { panel, source: "trusted-pointer", criterion, reduced: reduced(), target, at_ms: performance.now(), from: initial.left, destination: opening ? edge - initial.width : edge, observed: null, completed: false, samples: [] };
 
   journal.push(entry);

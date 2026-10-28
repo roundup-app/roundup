@@ -286,16 +286,13 @@ it("u3789a_real_daemon_rows", async () => {
       await until(`document.activeElement === document.querySelector('${row}')`);
       expect(await evaluate("window.__rowCalls.filter(call => ['todo.get','todo.readHistory','todo.getHistory','pad.read','agent.spawn','agent.resume','rail.startDoor'].includes(call.method))")).toEqual([]);
 
-      for (const input of ["return", "open"]) {
-        if (input === "return") await browser("press", "Enter");
-        else await browser("click", kind === "todo" ? `[data-todo="${todo.id}"] [aria-label="Open"]` : '[data-pad="row pad"] [aria-label="Open"]');
-        await until("document.querySelector('.drawer[data-open=true]')");
-        await browser("click", ".drawer .close");
-        await until("!document.querySelector('.drawer[data-open=true]')");
-        await browser("focus", row);
-      }
+      await browser("press", "Enter");
+      await until("document.querySelector('.drawer[data-open=true]')");
+      await browser("click", ".drawer .close");
+      await until("!document.querySelector('.drawer[data-open=true]')");
+      await browser("focus", row);
 
-      expect(await evaluate(`window.__rowCalls.filter(call => call.method === '${kind === "todo" ? "todo.getHistory" : "pad.read"}').length`)).toBe(2);
+      expect(await evaluate(`window.__rowCalls.filter(call => call.method === '${kind === "todo" ? "todo.getHistory" : "pad.read"}').length`)).toBe(1);
       await browser("press", "F2");
       await until("document.activeElement?.getAttribute('aria-label') === 'Name'");
       await browser("fill", "input[aria-label=Name]", `renamed ${kind}`);
