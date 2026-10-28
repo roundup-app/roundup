@@ -102,6 +102,7 @@ for (const state of ["agent", "door", "shell"]) {
 
       await read("localStorage.clear(); sessionStorage.clear()");
       await load(seed, base, process.env.U4592_CANDIDATE === "dom" ? "dom" : "webgl");
+
       if (process.env.U4592_CANDIDATE) await read(`(async () => {
         const { xtermOptions } = await import('/src/terminal/emulator.ts');
         xtermOptions.letterSpacing = 0.95;
@@ -144,21 +145,32 @@ for (const state of ["agent", "door", "shell"]) {
         return { ...size, cellWidth: screen.width / size.cols, cellHeight: screen.height / size.rows, dpr: devicePixelRatio, renderer: document.querySelector('${surface} .xterm-screen canvas') ? "webgl" : "dom", fonts: [...document.fonts].map(face => ({ family: face.family, style: face.style, weight: face.weight, status: face.status })), resources: performance.getEntriesByType('resource').filter(r => r.name.includes('.woff2')).map(r => r.name) };
       })()`);
 
-      const metadata = await read<Record<string, unknown>>(`(async () => {
+      const metadata = await read<{
+        host: { width: number; height: number; x: number; y: number };
+        viewport: { width: number; height: number };
+        canvas: { width: number; height: number; cssWidth: number; cssHeight: number } | null;
+        requested: { family: string; weight: number; bold: number; size: number; tracking: number; lineHeight: number };
+        tokens: Record<string, string>;
+        fontStatus: string;
+        smoothing: string;
+      }>(`(async () => {
         const host = document.querySelector('${surface}');
         const canvas = host.querySelector('canvas');
         const {width, height, x, y} = host.getBoundingClientRect();
         const style = getComputedStyle(document.documentElement);
         const { xtermOptions } = await import('/src/terminal/emulator.ts');
+
         return { host: {width,height,x,y}, requested: {family:xtermOptions.fontFamily,weight:xtermOptions.fontWeight ?? 400,bold:xtermOptions.fontWeightBold ?? 700,size:xtermOptions.fontSize,tracking:xtermOptions.letterSpacing,lineHeight:xtermOptions.lineHeight}, viewport: {width:innerWidth,height:innerHeight},
           canvas: canvas ? {width:canvas.width,height:canvas.height,cssWidth:canvas.getBoundingClientRect().width,cssHeight:canvas.getBoundingClientRect().height} : null,
           tokens: Object.fromEntries(['--font-terminal','--text-terminal','--line-terminal','--letter-terminal','--weight-terminal'].map(name => [name, style.getPropertyValue(name).trim()])),
           fontStatus: document.fonts.status, smoothing: style.webkitFontSmoothing };
       })()`);
+
       const record = { ...metrics, ...metadata, commit: base ? execFileSync('git', ['rev-parse','origin/main'], {encoding:'utf8'}).trim() : execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8'}).trim(),
         seed, state, candidate: process.env.U4592_CANDIDATE ?? 'selected',
         streamIdentity: createHash('sha256').update(replay).digest('hex'),
         claudeVersion: 'deterministic Claude Code-style replay; no live Claude process', platform: process.platform };
+
       const checks = JSON.stringify(await read("window.__checks()"), null, 2);
       let screenshot: string | undefined;
 

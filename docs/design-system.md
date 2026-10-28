@@ -290,8 +290,8 @@ px). `--line-terminal` is xterm's unitless line-height multiplier (1.7, calibrat
 `--letter-terminal` is extra cell tracking (0.5 CSS px). U4456 uses Solo's
 0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
 apply. U4592 uses `--weight-terminal` (300) through xterm’s public `fontWeight` option;
-bold stays 700. WebGL retains full-cell boxes and the official ligature addon
-joins programming operators. Rendered measurements are in `docs/terminal-type.md`.
+bold stays 700. WebGL retains full-cell boxes. U4592 tracking and ligature
+acceptance remain incomplete; see #4619 and #4627. Rendered measurements are in `docs/terminal-type.md`.
 
 `--terminal-background`, `--terminal-foreground`, `--terminal-cursor`,
 `--terminal-cursor-text`, `--terminal-selection`, `--terminal-selection-text`, and
