@@ -32,14 +32,20 @@ export const lazyEmulators = (load: Loader): EmulatorFactory => {
     return {
       prepare: (host, settled, signal) => {
         const waiting = new Promise<Size>((resolve, reject) => run(emulator => {
-          if (!emulator.prepare) { reject(new Error("Terminal destination preparation unavailable")); return; }
+          if (!emulator.prepare) { reject(new Error("Terminal destination preparation unavailable"));
+
+ return; }
+
           void emulator.prepare(host, settled, signal).then(resolve, reject);
         }));
+
         if (!signal) return waiting;
         const cancelled = Promise.withResolvers<never>();
         const abort = () => cancelled.reject(signal.reason);
         signal.addEventListener("abort", abort, { once: true });
+
         if (signal.aborted) abort();
+
         return Promise.race([waiting, cancelled.promise]).finally(() => signal.removeEventListener("abort", abort));
       },
       bind: next => run(emulator => emulator.bind?.(next)),

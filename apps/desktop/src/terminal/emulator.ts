@@ -478,17 +478,21 @@ export const createXtermEmulators = (
       focusOnShow = focus;
       open();
       const fitted = size();
+
       if (focusOnShow) terminal.focus();
+
       return fitted;
     };
 
     const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<Size> => {
       show(host, false);
       await ready;
+
       // The selected face may have changed while the bundled faces were loading.
       if (document.fonts) {
         await Promise.all(["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${terminal.options.fontSize}px ${terminal.options.fontFamily}`)));
         await document.fonts.ready;
+
         if (!disposed) {
           prepareFontChange();
           const family = terminal.options.fontFamily!;
@@ -496,21 +500,33 @@ export const createXtermEmulators = (
           terminal.options.fontFamily = family;
         }
       }
+
       signal?.throwIfAborted();
+
       return new Promise<Size>((resolve, reject) => {
         let observed = false;
         let frame = 0;
         const observer = new ResizeObserver(() => { observed = true; });
         const stop = () => { observer.disconnect(); cancelAnimationFrame(frame); signal?.removeEventListener("abort", abort); };
+
         const abort = () => { stop(); reject(signal?.reason ?? new Error("Terminal preparation cancelled")); };
+
         const fit = () => {
-          if (disposed || signal?.aborted || !host.isConnected) { abort(); return; }
+          if (disposed || signal?.aborted || !host.isConnected) { abort();
+
+ return; }
+
           if (observed && settled() && host.checkVisibility() && host.clientWidth > 0 && host.clientHeight > 0) {
             const fitted = size();
-            if (fitted.cols > 0 && fitted.rows > 0) { stop(); resolve(fitted); return; }
+
+            if (fitted.cols > 0 && fitted.rows > 0) { stop(); resolve(fitted);
+
+ return; }
           }
+
           frame = requestAnimationFrame(fit);
         };
+
         observer.observe(host);
         signal?.addEventListener("abort", abort, { once: true });
         frame = requestAnimationFrame(fit);

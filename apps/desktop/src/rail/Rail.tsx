@@ -458,12 +458,15 @@ export const Rail = () => {
       const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
 
       const prepared = await rail.prepareTerminal?.();
+
       try {
         const spawned = await app.rpc("agent.spawn", { ...params, ...prepared?.size });
+
         if (spawned.terminal_id) prepared?.bind(spawned.terminal_id);
         await rail.refresh();
         prepared?.dispose();
         setWanted({ id: spawned.id, focus });
+
         if (composing()) endCompose();
       } finally { prepared?.dispose(); }
     });
@@ -545,8 +548,10 @@ export const Rail = () => {
         if (door !== null) await app.rpc("message.send", { to: door, kind: "note", body: prompt!, replyTo: null });
         else {
           const prepared = await rail.prepareTerminal?.();
+
           try {
             const node = await app.rpc("agent.spawn", { cwd: project.path, prompt, parent: originalParent, model: null, effort: null, ...prepared?.size });
+
             if (node.terminal_id) prepared?.bind(node.terminal_id);
             spawned = node.id;
             await rail.refresh();

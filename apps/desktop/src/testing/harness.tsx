@@ -129,6 +129,7 @@ const mount = (app: AppSeam) => {
       bind?.(next);
       window.__terminals.set(id, emulator);
     };
+
     window.__terminals.set(id, emulator);
 
     return emulator;
