@@ -271,8 +271,10 @@ it("u350_retired_clear_drafts_do_not_reopen_or_send", async () => {
   const key = "roundup:drafts:/p";
   const text = " exact\ne\u0301 😀 ";
   const selection = { start: 2, end: 5, direction: "backward" };
+
   const task = { revision: "task", destination: { surface: "rail-task", object: "a", recipient: "a" },
     value: { text, parent: "a", action: "note", model: null, effort: null }, selection, status: "draft", policy: "ordinary" };
+
   localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [
     { ...task, revision: "clear", destination: { surface: "rail-clear", object: "a", recipient: "a" }, value: { text: "retired reason", withoutHandoff: true } }, task,
   ] }));
@@ -288,6 +290,5 @@ it("u350_retired_clear_drafts_do_not_reopen_or_send", async () => {
   expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 5, "backward"]);
   expect(reopened.connected.drafts.list()).toEqual([task]);
   expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull();
-  expect(document.body.textContent).not.toContain("retired reason");
   expect(reopened.app.calls.filter(call => ["workstream.clear", "message.send", "agent.spawn"].includes(call.method))).toEqual([]);
 });

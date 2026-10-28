@@ -419,6 +419,7 @@ export const draftStorage = (project: string) => {
 
     incompatible = false;
     baseline = JSON.stringify(saved);
+
     for (const draft of saved) {
       if (draft.destination.surface === "rail-clear") removed.add(draft.revision);
     }
