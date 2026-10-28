@@ -841,3 +841,6 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let _checkpoints = checkpoints::Checkpoints::open(dir.path())
         .expect("Checkpoints must not read the schema yet");
 }
+
+#[path = "../tests/support/b4522.rs"]
+mod b4522;
