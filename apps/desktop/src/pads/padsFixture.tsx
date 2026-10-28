@@ -169,12 +169,13 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
       return row!;
     });
 
-    for (const group of [...row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")]) {
+    for (const group of row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
       if (group.contains(row) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
     }
 
     fireEvent.keyDown(await screen.findByRole("button", { name }), { key: "Enter" });
   }
+
   const surface = await screen.findByRole<HTMLElement>("textbox", { name: "Pad body" }, { timeout: 5000 });
   const root = surface.closest<HTMLElement>(".pad-editor");
   const editor = editors.at(-1);

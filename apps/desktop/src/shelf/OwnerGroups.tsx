@@ -87,10 +87,10 @@ export const OwnerGroups = <T,>(props: {
     }));
   });
 
-  const branches = (groups: Accessor<readonly OwnerGroup<T>[]>, path: number[], offset = 0): JSX.Element => (
+  const branches = (groups: Accessor<readonly OwnerGroup<T>[]>, path: Accessor<number[]>, offset: Accessor<number> = () => 0): JSX.Element => (
     <For each={groups().map(group => group.id)}>{(id, at) => {
         const group = () => groups().find(each => each.id === id)!;
-        const indexPath = () => [...path, at() + offset];
+        const indexPath = () => [...path(), at() + offset()];
 
         return <TreeView.NodeProvider node={entry(group())} indexPath={indexPath()}>
         <TreeView.Branch data-shelf-group={id} data-drop-target={props.target?.() === id ? "" : undefined}>
@@ -104,7 +104,7 @@ export const OwnerGroups = <T,>(props: {
 
           </div>
           {props.detail?.(group())}
-          <TreeView.BranchContent>{props.children(group)}{branches(() => group().children ?? [], indexPath(), group().items.length ? 1 : 0)}</TreeView.BranchContent>
+          <TreeView.BranchContent>{props.children(group)}{branches(() => group().children ?? [], indexPath, () => group().items.length ? 1 : 0)}</TreeView.BranchContent>
         </TreeView.Branch>
       </TreeView.NodeProvider>; }}</For>
   );
@@ -116,7 +116,7 @@ export const OwnerGroups = <T,>(props: {
       setClosed(kept => [...kept.filter(id => !branches.includes(id)), ...branches.filter(id => !details.expandedValue.includes(id))]);
     }}>
     <TreeView.Tree class="shelf-groups" aria-label={copy.shelfLabel}>
-      {branches(shown, [])}
+      {branches(shown, () => [])}
     </TreeView.Tree>
   </TreeView.Root>;
 };

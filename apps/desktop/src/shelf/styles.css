@@ -173,7 +173,7 @@
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: var(--transparent); }
 .shelf-groups [data-part="branch"] { cursor: pointer; }
 .shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
-.pads-tab [data-shelf-group] [data-shelf-group] { margin-inline-start: var(--tree-step); }
+.pads-tab [data-shelf-group][aria-level="2"] { margin-inline-start: var(--tree-step); }
 .shelf-groups [data-part="branch-indicator"] { display: flex; flex: none; }
 .shelf-group-head { display: flex; align-items: center; }
 .shelf-group-head[hidden] { display: none; }
