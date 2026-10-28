@@ -150,7 +150,7 @@ published packages and the bundled unmodified Fira Code 6.2 regular face:
 
 ```sh
 python3 - <<'PYTHON'
-import io, json, pathlib, shutil, tarfile, urllib.request
+import io, json, pathlib, subprocess, tarfile, urllib.request
 root = pathlib.Path('/tmp/xterm-spacing-audit')
 root.mkdir(exist_ok=True)
 for name, version in [('@xterm/xterm', '6.0.0'),
@@ -164,8 +164,11 @@ for name, version in [('@xterm/xterm', '6.0.0'),
     archive = urllib.request.urlopen(metadata['dist']['tarball']).read()
     with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
         package.extractall(target, filter='data')
-# Extract woff2/FiraCode-Regular.woff2 from the upstream 6.2 archive into root.
-# This historical control uses 400; U4592 ships only the selected 300 and bold 700.
+# The historical control uses 400; retrieve its unmodified face from the recorded main.
+(root / "FiraCode-Regular.woff2").write_bytes(subprocess.check_output([
+    "git", "show",
+    "e9c92247cebb9b6a42dc2e830592556e6aa4fec0:apps/desktop/public/fonts/fira-code/FiraCode-Regular.woff2",
+]))
 PYTHON
 ```
 
@@ -486,3 +489,10 @@ The unused Regular 400 face and its preload are removed after selecting Light
 300. Both shipped faces remain unmodified upstream files, with their hashes and
 OFL notice beside them. Terminal normal/italic use 300 and bold/bold italic use
 700; no other App surface uses this family. C9c keeps its exclusive 18 MB cap.
+
+The production build after merging main is 17,951,428 bytes (379 files), passing
+C9c and its module inventory. `release-size.json` records the failed CI size,
+retained font hashes and focused checks. Fresh screenshots on both the previous PR
+head and this fix have blank WebGL canvases, including a software-rendering
+retry: this is an observer failure, not new visual evidence. The prior reviewed
+capture readings above remain unchanged.
