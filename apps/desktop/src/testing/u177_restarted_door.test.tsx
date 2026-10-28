@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { resolve } from "node:path";
@@ -34,7 +35,7 @@ const mount = () => {
 describe("u177 a stopped Door starts again on the real Daemon", () => {
   it("u177_start_door_after_a_daemon_restart_shows_the_door_idle_with_both_messages_delivered", async () => {
     const first = mount();
-    await screen.findByRole("region", { name: "Rail" });
+    await screen.findByRole("region", { name: copy.rail });
 
     const settled = (app: AppSeam) => async () => {
       const door = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
@@ -62,7 +63,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await real.restart();
 
     const app = mount();
-    const reopened = await screen.findByRole("region", { name: "Rail" });
+    const reopened = await screen.findByRole("region", { name: copy.rail });
 
     const workstream = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
     fireEvent.contextMenu(await within(reopened).findByText(workstream.name, { selector: ".rail-row .name" }));
@@ -71,21 +72,21 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(settled(app), { timeout: 30_000 });
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind).toBe("idle"), { timeout: 30_000 });
 
-    expect(within(reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
+    expect(within(reopened).queryByRole("button", { name: copy.retryDoor })).toBeNull();
 
     await send(app, "ship b");
     await waitFor(async () => expect(await messages(app)).toEqual([["ship a", "delivered"], ["ship b", "delivered"]]), { timeout: 90_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toEqual(expect.arrayContaining(["ship a", "ship b"])), { timeout: 30_000 });
 
     fireEvent.click(document.querySelector("[data-todo-root]")!);
-    showShelfTab("Todos");
+    showShelfTab(copy.todos);
     await waitFor(() => {
       const todos = Array.from(document.querySelectorAll("[data-todo]")).map((todo) => todo.textContent ?? "");
 
       expect(todos.some((text) => text.includes("ship a"))).toBe(true);
       expect(todos.some((text) => text.includes("ship b"))).toBe(true);
     });
-    expect(within(reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
+    expect(within(reopened).queryByRole("button", { name: copy.retryDoor })).toBeNull();
     await real.model!.assertMatched();
   }, 60_000);
 });
