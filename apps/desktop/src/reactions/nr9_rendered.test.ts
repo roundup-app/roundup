@@ -118,7 +118,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=reactions&seed=agents-10`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await wait("document.querySelector('.reaction-empty')?.textContent.includes('No named reactions')");
+    await wait("document.querySelector('.empty-state')?.textContent.includes('No named reactions')");
     await capture("empty");
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=reactions&daemon=1`);
     await browser("set", "viewport", "1512", "950");
