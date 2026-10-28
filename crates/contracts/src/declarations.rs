@@ -109,7 +109,7 @@ declarations! { $;
         "pad.write": contracts::pad::WriteParams => contracts::pad::Pad, rpc_pad_write, all(schema(contracts::pad::WriteParams,"Rewrite a Pad's whole text. Owner only. Optional expectedRevision refuses a stale write with CONFLICT."));
         "pad.append": contracts::pad::AppendParams => contracts::pad::Pad, rpc_pad_append, all(schema(contracts::pad::AppendParams,"Add text to the end of any Pad."));
         "pad.appendSection": contracts::pad::AppendSectionParams => contracts::pad::Pad, rpc_pad_append_section, all(schema(contracts::pad::AppendSectionParams,"Add text at the end of the section under a Markdown heading of any Pad; the heading ignores case and extra whitespace. Pass expectedRevision (from a read) to refuse if the Pad changed since."));
-        "pad.reorder": contracts::pad::ReorderParams => contracts::pad::Pad, rpc_pad_reorder, all(schema(contracts::pad::ReorderParams,"Put a Pad before another of the same owner, or last with null before."));
+        "pad.reorder": contracts::pad::ReorderParams => contracts::pad::Pad, rpc_pad_reorder, none();
         "pad.setOwner": contracts::pad::SetOwnerParams => contracts::pad::Pad, rpc_pad_set_owner, all(schema(contracts::pad::SetOwnerParams,"Give a Pad to another Actor."));
         "pad.move": contracts::pad::MoveParams => contracts::pad::Pad, rpc_pad_move, none();
         "pad.delete": contracts::pad::DeleteParams => contracts::pad::Deletion, rpc_pad_delete, all(schema(contracts::pad::DeleteParams,"Delete a Pad, retaining its original creation for restoration."));
