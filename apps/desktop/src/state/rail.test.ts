@@ -6,7 +6,7 @@ import { connectEvents } from "../app/events";
 import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { event, info, node, workstream, door, USER } from "../testing/nodes";
-import { createRailState } from "./rail";
+import { createRailState, currentOwner } from "./rail";
 
 const status = (label: string): Status => ({ kind: "working", label, since: 1, finished: "0" });
 
@@ -268,4 +268,27 @@ describe("u62 Door launch failures", () => {
     await starting;
     expect(rail.doorFailure("r")).toBeNull();
   });
+});
+
+
+it("u4523_current_owner_uses_rail_identity_and_liveness", async () => {
+  const actor = { kind: "agent", id: "a", parent: null } as const;
+  const { app, rail } = await open([node("a", { name: "Renamed" }), node("other", { name: "Renamed" })]);
+  const cases = [
+    { tree: [node("a", { name: "Original" })], owner: actor, exited: false, expected: { id: "a", name: "Original", live: true } },
+    { tree: [node("a", { name: "Renamed", status: { kind: "done", label: "done", since: 0, finished: "0" } })], owner: actor, exited: false, expected: { id: "a", name: "Renamed", live: true } },
+    { tree: [node("a", { name: "Renamed" })], owner: actor, exited: true, expected: { id: "a", name: "Renamed", live: false } },
+    { tree: [node("a", { name: "Renamed", terminal_id: null })], owner: actor, exited: false, expected: { id: "a", name: "Renamed", live: false } },
+    { tree: [], owner: actor, exited: false, expected: undefined },
+    { tree: [], owner: { ...actor, id: "missing" }, exited: false, expected: undefined },
+    { tree: [], owner: USER, exited: false, expected: undefined },
+    { tree: [], owner: null, exited: false, expected: undefined },
+  ];
+
+  for (const row of cases) {
+    app.handlers["rail.tree"] = () => [...row.tree, node("other", { name: "Renamed" })];
+    app.handlers["terminal.list"] = () => row.exited ? [info("t-a", { running: false })] : [];
+    await rail.refresh({ terminals: true });
+    expect(currentOwner(rail, row.owner)).toEqual(row.expected);
+  }
 });
