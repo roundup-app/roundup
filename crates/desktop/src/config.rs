@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -71,9 +72,16 @@ impl Config {
     pub(crate) fn context<R: tauri::Runtime>(&self) -> std::io::Result<tauri::Context<R>> {
         let mut context = crate::context();
         if let Some(dir) = &self.data_dir {
-            context.config_mut().app.app_directories_override = Some(
-                tauri::utils::config::AppDirectoriesOverride::Root(std::path::absolute(dir)?),
-            );
+            let dir = std::path::absolute(dir)?;
+            // R20: a directory override alone leaves the macOS single-instance socket
+            // shared with the installed App, which can consume the launch and exit 0.
+            // Keep its identifier bounded for sun_path and stable for the same profile.
+            let mut identity = DefaultHasher::new();
+            dir.hash(&mut identity);
+            let config = context.config_mut();
+            config.identifier = format!("{}.profile-{:016x}", config.identifier, identity.finish());
+            config.app.app_directories_override =
+                Some(tauri::utils::config::AppDirectoriesOverride::Root(dir));
         }
         Ok(context)
     }
