@@ -166,15 +166,16 @@ impl Pads {
     }
 
     pub(super) fn set_owner(&self, ctx: &Ctx, p: SetOwnerParams) -> Result<Value, RpcError> {
+        let owner = p
+            .owner
+            .into_actor()
+            .map_err(|e| RpcError::new(rpc::code::INVALID_PARAMS, e))?;
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         require_owner_or_user(&ctx.actor, &pad, "hand over")?;
-        found(store.set_owner(&pad.name, &p.owner, now_ms()), &pad.name)?;
+        found(store.set_owner(&pad.name, &owner, now_ms()), &pad.name)?;
         wrote(ctx, &pad.name)?;
-        reply(&Pad {
-            owner: p.owner,
-            ..pad
-        })
+        reply(&Pad { owner, ..pad })
     }
 
     /// The Daemon has checked `home` against the Rail (P12). A move to the Home it has changes nothing.

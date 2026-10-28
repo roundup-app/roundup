@@ -201,6 +201,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Reason | same | — |
 | Card | same | popup |
 | Markdown | same | — |
+| Owner selector (`Owner`) | owner | — |
 | Actor | same | — |
 | Output stream (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`) | same | — |
 | Terminal scheme (`terminal.scheme`, `SchemeParams`, `Scheme`) | same | — |

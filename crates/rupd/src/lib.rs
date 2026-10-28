@@ -32,6 +32,7 @@ mod resources;
 mod resume;
 mod rewind;
 mod route;
+mod selectors;
 mod specialist;
 mod storage;
 mod todo_refs;

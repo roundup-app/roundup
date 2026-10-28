@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::common::Actor;
+use crate::common::{Actor, Owner};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Pad {
@@ -73,7 +73,7 @@ pub struct AppendSectionParams {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SetOwnerParams {
     pub name: String,
-    pub owner: Actor,
+    pub owner: Owner,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
