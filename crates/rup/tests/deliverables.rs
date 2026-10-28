@@ -768,7 +768,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
     p.crash();
     let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
     // Historical schema/real BLOB fixture. Leave its committed changes in WAL across upgrade.
-    db.execute_batch("DROP TRIGGER deliverable_blob_exclusive; DROP TRIGGER deliverable_file_exclusive; DROP TRIGGER deliverable_blob_identity; DROP TRIGGER deliverable_file_identity; DROP TABLE deliverable_files;").unwrap();
+    db.execute_batch("DROP TRIGGER deliverable_blob_exclusive; DROP TRIGGER deliverable_file_exclusive; DROP TRIGGER deliverable_blob_identity; DROP TRIGGER deliverable_file_identity; DROP TABLE deliverable_files; ALTER TABLE pads DROP COLUMN position;").unwrap();
     for (record, bytes) in publications {
         db.execute(
             "INSERT INTO deliverable_bytes VALUES (?1,?2)",

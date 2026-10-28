@@ -200,6 +200,47 @@ it("u3800a_one_drag_fixture", async () => {
   await committed("B,A,C");
   await focusedA();
 
+  // Commissioned Shelf Pad consumer: pointer and keyboard use the real holder and RPC.
+  await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+  await browser("wait", "--fn", "!!document.querySelector('#shelf-tab-pads')");
+  await browser("click", "[data-todo-root]");
+  await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected=true]')");
+  await browser("click", "#shelf-tab-pads");
+  await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group=me] [data-part=branch-control]')");
+  await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .pad-grip').length >= 2");
+  const names = await read<string[]>("[...document.querySelectorAll('.pads-tab [data-shelf-group=me] [data-pad]')].map(row=>row.dataset.pad)");
+  const first = names[0]!;
+  const second = names[1]!;
+  const grip = (name: string) => `[aria-label=${JSON.stringify(`Move ${name}`)}]`;
+  const padOrder = "[...document.querySelectorAll('.pads-tab [data-shelf-group=me] [data-pad]')].map(row=>row.dataset.pad)";
+  const padCalls = "window.__fake.app.calls.filter(c=>c.method==='pad.reorder')";
+  const start = await read<{x:number;y:number}>(`(() => {const el=document.querySelector(${JSON.stringify(grip(first))});el.scrollIntoView({block:"nearest"});const b=el.getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`);
+  await browser("batch", "--bail", `mouse move ${start.x} ${start.y}`, "mouse down", `mouse move ${start.x} ${start.y + 12}`);
+  await browser("wait", "--fn", "!!document.querySelector('.sortable-slot')");
+  await capture("U3800a", "pad-lift");
+  const end = await read<{x:number;y:number}>(`(() => {const b=document.querySelector(${JSON.stringify(grip(second))}).getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`);
+  await browser("mouse", "move", String(end.x), String(end.y));
+  await browser("wait", "--fn", "document.querySelector('.pads-tab .shelf-list[data-sortable-index]')?.dataset.sortableIndex === '1'");
+  await browser("mouse", "up");
+  await browser("wait", "--fn", `${padCalls}.length===1 && ${padOrder}[0]===${JSON.stringify(second)}`);
+  const accepted = await read<string[]>(padOrder);
+  expect(accepted).toEqual([second, first]);
+  expect(await read<string[]>("(async()=> (await window.__fake.app.rpc('pad.list',null)).filter(p=>p.owner.kind==='user').map(p=>p.name))()")).toEqual(accepted);
+  expect(await read<string>(`${padCalls}[0].params.name`)).toBe(first);
+  expect(await read<unknown[]>("window.__fake.app.calls.filter(c=>['pad.rename','pad.write','pad.setOwner'].includes(c.method))")).toEqual([]);
+  expect(await read<number>("document.querySelectorAll('[role=dialog],.pad-body').length")).toBe(0);
+  await capture("U3800a", "pad-accepted");
+  await browser("focus", grip(first));
+  await browser("batch", "--bail", "press Space", `wait --fn ${JSON.stringify("!!document.querySelector('.sortable-slot')")}`, "press ArrowUp");
+  await capture("U3800c", "pad-keyboard");
+  await browser("press", "Space");
+  await browser("wait", "--fn", `${padCalls}.length===2 && ${padOrder}[0]===${JSON.stringify(first)}`);
+  expect(await read<string>("document.activeElement?.getAttribute('aria-label')")).toBe(`Move ${first}`);
+  await browser("focus", `.pads-tab [data-pad=${JSON.stringify(first)}] .pad-name`);
+  await browser("press", "Enter");
+  await browser("wait", "--fn", "!!document.querySelector('.pad-body')");
+  expect(await read<number>(`${padCalls}.length`)).toBe(2);
+
   // The same session exercises native path routing through the real App and fake event seam.
   await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await browser("wait", "--fn", "!!document.querySelector('.rail-row[data-id=tokens]')");
