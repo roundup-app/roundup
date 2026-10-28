@@ -1,3 +1,4 @@
+import { EmptyState } from "../ink/EmptyState";
 import { NameField } from "../ui/Editable";
 import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -114,7 +115,7 @@ const DraftRecoveryPanel = () => {
     <ReservedLine message={(drafts.problem() && !drafts.problem()!.destination?.surface.startsWith("rail-") ? copy.draftProblem(drafts.problem()!.cause) : null)}>
 <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.tryAgain}</button></Show>
       </ReservedLine>
-    <Show when={work.rows().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
+    <Show when={work.rows().length} fallback={<EmptyState art="order" {...{ title: copy.noUnfinishedWork }} line={copy.emptyDraftsLine} />}>
       <ul class="draft-revisions">
         <For each={work.rows()}>{(row) => <li data-revision={row.draft.revision}>
           <div class="draft-destination">
