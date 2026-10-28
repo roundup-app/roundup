@@ -401,21 +401,6 @@
   }
 }
 
-.rail-clear {
-  box-sizing: border-box;
-  padding: var(--space-3);
-  border: 0;
-  width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
-  max-width: min(var(--shelf-width), var(--available-width));
-}
-
-/* Keep long reasons and failures reachable inside Ark’s available viewport. */
-.rail-clear .clear-prompt {
-  max-height: calc(var(--available-height) - 2 * var(--space-3));
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
 /* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
 .rail-row .row-tail {
   position: relative;
@@ -525,52 +510,6 @@
   height: var(--space-2);
   z-index: 1;
   pointer-events: none;
-}
-
-/* U350: the clear prompt's fields. */
-.clear-prompt {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.clear-title {
-  display: grid;
-  gap: var(--space-1);
-  color: var(--text);
-  font-size: var(--text-body);
-}
-
-.clear-reason {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: var(--space-5);
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  color: var(--text);
-  background: var(--ground);
-  border: var(--hairline-width) solid var(--hairline);
-  resize: none;
-  white-space: pre;
-  overflow: hidden;
-}
-
-.clear-line,
-.clear-failure {
-  font-size: var(--text-small);
-}
-
-/* The action and its dismissal share one line, `Keep` trailing; `Clear without a summary` wraps after the action. */
-.clear-words {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  column-gap: var(--space-2);
-}
-
-/* Quiet words paint no box, so they drop the menu's inline pad: with it, `Keep` no longer fits beside the action on the 288 px Rail's card. */
-.clear-words button {
-  --button-inline: 0;
 }
 
 /* U520: the tree's name is for a screen reader; the section head speaks to the eye. */

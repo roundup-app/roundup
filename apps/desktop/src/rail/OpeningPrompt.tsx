@@ -13,6 +13,8 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
   const connected = useConnectedProject();
   const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "workstream" && node.id === props.id));
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [restarting, setRestarting] = createSignal(false);
+  const [restartRequest, setRestartRequest] = createSignal<string | null>(null);
   const { drafts } = connected;
   drafts.validate("opening-prompt", v.strictObject({ text: v.string() }));
   drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "workstream" && node.id === draft.destination.object) ? "available" : "unavailable");
@@ -23,15 +25,15 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
     if (current()) onCleanup(drafts.editor(destination()));
   });
 
-  const save = async () => {
+  const persist = async () => {
     const id = props.id;
     const revision = draft();
 
-    if (!revision || revision.value.text === (current()?.opening_prompt ?? "")) return;
+    if (!revision || revision.value.text === (current()?.opening_prompt ?? "")) return true;
 
     const submitted = await drafts.submit(revision.revision);
 
-    if (!submitted) return;
+    if (!submitted) return false;
 
     try {
       const prompt = String(submitted.draft.value.text);
@@ -41,12 +43,39 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
       await drafts.settle(revision.revision, "acknowledged");
 
       if (current()?.id === id) setFailure(null);
+
+      return true;
     } catch (error) {
       await drafts.settle(revision.revision, outcomeOf(error));
 
       if (!(error instanceof Error)) throw error;
 
       if (current()?.id === id) setFailure(error.message);
+
+      return false;
+    }
+  };
+
+  let saving: Promise<boolean> | null = null;
+  const save = () => saving ?? (saving = persist().finally(() => { saving = null; }));
+
+  const restart = async () => {
+    if (restarting()) return;
+    setRestarting(true);
+
+    try {
+      if (!await save()) return;
+      const request = restartRequest() ?? crypto.randomUUID();
+      setRestartRequest(request);
+      await connected.app.rpc("workstream.restart", { id: props.id, request });
+      await connected.rail.refresh();
+      setRestartRequest(null);
+      setFailure(null);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      setFailure(error.message);
+    } finally {
+      setRestarting(false);
     }
   };
 
@@ -59,8 +88,9 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
         }} onBlur={() => void save()} />
         <Field.HelperText>{copy.openingPromptHint}</Field.HelperText>
       </Field.Root>
+      <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void (restartRequest() ? restart() : save())}>{copy.retry}</button></ReservedLine>
       <div class="app-dialog-actions">
-        <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void save()}>{copy.retry}</button></ReservedLine>
+        <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restartSession}</button>
         <Dialog.CloseTrigger data-button="quiet" class="word">{copy.close}</Dialog.CloseTrigger>
       </div>
   </Dialog.Content></Dialog.Positioner></Dialog.Root>;

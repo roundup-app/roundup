@@ -26,6 +26,13 @@ pub struct OpeningPromptParams {
     pub prompt: Option<String>,
 }
 
+/// A4452c: a user-requested fresh Door session. Retries retain `request`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RestartParams {
+    pub id: String,
+    pub request: String,
+}
+
 /// A3194: when a new Workstream's Door starts (the Start choice).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "camelCase")]

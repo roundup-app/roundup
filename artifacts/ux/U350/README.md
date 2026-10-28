@@ -1,11 +1,5 @@
-# U350 rendered observer
+# U350 App removal observer
 
-Headless agent-browser (session `u350`) on `just harness thread-report 5199`, the Workstream `workstream-1`, light scheme, with a 150-character reason. `prompt`, `pending`, `failure` (`NOT_ACKED`, installed through `window.__fake.app.handlers`) and `result` (`workstream.cleared` emitted) at 1280x800 and 700x800; `*.checks.json` is `window.__checks()` for each.
+Isolated headless agent-browser, dark, 1512×950. `u350_rendered_workstream_actions_have_no_clear` exercises keyboard and pointer row menus on tree-40, agents-10, door-stopped and conflict; Workstream menus retain Opening prompt settings. The tree-40 failure capture retains a rejected Open folder action. Agent selection reaches its Terminal. Screenshots and videos remain untracked beside the Check readings.
 
-D1, D2, D5, D6 and D8 pass in every capture. D3 (and so D10) fails in `failure-*`: the `✕ <message>` line U350 asks for is red, and D3 allows red only beside an `error` or `needs-you` row. D3 is not among U350's Checks; it is a Check rule for `testing/checks.ts`, outside U350's Scope.
-
-`result-*` shows no rule: the fake Daemon's `message.list` carries no second Iteration, so only the prompt closing is observed; the rule above old Messages is asserted by `u350_the_old_thread_stays_above_the_new_one` and `u350_a_long_reason_is_cut_to_one_line`.
-
-The reason field is a one-row `textarea`: D6 and D7 skip a `textarea` (U353) but not an `input`, which failed D6 on its text cursor.
-
-The field is `wrap="off"`, `white-space: pre`, `overflow: hidden`: a long reason scrolls sideways on one line and never draws a clipped second line; pasted newlines collapse to spaces. Only `prompt-1280x800.png` was re-captured after this change (D1-D14 pass there); the other captures predate it.
+The former reason/pending/fallback observer is retired by U350 in #4542. Task draft recovery is proved by `u350_retired_clear_drafts_do_not_reopen_or_send` and `u2773a_rail_task_keeps_original_recipient_after_selection_changes`.
