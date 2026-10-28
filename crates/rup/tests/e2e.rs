@@ -3534,8 +3534,8 @@ fn d8_listing(dir: &std::path::Path) -> Vec<String> {
 async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     let scratch = tempfile::tempdir().unwrap();
     let input = scratch.path().join("typed");
-    let project = start(&[("FAKE_CLAUDE_INPUT_LOG", input.to_str().unwrap())]);
-    let mut client = project.subscribed().await;
+    let project = start(&[("FAKE_CLAUDE_PROMPT_LOG", input.to_str().unwrap())]);
+    let client = project.subscribed().await;
     let agent: RailNode = serde_json::from_value(
         client
             .request(
@@ -3560,13 +3560,12 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
             .cloned()
     })
     .await;
-    wait_until_idle(
-        &mut client,
-        std::slice::from_ref(&agent.id),
-        Instant::now() + TEN_IDLE_BOUND,
-    )
-    .await
-    .unwrap_or_else(|report| panic!("{report}"));
+    h21_poll("startup coordination stopped", async || {
+        rail_tree(&client).await.into_iter().find(|node| {
+            node.id == agent.id && node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
+        })
+    })
+    .await;
     let typed_before = std::fs::read_to_string(&input).unwrap_or_default();
     let tree_before = format!("{:?}", rail_tree(&client).await);
     let files_before = d8_listing(project.dir.path());
