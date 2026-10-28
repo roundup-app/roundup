@@ -206,13 +206,13 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("click", "[data-todo-root]");
   await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected=true]')");
   await browser("click", "#shelf-tab-pads");
-  await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group=me] [data-part=branch-control]')");
+  await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group=payments] [data-part=branch-control]')");
   await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .sortable-handle').length >= 2");
-  const names = await read<string[]>("[...document.querySelectorAll('.pads-tab [data-shelf-group=me] [data-pad]')].map(row=>row.dataset.pad)");
+  const padOrder = "[...document.querySelectorAll('.pads-tab [data-shelf-group=payments] [data-pad]')].filter(row=>row.closest('[data-shelf-group]').dataset.shelfGroup==='payments').map(row=>row.dataset.pad)";
+  const names = await read<string[]>(padOrder);
   const first = names[0]!;
   const second = names[1]!;
   const grip = (name: string) => `[aria-label=${JSON.stringify(`Move ${name}`)}]`;
-  const padOrder = "[...document.querySelectorAll('.pads-tab [data-shelf-group=me] [data-pad]')].map(row=>row.dataset.pad)";
   const padCalls = "window.__fake.app.calls.filter(c=>c.method==='pad.reorder')";
   const start = await read<{x:number;y:number}>(`(() => {const el=document.querySelector(${JSON.stringify(grip(first))});el.scrollIntoView({block:"nearest"});const b=el.getBoundingClientRect();return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}})()`);
   await browser("batch", "--bail", `mouse move ${start.x} ${start.y}`, "mouse down", `mouse move ${start.x} ${start.y + 12}`);
