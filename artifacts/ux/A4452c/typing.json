@@ -1,0 +1,1 @@
+{"scenario": "A4452c", "head": "16ea465c0", "viewport": "1512x950", "scheme": "dark", "workstream": "auth", "text": "Review the plan first", "mutationsOutsideField": [], "callsWhileTyping": [], "callsAfterBlur": [{"method": "workstream.setOpeningPrompt", "params": {"id": "auth", "prompt": "Review the plan first"}}]}
