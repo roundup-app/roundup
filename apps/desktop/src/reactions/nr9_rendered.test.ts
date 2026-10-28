@@ -118,13 +118,11 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=reactions&seed=agents-10`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await activate('.rail [data-todo-root]');
     await wait("document.querySelector('.reaction-empty')?.textContent.includes('No named reactions')");
     await capture("empty");
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=reactions&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await activate('.rail [data-todo-root]');
     await wait("!!document.querySelector('.reaction-row')");
     await capture("list");
     await activate('.reaction-row', true);
@@ -153,14 +151,10 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await capture("target-options");
     await activate('.choice-picker [role="option"]:first-child');
     await wait("!document.querySelector('.choice-picker [role=option]')");
-    await evaluate(`(() => {
-      const field = (label, value) => {
-        const element = [...document.querySelectorAll('.reaction-field')].find(el => el.querySelector('label')?.textContent === label).querySelector('input,textarea');
-        element.value = value; element.dispatchEvent(new Event('input', { bubbles: true }));
-      };
-      field('Name', 'Form reaction'); field('Instruction', ' exact newer\\n words 🧭 ');
-      field('Date', ${JSON.stringify(expires.slice(0, 10))}); field('Time', ${JSON.stringify(expires.slice(11, 16))});
-    })()`);
+    await browser("find", "label", "Name", "fill", "Form reaction", "--exact");
+    await browser("find", "label", "Instruction", "fill", " exact newer\n words 🧭 ", "--exact");
+    await browser("fill", '.reaction-when[aria-label="Expires"] input[data-part="input"]', expires.slice(0, 10));
+    await browser("fill", '.reaction-when[aria-label="Expires"] [data-scope="field"] input', expires.slice(11, 16));
     await evaluate("document.querySelector('.app-checkbox input').focus()");
     await browser("press", "Space");
     await browser("press", "Tab");
