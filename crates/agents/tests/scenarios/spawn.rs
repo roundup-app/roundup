@@ -225,14 +225,16 @@ async fn u4590_invalid_launch_size_leaves_no_agent_or_terminal() {
         };
         let before = f.tree().await;
         let terminals = f.terminals.list().len();
-        params["cols"] = json!(0);
-        params["rows"] = json!(37);
-        assert_eq!(
-            f.call(method, params).await.unwrap_err().code,
-            rpc::code::INVALID_PARAMS,
-            "{method}"
-        );
-        assert_eq!(f.tree().await, before);
-        assert_eq!(f.terminals.list().len(), terminals);
+        for (cols, rows) in [(0, 37), (113, 0), (-1, 37), (113, 65_536)] {
+            params["cols"] = json!(cols);
+            params["rows"] = json!(rows);
+            assert_eq!(
+                f.call(method, params.clone()).await.unwrap_err().code,
+                rpc::code::INVALID_PARAMS,
+                "{method}: {cols}x{rows}"
+            );
+            assert_eq!(f.tree().await, before);
+            assert_eq!(f.terminals.list().len(), terminals);
+        }
     }
 }
