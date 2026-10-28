@@ -45,7 +45,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Queue | same | — |
 | Workstream cap | same | — |
 | Running | same | — |
-| Iteration | same | — |
 | Home | same | — |
 | Contract methods (`daemon.methods`) | same | — |
 | Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`) | same | — |

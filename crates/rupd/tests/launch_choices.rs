@@ -93,13 +93,12 @@ async fn u3802_models_list_returns_the_offered_engines() {
 }
 
 impl Run {
-    async fn node(&self, id: &Value, iteration: Option<u32>) -> Value {
+    async fn node(&self, id: &Value) -> Value {
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 let tree = self.user.request("rail.tree", json!({})).await.unwrap();
                 if let Some(node) = tree.as_array().unwrap().iter().find(|n| n["id"] == *id)
                     && node["status"]["kind"] == "idle"
-                    && iteration.is_none_or(|i| node["iteration"] == i)
                 {
                     return node.clone();
                 }
@@ -136,7 +135,7 @@ async fn u3801_rpc_launch_choices_reach_spawn_and_resume() {
             params["permissionMode"] = selected.into();
         }
         let child = run.user.request("agent.spawn", params).await.unwrap();
-        run.node(&child["id"], None).await;
+        run.node(&child["id"]).await;
         count += 1;
         assert_eq!(mode(&run.launches(count).await[count - 1]), selected);
         let mut params = json!({"id":child["id"], "mode":"normal"});
@@ -160,7 +159,7 @@ async fn u3801_rpc_launch_choices_reach_spawn_and_resume() {
             params["permissionMode"] = selected.into();
         }
         run.user.request("rail.startDoor", params).await.unwrap();
-        run.node(&door["id"], None).await;
+        run.node(&door["id"]).await;
         count += 1;
         assert_eq!(mode(&run.launches(count).await[count - 1]), selected);
         run.user
@@ -197,7 +196,7 @@ async fn u3801_an_agent_cannot_select_launch_permissions() {
         .request("agent.spawn", json!({"cwd":run.dir.path()}))
         .await
         .unwrap();
-    run.node(&child["id"], None).await;
+    run.node(&child["id"]).await;
     let agent = Client::connect(&run._daemon.socket).await.unwrap();
     agent
         .request(
@@ -234,7 +233,7 @@ async fn u3801_an_agent_restart_keeps_the_users_permission_choice() {
         .request("rail.startDoor", json!({"id":door["id"]}))
         .await
         .unwrap();
-    run.node(&door["id"], None).await;
+    run.node(&door["id"]).await;
     let agent = Client::connect(&run._daemon.socket).await.unwrap();
     agent
         .request(
@@ -244,7 +243,7 @@ async fn u3801_an_agent_restart_keeps_the_users_permission_choice() {
         .await
         .unwrap();
     let child = agent.request("agent.spawn", json!({"cwd":run.dir.path(), "order":{"kind":"work","title":"Read repository","ask":"Read repository","done":"Report findings","limits":["Read only"]}})).await.unwrap();
-    run.node(&child["id"], None).await;
+    run.node(&child["id"]).await;
     run.user
         .request(
             "agent.resume",

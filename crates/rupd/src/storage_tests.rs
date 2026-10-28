@@ -527,6 +527,7 @@ async fn n16_all_stores_share_one_project_database() {
     expected.remove("decision_answers");
     expected.remove("decision_answers_agent");
     expected.remove("chains");
+    expected.remove("iterations");
     let mut actual: std::collections::BTreeMap<_, _> =
         standalone::schema(&db).into_iter().collect();
     // The Project-only publication trigger is proved through the Daemon's U3787a RPC test.
@@ -879,7 +880,12 @@ fn a32_retired_state_is_dropped_without_losing_project_records() {
     let path = dir.path().join("project.db");
     let mut db = Connection::open(&path).unwrap();
     let mut previous = migrations();
-    previous.pop();
+    let boundary = added::ADDED
+        .iter()
+        .position(|sql| *sql == include_str!("../migrations/project/0035-drop-clear-state.sql"))
+        .unwrap()
+        + 10;
+    previous.truncate(boundary);
     apply(&mut db, previous).unwrap();
     db.execute_batch("INSERT INTO nodes (id,kind,name,ord,iteration,opening_prompt) VALUES (1,'workstream','saved',0,3,'Keep this prompt');
         INSERT INTO iterations VALUES ('1',2,7);
