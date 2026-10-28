@@ -238,8 +238,6 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
       await until("document.activeElement.matches('.todo-row-button') && !document.activeElement.closest('[hidden]')");
       await capture("tree-40-todo-control");
       await browser("click", "[data-todo-root]");
-      await browser("press", "Meta+k");
-      await browser("press", "s");
       await browser("wait", "#shelf-tab-pads");
       await browser("click", "#shelf-tab-pads");
       await until("!!document.querySelector('.pads-tab')");
