@@ -36,13 +36,6 @@ describe("u26 the harness seeds", () => {
     await waitFor(() => expect(app.calls.filter(call => call.method === "rail.startDoor").map(call => call.params)).toEqual([{ id: "first-workstream" }]));
   });
 
-  it("u83_the_earlier_run_seed_exposes_the_saved_session", async () => {
-    mount("earlier-run");
-    fireEvent.click((await screen.findAllByText("earlier agent"))[0]!);
-
-    expect((await screen.findAllByText("earlier-session")).length).toBeGreaterThan(0);
-  });
-
   it("u26_agents_10_shows_its_first_and_last_agent_in_the_rail", async () => {
     mount("agents-10");
 

@@ -1,19 +1,5 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
-.order-line {
-  flex: none;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: var(--space-5);
-  --button-inline: var(--space-2);
-  text-align: left;
-  font-family: var(--font-ui);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  --button-surface: var(--sunken);
-}
-
 .order-head {
   display: flex;
   gap: var(--space-2);
