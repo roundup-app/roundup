@@ -567,6 +567,7 @@ export const Rail = () => {
 
   // U4453b: leader `A` and the Overview row both return to Ask.
   const isAskReturnAllowed = () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending());
+
   const backToAsk = () => {
     if (!isAskReturnAllowed()) return;
     connected.importing.cancel();
