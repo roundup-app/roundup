@@ -213,12 +213,12 @@
     --terminal-bright-magenta: #c397d8;
     --terminal-bright-cyan: #70c0b1;
     --terminal-bright-white: #eaeaea;
-    --ground: var(--gray-2);
+    --ground: var(--terminal-background);
     --surface: var(--gray-3);
     --button-neutral: var(--gray-4);
     --button-accent-ink: var(--gray-1);
     --key-chip-fill: var(--gray-3);
-    --sunken: var(--gray-1);
+    --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(255, 255, 255, 0.08);
     --selected-hover: rgba(255, 255, 255, 0.10);
@@ -330,9 +330,9 @@ button, file-tree-container, diffs-container {
     --terminal-bright-magenta: #c397d8;
     --terminal-bright-cyan: #70c0b1;
     --terminal-bright-white: #eaeaea;
-    --ground: var(--gray-2);
+    --ground: var(--terminal-background);
     --key-chip-fill: var(--gray-3);
-    --sunken: var(--gray-1);
+    --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(255, 255, 255, 0.08);
     --selected-hover: rgba(255, 255, 255, 0.10);
@@ -466,4 +466,25 @@ button, file-tree-container, diffs-container {
 }
 :root[data-system-accent][data-mode="dark"] {
   --accent: rgb(var(--system-accent-dark-channels));
+}
+
+/* U4456c: floating labels and disabled controls keep a distinct dark fill;
+   Light retains its sunken fill. Root aliases prevent a local self-reference. */
+.app-tooltip,
+.tab-tip,
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
+.app-dialog-form textarea:disabled,
+.import-prompt:disabled,
+.note-form input:disabled,
+.note-form textarea:disabled,
+.app-select-trigger:disabled,
+.app-combobox-input:disabled,
+.app-switch-track[data-disabled],
+.app-checkbox-box[data-disabled] {
+  --sunken: light-dark(var(--root-sunken), var(--surface));
+}
+
+/* Both flat tab bars retain a lighter selected base without changing the pane. */
+[data-flat-tab][data-selected="true"] {
+  --ground: light-dark(var(--root-ground), var(--surface));
 }
