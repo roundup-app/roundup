@@ -157,17 +157,17 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       document.querySelectorAll('.import-check')[2].click();
       return true;
     })()`);
-    await lane.until("!!document.querySelector('.import-recovery [role=status]')");
+    await lane.until("!!document.querySelector('.import-recovery') && !!document.querySelector('.import-panel [role=status]')");
     await lane.capture("U3049a", "conflict");
     expect(await lane.calls("project.importCommit")).toEqual([]);
-    await lane.browser("focus", ".import-recovery button");
+    await lane.browser("focus", ".import-recovery section:first-child .import-actions button:nth-child(2)");
     await lane.browser("press", "Enter");
     await lane.until("document.querySelector('.import-confirm')?.disabled && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
     await lane.capture("U3049b", "recovered");
     await lane.evaluate(`(() => {
       const read = Storage.prototype.getItem;
       Storage.prototype.getItem = function(key) { if (key === 'roundup:import:/Users/you/harness') throw new Error('unreadable'); return read.call(this, key); };
-      document.querySelector('.import-recovery button').click();
+      [...document.querySelectorAll('.import-recovery button')].find(button => button.textContent === 'Open choices 1').click();
       return true;
     })()`);
     await lane.until("document.querySelector('.import-panel').textContent.includes('could not be restored')");
@@ -335,6 +335,11 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
     for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", headUrl]] as const) {
       await lane.browser("open", `${url}/harness.html?seed=tree-40`);
       await lane.until("!!document.querySelector('.todo-project-root')");
+      if (phase === "retention") {
+        await lane.evaluate(`localStorage.setItem('roundup:drafts:/Users/you/harness', JSON.stringify({version:1,drafts:[{revision:'audit-order',destination:{surface:'orders',object:'tokens',recipient:'tokens'},value:{title:'Orchard release',ask:'Exact retained Order /Users/authored/path',done:'Release checked'},selection:null,status:'failed',policy:'ordinary'}]}))`);
+        await lane.browser("reload");
+        await lane.until("!!document.querySelector('.todo-project-root')");
+      }
       await lane.evaluate(`(async () => {
         const app = window.__fake.app;
         const tree = await app.rpc('rail.tree', null);
@@ -360,6 +365,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
         window.dispatchEvent(new Event('focus'));
         document.querySelector('.todo-project-root').click();
+        for (const command of ['view:reactions', 'view:made']) window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command } }));
         return true;
       })()`);
       await lane.evaluate("window.dispatchEvent(new Event('focus'))");
@@ -450,16 +456,14 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await capture("U3299c", side!, "retained-pad-body");
       await lane.browser("click", ".drawer .close");
       await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");
-      await lane.browser("click", '.rail [data-id="tokens"]');
-      await lane.until("!!document.querySelector('.order-line, [aria-label=\"Edit order\"]')");
-      await lane.evaluate(`(() => { const edit = document.querySelector('[aria-label="Edit order"]'); if (edit) edit.click(); else document.querySelector('.order-line').click(); return true; })()`);
-      await lane.until("!!document.querySelector('.order-edit, [aria-label=\"Edit order\"]')");
-      await lane.evaluate(`(() => { if (!document.querySelector('.order-edit')) document.querySelector('[aria-label="Edit order"]').click(); return true; })()`);
-      await lane.until("!!document.querySelector('.order-edit textarea[name=ask]')");
-      await lane.browser("fill", ".order-edit textarea[name=ask]", "Exact retained Order /Users/authored/path");
-      await lane.until("!!document.querySelector('.order-edit-retention')");
+      // U4453b retired the Order editor; saved revisions remain in Unfinished work.
+      await lane.evaluate("window.__fake.app.menuChoice = 'recover'");
+      await lane.browser("focus", ".todo-project-root");
+      await lane.browser("press", "Shift+F10");
+      await lane.until("!!document.querySelector('[aria-label=\"Unfinished work\"] [data-revision=\"audit-order\"]')");
       await capture("U3299c", side!, "retained-order");
       await lane.browser("press", "Escape");
+      await lane.until("!document.querySelector('[aria-label=\"Unfinished work\"]')");
       await lane.browser("click", ".todo-project-root");
       await lane.until("!!document.querySelector('.ask-input')");
       await lane.browser("click", "#shelf-tab-todos");
