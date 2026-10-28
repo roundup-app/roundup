@@ -134,7 +134,6 @@ impl Agents {
                 },
                 events: events::State {
                     observed: Default::default(),
-                    gate_observer: None,
                     channel_deadline: channel_deadline_from_env(),
                     inbox: Default::default(),
                     tool_calls: Default::default(),
@@ -253,15 +252,6 @@ impl Agents {
     #[must_use]
     pub fn with_steer_bound(self, bound: Duration) -> Self {
         self.configure(|shared| shared.steer_bound = bound)
-    }
-
-    /// H19: tell `observer`, for each `SessionStart` Signal and star title an Agent's Run folds,
-    /// whether that Observation released the Agent's first prompt to its Steer. It runs under
-    /// the Agents' locks, so it must not call back into them. Call it before the first call is
-    /// made.
-    #[must_use]
-    pub fn with_gate_observer(self, observer: impl Fn(&str, bool) + Send + Sync + 'static) -> Self {
-        self.configure(|shared| shared.events.gate_observer = Some(Arc::new(observer)))
     }
 
     /// B50(c): tell `observer` the Message ids an Agent's transcript records as another
@@ -606,7 +596,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),
@@ -672,7 +661,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),
@@ -770,7 +758,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),

@@ -77,9 +77,6 @@ type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync
 
 type SteerEffect = Arc<dyn Fn(&str) -> Result<(), RpcError> + Send + Sync>;
 
-/// H19: told, under the Agents' locks, each gate decision as `(agent id, released)`.
-type GateObserver = Arc<dyn Fn(&str, bool) + Send + Sync>;
-
 struct Shared {
     git: worktree::Git,
     worktrunk: worktrunk::Collector,

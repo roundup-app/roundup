@@ -137,7 +137,12 @@ async fn o2_the_first_steer_of_a_work_order_is_the_ask_then_its_limits() {
     signal(&f, &node.id, "SessionStart").await;
 
     let inbox = f.until_inbox(1).await;
-    assert!(inbox[0].1.contains("fix the build\n\nLimits:\n- touch CI\n- push"), "{inbox:?}");
+    assert!(
+        inbox[0]
+            .1
+            .contains("fix the build\n\nLimits:\n- touch CI\n- push"),
+        "{inbox:?}"
+    );
     assert_eq!(typed(&f), "");
 }
 
@@ -175,7 +180,12 @@ async fn o3_a_workstream_gives_its_door_the_order_and_stopping_the_door_keeps_it
     star(f.dir.path());
     signal(&f, &id, "SessionStart").await;
     let inbox = f.until_inbox(1).await;
-    assert!(inbox[0].1.contains("coordinate the release\n\nLimits:\n- merge"), "{inbox:?}");
+    assert!(
+        inbox[0]
+            .1
+            .contains("coordinate the release\n\nLimits:\n- merge"),
+        "{inbox:?}"
+    );
 
     f.call("agent.stop", json!({"id": id})).await.unwrap();
     assert_eq!(order_of(&f.tree().await, &id), Some(given));
@@ -455,7 +465,12 @@ async fn h20_spawn_order_with_limits_is_one_write() {
 
     let inbox = f.until_inbox(1).await;
     assert_eq!(inbox.len(), 1, "order and limits are one write");
-    assert!(inbox[0].1.contains("reply ready\n\nLimits:\n- edit no file"), "{inbox:?}");
+    assert!(
+        inbox[0]
+            .1
+            .contains("reply ready\n\nLimits:\n- edit no file"),
+        "{inbox:?}"
+    );
     assert_eq!(typed(&f), "");
 }
 
