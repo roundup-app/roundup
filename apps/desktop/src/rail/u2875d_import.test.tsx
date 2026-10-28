@@ -311,23 +311,27 @@ it("u3049a_unchanged_record_saves_normally", async () => {
 });
 
 const conflictingProjects = async () => {
-  const { app } = await openTabs({ api: [], web: [] });
+  const app = createFakeApp();
+
+  for (const name of ["api", "web"]) app.add(path(name));
   const daemon = app.of(path("api"));
   daemon.handlers["project.importDiscover"] = concurrentFound;
   app.of(path("web")).handlers["project.importDiscover"] = concurrentFound;
-  fireEvent.click(tab("web"));
-  await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
-  openProjectPage("import-work");
-  await screen.findByRole("checkbox", { name: /別の窓/ });
-  await clickSource("別の窓", true, path("web"));
+
+  // U3049a's external-save tests prove creation; seed its given two versions here.
+  const otherState = createImport(app.of(path("web")), path("web"), () => undefined, draftStorage(path("web")));
+  otherState.show();
+  await waitFor(() => expect(otherState.verified()).toBe(true));
+  await otherState.choose("s2", titles[1]!, "preview-2", true);
   const other = localStorage.getItem(importKey(path("web")));
-  fireEvent.click(tab("api"));
-  await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
-  openProjectPage("import-work");
-  await screen.findByRole("checkbox", { name: /一つ目/ });
-  await clickSource("一つ目", true, path("api"));
+  const state = createImport(daemon, path("api"), () => undefined, draftStorage(path("api")));
+  state.show();
+  await waitFor(() => expect(state.verified()).toBe(true));
+  await state.choose("s1", titles[0]!, "preview-1", true);
   localStorage.setItem(importKey(path("api")), externalChoices);
-  await clickSource("三つ目", true, path("api"));
+  await state.choose("s3", titles[2]!, "preview-3", true);
+  render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  fireEvent.click(await screen.findByRole("tab", { name: /^api/ }));
   await screen.findByRole("status", { name: /conflict/i });
 
   return { app, daemon, other };
