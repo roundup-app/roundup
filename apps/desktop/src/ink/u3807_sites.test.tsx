@@ -100,7 +100,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: first Project", () => {
   const [failure, setFailure] = createSignal<string | null>(null);
-  const view = render(() => <section><ChooseProject failure={failure()} onChoose={() => {}} /></section>);
+  const view = render(() => <section><ChooseProject app={createFakeApp()} onOpen={() => {}} failure={failure()} onChoose={() => {}} /></section>);
   setFailure(FAILURE);
   within(view.container).getByRole("alert");
   setFailure(null);

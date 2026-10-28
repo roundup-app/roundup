@@ -106,7 +106,7 @@ ruff check --isolated --select E4,E7,E9,F --output-format json loop/
 
 These locations identify observed diagnostics, not source citations for acceptance. Frozen loop files need no edits: implementation can baseline the exact occurrences and reject new ones.
 
-[typos](https://github.com/crate-ci/typos) 1.51.1 (released 2026-10-06) reports 161 typo diagnostics across 74 files (exit 2). Its 21 binary-file notices are not typo diagnostics:
+[typos](https://github.com/crate-ci/typos) 1.51.1 (released 2026-10-06) reported 161 typo diagnostics across 74 files before Z4503 retired the spike; removing its five spelling occurrences leaves 156 diagnostics across 73 files (exit 2). Its 21 binary-file notices are not typo diagnostics:
 
 ```sh
 typos --isolated --format json
@@ -116,7 +116,7 @@ The implementation must record exact current occurrences rather than globally pe
 
 ## File-size inventory
 
-A scan of tracked regular text files, counting newline bytes and applying the size gate's exclusions, finds 31 files above 1000 lines. Restricting to `.rs`, `.ts`, `.tsx`, `.css`, `.py` gives the audit's 27; CI must also cover other hand-written tracked text. Header/path/attribute exclusions come from `.claude/sound/placement/file-stays-under-a-size-cap.gate`, function `generated`. Do not add exemptions based only on extension or an apparently generated filename. These counts are starting evidence, not permanently approved ceilings.
+A scan of tracked regular text files, counting newline bytes and applying the size gate's exclusions, finds 29 files above 1000 lines. Restricting to `.rs`, `.ts`, `.tsx`, `.css`, `.py` gives the audit's 27; CI must also cover other hand-written tracked text. Header/path/attribute exclusions come from `.claude/sound/placement/file-stays-under-a-size-cap.gate`, function `generated`. Do not add exemptions based only on extension or an apparently generated filename. These counts are starting evidence, not permanently approved ceilings. Z4503 retires the two spike schema files (2291 lines each), reducing the original total from 31 to 29; the 27 code-file count is unchanged.
 
 | File | Newlines |
 | --- | --- |
@@ -149,8 +149,6 @@ A scan of tracked regular text files, counting newline bytes and applying the si
 | `loop/builder.py` | 1492 |
 | `loop/builder.test.py` | 1706 |
 | `proofs/messages/PROOF.bend` | 1630 |
-| `spikes/tauri-latency/src-tauri/gen/schemas/desktop-schema.json` | 2291 |
-| `spikes/tauri-latency/src-tauri/gen/schemas/macOS-schema.json` | 2291 |
 
 ## Preserved boundaries and validation
 
