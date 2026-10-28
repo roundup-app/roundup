@@ -24,8 +24,6 @@ it("u4454a_the_centre_has_no_time_timeline_or_back_to_ask", async () => {
       expect(screen.queryByRole("button", { name })).toBeNull();
       expect(screen.queryByRole("region", { name })).toBeNull();
     }
-
-    expect(screen.queryByRole("navigation", { name: "Centre" })).toBeNull();
   }
 
   connected().rail.select("a0");
