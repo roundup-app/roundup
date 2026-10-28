@@ -14,6 +14,7 @@ const exception = {
 };
 
 const cases = [
+  ["mutated project list", 'const projects = []; projects.push(externalProject); defineConfig({ test: { projects } });', 1, "unresolved"],
   ["inline project computed timeout", 'const key = "testTimeout"; defineConfig({ test: { projects: [{ test: { [key]: 60_001 } }] } });', 1, "60001"],
   ["inline project unresolved options", 'defineConfig({ test: { projects: [{ test: { ...externalOptions } }] } });', 1, "unresolved"],
   ["unresolved project list", 'defineConfig({ test: { projects: externalProjects } });', 1, "unresolved"],

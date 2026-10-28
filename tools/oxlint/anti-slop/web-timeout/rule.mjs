@@ -40,7 +40,7 @@ function initializer(source, node) {
   if (!binding || binding.references.some(ref => ref.isWrite() && !ref.init)) return null;
   const def = binding.defs.find(def => def.type === "Variable" && def.node.parent.kind === "const");
   const init = def?.node.init;
-  if (init?.type === "ObjectExpression" && changedObject(source, binding)) return null;
+  if (["ObjectExpression", "ArrayExpression"].includes(init?.type) && changedObject(source, binding)) return null;
   return init ?? null;
 }
 
