@@ -234,7 +234,7 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
     if (recording) await browser("record", "stop");
 
     if (captureDir("U4457")) {
-      await browser("open", `${real.base}/harness.html?seed=tree-40`);
+      await browser("open", `${real.base}/harness.html?seed=tree-40&view=workstreams&items=1&tabs=1`);
       await browser("wait", "[data-todo-root]");
       const todoControl = '[data-id="tokens"] [data-pads-control]';
       const todoGroup = '[data-shelf-group="unassigned"]';
