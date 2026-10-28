@@ -127,6 +127,9 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 });
 
 export const copy = {
+  claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
+  recentFolders: "Recent folders",
+  claudeNotFound: "CLAUDE NOT FOUND, install Claude Code",
   askHistory: "Ask history",
   resources: "Resources", resourcesLoading: "Loading resources…", resourcesEmpty: "No resource measurements for this Agent",
   terminalTabs: "Terminal tabs",
@@ -396,6 +399,11 @@ export const copy = {
   removeProcessLoss: (name: string) => `Stop the running process for ${name}. Its live Terminal input cannot be restored.`,
   removeWorktreeLoss: (name: string) => `Discard the Worktree for ${name}. Its files cannot be restored with Undo.`,
   remove: "Remove",
+  removeThis: "Remove this",
+  removeAll: "Remove all",
+  nativeRemovalAlertUnavailable: "Native removal alert unavailable; retry",
+  removeAllWorktreeLoss: (name: string) => `Remove all deletes the Worktree directory, files and branch for ${name}.`,
+  removeAllAlsoRemoves: (items: string) => `Remove all also removes: ${items}`,
   leaderChord: "⌘K",
   leaderPanel: "Press a key",
   leaderShortNeedsYou: "Needs you",

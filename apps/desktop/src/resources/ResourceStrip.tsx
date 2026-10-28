@@ -6,7 +6,6 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
 import { useConnectedProject } from "../state/connectedProject";
 import { Icon } from "../ink/Icon";
-import { HintLine } from "../keys/HintLine";
 import { Tip } from "../ui/Tip";
 import { cpuText, MISSING, sizeText } from "./format";
 import { WorktreeControl } from "../changes/WorktreeControl";
@@ -124,7 +123,6 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
     <div class="resource-strip" aria-live="off">
       <WorktreeControl returnFocus={props.returnFocus} />
     </div>
-    <HintLine />
     <span class="resource-agent" />
   </>);
 };

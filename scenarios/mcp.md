@@ -22,6 +22,7 @@ An Agent does through its server everything the user does in the App, one tool p
 
 | Method or command | Reason |
 |---|---|
+| `ask_removal` | U4461's native removal consent belongs to the user; Agents cannot open that alert and use `rail_remove` within M7's Reach instead. |
 | `message.drop` | the user's guard on what other Actors' Messages do (B3563b): an Agent that settled it could remove another Actor's Message. `route.set` left this row by M14 (Overturned by M14), with the limits M14 gives |
 | `terminal.spawn`, `terminal.write`, `terminal.resize`, `terminal.kill`, `terminal.list`, `terminal.snapshot`, `terminal.open`, `terminal.close` | a Door has no shell (F2); a tool that starts or types into a Terminal gives it one. Reading is offered by M13 (#814): `terminal.screen`, `terminal.read` and `terminal.search` are tools. An Agent steers another through `agent_prompt` and `message_send`. (Overturned by M14: only `terminal.list` and `terminal.snapshot` keep this row.) X14 adds `terminal.output` and `terminal.outputStop`, a connection's pushed byte stream, and the App commands `terminal_output` and `terminal_output_stop`: an Agent reads text with `terminal_read` |
 | `daemon.ping`, `daemon.methods`, `daemon.identify`, `events.subscribe` | transport, not an action |
@@ -46,6 +47,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `plugin:window-bar\|native_material` | the App reads its applied native appearance (U135); this supplies no Agent action |
 | `close_project` | it ends the caller's own Daemon, and the call with it (S8) |
 | `projects`, `rpc`, `subscribe` | the App's own windowing, or another Project's Daemon; an Agent reaches its own Project's Daemon alone (S8) |
+| `recent_projects`, `claude_binary` | the App's first-run facts before any Project is open (S6, U52): recent paths span Projects and the binary lookup reads the native launch configuration; an Agent reaches only its own Project's Daemon |
 
 Changing this list is a scenario change (rule 4). Kept unless the user says otherwise: the second row's reason is B5's, which the user did not name in #671; `route_set` was offered by M14 (#1182), which changes B5 as M14 says; `message_drop` stays the user's.
 
