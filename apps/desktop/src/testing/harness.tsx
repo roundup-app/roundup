@@ -1,13 +1,13 @@
+import { Menu } from "../ui/Menu";
+import type { MenuItem } from "../app/seam";
 import { StorageRecovery } from "../app/StorageRecovery";
 import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
-import { createEffect, createRoot } from "solid-js";
+import { createEffect, createRoot, createSignal, For, Show } from "solid-js";
 import { render } from "solid-js/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
 import { captureActions } from "../keys/registry";
 import { App } from "../App";
-import { OrderDrawer } from "../orders/OrderDrawer";
-import { ConnectedProjectContext } from "../state/connectedProject";
 import { createXtermEmulators } from "../terminal/emulator";
 import type { Emulator } from "../terminal/emulator";
 import { railStorage } from "../rail/persist/storage";
@@ -33,8 +33,6 @@ declare global {
     __terminals: Map<string, Emulator>;
     /** U463: cancel only the next isolated choice; no caller-supplied path. */
     __firstRun?: { cancelNextChoice: () => void };
-    /** The retained Order drawer U4453a left without a goal line; opens it for one Agent. */
-    __openOrder: (id: string) => void;
     __checks: () => Checks;
     __axe: () => Promise<AxeResult>;
   }
@@ -86,6 +84,17 @@ if (query.has("storage-recovery")) {
 
 
 const mount = (app: AppSeam) => {
+  // Chromium has no native host menu; expose that same seam with the installed Ark primitive.
+  const [nativeMenu, setNativeMenu] = createSignal<{ items: MenuItem[]; x: number; y: number; answer: (id: string | null) => void } | null>(null);
+
+  if (query.get("menu") === "1") app.showContextMenu = (items, x, y) => new Promise(resolve => setNativeMenu({ items, x, y, answer: resolve }));
+
+  const choose = (id: string | null) => {
+    const current = nativeMenu();
+    setNativeMenu(null);
+    current?.answer(id);
+  };
+
   const reducedMotion = createRoot(() => createReducedMotion((media) => window.matchMedia(media)));
 
   const createEmulator = query.get("renderer") === "dom"
@@ -101,11 +110,10 @@ const mount = (app: AppSeam) => {
     });
   };
 
-  const content = () => <App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
+  const content = () => <><App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
     if (requested.has(open.project.path)) return;
     requested.add(open.project.path);
     inspection(open);
-    window.__openOrder = id => open.drawer.open(() => <ConnectedProjectContext.Provider value={open}><OrderDrawer id={id} /></ConnectedProjectContext.Provider>, "key");
 
     for (const view of query.getAll("view")) open.showView(view);
 
@@ -117,7 +125,14 @@ const mount = (app: AppSeam) => {
     window.__terminals.set(id, emulator);
 
     return emulator;
-  }} />;
+  }} />
+    <Show when={nativeMenu()} keyed>{current => <Menu.Root open onSelect={details => choose(details.value)} onOpenChange={details => { if (!details.open) choose(null); }}
+      positioning={{ getAnchorRect: () => ({ x: current.x, y: current.y, width: 0, height: 0 }) }}>
+      <Menu.Positioner><Menu.Content>
+        <For each={current.items}>{item => <Menu.Item value={item.id} disabled={!item.enabled || item.children !== undefined}>{item.label}</Menu.Item>}</For>
+      </Menu.Content></Menu.Positioner>
+    </Menu.Root>}</Show>
+  </>;
 
   render(() => query.has("storage-recovery") ? <StorageRecovery>{content()}</StorageRecovery> : content(), root);
 };
