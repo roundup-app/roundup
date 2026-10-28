@@ -303,6 +303,6 @@ WebGL renderer and its existing fallback/context-loss path remain in use.
 The U4592 observer replays identical bytes into Agent, Door and shell surfaces
 at 1512×950, Dark, DPR 2. `*.metrics.json` records full commits, replay SHA-256,
 requested Tokens, loaded faces, renderer, backing size and content/grid metrics;
-PNGs and Check readings remain under `artifacts/ux/U4592/{base,head}/`.
+Images and Check readings remain under `artifacts/ux/U4592/{base,head}/`.
 This Linux DPR-2 observer represents the owner’s display density, not their Mac
 or WKWebView timing. Native appearance remains a post-merge owner observation.
