@@ -577,7 +577,7 @@ it.skipIf(!captureDir("U3787c")).each(["tree-40", "tabs-8", "conflict"])("u3787c
       expect(failed[id].status, id).toBe("pass");
     }
   } finally {
-    await browser("record", "stop").catch(() => {});
-    await close();
+    try { await browser("record", "stop"); }
+    finally { await close(); }
   }
 }, 60_000);
