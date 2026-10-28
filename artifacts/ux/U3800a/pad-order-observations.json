@@ -31,5 +31,5 @@
       "note": "380 passed in the Pad suite. A temporary build lock left by the interrupted broad related run blocked two owner tests and the three restore tests. After verifying no build held it, removed the lock; all five passed in their focused rechecks with unchanged timeouts and assertions."
     }
   },
-  "captures": "Untracked PNGs and dark keyboard WebM under U3800a and U3800c. Video starts after the recorder reset its media; initial light frames removed."
+  "captures": "Untracked images and dark keyboard video under U3800a and U3800c. Video starts after the recorder reset its media; initial light frames removed."
 }
