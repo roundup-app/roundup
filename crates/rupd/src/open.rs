@@ -117,7 +117,6 @@ impl Daemon {
             renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             owner_events: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             wake_gate: Default::default(),
-            clears: clear::Clears::new(Arc::clone(&agents)),
             checkpoints: Arc::clone(&checkpoints),
             rewinding: Default::default(),
             restarting: Default::default(),

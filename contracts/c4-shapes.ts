@@ -257,10 +257,7 @@ type After = {
   "todo/Values": import("./generated/todo/Values").Values;
   "workstream/AutoParams": import("./generated/workstream/AutoParams").AutoParams;
   "workstream/CapParams": import("./generated/workstream/CapParams").CapParams;
-  "workstream/ClearParams": import("./generated/workstream/ClearParams").ClearParams;
-  "workstream/ClearResult": import("./generated/workstream/ClearResult").ClearResult;
   "workstream/Files": import("./generated/workstream/Files").Files;
-  "workstream/HandoffParams": import("./generated/workstream/HandoffParams").HandoffParams;
   "workstream/PlanAgent": import("./generated/workstream/PlanAgent").PlanAgent;
   "workstream/QueueEntry": import("./generated/workstream/QueueEntry").QueueEntry;
   "workstream/QueueFailure": import("./generated/workstream/QueueFailure").QueueFailure;
@@ -276,8 +273,6 @@ type After = {
   "workstream/Rewound": import("./generated/workstream/Rewound").Rewound;
   "workstream/StartChoice": import("./generated/workstream/StartChoice").StartChoice;
   "workstream/StartWorkstreamParams": import("./generated/workstream/StartWorkstreamParams").StartWorkstreamParams;
-  "workstream/WorkstreamClearFailedEvent": import("./generated/workstream/WorkstreamClearFailedEvent").WorkstreamClearFailedEvent;
-  "workstream/WorkstreamClearedEvent": import("./generated/workstream/WorkstreamClearedEvent").WorkstreamClearedEvent;
 };
 
 // U4593 widens only owner inputs; stored Actors and every other baseline field stay exact.
