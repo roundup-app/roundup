@@ -3,6 +3,7 @@
 mod config;
 mod daemon;
 mod diagnostics;
+mod facts;
 #[cfg(any(test, feature = "idle-perf"))]
 mod idle;
 mod launch;
@@ -97,6 +98,8 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         system_accent,
         ask_removal,
         projects,
+        recent_projects,
+        claude_binary,
         open_project,
         close_project,
         rename_project,
@@ -167,6 +170,18 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     )?
     .run(|app, event| handle_run_event(app, &event));
     Ok(())
+}
+
+#[tauri::command]
+fn recent_projects(state: State<'_, AppState>) -> Vec<String> {
+    state.recent_projects()
+}
+
+#[tauri::command]
+async fn claude_binary(
+    state: State<'_, AppState>,
+) -> Result<Option<facts::ClaudeBinary>, RpcError> {
+    Ok(state.claude_binary().await)
 }
 
 #[tauri::command]
