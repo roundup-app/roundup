@@ -314,8 +314,6 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
       await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
       await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
-      await browser("eval", "document.querySelector('.rail-row[data-id=tokens] [aria-label$=\"todos\"]')?.click()");
-      await browser("eval", "document.querySelectorAll('.rail-leaf [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
       const stage = base ? process.env.U4335_BASE_STAGE ?? "base" : "head";
 
       for (const step of ["rest", "hover", "focus", "selected"]) {
