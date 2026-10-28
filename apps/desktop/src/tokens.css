@@ -405,14 +405,6 @@ button, file-tree-container, diffs-container {
 
 @font-face {
   font-family: "Fira Code";
-  src: url("/fonts/fira-code/FiraCode-Regular.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-}
-
-@font-face {
-  font-family: "Fira Code";
   src: url("/fonts/fira-code/FiraCode-Bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;

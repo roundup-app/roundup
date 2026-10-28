@@ -217,7 +217,7 @@ export const createXtermEmulators = (
 
     // Load every bundled style even with a custom preference, so clearing it never fits a fallback face.
     const ready = document.fonts ? Promise.all(
-      ["normal 300", "normal 400", "normal 700", "italic 300", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
+      ["normal 300", "normal 700", "italic 300", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
     ).catch((failure: Error) => {
       // A damaged/missing local asset still leaves the existing fallback stack usable.
       console.warn("Terminal font unavailable; using the fallback face", failure);

@@ -1,12 +1,12 @@
 # Terminal typography (U4456)
 
 Terminal output uses Fira Code 6.2, replacing the JetBrains Mono font files.
-The unmodified Light (300), regular (400) and bold (700) WOFF2 files, OFL notice, upstream
+The unmodified Light (300) and bold (700) WOFF2 files, OFL notice, upstream
 release URL and SHA-256 hashes are in
 `apps/desktop/public/fonts/fira-code/`. The original JetBrains Mono licence
 notice remains alongside it. Fira Code supplies no italic files: browser font
 synthesis renders italic and bold italic from the bundled faces. The emulator
-requests normal and italic at all three bundled weights before its first authoritative fit.
+requests normal and italic at both bundled weights before its first authoritative fit.
 Local App URLs have no `local()` or remote font source; other App typography
 keeps its existing stack. U4592 selects regular weight 300 through `--weight-terminal`; bold retains xterm's 700 default.
 
@@ -164,7 +164,8 @@ for name, version in [('@xterm/xterm', '6.0.0'),
     archive = urllib.request.urlopen(metadata['dist']['tarball']).read()
     with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
         package.extractall(target, filter='data')
-shutil.copy('apps/desktop/public/fonts/fira-code/FiraCode-Regular.woff2', root)
+# Extract woff2/FiraCode-Regular.woff2 from the upstream 6.2 archive into root.
+# This historical control uses 400; U4592 ships only the selected 300 and bold 700.
 PYTHON
 ```
 
@@ -416,7 +417,7 @@ offers no antialiasing option. These observations establish no WebKit fact.
 The one-variable Light 300 comparison visibly reduced regular strokes with
 unchanged cell metrics and bold 700. Select the unmodified upstream Fira Code
 6.2 Light face through xterm's public `fontWeight` option. Font readiness loads
-normal/italic 300, 400 and 700 before fitting; existing custom-family and zoom
+normal/italic 300 and 700 before fitting; existing custom-family and zoom
 paths remain. No palette or glyph-rendering code changes. The main-side official
 ligatures 0.10.0 addon, disposal order, fallback and context-loss paths remain.
 
@@ -478,3 +479,10 @@ Final `just ready` exits 0 after the selection correction, including lints,
 Token/type checks, proofs, trailer/frozen guards, workflow tests and N7. An
 intermediate aggregate was interrupted (143) during proof setup; both the
 standalone remaining guards and the final complete aggregate pass.
+
+## U4592 release size
+
+The unused Regular 400 face and its preload are removed after selecting Light
+300. Both shipped faces remain unmodified upstream files, with their hashes and
+OFL notice beside them. Terminal normal/italic use 300 and bold/bold italic use
+700; no other App surface uses this family. C9c keeps its exclusive 18 MB cap.
