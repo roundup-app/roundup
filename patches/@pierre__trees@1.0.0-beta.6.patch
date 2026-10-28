@@ -119,6 +119,7 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..f84a16363a8f63122c91784863f0531d
 +		const target = event.composedPath()[0];
 +		if (typeahead === "name-prefix" && target instanceof HTMLElement && target.closest('input, textarea, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')) return;
 +		if (typeahead === "name-prefix" && !event.altKey && !event.isComposing && event.keyCode !== 229 && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
++			if (event.key === " " && !typeaheadState.current.keysSoFar) return;
 +			const rows = controller.getVisibleRows(0, controller.getVisibleCount() - 1);
 +			const names = new ListCollection({
 +				items: rows,
@@ -129,13 +130,12 @@ index 7d3b818c43a7621ab9170da32b180232ed3c9472..f84a16363a8f63122c91784863f0531d
 +				state: typeaheadState.current,
 +				currentValue: controller.getFocusedPath()
 +			});
-+			if (match != null) {
-+				controller.selectOnlyPath(match);
-+				controller.focusPath(match);
-+				domFocusOwnerRef.current = true;
-+				setActiveItemPath(match);
-+				setControllerRevision((revision) => revision + 1);
-+			}
++			if (match == null) return;
++			controller.selectOnlyPath(match);
++			controller.focusPath(match);
++			domFocusOwnerRef.current = true;
++			setActiveItemPath(match);
++			setControllerRevision((revision) => revision + 1);
 +			event.preventDefault();
 +			event.stopPropagation();
 +			return;
