@@ -21,10 +21,8 @@ import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
-import { batch, untrack } from "solid-js";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
-import type { JSX } from "solid-js";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -313,9 +311,11 @@ export const Todos = (props: {
       nestGrip = true;
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
-      if (message !== null) { nestFocus = null;
+      if (message !== null) {
+        nestFocus = null;
 
- return sorted.show(id, message); }
+        return sorted.show(id, message);
+      }
     }
 
     if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
@@ -902,6 +902,7 @@ export const Todos = (props: {
  if (!active) board.preview(null); }} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tree-step")) || 24; },
+          inset: (row) => { const styles = getComputedStyle(row); return parseFloat(styles.paddingInlineStart) - parseFloat(styles.getPropertyValue("--space-2")); },
           nests: () => true,
           onMove: (move) => void dropOf(tree(), group().items, Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,

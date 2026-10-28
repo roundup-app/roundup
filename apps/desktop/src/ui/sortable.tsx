@@ -74,6 +74,8 @@ type SortableTree = {
   rows: readonly TreeRow[];
   /** One level of indentation in pixels: how far right of where the drag began picks the next deeper parent. */
   indent: number;
+  /** Pixels from a row's left edge to where its content starts, so the landing slot lines up with that content. */
+  inset: (row: HTMLElement) => number;
   nests: (id: string) => boolean;
   onMove: (move: SortableMove) => void;
   /** The drop a release would commit, or null once the drag ends. */
@@ -189,20 +191,15 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   // Measure a real destination row at this depth, so nested DOM containers and
   // list insets cannot add indentation a second time to the library's proxy.
   const placeSlot = (drop: SortableDrop | null) => {
-    if (!slot || !sourceRow || !list) return;
-    const rows = local.tree ? withDepth(local.tree.rows) : [];
+    if (!slot || !sourceRow || !list || !local.tree) return;
+    const rows = withDepth(local.tree.rows);
     const depth = drop?.depth ?? rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === sourceRow))?.depth ?? 0;
     const target = landingRows.find(entry => rows.find(row => row.id === entry.id)?.depth === depth)?.element ?? sourceRow;
     const box = target.getBoundingClientRect();
     const styles = getComputedStyle(target);
     const targetDepth = rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === target))?.depth ?? 0;
-    const step = Number.parseFloat(styles.getPropertyValue("--tree-step")) || local.tree?.indent || 0;
-    const content = target.querySelector<HTMLElement>(".line");
-
-    const inset = content ? content.getBoundingClientRect().left - box.left
-      : styles.getPropertyValue("--todo-depth").trim() ? Number.parseFloat(styles.paddingInlineStart) - Number.parseFloat(styles.getPropertyValue("--space-2")) : 0;
-
-    const indent = inset + (depth - targetDepth) * step;
+    const step = Number.parseFloat(styles.getPropertyValue("--tree-step")) || local.tree.indent;
+    const indent = local.tree.inset(target) + (depth - targetDepth) * step;
     const parent = slot.parentElement;
 
     if (!parent) return;
