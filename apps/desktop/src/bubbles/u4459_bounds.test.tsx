@@ -31,6 +31,7 @@ beforeEach(() => {
     if (this.matches(".resource-agent, .terminal-tabs")) return new DOMRect(0, height - barHeight, 800, barHeight);
     if (this.matches(".bubbles")) return new DOMRect(0, 0, 800, height - (parseFloat((this instanceof HTMLElement && this.style.bottom) || "0")));
     if (this.matches(".hint-line")) return new DOMRect(0, height - 80, 800, 24);
+    if (this.matches(".thread-composer")) return new DOMRect(0, height - 112, 800, 72);
     if (this.matches(".resource-strip")) return this.childElementCount ? new DOMRect(0, height - 64, 800, 24) : new DOMRect();
 
     return new DOMRect();
@@ -94,14 +95,15 @@ it("u4459_a_saved_place_over_the_bar_reclamps_on_load", async () => {
   expect(restored.restore).toBeUndefined();
 });
 
-it("u4459_without_a_bar_the_next_sibling_edge_holds", async () => {
+it.each([["hint-line", 80], ["resource-strip", 64], ["thread-composer", 112]] as const)("u4459_without_a_bar_the_next_sibling_edge_holds_%s", async (name, inset) => {
   const mounted = await mountBubbles("w");
   const stack = document.querySelector(".centre-stack")!;
   const hint = document.createElement("div");
-  hint.className = "hint-line";
+  hint.className = name;
+  hint.append(document.createElement("button"));
   stack.append(hint);
   mounted.setHostPresent(false);
-  await waitFor(() => expect(document.querySelector<HTMLElement>(".bubbles")!.style.bottom).toBe("80px"));
+  await waitFor(() => expect(document.querySelector<HTMLElement>(".bubbles")!.style.bottom).toBe(`${inset}px`));
   hint.remove();
   await waitFor(() => expect(document.querySelector<HTMLElement>(".bubbles")!.style.bottom).toBe("0px"));
 });
