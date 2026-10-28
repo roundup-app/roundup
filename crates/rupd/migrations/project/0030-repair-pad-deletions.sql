@@ -1,0 +1,28 @@
+-- B4522: recover the skipped position without moving any applied migration.
+CREATE TABLE IF NOT EXISTS deliverable_project (id TEXT PRIMARY KEY NOT NULL);
+INSERT INTO deliverable_project SELECT lower(hex(randomblob(16))) WHERE NOT EXISTS (SELECT 1 FROM deliverable_project);
+CREATE TABLE IF NOT EXISTS pad_deletions (
+    operation TEXT PRIMARY KEY NOT NULL,
+    actor TEXT NOT NULL,
+    request TEXT NOT NULL,
+    record TEXT NOT NULL,
+    incarnation INTEGER NOT NULL,
+    pad_key TEXT NOT NULL,
+    restored INTEGER NOT NULL DEFAULT 0 CHECK(restored IN (0,1))
+);
+-- A restore reconnects the retained source before inserting its row. Normal creation
+-- still allocates exactly one new incarnation; a restored source never allocates one.
+DROP TRIGGER IF EXISTS pad_source_created;
+CREATE TRIGGER pad_source_created AFTER INSERT ON pads
+WHEN NOT EXISTS (SELECT 1 FROM pad_sources WHERE pad_key=NEW.key) BEGIN
+    INSERT INTO pad_sources(pad_key) VALUES(NEW.key);
+END;
+-- Revoke only publications that exist at deletion, in that same transaction.
+-- Restoring this incarnation must allow new publications without reauthorizing old ones.
+DROP TRIGGER IF EXISTS pad_publications_revoked;
+CREATE TRIGGER pad_publications_revoked AFTER UPDATE OF deletion ON pad_sources
+WHEN NEW.deletion = 'user' BEGIN
+    UPDATE deliverables SET access_revoked = 1
+    WHERE json_extract(record, '$.target.kind') = 'pad'
+      AND json_extract(record, '$.target.incarnation') = CAST(NEW.incarnation AS TEXT);
+END;
