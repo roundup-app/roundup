@@ -875,7 +875,7 @@ export const Bubbles = (props: {
               }} /></Editable.Area>;
               }}</Editable.Context>
             </Editable.Root>
-          </div>}</Show> : <Tip content={name()} when={nameCut()}>{trigger => <span {...trigger()} ref={nameRef} class="bubble-name" onDblClick={event => { event.stopPropagation(); start(); }}>{name()}</span>}</Tip>} />
+          </div>}</Show> : <Tip content={name()} cut={nameCut}>{trigger => <span {...trigger()} ref={nameRef} class="bubble-name" onDblClick={event => { event.stopPropagation(); start(); }}>{name()}</span>}</Tip>} />
     </>;
   };
 
