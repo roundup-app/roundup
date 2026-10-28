@@ -1,3 +1,4 @@
+import { copy } from "../../copy";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../../App";
@@ -73,11 +74,12 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
   await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.tree").length).toBeGreaterThan(1));
 
   if (entry === "menu" || entry === "key") {
-    if (entry === "menu") fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    if (entry === "menu") fireEvent.click(screen.getByRole("button", { name: copy.todoUndo }));
     else fireEvent.keyDown(document.body, { key: "z", code: "KeyZ", metaKey: true });
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.restore")).toHaveLength(1));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Undo" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: copy.todoUndo })).toBeNull());
     expect(screen.queryByRole("alert")).toBeNull();
+
     return;
   }
 
