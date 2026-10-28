@@ -599,7 +599,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       holder.ready = true;
 
       if (holder.shownSize && holder.stream?.open) resize(id, holder.emulator.fit());
-    });
+    }).catch(console.error);
 
     return holder;
   };

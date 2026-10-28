@@ -103,7 +103,13 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
  if (preparation === controller) { preparation = undefined; setPreparing(false); } } };
     } catch (error) { if (preparation === controller) { preparation = undefined; setPreparing(false); }
 
- throw error; }
+ if (controller.signal.aborted) throw error;
+
+      // A host that cannot be prepared must not block the launch: the Terminal fits to it once shown.
+      console.warn(error);
+
+      return undefined;
+    }
   };
 
   createEffect(on(rail.selected, () => preparation?.abort(), { defer: true }));
