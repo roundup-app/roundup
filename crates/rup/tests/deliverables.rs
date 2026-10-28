@@ -779,7 +779,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    db.pragma_update(None, "user_version", version - 1).unwrap();
+    db.pragma_update(None, "user_version", version - 2).unwrap();
     std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
     p.restart(&[]);
 }
