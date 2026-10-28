@@ -63,13 +63,15 @@ describe("u4457 the Pads control opens the Shelf", () => {
     await mount([padOf("notes", by("a1"))]);
     await waitFor(() => expect(control("a1")).not.toBeNull());
 
+    fireEvent.click(document.querySelector<HTMLElement>('[role=treeitem][data-id="a2"] .name')!);
+    await waitFor(() => expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true"));
     const before = rows();
 
     fireEvent.click(control("a1")!);
     await waitFor(() => expect(group("a1")).not.toBeNull());
 
     expect(rows()).toEqual(before);
-    expect(document.querySelector('[role=tree] [aria-selected="true"]')).toBeNull();
+    expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true");
   });
 
   it("u4457_no_rail_row_renders_a_pad_or_a_todo", async () => {
