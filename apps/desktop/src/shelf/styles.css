@@ -158,16 +158,15 @@
 .shelf-tab[data-open="false"] { color: var(--grey); }
 
 /* U2744a: quiet scope and Rail disclosures use the existing type and space scale. */
-.shelf-bar { justify-content: flex-start; gap: var(--space-2); color: var(--text); font-size: var(--text-body); height: auto; min-height: var(--header-height); align-items: baseline; padding-block: var(--space-1); line-height: var(--space-4); }
+.shelf-bar { justify-content: flex-start; gap: var(--space-1); color: var(--text); font-size: var(--text-body); height: auto; min-height: var(--header-height); align-items: center; position: relative; padding-block: var(--space-1); line-height: var(--space-4); }
 /* U4463: scope and actions share the full content width; window controls stay beside the tabs above. */
 .shelf-scope-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.shelf-scope-action:not([hidden]) { display: flex; flex: none; align-items: baseline; gap: var(--space-2); }
+.shelf-scope-action:not([hidden]) { display: flex; flex: none; align-items: center; gap: var(--space-1); }
 .shelf-scope-action[hidden] { display: none; }
-.shelf-bar .shelf-add { flex: none; margin: 0; padding: 0; min-height: var(--space-5); display: inline-flex; align-items: baseline; gap: var(--space-2); font-size: var(--text-body); line-height: var(--space-4); color: var(--grey); }
+.shelf-bar .shelf-add { flex: none; margin: 0; padding: 0; min-height: var(--space-5); display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--grey); }
 .shelf-add svg { align-self: center; }
 .shelf-bar .shelf-triage { align-self: center; }
-.shelf-bar .app-switch { color: var(--grey); font-size: var(--text-body); line-height: var(--space-4); }
-.shelf-bar .app-switch-label { align-self: baseline; }
+.shelf-bar .app-switch { gap: var(--space-1); color: var(--grey); font-size: var(--text-body); line-height: var(--space-4); }
 .shelf-bar .app-switch-track { align-self: center; }
 .shelf-groups.app-tree { padding: 0; }
 .shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
@@ -244,11 +243,11 @@
 
 .todo-auto {
   display: flex;
-  align-items: baseline;
+  align-items: center;
 }
 
-/* Keep Auto refusal feedback on the Shelf's existing full-width reserved edge. */
-.todo-auto .reserved-line { inset-inline: var(--space-4); inline-size: auto; }
+/* Auto refusal stays beside its control; the reserved line retains full-text focus/hover disclosure. */
+.todo-auto .reserved-line { inset-inline: var(--space-4); inline-size: auto; top: 100%; bottom: auto; }
 
 .todos-tab .todo-row-button {
   display: flex;
