@@ -336,9 +336,16 @@ p {
 }
 
 .drawer-controls {
-  position: absolute;
   top: var(--space-2);
-  right: var(--space-4);
+}
+
+.drawer[data-maximised="true"] :is(.pad-editor, .todo-detail) {
+  width: min(100%, var(--measure));
+  margin-inline: auto;
+}
+
+.drawer[data-maximised="true"] .todo-comments-send {
+  justify-content: flex-start;
 }
 
 .header .ink:not(.tab-mark):not(.strip-edge) {

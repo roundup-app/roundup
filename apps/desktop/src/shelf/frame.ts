@@ -15,8 +15,8 @@ export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
 
 const frameSchema = storageSchema("roundup:shelf", v.object({
   maximised: v.optional(v.boolean(), true),
-  open: v.optional(v.boolean(), true),
-  tab: v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos"),
+  open: v.optional(v.boolean()),
+  tab: v.optional(v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos")),
 }));
 
 /** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open. */
@@ -44,7 +44,7 @@ export type ShelfFrame = {
 };
 
 /** U370, U373: the Shelf's open state and open tab for the active Project, restored in the frame the Project first shows. */
-export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void, initialOpen = true, surface: Accessor<string> = () => "shelf"): ShelfFrame => {
+export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: (() => void) | undefined, initialOpen = true, surface: Accessor<string> = () => "shelf"): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
   const [open, setOpen] = createSignal(initialOpen);
   const [element, setElement] = createSignal<HTMLElement>();
@@ -53,13 +53,15 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const [animated, setAnimated] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
 
-  const memory = new Map<string, v.InferOutput<typeof frameSchema>>();
+  const memory = new Map<string, { maximised: boolean; open?: boolean; tab?: ShelfTab }>();
 
   const save = () => {
     const at = path();
 
     if (at !== null) {
-      const value = { open: open(), tab: tab(), maximised: maximised() };
+      const value = surface() === "shelf"
+        ? { open: open(), tab: tab(), maximised: maximised() }
+        : { maximised: maximised() };
 
       memory.set(JSON.stringify([at, surface()]), value);
       void storageOf(at, surface()).write(value);
@@ -106,7 +108,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       return;
     }
 
-    if (slides) reflow();
+    if (slides) reflow?.();
 
     setShown(true);
   };
