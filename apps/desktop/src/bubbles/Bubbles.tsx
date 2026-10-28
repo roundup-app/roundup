@@ -401,6 +401,7 @@ export const Bubbles = (props: {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
 
         if (selection !== null && workstream === null) setOpenedHere(prior => [...prior, opened.terminal_id]);
+
         if (focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
