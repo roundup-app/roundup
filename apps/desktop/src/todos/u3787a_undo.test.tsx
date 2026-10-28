@@ -82,8 +82,11 @@ it("u3787a_delete_has_no_question_and_freezes_targets", async () => {
 });
 
 const DELETED = /^Deleted \d/;
+
 const shown = () => screen.findByText(DELETED);
+
 const pressUndo = () => { document.body.focus(); undoKey(); };
+
 const undoKey = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
 
 it("u3787a_undo_stays_with_its_project", async () => {
@@ -154,7 +157,7 @@ it("u3787a_editor_and_terminal_keep_undo", async () => {
 it("u3787a_undo_failure_is_retryable", async () => {
   const { app, remove } = await mount();
   await remove("/a");
-  const button = await shown();
+  await shown();
   app.of("/a").handlers["todo.restore"] = () => { throw new Error("Original Home is unavailable. Restore the Home and retry."); };
 
   pressUndo();
@@ -170,7 +173,7 @@ it("u3787a_undo_failure_is_retryable", async () => {
 it("u3787a_unknown_restore_consumes_only_the_reconciled_receipt", async () => {
   const { app, remove } = await mount();
   await remove("/a");
-  const button = await shown();
+  await shown();
   let restored = false;
   // SAFETY: the source call is filtered to todo.delete and its generated params contain operation.
   const params = app.of("/a").calls.filter(call => call.method === "todo.delete")[0]!.params as { operation: string };
@@ -224,7 +227,8 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
       { operation: expect.any(String), ids: entry === "single" ? [5] : [5, 7] },
     ]));
     expect([questionProbe.shown]).toEqual([null]);
-    await shown(); pressUndo();
+    await shown();
+    pressUndo();
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
   });
 }
@@ -265,7 +269,7 @@ for (const entry of ["selection", "single", "drawer"] as const) {
       fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "Delete" }));
     }
 
-    const button = await shown();
+    await shown();
     expect([questionProbe.shown]).toEqual([null]);
     expect(daemon.calls.filter(c => c.method === "pad.delete").map(c => c.params)).toEqual((entry === "selection" ? ["first", "second"] : ["first"]).map(name => ({ name, expectedIncarnation: `fixture-${name}`, operation: expect.any(String) })));
     pressUndo();
@@ -284,7 +288,7 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
   fireEvent.click(await screen.findByRole("button", { name: "first" }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "second" }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
-  const button = await shown();
+  await shown();
   const restore = daemon.handlers["pad.restore"]!;
   let refuse = true;
   let calls = 0;
@@ -323,7 +327,8 @@ it("u3787a_unknown_delete_reconciles_before_retry_pads", async () => {
   expect([screen.queryByText(DELETED)]).toEqual([null]);
   daemon.handlers["pad.getDeletion"] = read;
   fireEvent.click(check);
-  await shown(); pressUndo();
+  await shown();
+  pressUndo();
   await screen.findByRole("button", { name: "first" });
   expect(daemon.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([
     { name: "first", expectedIncarnation: "fixture-first", operation: expect.any(String) },
@@ -388,7 +393,7 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   const retained = connected.drafts.list();
   expect(retained.map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
   fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Delete" }));
-  const undo = await shown();
+  await shown();
   expect(connected.drafts.list()).toEqual(retained);
   pressUndo();
   await screen.findByRole("button", { name: "second" });
@@ -580,7 +585,7 @@ it("u3787h_restore_completion_requires_a_new_delete", async () => {
   ]);
   fireEvent.click(button);
   await waitFor(() => expect(connected.drawer.content()).toBe(null));
-  const undo = await shown();
+  await shown();
   expect(daemon.calls.filter(call => call.method === "todo.delete")).toEqual([
     { method: "todo.delete", params: { operation, ids: [5] } },
     { method: "todo.delete", params: { operation: expect.any(String), ids: [7] } },
@@ -601,9 +606,11 @@ it("u4453d_no_undo_controls_native_undo_remains", async () => {
   root.innerHTML = "<textarea></textarea>";
   document.body.append(root);
   root.querySelector("textarea")!.focus();
+
   for (const shiftKey of [false, true]) {
     expect(fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true, shiftKey })).toBe(true);
   }
+
   expect(app.of("/a").calls.filter(call => call.method === "todo.restore")).toEqual([]);
   root.remove();
   pressUndo();
