@@ -247,29 +247,55 @@ export const Bubbles = (props: {
 
     if (!host || typeof ResizeObserver === "undefined") return;
 
-    // U469: the layer ends above the strip.
+    // U4459: bound the layer above any remaining composer controls.
+    const watched = new ResizeObserver(() => sync());
+    let edges: Element[] = [];
+
     const sync = (): void => {
-      const stack = host.parentElement?.getBoundingClientRect();
-      const composer = host.parentElement?.querySelector(".resource-strip")?.getBoundingClientRect();
-      host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
+      const parent = host.parentElement;
+      const stack = parent?.getBoundingClientRect();
+
+      const controls = [...parent?.querySelectorAll(".resource-agent") ?? []]
+        .filter(element => element.querySelector("button, input, [role=tab]"));
+
+      const boxes = controls.flatMap(element => {
+        const box = element.getBoundingClientRect();
+
+        return box.width > 0 && box.height > 0 ? [box] : [];
+      });
+
+      const siblings = boxes.length ? boxes : [...parent?.querySelectorAll(".resource-strip, .thread-composer") ?? []]
+        .flatMap(element => {
+          const box = element.getBoundingClientRect();
+
+          return box.width > 0 && box.height > 0 ? [box] : [];
+        });
+
+      const nextEdges = [...controls, ...parent?.querySelectorAll(".resource-strip, .thread-composer") ?? []];
+
+      for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
+
+      for (const edge of nextEdges) if (!edges.includes(edge)) watched.observe(edge);
+      edges = nextEdges;
+      const tops = siblings.map(box => box.top);
+      host.style.bottom = stack ? `${Math.max(0, stack.bottom - Math.min(stack.bottom, ...tops))}px` : "";
+
 
       const corner = host.getBoundingClientRect();
-
       setOrigin((prior) => (prior.left === corner.left && prior.top === corner.top && prior.width === corner.width && prior.height === corner.height ? prior : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
-      setMeasured(true);
-    };
 
-    const watched = new ResizeObserver(() => {
-      sync();
-
+      // Do not replace a saved rectangle with fallback geometry before layout exists.
+      if (corner.width <= 0 || corner.height <= 0) return;
       const prior = untrack(places);
       const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, extent())]));
 
-      if (JSON.stringify(next) === JSON.stringify(prior)) return;
+      if (JSON.stringify(next) !== JSON.stringify(prior)) {
+        setPlaces(next);
+        persistPlaces(next);
+      }
 
-      setPlaces(next);
-      persistPlaces(next);
-    });
+      setMeasured(true);
+    };
 
     watched.observe(host);
     window.addEventListener("resize", sync);
@@ -277,7 +303,7 @@ export const Bubbles = (props: {
 
     if (host.parentElement) watched.observe(host.parentElement);
 
-    // The composer comes and goes with the selection, which moves no size the observer sees.
+    // Portal hosts and sibling controls may mount without changing the stack's size.
     const arrivals = new MutationObserver((records) => {
       if (records.some((record) => !host.contains(record.target))) sync();
     });
