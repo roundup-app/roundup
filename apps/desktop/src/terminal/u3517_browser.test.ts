@@ -6,8 +6,8 @@ import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
-const load = async (seed: string, base = false, renderer = "dom") => {
-  await browser("set", "viewport", "1512", "950");
+const load = async (seed: string, base = false, renderer = "dom", scale = 1) => {
+  await browser("set", "viewport", "1512", "950", String(scale));
   await browser("set", "media", "dark");
   await browser("open", url(`/harness.html?seed=${seed}&renderer=${renderer}`, base));
   await wait("!!window.__fake && !!document.querySelector('.rail-row')");
@@ -101,7 +101,7 @@ for (const state of ["agent", "door", "shell"]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
       await read("localStorage.clear(); sessionStorage.clear()");
-      await load(seed, base, "webgl");
+      await load(seed, base, "webgl", 2);
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
       let id = state === "agent" ? "t-agent-3" : "t-payments";
       let surface = ".pane";
