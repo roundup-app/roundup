@@ -22,6 +22,23 @@ const open = async (tree: RailNode[], terminals: TerminalInfo[] = []) => {
 };
 
 describe("u3 Rail state", () => {
+  it("s3806b_terminal_failure_retains_original_recovery_without_a_rail_row", async () => {
+    const target = { id: "7", incarnation: "original" };
+    const { app, rail } = await open([workstream("home"), workstream("elsewhere")], [info("7", target)]);
+    rail.select("home");
+    const recovery = () => { void app.rpc("terminal.close", { id: target.id }); };
+    rail.commandFailure.show("Close failed: rejected by Daemon", target, "pane", recovery);
+    rail.select("elsewhere");
+    await rail.refresh({ terminals: true });
+
+    expect(rail.commandFailure.message()).toBe("Close failed: rejected by Daemon");
+    expect(rail.commandFailure.surface()).toBe("pane");
+    expect(rail.commandFailure.retry()).toBe(recovery);
+    expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([]);
+    rail.commandFailure.retry()?.();
+    expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([{ method: "terminal.close", params: { id: "7" } }]);
+  });
+
   it("u3_the_webview_subscribes_before_its_first_rail_tree_and_terminal_list", async () => {
     const order: string[] = [];
     const app = createFakeApp();
