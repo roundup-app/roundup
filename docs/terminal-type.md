@@ -41,8 +41,11 @@ strokes with unchanged bold. Candidate images and metadata live under
 `artifacts/ux/U4592/candidates/`. This is a Builder observation; the independent
 critic judges the paired main/head images. It establishes no WebKit rendering fact.
 
-The selected WebGL path uses the bundled Light face and xterm’s official
-`@xterm/addon-ligatures` fallback ranges for joined programming operators.
+The selected WebGL path uses the bundled Light face. The official ligature
+addon candidate visibly joined operators, but failed four existing scale guards
+that pass on main; it is rejected from this slice. The shared renderer stays
+unchanged apart from public font-weight and metric options. Joined ligatures
+remain part of the incomplete U4592 acceptance.
 No custom glyph or shader code is added. xterm’s public weight reaches the atlas
 2D context’s font; host smoothing cannot inherit into its detached canvas.
 See [TextureAtlas](https://github.com/xtermjs/xterm.js/blob/6.0.0/addons/addon-webgl/src/TextureAtlas.ts)
@@ -55,6 +58,13 @@ Paired observations use the same replay bytes and Dark 1512×950 viewport in
 `artifacts/ux/U4592/{base,head}/`; metadata records commits, font readiness,
 requested weights, display/canvas scale, rectangles, grid counts and stream hash.
 Native appearance and K1–K3 timing remain the owner’s post-merge observations.
+
+The tracking Token is 0.5px, but installed xterm 6 rounds `letterSpacing` with
+`Math.round` in both renderers. Both 0.95 and 0.5 therefore add one device pixel:
+paired DPR-1 captures retain 7px cells and 126 columns in the Agent/Door.
+Reduced horizontal tracking is **not demonstrated**. U4592 and #4619 remain
+incomplete until a supported rendering path supplies that change without a
+private renderer patch or changing the requested Token, font, size or scale.
 
 ## Historical U4456 correction
 
