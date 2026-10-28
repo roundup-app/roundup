@@ -242,6 +242,7 @@ export const createXtermEmulators = (
     const disposers: (() => void)[] = [];
 
     element.style.height = "100%";
+    element.style.gridArea = "1 / 1";
     terminal.loadAddon(fitter);
     terminal.onRender(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
@@ -486,8 +487,13 @@ export const createXtermEmulators = (
     };
 
     const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<Size> => {
-      show(host, false);
+      signal?.throwIfAborted();
+      // Share the actual host's grid cell while its current Terminal remains on top and usable.
+      host.prepend(element);
+      focusOnShow = false;
+      open();
       await ready;
+      signal?.throwIfAborted();
 
       // The selected face may have changed while the bundled faces were loading.
       if (document.fonts) {
@@ -613,6 +619,7 @@ export const createXtermEmulators = (
         shellTurns.dispose();
         fontViewport?.dispose();
         terminal.dispose();
+        element.remove();
       },
     };
   };
