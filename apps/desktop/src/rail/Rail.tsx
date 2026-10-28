@@ -17,11 +17,11 @@ import { Icon } from "../ink/Icon";
 import { CHORDS, LEADER } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
-import { Collapsible } from "../ui/Collapsible";
 import type { RailSection } from "./persist/storage";
 import { TreeView } from "../ui/TreeView";
 import { Popover } from "../ui/Popover";
 import { railCollection } from "./collection";
+import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { OpeningPrompt } from "./OpeningPrompt";
@@ -194,9 +194,20 @@ export const Rail = () => {
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
   const isEmpty = () => rail.nodes.length === 0 && rail.failure() === null;
 
-  /** U520: every Workstream open, so Ark can open one that is folded and walk into it; Ark's `expandedValue` keeps the folded ones shut. */
-  const collection = createMemo(() => railCollection(sectionNodes().filter(section => !rail.closedSections().has(section.id)).flatMap(section => layoutRail(section.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() }))));
-  const expanded = createMemo(() => collection().getBranchValues().filter((id) => !collapsed().has(id)));
+  /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
+  const collection = createMemo(() => {
+    const children = sectionNodes().filter(section => section.nodes.length > 0).map(section => ({
+      id: `section:${section.id}`, name: section.label,
+      children: railCollection(layoutRail(section.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() })).rootNode.children ?? [],
+    }));
+
+    return createTreeCollection({ nodeToValue: node => node.id, nodeToString: node => node.name, rootNode: { id: "", name: "", children } });
+  });
+  const expanded = createMemo(() => collection().getBranchValues().filter(id => {
+    const section = sections.find(section => `section:${section.id}` === id);
+
+    return section ? !rail.closedSections().has(section.id) : !collapsed().has(id);
+  }));
 
   /** The tree node and index path Ark's providers need for the row `id`. */
   const entryOf = (id: string) => {
@@ -278,7 +289,7 @@ export const Rail = () => {
   const selectKey = (event: KeyboardEvent) => {
     const id = focusedRowId(event);
 
-    if (id === undefined || daemonExit() !== null || event.ctrlKey || event.altKey || event.isComposing) return;
+    if (id === undefined || !rail.nodes.some(node => node.id === id) || daemonExit() !== null || event.ctrlKey || event.altKey || event.isComposing) return;
 
     if (event.metaKey && event.key.toLowerCase() === "a") {
       event.preventDefault(); event.stopPropagation();
@@ -287,20 +298,8 @@ export const Rail = () => {
       return;
     }
 
-    const collection = selection.collection();
-
-    const navigation = event.key === "Home" ? collection.firstValue
-      : event.key === "End" ? collection.lastValue
-      : event.key === "ArrowUp" ? collection.getPreviousValue(id)
-      : event.key === "ArrowDown" ? collection.getNextValue(id) : undefined;
-
-    if (!event.metaKey && navigation !== undefined) {
-      event.preventDefault(); event.stopPropagation();
-
-      if (navigation !== null) focusRow(navigation);
-
-      return;
-    }
+    // Ark owns the complete walk, including section headings; selection still contains only data rows.
+    if (["Home", "End", "ArrowUp", "ArrowDown"].includes(event.key) && !event.metaKey) return;
 
     if (event.target instanceof HTMLElement) event.target.dataset.collectionValue = id;
     const match = selection.search(event);
@@ -411,13 +410,11 @@ export const Rail = () => {
       // U31: Enter on a row selects it. The library would lift on Enter too, so Enter stops here and selects, and only Space lifts.
       if (key.key !== "Enter" || key.metaKey || key.ctrlKey || key.altKey || key.shiftKey || !(key.target instanceof HTMLElement) || !key.target.matches(ROW)) return;
 
-      key.stopPropagation();
-      key.preventDefault();
-
       const id = key.target.closest<HTMLElement>("[data-id]")?.dataset.id;
 
-      if (id === undefined) return;
-
+      if (id === undefined || !rail.nodes.some(node => node.id === id)) return;
+      key.stopPropagation();
+      key.preventDefault();
       openRow(id);
     };
 
@@ -740,12 +737,17 @@ export const Rail = () => {
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined) { selection.selection.replace(id); anchor = id; rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
+        if (id !== undefined && rail.nodes.some(node => node.id === id)) { selection.selection.replace(id); anchor = id; rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
 
-        for (const id of collection().getBranchValues()) if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
+        for (const id of collection().getBranchValues()) {
+          const section = sections.find(section => `section:${section.id}` === id);
+
+          if (section) rail.setSectionOpen(section.id, open.has(id));
+          else if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
+        }
       }}
     >
 
@@ -781,9 +783,10 @@ export const Rail = () => {
       >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
         <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
-          <Collapsible.Root open={!rail.closedSections().has(section.id)} onOpenChange={details => rail.setSectionOpen(section.id, details.open)}>
-            <SectionHead icon={section.icon} label={section.label} disclosure={{ role: "treeitem", setOpen: open => rail.setSectionOpen(section.id, open) }} />
-            <Collapsible.Content role="group">
+          <TreeView.NodeProvider node={entryOf(`section:${section.id}`).node} indexPath={entryOf(`section:${section.id}`).indexPath}>
+          <TreeView.Branch class="rail-section" aria-label={section.label}>
+            <SectionHead icon={section.icon} label={section.label} disclosure={{ open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} />
+            <TreeView.BranchContent>
         <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (
             <Show when={byKey().get(key)}>
@@ -810,7 +813,7 @@ export const Rail = () => {
                           row={view()}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
-                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== rows()[0]?.key}
+                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
                             copied.set(id, feedback);
@@ -849,7 +852,7 @@ export const Rail = () => {
                           <button data-button="quiet"
                             class="word"
                             role="treeitem"
-                            aria-level={view().depth + 1}
+                            aria-level={view().depth + 2}
                             onClick={() => setUnfolded((open) => toggled(open, view().parent))}
                           >
                             <KindGlyph kind="done" decorative /><span class="rail-fold-name">{view().count}{copy.doneCount}</span></button>
@@ -862,8 +865,9 @@ export const Rail = () => {
             </Show>
           )}
         </For>
-            </Collapsible.Content>
-          </Collapsible.Root>
+            </TreeView.BranchContent>
+          </TreeView.Branch>
+          </TreeView.NodeProvider>
         </Show>}</For>
       </TreeView.Tree>
       </Sortable.Root>
