@@ -12,7 +12,7 @@ import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, LEADER } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
@@ -574,6 +574,11 @@ export const Rail = () => {
     rail.select(null);
   };
 
+
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, when: () => !document.activeElement?.closest(".shelf"), capture: focus => ({
+    available: () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending()) && !focus?.closest(".shelf") && (rail.selected() !== null || connected.view() !== null || connected.settingsView.open()),
+    invoke: backToAsk,
+  }) }]);
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [

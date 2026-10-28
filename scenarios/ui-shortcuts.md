@@ -54,7 +54,7 @@ Scope (policy): the same directories as U479, plus `apps/desktop/src/copy.ts` an
 
 | Key | Action |
 |---|---|
-| `A` | assign the selected Todo or Pad when its owner picker is available; otherwise return to Ask, clearing the requested screen and Rail selection (U4453b) |
+| `A` | assign the selected Todo when its owner picker is available; otherwise return to Ask, clearing the requested screen and Rail selection (U4453b) |
 | `J` | jump to what needs you (U30) |
 | `⇧J` | jump to what needs you in another Project (U186) |
 | `K` | open the switcher (U51) |
