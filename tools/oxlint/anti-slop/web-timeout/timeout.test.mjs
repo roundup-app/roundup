@@ -14,6 +14,9 @@ const exception = {
 };
 
 const cases = [
+  ["override registration", 'test.override({ value: 1 })("t3779a_override", () => {}, 60_001);', 1, "60001"],
+  ["override builder options are fixtures", 'test.override("value", { timeout: 90_000 }, () => 1)("t3779a_limit", () => {}, 60_000);', 0],
+  ["override exact exception", 'test.override({ value: 1 })("t3779a_real_clock", () => {}, 90_000);', 0, null, [exception]],
   ["aliased file config", 'const configure = vi.setConfig; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
   ["destructured utility config", 'const { setConfig: configure } = vi; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
   ["computed utility config alias", 'import * as v from "vitest"; const method = "setConfig"; const configure = v.vi[method]; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
