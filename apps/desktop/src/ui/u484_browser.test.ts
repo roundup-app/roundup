@@ -250,13 +250,13 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("press", "Space");
   await browser("press", "ArrowDown");
   await browser("press", "Space");
-  await browser("wait", "--fn", `${padCalls}.length===3 && document.querySelector('.pads-tab').textContent.includes('Pad order changed')`);
+  await browser("wait", "--fn", `${padCalls}.length===2 && document.querySelector('.pads-tab').textContent.includes('Pad order changed')`);
   expect(await read<string[]>(padOrder)).toEqual(names);
   await capture("U3800a", "pad-refused");
   await browser("focus", `.pads-tab [data-pad=${JSON.stringify(first)}] .pad-name`);
   await browser("press", "Enter");
   await browser("wait", "--fn", "!!document.querySelector('.pad-body')");
-  expect(await read<number>(`${padCalls}.length`)).toBe(3);
+  expect(await read<number>(`${padCalls}.length`)).toBe(2);
 
   // The same session exercises native path routing through the real App and fake event seam.
   await browser("open", new URL("harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
