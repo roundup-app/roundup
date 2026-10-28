@@ -781,9 +781,28 @@ it.each(["Enter", " ", "click"])("u3787c_reaction_activation_preserves_identity_
   if (key === "click") fireEvent.click(rows[2]!);
   else fireEvent.keyDown(rows[2]!, { key });
   await screen.findByRole("region", { name: copy.reactionDetail(records[2]!.name) });
-  expect(app.calls.slice(before)).toEqual([{ method: "reaction.get", params: { id: "r2" } }]);
-  expect(screen.getByText("Other Home")).toBeTruthy();
+  await waitFor(() => expect(app.calls.slice(before)).toEqual([{ method: "reaction.get", params: { id: "r2" } }]));
+  expect(document.querySelector(".reaction-detail .reaction-facts")?.textContent).toContain("Other Home");
   fireEvent.click(screen.getByRole("button", { name: copy.closeView(records[2]!.name) }));
   await waitFor(() => expect(document.activeElement).toBe(document.querySelectorAll(".reaction-row")[2]));
   expect(selectedRows([...document.querySelectorAll<HTMLButtonElement>(".reaction-row")]).map(row => row.dataset.reactionOpener)).toEqual(["r1"]);
+});
+
+it("u3787c_reaction_form_keeps_editor_key_ownership", async () => {
+  const { app } = await mountList(false);
+  fireEvent.click(screen.getByRole("button", { name: copy.reactionCreate }));
+  const field = await screen.findByLabelText(copy.reactionInstruction);
+  const exact = "  é 🧭\n original target  ";
+  fireEvent.input(field, { target: { value: exact } });
+  field.focus();
+  const before = app.calls.length;
+
+  for (const key of ["ArrowDown", "Home", "End", "a"]) {
+    expect(fireEvent.keyDown(field, { key, metaKey: key === "a" })).toBe(true);
+    expect(document.activeElement).toBe(field);
+  }
+
+  expect(field).toHaveProperty("value", exact);
+  expect(app.calls.slice(before)).toEqual([]);
+  expect(document.querySelector(".reaction-detail")).toBeNull();
 });
