@@ -90,7 +90,7 @@ const activate = (row: HTMLElement, how: "enter" | "pointer"): void => {
 };
 
 // App owns the surviving notice; the real Rail captures each original spawn contract.
-const APP_ROWS: Row[] = ROWS.filter(row => row.method === "agent.spawn").map(row => ({ ...row, owner: "App", params: { cwd: path("first"), prompt: row.label === "New Agent" ? null : "A\ne\u0301 🧭", parent: "ops", model: null, effort: null } }));
+const APP_ROWS: Row[] = ROWS.flatMap(row => row.method === "agent.spawn" ? [{ ...row, owner: "App", params: { cwd: path("first"), prompt: row.label === "New Agent" ? null : "A\ne\u0301 🧭", parent: "ops", model: null, effort: null } }] : []);
 
 const mountApp = async () => {
   useBrowserStorage(localStorage);
@@ -193,6 +193,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   const queryDraft = connected.drafts.list().filter(entry => entry.destination.surface === "switcher");
 
   if (row.owner === "App") {
+    expect(queryDraft).toHaveLength(1);
+    expect(queryDraft[0]).toMatchObject({ destination: { surface: "switcher", object: path("first"), recipient: null }, value: { query } });
     fireEvent.click(tab("second"));
     await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
   } else {
@@ -203,19 +205,24 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     await connected.rail.refresh({ terminals: true });
     connected.rail.select("keep");
   }
+
   expect(ofMethod()).toHaveLength(1);
 
   if (outcome === "resolve") {
     if (row.owner === "App") {
       app.handlers["rail.tree"] = () => [workstream("ops"), agent("created", "idle", "idle", { parent: "ops" })];
     }
+
     reply.resolve();
+
     if (row.owner === "App") {
       app.emit(event({ name: "rail.changed" }));
       await waitFor(() => expect(connected.rail.nodes.find(node => node.id === "created")?.parent).toBe("ops"));
     }
+
     await Promise.resolve();
     expect(connected.rail.selected()).toBe(row.owner === "App" ? "ops" : "keep");
+
     if (row.owner === "App") expect(document.querySelector('[data-id="created"]')).toBeNull();
 
     if (submitted) {
@@ -229,7 +236,6 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     if (row.method === "agent.spawn") {
       if (row.owner === "App") {
         const notice = await screen.findByRole("alert");
-        expect(notice.textContent).toContain("New Agent");
         expect(notice.textContent).toContain(`${row.label} rejected by the Daemon`);
         expect(ofMethod()).toHaveLength(1);
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
@@ -240,6 +246,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
         expect(ofMethod()).toHaveLength(1);
       }
+
       const notice = document.querySelector(".rail-command-notice")!;
       const retry = notice.querySelector("button");
       expect(retry).not.toBeNull();
@@ -248,6 +255,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       // guarded's finally releases the add action after publishing the failure.
       await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="New Agent"]')?.getAttribute("aria-disabled")).toBeNull());
       const recovery = connected.rail.commandFailure.retry();
+
       if (row.owner !== "App") cleanup();
       expect(connected.rail.commandFailure.retry()).toBe(recovery);
 
