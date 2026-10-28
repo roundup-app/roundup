@@ -2,9 +2,12 @@ import type { draftStorage } from "../../state/storage";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "../../state/storage";
 
+export type RailSection = "workstreams" | "modes" | "agents";
+
 const layoutSchema = storageSchema("roundup:rail", v.object({
   selected: v.nullable(v.string()),
   collapsed: v.array(v.string()),
+  sections: v.optional(v.array(v.picklist(["workstreams", "modes", "agents"]))),
 }));
 
 type SavedLayout = v.InferOutput<typeof layoutSchema>;
