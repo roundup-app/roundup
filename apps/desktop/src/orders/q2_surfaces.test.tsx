@@ -11,7 +11,7 @@ import type { StartedDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { gate, mountApp, select } from "../testing/appFixture";
+import { gate, mountApp, select, inspectOrder } from "../testing/appFixture";
 import { runChecks } from "../testing/checks";
 import { agent, door } from "../testing/nodes";
 import { openRecovery, recoveryLabel } from "../testing/recovery";
@@ -33,8 +33,7 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       ];
     });
     select("alpha");
-    await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
-    fireEvent.click(document.querySelector(".order-line")!);
+    inspectOrder();
     await screen.findByLabelText("Full order of alpha");
 
     // the test container and portal roots are outside the app's stylesheet and hold no text of their own
@@ -64,15 +63,13 @@ describe("U2773 Order forms on real Projects", () => {
     second = await startRealDaemon({});
   }, 240_000);
   afterAll(async () => { await first?.stop(); await second?.stop(); });
-  const mount = (app: AppSeam) => render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  let current: ReturnType<typeof connectProject> extends Promise<infer T> ? T : never;
+  const mount = (app: AppSeam) => render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { current = open; }} />);
 
   const open = async (id: string) => {
-    await waitFor(() => expect(document.querySelector(`[data-id="${id}"]`)?.textContent).toContain("same name"));
+    await waitFor(() => expect(screen.getAllByRole("treeitem").some(row => row.getAttribute("data-id") === id)).toBe(true));
     fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
-    await waitFor(() => expect(document.querySelector(".order-line, .order-overview [aria-label='Edit order']")).not.toBeNull());
-    const line = document.querySelector(".order-line");
-
-    if (line) fireEvent.click(line);
+    current.drawer.open(() => <ConnectedProjectContext.Provider value={current}><OrderDrawer id={id} /></ConnectedProjectContext.Provider>, "key");
     fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
 
     return screen.getByLabelText<HTMLTextAreaElement>("Ask");
@@ -167,18 +164,23 @@ describe("U2773 Order forms on real Projects", () => {
     const app = createServedApp(first.base);
     const original = await app.rpc("agent.spawn", { cwd: first.dir, name: "same name", parent: null, prompt: null, order: full });
     const calls = vi.spyOn(app, "rpc");
+    const copied: string[] = [];
+    app.writeClipboardText = async text => { copied.push(text); };
+
     mount(app);
     const ask = await open(original.id);
     fireEvent.input(ask, { target: { value: "  unavailable original 🧭\n" } });
     await app.rpc("agent.stop", { id: original.id });
     await app.rpc("rail.remove", { id: original.id });
+    // The retained editor now lives in a requested Drawer; closing it exposes its recovery entry.
+    fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Close" }));
     await openRecovery();
     const recovery = await screen.findByLabelText("Unfinished work");
-    await waitFor(() => expect(within(recovery).queryByRole("button", { name: "Copy" })).not.toBeNull());
-    expect(within(recovery).queryByRole("button", { name: "Open" })).toBeNull();
+    fireEvent.click(await within(recovery).findByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(copied.join("\n")).toContain("  unavailable original 🧭\n"));
     calls.mockClear();
     fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));
-    expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(0);
+    expect(current.drafts.list().filter(draft => draft.destination.surface === "orders")).toEqual([]);
     expect(calls.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.spawn")).toEqual([]);
     vi.restoreAllMocks();
   }, 60_000);
