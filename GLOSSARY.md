@@ -101,6 +101,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Tab mark | same | — |
 | Rail (`Rail::name`, `Agents::rail_name`, `rail.tree`, `rail.list`) | same | — |
 | Rail removal operation (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`) | same | — |
+| Remove this (`agent::RemoveScope::This`) | Remove this | — |
+| Remove all (`agent::RemoveScope::All`) | Remove all | — |
 | Hint line | same | — |
 | Shelf | work items | — |
 | Scrim | same | — |
