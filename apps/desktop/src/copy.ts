@@ -833,6 +833,7 @@ export const copy = {
   todoNoEstimates: "no estimates",
   todoWithoutEstimates: (count: number) => `+ ${count} without estimate`,
   todoAuto: "Auto",
+  restartSession: "Restart session",
   openingPrompt: "Opening prompt",
   openingPromptMenu: "Opening prompt…",
   openingPromptFor: (name: string) => `Opening prompt · ${name}`,

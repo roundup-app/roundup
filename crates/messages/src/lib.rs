@@ -16,7 +16,7 @@ mod pushes;
 pub mod reaction;
 mod receiver_view;
 mod removal;
-mod restart;
+pub mod restart;
 mod retirement;
 mod routes;
 mod runtime;

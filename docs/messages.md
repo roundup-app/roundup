@@ -339,3 +339,7 @@ refuses with the cause and only the separate `agent.resume` can start it. A succ
 delivered as an instruction revision continues the instruction: reports before it stay
 current. This guarantees one decision-to-Message identity, never exactly-once external
 effects. M1, M4–M10 and Routes are unchanged; `proofs/messages` needs no change.
+
+### A4452c fresh Door session
+
+`workstream.restart {id, request}` is user-only; retries retain `request`. It reserves A35's immutable Opening prompt before stopping only the Door. The Workstream, children, Todos, Pads and Iteration remain. After matching SessionStart, only the saved Opening prompt is typed verbatim once; without one the session starts idle. Context uses the inbox. Persisted Starting and Typing fences refuse uncertain effects instead of replaying them. An acknowledged prompt is recorded through `record_restart_prompt`; recording retries never type. Plain resume and Rewind type nothing. This extends the A35 reservation without changing M1–M10 or Route, Held and Takeover semantics.
