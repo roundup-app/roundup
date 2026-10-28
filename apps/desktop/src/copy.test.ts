@@ -155,9 +155,11 @@ it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
 
 it("u471_no_supervisor_in_app_copy", () => {
   const found: string[] = [];
+
   const read = (file: string, text: string) => {
     if (/\bsupervisors?\b/i.test(text)) found.push(`${file}: ${text}`);
   };
+
   const catalogues = ["copy.ts", ...readdirSync(join(ROOT, "copy"), { recursive: true, encoding: "utf8" }).filter((file) => /\.ts$/.test(file) && !file.includes(".test.")).map((file) => `copy/${file}`)];
 
   for (const file of catalogues) {
@@ -167,6 +169,7 @@ it("u471_no_supervisor_in_app_copy", () => {
       if (ancestors.some((each) => each.type.startsWith("TS") && each.type !== "TSAsExpression" && each.type !== "TSSatisfiesExpression") || parent?.type === "ImportDeclaration" || parent?.type === "ObjectProperty" && parent.key === node) return;
 
       if (node.type === "StringLiteral") read(file, node.value);
+
       if (node.type === "TemplateElement") read(file, node.value.cooked ?? node.value.raw);
     });
   }

@@ -264,7 +264,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         <Show when={doorState()}>
           {(state) => (
             <div class="pane-empty pane-door">
-              <p class="light">{doorStateText(state())}</p>
+              <p class="light">{doorStateText(state(), selected()!.name)}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="play" />
                 {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
