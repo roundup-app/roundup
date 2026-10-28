@@ -59,7 +59,7 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   fireEvent.click(recorder);
   expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
@@ -85,8 +85,7 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
 
       if (command === "import-work") expect(await within(page).findByRole("checkbox", { name: new RegExp(name) })).toBeTruthy();
       else await waitFor(() => expect(within(page).getByRole("textbox")).toHaveProperty("value", String(cap)));
-      // Shared-row return is proved by u4315b_back_to_ask_clears_centre_navigation.
-      fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+      fireEvent.click(within(page).getByRole("button", { name: "Close" }));
     }
 
     expect(app.of(path(name)).calls.filter(call => call.method === "project.get")).toHaveLength(1);
@@ -100,6 +99,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   const { app } = seedApp("tree-40", Date.now());
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await screen.findAllByRole("treeitem");
+  await showEverythingInApp();
   app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
   const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
   overview.focus();
@@ -116,14 +116,10 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
 
   openProjectPage(command);
   expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(rowOf("agent-1"));
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(overview);
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  await showEverythingInApp();
+  // U4453b owns Overview activation: it now closes the requested screen.
   await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
   fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
-  fireEvent.click(document.querySelector('.shelf .todo-row-button')!.closest(".shelf-row")!.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(document.querySelector('.shelf .todo-row-button')!, { key: "Enter" });
   await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector(".drawer .close")!);
@@ -131,6 +127,8 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   await waitFor(() => expect(document.querySelector('.bubble:not([hidden])')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector('.bubble [aria-label="Minimise"]')!);
+  fireEvent.click(rowOf("agent-1"));
+  expect(screen.getByRole("region", { name: heading })).toBe(page);
 
   if (command === "import-work") expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
   else expect(within(page).getByRole("textbox")).toHaveProperty("value", "unfinished");

@@ -24,7 +24,6 @@ import { ProjectDraftsContext } from "../state/connectedProject";
 import { Tabs } from "../ui/Tabs";
 import { Pane } from "../terminal/Pane";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { OrderDrawer } from "../orders/OrderDrawer";
 import { gate, mountApp, select } from "../testing/appFixture";
 import { mountControl } from "../changes/harness";
 import { DiffReader } from "../changes/DiffReader";
@@ -100,7 +99,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: first Project", () => {
   const [failure, setFailure] = createSignal<string | null>(null);
-  const view = render(() => <section><ChooseProject failure={failure()} onChoose={() => {}} /></section>);
+  const view = render(() => <section><ChooseProject app={createFakeApp()} onOpen={() => {}} failure={failure()} onChoose={() => {}} /></section>);
   setFailure(FAILURE);
   within(view.container).getByRole("alert");
   setFailure(null);
@@ -144,42 +143,6 @@ const cycle = async <Shown, Cleared,>(surface: HTMLElement, show: () => Shown, h
   await hide();
   await waitFor(() => expect(within(surface).queryByRole(role)).toBeNull());
 };
-
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Order spawn failure", async () => {
-  const mounted = await mountTodos([], true, [agent("a", "working", "building", { work: { kind: "work", ask: "Ship", limits: [] } })]);
-  mounted.app.handlers["agent.spawnPrompt"] = () => { throw new RpcError(-32003, FAILURE); };
-
-  const [inline, setInline] = createSignal(true);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><OrderDrawer id="a" inline={inline()} /></ConnectedProjectContext.Provider>);
-  await waitFor(() => expect(mounted.app.calls.some(call => call.method === "agent.spawnPrompt")).toBe(true));
-  await cycle(view.container, () => setInline(false), () => setInline(true));
-  setInline(false);
-  fireEvent.click(within(view.container).getByRole("button", { name: "Edit order" }));
-  expect(within(view.container.querySelector<HTMLElement>(".order-edit")!).getByRole("alert")).toBeTruthy();
-});
-
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Order editor", async () => {
-  const mounted = await mountTodos([], true, [agent("a", "working", "building", { work: { kind: "work", ask: "Ship", limits: [] } })]);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
-  fireEvent.click(within(view.container).getByRole("button", { name: "Edit order" }));
-  const ask = await within(view.container).findByLabelText<HTMLTextAreaElement>("Ask");
-  fireEvent.input(ask, { target: { value: "Changed ask" } });
-  mounted.app.handlers["agent.setOrder"] = () => { throw new RpcError(-32003, FAILURE); };
-
-  await cycle(view.container,
-    () => fireEvent.click(within(view.container).getByRole("button", { name: "Save" })),
-    async () => {
-      const reply = gate<ReturnType<typeof agent>>();
-      mounted.app.handlers["agent.setOrder"] = () => reply.promise;
-      fireEvent.click(within(view.container).getByRole("button", { name: "Save" }));
-      const submitted = mounted.connected.drafts.list().find(draft => draft.value.ask === "Changed ask")!;
-      // A newer revision keeps the editor and its reserved place mounted after acknowledgement.
-      fireEvent.input(ask, { target: { value: "  Newer unsent ask 🧭\n" } });
-      reply.resolve(agent("a", "working", "building", { work: { kind: "work", ask: "Changed ask", limits: [] } }));
-      await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.revision === submitted.revision)).toBe(false));
-    });
-  expect(within(view.container).getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  Newer unsent ask 🧭\n");
-});
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async () => {
   const mounted = await mountTodos([]);

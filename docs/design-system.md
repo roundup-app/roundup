@@ -23,7 +23,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections resolve this Token in both schemes and increased contrast. U3517c's Terminal cells instead use their pinned Ghostty/Tomorrow selection Tokens. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
+`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections resolve this Token in both schemes and increased contrast. U3517c's Terminal cells instead use their Solo/Tomorrow selection Tokens. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
 
 All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 
@@ -31,8 +31,8 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--ground` | `var(--gray-1)` | `var(--gray-2)` | the pane and the Drawer |
-| `--sunken` | `var(--gray-2)` | `var(--gray-1)` | the Rail and the Shelf |
+| `--ground` | `var(--gray-1)` | `var(--terminal-background)` | the pane and the Drawer |
+| `--sunken` | `var(--gray-2)` | `var(--terminal-background)` | the Rail and the Shelf |
 | `--hover` | `rgba(0,0,0,.04)` | `rgba(255,255,255,.06)` | a row or button under the pointer |
 | `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.08)` | the selected row |
 | `--selected-hover` | `rgba(0,0,0,.08)` | `rgba(255,255,255,.10)` | the selected row under the pointer |
@@ -68,7 +68,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |
 | `--radius-row` / `--radius-control` / `--radius-drawer` | `6px` / `6px` / `12px` | same | selection band, buttons, Drawer, Terminal bubble (U523) |
 | `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
-| `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
+| `--duration-drawer` | `250ms` | same | the Drawer's slide in and out (`docs/motion.md`, M3 duration target; U3010b's 250 ms spring target) |
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
 | `--duration-todo` | `150ms` | same | the Todo fold and row slide (`docs/motion.md`, ~150 ms, U3010c) |
 | `--duration-copy` | `1500ms` | same | local clipboard acknowledgement lifetime (U3010c M8); renews only after success |
@@ -153,7 +153,7 @@ An icon toggle with `aria-pressed="true"` uses `--text` on `--selected`, `--sele
 
 ## Surfaces and depth
 
-The Rail and the Shelf sit on `--sunken`, darker than the pane in dark and shaded below it in light; floating surfaces use a distinct opaque `--surface`. Row washes are translucent so each retains the region beneath it. The disabled neutral tones lie between Radix gray 10 and 11, distinct from enabled grey labels while retaining D5. The pane and the Drawer sit on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--elevation`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--elevation` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
+The Rail and the Shelf sit on `--sunken`, sharing the Terminal’s near-black neutral base with `--ground` in both System-dark and explicit Dark (U4456c), and shaded below the pane in Light; floating surfaces retain a distinct opaque neutral `--surface`. Row washes are translucent so each retains the region beneath it. The disabled neutral tones lie between Radix gray 10 and 11, distinct from enabled grey labels while retaining D5. The pane and the Drawer sit on `--ground`. Regions are told apart by space, by the change of ground in Light, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--elevation`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--elevation` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
 
 Floating layers (U3295a): one order in `tokens.css`, lowest first: `--layer-drawer`, `--layer-popover` (Popover, the ask surface; above the Drawer it opens from), `--layer-dialog` (Dialog, the switcher), `--layer-menu` (a Menu or Select, also when opened from inside a Dialog), `--layer-tooltip` (a label on any control, Drawer and Dialog ones included), `--layer-toast`. A floating surface takes its `z-index` from one of them and sets no number.
 
@@ -279,24 +279,25 @@ The existing primary kind uses `--accent` and `--button-accent-ink`; the existin
 
 ### Terminal Tokens (U3517)
 
-Terminal defaults use bundled JetBrains Mono 2.304 (regular, bold, italic and bold
-italic, OFL in `apps/desktop/public/fonts/jetbrains-mono/`). `--font-terminal` is
-`"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
+Terminal defaults use bundled Fira Code 6.2 (regular 400 and bold 700, with
+browser-synthesized italic and bold italic; OFL in
+`apps/desktop/public/fonts/fira-code/`). `--font-terminal` is
+`"Fira Code", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
 uses it; the rest of the App retains its existing type.
 
-The emulator, App Settings and Project zoom reset share `--text-terminal` (14 CSS
-px). `--line-terminal` is xterm's unitless line-height multiplier (1.06) and
-`--letter-terminal` is extra cell tracking (0 CSS px). These are initial calibrated
-web values, starting from Ghostty's documented macOS 13 pt default, not a conversion
-of native points to CSS pixels. Rendered cell measurements and remaining native
-comparison are recorded in `docs/terminal-type.md`.
+The emulator, App Settings and Project zoom reset share `--text-terminal` (11 CSS
+px). `--line-terminal` is xterm's unitless line-height multiplier (1.5, calibrated to 19 CSS px rows) and
+`--letter-terminal` is extra cell tracking (0.95 CSS px). U4456 uses Solo's
+0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
+apply. Rendered cell measurements are recorded in `docs/terminal-type.md`.
 
 `--terminal-background`, `--terminal-foreground`, `--terminal-cursor`,
 `--terminal-cursor-text`, `--terminal-selection`, `--terminal-selection-text`, and
 `--terminal-{black,red,green,yellow,blue,magenta,cyan,white}` with their
 `bright-` variants hold every emulator colour. CSS viewport/inset and X17 colour
-replies consume the same columns. Dark uses Ghostty's pinned unconfigured palette;
-Light uses its shipped Tomorrow companion (sources in `scenarios/ui-terminal-type.md`).
+replies consume the same columns. Dark uses U4456's neutral near-black ground, soft off-white text and dim grey
+borders; the Ghostty dark reference is retired. Light retains the Tomorrow
+companion (source in `scenarios/ui-terminal-type.md`).
 Default text and App controls retain D5; reference ANSI cells and program-authored
 colours have U3517c's explicit exception. No colour is brightened to meet a Check.
 

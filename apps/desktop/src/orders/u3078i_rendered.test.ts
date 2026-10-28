@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
@@ -6,165 +6,119 @@ import type { Checks } from "../testing/checks";
 import { progressSeed } from "../testing/progressSeed";
 import { shelfBrowser } from "../shelf/u371Browser";
 
-/**
- * U3078i's rendered observer for the design critic: the Order of one of ten Agents with long names, open → inspect → resume
- * at 1512×950 in dark mode on `agents-10`, in one isolated headless session. `U3078I_SIDE=base` runs the same steps on a
- * checkout without the Progress section. Readings, screenshots and a video go to the capture directory of `captureDir`.
- */
-const art = captureDir("U3078i");
+const ids = ["U4453b", "U3791b", "U3078i", "P3557c"];
+
+const enabled = ids.some(id => captureDir(id));
 
 const side = process.env["U3078I_SIDE"] === "base" ? "base" : "head";
 
-const rendered = art ? it : it.skip;
-
 const { browser, evaluate, rig } = shelfBrowser();
 
-const seeded = progressSeed({ project: "/Users/you/project", agent: "agent-1" });
+const seed = progressSeed({ project: "/Users/you/project", agent: "agent-1" });
 
-const LONG = "Login repair for the production cluster, overlapping its sibling agents of nearly the same long name";
+it.skipIf(!enabled)("u3078i_rendered_open_inspect_resume", { retry: 0, timeout: 240_000 }, async () => {
+  for (const fixture of ["agents-10", "tree-40"]) {
+    const directories = ids.flatMap(id => {
+      const path = captureDir(id);
 
-const install = `(async () => {
-  const { app } = window.__fake;
-  // An RpcError the Daemon answers with: the harness builds one for its next call.
-  window.__fake.failNext(-32000, "resume was not accepted: the Agent is stopped; start it again first");
-  const refusal = await app.rpc("message.progress", null).catch((error) => error);
-  const seed = ${JSON.stringify(seeded)};
-  const tree = app.handlers["rail.tree"];
-  let resumes = 0;
-  app.handlers["rail.tree"] = async (args) => (await tree(args)).map((node, index) => node.id === "agent-1"
-    ? { ...node, name: ${JSON.stringify(LONG)}, work: { kind: "work", title: "Fix login", ask: "Fix login for every sign-in path", done: "Login passes", limits: ["No deployment"] } }
-    : { ...node, name: node.name + " overlapping name " + (index % 3) });
-  app.handlers["message.progress"] = () => seed.progress;
-  app.handlers["message.reconcileWork"] = () => resumes > 1 ? { ...seed.plan, actions: [{ ...seed.action, decision: "d1" }] } : seed.plan;
-  app.handlers["deliverable.resolve"] = ({ id }) => id === "output-r-gone" ? { kind: "unavailable", cause: "missing-revision" } : { kind: "retained", path: "/p/output.txt", sha256: "0" };
-  app.handlers["message.resumeWork"] = () => {
-    resumes += 1;
-    if (resumes === 1) throw refusal;
-    return { decision: { id: "d1", request: "r", actions: [seed.action.id], message: 7 }, reconciliation: seed.plan };
-  };
-  window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
-  return true;
-})()`;
+      return path ? [join(path, side)] : [];
+    });
 
-rendered("u3078i_rendered_open_inspect_resume", async () => {
-  const directory = join(art!, side);
-  mkdirSync(directory, { recursive: true });
+    for (const path of directories) mkdirSync(path, { recursive: true });
 
-  const step = async (name: string) => {
-    writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(await evaluate<Checks>("window.__checks()")) + "\n");
-    await browser("screenshot", join(directory, `${name}.png`));
-  };
+    const capture = async (name: string) => {
+      const checks = await evaluate<Checks>("window.__checks()");
 
-  const click = async (script: string) => { await evaluate(`(() => { ${script}; return true; })()`); };
+      for (const path of directories) {
+        writeFileSync(join(path, `${fixture}-${name}.checks.json`), JSON.stringify(checks) + "\n");
+        await browser("screenshot", join(path, `${fixture}-${name}.png`));
+      }
 
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
-  await browser("record", "start", join(directory, "open-inspect-resume.webm"), `${rig.server.resolvedUrls!.local[0]}harness.html?seed=agents-10`);
-  await browser("wait", "--fn", "!!window.__fake");
-  await browser("wait", ".rail");
-  await evaluate(install);
-  await browser("wait", "--fn", "!!document.querySelector('.rail-row[data-id=\"agent-1\"]')");
-  await browser("click", '.rail-row[data-id="agent-1"]');
-  // agent-1 is in error, so its Order shows inline in the pane, as for any closed Agent.
-  await browser("wait", "--fn", "!!document.querySelector('.order-overview')");
+      return checks;
+    };
 
-  if (side === "base") {
-    await step("open");
+    const wait = (condition: string) => browser("wait", "--fn", condition);
+    const click = (label: string) => browser("find", "role", "button", "click", "--name", label, "--exact");
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await browser("close");
+    await browser("record", "start", join(directories[0]!, `${fixture}-progress.webm`), `${process.env["U3078I_ORIGIN"] ?? rig.server.resolvedUrls.local[0]}harness.html?view=workstreams&menu=1&seed=${fixture}`);
+    await browser("set", "viewport", "1512", "950");
+    await wait("!!window.__fake && !!document.querySelector('.rail')");
+    await browser("set", "media", "dark");
+    await evaluate(`(async () => {
+      const app = window.__fake.app;
+      window.__fake.failNext(-32003, 'Resume refused because the original Agent is stopped. Start that Agent and try Resume again. Full retained diagnostic: no continuation was sent.');
+      const refused = await app.rpc('message.progress', null).catch(error => error);
+      window.__fake.failNext(-32004, 'The Resume reply was lost. Its original Agent and action must be reconciled before another request.');
+      const unknown = await app.rpc('message.progress', null).catch(error => error);
+      const tree = app.handlers['rail.tree'];
+      const chosen = (await tree({})).find(node => node.kind === 'agent' && node.status !== null);
+      window.progressAgent = chosen.id;
+      app.handlers['rail.tree'] = async args => (await tree(args)).map(node => ({...node, name: 'Login repair overlapping sibling Agent name with Unicode 草稿 — ' + node.name}));
+      const seed = ${JSON.stringify(seed)};
+      let calls = 0;
+      app.handlers['message.progress'] = () => seed.progress;
+      app.handlers['message.reconcileWork'] = () => calls > 2 ? {...seed.plan, actions: [{...seed.action, decision:'decided'}]} : seed.plan;
+      app.handlers['message.resumeWork'] = () => { calls++; if (calls === 1) throw refused; if (calls === 2) throw unknown; return {decision:{id:'decided',request:'r',actions:[seed.action.id],message:7},reconciliation:seed.plan}; };
+      app.handlers['deliverable.resolve'] = () => ({kind:'unavailable',cause:'missing-revision'});
+      window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+      return true;
+    })()`);
+    await wait("!!document.querySelector('.rail-row[data-id=\"' + window.progressAgent + '\"]')");
+    const row = await evaluate<string>("'.rail-row[data-id=\"' + window.progressAgent + '\"]'");
+    await browser("click", row);
+    await browser("focus", row);
+    await browser("press", "Shift+F10");
+
+    if (side === "base") {
+      await wait("window.__fake.app.shownMenus.length > 0");
+
+      for (const path of directories) writeFileSync(join(path, `${fixture}-menu.json`), JSON.stringify(await evaluate("window.__fake.app.shownMenus.at(-1)")) + "\n");
+    } else await wait("!!document.querySelector('[role=menuitem]')");
+    const reachable = await evaluate<boolean>("[...document.querySelectorAll('[role=menuitem]')].some(item => item.textContent.includes('Work progress'))");
+    await capture("menu");
+
+    if (!reachable) {
+      for (const path of directories) writeFileSync(join(path, `${fixture}-observer.json`), JSON.stringify({status:"failed", cause:"Baseline Rail menu has no Work progress action; Progress is unreachable."}) + "\n");
+      await browser("record", "stop");
+
+      for (const path of directories.slice(1)) copyFileSync(join(directories[0]!, `${fixture}-progress.webm`), join(path, `${fixture}-progress.webm`));
+      expect(side).toBe("base");
+      continue;
+    }
+
+    await browser("find", "role", "menuitem", "click", "--name", "Work progress", "--exact");
+    await wait("!!document.querySelector('.progress-section')");
+    await capture("open");
+    await browser("click", ".progress-earlier [data-part=trigger]");
+    await click("Open notes v1");
+    await wait("!!document.querySelector('.progress-row [role=alert]')");
+    await capture("evidence-unavailable");
+    await click("Resume unfinished work");
+    await wait("!!document.querySelector('.progress-status [role=alert]') || document.querySelector('.progress-status')?.getAttribute('role') === 'alert'");
+    await browser("hover", ".progress-status [role=alert]");
+    await wait("document.querySelector('[role=tooltip]')?.getAttribute('data-state') === 'open'");
+    await capture("refused");
+    await browser("hover", ".progress-head");
+    await wait("document.querySelector('.progress-head button')?.getAttribute('aria-disabled') !== 'true'");
+    await click("Try resuming again");
+    await wait("document.querySelector('.progress-status')?.textContent.includes('may have reached')");
+    await browser("hover", ".progress-status [role=alert]");
+    await wait("document.querySelector('[role=tooltip]')?.getAttribute('data-state') === 'open'");
+    const checks = await capture("unknown");
+    await browser("hover", ".progress-head");
+
+    for (const id of ["D2", "D5", "D6"] as const) expect(checks[id].status, id).toBe("pass");
+    expect(await evaluate<number>("window.__fake.app.calls.filter(call => call.method === 'message.resumeWork').length")).toBe(2);
+    await browser("click", '.progress-status button[aria-label="Clear error"]');
+    await capture("dismissed");
+    await wait("document.querySelector('.progress-head button')?.getAttribute('aria-disabled') !== 'true'");
+    await click("Try resuming again");
+    await wait("!document.querySelector('.progress-head button')");
+    await capture("resumed");
     await browser("record", "stop");
 
-    return;
+    for (const path of directories.slice(1)) copyFileSync(join(directories[0]!, `${fixture}-progress.webm`), join(path, `${fixture}-progress.webm`));
   }
-
-  await browser("wait", "--fn", "!!document.querySelector('.progress-section')");
-  await step("open");
-  const checks = await evaluate<Checks>("window.__checks()");
-
-  for (const id of ["D2", "D5", "D6"] as const) expect(checks[id].status, id).toBe("pass");
-
-  await browser("click", ".progress-earlier [data-part=trigger]");
-  await browser("wait", "--fn", "document.querySelectorAll('.progress-earlier .progress-row').length > 0");
-  await step("earlier-versions");
-  await click("[...document.querySelectorAll('.progress-evidence')].find(b => b.textContent === 'notes v1').click()");
-  await browser("wait", "--fn", "!!document.querySelector('.progress-row .progress-failure')");
-  await step("evidence-unavailable");
-  // The Daemon refuses the first Resume as it does for a stopped Agent.
-  await browser("click", ".progress-head [data-button=primary]");
-  await browser("wait", "--fn", "!!document.querySelector('.progress-section > .progress-failure')");
-  await step("resume-failed");
-  expect(await evaluate<boolean>("document.activeElement === document.querySelector('.progress-head [data-button=primary]')")).toBe(true);
-  await browser("click", ".progress-head [data-button=primary]");
-  await browser("wait", "--fn", "!!document.querySelector('.progress-status')");
-  await step("resumed");
-  await browser("record", "stop");
-}, 240_000);
-
-const lifetimeArt = captureDir("P3557c");
-
-const lifetimeBase = process.env["P3557C_SIDE"] === "base";
-
-it.skipIf(!lifetimeArt)("p3557c_rendered_order_and_progress_failure_lifetime", { timeout: 60_000, retry: 0 }, async () => {
-  const directory = lifetimeBase ? join(lifetimeArt!, "base") : lifetimeArt!;
-  mkdirSync(directory, { recursive: true });
-
-  const step = async (name: string) => {
-    const checks = await evaluate<Checks>("window.__checks()");
-    writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(checks) + "\n");
-    await browser("screenshot", join(directory, `${name}.png`));
-
-    if (!lifetimeBase) for (const id of ["D2", "D5", "D6"] as const) expect(checks[id].status, id).toBe("pass");
-  };
-
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
-  await browser("record", "start", join(directory, "orders-failure-lifetime.webm"), `${process.env["P3557C_ORIGIN"] ?? rig.server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
-  await browser("set", "media", "dark");
-  await browser("wait", "--fn", "matchMedia('(prefers-color-scheme: dark)').matches");
-  await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail')");
-  await evaluate(`(async () => {
-    const { app } = window.__fake;
-    window.__fake.failNext(-32003, 'Order could not be saved; try saving again');
-    const refusal = await app.rpc('message.progress', null).catch(e => e);
-    window.__fake.failNext(-32003, 'Evidence could not be opened; try opening it again');
-    const evidenceRefusal = await app.rpc('message.progress', null).catch(e => e);
-    const tree = app.handlers['rail.tree'];
-    const nodes = await tree({});
-    const chosen = nodes.find(n => n.kind === 'agent');
-    window.__lifetimeAgent = chosen.id;
-    const seed = ${JSON.stringify(seeded)};
-    app.handlers['rail.tree'] = async args => (await tree(args)).map(n => n.id === chosen.id ? {...n, status: {...n.status, kind: 'done'}, work: {kind: 'work', title: 'Fix login', ask: 'Repair sign-in without losing unfinished work', done: 'Login passes', limits: []}} : n);
-    app.handlers['message.progress'] = () => seed.progress;
-    app.handlers['message.reconcileWork'] = () => ({...seed.plan, actions: []});
-    app.handlers['agent.setOrder'] = () => { throw refusal; };
-    app.handlers['deliverable.resolve'] = () => { throw evidenceRefusal; };
-    window.__fake.emit({actor: {kind:'user',id:'you',parent:null}, name:'rail.changed'});
-    return true;
-  })()`);
-  await browser("wait", "--fn", "!!document.querySelector('.rail-row[data-id=\"' + window.__lifetimeAgent + '\"]')");
-  await evaluate(`(() => { document.querySelector('.rail-row[data-id="' + window.__lifetimeAgent + '"]').click(); return true; })()`);
-  await browser("wait", ".order-line");
-  await browser("click", ".order-line");
-  await browser("wait", ".order-drawer");
-  await browser("click", '[aria-label="Edit order"]');
-  await browser("fill", 'textarea[name="ask"]', "  Keep this unfinished input\n草稿  ");
-  await browser("click", '.order-edit [type="submit"]');
-  await browser("wait", ".order-edit [role=alert]");
-  await step("order-failure");
-
-  if (!lifetimeBase) {
-    await evaluate(`(() => { [...document.querySelectorAll('.order-edit button')].find(b => b.getAttribute('aria-label') === 'Clear error').click(); return true; })()`);
-    await browser("wait", "--fn", "!document.querySelector('.order-edit [role=alert]')");
-    await step("order-dismissed");
-  }
-
-  await browser("click", '.progress-row[data-report="r-login"] .progress-evidence');
-  await browser("wait", '.progress-row[data-report="r-login"] [role=alert]');
-  await step("progress-failure");
-
-  if (!lifetimeBase) {
-    await evaluate(`(() => { [...document.querySelectorAll('.progress-row[data-report="r-login"] button')].find(b => b.getAttribute('aria-label') === 'Clear error').click(); return true; })()`);
-    await browser("wait", "--fn", "!document.querySelector('.progress-row [role=alert]')");
-    await step("progress-dismissed");
-  }
-
-  await browser("record", "stop");
 });

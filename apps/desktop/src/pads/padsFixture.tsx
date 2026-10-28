@@ -121,7 +121,7 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
   await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
-  if (disclosure) {
+  if (disclosure?.closest("[data-shelf-group]")?.getAttribute("aria-expanded") === "false") {
     fireEvent.click(disclosure);
     await waitFor(() => expect(disclosure.closest("[data-shelf-group]")?.querySelector("[data-part=branch-content]")?.hasAttribute("hidden")).toBe(false));
   }
@@ -161,7 +161,21 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
   if (recovery) {
     const { connected, pads, revision } = recovery;
     connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={name} pads={() => pads} recovery={{ project: connected.project.path, revision, list: { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
-  } else fireEvent.keyDown(await screen.findByRole("button", { name }), { key: "Enter" });
+  } else {
+    const row = await waitFor(() => {
+      const row = [...document.querySelectorAll<HTMLButtonElement>(".pad-name")].find(row => row.textContent === name);
+      expect(row).toBeDefined();
+
+      return row!;
+    });
+
+    for (const group of row.closest(".pads-tab")!.querySelectorAll<HTMLElement>("[data-shelf-group]")) {
+      if (group.contains(row) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+    }
+
+    fireEvent.keyDown(await screen.findByRole("button", { name }), { key: "Enter" });
+  }
+
   const surface = await screen.findByRole<HTMLElement>("textbox", { name: "Pad body" }, { timeout: 5000 });
   const root = surface.closest<HTMLElement>(".pad-editor");
   const editor = editors.at(-1);

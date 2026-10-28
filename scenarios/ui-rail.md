@@ -95,7 +95,7 @@ Tests (`u357_`, Chromium on `just harness`, as #607's D2 check reads it): left e
 
 **U387 focus inside a row shows its row action.** _Amended only as listed by U3789e (`ui-shelf.md`); U3789a–d govern those replacement clauses._ Found by the user's report #1007 (`docs/design-system.md`: a row action is "shown on a row's hover, focus or selection, always reachable by keyboard"). Narrows U172's "the Door action takes the place of the value" and U9's `start Door`; changes no contract, App seam command or Token. Given the Rail on `tree-40` (U26) at 1280 by 800, with the pointer outside the Rail, when focus is on any element inside the unselected `backend` row (its `Collapse` button, reached by Shift+Tab, or the row itself), then:
 
-- **Action.** `getByRole("button", {name: "Start supervisor"})` exists inside that row and Tab from the `collapse` button reaches it.
+- **Action.** `getByRole("button", {name: "Start"})` exists inside that row and Tab from the `collapse` button reaches it.
 - **Same as hover.** The row shows what a pointer over it shows: the action in the place of the value (U172). When focus leaves the row and the row is not selected, the action is gone again.
 - **One predicate.** A row, a todo row and a Project tab decide "near" from one shared predicate (pointer over, focus inside, selected), tracking focus through focusin and focusout, not a pointer signal alone; the Live line (U143) shows on the same predicate.
 - **Unmoved.** U9 and U172 hold; focus leaving the row hides the action in the same frame, with no animation.
@@ -109,6 +109,8 @@ Tests (`u387_`, Vitest against the fake App and Chromium on `just harness`): `u3
 - **Unmoved.** `KindGlyph`'s props `{kind, decorative?}`, `role="img"` and `aria-label`, its `--space-4` box and `flex: none` (U397's long-name clause), instant change all hold; the loop's one exception is U446's turning `working` arc. The Tab mark shows `KindGlyph kind="error"` or `kind="needs-you"` as U398 says, so `u398_a_tab_mark_is_the_kind_glyph` reads the new drawings. Test: `u401_the_box_aria_and_stillness_hold`.
 
 GLOSSARY.md's **Glyph** becomes "The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ◌ ◔ ○ ✓`." in the implementing PR (Contract recipe). Observer: Vitest `u401_` cases; WKWebView stays the user's `just app` observation. Moves: D1, D3, D4, D5, D12.
+
+**Chip**: An extra label after a name; it never changes the Glyph.
 
 **U403 a Workstream row leads with its chevron.** _Amended only as listed by U3789e (`ui-shelf.md`); U3789a–d govern those replacement clauses._ Amended by U447: the `WORKSTREAMS` head returns. Found by the user's approval on 2026-10-12 (see U401). Overturns U172's Workstream-row clause, U173's line 2 and U385's Workstream case; changes no contract, App seam command or Token. Given the Rail on `agents-10` and `tree-40` (U26) at a 288 px Rail and 1280 by 800, in both schemes for non-capture observers (captures and critic Check readings use dark only, U3725), with one Workstream open and one folded, when a test reads the rendered tree and computed style, then:
 

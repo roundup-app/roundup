@@ -59,7 +59,7 @@ describe("u111 opening and closing a Drawer leaves the layout where it was", () 
     row.focus();
     const spy = focusCalls();
 
-    fireEvent.click(row.closest(".shelf-row")!.querySelector('[aria-label="Open"]')!);
+    fireEvent.keyDown(row, { key: "Enter" });
     await waitFor(() => expect(drawerPanel().contains(document.activeElement)).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(drawerPanel().inert).toBe(true));

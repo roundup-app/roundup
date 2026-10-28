@@ -440,6 +440,15 @@ export const App = (props: {
 
     if (!frame.open()) frame.toggle("key");
   });
+  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K S` does, on the Pads tab.
+  createEffect(() => {
+    const connected = activeConnection();
+
+    if (!connected || connected instanceof Error || connected.padsRequest() === null) return;
+    frame.setTab(connected.padsTab());
+
+    if (!frame.open()) frame.toggle("key");
+  });
   const widths = createWidths(projects.active);
   const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
@@ -454,7 +463,7 @@ export const App = (props: {
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["⌘O", "⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -467,7 +476,7 @@ export const App = (props: {
       ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => row.keys !== "T" && taskKeys.has(row.keys))].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
 
-        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : row.what, group: "press" in row || row.keys === "⌘/" ? "navigate" as const : "create" as const, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: available && (actions.find(action => action.value === id)?.available() ?? false) };
+        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : row.what, group: "press" in row || row.keys === "⌘/" ? "navigate" as const : "create" as const, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: (available || row.keys === "⌘O") && (actions.find(action => action.value === id)?.available() ?? false) };
       }),
     ].filter(item => item.enabled);
   });
@@ -530,8 +539,6 @@ export const App = (props: {
   const [projectPicker, setProjectPicker] = createSignal(false);
   const [projectQuery, setProjectQuery] = createSignal("");
   const [projectHighlight, setProjectHighlight] = createSignal<string | null>(null);
-  const [navigationHost, setNavigationHost] = createSignal<HTMLDivElement>();
-  let closeAppSettings: (() => void) | undefined;
   let projectPanel: HTMLElement | undefined;
   const projectMatches = () => projects.tabs().filter(tab => tab.project.name.toLowerCase().includes(projectQuery().toLowerCase())).map(tab => ({ value: tab.project.path, label: tab.project.name }));
   createEffect(() => { if (!projectMatches().some(item => item.value === projectHighlight())) setProjectHighlight(projectMatches()[0]?.value ?? null); });
@@ -607,7 +614,6 @@ export const App = (props: {
             const status = () => shown() && undo.available() ? undo.feedback() : null;
 
             return <ReservedLine overlay class="todo-undo" aria-live="polite" message={failure()} status={status()}>
-              <Show when={undo.available()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.undo()}>{copy.todoUndo}</button></Show>
               <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
               <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
             </ReservedLine>;
@@ -629,10 +635,9 @@ export const App = (props: {
             }}</For>
           </div></Show>
           <div class="centre-frame">
-          <div class="centre-navigation-host" ref={setNavigationHost} />
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
-          <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
+          <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
             <InProject open={activeConnection()} failed={failureLine} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
               {(open) => {
                 const tracked = emulators();
@@ -642,14 +647,14 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane viewLabel={id => views.find(([view]) => view === id)?.[1]} navigationHost={navigationHost()} requested={settingsOpen() ? copy.settings : open.settingsView.open() ? (open.settingsView.page() === "import-work" ? copy.importTitle : copy.projectSettings) : null} backDisabled={!settingsOpen() && open.settingsView.open() && open.settingsView.page() === "import-work" && open.importing.pending()} backRequested={() => { closeAppSettings?.(); open.importing.cancel(); open.settingsView.close(false); }} observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
-                    <ProjectSettingsView compact />
+                    <ProjectSettingsView />
                     </div>
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip compact returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
+                    <ResourceStrip returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
 
                       if (id) screens()?.emulatorFor(id).focus();
                       else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />
@@ -659,7 +664,7 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <AppSettings closeRef={close => { closeAppSettings = close; }} app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
           </div>
           </div>
           </div>

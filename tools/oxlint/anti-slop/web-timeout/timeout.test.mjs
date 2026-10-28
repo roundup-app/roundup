@@ -14,6 +14,13 @@ const exception = {
 };
 
 const cases = [
+  ["exported spread configuration", 'export default { ...externalOptions };', 1, "unresolved", [], "vite.config.ts"],
+  ["exported computed configuration", 'const key = "test"; export default { [key]: { [externalKey]: 90_000 } };', 1, "unresolved", [], "vitest.config.mts"],
+  ["exported configuration alias", 'const options = { test: { ...externalOptions } }; export default options;', 1, "unresolved", [], "vitest.config.ts"],
+  ["exported safe override", 'export default { ...externalOptions, test: { testTimeout: 60_000 } };', 0, null, [], "vite.config.ts"],
+  ["exported defineConfig alias", 'const options = defineConfig({ test: { testTimeout: 60_000 } }); export default options;', 0, null, [], "vitest.config.ts"],
+  ["exported inherited default", 'export default { test: { retry: 0 } };', 0, null, [], "vitest.config.ts"],
+  ["unrelated default export", 'export default { ...externalOptions };', 0],
   ["inherited default", 'test("t3779a_default", () => {});', 0],
   ["numeric boundary", 'test("t3779a_limit", () => {}, 60_000);', 0],
   ["over boundary", 'test("t3779a_limit", () => {}, 60_001);', 1, "60001"],
@@ -79,10 +86,10 @@ const cases = [
   ["hook and polling bounds", 'beforeAll(() => {}, 90_000); expect.poll(() => 1, { timeout: 90_000 }).toBe(1);', 0],
 ];
 
-for (const [name, source, status, diagnostic, exceptions = []] of cases) {
+for (const [name, source, status, diagnostic, exceptions = [], filename = "fixture.test.tsx"] of cases) {
   test(`t3779a_timeout_boundary: ${name}`, () => {
     const dir = mkdtempSync(resolve(repo, ".timeout-fixture-"));
-    const file = resolve(dir, "fixture.test.tsx");
+    const file = resolve(dir, filename);
     const config = resolve(dir, "config.json");
     const entries = exceptions.map(entry => ({ ...entry, file: entry.file === "fixture.test.tsx" ? relative(repo, file) : entry.file }));
     writeFileSync(file, 'import { test, test as check, describe, vi, beforeAll, expect } from "vitest";\n' + source);
@@ -98,7 +105,7 @@ for (const [name, source, status, diagnostic, exceptions = []] of cases) {
       const diagnostics = report.diagnostics.filter(item => item.code === "anti-slop(bounded-test-timeout)");
       assert.equal(diagnostics.length > 0, status === 1, result.stdout);
       if (diagnostic) assert.ok(diagnostics.some(item => item.message.includes(diagnostic)), result.stdout);
-      if (process.env.TIMEOUT_FIXTURE_REPORT) appendFileSync(process.env.TIMEOUT_FIXTURE_REPORT, JSON.stringify({ name, source, exitCode: result.status, diagnostics: diagnostics.map(item => item.message) }) + "\n");
+      if (process.env.TIMEOUT_FIXTURE_REPORT) appendFileSync(process.env.TIMEOUT_FIXTURE_REPORT, JSON.stringify({ name, filename, source, exitCode: result.status, diagnostics: diagnostics.map(item => item.message) }) + "\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -166,8 +166,6 @@ type After = {
   "pad/WriteParams": import("./generated/pad/WriteParams").WriteParams;
   "project/AgentResources": import("./generated/project/AgentResources").AgentResources;
   "project/Choice": import("./generated/project/Choice").Choice;
-  "project/ClockPoint": import("./generated/project/ClockPoint").ClockPoint;
-  "project/Execution": import("./generated/project/Execution").Execution;
   "project/ImportCandidate": import("./generated/project/ImportCandidate").ImportCandidate;
   "project/ImportCommitParams": import("./generated/project/ImportCommitParams").ImportCommitParams;
   "project/ImportDiscoverParams": import("./generated/project/ImportDiscoverParams").ImportDiscoverParams;
@@ -185,16 +183,7 @@ type After = {
   "project/ImportResult": import("./generated/project/ImportResult").ImportResult;
   "project/ImportSelection": import("./generated/project/ImportSelection").ImportSelection;
   "project/Mcp": import("./generated/project/Mcp").Mcp;
-  "project/Measurement": import("./generated/project/Measurement").Measurement;
-  "project/MeasurementContributor": import("./generated/project/MeasurementContributor").MeasurementContributor;
-  "project/MeasurementSource": import("./generated/project/MeasurementSource").MeasurementSource;
-  "project/MeasurementSummary": import("./generated/project/MeasurementSummary").MeasurementSummary;
-  "project/MeasurementSummaryParams": import("./generated/project/MeasurementSummaryParams").MeasurementSummaryParams;
-  "project/MeasurementTime": import("./generated/project/MeasurementTime").MeasurementTime;
-  "project/MeasurementValue": import("./generated/project/MeasurementValue").MeasurementValue;
-  "project/Measurements": import("./generated/project/Measurements").Measurements;
   "project/ModelList": import("./generated/project/ModelList").ModelList;
-  "project/ObservedSegment": import("./generated/project/ObservedSegment").ObservedSegment;
   "project/OpenParams": import("./generated/project/OpenParams").OpenParams;
   "project/PrepareParams": import("./generated/project/PrepareParams").PrepareParams;
   "project/Prepared": import("./generated/project/Prepared").Prepared;
@@ -205,8 +194,6 @@ type After = {
   "project/ResourceTotal": import("./generated/project/ResourceTotal").ResourceTotal;
   "project/Resources": import("./generated/project/Resources").Resources;
   "project/RoleModels": import("./generated/project/RoleModels").RoleModels;
-  "project/TimeState": import("./generated/project/TimeState").TimeState;
-  "project/TimedActivity": import("./generated/project/TimedActivity").TimedActivity;
   "project/Worktrees": import("./generated/project/Worktrees").Worktrees;
   "reaction/Condition": import("./generated/reaction/Condition").Condition;
   "reaction/CreateParams": import("./generated/reaction/CreateParams").CreateParams;

@@ -209,12 +209,12 @@ export const startWorktreeProject = async (files: Record<string, string>, env: R
   }
 };
 
-/** Two browser-ready Projects with separate data; failed startup or observation reaps both. */
-export const withProjectPair = async (observe: (first: StartedDaemon, second: StartedDaemon) => Promise<void>): Promise<void> => {
-  const first = await startRealDaemon({}, true);
+/** Two Projects with separate data; browser observers warm their bundles, and failed startup or observation reaps both. */
+export const withProjectPair = async (observe: (first: StartedDaemon, second: StartedDaemon) => Promise<void>, inBrowser = true): Promise<void> => {
+  const first = await startRealDaemon({}, inBrowser);
 
   try {
-    const second = await startRealDaemon({}, true);
+    const second = await startRealDaemon({}, inBrowser);
 
     try {
       await observe(first, second);

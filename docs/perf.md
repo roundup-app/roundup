@@ -64,7 +64,6 @@ method without a measured mapping or non-empty reason fails live coverage.
 
 ```json
 {
-  "project.measurements": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.", "project.measurementSummary": "Project inspection or configuration is outside the steady Terminal write and Rail-read workload.",
   "deliverable.publish": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.list": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
   "deliverable.get": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.resolve": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
   "deliverable.move": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.remove": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
@@ -96,6 +95,7 @@ method without a measured mapping or non-empty reason fails live coverage.
   "todo.markCommentsRead": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.addRef": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
   "todo.removeRef": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.", "todo.refs": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
   "pad.create": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.read": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
+  "pad.reorder": "Shelf ordering is outside the Terminal echo and Rail-read workload.",
   "pad.list": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.rename": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
   "pad.write": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.append": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
   "pad.appendSection": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.setOwner": "Document editing and storage are outside the Terminal echo and Rail-read workload.",

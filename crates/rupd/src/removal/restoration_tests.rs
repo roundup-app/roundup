@@ -155,15 +155,6 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
     let queue = call(&daemon, "workstream.queue", Value::Null)
         .await
         .unwrap();
-    let value=json!({"kind":"interval","category":"tool","clock":"retained","start_unix_ns":"1","end_unix_ns":"4"}).to_string();
-    db.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES('retained','original','fixture',?,'1',?,'Original maker',1000,?,'[]')",params![owner.id,home.as_str().unwrap(),value]).unwrap();
-    db.execute("UPDATE measurement_state SET revision=revision+1", [])
-        .unwrap();
-    let measurements = call(&daemon, "project.measurements", Value::Null)
-        .await
-        .unwrap()["contributions"]
-        .clone();
-    assert!(!measurements.as_array().unwrap().is_empty());
     let publication=call(&daemon,"deliverable.publish",json!({"key":"retained","title":"Original result","target":{"kind":"external","url":"https://example.test/original"}})).await.unwrap();
     let publication_id = json!({"project":publication["project"],"id":publication["id"]});
     call(
@@ -228,12 +219,6 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
             .await
             .unwrap(),
         queue
-    );
-    assert_eq!(
-        call(&daemon, "project.measurements", Value::Null)
-            .await
-            .unwrap()["contributions"],
-        measurements
     );
     assert_eq!(
         call(&daemon, "deliverable.get", publication_id)

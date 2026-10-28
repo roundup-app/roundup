@@ -21,8 +21,6 @@ import { createRailState } from "./rail";
 import { createUnseen, unseenStorage } from "./unseen";
 import type { UnseenState } from "./unseen";
 import { createQueue } from "./queue";
-import { createTimelineLog } from "../timeline/log";
-import type { TimelineLog } from "../timeline/log";
 import type { QueueView } from "./queue";
 import { createSettingsView } from "./settingsView";
 import type { SettingsViewState } from "./settingsView";
@@ -139,12 +137,16 @@ export type ConnectedProject = {
   unseen: UnseenState;
   /** U3744: the Workstreams waiting to start. */
   queue: QueueView;
-  /** U3768: the Agents' Statuses heard since the Project connected, read by the timeline. */
-  timeline: TimelineLog;
   importing: ReturnType<typeof createImport>;
   creation: Accessor<{ kind: "todo" | "pad" | "terminal"; home: string } | null>;
   createIn: (kind: "todo" | "pad" | "terminal", home: string) => void;
   finishCreation: () => void;
+  /** U4457: the Agent whose Pads group the Shelf is asked to show, until the Pads tab has taken it. */
+  padsRequest: Accessor<string | null>;
+  padsOwner: Accessor<string | null>;
+  showPadsOf: (agent: string, tab?: "pads" | "todos") => void;
+  padsTab: Accessor<"pads" | "todos">;
+  finishPadsRequest: () => void;
   view: Accessor<string | null>;
   hasView: (view: string) => boolean;
   hideView: (view: string) => void;
@@ -178,7 +180,7 @@ const reads = new Set<RpcMethodName>([
   "agent.worktreeState", "agent.changedFiles", "agent.compareFile", "agent.spawnPrompt",
   "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
   "project.get", "project.getPrepared", "project.resources", "models.list", "import.list", "project.importDiscover",
-  "project.measurements", "project.measurementSummary", "message.get", "message.list",
+  "message.get", "message.list",
   "message.progress", "message.reconcileWork", "route.list", "checkpoint.list", "ask.list",
   "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
   "provenance.history", "provenance.touched", "reaction.list", "reaction.get", "reaction.preview",
@@ -255,7 +257,6 @@ export const connectProject = async (
 
   if (ended) stopQueue();
 
-  const timeline = createTimelineLog(events, rail);
 
   const onImported = (id: string, agent: string | null) => {
     void rail.refresh().then(() => rail.select(agent ?? id));
@@ -271,6 +272,23 @@ export const connectProject = async (
   const [creation, setCreation] = createSignal<{ kind: "todo" | "pad" | "terminal"; home: string } | null>(null);
   const createIn = (kind: "todo" | "pad" | "terminal", home: string) => setCreation({ kind, home });
   const finishCreation = () => setCreation(null);
+  const [padsRequest, setPadsRequest] = createSignal<string | null>(null);
+  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "pads" | "todos" } | null>(null);
+
+  const padsOwner = () => {
+    const destination = padsDestination();
+
+    return destination?.selection === rail.selected() ? destination.agent : null;
+  };
+
+  const padsTab = () => padsDestination()?.tab ?? "pads";
+
+  const showPadsOf = (agent: string, tab: "pads" | "todos" = "pads") => {
+    setPadsDestination({ agent, selection: rail.selected(), tab });
+    setPadsRequest(agent);
+  };
+
+  const finishPadsRequest = () => setPadsRequest(null);
 
   const [views, setViews] = createSignal<readonly string[]>([]);
   const view = () => views().at(-1) ?? null;
@@ -279,7 +297,7 @@ export const connectProject = async (
 
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { creation, createIn, finishCreation, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

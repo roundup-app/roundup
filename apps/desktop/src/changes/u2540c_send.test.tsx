@@ -156,7 +156,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   await waitFor(() => expect(projectTabs().every(tab => tab.getAttribute("aria-busy") === "false")).toBe(true));
   fireEvent.click(tab("api"));
   fireEvent.click(await screen.findByText("a", { selector: ".name" }));
-  await screen.findByText("a", { selector: ".pane-navigation .pane-name" });
+  await screen.findByText("a", { selector: "[role=treeitem][aria-selected=true] .name" });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   await saveNote(submitted);
@@ -170,14 +170,14 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(tab("web"));
   fireEvent.click(await screen.findByText("b", { selector: ".name" }));
-  await screen.findByText("b", { selector: ".pane-navigation .pane-name" });
+  await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await openFile();
   await saveNote(other);
   refuse(new RpcError(-32003, "original Project refused"));
   fireEvent.click(tab("api"));
 
-  await screen.findByText("a", { selector: ".pane-navigation .pane-name" });
+  await screen.findByText("a", { selector: "[role=treeitem][aria-selected=true] .name" });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   await screen.findByText("original Project refused");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
@@ -185,7 +185,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   fireEvent.click(tab("web"));
 
-  await screen.findByText("b", { selector: ".pane-navigation .pane-name" });
+  await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
   fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
   fireEvent.click(await screen.findByRole("button", { name: "Edit note 1" }));
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" }).value).toBe(other);

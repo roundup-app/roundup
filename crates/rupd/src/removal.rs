@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use contracts::Actor;
+use contracts::{Actor, agent::RemoveScope};
 use rpc::RpcError;
 use rusqlite::params;
 use serde_json::Value;
@@ -14,8 +14,9 @@ impl Daemon {
         &self,
         actor: &Actor,
         id: &str,
+        scope: RemoveScope,
     ) -> Result<Value, RpcError> {
-        self.remove_workstream_observed(actor, id, None, |_| {})
+        self.remove_workstream_observed(actor, id, scope, None, |_| {})
             .await
     }
 
@@ -23,6 +24,7 @@ impl Daemon {
         &self,
         actor: &Actor,
         id: &str,
+        scope: RemoveScope,
         operation: Option<&str>,
         observe: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<Value, RpcError> {
@@ -53,7 +55,7 @@ impl Daemon {
                 }
             }
             let (files, events) = if workstream {
-                let mut events = todos.remove_workstream(db, &home, &caller, removal)?;
+                let mut events = todos.remove_workstream(db, &home, &caller, removal, scope)?;
                 let (files, pad_events) = pads.remove_workstream(db, &home, removal)?;
                 events.extend(pad_events);
                 db.execute("UPDATE deliverables SET home=NULL, record=json_set(record,'$.home',NULL) WHERE home=? AND removed=0",[&home]).map_err(RpcError::internal)?;
@@ -85,7 +87,7 @@ impl Daemon {
                 .await?
         } else {
             self.agents
-                .remove_workstream_with(actor.clone(), id, apply)
+                .remove_workstream_with(actor.clone(), id, scope, apply)
                 .await?
         };
         observe("after_commit");
@@ -102,6 +104,12 @@ impl Daemon {
         p: contracts::agent::RemoveParams,
     ) -> Result<Value, RpcError> {
         use contracts::ActorKind;
+        if p.scope == Some(RemoveScope::All) {
+            return Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                "scope all cannot retain a removal operation",
+            ));
+        }
         if actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user retains a Rail removal"));
         }
@@ -118,7 +126,7 @@ impl Daemon {
             }
             return rpc::reply(&result);
         }
-        self.remove_workstream_observed(actor, &p.id, Some(&operation), |_| {})
+        self.remove_workstream_observed(actor, &p.id, RemoveScope::This, Some(&operation), |_| {})
             .await
     }
 
@@ -426,14 +434,20 @@ mod tests {
             let stage = std::env::var("ROUNDUP_REMOVAL_STAGE").unwrap();
             let id = std::env::var("ROUNDUP_REMOVAL_ID").unwrap();
             daemon
-                .remove_workstream_observed(&Actor::user(), &id, None, move |phase| {
-                    if phase == stage {
-                        println!("REMOVAL_GATE");
-                        std::io::stdout().flush().unwrap();
-                        let mut release = String::new();
-                        std::io::stdin().read_line(&mut release).unwrap();
-                    }
-                })
+                .remove_workstream_observed(
+                    &Actor::user(),
+                    &id,
+                    RemoveScope::This,
+                    None,
+                    move |phase| {
+                        if phase == stage {
+                            println!("REMOVAL_GATE");
+                            std::io::stdout().flush().unwrap();
+                            let mut release = String::new();
+                            std::io::stdin().read_line(&mut release).unwrap();
+                        }
+                    },
+                )
                 .await
                 .unwrap();
             panic!("parent must kill at the acknowledged commit gate");

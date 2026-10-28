@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -31,7 +32,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("g");
 
-    await chooseAction(mounted.app, "g", "Agent");
+    await chooseAction(mounted.app, "g", copy.addAgentMenu);
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
   });
@@ -41,7 +42,7 @@ describe("u9 actions", () => {
     answerWith(mounted, "agent.spawn");
     mounted.rail.select("lead");
 
-    await chooseAction(mounted.app, "lead", "Agent");
+    await chooseAction(mounted.app, "lead", copy.addAgentMenu);
 
     await waitFor(() =>
       expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "lead", model: null, effort: null }]),
@@ -100,7 +101,7 @@ describe("u9 actions", () => {
     mounted.app.handlers["rail.rename"] = () => agent("a", "idle", "i", { name: "renamed" });
 
     fireEvent.dblClick(screen.getByText("a"));
-    const field = screen.getByLabelText("Name");
+    const field = screen.getByLabelText(copy.name);
     fireEvent.input(field, { target: { value: "renamed" } });
     fireEvent.keyDown(field, { key: "Enter" });
 
@@ -111,22 +112,22 @@ describe("u9 actions", () => {
     const mounted = await mountRail([agent("a", "idle", "i")]);
 
     fireEvent.dblClick(screen.getByText("a"));
-    const field = screen.getByLabelText("Name");
+    const field = screen.getByLabelText(copy.name);
     fireEvent.input(field, { target: { value: "renamed" } });
     fireEvent.keyDown(field, { key: "Escape" });
 
-    expect([railCallsTo(mounted.app, "rail.rename"), screen.queryByLabelText("Name"), rowNames()]).toEqual([[], null, ["a"]]);
+    expect([railCallsTo(mounted.app, "rail.rename"), screen.queryByLabelText(copy.name), rowNames()]).toEqual([[], null, ["a"]]);
   });
 
   it("u9_an_empty_name_keeps_the_old_name_and_calls_nothing", async () => {
     const mounted = await mountRail([agent("a", "idle", "i")]);
 
     fireEvent.dblClick(screen.getByText("a"));
-    const field = screen.getByLabelText("Name");
+    const field = screen.getByLabelText(copy.name);
     fireEvent.input(field, { target: { value: "   " } });
     fireEvent.keyDown(field, { key: "Enter" });
 
-    expect([railCallsTo(mounted.app, "rail.rename"), screen.queryByLabelText("Name")]).toEqual([[], null]);
+    expect([railCallsTo(mounted.app, "rail.rename"), screen.queryByLabelText(copy.name)]).toEqual([[], null]);
   });
 
   it("u9_hovering_a_plain_group_shows_promote_which_calls_rail_promote", async () => {
@@ -134,7 +135,7 @@ describe("u9 actions", () => {
     mounted.app.handlers["rail.startDoor"] = () => door("g", "idle", "i");
 
     fireEvent.mouseEnter(rowOf("g"));
-    await chooseAction(mounted.app, "g", "Start supervisor");
+    await chooseAction(mounted.app, "g", copy.startDoor);
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
@@ -178,7 +179,7 @@ describe("u9 actions", () => {
     await screen.findByRole("alert");
     fireEvent.mouseEnter(rowOf("g"));
 
-    await chooseAction(mounted.app, "g", "Start supervisor");
+    await chooseAction(mounted.app, "g", copy.startDoor);
 
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -202,7 +203,7 @@ describe("u9 actions", () => {
 
     fireEvent.mouseEnter(rowOf("lead"));
 
-    expect(screen.queryByText(/^start supervisor$/i)).toBeNull();
+    expect(screen.queryByText(copy.startDoor)).toBeNull();
   });
 
   it("u9_a_collapsed_group_can_still_be_promoted", async () => {
@@ -211,7 +212,7 @@ describe("u9 actions", () => {
     fireEvent.click(glyphOf("g"));
 
     fireEvent.mouseEnter(rowOf("g"));
-    await chooseAction(mounted.app, "g", "Start supervisor");
+    await chooseAction(mounted.app, "g", copy.startDoor);
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
@@ -222,7 +223,7 @@ describe("u9 actions", () => {
 
     mounted.app.handlers["agent.spawn"] = () => new Promise<RailNode>((done) => (finish = done));
     mounted.rail.select("g");
-    await chooseAction(mounted.app, "g", "Agent");
+    await chooseAction(mounted.app, "g", copy.addAgentMenu);
     fireEvent.contextMenu(rowOf("g"));
     expect(mounted.app.shownMenus.at(-1)!.items.find(item => item.id === "add")?.children?.map(item => item.id)).not.toContain("add-agent");
     await mounted.app.closeMenu();
@@ -268,7 +269,7 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
   expect(tree).toHaveLength(1);
   let finish: ((node: RailNode) => void) | undefined;
   mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
-  await chooseAction(mounted.app, "actual", "Retry supervisor");
+  await chooseAction(mounted.app, "actual", copy.retryDoor);
   fireEvent.contextMenu(rowOf("actual"));
   expect(mounted.app.shownMenus.at(-1)!.items.some(item => item.id === "start")).toBe(false);
   await mounted.app.closeMenu();
@@ -284,10 +285,10 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
 });
 
 it("u9_selecting_a_reopened_workstream_offers_start_without_launching", async () => {
-  const mounted = await mountRail([workstream("Reopened", {attempt:"4"})]);
-  mounted.rail.select("Reopened");
-  fireEvent.contextMenu(rowOf("Reopened"));
-  expect(mounted.app.menuLabels()).toContain("Start supervisor");
+  const mounted = await mountRail([workstream(copy.changeReopened, {attempt:"4"})]);
+  mounted.rail.select(copy.changeReopened);
+  fireEvent.contextMenu(rowOf(copy.changeReopened));
+  expect(mounted.app.menuLabels()).toContain(copy.startDoor);
   expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([]);
   expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([]);
 });
@@ -297,7 +298,7 @@ it("a24_a_pending_start_keeps_the_rail_interactive", async () => {
   mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
   mounted.rail.select("closed");
 
-  await chooseAction(mounted.app, "closed", "Start supervisor");
+  await chooseAction(mounted.app, "closed", copy.startDoor);
   await waitFor(() => expect(mounted.rail.doorPending("closed")).toBe(true));
   fireEvent.click(screen.getByText("other"));
   await settled();
@@ -311,11 +312,11 @@ it("a24_a_late_failure_shows_the_error_and_retry_door", async () => {
 
   mounted.rail.select("closed");
 
-  await chooseAction(mounted.app, "closed", "Start supervisor");
+  await chooseAction(mounted.app, "closed", copy.startDoor);
 
   await waitFor(() => expect(mounted.rail.doorFailure("closed")).toBe("closed: no acknowledgement within 8s"));
   fireEvent.contextMenu(rowOf("closed"));
-  expect(mounted.app.menuLabels()).toContain("Retry supervisor");
+  expect(mounted.app.menuLabels()).toContain(copy.retryDoor);
   expect(mounted.rail.doorPending("closed")).toBe(false);
 });
 
@@ -327,7 +328,7 @@ it("a24_a_start_the_daemon_never_answers_fails_within_the_bound", async () => {
     mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
     mounted.rail.select("closed");
 
-    void chooseAction(mounted.app, "closed", "Start supervisor");
+    void chooseAction(mounted.app, "closed", copy.startDoor);
     await vi.advanceTimersByTimeAsync(10_000);
 
     await waitFor(() => expect(mounted.rail.doorFailure("closed")).not.toBeNull());
@@ -349,7 +350,7 @@ it("a24_a_start_that_succeeds_shows_the_doors_terminal", async () => {
 
   mounted.rail.select("closed");
 
-  await chooseAction(mounted.app, "closed", "Start supervisor");
+  await chooseAction(mounted.app, "closed", copy.startDoor);
 
   await waitFor(() => expect(document.querySelector('[data-terminal="t-closed"]')).not.toBeNull());
   expect(mounted.rail.doorFailure("closed")).toBeNull();

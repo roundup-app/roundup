@@ -1,3 +1,5 @@
+import { WorkProgress } from "../orders/WorkProgress";
+import { EmptyRail } from "../app/FirstRun";
 import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
@@ -12,7 +14,7 @@ import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, LEADER } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
@@ -64,6 +66,12 @@ export const Rail = () => {
     const actions = actionsOf(node);
 
     return [
+      ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
+        id: "progress", label: copy.workProgress, run: () => {
+          rowElement(node.id)?.focus({ preventScroll: true });
+          connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
+        },
+      }] : []),
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addMenu, children: [
@@ -565,6 +573,26 @@ export const Rail = () => {
     onCleanup(() => document.removeEventListener("click", clear, true));
   });
 
+  // U4453b: leader `A` and the Overview row both return to Ask.
+  const isAskReturnAllowed = () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending());
+
+  const backToAsk = () => {
+    if (!isAskReturnAllowed()) return;
+    connected.importing.cancel();
+    connected.settingsView.close(false);
+    connected.showView(null);
+    rail.select(null);
+  };
+
+  createEffect(() => {
+    if (rail.selected() === null && !connected.settingsView.open()) return;
+
+    registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => ({
+      available: isAskReturnAllowed,
+      invoke: backToAsk,
+    }) }]);
+  });
+
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find((row) => row.keys === "⌘N")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
@@ -605,7 +633,7 @@ export const Rail = () => {
       aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
-      onClick={() => rail.select(null)}
+      onClick={backToAsk}
       onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
         const entries = recoveryEntries();
 
@@ -620,6 +648,7 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
+    <Show when={rail.nodes.length === 0 && rail.failure() === null}><EmptyRail onNew={() => { if (canSpawn()) spawnAgent(); }} /></Show>
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
@@ -723,7 +752,6 @@ export const Rail = () => {
                             return () => { if (copied.get(id) === feedback) copied.delete(id); };
                           }}
                           editing={editingName() === view().node.id}
-                          onOpen={() => openRow(view().node.id)}
                           selected={selection.selection.isSelected(view().node.id)}
                           multiple={selection.selection.selectedValues().length > 1}
                           tabbable={tabbableId() === view().node.id}
@@ -845,8 +873,8 @@ export const Rail = () => {
             if (canSpawn()) guarded(() => rail.createWorkstream());
           }}
         >
-          <Icon name="plus" />{copy.addWorkstreamWord}</button>
-        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="plus" />{copy.addAgentWord}</button>
+          <Icon name="messages" />{copy.addWorkstreamWord}</button>
+        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
       </div>
     </>
   );

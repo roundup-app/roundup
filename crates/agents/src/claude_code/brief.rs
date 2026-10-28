@@ -59,6 +59,10 @@ const TOOLS: &[(&str, &str)] = &[
         "todo_assign",
         "assign a Todo to an owner, or leave it unassigned",
     ),
+    (
+        "todo_comments",
+        "read a Todo thread and the user’s replies without marking comments read",
+    ),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
     (
@@ -260,14 +264,6 @@ const TOOLS: &[(&str, &str)] = &[
         "see the Routes: whom each Agent's questions go to",
     ),
     ("project_get", "read the Project's settings"),
-    (
-        "project_measurements",
-        "read retained measurements and collection coverage",
-    ),
-    (
-        "project_measurementSummary",
-        "read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision",
-    ),
     (
         "project_setWorktrees",
         "turn Worktrees on or off for the Project and set the command Landing runs",
