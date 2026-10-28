@@ -33,6 +33,7 @@ mod restart;
 mod resume;
 mod rewind;
 mod route;
+mod selectors;
 mod specialist;
 mod storage;
 
