@@ -19,6 +19,11 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
   await openShelf("tree-40", 288, 320, 1280, "dark");
   await browser("set", "viewport", "1280", "820");
 
+  if (output) {
+    await browser("record", "start", join(output, "pad-toggle.webm"));
+    await browser("wait", ".shelf-tabs");
+  }
+
   for (const kind of ["pad", "todo"]) {
     await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${kind === "pad" ? "pads" : "todos"}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
 
@@ -32,7 +37,6 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
     await capture(`${kind}-normal`);
     await evaluate("(() => { window.__u4458 = { centre: document.querySelector('.centre'), shelf: document.querySelector('.shelf'), field: document.querySelector('.drawer input, .drawer textarea, .drawer [contenteditable=true]') }; return true; })()");
 
-    if (output && kind === "pad") await browser("record", "start", join(output, "pad-toggle.webm"));
     await browser("click", '.drawer button[aria-label="Maximise"]');
     await settle();
     await capture(`${kind}-maximised`);
