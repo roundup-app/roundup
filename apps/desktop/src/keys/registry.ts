@@ -241,7 +241,7 @@ export const captureActions = (focus: Element | null): { value: string; label: s
       keys: leader ? `${CHORDS.find((row) => row.keys === "⌘K")!.keys} ${binding.action.keys}` : binding.action.keys,
       available,
       run: () => { if (available()) captured.invoke(); },
-      at: rows.indexOf(binding.action),
+      at: rows.findIndex(row => row.keys === binding.action.keys && ("press" in row) === leader),
     };
   })).sort((a, b) => a.at - b.at);
 };
