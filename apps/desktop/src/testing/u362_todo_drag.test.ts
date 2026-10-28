@@ -226,7 +226,7 @@ run('u2716a Project overview band', () => {
       fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'rail.changed'});
       document.querySelector('${band}').click();
     }`);
-    await page.until(`() => Boolean(document.querySelector('${overview} [data-state="attention"]')) && !/\\d/.test(document.querySelector('${overview} [data-state="attention"]').textContent)`);
+    await page.until(`() => Boolean(document.querySelector('${overview} .empty-state')) && !document.querySelector('${overview} [data-state="attention"]') && !/\\d/.test(document.querySelector('${band}').getAttribute('aria-label'))`);
     await page.call(`() => {
       const nodes = window.__overviewNodes;
       const door = nodes.find(n => n.kind === 'workstream' && n.status);
