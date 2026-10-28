@@ -256,14 +256,6 @@
   height: var(--space-3);
 }
 
-.overview-empty {
-  padding: var(--space-5) var(--space-2);
-}
-
-.overview-empty .overview-heading {
-  padding: 0;
-}
-
 .made-context {
   flex: 0 0 auto;
   padding: var(--space-3) var(--space-4) var(--space-4);

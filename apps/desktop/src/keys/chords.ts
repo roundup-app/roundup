@@ -22,6 +22,7 @@ export const shortcutLabel = (press: string, keyName = ""): string => {
 };
 
 export const CHORDS: readonly Chord[] = [
+  { keys: "⌘O", what: copy.chooseFolder, presses: ["meta+KeyO"] },
   { keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"] },
   { keys: "⇧⌘N", what: copy.newAgentWithAPrompt, presses: ["meta+shift+KeyN"] },
   { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
