@@ -301,8 +301,6 @@
 {"file":"apps/desktop/src/rail/u3764_project_settings_view.test.tsx","test":"u3766_close_returns_the_center_to_what_it_showed","identity":"eb7fc97de6bf0e38d7275b4d1376573b3b919ec25c76162be1bd37e30b470e5e"}
 {"file":"apps/desktop/src/rail/u377_no_models.test.tsx","test":"u377 u378 the Rail offers no Model > u377_no_app_screen_offers_a_model","identity":"8f8d29ce43b0f9b02e8f0cfbb126869b75af7440c64300457b0795d02d0acc76"}
 {"file":"apps/desktop/src/rail/u403_chevron_row.test.tsx","test":"u403 a Workstream row leads with its chevron > u403_the_chevron_folds_and_selects_nothing","identity":"ad2345fb462d7bc918ba8b41f0f586c7b8d469e3adf92c74c8852cf47e55aae2"}
-{"file":"apps/desktop/src/rail/u447_head.test.tsx","test":"u447_the_workstreams_head_has_icon_and_label","identity":"92e7085770986c19b77e828a25824cff81e309e893bae35a4ff387d7d3ed0174"}
-{"file":"apps/desktop/src/rail/u447_head.test.tsx","test":"u447_the_workstreams_head_has_icon_and_label","identity":"a56c9146110e479be975b1b8478c6c779bfd280972d065e7ab66d2870d5c107d"}
 {"file":"apps/desktop/src/rail/u520_semantics.test.tsx","test":"u520 the Rail's accessibility tree > u520_tree_semantics_and_names","identity":"bdef920db5c2af95693aac75ffe10f590f4db13294ef72e9df72487a79a8da2c"}
 {"file":"apps/desktop/src/rail/u521_controls.test.tsx","test":"u521_copy_preserves_content","identity":"db2db91aa5dfe9534fe8aaf01a1f6a403d2b79067c8007ab1cf38c7abbaf75d9"}
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_an_agent_folds_once_the_clock_passes_10_minutes_of_done","identity":"a9d3fee7641439c59bb4cfd6e9fe9cce36e0651e57d9b1aef24caaded4c78388"}

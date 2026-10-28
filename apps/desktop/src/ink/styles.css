@@ -326,3 +326,11 @@ p.ink[role="alert"] {
 .kind-mark-leaving { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
 .kind-mark-leaving[data-tone="accent"] { color: var(--accent); }
 .kind-mark-leaving[data-tone="grey"] { color: var(--grey); }
+
+.section-head[data-part="trigger"] {
+  width: 100%;
+}
+
+.section-head [data-part="indicator"][data-state="open"] {
+  transform: rotate(90deg);
+}

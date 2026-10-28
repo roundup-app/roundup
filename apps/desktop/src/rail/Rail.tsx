@@ -17,6 +17,8 @@ import { Icon } from "../ink/Icon";
 import { CHORDS, LEADER } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
+import { Collapsible } from "../ui/Collapsible";
+import type { RailSection } from "./persist/storage";
 import { TreeView } from "../ui/TreeView";
 import { Popover } from "../ui/Popover";
 import { railCollection } from "./collection";
@@ -169,12 +171,30 @@ export const Rail = () => {
 
   const endCompose = () => setComposing(false);
 
-  const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }));
+  const sections: { id: RailSection; label: string; icon: "messages" | "circle" | "diamond" }[] = [
+    { id: "workstreams", label: copy.workstreamsHead, icon: "messages" },
+    { id: "modes", label: "MODES", icon: "diamond" },
+    { id: "agents", label: "AGENTS", icon: "circle" },
+  ];
+
+  const sectionNodes = createMemo(() => {
+    const roots = new Map(rail.nodes.filter(node => node.parent === null).map(node => [node.id,
+      node.kind === "agent" ? "agents" : node.opening_prompt?.trim() ? "modes" : "workstreams"]));
+
+    return sections.map(section => ({ ...section, nodes: rail.nodes.filter(node => roots.get(ancestorsOf(rail.nodes, node.id).at(-1) ?? node.id) === section.id) }));
+  });
+
+  const sectionRows = createMemo(() => sectionNodes().filter(section => section.nodes.length > 0).map(section => ({
+    ...section,
+    rows: rail.closedSections().has(section.id) ? [] : layoutRail(section.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }),
+  })));
+
+  const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
 
   /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
 
   /** U520: every Workstream open, so Ark can open one that is folded and walk into it; Ark's `expandedValue` keeps the folded ones shut. */
-  const collection = createMemo(() => railCollection(layoutRail(rail.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() })));
+  const collection = createMemo(() => railCollection(sectionNodes().filter(section => !rail.closedSections().has(section.id)).flatMap(section => layoutRail(section.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() }))));
   const expanded = createMemo(() => collection().getBranchValues().filter((id) => !collapsed().has(id)));
 
   /** The tree node and index path Ark's providers need for the row `id`. */
@@ -191,7 +211,6 @@ export const Rail = () => {
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
   const indexOf = createMemo(() => new Map(nodeIds().map((id, at) => [id, at])));
   const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: row.node.parent })));
-  const keys = createMemo(() => rows().map((row) => row.key));
   const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
   const attempt = async <T,>(call: () => Promise<T>, item?: string): Promise<void> => {
@@ -728,7 +747,6 @@ export const Rail = () => {
         for (const id of collection().getBranchValues()) if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
       }}
     >
-      <SectionHead icon="messages" label={copy.workstreamsHead} />
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
@@ -760,7 +778,11 @@ export const Rail = () => {
         }}
       >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
-        <For each={keys()}>
+        <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
+          <Collapsible.Root open={!rail.closedSections().has(section.id)} onOpenChange={details => rail.setSectionOpen(section.id, details.open)}>
+            <SectionHead icon={section.icon} label={section.label} disclosure={{ setOpen: open => rail.setSectionOpen(section.id, open) }} />
+            <Collapsible.Content>
+        <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (
             <Show when={byKey().get(key)}>
               {(row) => {
@@ -838,6 +860,9 @@ export const Rail = () => {
             </Show>
           )}
         </For>
+            </Collapsible.Content>
+          </Collapsible.Root>
+        </Show>}</For>
       </TreeView.Tree>
       </Sortable.Root>
     </TreeView.Root>
