@@ -20,12 +20,13 @@ Policy: the implementation PR records each row's removal or retained behavior an
 
 | Path on main | Disposition and reason |
 |---|---|
-| `apps/desktop/src/rail/Rail.tsx`, `rail/menu/model.ts`, `rail/rows.ts` | Remove Clear row action, both menu construction paths, target state and prompt mount; preserve the other actions. |
+| `apps/desktop/src/rail/Rail.tsx`, `rail/menu/model.ts`, `rail/rows.ts`, `rail/RowIcons.tsx` | Remove Clear row action, both menu construction paths, target state and prompt mount; preserve the other actions. |
 | `rail/ClearPrompt.tsx`, `rail/clear.ts`, `rail/styles.css`, `copy.ts`, `copy/rail.ts` | Remove reason, fallback, pending/failure and summary copy; no Clear surface remains. |
 | `rail/persist/`, `state/`, Rail draft/recovery tests and harness fixtures | Remove `rail-clear` destination and its stored drafts/recovery only. Keep unrelated unfinished input (P11). |
 | `keys/registry.ts`, `keys/chords.ts`, `crates/desktop/src/` menu dispatch | Keep existing unrelated keys/menu commands. No dedicated Clear chord is registered on main; remove any Clear forwarding found during implementation, with no replacement binding. Vendor Terminal `/clear`, including the user's Ask-routed local command (A2698a), remains user input; it never calls Workstream Clear. |
 | `crates/agents/src/asks.rs` and App Ask | Keep Ask routing and user text delivery: no Clear-specific Ask command exists. An Ask cannot invoke a retired RPC or change the Opening prompt. |
 | `crates/rupd/src/clear.rs`, `lib.rs`, `open.rs`, dispatch registration | Remove both RPC handlers, coordinator, retry/archive state and Clear events. |
+| `crates/agents/src/claude_code/brief.rs` | Remove Clear/Handoff tool descriptions and Door instructions; retain unrelated Brief guidance and cache stability. |
 | `crates/rup/src/mcp.rs`, `mcp/agent_tools.rs`; M5/M2706a (`scenarios/mcp.md`) | Remove Door Handoff tool, success prose, special permission/dispatch branch and Clear exclusion row; reject retired calls. |
 | `crates/agents/src/door.rs`, Rail/Marks; `crates/checkpoints`; `crates/messages` | Remove only Clear's fresh-Handoff restart and Iteration storage/guards; retain session restart reservations, normal history and Rewind. |
 | A33 (`scenarios/agents.md`), `docs/messages.md`, Message delivery | Keep Todo-blocked presentation with the underlying idle inbox eligible for ordinary Messages. Remove only the Clear/Handoff example; blocked Todo state is not Terminal-busy state. |
