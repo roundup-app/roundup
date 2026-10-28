@@ -3,6 +3,7 @@
 mod config;
 mod daemon;
 mod diagnostics;
+mod facts;
 #[cfg(any(test, feature = "idle-perf"))]
 mod idle;
 mod launch;
@@ -95,7 +96,10 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
     let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
         launch::native_open,
         system_accent,
+        ask_removal,
         projects,
+        recent_projects,
+        claude_binary,
         open_project,
         close_project,
         rename_project,
@@ -166,6 +170,18 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     )?
     .run(|app, event| handle_run_event(app, &event));
     Ok(())
+}
+
+#[tauri::command]
+fn recent_projects(state: State<'_, AppState>) -> Vec<String> {
+    state.recent_projects()
+}
+
+#[tauri::command]
+async fn claude_binary(
+    state: State<'_, AppState>,
+) -> Result<Option<facts::ClaudeBinary>, RpcError> {
+    Ok(state.claude_binary().await)
 }
 
 #[tauri::command]
@@ -278,5 +294,70 @@ fn system_accent() -> Option<[f64; 3]> {
     #[cfg(not(target_vendor = "apple"))]
     {
         None
+    }
+}
+
+/// The three removal answers have distinct authority; a native failure grants none.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemovalQuestion {
+    title: String,
+    message: String,
+    this_label: String,
+    all_label: String,
+    cancel_label: String,
+}
+
+#[tauri::command]
+async fn ask_removal<R: Runtime>(
+    app: AppHandle<R>,
+    question: RemovalQuestion,
+) -> Result<String, RpcError> {
+    #[cfg(target_vendor = "apple")]
+    {
+        let (send, receive) = tokio::sync::oneshot::channel();
+        native::removal_alert(
+            &app,
+            question.title,
+            question.message,
+            [
+                question.this_label,
+                question.all_label,
+                question.cancel_label,
+            ],
+            move |answer| {
+                let _ = send.send(answer.to_owned());
+            },
+        )
+        .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?;
+        receive
+            .await
+            .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))
+    }
+    #[cfg(not(target_vendor = "apple"))]
+    {
+        use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogResult};
+        let (send, receive) = tokio::sync::oneshot::channel();
+        let yes = question.this_label.clone();
+        let no = question.all_label.clone();
+        app.dialog()
+            .message(question.message)
+            .title(question.title)
+            .buttons(MessageDialogButtons::YesNoCancelCustom(
+                question.this_label,
+                question.all_label,
+                question.cancel_label,
+            ))
+            .show_with_result(move |result| {
+                let answer = match result {
+                    MessageDialogResult::Custom(label) if label == yes => "this",
+                    MessageDialogResult::Custom(label) if label == no => "all",
+                    _ => "cancel",
+                };
+                let _ = send.send(answer.to_owned());
+            });
+        receive
+            .await
+            .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))
     }
 }
