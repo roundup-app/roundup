@@ -80,10 +80,13 @@ export const OwnerCommand = (props: {
 
   const ownerMatches = () => eligible(assigning()).filter(owner => owner.name.toLowerCase().includes(ownerQuery().toLowerCase()));
   createEffect(() => { if (!ownerMatches().some(owner => owner.id === ownerHighlight())) setOwnerHighlight(ownerMatches()[0]?.id ?? null); });
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => {
+  const assignable = (id: number | undefined) => props.active() && id !== undefined && props.todos.byId().get(id)?.done === false && eligible(id).length > 0;
+
+  // U4453b: `A` also leads back to Ask (Rail), so this binding yields while no Todo can be assigned.
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, when: () => assignable(props.selected()), capture: () => {
     const id = props.selected();
 
-    return { available: () => props.active() && id !== undefined && props.todos.byId().get(id)?.done === false && eligible(id).length > 0,
+    return { available: () => assignable(id),
       invoke: () => { if (id !== undefined) { ownerFocus = captureFocus(true); setOwnerQuery(""); setAssigning(id); } } };
   } }]);
   registerKeys({ kind: "layer", element: () => ownerPanel, active: () => assigning() !== null, modal: true }, [

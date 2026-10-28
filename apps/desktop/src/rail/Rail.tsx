@@ -12,7 +12,7 @@ import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, leaderChord } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
@@ -565,6 +565,11 @@ export const Rail = () => {
     onCleanup(() => document.removeEventListener("click", clear, true));
   });
 
+  // U4453b: leader `A` and the Overview row both return to Ask.
+  const backToAsk = () => { connected.showView(null); rail.select(null); };
+
+  registerKeys({ kind: "leader" }, [{ chords: leaderChord("A"), when: () => rail.selected() !== null || connected.view() !== null, run: backToAsk }]);
+
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find((row) => row.keys === "⌘N")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
@@ -605,7 +610,7 @@ export const Rail = () => {
       aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
-      onClick={() => rail.select(null)}
+      onClick={backToAsk}
       onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
         const entries = recoveryEntries();
 
