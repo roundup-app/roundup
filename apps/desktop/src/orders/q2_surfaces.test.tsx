@@ -164,18 +164,23 @@ describe("U2773 Order forms on real Projects", () => {
     const app = createServedApp(first.base);
     const original = await app.rpc("agent.spawn", { cwd: first.dir, name: "same name", parent: null, prompt: null, order: full });
     const calls = vi.spyOn(app, "rpc");
+    const copied: string[] = [];
+    app.writeClipboardText = async text => { copied.push(text); };
+
     mount(app);
     const ask = await open(original.id);
     fireEvent.input(ask, { target: { value: "  unavailable original 🧭\n" } });
     await app.rpc("agent.stop", { id: original.id });
     await app.rpc("rail.remove", { id: original.id });
+    // The retained editor now lives in a requested Drawer; closing it exposes its recovery entry.
+    fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Close" }));
     await openRecovery();
     const recovery = await screen.findByLabelText("Unfinished work");
-    await waitFor(() => expect(within(recovery).queryByRole("button", { name: "Copy" })).not.toBeNull());
-    expect(within(recovery).queryByRole("button", { name: "Open" })).toBeNull();
+    fireEvent.click(await within(recovery).findByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(copied.join("\n")).toContain("  unavailable original 🧭\n"));
     calls.mockClear();
     fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));
-    expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(0);
+    expect(current.drafts.list().filter(draft => draft.destination.surface === "orders")).toEqual([]);
     expect(calls.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.spawn")).toEqual([]);
     vi.restoreAllMocks();
   }, 60_000);
