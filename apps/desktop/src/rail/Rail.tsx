@@ -171,7 +171,8 @@ export const Rail = () => {
 
   const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }));
 
-  /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
+  /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
+  const isEmpty = () => rail.nodes.length === 0 && rail.failure() === null;
 
   /** U520: every Workstream open, so Ark can open one that is folded and walk into it; Ark's `expandedValue` keeps the folded ones shut. */
   const collection = createMemo(() => railCollection(layoutRail(rail.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() })));
@@ -636,7 +637,7 @@ export const Rail = () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, match: "key", capture: () => ({ available: canSpawn, invoke: openCompose }) },
+    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: () => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(); } }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
@@ -685,7 +686,7 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
-    <Show when={rail.nodes.length === 0 && rail.failure() === null}><EmptyRail onNew={() => { if (canSpawn()) spawnAgent(); }} /></Show>
+    <Show when={isEmpty()}><EmptyRail onNew={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()} onWorkstream={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⇧⌘N")?.run()} available={canSpawn()} /></Show>
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
@@ -728,7 +729,7 @@ export const Rail = () => {
         for (const id of collection().getBranchValues()) if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
       }}
     >
-      <SectionHead icon="messages" label={copy.workstreamsHead} />
+      <Show when={rail.nodes.some(isWorkstream)}><SectionHead icon="messages" label={copy.workstreamsHead} /></Show>
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
