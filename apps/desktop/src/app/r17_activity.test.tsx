@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
 import { useDisplayNow } from "../state/clock";
 import type { EmulatorFactory } from "../terminal/emulator";
@@ -11,6 +11,10 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { openProjectPage } from "../testing/menuProbe";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, NOW } from "../testing/nodes";
+
+// Motion captures requestAnimationFrame at import; fake it before loading the App.
+// jsdom otherwise implements frames with an interval counted as a periodic clock.
+vi.hoisted(() => vi.useFakeTimers({ toFake: ["Date", "performance", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "requestAnimationFrame", "cancelAnimationFrame"] }));
 
 const intervals = new Set<Parameters<typeof clearInterval>[0]>();
 
@@ -50,7 +54,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
 };
 
 beforeEach(() => {
-  vi.useFakeTimers(); vi.setSystemTime(NOW); visibility("visible");
+  vi.setSystemTime(NOW); visibility("visible");
   intervals.clear();
   const start = globalThis.setInterval;
   const stop = globalThis.clearInterval;
@@ -63,7 +67,9 @@ beforeEach(() => {
   vi.spyOn(globalThis, "clearInterval").mockImplementation((id) => { intervals.delete(id); stop(id); });
 });
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); visibility("visible"); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.clearAllTimers(); visibility("visible"); });
+
+afterAll(() => vi.useRealTimers());
 
 it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
   for (const kind of stopped) {
