@@ -327,6 +327,7 @@ describe("u2773 Rail persisted edits", () => {
 
   it("u2773b_rail_real_acknowledgement_consumes_only_submitted_revision", async () => {
     const app = createServedApp(second.base);
+    await app.rpc("rail.createWorkstream", { name: "Prompt destination", parent: null });
     const before = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent").length;
     const starts: string[] = [];
     const rpc = app.rpc;
@@ -343,9 +344,11 @@ describe("u2773 Rail persisted edits", () => {
 
     await mount();
     open();
-    fireEvent.input(task(), { target: { value: " B\n😀 " } });
+    const submitted = task();
+
+    fireEvent.input(submitted, { target: { value: " B\n😀 " } });
     fireEvent.keyDown(task(), { key: "Enter" });
-    await waitFor(() => expect(screen.queryByLabelText("Task")).toBeNull());
+    await waitFor(() => expect(submitted.isConnected).toBe(false));
     expect((await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(before + 1);
     expect(starts).toEqual([JSON.stringify({ cwd: second.dir, prompt: "B\n😀", parent: null, model: null, effort: null })]);
     cleanup();
