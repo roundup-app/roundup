@@ -4,7 +4,7 @@ import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
-import { createOwnerAssignment, createOwnerKeys, createOwnerPicker } from "./ownerAssignment";
+import { createOwnerAssignment, createOwnerKeys, createOwnerPicker, ownersToOffer } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
@@ -375,11 +375,7 @@ export const Todos = (props: {
 
   createOwnerKeys({ connected, todos, active, assign });
 
-  const offers = () => {
-    const current = todos.byId().get(picking()?.id ?? -1);
-
-    return ownersOnRail(connected).filter(owner => !current || !sameOwner(owner.actor, current.owner));
-  };
+  const offers = () => ownersToOffer(connected, todos.byId().get(picking()?.id ?? -1));
 
   // U138: a completed Todo leaves the open list only once its `todo.updated` Event has refetched it, so the row to focus
   // is saved here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
