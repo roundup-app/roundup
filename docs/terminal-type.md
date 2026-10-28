@@ -6,7 +6,7 @@ release URL and SHA-256 hashes are in
 `apps/desktop/public/fonts/fira-code/`. The original JetBrains Mono licence
 notice remains alongside it. Fira Code supplies no italic files: browser font
 synthesis renders italic and bold italic from the bundled faces. The emulator
-requests all four style/weight combinations before its first authoritative fit.
+requests normal and italic at all three bundled weights before its first authoritative fit.
 Local App URLs have no `local()` or remote font source; other App typography
 keeps its existing stack. `--weight-terminal` selects 300 through xterm’s public `fontWeight`; bold remains 700.
 
@@ -24,7 +24,7 @@ Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
 its 1.23 interface scale does not apply to Terminal text. The real rendered
 cell measurements, grid counts, loaded faces, local resources and device pixel
 ratio are retained in each capture's `*.metrics.json`, beside the PNG and
-Check readings under `artifacts/ux/U4456{a,b,c,d}/{base,head}/`.
+Check readings under `artifacts/ux/U4592/{base,head}/`.
 
 The Linux observer uses the App's normal WebGL renderer at 1512×950 and
 pixel ratio 1. The explicit `customGlyphs: true` option makes xterm draw
