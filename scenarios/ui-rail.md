@@ -95,7 +95,7 @@ Tests (`u357_`, Chromium on `just harness`, as #607's D2 check reads it): left e
 
 **U387 focus inside a row shows its row action.** _Amended only as listed by U3789e (`ui-shelf.md`); U3789a–d govern those replacement clauses._ Found by the user's report #1007 (`docs/design-system.md`: a row action is "shown on a row's hover, focus or selection, always reachable by keyboard"). Narrows U172's "the Door action takes the place of the value" and U9's `start Door`; changes no contract, App seam command or Token. Given the Rail on `tree-40` (U26) at 1280 by 800, with the pointer outside the Rail, when focus is on any element inside the unselected `backend` row (its `Collapse` button, reached by Shift+Tab, or the row itself), then:
 
-- **Action.** `getByRole("button", {name: "Start supervisor"})` exists inside that row and Tab from the `collapse` button reaches it.
+- **Action.** `getByRole("button", {name: "Start"})` exists inside that row and Tab from the `collapse` button reaches it.
 - **Same as hover.** The row shows what a pointer over it shows: the action in the place of the value (U172). When focus leaves the row and the row is not selected, the action is gone again.
 - **One predicate.** A row, a todo row and a Project tab decide "near" from one shared predicate (pointer over, focus inside, selected), tracking focus through focusin and focusout, not a pointer signal alone; the Live line (U143) shows on the same predicate.
 - **Unmoved.** U9 and U172 hold; focus leaving the row hides the action in the same frame, with no animation.

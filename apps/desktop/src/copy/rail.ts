@@ -5,7 +5,7 @@ const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], [
 export const railDraftCopy = {
   addAgentWord: " Agent",
   railDraftTaskTarget: (name: string) => `Work for ${name}`,
-  railDraftTaskAction: (send: boolean) => send ? "Send to supervisor" : "Start Agent",
+  railDraftTaskAction: (send: boolean) => send ? "Send" : "Start Agent",
   railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Its draft is kept; reopening does not retry it. Review the target before creating another request.`,
   railDraftBase: (name: string) => `Original name: ${name}`,
   railDraftDestination: (project: string, recipient: string) => `${project} · ${recipient}`,
