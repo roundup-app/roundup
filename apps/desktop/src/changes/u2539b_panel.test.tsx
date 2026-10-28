@@ -104,6 +104,7 @@ describe("U2539b", () => {
     await waitFor(() => expect(app.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
     expect(screen.queryByRole("button", { name: /changed files?/ })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("group")).toBeNull();
     answer.resolve({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
     expect(await screen.findByRole("button", { name: /1 changed file/ })).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
