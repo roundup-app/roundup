@@ -1,10 +1,12 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { RpcError } from "../app/seam";
 import { questionProbe } from "../testing/menuProbe";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { FakeApp } from "../testing/fakeApp";
+import { Rail } from "../rail/Rail";
+import { ConnectedProjectContext } from "../state/connectedProject";
 import { agent } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
@@ -39,13 +41,21 @@ type Row = {
   removes: string;
 };
 
-/** Every Switcher action that reaches `rpc`, with the opening Project's object and the arguments its activation captures. */
+/** The scoped Rail Switcher actions that reach `rpc`, with the opening Project's object and the arguments its activation captures. */
 const ROWS: Row[] = [
-  { owner: "Rail", label: "New Agent", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "ops",
+  { owner: "Rail", label: "New Agent", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
     params: { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null },
     hold: (app, entered) => {
       const { handler, gate } = pending(entered, agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
 
+      app.handlers["agent.spawn"] = handler;
+
+      return gate;
+    } },
+  { owner: "Rail", label: "New Agent with a prompt", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
+    params: { cwd: "/p", prompt: "A\ne\u0301 🧭", parent: "ops", model: null, effort: null },
+    hold: (app, entered) => {
+      const { handler, gate } = pending(entered, agent("created", "idle", "idle"));
       app.handlers["agent.spawn"] = handler;
 
       return gate;
@@ -73,7 +83,7 @@ const activate = (row: HTMLElement, how: "enter" | "pointer"): void => {
 };
 
 const cases = ROWS.flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
-  (row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : ["dismiss", "resolve", "reject"] as const).map((outcome) => ({ row, how, outcome }))));
+  (row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : ["dismiss", "resolve", "reject", "unknown"] as const)).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
   const { app, connected } = await mountSwitcher(row.selected);
@@ -115,6 +125,19 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   }
 
   activate(option, how);
+  let submitted: ReturnType<typeof connected.drafts.list>[number] | undefined;
+  let newer: ReturnType<typeof connected.drafts.list>[number] | undefined;
+
+  if (row.label === "New Agent with a prompt") {
+    const prompt = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Task" });
+    fireEvent.input(prompt, { target: { value: " A\ne\u0301 🧭 " } });
+    submitted = connected.drafts.list().find(entry => entry.destination.surface === "rail-task");
+    switcherKey("Enter", {}, prompt);
+    await waitFor(() => expect(ofMethod()).toHaveLength(1));
+    fireEvent.input(prompt, { target: { value: " newer\n😀 " } });
+    newer = connected.drafts.list().find(entry => entry.destination.surface === "rail-task" && entry.revision !== submitted?.revision);
+    switcherKey("Escape", {}, prompt);
+  }
 
   // The surface is dismissed first so Ark's focus trap releases focus to an action that moves it; the captured action still starts once.
   if (row.confirms) {
@@ -139,7 +162,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   // The originating owner leaves and the selection moves while the reply is pending.
   const tree = app.handlers["rail.tree"]!;
   // SAFETY: the fake Daemon's rail.tree handler answers a RailNode[].
-  app.handlers["rail.tree"] = (params) => [...(tree(params) as RailNode[]).filter((node) => node.id !== row.removes), agent("keep", "idle", "idle", { order: 9 })];
+  app.handlers["rail.tree"] = (params) => [...(tree(params) as RailNode[]).filter((node) => node.id !== (outcome === "missing" ? row.selected : row.removes)), agent("keep", "idle", "idle", { order: 9 })];
   await connected.rail.refresh({ terminals: true });
   connected.rail.select("keep");
   expect(ofMethod()).toHaveLength(1);
@@ -148,17 +171,62 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     reply.resolve();
     await Promise.resolve();
     expect(connected.rail.selected()).toBe("keep");
+
+    if (submitted) {
+      await waitFor(() => expect(connected.drafts.list().some(entry => entry.revision === submitted.revision)).toBe(false));
+      expect(connected.drafts.list()).toContainEqual(newer);
+    }
   } else {
-    reply.reject(new RpcError(-32000, `${row.label} rejected by the Daemon`));
+    reply.reject(outcome === "unknown" ? new Error(`${row.label} rejected by the Daemon`) : new RpcError(row.label === "New Agent with a prompt" ? -32003 : -32000, `${row.label} rejected by the Daemon`));
     await waitFor(() => expect(document.body.textContent).toContain(`${row.label} rejected by the Daemon`));
+
     if (row.method === "agent.spawn") {
       const notice = document.querySelector(".rail-command-notice")!;
       const retry = notice.querySelector("button");
       expect(retry).not.toBeNull();
       expect(connected.rail.commandFailure.message()).toContain("New Agent");
       // Removing the rendering owner must not discard the connection's recovery.
+      // guarded's finally releases the add action after publishing the failure.
+      await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="New Agent"]')?.getAttribute("aria-disabled")).toBeNull());
+      const recovery = connected.rail.commandFailure.retry();
       cleanup();
-      expect(connected.rail.commandFailure.retry()).toBeTypeOf("function");
+      expect(connected.rail.commandFailure.retry()).toBe(recovery);
+
+      if (submitted) {
+        expect(connected.drafts.list().find(entry => entry.revision === submitted.revision)).toMatchObject({ ...submitted, status: outcome === "unknown" ? "unknown" : "failed" });
+        expect(connected.drafts.list()).toContainEqual(newer);
+      }
+
+      render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+      app.handlers["agent.spawn"] = () => agent("recovered", "idle", "idle");
+      fireEvent.click(document.querySelector(".rail-command-notice button")!);
+
+      if (outcome === "missing") {
+        expect(ofMethod()).toHaveLength(1);
+        expect(connected.rail.commandFailure.message()).toContain("unavailable");
+
+        return;
+      }
+
+      if (submitted && outcome === "unknown") {
+        expect(document.activeElement).toBe(document.querySelector(`[data-revision="${submitted.revision}"] textarea`));
+        expect(ofMethod()).toHaveLength(1);
+        expect(connected.drafts.list()).toContainEqual(newer);
+
+        return;
+      }
+
+      await waitFor(() => expect(ofMethod()).toHaveLength(2));
+      expect(ofMethod().map(call => call.params)).toEqual([row.params, row.params]);
+      await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
+
+      if (submitted) {
+        expect(connected.drafts.list().some(entry => entry.revision === submitted.revision)).toBe(false);
+        expect(connected.drafts.list()).toContainEqual(newer);
+      }
+
+      expect(app.calls.slice(before).filter(call => call.method === "terminal.write" || call.method === "message.send")).toEqual([]);
+
       return;
     }
   }
