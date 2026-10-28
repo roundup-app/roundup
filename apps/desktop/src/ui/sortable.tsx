@@ -176,7 +176,6 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   let sourceRow: HTMLElement | null = null;
   let slot: HTMLDivElement | null = null;
   let stopTracking: (() => void) | undefined;
-  let restoreSource: (() => void) | undefined;
   let closingSlot: HTMLDivElement | null = null;
 
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
@@ -241,15 +240,10 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     stopTracking?.();
     stopTracking = undefined;
     const ending = slot;
-    const restore = restoreSource;
-
-    restoreSource = undefined;
-
     const remove = () => {
       // OptimisticSorting restores the proxy at dragend in the renderer's next task.
       setTimeout(() => {
         if (original && ProxiedElements.get(original) === ending) ProxiedElements.delete(original);
-        restore?.();
         ending?.remove();
       });
     };
@@ -309,8 +303,6 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       slot.setAttribute("data-dnd-placeholder", "");
       slot.setAttribute("aria-hidden", "true");
       slot.style.height = `${box.height}px`;
-      // Until the first swap the slot stands over the row's own cell and its room trails the list, so a nudge that returns to it is no move (U490a).
-      slot.style.marginBlock = `${-box.height}px ${box.height}px`;
       slot.dataset.keyboard = String(keyboardLift);
       sourceRow.insertAdjacentElement("afterend", slot);
 
@@ -318,23 +310,10 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
       ProxiedElements.set(sourceRow, slot);
 
-      if (isSortable(source)) {
-        const target = source.sortable.target;
-        const placeholder = slot;
-
-        source.sortable.target = placeholder;
-        void source.manager?.actions.setDropTarget(source.id);
-        restoreSource = () => {
-          if (source.sortable.target === placeholder) source.sortable.target = target;
-        };
-      }
-
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
 
         list?.setAttribute("data-sortable-index", String(source.index));
-
-        if (source.index !== source.initialIndex) slot?.style.removeProperty("margin-block");
 
         track(source, event.operation.position);
       });
