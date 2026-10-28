@@ -1,15 +1,15 @@
 import { captureFocus } from "../keys/focus";
 import { createEffect, createSignal, Show, on, onCleanup, untrack } from "solid-js";
-import type { App, NativeQuestion } from "../app/seam";
+import type { App, NativeQuestion, RemovalQuestion, RemovalAnswer } from "../app/seam";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 
 /** A native question owns one request until answered; failed requests authorize nothing and can be retried. */
 export const NativeAlert = (props: {
-  app: Pick<App, "ask">;
+  app: Pick<App, "ask"> & Partial<Pick<App, "askRemoval">>;
   open: boolean;
-  question: NativeQuestion;
-  onConfirm: () => void | Promise<void>;
+  question: NativeQuestion | RemovalQuestion;
+  onConfirm: (answer?: RemovalAnswer) => void | Promise<void>;
   onCancel: () => void;
   finalFocus: () => HTMLElement | null;
 }) => {
@@ -29,20 +29,28 @@ export const NativeAlert = (props: {
 
     try {
       const question = { ...props.question };
-      const accepted = await props.app.ask(question);
+      let answer: boolean | RemovalAnswer;
+
+      if ("thisLabel" in question) {
+        const askRemoval = props.app.askRemoval;
+
+        if (!askRemoval) throw new Error(copy.nativeRemovalAlertUnavailable);
+        answer = await askRemoval(question);
+      } else answer = await props.app.ask(question);
+      const accepted = answer !== false && answer !== "cancel";
 
       if (mine !== generation || !props.open) return;
 
       // A changed ownership/consequence warning needs its own affirmative answer.
       const latest = props.question;
 
-      if (accepted && (question.title !== latest.title || question.message !== latest.message || question.okLabel !== latest.okLabel || question.cancelLabel !== latest.cancelLabel)) {
+      if (accepted && (JSON.stringify(question) !== JSON.stringify(latest))) {
         repeat = true;
 
         return;
       }
 
-      if (accepted) await props.onConfirm();
+      if (accepted) await props.onConfirm(answer === "this" || answer === "all" ? answer : undefined);
       else props.onCancel();
       queueMicrotask(() => focus(() => props.finalFocus()?.focus({ preventScroll: true })));
     } catch (error) {
