@@ -43,6 +43,10 @@ swallow it. Generated Rust/MCP outputs, if emitted as files, obey the same drift
 checks as TS outputs. Compile-time generated router/tool code has no committed
 file to compare; the addition and exposure observers exercise that code instead.
 
+**Contract declaration** (`declarations`, `Method`, `METHODS`, `owner_namespace`): One RPC method's wire name, Rust parameter/result types, owning module, handler and explicit MCP exposure (`none`, all Agents, or Door only). It generates module selection, method metadata, TypeScript bindings and tool offers. Export runs only in the contracts command; module selection uses compiled matches.
+
+**Contract export** (`export::generate`, `export::types`, `event_data_declaration`): The plain Specta export of the wire types into their stable per-type paths. `Ping` and `ContractFingerprint` name the existing daemon.ping envelope; `SpawnPrompt` names agent.spawnPrompt's existing result.
+
 ## Checks retained from main
 
 1. `crates/contracts/src/methods.rs`, `writes_methods_ts`, `writes_contract_ts`,
