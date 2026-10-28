@@ -35,6 +35,7 @@ const u535Fixture = () => {
     <Sortable.Root ids={rows().map((row) => row.id)} aria-label="Tree rows" class="sortable-fixture"
       tree={flat ? undefined : {
         rows: rows(), indent: INDENT, nests: (id) => NESTS.has(id),
+        inset: (element) => Number.parseFloat(getComputedStyle(element).paddingInlineStart),
         onMove: (next) => move([...moves(), next]),
         onPreview: (drop) => preview([...previews(), drop ? `${drop.parent}:${drop.index}:${drop.depth}` : "end"]),
       }}
