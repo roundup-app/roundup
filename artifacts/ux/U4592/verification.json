@@ -1,0 +1,44 @@
+{
+  "head": "157661fc776ec3c481be93aed5e81fdf69b092a9",
+  "focused_terminal_tests": {
+    "exit": 0,
+    "tests": 87
+  },
+  "u102_buffer_reflow": {
+    "exit": 0,
+    "tests": 10
+  },
+  "image_output_input": {
+    "exit": 0,
+    "tests": 1
+  },
+  "paired_dpr2_captures": {
+    "exit": 0,
+    "tests": 3,
+    "observer": "observation.json"
+  },
+  "browser_font_fit_input_guards": {
+    "exit": 0,
+    "tests": 6,
+    "includes": "first paired DPR-1 investigation plus three behavioral guards"
+  },
+  "just_capture": {
+    "exit": 124,
+    "reason": "whole-workspace command bounded at 60 seconds; targeted existing observer completed all pairs"
+  },
+  "just_ready": {
+    "exit": 143,
+    "completed": "web lint, style, Tokens, type checks, dead code, boundaries, cycles and package type checks",
+    "unfinished": "Rust clippy and remaining ready steps; run budget"
+  },
+  "related_tests": {
+    "status": "interrupted for run budget; no complete suite pass claimed",
+    "command": "pnpm --filter desktop exec vitest related --run src/terminal/emulator.ts src/terminal/u3517_browser.test.ts src/terminal/u3517_type.test.ts"
+  },
+  "performance": {
+    "status": "interrupted while compiling immutable baseline; no new measurement or performance pass",
+    "command": "just perf --out artifacts/ux/U4592/perf.json",
+    "historical": "perf.json and perf.base-0.json/perf.head-0.json retain the earlier failed comparison; they are not results for this head"
+  },
+  "continuation": "Finish just ready, related tests and just perf before making PR #4624 ready. No product decision or Mac observation is requested."
+}
