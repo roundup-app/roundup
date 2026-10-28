@@ -13,6 +13,7 @@ check-rust base="":
 # The deterministic checks a Builder run's pushes failed on, run before the push and against origin/main: no browser, no test binary, no real process (L23).
 [script('loop/keep-going.sh')]
 ready:
+    just migrations origin/main
     just lint-web
     just lint-rust origin/main
     loop/rules.sh ci-trailers local
@@ -246,3 +247,8 @@ perf-idle *args:
         exit 2
     fi
     ./target/release/perf-idle {{args}}
+
+# B4522: filename-only Git-tree guard and fixtures; no build or dependencies.
+migrations base="":
+    python3 tools/migrations/guard.py {{quote(base)}}
+    python3 tools/migrations/guard.test.py

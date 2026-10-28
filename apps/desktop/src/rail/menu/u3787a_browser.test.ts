@@ -24,7 +24,9 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
     await lane.browser("set", "media", "dark");
     await lane.evaluate(`(async () => {
       const app = window.__fake.app;
-      const made = await app.rpc('rail.createWorkstream', {name:'Chosen retained group',parent:null});
+      const made = await app.rpc('agent.spawn', {cwd:'/p',parent:null});
+      await app.rpc('agent.stop', {id:made.id});
+      await app.rpc('rail.rename', {id:made.id,name:'Chosen retained Agent'});
       const originalTree = app.handlers['rail.tree'];
       const before = await originalTree();
       const remove = app.handlers['rail.remove'];

@@ -50,7 +50,7 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     let migrated = tempfile::tempdir().unwrap();
     let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
     let mut historical = migrations();
-    historical.truncate(historical.len() - 2);
+    historical.truncate(42);
     apply(&mut db, historical).unwrap();
     assert!(db.prepare("SELECT id FROM deliverable_files").is_err());
     db.prepare("SELECT operation FROM rail_deletions").unwrap();
@@ -841,3 +841,6 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let _checkpoints = checkpoints::Checkpoints::open(dir.path())
         .expect("Checkpoints must not read the schema yet");
 }
+
+#[path = "../tests/support/b4522.rs"]
+mod b4522;
