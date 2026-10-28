@@ -18,6 +18,8 @@ All new rendered observers use 1280×800 and 1600×800. Behavioral assertions re
 
 Observer: `u449_` cases in `apps/desktop/src/header/` use the rendered U26 harness in an isolated headless browser, not jsdom boxes. The native setup case in `crates/desktop` reads the window configuration and setup. Captures and Checks go to `artifacts/ux/U449/` for first run, selected Workstream, overflowing tabs, rename failure, and each Drawer. Policy: retain every U179–U186 behavior; update only the header-text, strip-boundary and top-edge assertions explicitly replaced above in the same implementation PR, naming the changed tests. Boxed-tab style assertions belong to #1093.
 
+**window-bar**: The native App plugin for current-window title writes, drag and zoom. Its permissions are `window-bar:allow-set-window-title`, `window-bar:allow-drag-window` and `window-bar:allow-zoom-window` (U449–U451); none accepts a target window.
+
 **U450 the title follows the open Project and selected Workstream.** Given the App, when the open Project or selected Rail row changes, then:
 
 - **Text.** With no Project open the title is `roundup`. With an open Project and no selected Workstream it is that Project's current name. With a Workstream row, its Door, an Agent nested under that Door, or a Terminal belonging to that Workstream selected, it is `<Project> — <Workstream>` using their current names. Follow the selected row's Workstream ancestry, never the last Workstream clicked or an Agent's name; a Project-root row without a Workstream uses the Project name alone. Asserted in `u450_title_uses_the_selected_rows_workstream`, with one case per row kind and the no-Project and no-Workstream cases.
@@ -25,6 +27,12 @@ Observer: `u449_` cases in `apps/desktop/src/header/` use the rendered U26 harne
 - **Native title.** The full, untruncated text is also the window's title after each update, including first run. Older in-flight updates cannot overwrite a newer selection. A window-title write failure is surfaced as U80's failure and does not undo the user's selection. Asserted in `u450_full_title_reaches_the_window`, `u450_latest_selection_wins` (complete two pending writes in reverse order), and `u450_window_title_failure_is_visible`; the native title observer in U451 checks the actual Window menu and Mission Control.
 
 Observer: `u450_` in `apps/desktop/src/header/` tests title derivation and changes against the fake App with recorded title writes, failures and delayed responses. The production window adapter gets a test that asserts the full text reaches its native setter: `u450_native_setter_receives_the_full_text` beside that adapter. Policy: the actual native title read-back is the Mac observation in U451; a fake write or `document.title` alone is not native evidence. Policy: selection and tab changes introduce no timer or network round trip before the visible title changes.
+
+**setWindowTitle**: The App seam write (`set_window_title`) of the full native title of the current window (U450); failures are RpcError.
+
+**windowOperations**: The fake App's ordered record of title writes, drag requests and zoom requests (U450/U451).
+
+**windowTitleHandler**: The fake App's optional title-write response, which can reject or hold writes pending (U450).
 
 **U451 the row behaves as a Mac window bar.** Given the App's one row on macOS, then:
 
