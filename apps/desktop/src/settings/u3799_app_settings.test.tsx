@@ -242,7 +242,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     await lane.evaluate(`(() => { window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: '/Users/you/harness', command: 'project-settings' } })); return true; })()`);
     await lane.until("!!document.querySelector('.settings-view textarea')");
     await lane.capture("U3814", "project-settings");
-    await lane.browser("click", ".todo-project-root");
+    await lane.browser("click", '.rail-row[data-id="agent-1"]');
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
     await lane.browser("click", "#shelf-tab-pads");
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
