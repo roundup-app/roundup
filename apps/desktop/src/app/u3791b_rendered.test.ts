@@ -62,9 +62,7 @@ it("u3791b_rendered_failure_keeps_explicit_recovery", async () => {
       app.handlers['message.reconcileWork'] = () => seed.plan;
       window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed',data:null});
       return node.id;
-    })()`).then(async id => { await browser("click", `.rail-row[data-id='${id}']`); });
-    await wait("!!document.querySelector('.order-line')");
-    await browser("click", ".order-line");
+    })()`).then(async id => { await browser("click", `.rail-row[data-id='${id}']`); await evaluate(`window.__openOrder(${JSON.stringify(id)})`); });
     await wait("!!document.querySelector('.progress-head button')");
     await capture("before");
     await evaluate(`window.__fake.app.handlers['message.resumeWork'] = async () => { const {RpcError} = await import('/src/app/seam.ts'); throw new RpcError(-32002, 'diagnostic remains exactly as supplied'); }`);
