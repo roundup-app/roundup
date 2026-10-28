@@ -3,6 +3,44 @@ use super::*;
 use serde_json::json;
 
 #[tokio::test]
+async fn u3787a_rail_undo_preserves_unrelated_changes() {
+    for kind in ["agent", "workstream"] {
+        for change in ["immediate", "reorder", "new-agent"] {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = crate::test_daemon(dir.path()).unwrap();
+            let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+            for (kind, name, order) in [("workstream", "first", 0), (kind, "chosen", 1), ("workstream", "following", 2), ("workstream", "last", 3)] {
+                db.execute("INSERT INTO nodes(kind,name,ord) VALUES(?,?,?)", params![kind,name,order]).unwrap();
+            }
+            let original = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+            let deletion = call(&daemon, "rail.remove", json!({"id":"2","operation":"independent"})).await.unwrap()["deletion"].clone();
+            // These are the normal refresh reads after the removal event.
+            call(&daemon, "rail.tree", Value::Null).await.unwrap();
+            call(&daemon, "todo.list", Value::Null).await.unwrap();
+            call(&daemon, "pad.list", Value::Null).await.unwrap();
+            if change == "reorder" {
+                call(&daemon, "rail.move", json!({"id":"4","parent":null,"index":0})).await.unwrap();
+            } else if change == "new-agent" {
+                db.execute("INSERT INTO nodes(kind,name,parent,ord) VALUES('agent','new',4,0)", []).unwrap();
+            }
+            let changed = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+            call(&daemon, "rail.restore", deletion.clone()).await.unwrap_or_else(|e| panic!("{kind}/{change}: {e}"));
+            let restored = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+            let chosen = restored.as_array().unwrap().iter().find(|n| n["id"] == "2").unwrap();
+            assert_eq!(chosen, &original[1]);
+            let root: Vec<_> = restored.as_array().unwrap().iter().filter(|n| n["parent"].is_null()).map(|n| n["id"].clone()).collect();
+            assert_eq!(root, if change == "reorder" { vec![json!("4"),json!("1"),json!("2"),json!("3")] } else { vec![json!("1"),json!("2"),json!("3"),json!("4")] });
+            if change == "new-agent" {
+                assert_eq!(restored.as_array().unwrap().iter().find(|n| n["name"] == "new"), changed.as_array().unwrap().iter().find(|n| n["name"] == "new"));
+            }
+            assert_eq!(call(&daemon, "terminal.list", Value::Null).await.unwrap(), json!([]));
+            call(&daemon, "rail.restore", deletion).await.unwrap();
+            assert_eq!(call(&daemon, "rail.tree", Value::Null).await.unwrap(), restored);
+        }
+    }
+}
+
+#[tokio::test]
 async fn u3787a_reversible_rail_removal_restores_original_identity() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = crate::test_daemon(dir.path()).unwrap();
