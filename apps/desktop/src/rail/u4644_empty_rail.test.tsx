@@ -26,6 +26,7 @@ it.each([
   else fireEvent.click(within(empty).getByRole("button", { name: method === "rail.createWorkstream" ? "New Workstream" : "New Agent" }));
 
   await waitFor(() => expect(railCallsTo(app, method)).toEqual(method === "rail.createWorkstream" ? [{ name: "workstream", parent: null }] : [{ cwd: "/Users/you/harness", prompt: null, parent: null, model: null, effort: null }]));
+
   if (method === "rail.createWorkstream") await waitFor(() => expect(railCallsTo(app, "rail.startDoor")).toHaveLength(1));
   expect(railCallsTo(app, method === "rail.createWorkstream" ? "agent.spawn" : "rail.createWorkstream")).toEqual([]);
 });
