@@ -30,6 +30,15 @@ pub struct Opened {
 /// X12: start the user's login shell, owned by `workstream` or the Project when absent.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct OpenParams {
+    /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub cols: Option<u16>,
+    /// U4590: initial PTY rows; absent keeps the hostless 24-row default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub rows: Option<u16>,
+
     pub workstream: Option<String>,
 }
 
