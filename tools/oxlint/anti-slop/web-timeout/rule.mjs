@@ -80,7 +80,8 @@ function member(source, node) {
 }
 
 function namespaceProperty(origin, name) {
-  if (origin === "namespace" || (origin === "config namespace" && name === "defineConfig")) return name;
+  if (origin === "namespace" || (origin === "config namespace" && name === "defineConfig") ||
+      (origin === "vi" && name === "setConfig")) return name;
   return null;
 }
 
@@ -178,8 +179,7 @@ function validException(entry) {
 }
 
 function isConfig(source, call) {
-  const method = member(source, call.callee);
-  return method?.name === "setConfig" && imported(source, method.object) === "vi";
+  return imported(source, call.callee) === "setConfig";
 }
 
 /** Opt-in until the exact existing-test exceptions have been justified. No file-wide exemption exists. */
