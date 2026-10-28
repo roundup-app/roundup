@@ -221,7 +221,7 @@ export const Bubble = (props: {
               </span>
               <span class="bubble-name">{props.name}</span>
             </header>
-            <div class="bubble-body" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} />
+            <div class="bubble-body" tabindex="-1" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} />
           </section>
           <For each={ZONES}>{(zone) => (
             <span class="bubble-zone" data-zone={zone.name} data-zone-of={id()} aria-hidden="true" hidden={place().min}

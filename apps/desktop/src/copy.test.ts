@@ -214,7 +214,7 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
   expect(document.body.textContent).toContain("keep THIS launch failure 🧭");
   app.handlers["rail.startDoor"] = () => door("w", "working", "starting");
   fireEvent.click(retry);
-  await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w" }, { id: "w" }]));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w", cols: 100, rows: 30 }, { id: "w", cols: 100, rows: 30 }]));
   expect(connected.rail.selected()).toBe("w");
   expect(app.calls.filter((call) => call.method === "rail.createWorkstream")).toEqual([]);
 });

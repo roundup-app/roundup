@@ -372,7 +372,7 @@ export const Bubbles = (props: {
 
     if (opening() || readOnly()) return null;
 
-    const focusReturn = captureFocus(true);
+    let focusReturn = captureFocus(true);
     setOpeningSelection(selection);
     setOpening(true);
 
@@ -386,6 +386,8 @@ export const Bubbles = (props: {
 
     try {
       const { host, settled } = await destination.promise;
+      // U2580a: the mounted destination takes keyboard focus while its program waits for a fitted grid.
+      if (focus && focusReturn(() => host.focus({ preventScroll: true }))) focusReturn = captureFocus();
       prepared = await props.screens.prepare(host, settled, controller.signal);
 
       if (!current() || rail.selected() !== selection) return null;
