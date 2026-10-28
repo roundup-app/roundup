@@ -64,6 +64,15 @@ impl Pads {
         self.append_section(ctx, params(value)?)
     }
 
+    pub(super) async fn rpc_pad_reorder(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        self.reorder(ctx, params(value)?)
+    }
+
     pub(super) async fn rpc_pad_set_owner(
         &self,
         ctx: &Ctx,

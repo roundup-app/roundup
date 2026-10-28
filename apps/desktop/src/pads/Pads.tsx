@@ -1,3 +1,4 @@
+import GripVertical from "lucide-solid/icons/grip-vertical";
 import { rowTypeahead } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -208,6 +209,19 @@ export const Pads = (props: {
     remove: name => bulk.ask(false, name),
   });
 
+  let lifted: Pad | undefined;
+
+  const reorder = async (ids: string[]) => {
+    const source = lifted;
+
+    if (!source || !pads().some(pad => pad.incarnation === source.incarnation && pad.name === source.name)) return;
+    const before = ids[ids.indexOf(source.name) + 1] ?? null;
+    const message = await failureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
+
+    reportItemFailure(source, message, copy.movePad(source.name));
+    await list.reload();
+  };
+
   const [dragging, setDragging] = createSignal(false);
   const [picking, pick] = createSignal<{ id: string; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
   const setPicking = (request: { id: string; anchor: HTMLElement } | null) => { pick(request && { ...request, focus: captureFocus(true) }); };
@@ -380,6 +394,8 @@ export const Pads = (props: {
           target: dropOwner.target,
           onDropOutside: (name, target) => void assign(name, target.owner, true),
         }}
+        onOrderChange={ids => void reorder(ids)}
+        onLift={pad => { lifted = { ...pad }; }}
         onDrag={setDragging}
       />}</OwnerGroups>
       <OwnerPicker label={name => copy.ownersForPad(name ?? "")} target={picking} offers={offers} choose={(name, owner) => void assign(name, owner, true)} close={stopPicking} />
@@ -435,12 +451,14 @@ const PadRows = (props: {
   clearFailure: (incarnation: string) => void;
   rowButtons: Map<string, HTMLButtonElement>;
   external: { attribute: string; target: (name: string, x: number, y: number) => OwnerTarget | null; onDropOutside: (name: string, target: OwnerTarget) => void };
+  onOrderChange: (ids: string[]) => void;
+  onLift: (pad: Pad) => void;
   onDrag: Setter<boolean>;
 }) => (
-    <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} external={props.external} onDrag={props.onDrag}>
+    <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} external={props.external} onDrag={props.onDrag}>
       <For each={props.shown()}>
         {(pad, at) => (
-          <Sortable.Item id={pad.name} index={at()} pressable>{parts => <PadRow pad={pad} parts={parts} {...props} />}</Sortable.Item>
+          <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} {...props} />}</Sortable.Item>
         )}
       </For>
     </Sortable.Root>
@@ -508,7 +526,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               ref={(element) => {
                 row = element;
                 props.selection.register(pad.incarnation, element);
-                props.parts.handleRef(element ?? undefined);
 
                 if (element) props.rowButtons.set(pad.name, element);
                 else props.rowButtons.delete(pad.name);
@@ -533,6 +550,10 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             >
               <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : pad.name}</span>
             </button>
+            </Show>
+            <Show when={!editing()}>
+              <button type="button" data-button="quiet" class="pad-grip" data-reorderable aria-label={copy.movePad(pad.name)} ref={props.parts.handleRef}
+                onPointerDown={() => props.onLift(pad)} onKeyDown={event => { if (event.key === " " || event.key === "Enter") props.onLift(pad); }}><GripVertical class="icon" aria-hidden="true" /></button>
             </Show>
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
