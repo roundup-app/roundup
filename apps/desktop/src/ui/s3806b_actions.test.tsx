@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { RpcError } from "../app/seam";
 import { questionProbe } from "../testing/menuProbe";
+import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { FakeApp } from "../testing/fakeApp";
 import { Rail } from "../rail/Rail";
@@ -33,7 +34,7 @@ type Row = {
   selected: string;
   origin: string;
   method: string;
-  params: Record<string, unknown>;
+  params: SpawnParams | { id: string };
   /** Installs the pending handler for this row's method; `entered` runs as the call arrives. */
   hold: (app: FakeApp, entered: () => void) => Pending;
   confirms: boolean;
