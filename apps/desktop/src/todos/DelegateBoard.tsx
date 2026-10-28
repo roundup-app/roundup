@@ -4,6 +4,7 @@ import type { OwnerGroup } from "../shelf/scope";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { useConnectedProject } from "../state/connectedProject";
 import { DisplayClockContext } from "../state/clock";
+import { Field } from "../ui/Field";
 import { Switch } from "../ui/Switch";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "./failureOf";
@@ -72,6 +73,19 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
       setPending(false);
     }}>{copy.todoAuto}</Switch>
     <span class="todo-auto-hint">{copy.todoAutoHint}</span>
+    <Field.Root class="todo-opening">
+      <Field.Label>{copy.openingPrompt}</Field.Label>
+      <Field.Textarea value={node().opening_prompt ?? ""} placeholder={copy.openingPromptHint} onBlur={async event => {
+        const id = node().id;
+        const prompt = event.currentTarget.value;
+
+        if (prompt === (node().opening_prompt ?? "")) return;
+        const message = await failureOf(() => connected.app.rpc("workstream.setOpeningPrompt", { id, prompt: prompt.trim() === "" ? undefined : prompt }));
+
+        if (current()?.id === id) setFailure(message);
+        void connected.rail.refresh();
+      }} />
+    </Field.Root>
     <ReservedLine overlay message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
   </div>}</Show>;
 };

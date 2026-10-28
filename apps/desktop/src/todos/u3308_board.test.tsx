@@ -88,6 +88,16 @@ it("u3310_the_switch_calls_set_auto_once_and_follows_the_event", async () => {
   await waitFor(() => expect(control.getAttribute("aria-checked")).toBe("true"));
 });
 
+it("a4452c_the_workstream_field_saves_the_users_opening_prompt", async () => {
+  const m = await mountTodos([todo(1, { home: "w" })], true, [workstream("w", { auto: false })]);
+  m.connected.rail.select("w");
+  m.app.handlers["workstream.setOpeningPrompt"] = () => null;
+  const field = await screen.findByRole("textbox", { name: "Opening prompt" });
+  fireEvent.input(field, { target: { value: "Read the plan" } });
+  fireEvent.blur(field);
+  await waitFor(() => expect(todoCallsTo(m.app, "workstream.setOpeningPrompt").map(call => call.params)).toEqual([{ id: "w", prompt: "Read the plan" }]));
+});
+
 it("u3310_the_switch_is_absent_without_a_workstream", async () => {
   await mountTodos([todo(1)]);
   expect(screen.queryByRole("switch", { name: "Auto" })).toBeNull();
