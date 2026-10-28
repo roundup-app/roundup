@@ -933,3 +933,8 @@ The main window's AppKit Sidebar effect, revealed only through the Rail and rese
 
 **Native open** (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`):
 One native invocation's explicit Project path resolved against its working directory, or an opaque Link delivered by the deep-link plugin. The shell queues it until the main webview subscribes. Existing Project and selection holders consume it; only the Daemon's `link.read` resolves Link identity and authority. It starts no Agent and submits no draft.
+**Remove this** (`agent::RemoveScope::This`):
+Remove the chosen Workstream using A34: unfinished Agents and open Todos stay at the Project root; Pads follow kept Agents. The default when `rail.remove` omits `scope`.
+
+**Remove all** (`agent::RemoveScope::All`):
+Remove the chosen Workstream and its contents, stopping descendants and deleting their Worktrees and branches, including dirty or ahead work. Delete all Todos and Pads whose Home is the chosen Workstream; nothing is lifted. Only Workstreams accept this scope; a reversible `operation` refuses it before any change.
