@@ -393,21 +393,6 @@ impl Rail {
         Ok(next.to_string())
     }
 
-    /// A32: the Door of Workstream `id` is now in Iteration `iteration`.
-    pub fn set_iteration(&mut self, id: &str, iteration: u32) -> Result<(), RpcError> {
-        let changed = self
-            .db
-            .execute(
-                "UPDATE nodes SET iteration = ? WHERE id = ?",
-                params![iteration, id],
-            )
-            .map_err(sql)?;
-        if changed == 0 {
-            return Err(RpcError::not_found(GONE_AGENT));
-        }
-        Ok(())
-    }
-
     pub fn detach_terminal(&mut self, id: &str) -> Result<(), RpcError> {
         self.db
             .execute(

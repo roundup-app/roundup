@@ -394,26 +394,6 @@ impl Store {
         Ok(thread)
     }
 
-    /// A32: the Iteration `door` is in ends with the Messages stored so far.
-    pub(crate) fn end_iteration(&self, door: &str) -> Result<u32, RpcError> {
-        let ended: u32 = self
-            .db
-            .query_row(
-                "SELECT COUNT(*) FROM iterations WHERE door = ?",
-                [door],
-                |r| r.get(0),
-            )
-            .map_err(RpcError::internal)?;
-        self.db
-            .execute(
-                "INSERT INTO iterations (door, iteration, upto)
-                 VALUES (?1, ?2, COALESCE((SELECT MAX(id) FROM messages), 0))",
-                params![door, ended + 1],
-            )
-            .map_err(RpcError::internal)?;
-        Ok(ended + 1)
-    }
-
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, RpcError> {
         self.db
             .query_row(

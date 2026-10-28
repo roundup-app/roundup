@@ -53,10 +53,7 @@ impl Daemon {
                 .restart_door(
                     &self.ctx(actor.clone()),
                     &p.id,
-                    String::new(),
-                    node.iteration.unwrap_or(0),
                     std::time::Duration::from_secs(15),
-                    None,
                 )
                 .await?;
             state = SessionRestart::Started {
