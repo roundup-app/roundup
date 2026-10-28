@@ -75,9 +75,6 @@ type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync
 
 type SteerEffect = Arc<dyn Fn(&str) -> Result<(), RpcError> + Send + Sync>;
 
-/// H19: told, under the Agents' locks, each gate decision as `(agent id, released)`.
-type GateObserver = Arc<dyn Fn(&str, bool) + Send + Sync>;
-
 struct Shared {
     git: worktree::Git,
     worktrunk: worktrunk::Collector,
@@ -100,6 +97,8 @@ struct Shared {
     channels: Mutex<HashMap<String, (String, Channel)>>,
     /// E3: the Daemon supplies mutable Context before the one first Steer.
     context: Option<ContextText>,
+    /// A4452d: where roundup's own text goes instead of the Terminal.
+    coordination: Option<CoordinationSink>,
     /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
     /// it reads `blocked`.
     waits: Mutex<HashMap<String, u32>>,
@@ -155,6 +154,17 @@ pub const RESUME_ACK_BOUND: Duration = Duration::from_secs(10);
 pub const START_DOOR_ACK_BOUND: Duration = Duration::from_secs(8);
 
 type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
+
+/// A4452a: sends roundup's own text to an Agent's Claude inbox as a Message, `(agent id, text)`.
+type CoordinationSink = Arc<
+    dyn Fn(
+            String,
+            String,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), RpcError>> + Send>>
+        + Send
+        + Sync,
+>;
 
 type ContextText = Arc<
     dyn Fn(
@@ -386,7 +396,6 @@ pub use events::InboxObserver;
 use events::{channel_deadline_from_env, channel_in, interrupt_bound_from_env, watch};
 use rail_view::{agent_lock, valid_explicit_order, valid_order, waiting_on};
 use registration::{hold, save_signal_conversation};
-use steer::SteerError;
 use worktree_wiring::report_undo;
 
 /// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
@@ -411,3 +420,26 @@ struct SteerSettings {
 
 #[cfg(test)]
 use store::tests;
+
+#[cfg(feature = "test-support")]
+impl Agents {
+    /// U4593 controls observed Status without a vendor, Terminal or wall clock.
+    pub fn set_status_for_test(&self, id: &str, status: Status) {
+        self.shared
+            .rail_view
+            .statuses
+            .lock()
+            .unwrap()
+            .insert(id.to_owned(), status.clone());
+        self.shared.bus.emit(
+            Actor::daemon(),
+            EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
+                ended: false,
+                id: id.to_owned(),
+                attempt: "1".into(),
+                status_revision: "1".into(),
+                status,
+            })),
+        );
+    }
+}

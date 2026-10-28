@@ -12,7 +12,7 @@ it("u3787a_fake_app_restoration_refreshes_the_same_graph", async () => {
   const before = await app.rpc("todo.list", null);
   const deletion = await deleteTodos(app, [1]);
   await app.rpc("todo.restore", { operation: deletion.operation });
-  await screen.findByRole("button", { name: /#1 / });
+  await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
   expect(await app.rpc("todo.list", null)).toEqual(before);
 });
 

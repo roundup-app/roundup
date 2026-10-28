@@ -91,7 +91,7 @@ it.each(["process", "worktree", "cascade"])("u3787a_rail_%s_requires_native_cons
   await screen.findByText("chosen", { selector: ".name" });
   fireEvent.contextMenu(rowOf("chosen"));
   await daemon.pickMenu("Remove");
-  await waitFor(() => expect(effect === "cascade" ? daemon.removalQuestions : daemon.questions).toHaveLength(1));
+  await waitFor(() => expect(daemon.questions).toHaveLength(1));
   await answerQuestion(false);
   expect(daemon.calls.filter(c => c.method === "rail.remove")).toEqual([]);
   expect([screen.queryByText("Deleted chosen")]).toEqual([null]);

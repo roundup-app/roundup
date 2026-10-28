@@ -10,7 +10,7 @@ import { agent, door, info, terminal, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 import { createFakeApp } from "../../testing/fakeApp";
-import { judgeRemoval } from "./removal";
+import { goesLine, staysLine, judgeRemoval } from "./removal";
 import { padOf } from "../../pads/padsFixture";
 import { todo } from "../../todos/testHarness";
 
@@ -108,7 +108,7 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("g");
     await app.pickMenu("Remove");
-    expect((await questionDialog()).message).toContain("Goes: Nothing");
+    expect(await questionDialog()).toMatchObject({ okLabel: "Remove", cancelLabel: "Cancel" });
     await questionDialog();
     await answerQuestion(false);
     await waitFor(() => expect(questionProbe.shown).toBeNull());
@@ -209,6 +209,10 @@ it("u4368_nested_agents_keep_a34_classification", async () => {
   expect(result.goes).toEqual({ agents: ["finished"], todos: 1, pads: 1 });
   expect(result.stays).toEqual({ agents: [{ name: "running", reason: "Running" }], todos: 1, pads: 1 });
   expect(railCallsTo(app, "agent.worktreeState")).toEqual([{ id: "finished" }]);
+  expect([goesLine(result, "chosen"), staysLine(result)]).toEqual([
+    "Goes: chosen, finished, 1 done Todo, 1 Pad",
+    "Stays (Remove this): running, 1 open Todo, 1 Pad",
+  ]);
 });
 
 it.each(["chosen", "group", "supervisor"])("u4368_container_terminal_loss_still_requires_consent_%s", async owner => {
@@ -223,9 +227,7 @@ it.each(["chosen", "group", "supervisor"])("u4368_container_terminal_loss_still_
   open("chosen");
   await app.pickMenu("Remove");
   const question = await questionDialog();
-  const summary = question.message.slice(question.message.indexOf("Goes:"));
-  expect(question.message).toMatch(new RegExp(`Stop.*process.*${owner}`));
-  expect(summary).not.toMatch(/group|supervisor|Agents|Running/);
+  expect(question).toMatchObject({ okLabel: "Remove", cancelLabel: "Cancel" });
   expect(removals(app)).toEqual([]);
   await answerQuestion(false);
   await waitFor(() => expect(questionProbe.shown).toBeNull());

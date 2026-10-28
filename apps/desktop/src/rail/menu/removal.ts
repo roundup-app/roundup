@@ -65,28 +65,28 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
   return removal;
 };
 
-const counts = (parts: [number, string][]) => parts.flatMap(([count, noun]) => (count > 0 ? [copy.counted(count, noun)] : [])).join(", ");
+/** U4601: names precede counts; each scope's judgment is presented once. */
+export const goesLine = ({ goes }: Removal, name: string) =>
+  copy.goes([name, ...goes.agents, ...(goes.todos ? [copy.doneTodoCount(goes.todos)] : []), ...(goes.pads ? [copy.removalPadCount(goes.pads)] : [])].join(", "));
 
-/** U367: the line of what goes, `Goes: Nothing` when nothing does. */
-export const goesLine = ({ goes }: Removal) =>
-  copy.goes(counts([[goes.agents.length, copy.agentNoun], [goes.todos, copy.doneTodos], [goes.pads, copy.pads]]) || copy.nothing);
-
-/** U367: the line of what stays at the Project root; `null` when nothing does. */
+/** U4601: only work preserved by Remove this belongs in Stays. */
 export const staysLine = ({ stays }: Removal) => {
-  const list = counts([[stays.agents.length, copy.agentNoun], [stays.todos, copy.openTodoNoun], [stays.pads, copy.pads]]);
+  const list = [...stays.agents.map(agent => agent.name), ...(stays.todos ? [copy.openTodoCount(stays.todos)] : []), ...(stays.pads ? [copy.removalPadCount(stays.pads)] : [])].join(", ");
 
-  return list === "" ? null : copy.staysAtTheProjectRoot(list);
+  return list === "" ? null : copy.staysRemoveThis(list);
 };
 
-/** U4461: the extra destruction authorized only by Remove all. */
-export const removeAllLine = ({ stays }: Removal) => {
-  const list = counts([[stays.agents.length, copy.agentNoun], [stays.todos, copy.openTodoNoun], [stays.pads, copy.pads]]);
+/** The native question carries the plan and offers only distinct removal scopes. */
+export const removalQuestion = (removal: Removal, name: string) => {
+  const stays = staysLine(removal);
 
-  return list === "" ? null : copy.removeAllAlsoRemoves(list);
+  const summary = {
+    title: copy.removeWorkstreamQuestion(name),
+    message: [goesLine(removal, name), stays].filter(Boolean).join("\n"),
+    cancelLabel: copy.cancel,
+  };
+
+  return stays
+    ? { ...summary, thisLabel: copy.removeThis, allLabel: copy.removeAll }
+    : { ...summary, okLabel: copy.remove };
 };
-
-/** U367: the names of the Agents that go, one line each, then `+ <n> more`. */
-export const goingNames = ({ goes }: Removal, shown = 5) => [
-  ...goes.agents.slice(0, shown),
-  ...(goes.agents.length > shown ? [copy.moreAgents(goes.agents.length - shown)] : []),
-];

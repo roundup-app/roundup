@@ -294,6 +294,7 @@ pub fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
             command
                 .env("TOKIO_WORKER_THREADS", "16")
                 .env("RUPD_PROMPT_EFFECT_GATE", project.join("effect-gate"))
+                .env("RUPD_MESSAGES_FAULT_FILE", project.join("messages-fault"))
                 .env("RUPD_ORDER_EFFECT_GATE", project.join("order-effect-gate"))
                 .env("RUPD_TERMINAL_INPUT_GATE", project.join("input-gate"))
                 .env("ROUNDUP_DATA_DIR", data)

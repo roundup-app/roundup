@@ -35,14 +35,15 @@ const u535Fixture = () => {
     <Sortable.Root ids={rows().map((row) => row.id)} aria-label="Tree rows" class="sortable-fixture"
       tree={flat ? undefined : {
         rows: rows(), indent: INDENT, nests: (id) => NESTS.has(id),
+        inset: (element) => Number.parseFloat(getComputedStyle(element).paddingInlineStart),
         onMove: (next) => move([...moves(), next]),
         onPreview: (drop) => preview([...previews(), drop ? `${drop.parent}:${drop.index}:${drop.depth}` : "end"]),
       }}
       onOrderChange={(next) => order([...orders(), next.join(",")])}>
       <For each={rows()}>{(row, index) => <Sortable.Item id={row.id} index={index()}>{(parts) =>
         <div ref={parts.ref} data-id={row.id} class="sortable-row" style={{ "padding-left": `${depth(row.id) * INDENT}px` }} data-dragging={parts.isDragging()}>
-          <button ref={parts.handleRef} data-button="quiet" data-reads="text" aria-label={`Move ${row.id}`}>Move {row.id}</button>
           <span>{row.id}</span>
+          <Sortable.Handle ref={parts.handleRef} label={`Move ${row.id}`} />
         </div>
       }</Sortable.Item>}</For>
     </Sortable.Root>

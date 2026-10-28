@@ -19,7 +19,7 @@
     },
     {
       "match": {
-        "userMessage": "Follow this instruction: E6 late shim",
+        "userMessage": "E6 late shim",
         "hasToolResult": false
       },
       "response": {

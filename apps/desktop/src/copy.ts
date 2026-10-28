@@ -74,7 +74,7 @@ type CopyValue = string | number | undefined;
 
 const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
-const draftSurfaceLabels = new Map(Object.entries({ "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
+const draftSurfaceLabels = new Map(Object.entries({ "opening-prompt": "Opening prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
 const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"]]);
 
@@ -125,6 +125,8 @@ const importRefusals = new Map<number, string>([
 export const clockTime = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
 });
+
+const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
   claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
@@ -418,8 +420,6 @@ export const copy = {
   removeThis: "Remove this",
   removeAll: "Remove all",
   nativeRemovalAlertUnavailable: "Native removal alert unavailable; retry",
-  removeAllWorktreeLoss: (name: string) => `Remove all deletes the Worktree directory, files and branch for ${name}.`,
-  removeAllAlsoRemoves: (items: string) => `Remove all also removes: ${items}`,
   leaderChord: "⌘K",
   leaderPanel: "Press a key",
   leaderShortNeedsYou: "Needs you",
@@ -802,6 +802,9 @@ export const copy = {
   body: "Body",
   moveTodo: (value1: CopyValue) => `Move #${value1}`,
   move: "Move",
+  moveItem: (name: string) => `Move ${name}`,
+  openItem: (name: string) => `Open ${name}`,
+  moveTodoRow: (id: number, title: string) => `Move #${id} ${title}`,
   noOtherHomes: "No other homes available",
   homesFor: (value1: CopyValue) => `Homes for #${value1}`,
   reopenTodo: (value1: CopyValue) => `Reopen ${value1}`,
@@ -835,6 +838,11 @@ export const copy = {
   todoNoEstimates: "no estimates",
   todoWithoutEstimates: (count: number) => `+ ${count} without estimate`,
   todoAuto: "Auto",
+  openingPrompt: "Opening prompt",
+  openingPromptMenu: "Opening prompt…",
+  openingPromptFor: (name: string) => `Opening prompt · ${name}`,
+  openingPromptPlaceholder: "Your opening words",
+  openingPromptHint: "Typed once when this Workstream starts a fresh session",
   todoAutoHint: "Hand out unassigned Todos",
   todoAutoHandling: "Handing these out",
   todoMoveTo: (id: number, name: string) => `Move #${id} to ${name}`,
@@ -879,11 +887,12 @@ export const copy = {
   resumeOutcomeUnknownTheDaemonMayHaveResumed: "Resume outcome unknown: The Daemon may have resumed it",
   unlandedWorkAhead: (value1: CopyValue) => `Unlanded work: ${value1} ahead`,
   unlandedWorkUncommittedChanges: "Unlanded work: Uncommitted changes",
+  removeWorkstreamQuestion: (name: string) => `Remove “${name}”?`,
+  doneTodoCount: (count: number) => `${count} done ${removalPlurals.select(count) === "one" ? "Todo" : "Todos"}`,
+  openTodoCount: (count: number) => `${count} open ${removalPlurals.select(count) === "one" ? "Todo" : "Todos"}`,
+  removalPadCount: (count: number) => `${count} ${removalPlurals.select(count) === "one" ? "Pad" : "Pads"}`,
+  staysRemoveThis: (items: string) => `Stays (Remove this): ${items}`,
   goes: (value1: CopyValue) => `Goes: ${value1}`,
-  agentNoun: "Agents",
-  openTodoNoun: "open Todos",
-  staysAtTheProjectRoot: (value1: CopyValue) => `Stays at the Project root: ${value1}`,
-  moreAgents: (value1: CopyValue) => `+ ${value1} more`,
   padCount: (value1: CopyValue) => `${value1} pads`,
   todoCount: (value1: CopyValue) => `${value1} todos`,
   padsAndTodos: (value1: CopyValue) => `${value1} pads and todos`,
@@ -895,8 +904,6 @@ export const copy = {
   clipboardCopyRetry: "Try again, or select the text and copy it with the context menu.",
   copy: "Copy",
   comma: ", ",
-
-  doneTodos: "done Todos",
 
   nothing: "Nothing",
   makeYours: "Make yours",
