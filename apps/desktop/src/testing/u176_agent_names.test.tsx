@@ -327,6 +327,7 @@ describe("u2773 Rail persisted edits", () => {
 
   it("u2773b_rail_real_acknowledgement_consumes_only_submitted_revision", async () => {
     const app = createServedApp(second.base);
+    await app.rpc("rail.createWorkstream", { name: "Prompt destination", parent: null });
     const before = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent").length;
     const starts: string[] = [];
     const rpc = app.rpc;
