@@ -225,6 +225,18 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
     if (captureDir("U4457")) {
       await browser("open", `${real.base}/harness.html?seed=tree-40`);
       await browser("wait", "[data-todo-root]");
+      const todoControl = '[data-id="tokens"] [data-pads-control]';
+      const todoGroup = '[data-shelf-group="unassigned"]';
+
+      await browser("hover", '[data-id="tokens"]');
+      await browser("click", todoControl);
+      await until("document.activeElement.matches('.todo-row-button') && !document.activeElement.closest('[hidden]')");
+      await browser("click", `${todoGroup} .shelf-group-control`);
+      await until(`document.querySelector('${todoGroup}')?.getAttribute('aria-expanded') === 'false'`);
+      await browser("hover", '[data-id="tokens"]');
+      await browser("click", todoControl);
+      await until("document.activeElement.matches('.todo-row-button') && !document.activeElement.closest('[hidden]')");
+      await capture("tree-40-todo-control");
       await browser("click", "[data-todo-root]");
       await browser("press", "Meta+k");
       await browser("press", "s");

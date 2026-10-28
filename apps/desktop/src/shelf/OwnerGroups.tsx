@@ -4,7 +4,7 @@ import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
 import { Tip } from "../ui/Tip";
 import { copy } from "../copy";
-import { queueFocus } from "../keys/focus";
+import { captureFocus } from "../keys/focus";
 import type { OwnerGroup } from "./scope";
 
 type Entry = { id: string; name: string; children: Entry[] };
@@ -63,14 +63,18 @@ export const OwnerGroups = <T,>(props: {
 
     if (id === null || id === undefined || !shown().some(group => group.id === id)) return;
     setClosed(kept => kept.filter(each => each !== id));
-    queueFocus(() => {
+    const focus = captureFocus();
+
+    // Ark Collapsible applies its controlled open state before the next paint; a hidden Todo cannot take native focus.
+    requestAnimationFrame(() => focus(() => {
+      if (props.focus?.() !== id) return;
       const branch = document.querySelector<HTMLElement>(`[data-shelf-group="${CSS.escape(id)}"]`);
       const target = props.focusItem?.() ?? branch?.querySelector<HTMLElement>(".shelf-group-head:not([hidden]) .shelf-group-control") ?? branch?.querySelector<HTMLElement>("[role=treeitem] button, button");
 
       target?.focus({ preventScroll: true });
       target?.scrollIntoView({ block: "nearest" });
       props.onFocused?.();
-    });
+    }));
   });
 
   return <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
