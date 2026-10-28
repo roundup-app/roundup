@@ -171,7 +171,9 @@ const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void
 };
 
 const ARABIC = "\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF";
+
 const ARABIC_RUN = new RegExp(`[${ARABIC}]+(?:[ \\-.,!?:;'"()0-9]+[${ARABIC}]+)*[.,!?:]?`, "g");
+
 /** Each Arabic run, spaces between words included, so the renderer draws it as one shaped string. */
 export const arabicRuns = (text: string): [number, number][] =>
   [...text.matchAll(ARABIC_RUN)].map(match => [match.index, match.index + match[0].length]);
