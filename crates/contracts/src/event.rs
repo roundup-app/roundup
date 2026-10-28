@@ -10,8 +10,6 @@ use crate::{agent, checkpoint, message, pad, project, terminal, todo, workstream
 pub enum EventData {
     #[serde(rename = "workstream.updated")]
     WorkstreamUpdated(workstream::AutoParams),
-    #[serde(rename = "project.measurementsChanged")]
-    MeasurementsChanged { revision: String },
     #[serde(rename = "ask.changed")]
     AskChanged { ask: Box<crate::ask::Ask> },
     #[serde(rename = "terminal.title")]

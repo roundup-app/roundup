@@ -94,7 +94,6 @@ import type { ImportList as project_ImportList } from "./project/ImportList";
 import type { ImportListParams as project_ImportListParams } from "./project/ImportListParams";
 import type { ImportResult as project_ImportResult } from "./project/ImportResult";
 import type { Mcp as project_Mcp } from "./project/Mcp";
-import type { Measurements as project_Measurements } from "./project/Measurements";
 import type { ModelList as project_ModelList } from "./project/ModelList";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
 import type { PrepareParams as project_PrepareParams } from "./project/PrepareParams";
@@ -165,7 +164,6 @@ import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstre
 import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "./workstream/StartWorkstreamParams";
 
 export type RpcMethods = {
-  "project.measurements": { params: null; result: project_Measurements };
   "terminal.open": { params: terminal_OpenParams; result: terminal_Opened };
   "agent.spawn": { params: agent_SpawnParams; result: agent_RailNode };
   "agent.extras": { params: null; result: agent_Extras };
