@@ -5,7 +5,7 @@
       "response": {"content": "{\"title\":\"Review work\"}"}
     },
     {
-      "match": {"userMessage": "<session>\nFollow this instruction: What is this Workstream for?"},
+      "match": {"userMessage": "<session>\nWhat is this Workstream for?"},
       "response": {"content": "{\"title\":\"Workstream planning\"}"}
     },
     {
@@ -13,7 +13,7 @@
       "response": {"content": "Ready for your instructions."}
     },
     {
-      "match": {"userMessage": "Follow this instruction: What is this Workstream for?", "hasToolResult": false},
+      "match": {"userMessage": "What is this Workstream for?", "hasToolResult": false},
       "response": {"content": "Ready for your instructions."}
     },
     {

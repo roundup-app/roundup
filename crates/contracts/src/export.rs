@@ -216,6 +216,7 @@ pub fn types() -> specta::Types {
         .register::<crate::project::ImportOutcome>()
         .register::<crate::project::ImportResult>()
         .register::<crate::workstream::AutoParams>()
+        .register::<crate::workstream::OpeningPromptParams>()
         .register::<crate::workstream::StartChoice>()
         .register::<crate::workstream::StartWorkstreamParams>()
         .register::<crate::workstream::QueueEntry>()

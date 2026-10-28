@@ -74,7 +74,7 @@ type CopyValue = string | number | undefined;
 
 const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
-const draftSurfaceLabels = new Map(Object.entries({ "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
+const draftSurfaceLabels = new Map(Object.entries({ "opening-prompt": "Opening prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
 const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"]]);
 
@@ -833,6 +833,11 @@ export const copy = {
   todoNoEstimates: "no estimates",
   todoWithoutEstimates: (count: number) => `+ ${count} without estimate`,
   todoAuto: "Auto",
+  openingPrompt: "Opening prompt",
+  openingPromptMenu: "Opening prompt…",
+  openingPromptFor: (name: string) => `Opening prompt · ${name}`,
+  openingPromptPlaceholder: "Your opening words",
+  openingPromptHint: "Typed once when this Workstream starts a fresh session",
   todoAutoHint: "Hand out unassigned Todos",
   todoAutoHandling: "Handing these out",
   todoMoveTo: (id: number, name: string) => `Move #${id} to ${name}`,

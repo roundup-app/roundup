@@ -189,7 +189,7 @@ struct Fresh {
 
 /// B55: the unique word of an old ask, and the Door whose Iteration was given it.
 const QUOKKA: &str = "QUOKKA";
-const B55_FIRST_PROMPT: &str = "Follow this instruction: Build the";
+const B55_FIRST_PROMPT: &str = "Build the";
 
 #[tokio::test]
 async fn b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it() {
