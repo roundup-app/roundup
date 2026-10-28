@@ -56,7 +56,6 @@ export const OwnerGroups = <T,>(props: {
 
   createEffect(on([props.reveal, () => props.arrivals?.() ?? []], ([reveal, arrivals]) => setClosed(kept => kept.filter(each => each !== reveal && !arrivals.includes(each)))));
 
-
   createEffect(() => {
     const id = props.focus?.();
 
