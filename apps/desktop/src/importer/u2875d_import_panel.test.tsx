@@ -472,6 +472,9 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       })()`);
       await lane.until("!!document.querySelector('[aria-label=\"Unfinished work\"] [data-revision=\"' + window.__auditLegacy + '\"]')");
       await capture("U3299c", side!, "retained-order");
+      await lane.evaluate("[...document.querySelectorAll('[data-revision=\"' + window.__auditLegacy + '\"] button')].find(button => button.textContent === 'Copy').click()");
+      await lane.until("window.__fake.app.clipboardWrites.at(-1)?.includes('Exact retained Order /Users/authored/path')");
+      expect(await lane.calls("agent.setOrder")).toEqual([]);
       await lane.browser("click", ".drawer .close");
       await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");
       await lane.browser("click", ".todo-project-root");
@@ -488,7 +491,8 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         return true;
       })()`);
       await lane.until("!!document.querySelector('.todo-row-button')");
-      await lane.browser("click", ".todo-row-button");
+      await lane.browser("focus", ".todo-row-button");
+      await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-history-line')");
       await lane.browser("click", ".todo-history-line");
       await lane.until("document.querySelectorAll('.todo-change').length >= 2");
