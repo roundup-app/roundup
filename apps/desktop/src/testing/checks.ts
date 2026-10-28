@@ -788,7 +788,13 @@ const d14 = (page: Page): Measure => {
       const previous = own[index]!;
 
       // The done fold begins another list; its separation is not a gap between neighbours.
-      if (listOf(one.row) === listOf(previous.row)) between.push(one.box.top - previous.box.bottom);
+      if (listOf(one.row) === listOf(previous.row)) {
+        const slot = listOf(one.row)?.querySelector(".sortable-slot")?.getBoundingClientRect();
+        // U3800a's destination is a visible row-sized slot, not empty spacing between rows.
+        const occupied = slot && slot.top >= previous.box.bottom && slot.bottom <= one.box.top ? slot.height : 0;
+
+        between.push(one.box.top - previous.box.bottom - occupied);
+      }
     });
 
     if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);
