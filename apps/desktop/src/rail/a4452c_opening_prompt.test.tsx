@@ -54,6 +54,7 @@ it.each(["Escape", "Close"])("a4452c_closing_with_%s_returns_focus_to_the_workst
   await m.app.pickMenu("Opening prompt…");
   const field = await screen.findByRole("textbox", { name: "Opening prompt" });
   field.focus();
+
   if (close === "Escape") fireEvent.keyDown(field, { key: "Escape" });
   else fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(document.activeElement).toBe(row));
@@ -62,6 +63,7 @@ it.each(["Escape", "Close"])("a4452c_closing_with_%s_returns_focus_to_the_workst
 it("a4452c_retry_saves_the_retained_prompt_without_refocusing_the_field", async () => {
   const m = await mountRail([workstream("w")], [], undefined, () => true);
   m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
+
   fireEvent.contextMenu(rowOf("w"));
   await m.app.pickMenu("Opening prompt…");
   const field = await screen.findByRole("textbox", { name: "Opening prompt" });
