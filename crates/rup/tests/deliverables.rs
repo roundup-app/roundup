@@ -776,10 +776,8 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
         )
         .unwrap();
     }
-    let version: i64 = db
-        .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .unwrap();
-    db.pragma_update(None, "user_version", version - 2).unwrap();
+    // Version 42 precedes 0028-deliverable-files.sql; later additions must not skip it.
+    db.pragma_update(None, "user_version", 42).unwrap();
     std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
     p.restart(&[]);
 }
