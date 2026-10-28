@@ -79,6 +79,10 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
   fireEvent.click(back);
   fireEvent.keyDown(back, { key: "Enter", code: "Enter" });
   fireEvent.keyDown(region, { key: "Escape", code: "Escape" });
+  // U4453b uses the same pending-import guard through both new return paths.
+  fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });
+  fireEvent.keyDown(document.body, { key: "a", code: "KeyA" });
+  fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   expect(screen.getByRole("region", { name: "Import Claude Code work" })).toBe(region);
   expect(connected().importing.pending()).toBe(true);
   expect(connected().rail.selected()).toBe("a0");

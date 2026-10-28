@@ -232,7 +232,7 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     showShelfTab("Pads");
     const field = await openPad(name);
     fireEvent.input(field, { target: { value: "unfinished é 🪁\nsecond" } });
-    const retained = drafts(first.dir).list().at(-1)!;
+    const retained = drafts(first.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === original.incarnation)!;
     expect(retained.destination).toEqual({ surface: "pads", object: original.incarnation, recipient: null });
     expect(retained.value).toMatchObject({ originalName: name, source: "unfinished é 🪁\nsecond\n", base: "original\n", baseRevision: original.revision });
     // A separate public write generates the real Event that pauses this editor.
@@ -263,8 +263,8 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     expect(document.activeElement).toBe(focused);
     fireEvent.focusOut(restored);
     expect(writes()).toBe(afterExternal);
-    expect(drafts(first.dir).list().at(-1)?.value.base).toBe("original\n");
-    expect(drafts(second.dir).list().at(-1)).toMatchObject({ destination: { object: other.incarnation }, value: { source: "separate 🪁\n", base: "other Project\n" } });
+    expect(drafts(first.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === original.incarnation)?.value.base).toBe("original\n");
+    expect(drafts(second.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === other.incarnation)).toMatchObject({ destination: { object: other.incarnation }, value: { source: "separate 🪁\n", base: "other Project\n" } });
     expect((await one.rpc("pad.read", { name })).text).toBe("external\n");
     expect((await two.rpc("pad.read", { name })).text).toBe("external other");
     const firstTab = document.querySelector<HTMLElement>(`[data-path="${first.dir}"]`)!;
@@ -285,7 +285,7 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     expect(replacement.incarnation).not.toBe(original.incarnation);
     fireEvent.click(screen.getByRole("button", { name: "Resume" }));
     expect((await one.rpc("pad.read", { name })).text).toBe("replacement");
-    expect(drafts(first.dir).list().at(-1)?.destination.object).toBe(original.incarnation);
+    expect(drafts(first.dir).list().filter(draft => draft.destination.surface === "pads").at(-1)?.destination.object).toBe(original.incarnation);
   } finally {
     cleanup();
     vi.restoreAllMocks();
