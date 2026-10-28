@@ -147,3 +147,73 @@ async fn a4_a_missing_claude_leaves_no_agent_and_no_settings_file() {
         .unwrap_or_default();
     assert!(left.is_empty(), "left behind: {left:?}");
 }
+
+
+/// Reads the kernel's PTY size before either draw; no vendor protocol or typed input.
+const SIZE_PROGRAM: &str = r#"exec python3 -c '
+import os, signal
+
+def draw(marker):
+    size = os.get_terminal_size(0)
+    print("\\033[2J\\033[H" + marker + " %d %d" % (size.columns, size.lines), flush=True)
+
+signal.signal(signal.SIGWINCH, lambda *_: draw("later"))
+draw("first")
+while True:
+    signal.pause()
+'"#;
+
+async fn size_report(f: &Fixture, id: &str, marker: &str) -> String {
+    let mut output = f.terminals.subscribe_output(id).unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        loop {
+            let screen = f.terminals.screen(id, None).unwrap();
+            let text = screen.lines.join("\n");
+            if text.contains(marker) {
+                return text;
+            }
+            output.next().await.expect("program keeps its PTY open");
+        }
+    }).await.expect("program reports its actual PTY size")
+}
+
+#[tokio::test]
+async fn u4590_agent_and_door_start_at_supplied_size_before_the_first_draw() {
+    for method in ["agent.spawn", "rail.startDoor"] {
+        let f = Fixture::running(SIZE_PROGRAM);
+        let params = if method == "agent.spawn" {
+            json!({"cwd": f.dir.path(), "cols": 113, "rows": 37})
+        } else {
+            let id = f.workstream("sized", None).await;
+            json!({"id": id, "cols": 113, "rows": 37})
+        };
+        let node = f.call(method, params).await.unwrap();
+        let id = node["terminal_id"].as_str().unwrap();
+        let original = f.terminals.list();
+        assert!(size_report(&f, id, "first").await.contains("first 113 37"), "{method}");
+        f.terminals.resize(id, 97, 31).await.unwrap();
+        assert!(size_report(&f, id, "later").await.contains("later 97 31"), "{method}");
+        assert_eq!(f.terminals.list()[0].incarnation, original[0].incarnation);
+        assert_eq!(f.terminals.list().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn u4590_invalid_launch_size_leaves_no_agent_or_terminal() {
+    for method in ["agent.spawn", "rail.startDoor", "terminal.open", "agent.run"] {
+        let f = Fixture::running(SIZE_PROGRAM);
+        let mut params = match method {
+            "agent.spawn" => json!({"cwd": f.dir.path()}),
+            "rail.startDoor" => json!({"id": f.workstream("sized", None).await}),
+            "agent.run" => json!({"id": f.spawn(None, None).await.unwrap().id, "command": ["/bin/sh", "-c", SIZE_PROGRAM]}),
+            _ => json!({}),
+        };
+        let before = f.tree().await;
+        let terminals = f.terminals.list().len();
+        params["cols"] = json!(0);
+        params["rows"] = json!(37);
+        assert_eq!(f.call(method, params).await.unwrap_err().code, rpc::code::INVALID_PARAMS, "{method}");
+        assert_eq!(f.tree().await, before);
+        assert_eq!(f.terminals.list().len(), terminals);
+    }
+}
