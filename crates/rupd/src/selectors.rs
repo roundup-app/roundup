@@ -137,7 +137,9 @@ impl Daemon {
             fields.push(("id", false, false));
         }
         match method {
-            "agent.spawn" => fields.push(("parent", true, false)),
+            "agent.spawn" if actor.kind != ActorKind::Agent => {
+                fields.push(("parent", true, false))
+            }
             "rail.move" => {
                 fields.push(("id", true, false));
                 fields.push(("parent", true, false));
