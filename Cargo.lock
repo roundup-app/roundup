@@ -30,7 +30,6 @@ dependencies = [
  "messages",
  "notify",
  "provenance",
- "rangemap",
  "regex",
  "rpc",
  "rusqlite",
@@ -3723,12 +3722,6 @@ checksum = "60aa6af80be32871323012e02e6e65f8a7cc7890931ae421d217ad8fe0df2ccf"
 dependencies = [
  "rand_core",
 ]
-
-[[package]]
-name = "rangemap"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a611d15b50743feb4c76b7d03edcb0e64f399c26961e4efe6975bc398be6aa3d"
 
 [[package]]
 name = "raw-window-handle"

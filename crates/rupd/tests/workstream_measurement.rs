@@ -730,3 +730,14 @@ async fn u3016f_real_other_time_acquisition_to_cli_survives_reopen() {
         json!({"project":before["project"],"status_events":transitions,"acquisition_delay_ms":delays,"time_evidence":before["time_evidence"],"clock_meanings":"unix_ms aligns local observations; monotonic_ns durations compare only within clock_lifetime and each segment; gaps remain uncovered"})
     );
 }
+
+#[tokio::test]
+async fn u4454c_the_daemon_serves_no_measurement_summary() {
+    let w = World::start().await;
+    let refusal = w
+        .client
+        .request("project.measurementSummary", json!({"home": "1"}))
+        .await
+        .unwrap_err();
+    assert_eq!(refusal.code, rpc::code::METHOD_NOT_FOUND);
+}
