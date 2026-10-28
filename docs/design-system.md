@@ -279,17 +279,19 @@ The existing primary kind uses `--accent` and `--button-accent-ink`; the existin
 
 ### Terminal Tokens (U3517)
 
-Terminal defaults use bundled Fira Code 6.2 (regular 400 and bold 700, with
+Terminal defaults use bundled Fira Code 6.2 (Light 300 for regular text and bold 700, with
 browser-synthesized italic and bold italic; OFL in
 `apps/desktop/public/fonts/fira-code/`). `--font-terminal` is
 `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
 uses it; the rest of the App retains its existing type.
 
 The emulator, App Settings and Project zoom reset share `--text-terminal` (11 CSS
-px). `--line-terminal` is xterm's unitless line-height multiplier (1.5, calibrated to 19 CSS px rows) and
-`--letter-terminal` is extra cell tracking (0.95 CSS px). U4456 uses Solo's
+px). `--line-terminal` is xterm's unitless line-height multiplier (1.7, calibrated to 22 CSS px rows) and
+`--letter-terminal` is extra cell tracking (0.5 CSS px). U4456 uses Solo's
 0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
-apply. Rendered cell measurements are recorded in `docs/terminal-type.md`.
+apply. U4592 uses `--weight-terminal` (300) through xterm’s public `fontWeight` option;
+bold stays 700. WebGL retains full-cell boxes and the official ligature addon
+joins programming operators. Rendered measurements are in `docs/terminal-type.md`.
 
 `--terminal-background`, `--terminal-foreground`, `--terminal-cursor`,
 `--terminal-cursor-text`, `--terminal-selection`, `--terminal-selection-text`, and
