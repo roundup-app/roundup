@@ -2,9 +2,12 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage } from "../testing/menuProbe";
-import { answerQuestion } from "../shelf/bulkQuestionHarness";
-import { openSwitcher } from "../switcher/switcherFixture";
+import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
+import { leaderKey } from "../keys/leaderFixture";
+
 import { agent, info } from "../testing/nodes";
+
+const openSwitcher = () => leaderKey("KeyK");
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
@@ -13,19 +16,25 @@ it.each(["keyboard", "menu", "command"].flatMap(source => ["home", "a1", null, "
 
   if (selection !== "empty") connected().rail.select(selection);
 
+  if (selection === "a1") await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+
   const owner = selection === "empty" ? null : "home";
   daemon.handlers["terminal.open"] = () => { shells.push(info("shell", { owner: owner ?? "/p" }));
 
     return { terminal_id: "shell" }; };
 
   if (source === "keyboard") window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
+
   else if (source === "menu") openProjectPage("action:chord:⌘T", "/p");
   else {
     openSwitcher();
-    const field = await screen.findByRole("combobox", { name: "Go to" });
+    const field = await screen.findByRole("combobox", { name: "Switch to" });
+    expect(await screen.findByRole("option", { name: /New Terminal.*⌘T/ })).toBeDefined();
     fireEvent.input(field, { target: { value: "New Terminal" } });
-    fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+    fireEvent.click(await screen.findByRole("option", { name: /New Terminal.*⌘T/ }));
   }
+
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner }]));
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner }]);
   expect(daemon.calls.filter(call => ["rail.createWorkstream", "rail.startDoor", "agent.spawn"].includes(call.method))).toHaveLength(0);
@@ -67,23 +76,52 @@ it("u4453c_command_menu_restores_and_closes_each_terminal", async () => {
   connected().rail.select("a1");
   await connected().rail.refresh({ terminals: true });
   openSwitcher();
-  const field = await screen.findByRole("combobox", { name: "Go to" });
+  const field = await screen.findByRole("combobox", { name: "Switch to" });
   fireEvent.input(field, { target: { value: "Show cargo test" } });
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("101"));
   openSwitcher();
-  const next = await screen.findByRole("combobox", { name: "Go to" });
+  const next = await screen.findByRole("combobox", { name: "Switch to" });
   fireEvent.input(next, { target: { value: "Close tail -f build.log" } });
   fireEvent.keyDown(next, { key: "Enter", code: "Enter" });
+  await questionDialog();
   await answerQuestion(true);
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "102" }]));
 });
 
-it("u4453c_hints_are_reachable_in_command_menu_and_armed_key_chips", async () => {
+it("u4453c_armed_leader_renders_reachable_hints", async () => {
   await mountNavigation();
-  openSwitcher();
-  expect(await screen.findByRole("option", { name: /New Terminal/ })).toHaveTextContent("⌘T");
-  fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", code: "KeyK", metaKey: true, bubbles: true }));
-  expect(await screen.findByRole("status", { name: "Command leader" })).toContainElement(document.querySelector(".key-chip"));
+  expect(await screen.findByRole("status", { name: /Press a key/ })).toBeDefined();
+});
+
+it("u4453c_command_menu_opens_saved_terminal_drafts", async () => {
+  const { connected } = await mountNavigation();
+  const text = "  retained name é 🫧  ";
+  await connected().drafts.edit({ surface: "bubbles", object: "missing-original", recipient: "101" }, { name: text, base: "cargo test" }, null, "ordinary").retained;
+  openSwitcher();
+  const field = await screen.findByRole("combobox", { name: "Switch to" });
+  fireEvent.input(field, { target: { value: "Unfinished work…" } });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(dialog.querySelector(".draft-value")?.textContent).toBe(String(connected().drafts.list().find(draft => draft.destination.surface === "bubbles")?.value.name));
+});
+
+it("u524_a_failed_empty_project_open_can_be_retried", async () => {
+  const { daemon, shells } = await mountNavigation(true);
+  daemon.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
+  const open = () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
+
+  open();
+  await screen.findByRole("alert");
+  daemon.handlers["terminal.open"] = () => {
+    shells.push(info("shell", { owner: "/p" }));
+
+    return { terminal_id: "shell" };
+  };
+
+  open();
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
+  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: null }, { workstream: null }]);
+  expect(screen.queryByRole("alert")).toBeNull();
 });

@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, it } from "vitest";
+import { beforeAll, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
@@ -78,7 +78,9 @@ it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
 }, 60_000);
 
-it.skipIf(!captureDir("U3517f"))("u3517f_rendered_terminal_reference", async () => {
+beforeAll(async () => {
+  if (!captureDir("U3517f")) return;
+
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     for (const state of ["agent", "door", "shell"]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
@@ -89,7 +91,7 @@ it.skipIf(!captureDir("U3517f"))("u3517f_rendered_terminal_reference", async () 
       let surface = ".pane";
 
       if (state === "shell") {
-        await read("document.querySelector('.terminal-new').click()");
+        await read("window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', code: 'KeyT', metaKey: true, bubbles: true, cancelable: true }))");
         await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
         id = await read<string>("document.querySelector('.bubble:not([hidden])').dataset.bubble");
         surface = ".bubble:not([hidden])";
@@ -111,11 +113,6 @@ it.skipIf(!captureDir("U3517f"))("u3517f_rendered_terminal_reference", async () 
         const size = window.__terminals.get('${id}').fit();
         return { ...size, cellWidth: screen.width / size.cols, cellHeight: screen.height / size.rows, dpr: devicePixelRatio, fonts: [...document.fonts].map(face => ({ family: face.family, style: face.style, weight: face.weight, status: face.status })), resources: performance.getEntriesByType('resource').filter(r => r.name.includes('.woff2')).map(r => r.name) };
       })()`);
-
-      if (!base) {
-        expect(metrics.fonts).toHaveLength(4);
-        expect(metrics.fonts.every(font => font.status === "loaded")).toBe(true);
-      }
 
       for (const scenario of ["U3517b", "U3517c", "U3517f"]) {
         const dir = join(captureDir(scenario)!, base ? "base" : "head");

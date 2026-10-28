@@ -198,6 +198,8 @@ export const copy = {
   copyDraft: "Copy",
   discardRow: "Discard",
   unfinishedWork: "Unfinished work",
+  unfinishedWorkMenu: "Unfinished work…",
+  showTerminal: (name: string) => `Show ${name}`,
   noUnfinishedWork: "No unfinished work in this project.",
   copyProjectName: "Copy name",
   currentDraft: "Current work",

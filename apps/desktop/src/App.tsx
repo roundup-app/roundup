@@ -633,6 +633,7 @@ export const App = (props: {
               {(open) => {
                 const tracked = emulators();
                 const [screens, setScreens] = createSignal<Screens>();
+                const [terminalRecovery, openTerminalRecovery] = createSignal(0);
 
                 return (
                   <div class="centre-stack">
@@ -640,11 +641,11 @@ export const App = (props: {
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
                     <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
-                    <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
+                    <Switcher onTerminalRecovery={() => openTerminalRecovery(value => value + 1)} onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
                     <ProjectSettingsView />
                     </div>
-                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recoveryOpen={terminalRecovery()} />}</Show>
                     <ResourceStrip returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
 
                       if (id) screens()?.emulatorFor(id).focus();
