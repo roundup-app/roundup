@@ -1,7 +1,8 @@
 import { makeEventListenerStack } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createEffect, For, on, onCleanup } from "solid-js";
+import { createEffect, For, on, onCleanup, Show } from "solid-js";
+import type { JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { registerKeys } from "../keys/registry";
 import { Panel } from "../ui/Panel";
@@ -47,6 +48,8 @@ export const Bubble = (props: {
   close(id: string): Promise<void>;
   menu(event: MouseEvent): void;
   toggleMinimised(id: string): void;
+  /** The rename editor, shown in place of the name. */
+  title?: JSX.Element | undefined;
 }) => {
   const id = props.id;
   let body: HTMLDivElement | undefined;
@@ -216,7 +219,7 @@ export const Bubble = (props: {
                 <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void props.close(id)}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
                 <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => props.toggleMinimised(id)}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
               </span>
-              <span class="bubble-name">{props.name}</span>
+              <Show when={props.title} fallback={<span class="bubble-name">{props.name}</span>}>{props.title}</Show>
             </header>
             <div class="bubble-body" ref={mount} /><ReservedLine overlay class={props.screens.failure(id) ? "bubble-failure" : undefined} message={props.screens.failure(id)} />
           </section>

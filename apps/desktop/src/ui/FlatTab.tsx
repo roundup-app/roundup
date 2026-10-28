@@ -9,4 +9,3 @@ export const FlatTab = (props: ComponentProps<typeof ark.div> & { selected: bool
   return <ark.div {...rest} data-flat-tab="" data-selected={local.selected} />;
 };
 
-export const FlatAdd = (props: ComponentProps<typeof ark.button>) => <ark.button type="button" {...props} data-flat-add="" />;

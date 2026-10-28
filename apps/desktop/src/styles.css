@@ -381,12 +381,6 @@ p {
   position: relative;
 }
 
-/* U430: each resource group must fit the centre or flex-end clips its start. */
-.resource-strip .resource-agent {
-  min-width: 0;
-  max-width: 100%;
-}
-
 /* U476: technical text opts into the mono Token wherever it is shown. */
 .mono,
 [data-mono],

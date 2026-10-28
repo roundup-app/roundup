@@ -7,7 +7,6 @@ import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
 import { Dialog } from "../ui/Dialog";
 import { Editable } from "../ui/Editable";
-import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Bubble } from "./Bubble";
@@ -37,7 +36,6 @@ const focusPane = (): void => {
 
   target?.focus();
 
-  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
 };
 
 const ESCAPE = "Escape".split(" ");
@@ -114,13 +112,10 @@ export const Bubbles = (props: {
   const [openingSelection, setOpeningSelection] = createSignal<string | null>();
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
-  const [bar, setBar] = createSignal<HTMLElement>();
-  const parkedTabs = document.createElement("div");
   const [measured, setMeasured] = createSignal(false);
   const [origin, setOrigin] = createSignal({ left: 0, top: 0, width: 0, height: 0 });
   const [editing, setEditing] = createSignal<{ id: string } | null>(null);
   createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
-  onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined));
   let before: Element | null = null;
 
   const extent = (): Extent => {
@@ -252,9 +247,8 @@ export const Bubbles = (props: {
 
     if (!host || typeof ResizeObserver === "undefined") return;
 
-    // U469: the layer ends above the bar.
+    // U469: the layer ends above the strip.
     const sync = (): void => {
-      setBar(host.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
       const stack = host.parentElement?.getBoundingClientRect();
       const composer = host.parentElement?.querySelector(".resource-strip")?.getBoundingClientRect();
       host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
@@ -305,7 +299,7 @@ export const Bubbles = (props: {
   const focusItem = (id: string): void => {
     const place = places()[id];
 
-    if (place?.min) document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)?.focus();
+    if (place?.min) focusPane();
     else props.screens.emulatorFor(id).focus();
   };
 
@@ -334,10 +328,9 @@ export const Bubbles = (props: {
 
     const focusReturn = captureFocus();
     const back = before;
-    const fromTab = focus?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
-      if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
+      if (failure() !== null || shown().some(terminal => terminal.id === id)) return;
 
       focusReturn(() => {
         if (back instanceof HTMLElement && back.isConnected) back.focus();
@@ -390,7 +383,7 @@ export const Bubbles = (props: {
     } finally {
       setOpening(false);
 
-      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
+      if (focus && failure() !== null && shown().length === 0) focusReturn(focusPane);
     }
   };
 
@@ -616,7 +609,7 @@ export const Bubbles = (props: {
   });
 
   // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a pressed key repeats nothing.
-  const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
+  const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".bubble-title-editor"));
 
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find((row) => row.keys === "⌘T")!,
@@ -804,7 +797,7 @@ export const Bubbles = (props: {
       if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(prior => prior?.id === id ? null : prior);
     });
 
-    const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
+    const tab = () => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"] .bubble-header`);
 
     /** U2694b: the tab and Bubble share actions and the same rename editor. */
     const copied = createCopyFeedback();
@@ -824,22 +817,9 @@ export const Bubbles = (props: {
     const menu = (event: MouseEvent) => openOnRelease(event, (x, y) => void tabMenu(x, y));
 
     return <>
-      <Bubble id={id} screens={props.screens} name={name()} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} menu={menu} toggleMinimised={toggleMinimised} />
-      <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
-        <Show when={editing()?.id === id ? editing() : null} keyed fallback={
-          <Tip content={name()} cut={nameCut}>
-            {(trigger) => (
-              <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
-                aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
-                onClick={() => toggleMinimised(id)}
-                onDblClick={() => start()}>
-                <span class="terminal-tab-name" ref={nameRef}>{copied.copied() ? copy.copied : name()}</span>
-                <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
-              </button>
-            )}
-          </Tip>
-        }>{_edit =>
-          <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
+      <Bubble id={id} screens={props.screens} name={name()} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} menu={menu} toggleMinimised={toggleMinimised}
+        title={editing()?.id === id ? <Show when={editing()} keyed>{_edit =>
+          <div class="bubble-title-editor" data-bubble={id}>
             <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both"} finalFocusEl={tab}
               onValueCommit={async ({ value }) => {
                 const submitted = revision;
@@ -895,11 +875,7 @@ export const Bubbles = (props: {
               }} /></Editable.Area>;
               }}</Editable.Context>
             </Editable.Root>
-            <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
-          </div>}
-        </Show>
-        <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
-      </FlatTab>
+          </div>}</Show> : undefined} />
     </>;
   };
 
@@ -907,18 +883,6 @@ export const Bubbles = (props: {
 
   return (
     <div class="bubbles" ref={setLayer}>
-      {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
-      <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
-        <div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
-          if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
-        }}>
-          <For each={shownIds()}>{id => <Tab id={id} />}</For>
-          <div class="terminal-tabs-actions">
-            <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
-            <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
-          </div>
-        </div>
-      </Portal>
       <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />

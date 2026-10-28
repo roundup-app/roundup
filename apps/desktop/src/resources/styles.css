@@ -9,8 +9,6 @@
 .resource-strip {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: var(--line);
   flex: none;
   box-sizing: border-box;
   align-items: center;
@@ -26,19 +24,6 @@
 /* An unrequested changes control leaves no empty inspection band above navigation. */
 .resource-strip:empty {
   display: none;
-}
-
-/* Each part stays whole; a value is never split from its icon (D10). */
-.resource-strip .resource-agent {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  white-space: nowrap;
-}
-
-/* U469: resource groups keep their width beside the scrolling tabs. */
-.resource-agent {
-  flex: none;
 }
 
 .resource-stale {
@@ -67,47 +52,19 @@
   white-space: nowrap;
 }
 
-/* Selected-Agent resources fit beside long Terminal names without changing the bar's height, below the hint line (U2230b). */
-.terminal-tabs-host {
-  align-self: stretch;
-  grid-column: 1;
-  grid-row: 2;
-}
-
-.resource-agent {
-  grid-column: 2;
-  grid-row: 2;
-}
-
-.resource-stale {
-  inline-size: calc(var(--space-6) * 3);
-  grid-column: 3;
-  grid-row: 2;
-}
-
-/* U2340c: the tab region is the bar's one line and scrolls inside it. */
-.resource-strip .terminal-tabs {
-  height: 100%;
-  padding-block: 0;
-  overflow-y: hidden;
-  scrollbar-width: none;
-}
-
-/* U2230b: the bar's first line, the width of the bar and above the tabs and resource values: grey labels beside key chips, never in the way of a click. Hints that do not fit whole are hidden from the end. */
 .hint[hidden] {
   display: none;
 }
 
 .hint-line {
-  grid-column: 1 / -1;
-  grid-row: 1;
+  position: absolute;
+  inset: auto 0 0;
+  z-index: var(--layer-popover);
   display: flex;
   column-gap: var(--space-4);
   box-sizing: border-box;
   flex: none;
   height: var(--hint-row-height);
-  inline-size: 0;
-  min-inline-size: 100%;
   margin: 0;
   padding: 0 var(--space-2);
   overflow: hidden;
