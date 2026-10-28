@@ -7,8 +7,9 @@ import { RpcError } from "./seam";
 
 afterEach(cleanup);
 
-it("u52_recent_folder_activation_opens_exactly_the_chosen_path", async () => {
+it("u4464_a_recent_folder_opens_that_project_u52_caps_the_list_at_five", async () => {
   const { app } = seedApp("first-run-five", 0);
+  app.recentProjects = async () => ["/repos/payments-api", "/repos/two", "/repos/three", "/repos/four", "/repos/five", "/repos/six"];
   const open = vi.spyOn(app, "openProject");
   render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} />);
   expect(within(await screen.findByRole("list")).getAllByRole("button")).toHaveLength(5);
