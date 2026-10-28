@@ -3,7 +3,7 @@ import { KeyHint } from "./KeyHint";
 import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
 import { CHORDS, HELP_KEYS, LEADER } from "./chords";
-import { registerKeys } from "./registry";
+import { captureActions, registerKeys } from "./registry";
 import { Dialog } from "../ui/Dialog";
 
 const bubbleScopes = new Map(Object.entries(copy.helpBubbleScope));
@@ -27,11 +27,13 @@ const opensFrom = (target: EventTarget | null): boolean => target instanceof Ele
 /** The panel `?` opens over the centre pane, one line per chord. It holds focus while open; Esc, `?` or a click outside closes it and focus returns to where it was. */
 export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
   const [open, setOpen] = createSignal(false);
+  const [labels, setLabels] = createSignal(new Map<string, string>());
   let panel: HTMLElement | undefined;
   let returnTo: Element | null = null;
   let initialFocus = captureFocus();
 
   const show = (): void => {
+    setLabels(new Map(captureActions(document.activeElement).filter(action => action.keys === "⇧⌘N").map(action => [action.keys, action.label])));
     initialFocus = captureFocus(true);
     returnTo = document.activeElement;
     setOpen(true);
@@ -61,7 +63,7 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
       }}>
         <For each={sections(props.projectOpen ?? true, props.shelfOpen ?? false)}>{section => <section class="help-section">
           <h2>{section.title}</h2>
-          <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{chord.what}</KeyHint></p>}</For>
+          <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{labels().get(chord.keys) ?? chord.what}</KeyHint></p>}</For>
         </section>}</For>
         <Show when={props.projectOpen ?? true}><section class="help-shelf" aria-label={copy.shelfKeys}>
         <h2>{copy.shelfKeys}</h2>
