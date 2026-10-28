@@ -15,6 +15,8 @@ const typed = new Set(["name", "title", "body", "text", "note", "document", "ask
 
 /** A credential draft's values are never rendered; Copy is their only exposure (U2773h). */
 export const typedText = (draft: Row): string[] => {
+  if (draft.destination.surface === "orders") return ["title", "ask", "done"].map(field => String(draft.value[field] ?? ""));
+
   if (draft.destination.surface === "terminal_selection") {
     return [draft.value.note, draft.value.excerpt].flatMap(value => {
       const text = String(value ?? "");

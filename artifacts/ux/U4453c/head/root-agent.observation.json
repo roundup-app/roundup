@@ -1,0 +1,15 @@
+{
+  "calls": [
+    {
+      "method": "terminal.open",
+      "params": {
+        "workstream": null
+      }
+    }
+  ],
+  "focused": "101",
+  "selected": "agent-3",
+  "shown": [
+    "101"
+  ]
+}
