@@ -53,7 +53,7 @@ it("u3732_real_daemon_agent_owner", async () => {
     await browser("mouse", "move", String(from.x), String(from.y));
     await browser("mouse", "down");
     await browser("mouse", "move", String(from.x), String(from.y - 6));
-    await until(`!!document.querySelector('[data-dnd-placeholder]')`);
+    await until(`!!document.querySelector('.sortable-slot')`);
   };
 
   const drop = async (target: string) => {
