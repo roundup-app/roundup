@@ -287,14 +287,28 @@ impl DoorHarness {
         self.h.agents.call(&self.h.ctx,"rail.createWorkstream",json!({"name":"Work","order":{"kind":"work","title":"Work","ask":"initial","limits":[]}})).await.unwrap()["id"].as_str().unwrap().into()
     }
     async fn start(&mut self, id: &str) {
+        let mut events = self.h.ctx.bus.subscribe();
         let node = self
             .h
             .agents
             .call(&self.h.ctx, "rail.startDoor", json!({"id":id}))
             .await
             .unwrap();
+        // The fake's startup title must be folded before a test submits user input.
+        // Otherwise its late idle title can overtake that input's working signal.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let contracts::EventData::AgentStatus(status) = events.recv().await.unwrap().data
+                    && status.id == id
+                    && status.status.kind == contracts::Kind::Idle
+                {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap();
         self.signal(id, "SessionStart").await;
-        self.signal(id, "UserPromptSubmit").await;
         assert_eq!(
             self.h
                 .agents
@@ -303,7 +317,6 @@ impl DoorHarness {
                 .unwrap(),
             agents::FirstSteerCompletion::Submitted
         );
-        self.signal(id, "Stop").await;
     }
     async fn changed(
         &self,

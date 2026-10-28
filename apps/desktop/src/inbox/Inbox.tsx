@@ -1,3 +1,4 @@
+import { EmptyState } from "../ink/EmptyState";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
@@ -30,6 +31,7 @@ const sectionTitle = (title: string, count: () => number, live = false, ref?: (e
  */
 export const Inbox = () => {
   const { app, events, drawer, rail, reducedMotion, project } = useConnectedProject();
+  const [loaded, setLoaded] = createSignal(false);
   const [rows, setRows] = createSignal<readonly UnreadComment[]>([]);
   const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -53,6 +55,7 @@ export const Inbox = () => {
     if (message === null) setRows(unread);
 
     setFailure(message);
+    setLoaded(true);
   };
 
   void refresh();
@@ -188,7 +191,8 @@ export const Inbox = () => {
     <div class="inbox-title"><h2>{copy.inbox}</h2>
       <Show when={selectedText() !== ""}><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></Show>
     </div>
-    <ReservedLine message={copyFailure() ?? failure()} status={total() === 0 ? copy.inboxEmpty : null}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
+    <ReservedLine message={copyFailure() ?? failure()}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
+    <Show when={loaded() && total() === 0 && !failure() && !copyFailure()}><EmptyState art="talk" {...{ title: copy.inboxEmpty }} line={copy.emptyInboxLine} /></Show>
     <Show when={needsCount() > 0 || needsKeys().length > 0}>
       <section class="inbox-group" aria-label={copy.needsYou}>
         {sectionTitle(copy.needsYou, needsCount, true)}
