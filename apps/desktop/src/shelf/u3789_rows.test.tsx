@@ -532,7 +532,7 @@ it("u4275b_row_actions_keep_menu_semantics_stopped_door", async () => {
   const { app } = await open("door-stopped");
   const row = document.querySelector('.rail-row')!;
   const id = row.getAttribute("data-id")!;
-  fireEvent.click(row.querySelector('[aria-label=copy.startDoor]')!);
+  fireEvent.click(within(row as HTMLElement).getByRole("button", { name: copy.startDoor }));
   await waitFor(() => expect(rpcCalls(app, "rail.startDoor")).toEqual([{id}]));
 });
 
