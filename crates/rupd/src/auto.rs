@@ -59,6 +59,9 @@ impl Daemon {
         method: &str,
         params: Value,
     ) -> Result<Value, RpcError> {
+        let params = self
+            .resolve_agent_inputs(&conn.actor, method, params)
+            .await?;
         self.auto.start(|| self.reader());
         let observes = (method.starts_with("todo.")
             && !matches!(method, "todo.restore" | "todo.deletion"))
@@ -197,8 +200,8 @@ async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
             .estimate_minutes
             .map_or_else(|| "no estimate".into(), |minutes| format!("{minutes} min"));
         let body = format!(
-            "{key}\nTodo #{}: {}\nEstimate: {estimate}\nAssign this Todo to an Agent of this Workstream with todo.assign, or start a Subagent and assign it. Subagent starts obey the Workstream cap.",
-            todo.id, todo.title
+            "{key}\nTodo #{}: {}\nEstimate: {estimate}\nTake this Todo with todo_assign {{\"id\": {}, \"owner\": \"me\"}}. Delegate using a peer's Rail name as owner, or start a Subagent and assign it. Subagent starts obey the Workstream cap.",
+            todo.id, todo.title, todo.id
         );
         reader
             .call::<Message>(

@@ -1,5 +1,7 @@
 # Slow rup test audit
 
+Policy: A32/U350 (#4542) retire Clear-only inventory entries and their process requirements; all surviving behavior retains its original observer and cost boundary. Historical baseline counts precede that retirement.
+
 ## Checks on main
 
 1. Test value and cost: `scenarios/loop-rules.md`, heading L119; `AGENTS.md`, rule 10 (policy).
@@ -27,7 +29,6 @@ Baseline: `rup` binaries on green `check` run 39378452452, 341 s together. The r
 | `n7_launch_sites_clean_on_success_and_failure` | `rup::project_data` | 30.3 |
 | `m1_list_tools_send_null_params_to_the_daemon` | `rup::mcp` | 20.1 |
 | `m3_a_call_the_daemon_never_answers_exits_1_saying_it_may_have_been_applied` | `rup::mcp` | 20.1 |
-| `d9_clear_with_a_sixty_second_handoff_keeps_the_connection_available` | `rup::d9` | 18.6 |
 | `x14_ten_busy_terminals_do_not_lag_rail_events` | `rup::x14` | 16.0 |
 | `o12_the_door_spawns_with_order_and_the_users_words` | `rup::o12` | 10.2 |
 | `i7_a_daemon_that_never_answers_exits_1_in_ten_seconds` | `rup::cli` | 10.2 |
@@ -43,7 +44,6 @@ Baseline: `rup` binaries on green `check` run 39378452452, 341 s together. The r
 | `a16_removing_an_agent_leaves_its_pads_and_todos_untouched` | `rup::e2e` | 6.8 |
 | `t15_list_and_rail_do_not_load_history` | `rup::t15` | 6.7 |
 | `a33_completing_the_blocker_reads_idle` | `rup::e2e` | 6.5 |
-| `d9_clear_failure_is_evented_without_an_app_timeout` | `rup::d9` | 6.2 |
 | `a33_an_idle_agent_with_a_blocked_todo_reads_blocked` | `rup::e2e` | 6.2 |
 | `u468_a_door_direct_answer_still_resumes_a_native_question` | `rup::u468` | 5.7 |
 | `u468_a_child_cannot_claim_user_to_answer_its_own_question` | `rup::u468` | 5.7 |

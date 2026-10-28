@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import { caseFold } from "unicode-case-folding";
 import type { Actor } from "@contracts/Actor";
 import type { EventData } from "@contracts/EventData";
@@ -13,6 +14,8 @@ import type { Todo } from "@contracts/todo/Todo";
 import { RpcError } from "../app/seam";
 import type { Handlers } from "./fakeApp";
 import { USER } from "./nodes";
+
+const ownerActor = v.nullable(v.object({ kind: v.picklist(["user", "agent", "ext"]), id: v.string(), parent: v.nullable(v.string()) }));
 
 const NOT_FOUND = -32001;
 
@@ -122,8 +125,9 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
     return null;
   },
   "todo.create": ({ title, body, blockers, owner }) => {
+    const selected = v.parse(ownerActor, owner ?? null);
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: owner ?? null, refs: [], estimate_minutes: null };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: selected, refs: [], estimate_minutes: null };
     store.todos = withBlocked([...store.todos, created]);
     recordChanges(store, [], actor());
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
@@ -146,8 +150,11 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
   },
   "todo.setBlockers": ({ id, blockers }) =>
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, blockers } : todo)), actor()),
-  "todo.assign": ({ id, owner }) =>
-    changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, owner } : todo)), actor()),
+  "todo.assign": ({ id, owner }) => {
+    const selected = v.parse(ownerActor, owner ?? null);
+
+    return changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, owner: selected } : todo)), actor());
+  },
   "todo.move": ({ id, home }) =>
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, home } : todo)), actor()),
   "todo.reorder": ({ id, before }) => {
@@ -363,7 +370,11 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
 
       return { ...pad };
     },
-    "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
+    "pad.setOwner": ({ name, owner }) => {
+      const selected = v.parse(v.unwrap(ownerActor), owner);
+
+      return changePad(store, announce, name, (pad) => ({ ...pad, owner: selected }));
+    },
     "pad.delete": (p: DeleteParams) => {
       if (p.operation != null && (p.operation.length === 0 || p.operation.length > 256)) throw new RpcError(INVALID_PARAMS, "invalid deletion operation");
 
