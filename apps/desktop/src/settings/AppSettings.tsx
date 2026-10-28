@@ -17,9 +17,8 @@ import { SettingsGroup, SettingsShell } from "./SettingsShell";
 import { ShortcutSetting } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; closeRef?: (close: () => void) => void; onOpenChange?: (open: boolean) => void }) => {
+export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
   const view = createSettingsView();
-  props.closeRef?.(() => { props.onOpenChange?.(false); view.close(false); });
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
@@ -93,7 +92,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; clo
   const defaults = [{ value: "", label: copy.modelDefault }];
 
   return <Show when={view.open()}>
-    <SettingsShell compact={props.project() !== null} heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
+    <SettingsShell heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
       <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
         <Tabs.List aria-label={copy.settings}>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>

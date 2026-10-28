@@ -22,8 +22,7 @@ it("u4274b_secondary_surfaces_keep_the_rail_available", async () => {
   const { connected } = await mountNavigation();
   const rail = document.querySelector(".rail-tree");
   connected().rail.select("a1");
-  await screen.findByRole("button", { name: "Back to Ask" });
-  fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  fireEvent.click(document.querySelector<HTMLElement>(".todo-project-root")!);
   await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:ask-history", "/p");
   await waitFor(() => expect(connected().hasView("ask-history")).toBe(true));

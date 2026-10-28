@@ -21,8 +21,6 @@ import { createRailState } from "./rail";
 import { createUnseen, unseenStorage } from "./unseen";
 import type { UnseenState } from "./unseen";
 import { createQueue } from "./queue";
-import { createTimelineLog } from "../timeline/log";
-import type { TimelineLog } from "../timeline/log";
 import type { QueueView } from "./queue";
 import { createSettingsView } from "./settingsView";
 import type { SettingsViewState } from "./settingsView";
@@ -139,8 +137,6 @@ export type ConnectedProject = {
   unseen: UnseenState;
   /** U3744: the Workstreams waiting to start. */
   queue: QueueView;
-  /** U3768: the Agents' Statuses heard since the Project connected, read by the timeline. */
-  timeline: TimelineLog;
   importing: ReturnType<typeof createImport>;
   creation: Accessor<{ kind: "todo" | "pad" | "terminal"; home: string } | null>;
   createIn: (kind: "todo" | "pad" | "terminal", home: string) => void;
@@ -255,7 +251,6 @@ export const connectProject = async (
 
   if (ended) stopQueue();
 
-  const timeline = createTimelineLog(events, rail);
 
   const onImported = (id: string, agent: string | null) => {
     void rail.refresh().then(() => rail.select(agent ?? id));
@@ -279,7 +274,7 @@ export const connectProject = async (
 
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { creation, createIn, finishCreation, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

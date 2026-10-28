@@ -41,7 +41,7 @@ const Values = (props: { memory: string; cpu: string; disk: string }) => (
 );
 
 /** U444: the centre's last line, under the Terminal, with the selected Agent's memory, CPU and disk only; none of it is on the Rail. The line stays when empty. */
-export const ResourceStrip = (props: { compact?: boolean | undefined; returnFocus?: (() => void) | undefined }) => {
+export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined }) => {
   const { app, rail, daemonExit, hasView, hideView } = useConnectedProject();
   const [result, setResult] = createSignal<Resources | null>(null);
   const [failed, setFailed] = createSignal(false);
@@ -119,10 +119,10 @@ export const ResourceStrip = (props: { compact?: boolean | undefined; returnFocu
         <Show when={!failed() && (!mine() || [sizeText(mine()?.memory_bytes), cpuText(mine()?.cpu_percent), sizeText(mine()?.disk_bytes)].every(value => value === MISSING))}><ReservedLine status={result() === null && live() ? copy.resourcesLoading : copy.resourcesEmpty} /></Show>
       </div>
       <ReservedLine class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
-      <Show when={!props.compact}><button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button></Show>
+      <button type="button" data-button="quiet" onClick={() => hideView("resources")}>{copy.close}</button>
     </section></Show>
     <div class="resource-strip" aria-live="off">
-      <WorktreeControl compact={props.compact} returnFocus={props.returnFocus} />
+      <WorktreeControl returnFocus={props.returnFocus} />
     </div>
     <HintLine />
   </>);
