@@ -1,7 +1,12 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
-import { mountControl, STATE } from "./harness";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
+import { agent } from "../testing/nodes";
+import { WorktreeControl } from "./WorktreeControl";
+import { mountControl, STATE, WORKTREE } from "./harness";
 
 afterEach(cleanup);
 
@@ -81,6 +86,27 @@ describe("U2539b", () => {
     await waitFor(() => expect(document.querySelector(".worktree-control")).toBeNull());
     expect(document.querySelector(".worktree-panel")).toBeNull();
     expect(document.querySelector("file-tree-container")).toBeNull();
+  });
+
+
+  it("u4464_no_empty_view_before_the_first_answer_changes", async () => {
+    const app = createFakeApp();
+    const answer = Promise.withResolvers<ChangedFiles>();
+    app.handlers["rail.tree"] = () => [agent("a", "idle", "ready", { worktree: WORKTREE })];
+    app.handlers["agent.changedFiles"] = () => answer.promise;
+    app.handlers["agent.worktreeState"] = () => STATE;
+    const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+    connected.rail.select("a");
+    render(() => {
+      connected.worktrees.watch(() => true);
+      return <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>;
+    });
+    await waitFor(() => expect(app.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
+    expect(screen.queryByRole("button", { name: /changed files?/ })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull();
+    answer.resolve({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
+    expect(await screen.findByRole("button", { name: /1 changed file/ })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull();
   });
 
   it("u2539b_a_failed_read_is_not_no_changes", async () => {

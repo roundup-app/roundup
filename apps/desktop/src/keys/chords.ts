@@ -1,8 +1,8 @@
 import { appSettings } from "../settings/preferences";
 import { copy } from "../copy";
 
-/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; inTerminals?: true; inShelf?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
+/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inFirstRun` keeps a chord in first-run Help only; `inRail` marks a chord only a focused Rail row binds (U358); `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
+export type Chord = { keys: string; what: string; presses: readonly string[]; inFirstRun?: true; inRail?: true; inTerminals?: true; inShelf?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
 export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf";
@@ -51,7 +51,7 @@ export const CHORDS: readonly Chord[] = [
   { keys: "C", what: copy.triageComment, presses: ["KeyC"], inShelf: true, inTriage: true },
   { keys: "Esc", what: copy.triageLeave, presses: ["Escape"], inShelf: true, inTriage: true },
   // U4464: first-run-only; preserve the existing Project chord order.
-  { keys: "⌘O", what: copy.chooseFolder, presses: ["meta+KeyO"] },
+  { keys: "⌘O", what: copy.chooseFolder, presses: ["meta+KeyO"], inFirstRun: true },
 ];
 
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
