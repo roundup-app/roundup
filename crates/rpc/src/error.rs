@@ -85,6 +85,42 @@ impl RpcError {
         Self::new(code::CONFLICT, message)
     }
 
+    pub fn undo_parent(id: impl Into<String>, name: impl Into<String>) -> Self {
+        let name = name.into();
+        Self {
+            data: Some(contracts::RpcErrorData::UndoParent {
+                id: id.into(),
+                name: name.clone(),
+            }),
+            ..Self::conflict(format!(
+                "Can't undo: \"{name}\" was removed too. Undo that first."
+            ))
+        }
+    }
+
+    pub fn undo_identity(id: impl Into<String>, name: impl Into<String>) -> Self {
+        let name = name.into();
+        Self {
+            data: Some(contracts::RpcErrorData::UndoIdentity {
+                id: id.into(),
+                name: name.clone(),
+            }),
+            ..Self::conflict(format!(
+                "Can't undo: \"{name}\" already occupies the removed item's identity. Remove that item before trying Undo again."
+            ))
+        }
+    }
+
+    pub fn undo_pad_name(name: impl Into<String>) -> Self {
+        let name = name.into();
+        Self {
+            data: Some(contracts::RpcErrorData::UndoPadName { name: name.clone() }),
+            ..Self::conflict(format!(
+                "Can't undo: a Pad named \"{name}\" already exists. Rename that Pad, then try Undo again."
+            ))
+        }
+    }
+
     pub fn busy(message: impl Into<String>) -> Self {
         Self::new(code::BUSY, message)
     }
@@ -107,6 +143,26 @@ impl RpcError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn u3787a_undo_refusal_names_cause_and_recovery() {
+        for (error, expected) in [
+            (
+                RpcError::undo_parent("7", "Planning"),
+                "Can't undo: \"Planning\" was removed too. Undo that first.",
+            ),
+            (
+                RpcError::undo_identity("8", "Research"),
+                "Can't undo: \"Research\" already occupies the removed item's identity. Remove that item before trying Undo again.",
+            ),
+            (
+                RpcError::undo_pad_name("Notes"),
+                "Can't undo: a Pad named \"Notes\" already exists. Rename that Pad, then try Undo again.",
+            ),
+        ] {
+            assert_eq!(error.message, expected);
+        }
+    }
 
     #[test]
     fn h11_the_steer_and_interrupt_codes_round_trip_through_rpc_error() {

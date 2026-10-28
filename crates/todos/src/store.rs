@@ -327,6 +327,10 @@ impl Store {
 
     /// Sets the Home. The caller has checked that a Workstream exists on the Rail.
     pub(crate) fn set_home(&self, id: u32, home: Option<&str>) -> Result<Todo, RpcError> {
+        let tx = self
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
         self.get(id)?;
         self.db
             .execute(
@@ -334,6 +338,21 @@ impl Store {
                 params![id, home],
             )
             .map_err(RpcError::internal)?;
+        let retained: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        if retained {
+            tx.execute(
+                "DELETE FROM rail_removal_items WHERE kind='todo-home' AND id=?",
+                [id.to_string()],
+            )
+            .map_err(RpcError::internal)?;
+        }
+        tx.commit().map_err(RpcError::internal)?;
         self.get(id)
     }
 
@@ -359,6 +378,20 @@ impl Store {
             )
             .map_err(RpcError::internal)?;
         self.record_change(id, Some(before), after_touch, actor)?;
+        let retained: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        if retained {
+            tx.execute(
+                "DELETE FROM rail_removal_items WHERE kind='todo-owner' AND id=?",
+                [id.to_string()],
+            )
+            .map_err(RpcError::internal)?;
+        }
         tx.commit().map_err(RpcError::internal)?;
         self.get(id)
     }
