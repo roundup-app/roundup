@@ -78,7 +78,8 @@ it("u4461_removal_failure_keeps_the_captured_workstream_in_the_rendered_app", as
     await lane.browser("click", ".native-alert-failure button:first-child");
     await lane.until("window.__question.shown !== null");
   } else {
-    await lane.browser("click", '.rail-row[data-id="backend"]');
+    await lane.browser("click", '#rail-name-backend');
+    await lane.browser("focus", '.rail-row[data-id="backend"]');
     await lane.browser("press", "Meta+Backspace");
     await lane.until("window.__question.shown !== null");
   }
