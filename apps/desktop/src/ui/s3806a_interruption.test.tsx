@@ -164,7 +164,7 @@ const shared = async (owner: string, trigger: string, phase: string) => {
   let source!: LibrarySortable;
 
   const view = render(() => <><Sortable.Root ids={["A", "B"]} onOrderChange={commits} onDrag={dragging}
-    tree={owner === "sort-tree" ? { rows: [{ id: "A", parent: null }, { id: "B", parent: null }], indent: 24, nests: () => true, onMove: commits, onPreview: preview } : undefined}
+    tree={owner === "sort-tree" ? { rows: [{ id: "A", parent: null }, { id: "B", parent: null }], indent: 24, inset: () => 0, nests: () => true, onMove: commits, onPreview: preview } : undefined}
     external={owner === "sort-external" ? { target: () => ({ element: outside }), onDropOutside: commits } : undefined}>
     <For each={["A", "B"]}>{(id, index) => <Sortable.Item id={id} index={index()} pressable={owner === "sort-external"}>{parts => { if (id === "A") source = parts.sortable;
 
