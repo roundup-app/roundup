@@ -144,11 +144,18 @@ it("u4277c_hidden_project_terminals_never_report_empty", async () => {
 });
 
 
-it.each(["home", "a1", null, "empty"])("u4453c_command_menu_opens_once_and_focuses: %s", async selection => {
-  const { connected, daemon, shells, emulators } = await mountNavigation(selection === "empty");
+it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_once_and_focuses: %s", async selection => {
+  const { connected, daemon, nodes, shells, emulators } = await mountNavigation(selection === "empty" || selection === "root-agent");
+
+  if (selection === "root-agent") {
+    nodes.push(agent("root-agent", "idle", "ready"));
+    shells.push(info("unrelated", { owner: "/p" }));
+    await connected().rail.refresh({ terminals: true });
+  }
 
   if (selection !== "empty") connected().rail.select(selection);
-  const owner = selection === "empty" ? null : "home";
+  const selected = connected().rail.selected();
+  const owner = selection === "empty" || selection === "root-agent" ? null : "home";
   daemon.handlers["terminal.open"] = () => {
     shells.push(info("shell", { owner: owner ?? "/p" }));
 
@@ -168,6 +175,15 @@ it.each(["home", "a1", null, "empty"])("u4453c_command_menu_opens_once_and_focus
   expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner }]);
   expect(emulators.made.has("shell")).toBe(true);
   expect(document.querySelectorAll('.bubble[data-bubble="shell"]')).toHaveLength(1);
+  expect(connected().rail.selected()).toBe(selected);
+
+  if (selection === "root-agent") {
+    expect(document.querySelector('.terminal-tab[data-bubble="unrelated"]')).toBeNull();
+    connected().rail.select(null);
+    expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).not.toBeNull();
+    connected().rail.select(selected);
+    expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).toBeNull();
+  }
 });
 
 it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(view => [false, true].map(populated => ({ view, populated }))))("u4453c_terminal_bar_stays_in_every_view: $view $populated", async ({ view, populated }) => {
