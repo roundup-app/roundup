@@ -104,8 +104,12 @@
     ],
     "first_attempt_durations": "not available in the incomplete normal reporter output; not inferred from retry aggregates",
     "required_checks_log": "repair-4712-ready.log.gz",
-    "required_checks_status": "unfinished at this snapshot; no passing ready claim",
-    "snapshot_utc": "2026-10-28T23:43:09.574149+00:00"
+    "required_checks_status": "interrupted unfinished at Builder budget with SIGTERM; no passing ready claim",
+    "snapshot_utc": "2026-10-28T23:43:09.574149+00:00",
+    "vitest_exit_code": 130,
+    "pnpm_and_app_data_exit_code": 1,
+    "final_json_report": false,
+    "required_checks_termination_signal": "SIGTERM"
   },
   "workflow_source_sha": "343669a0ecfb83b929aa290053e0f2dd42b785ef"
 }
