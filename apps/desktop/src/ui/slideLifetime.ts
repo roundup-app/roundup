@@ -81,12 +81,15 @@ export const createMaximiseSlide = (element: Accessor<HTMLElement | undefined>, 
       if (!active() || !host?.animate) return;
       const style = getComputedStyle(host);
       const duration = style.getPropertyValue("--duration-drawer").trim();
+
       const current = host.animate([
         { transform: `translateX(${displacement}px)` },
         { transform: "translateX(0)" },
       ], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
+
       slide = current;
       const complete = () => { if (slide === current) settled(); };
+
       void current.finished.then(complete, complete);
     },
   };
