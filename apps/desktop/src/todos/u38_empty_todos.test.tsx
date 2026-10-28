@@ -10,13 +10,8 @@ import { Todos } from "./Todos";
 afterEach(cleanup);
 
 describe("u38 empty Todos", () => {
-  it("u38_an_open_project_with_no_todos_reads_no_todos_yet", async () => {
-    await mountTodos([]);
 
-    expect(await screen.findByText("No Todos yet")).toBeTruthy();
-  });
-
-  it("u38_no_todos_yet_never_flashes_before_the_first_todo_list_answers", async () => {
+  it("u4464_no_empty_view_before_the_first_answer_u38_todos_todo_list_answers", async () => {
     const app = createFakeApp();
     const pending = Promise.withResolvers<ReturnType<typeof todo>[]>();
 
@@ -32,11 +27,11 @@ describe("u38 empty Todos", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect(screen.queryByText("No Todos yet")).toBeNull();
+    expect(screen.queryByRole("group", { name: /No Todos/ })).toBeNull();
 
     pending.resolve([]);
 
-    expect(await screen.findByText("No Todos yet")).toBeTruthy();
+    expect(await screen.findByRole("group", { name: /No Todos/ })).toBeTruthy();
   });
 
   it("u38_no_todos_yet_disappears_once_a_todo_exists", async () => {

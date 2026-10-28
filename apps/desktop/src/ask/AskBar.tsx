@@ -1,3 +1,4 @@
+import { EmptyState } from "../ink/EmptyState";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createCopyLabels } from "../ui/CopyButton";
@@ -353,19 +354,17 @@ const ProjectOverview = () => {
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
 
+  const emptyWorkstreams = () => hasView("workstreams") && workstreams().length === 0;
+
   const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
 
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
     <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
-    <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
-      <Icon name="check" />
-      <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>
-    </div>}>
+    <Show when={attention().length > 0} fallback={<EmptyState art="check" {...{ title: emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0) }} line={emptyWorkstreams() ? copy.emptyWorkstreamsLine : copy.emptyCentreLine} />}>
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
     </Show>
-    <Show when={hasView("workstreams") && workstreams().length === 0 && rail.failure() === null}><ReservedLine class="requested-empty" status={copy.noWorkstreamYet} /></Show>
     <ul class="overview-list">
       <For each={hasView("workstreams") ? workstreams() : []}>{(node) => <li>
         {entry(node)}
@@ -523,7 +522,8 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onC
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
         <div class="made-actions"><button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button><Show when={props.onClose}><button type="button" data-button="quiet" onClick={() => props.onClose?.()}>{copy.closeView(copy.deliverables)}</button></Show></div>
       </div>
-      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : records().length === 0 && props.state.failure() === null ? copy.deliverablesEmpty : null} />
+      <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} />
+      <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><EmptyState art="diamond" {...{ title: copy.deliverablesEmpty }} line={copy.emptyMadeLine} /></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
         <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}

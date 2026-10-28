@@ -10,13 +10,8 @@ import { deferred, openShelf, padOf, AGENT } from "./padsFixture";
 afterEach(cleanup);
 
 describe("u38 empty Pads", () => {
-  it("u38_an_open_project_with_no_pads_reads_no_pads_yet", async () => {
-    await openShelf([]);
 
-    expect(await screen.findByText("No Pads yet")).toBeTruthy();
-  });
-
-  it("u38_no_pads_yet_never_flashes_before_the_first_pad_list_answers", async () => {
+  it("u4464_no_empty_view_before_the_first_answer_u38_pads_pad_list_answers", async () => {
     const app = createFakeApp();
     const pending = Promise.withResolvers<ReturnType<typeof padOf>[]>();
 
@@ -32,11 +27,11 @@ describe("u38 empty Pads", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect(screen.queryByText("No Pads yet")).toBeNull();
+    expect(screen.queryByRole("group", { name: /No Pads/ })).toBeNull();
 
     pending.resolve([]);
 
-    expect(await screen.findByText("No Pads yet")).toBeTruthy();
+    expect(await screen.findByRole("group", { name: /No Pads/ })).toBeTruthy();
   });
 
   it("u38_no_pads_yet_disappears_once_a_pad_exists", async () => {
