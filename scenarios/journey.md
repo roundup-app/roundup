@@ -10,6 +10,8 @@ The audit files one work Issue per uncovered gap, so the queue builds every inde
 
 Observer: independent review compares the cited evidence with the stage acceptance conditions and the actual proposed work Issue. `loop/orders.py ready` must print each new implementation Issue's correct ready/waiting/in-flight state and the successor audit as waiting until its prerequisites exist. This is an evidence/specification task, so no test that merely searches this document counts as its completion. A later implementation's tests establish behavior; this policy claims no implementation or native observation.
 
+**Capture**: A PNG, video or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: `artifacts/ux/journey/<id>/`) that a test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` selects only the PR's `Scenarios:` ids and `just check` writes none. Images and videos are never committed: a run attaches them to its PR description with `gh pr edit --attach`, and only small JSON readings may be tracked (L112).
+
 **J2 audit the journey after U83 (policy).** Follows J1’s policy on the main that holds U83: its evidence goes under `artifacts/ux/journey/`, and it leaves a successor only as J1 says.
 
 **J3 audit the journey after U144 (policy).** Follows J1's policy on the main that holds U144: it drives the Enter, Request and Review stages through `just harness-real`, puts its evidence under `artifacts/ux/journey/`, and leaves a successor only as J1 says.

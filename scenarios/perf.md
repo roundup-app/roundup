@@ -228,6 +228,8 @@ Native completion (policy): after Linux has built and tested the probe, request 
 
 A miss is investigated with Web Inspector Timelines or Instruments to identify the waker or retained memory before repair. Preserve the before/after profile and all six phase reports from the same observer and Mac, with commits, hashes and commands; rerun the full round after repair. Cursor-only focused wake attribution and Activity Monitor agreement are required native evidence even when numeric gates pass. Implementation work remains in a dependent Issue; the Mac round is a separate host-bound work order after the probe exists, and measured repairs go to their owning modules. The release-profile prerequisite lands before calibration, the host-split work order governs the handoff, and allocator decisions use these real idle figures; none is settled by synthetic tests.
 
+**Idle evidence** (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`): The opt-in R24 App producer's run-owned native and webview observation journal. Native notifications and document events are separate observed facts; requested window states are never observations. The measurement-only App command accepts typed renderer records, writes only the startup-selected bounded file, and grants no execution authority. It is absent without the `idle-perf` Cargo feature.
+
 ## Keystroke-to-render in the App (`apps/desktop`, run by `crates/perf`)
 
 **K1 opt-in.** Given a normal build, then its bundle holds no trace of the keystroke probe (the string `roundup-keystroke-probe` is absent). A build made with `VITE_ROUNDUP_PERF` carries it. The probe is chosen when the bundle is built, so a normal run pays nothing and no query or flag can switch it on.
