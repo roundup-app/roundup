@@ -23,7 +23,7 @@
 }
 
 /* Terminal tabs open upward into the pane; their rule aligns with the Rail footer. */
-.terminal-tabs[data-flat-bar]::after {
+.terminal-tabs-host[data-flat-bar]::after {
   inset: 0 0 auto;
 }
 
