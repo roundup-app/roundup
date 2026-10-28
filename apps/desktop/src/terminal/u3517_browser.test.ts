@@ -322,3 +322,25 @@ it.skipIf(!groundOutput)("u4456c_ask_and_tooltip", async () => {
     await groundCapture(base, "tree-40", "system", "tooltip");
   }
 }, 120_000);
+
+
+it("u4590_visible_shell_waits_for_destination_fonts_before_launch", async () => {
+  await load("tree-40");
+  await read(`(() => {
+    const load = document.fonts.load.bind(document.fonts);
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    document.fonts.load = async (...args) => { await gate; return load(...args); };
+    window.__releaseFonts = () => { document.fonts.load = load; release(); };
+    window.__fake.app.calls.length = 0;
+    document.querySelector('.terminal-new').click();
+  })()`);
+  await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.open')")).toEqual([]);
+  await read("window.__releaseFonts()");
+  await wait("window.__fake.app.calls.some(call => call.method === 'terminal.open')");
+  const params = await read<{ cols: number; rows: number }>("window.__fake.app.calls.find(call => call.method === 'terminal.open').params");
+  expect(params.cols).toBeGreaterThan(0);
+  expect(params.rows).toBeGreaterThan(0);
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
+}, 60_000);
