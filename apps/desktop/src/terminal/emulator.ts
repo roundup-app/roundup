@@ -180,6 +180,14 @@ const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void
   disposers.push(() => observer.disconnect());
 };
 
+const ARABIC = "\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF";
+
+const ARABIC_RUN = new RegExp(`[${ARABIC}]+(?:[ \\-.,!?:;'"()0-9]+[${ARABIC}]+)*[.,!?:]?`, "g");
+
+/** Each Arabic run, spaces between words included, so the renderer draws it as one shaped string. */
+export const arabicRuns = (text: string): [number, number][] =>
+  [...text.matchAll(ARABIC_RUN)].map(match => [match.index, match.index + match[0].length]);
+
 /** The real emulators (xterm.js). WebGL is tried until the webview first refuses it, then every later Terminal goes straight to the DOM renderer. */
 export const createXtermEmulators = (
   probe?: EchoProbe,
@@ -242,6 +250,7 @@ export const createXtermEmulators = (
     const disposers: (() => void)[] = [];
 
     element.style.height = "100%";
+    element.style.gridArea = "1 / 1";
     terminal.loadAddon(fitter);
     terminal.onRender(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
@@ -468,6 +477,7 @@ export const createXtermEmulators = (
       if (!opened) {
         terminal.open(element);
         opened = true;
+        terminal.registerCharacterJoiner(arabicRuns);
         dropInlineGround(element, disposers);
 
         loadRenderer();
@@ -486,8 +496,13 @@ export const createXtermEmulators = (
     };
 
     const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<Size> => {
-      show(host, false);
+      signal?.throwIfAborted();
+      // Share the actual host's grid cell while its current Terminal remains on top and usable.
+      host.prepend(element);
+      focusOnShow = false;
+      open();
       await ready;
+      signal?.throwIfAborted();
 
       // The selected face may have changed while the bundled faces were loading.
       if (document.fonts) {
@@ -613,6 +628,7 @@ export const createXtermEmulators = (
         shellTurns.dispose();
         fontViewport?.dispose();
         terminal.dispose();
+        element.remove();
       },
     };
   };
