@@ -45,22 +45,6 @@ expect pass 'L98 every workflow runs its steps under bash -eo pipefail' pipefail
 # L84
 expect pass 'L84 the gate needs the mac lane and never main'"'"'s linux job' bash -c "gate=\$(sed -n '/^  check:/,/^  summary:/p' '$workflows/check.yml'); grep -qE 'needs: \\[.*(\\[| )mac(,|\\])' <<<\"\$gate\" && ! grep -qE 'needs: \\[.*linux' <<<\"\$gate\""
 
-# vocab
-new_repo
-expect pass "L3 vocab: clean" rules vocab
-for decl in 'pub fn session_id() {}' 'pub const fn session_id() {}' 'pub struct Sessions;' 'pub struct S {\n    pub session: u8,\n}' 'pub(crate) fn bot() {}' 'pub fn parent_agent() {}' 'pub fn list_processes() {}'; do
-  new_repo; printf '%b\n' "$decl" >crates/b.rs; commit x
-  expect fail "L3 vocab: $decl" rules vocab
-done
-new_repo; mkdir -p crates/agents/src/claude_code; echo 'pub fn session_id() {}' >crates/agents/src/claude_code/a.rs; commit x
-expect pass "L3 vocab: claude_code adapter is exempt" rules vocab
-new_repo; mkdir -p crates/other/claude_code; echo 'pub fn session_id() {}' >crates/other/claude_code/a.rs; commit x
-expect fail "L3 vocab: another claude_code dir is not exempt" rules vocab
-new_repo; echo 'export type SessionId = string;' >contracts/a.ts; commit x
-expect fail "L3 vocab: TS export" rules vocab
-new_repo; rm GLOSSARY.md; echo 'pub fn session_id() {}' >crates/b.rs; commit x
-expect fail "L3 vocab: missing GLOSSARY.md fails loudly" rules vocab
-
 # L95
 words() { loop/rules.sh architect-words; }
 new_repo; mkdir scenarios docs; echo 'Contract change (architect-approved).' >scenarios/a.md; commit x

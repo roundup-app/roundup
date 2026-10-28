@@ -35,6 +35,7 @@ lint-rust base="":
     tools/question-guard/guard.sh
     tools/retired-words.test.sh
     tools/retired-words.sh
+    loop/vocab.test.sh
     tools/library-reuse.test.sh
     tools/library-reuse.sh
     just proofs
