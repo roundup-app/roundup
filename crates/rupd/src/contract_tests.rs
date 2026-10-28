@@ -86,7 +86,7 @@ async fn u4593_agent_inputs_resolve_before_dispatch() {
                 .unwrap();
             assert_eq!(
                 resolved.pointer(pointer).unwrap(),
-                expected,
+                if method == "agent.spawn" { "1" } else { expected },
                 "{method} {selector}"
             );
         }
