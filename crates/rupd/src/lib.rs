@@ -29,6 +29,7 @@ mod reaction_checks;
 mod reaction_time;
 mod removal;
 mod resources;
+mod restart;
 mod resume;
 mod rewind;
 mod route;
@@ -87,6 +88,7 @@ pub struct Daemon {
     /// A35: the Marks a rewind reads, and the rewinds under way.
     checkpoints: Arc<checkpoints::Checkpoints>,
     rewinding: rewind::Rewinding,
+    restarting: tokio::sync::Mutex<()>,
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,
     auto: auto::Auto,

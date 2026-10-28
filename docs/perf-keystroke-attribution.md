@@ -1,6 +1,6 @@
 # R20 hop attribution
 
-Recorder mechanics and window-free proofs for R20. The [retained native observations](perf.md#r20-observations-retained-from-3550) include failed recorder attempts and the [first valid full-chain idle baseline](perf.md#valid-full-chain-idle-baseline-2026-10-25).
+Recorder mechanics and window-free proofs for R20. The [retained native observations](perf-keystroke.md#r20-observations-retained-from-3550) include failed recorder attempts and the [first valid full-chain idle baseline](perf-keystroke.md#valid-full-chain-idle-baseline-2026-10-25).
 
 The opt-in report carries every hop's p50/p95 and sample count. Webview marks
 use `performance.now()`; receipt (before decoding), physical `write_all` plus
