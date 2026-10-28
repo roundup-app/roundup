@@ -51,7 +51,11 @@ it("u4461_removal_failure_keeps_the_captured_workstream_in_the_rendered_app", as
         fake.app.handlers['terminal.list'] = () => ${JSON.stringify([info("live-shell", { owner: "workstream" })])};
         fake.app.handlers['todo.list'] = () => Array.from({length: ${fixture.done + fixture.open}}, (_, i) => ({...template, id: i+1, home: 'workstream', done: i < ${fixture.done}}));
         fake.app.handlers['pad.list'] = () => [];
-        fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'rail.changed'});
+        const actor = {kind:'user', id:'you', parent:null};
+        fake.emit({actor, name:'rail.changed'});
+        fake.emit({actor, name:'terminal.changed'});
+        fake.emit({actor, name:'todo.updated', data:template});
+        fake.emit({actor, name:'pad.changed', data:{name:'fixture'}});
         return true;
       })()`);
       await lane.until("!!document.querySelector('.rail-row[data-id=workstream]')");
@@ -66,9 +70,9 @@ it("u4461_removal_failure_keeps_the_captured_workstream_in_the_rendered_app", as
       await lane.until("window.__question.shown === null && document.activeElement?.dataset.id === 'workstream'");
     }
 
-    await lane.evaluate(`(() => { window.__fake.app.questionFailure = new Error('Alert unavailable. Retry Remove.'); return true; })()`);
+    await lane.evaluate(`(() => { window.__fake.app.questionFailure = new Error('Alert failed. Retry.'); return true; })()`);
     await lane.browser("press", "ContextMenu");
-    await lane.until("document.body.textContent.includes('Alert unavailable. Retry Remove.')");
+    await lane.until("document.body.textContent.includes('Alert failed. Retry.')");
     await lane.capture("U4601", "native-alert-failure");
     await lane.evaluate("(() => { window.__fake.app.questionFailure = null; return true; })()");
     await lane.browser("click", ".native-alert-failure button:first-child");
