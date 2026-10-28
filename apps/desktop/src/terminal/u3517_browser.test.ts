@@ -116,7 +116,14 @@ for (const state of ["agent", "door", "shell"]) {
 
       await read(`(async () => {
         const emulator = window.__terminals.get('${id}');
-        await new Promise(resolve => emulator.write(new TextEncoder().encode(${JSON.stringify(replay)}), resolve));
+        window.__fake.writeOutput('${id}', ${JSON.stringify(replay)});
+        await new Promise(resolve => {
+          const parsed = () => {
+            if (emulator.serialize().data.includes('unterminated input')) resolve();
+            else requestAnimationFrame(parsed);
+          };
+          parsed();
+        });
         // xterm schedules painting after its parser callback; the next animation frame drains that render.
         await new Promise(resolve => requestAnimationFrame(resolve));
         emulator.selectTurn(0, false);
