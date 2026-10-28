@@ -95,8 +95,8 @@ const toBubble = async () => {
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
   rowOf("lead").focus();
   await settled();
-  await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
-  document.querySelector<HTMLElement>(".terminal-tab")!.focus();
+  await waitFor(() => expect(document.querySelector(".bubble-header")).not.toBeNull());
+  document.querySelector<HTMLElement>(".bubble-header")!.focus();
   await waitFor(() => expect(line()).toEqual(label("bubble")));
 };
 
