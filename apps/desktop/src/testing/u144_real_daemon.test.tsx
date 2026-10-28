@@ -696,7 +696,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const clipboard = vi.fn(async (_text: string) => {});
     vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
-    await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
+    await waitFor(() => expect(clipboard).toHaveBeenCalledWith(`\n${exact}\n`));
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
     cleanup();
