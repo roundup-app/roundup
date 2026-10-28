@@ -226,7 +226,7 @@ export const copy = {
   contextPart: { system: "System prompt", tools: "Tools", files: "Files", conversation: "Conversation", other: "Other" },
   contextExact: (label: string, tokens: number, share: number) => `${label}: ${new Intl.NumberFormat("en").format(tokens)} tokens, ${share}% of the limit`,
   cardIntent: "Intent",
-  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- ConversationCard.shape is a domain term in GLOSSARY.md (A2681c).
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- ConversationCard.shape is a domain term (A2681c; row in GLOSSARY.md).
   cardShape: "Shape",
   cardFacts: "Facts",
   cardOutcome: "Outcome",

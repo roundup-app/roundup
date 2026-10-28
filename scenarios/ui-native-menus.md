@@ -9,6 +9,8 @@ Module: `apps/desktop` (the webview) and `crates/desktop` (the Tauri host, one A
 - **Keys.** `ContextMenu` or `⇧F10` with focus in the Rail opens the native menu under the focused row and selects it, as U56 says; with focus in the pane the keys reach the Terminal. Test: `u2694a_the_menu_key_opens_the_focused_rows_menu_and_the_pane_keeps_it`.
 - **Reuse (rule 9).** Selected: Tauri's menu API (`tauri`/`muda`). Rejected: the in-app Ark UI menu, which is not a system menu and so is not read by VoiceOver as one (`AXMenu`). The PR carries the `Reuse:` section.
 
+**Context menu** (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`): The macOS system menu (`NSMenu`) a right-click or `ContextMenu` key opens on a Rail row, a Project tab, a Terminal tab, a Pad or a Todo; the webview builds its items and the host pops it up (U2694a). One-step shortcuts use the same native accelerator conversion as the Project menu (U4322b); popup items are never installed in the application menu. Adjacent `group` values produce native separators; unavailable actions and empty submenus are omitted. `creation` captures a Workstream Home for its existing Add flow (`createIn`, `finishCreation`, `useCreation`).
+
 **U2694b the items of each object.** U4322a replaces this inventory’s flat order and Add entries with grouped applicable actions; unavailable actions are omitted, including empty submenus. The inventory below records the existing operations; retained confirmations, receiver identity and dispatch remain as specified.
 
 | Object | Items (chord shown) |
