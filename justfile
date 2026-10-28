@@ -26,7 +26,7 @@ lint-rust base="":
     python3 tools/file-size/guard.test.py
     python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
-    just clippy
+    just clippy {{quote(base)}}
     cargo machete crates
     python3 tools/lint/setup.py rust
     python3 tools/lint/scan.py rust
@@ -40,8 +40,15 @@ lint-rust base="":
     just proofs
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).
-clippy:
-    cargo clippy --all-targets -- -D warnings
+# With <base>, it runs only when the diff since <base> reaches a crate (`loop/affected.py`), so a Builder's web-only diff
+# builds no cold Rust before its push (L23).
+clippy base="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "{{base}}" ] && [ -z "$(python3 loop/affected.py rust {{quote(base)}})" ]; then
+        echo "no Rust crate reaches the diff since {{base}}: clippy skipped"; exit 0
+    fi
+    exec cargo clippy --all-targets -- -D warnings
 
 # The Rust tests; CI passes nextest a lane's profile (`ci1` to `ci5`), a thread count or the `mac` profile (L89).
 [script('loop/keep-going.sh')]

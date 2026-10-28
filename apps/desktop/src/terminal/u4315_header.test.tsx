@@ -8,85 +8,50 @@ import { mountNavigation } from "../testing/navigationFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
-it("u4315a_navigation_survives_centre_switches", async () => {
-  const { connected, nodes } = await mountNavigation();
-  nodes.push(agent("closed", "done", "", { terminal_id: null }));
-  nodes.push(door("running", "working", "Working"));
+it("u4454a_the_centre_has_no_time_timeline_or_back_to_ask", async () => {
+  const { connected, daemon, nodes } = await mountNavigation();
+  nodes.push(door("running", "working", "Working"), door("stopped", "idle", "Stopped"));
   await connected().rail.refresh();
-  const row = screen.getByRole("navigation", { name: "Centre" });
+  const draft = "  Keep this exact draft\nfor my original Project 🦉";
+  fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: draft } });
 
-  for (const id of ["a0", "running", "home", "closed", null]) {
+  for (const id of ["a0", "home", "stopped", null]) {
     connected().rail.select(id);
     await waitFor(() => expect(connected().rail.selected()).toBe(id));
-    expect(screen.getByRole("navigation", { name: "Centre" })).toBe(row);
 
-    if (id === "home" || id === "running") {
-      for (const name of ["Time", "Timeline"]) {
-        fireEvent.click(await screen.findByRole("tab", { name }));
-        await screen.findByRole("region", { name });
-        expect(screen.getByRole("navigation", { name: "Centre" })).toBe(row);
-      }
+    for (const name of ["Time", "Timeline", "Back to Ask"]) {
+      expect(screen.queryByRole("tab", { name })).toBeNull();
+      expect(screen.queryByRole("button", { name })).toBeNull();
+      expect(screen.queryByRole("region", { name })).toBeNull();
     }
   }
-});
 
+  connected().rail.select("a0");
+  fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
+  const field = await screen.findByRole("textbox", { name: "Ask" });
 
-it.each(["a0", "home", "Time", "Timeline", "ask-history", "reactions", "made", "notes", "resources"])("u4315b_back_to_ask_clears_centre_navigation: %s", async target => {
-  const { connected, daemon } = await mountNavigation();
-  connected().rail.select(target === "a0" ? "a0" : "home");
-
-  if (["Time", "Timeline"].includes(target)) fireEvent.click(await screen.findByRole("tab", { name: target }));
-  else if (!["home", "a0"].includes(target)) connected().showView(target);
-  const row = screen.getByRole("navigation", { name: "Centre" });
-  fireEvent.click(within(row).getByRole("button", { name: "Back to Ask" }));
-  await screen.findByRole("textbox", { name: "Ask" });
+  if (!(field instanceof HTMLTextAreaElement)) throw new Error("Ask must be editable");
+  expect(field.value).toBe(draft);
   expect(connected().rail.selected()).toBeNull();
-  expect(connected().view()).toBeNull();
-  expect(within(row).queryAllByRole("button")).toHaveLength(0);
+  expect(connected().project.path).toBe("/p");
   expect(daemon.calls.filter(call => ["agent.spawn", "terminal.open", "ask.send", "message.send"].includes(call.method))).toHaveLength(0);
 });
 
-it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_screens_share_navigation: %s", async command => {
+it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_screens_close_themselves: %s", async command => {
   const { connected, daemon } = await mountNavigation();
 
   if (command === "import-work") daemon.handlers["project.importDiscover"] = () => new Promise(() => {});
-  const row = screen.getByRole("navigation", { name: "Centre" });
   connected().rail.select("a0");
 
   if (command === "app-settings") window.dispatchEvent(new Event("open-app-settings"));
   else openProjectPage(command, "/p");
   const name = command === "project-settings" ? "Project settings" : command === "import-work" ? "Import Claude Code work" : "Settings";
   const view = await screen.findByRole("region", { name });
-  expect(screen.getByRole("navigation", { name: "Centre" })).toBe(row);
-  expect(view.querySelector(".settings-head")).toBeNull();
-
-  if (command === "import-work") expect(connected().importing.loading()).toBe(true);
-  fireEvent.click(within(row).getByRole("button", { name: "Back to Ask" }));
+  fireEvent.click(within(view).getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("region", { name })).toBeNull());
-  expect(connected().rail.selected()).toBeNull();
-  await screen.findByRole("textbox", { name: "Ask" });
 });
 
-it.each(["a0", "Time", "Timeline", "ask-history"])("u4315b_back_to_ask_preserves_unsubmitted_work: %s", async target => {
-  const { connected, daemon } = await mountNavigation();
-  const draft = "  Keep this exact draft\nfor my original Project 🦉";
-  fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: draft } });
-  connected().rail.select(target === "a0" ? "a0" : "home");
-
-  if (target === "Time" || target === "Timeline") fireEvent.click(await screen.findByRole("tab", { name: target }));
-
-  if (target === "ask-history") connected().showView(target);
-  fireEvent.click(within(screen.getByRole("navigation", { name: "Centre" })).getByRole("button", { name: "Back to Ask" }));
-  const field = await screen.findByRole("textbox", { name: "Ask" });
-
-  if (!(field instanceof HTMLTextAreaElement)) throw new Error("Ask must be editable");
-  expect(field.value).toBe(draft);
-  expect(connected().project.path).toBe("/p");
-  expect(daemon.calls.filter(call => ["ask.send", "message.send"].includes(call.method))).toHaveLength(0);
-});
-
-
-it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", async outcome => {
+it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async outcome => {
   const { connected, daemon, nodes } = await mountNavigation(false, 0);
 
   const candidates = [
@@ -108,14 +73,12 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
   fireEvent.click(panel.getByText("First work"));
   await panel.findByRole("button", { name: "Import 1" });
   fireEvent.click(panel.getByText("Second work"));
-  const back = within(screen.getByRole("navigation", { name: "Centre" })).getByRole("button", { name: "Back to Ask" });
+  const back = panel.getByRole("button", { name: "Close" });
   fireEvent.click(await panel.findByRole("button", { name: "Import 2" }));
   await waitFor(() => expect(commits()).toHaveLength(1));
-  expect(back.getAttribute("aria-disabled")).toBe("true");
-  expect(back).toHaveProperty("disabled", false);
   fireEvent.click(back);
   fireEvent.keyDown(back, { key: "Enter", code: "Enter" });
-  fireEvent.keyDown(back, { key: " ", code: "Space" });
+  fireEvent.keyDown(region, { key: "Escape", code: "Escape" });
   expect(screen.getByRole("region", { name: "Import Claude Code work" })).toBe(region);
   expect(connected().importing.pending()).toBe(true);
   expect(connected().rail.selected()).toBe("a0");
@@ -144,10 +107,9 @@ it.each(["success", "refused"])("u4355_back_to_ask_keeps_pending_import: %s", as
     expect(connected().rail.selected()).toBe("a0");
     expect(panel.getAllByRole("alert").length).toBeGreaterThan(0);
     expect(panel.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false);
-    expect(back.getAttribute("aria-disabled")).toBe("false");
     fireEvent.click(back);
-    await screen.findByRole("textbox", { name: "Ask" });
-    expect(connected().rail.selected()).toBeNull();
+    await waitFor(() => expect(region.isConnected).toBe(false));
+    expect(connected().rail.selected()).toBe("a0");
     openProjectPage("import-work", "/p");
     await waitFor(() => expect(connected().importing.loading()).toBe(false));
     const reopened = within(screen.getByRole("region", { name: "Import Claude Code work" }));
@@ -201,13 +163,12 @@ it.skipIf(!captureDir("U4355"))("u4355_rendered_pending_import", async () => {
           await page.browser("screenshot", join(output, `${outcome}-${step}.png`));
         };
 
-        expect(await page.evaluate("document.querySelector('.pane-navigation button').getAttribute('aria-disabled') === 'true'")).toBe(side === "head");
         await page.evaluate("document.fonts.ready.then(() => true)");
         await capture("pending");
-        const readBack = () => page.evaluate("(() => {const b=document.querySelector('.pane-navigation button'); if(!b)return null; const s=getComputedStyle(b);return {ariaDisabled:b.getAttribute('aria-disabled'),nativeDisabled:b.disabled,title:b.title,tabIndex:b.tabIndex,color:s.color,cursor:s.cursor,cjkFont:document.fonts.check('13px \"Noto Sans CJK JP\"')};})()");
+        const readBack = () => page.evaluate("(() => {const b=document.querySelector('.settings-head button'); if(!b)return null; const s=getComputedStyle(b);return {ariaDisabled:b.getAttribute('aria-disabled'),nativeDisabled:b.disabled,title:b.title,tabIndex:b.tabIndex,color:s.color,cursor:s.cursor,cjkFont:document.fonts.check('13px \"Noto Sans CJK JP\"')};})()");
         const restingBack = await readBack();
         // A real coordinate press can target the disabled control without waiting for it to enable.
-        const box = await page.evaluate<{ x: number; y: number }>("(() => {const r=document.querySelector('.pane-navigation button').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
+        const box = await page.evaluate<{ x: number; y: number }>("(() => {const r=document.querySelector('.settings-head button').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
         await page.browser("mouse", "move", String(Math.round(box.x)), String(Math.round(box.y)));
         await page.browser("mouse", "down");
         await page.browser("mouse", "up");

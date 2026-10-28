@@ -541,15 +541,21 @@ def frozen_gate(pr, base, head):
         *(f'  {path}' for path in paths[:5]), *([f'  and {len(paths) - 5} more'] if len(paths) > 5 else []),
         "Restore main's side of those paths; loop changes come from the user's own PRs."]))
 
-# A PR whose changed files all sit under scenarios/ lands no code, so closing a work Issue from it closes the Issue early.
-CLOSES = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?[ \t]+#\d+', re.I)
+# A PR whose changed files all sit under scenarios/ lands no code, so closing an implementation Issue from it closes the
+# Issue early. A `Mode: specify` Issue is done by that very PR, so it may close it.
+CLOSES = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?[ \t]+#(\d+)', re.I)
+SPECIFY = re.compile(r'^Mode: specify[ \t]*$', re.M)
 
 def scenario_closes_gate(pr, base, head):
     paths = git('diff', '--name-only', base+'...'+head).splitlines()
+    if not (paths and all(path.startswith('scenarios/') for path in paths)):
+        return
     text = '\n'.join([pr.get('body') or '', git('log', '--format=%B', base+'..'+head)])
-    found = CLOSES.search(text)
-    require(not (paths and all(path.startswith('scenarios/') for path in paths) and found),
-            f'scenario-closes: a scenario-only PR holds "{found and found.group(0)}"; use Refs: #N')
+    for found in CLOSES.finditer(text):
+        issue = one(f'{repo}/issues/{found.group(1)}')
+        require(SPECIFY.search(issue.get('body') or ''),
+                f'scenario-closes: a scenario-only PR holds "{found.group(0)}", but #{found.group(1)} is not a '
+                'Mode: specify Issue; use Refs: #N (a scenario-only PR may close only a Mode: specify Issue)')
 
 # L46: a PR whose head has no net change against its base merges nothing; only one that closes its Issue (work other PRs
 # already landed, `.agents/data/pr.md`) may be empty.
