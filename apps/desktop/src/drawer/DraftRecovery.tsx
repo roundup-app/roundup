@@ -80,13 +80,13 @@ const DraftRecoveryPanel = () => {
     }
 
     if (surface === "pads" && row.draft.value.originalName) {
-      return () => drawer.open(() => <PadDrawer name={String(row.draft.value.originalName)} pads={pads.pads} recovery={{ project: project.path, revision: row.draft.revision, list: pads }} onLateFailure={() => {}} />, "key");
+      return () => drawer.open(() => <PadDrawer name={String(row.draft.value.originalName)} pads={pads.pads} recovery={{ project: project.path, revision: row.draft.revision, list: pads }} onLateFailure={() => {}} />, "key", { kind: "pad", project: project.path });
     }
 
     const editor = todoEditor.get();
 
     if (surface === "todos" && editor && todos.all().some((todo) => String(todo.id) === object)) {
-      return () => drawer.open(() => editor({ id: Number(object), todos, recovery: { project: project.path, revision: row.draft.revision } }), "key");
+      return () => drawer.open(() => editor({ id: Number(object), todos, recovery: { project: project.path, revision: row.draft.revision } }), "key", { kind: "todo", project: project.path });
     }
 
     if (surface === "pads" && object === "creation") {
@@ -100,7 +100,7 @@ const DraftRecoveryPanel = () => {
     }
 
     if (surface === "orders" && node(row)) {
-      return () => drawer.open(() => <OrderDrawer id={object} recovery={{ project: project.path, revision: row.draft.revision }} />, "key");
+      return () => drawer.open(() => <OrderDrawer id={object} recovery={{ project: project.path, revision: row.draft.revision }} />, "key", { kind: "work-order", project: project.path });
     }
 
     const target = node(row);
