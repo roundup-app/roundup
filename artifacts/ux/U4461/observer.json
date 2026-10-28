@@ -1,0 +1,24 @@
+{
+  "head": "e1380b4e41cd3be31718081c57a3fd05538885c9",
+  "seed": "tree-40",
+  "scheme": "dark",
+  "viewports": [
+    [
+      1512,
+      950
+    ],
+    [
+      1512,
+      800
+    ]
+  ],
+  "checks": [
+    "D1",
+    "D2",
+    "D5",
+    "D6",
+    "D8"
+  ],
+  "result": "pass",
+  "boundary": "Chromium observes native request and scoped RPC; native AppKit appearance is the Mac observer."
+}
