@@ -575,10 +575,14 @@ export const Rail = () => {
   };
 
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, when: () => !document.activeElement?.closest(".shelf"), capture: focus => ({
-    available: () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending()) && !focus?.closest(".shelf") && (rail.selected() !== null || connected.view() !== null || connected.settingsView.open()),
-    invoke: backToAsk,
-  }) }]);
+  createEffect(() => {
+    if (rail.selected() === null && !connected.settingsView.open()) return;
+
+    registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => ({
+      available: () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending()),
+      invoke: backToAsk,
+    }) }]);
+  });
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
