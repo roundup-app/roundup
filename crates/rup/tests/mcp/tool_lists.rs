@@ -140,7 +140,7 @@ pub const NO_TOOL: [&str; 78] = [
     "ask.send",
     "ask.list",
     "ask.pick",
-    // U462, T21, T23: the open Drawer fetches and acknowledges History; an Agent only leaves a comment.
+    // U462, T23: only the open Drawer acknowledges History and comments; Agents read without acknowledging.
     "todo.getHistory",
     "todo.readHistory",
     "todo.unread",
