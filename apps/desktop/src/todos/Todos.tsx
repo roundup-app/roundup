@@ -782,7 +782,6 @@ export const Todos = (props: {
     <section aria-label={copy.todos} tabIndex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <OwnerCommand active={active} selected={() => selection.focused() ?? (selection.selected().length === 1 ? selection.selected()[0] : undefined)} todos={todos} connected={connected} assign={assign} />
       <Show when={dragging()}><div class="todo-drag-preview"><Show when={board.target()}>{target => <div class="todo-drag-preview-content"><span>{target().name}</span><span data-state="busy">{board.line({ ...target(), items: [] })}</span></div>}</Show></div></Show>
-      <TodoAuto home={selectedWorkstream} />
       <ScopeAction tab="todos">
         <button
           data-button="add"
@@ -796,6 +795,7 @@ export const Todos = (props: {
           <span>{copy.todo}</span>
         </button>
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+        <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
       <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} />
       <Show when={isEmpty() && !typing()}>
