@@ -2,7 +2,7 @@ import { cleanup } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { openTabs } from "../header/stripFixture";
 import { agent } from "../testing/nodes";
-import { pressOf } from "./chords";
+import { CHORDS, pressOf } from "./chords";
 import { endLeader } from "./registry";
 
 afterEach(cleanup);
@@ -19,6 +19,7 @@ const MODS: KeyboardEventInit[] = [{ ctrlKey: true }, { altKey: true }, { metaKe
   { ctrlKey: true, altKey: true }, { ctrlKey: true, metaKey: true }, { altKey: true, metaKey: true }];
 
 it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
+  expect(CHORDS.filter(row => !row.inRail && !row.inTerminals && !row.inShelf).flatMap(row => row.presses)).toEqual(KEPT);
   await openTabs({ api: [agent("a1", "idle", "x")] });
 
   const terminal = document.body.appendChild(document.createElement("textarea"));
@@ -36,7 +37,7 @@ it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
       const press = new KeyboardEvent("keydown", { code, key: code.replace(/^(Key|Digit)/, "").toLowerCase(), bubbles: true, cancelable: true, ...mods });
       const name = pressOf(press);
 
-      // U3787a: Terminal undo stays native. U4464: first-run ⌘O also reaches an open Terminal.
+      // U3787a: Terminal undo stays native. U4464: ⌘O reaches the Terminal while a Project is open.
       if ((KEPT.includes(name) && name !== "meta+KeyZ") || TERMINALS_OWN.includes(name)) continue;
 
       sent.push(name);
