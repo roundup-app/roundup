@@ -10,9 +10,10 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { fromBase64, toBase64 } from "./base64";
 import { absolutePath } from "./links";
 import type { Printed } from "./links";
-import type { Emulator, EmulatorFactory, Size } from "./emulator";
+import type { Emulator, EmulatorFactory, Size, TerminalPreparation } from "./emulator";
 
 export type Screens = {
+  prepare(host: HTMLElement, settled?: () => boolean, signal?: AbortSignal): Promise<TerminalPreparation>;
   /** The Terminal's emulator, created on first call; it receives output only while the Terminal is shown. */
   emulatorFor(id: string): Emulator;
   /** Opens a Terminal's emulator in the pane, records the fitted size, and subscribes to its output: the screen is restored, then output follows it. */
@@ -529,12 +530,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
-  const holderFor = (id: string): Holder => {
+  const holderFor = (id: string, prepared?: Emulator): Holder => {
     const known = holders.get(id);
 
     if (known) return known;
 
-    const emulator = createEmulator(id, (text) => copy(id, text));
+    const emulator = prepared ?? createEmulator(id, (text) => copy(id, text));
 
     const [atBottom, setAtBottom] = createSignal(true);
     // Tauri may run two `rpc` calls out of order, so at most one write is in flight; what is typed meanwhile goes as one write.
@@ -708,7 +709,29 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (holder) void release(id, holder).then(reconcile);
   };
 
+  const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<TerminalPreparation> => {
+    let bound: string | null = null;
+    const emulator = createEmulator(crypto.randomUUID(), text => bound ? copy(bound, text) : Promise.resolve());
+    let owned = true;
+    const dispose = () => { if (owned) { owned = false; emulator.dispose(); } };
+
+    signal?.addEventListener("abort", dispose, { once: true });
+    try {
+      if (!emulator.prepare) throw new Error("Terminal destination preparation unavailable");
+      const size = await emulator.prepare(host, settled, signal);
+
+      return { size, bind: id => {
+        if (!owned) return;
+        bound = id;
+        emulator.bind?.(id);
+        holderFor(id, emulator);
+        owned = false;
+      }, dispose };
+    } catch (error) { dispose(); throw error; } finally { signal?.removeEventListener("abort", dispose); }
+  };
+
   return {
+    prepare,
     emulatorFor,
     show,
     hide,

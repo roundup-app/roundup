@@ -75,7 +75,7 @@ it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
 }, 60_000);
 
-const captureIds = ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d"].filter(id => captureDir(id));
+const captureIds = ["U4590", "U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d"].filter(id => captureDir(id));
 
 for (const state of ["agent", "door", "shell"]) {
   it.skipIf(captureIds.length === 0)(`u3517f_rendered_terminal_reference_${state}`, async () => {
