@@ -122,7 +122,8 @@ failure feedback before the reading.
 No published capability is selected. The following is a failing dependency
 reproduction, not U4592 completion. #4633 stays open until a maintained published
 release/addon preserves fractional tracking through its public API and passes
-its renderer regressions. App integration, joined-operator integration, matched
+its renderer regressions. #4635 owns the upstream source implementation.
+App integration, joined-operator integration, matched
 App captures and performance remain on #4627/#4619.
 
 Registry metadata and the exact published tarballs were inspected on 2026-10-28:
@@ -233,10 +234,12 @@ browser=apps/desktop/node_modules/.bin/agent-browser
   open http://127.0.0.1:8933/repro.html
 "$browser" --session builder-40734816244-xterm set viewport 1512 950
 "$browser" --session builder-40734816244-xterm wait --fn 'window.done === true'
-"$browser" --session builder-40734816244-xterm eval 'window.results'
+"$browser" --session builder-40734816244-xterm eval 'window.results' > /tmp/xterm-spacing-audit/stable.metrics.json
+"$browser" --session builder-40734816244-xterm screenshot /tmp/xterm-spacing-audit/stable.png
 "$browser" --session builder-40734816244-xterm open 'http://127.0.0.1:8933/repro.html?beta'
 "$browser" --session builder-40734816244-xterm wait --fn 'window.done === true'
-"$browser" --session builder-40734816244-xterm eval 'window.results'
+"$browser" --session builder-40734816244-xterm eval 'window.results' > /tmp/xterm-spacing-audit/beta.metrics.json
+"$browser" --session builder-40734816244-xterm screenshot /tmp/xterm-spacing-audit/beta.png
 "$browser" --session builder-40734816244-xterm close
 ```
 
@@ -263,3 +266,6 @@ fails. No candidate is integrated. This observation does not establish joined
 operators/boxes, later painting, fitted resize, selection, input, fallback or
 context-loss acceptance, nor App visual/performance or WKWebView results.
 Those remain required when an upstream-supported published candidate exists.
+
+The diagnostic PNGs and metrics are retained, uncommitted, under
+`artifacts/ux/U4592/xterm-dependency/`; these are not matched App captures.
