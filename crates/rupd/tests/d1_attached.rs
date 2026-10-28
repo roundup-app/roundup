@@ -337,10 +337,11 @@ if sys.argv[1:3] == ['plugin', 'test']:
 def draw(marker):
     size = os.get_terminal_size(0)
     print('\033[2J\033[H%s %d %d pid=%d' % (marker, size.columns, size.lines, os.getpid()), flush=True)
-signal.signal(signal.SIGWINCH, lambda *_: draw('later'))
+signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGWINCH})
 draw('first')
 while True:
-    signal.pause()
+    signal.sigwait({signal.SIGWINCH})
+    draw('later')
 "#).unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
     let daemon = rupd_harness::start(
