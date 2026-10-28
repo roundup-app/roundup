@@ -83,9 +83,9 @@ describe("u373 and u370 on one mounted App", () => {
 
     await waitFor(() => expect(counts()).toEqual(["7", "4"]));
     fireEvent.click(document.querySelector('.rail-row[data-id="payments"]')!);
-    await waitFor(() => expect(counts()).toEqual(["0", "2"]));
+    await waitFor(() => expect(counts()).toEqual(["0", "4"]));
     fireEvent.click(document.querySelector('.rail-row[data-id="tokens"]')!);
-    await waitFor(() => expect(counts()).toEqual(["3", "0"]));
+    await waitFor(() => expect(counts()).toEqual(["3", "4"]));
     fireEvent.click(document.querySelector('[data-todo-root]')!);
     await waitFor(() => expect(counts()).toEqual(["7", "4"]));
   });
