@@ -194,13 +194,11 @@ it("u3789d_focus_reaches_open_and_secondary_actions", async () => {
   await overview();
   await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
   await browser("focus", '.todos-tab [data-todo="1"] .todo-row-button');
-  await browser("press", "Tab");
-  await wait("document.activeElement?.getAttribute('aria-label') === 'Open'");
   await shot("U3789d", "head", "focused");
   await browser("press", "Tab");
   await wait("document.activeElement?.matches('.todo-tick')");
   await browser("press", "Shift+Tab");
-  await wait("document.activeElement?.getAttribute('aria-label') === 'Open'");
+  await wait("document.activeElement?.matches('.todos-tab [data-todo=\"1\"] .todo-row-button')");
   await browser("press", "Enter");
   await wait("document.querySelector('.drawer[data-open=true]')");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'todo.getHistory').length")).toBe(1);

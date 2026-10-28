@@ -180,11 +180,11 @@ for size in 1280x400 1280x800; do
   browser set viewport "$width" "$height" >/dev/null || fail "agent-browser could not set ${width}×${height}"
   measure workspace "$width" "$height" false
 
-  # The Unassigned group starts collapsed (U3717), so unfold it before the row's Open button is reachable.
-  # A first mouse click on the Open button is lost, so the Drawer opens by keyboard.
+  # The Unassigned group starts collapsed (U3717), so unfold it before the row is reachable.
+  # A first mouse click on the row is lost, so the Drawer opens by keyboard.
   browser eval 'document.querySelector("[aria-label=Todos] [data-shelf-group=unassigned][aria-expanded=false] [data-part=branch-control]")?.click()' >/dev/null || fail "Unassigned group could not unfold at ${width}×${height}"
-  browser wait --fn 'document.querySelector("[aria-label=Todos] [data-id=\"1\"] button[aria-label=Open]")?.checkVisibility()' >/dev/null || fail "Todo row did not appear at ${width}×${height}"
-  browser focus '[aria-label="Todos"] [data-id="1"] button[aria-label="Open"]' >/dev/null && browser press Enter >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
+  browser wait --fn 'document.querySelector("[aria-label=Todos] [data-id=\"1\"] .todo-row-button")?.checkVisibility()' >/dev/null || fail "Todo row did not appear at ${width}×${height}"
+  browser focus '[aria-label="Todos"] [data-id="1"] .todo-row-button' >/dev/null && browser press Enter >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
   browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer did not open at ${width}×${height}"
   measure todo "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Todo Drawer could not close at ${width}×${height}"
@@ -194,8 +194,8 @@ for size in 1280x400 1280x800; do
   # U373: the Shelf mounts only its selected tab, so switch to Pads, then back for the next viewport.
   browser click '.shelf-tab[data-value=pads]' >/dev/null || fail "Pads tab could not open at ${width}×${height}"
   browser wait '[aria-label="Pads"]' >/dev/null || fail "Pads did not render at ${width}×${height}"
-  browser scrollintoview '[aria-label="Pads"] [data-pad="pad-3"] button[aria-label="Open"]' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
-  browser focus '[aria-label="Pads"] [data-pad="pad-3"] button[aria-label="Open"]' >/dev/null && browser press Enter >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
+  browser scrollintoview '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
+  browser focus '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null && browser press Enter >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
   browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer did not open at ${width}×${height}"
   measure pad "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Pad Drawer could not close at ${width}×${height}"
