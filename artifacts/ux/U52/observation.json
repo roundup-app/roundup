@@ -20,6 +20,7 @@
     "native": "cargo nextest run -p desktop: 137 passed, 0 skipped, including all six S6 tests",
     "focused_web": "U52 native adapter and first-run, U2, U3807: 42 tests passed in four files",
     "rendered": "Dedicated headless agent-browser session, dark 1512x950: no/five recents, missing binary and failed recent open; D1-D14 and D16 pass. Refreshed PNGs stay untracked under head/.",
-    "cleanup": "Removed accidentally tracked target symlink; retained the local build directory. Merged origin/main and passed merge-loss."
+    "cleanup": "Removed accidentally tracked target symlink; retained the local build directory. Merged origin/main and passed merge-loss.",
+    "regressions": "U26 harness and U166: 26 passed. N5 real-Daemon fixture: 3 passed after fixture compilation; its earlier broad-scan timeout is retained in the run log."
   }
 }
