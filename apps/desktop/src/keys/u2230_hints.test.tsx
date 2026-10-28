@@ -238,10 +238,12 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
 });
 
 
-it("u4323a_leader_hints_use_the_existing_hint_line", async () => {
+it("u4453c_hints_use_the_bar_or_key_chips", async () => {
   await open();
   await toRail();
   const retained = document.querySelector(".hint-line")!;
+  expect(retained.closest(".resource-agent")).not.toBeNull();
+  expect(document.querySelectorAll(".hint-line")).toHaveLength(1);
   const context = line();
 
   fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
