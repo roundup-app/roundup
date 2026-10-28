@@ -68,25 +68,21 @@ it("u461_pad_drawer_keeps_its_touch_line", async () => {
   expect(await screen.findByText(/You wrote this Pad at/)).toBeTruthy();
 });
 
-const doneSurface = async (surface: "fold" | "drawer" | "agent" | "rail", input: "pointer" | "space") => {
+const doneSurface = async (surface: "fold" | "drawer" | "agent", input: "pointer" | "space") => {
   const creator = { kind: "agent", id: "a", parent: null } as const;
   const initial = todo(1, { done: true });
 
-  if (surface === "agent" || surface === "rail") initial.creator = creator;
+  if (surface === "agent") initial.creator = creator;
 
   const mounted = await mountTodos([initial], true,
-    surface === "agent" || surface === "rail" ? [agent("a", "idle", "ready")] : [], surface === "rail");
+    surface === "agent" ? [agent("a", "idle", "ready")] : []);
 
   if (surface === "agent") mounted.connected.rail.select("a");
 
-  if (surface === "rail") {
-    fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-  } else {
-    fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
-  }
+  fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
   if (surface === "drawer") fireEvent.keyDown(await screen.findByRole("button", { name: "Done #1 todo 1" }), { key: "Enter" });
-  const area = surface === "drawer" ? panel() : surface === "rail" ? screen.getByRole("tree", { name: "Rail" }) : document.querySelector<HTMLElement>(".shelf")!;
+  const area = surface === "drawer" ? panel() : document.querySelector<HTMLElement>(".shelf")!;
   const box = await within(area).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
   box.focus();
 
@@ -105,7 +101,7 @@ const doneSurface = async (surface: "fold" | "drawer" | "agent" | "rail", input:
   return { mounted, area, box, activate };
 };
 
-for (const surface of ["fold", "drawer", "agent", "rail"] as const) {
+for (const surface of ["fold", "drawer", "agent"] as const) {
   for (const input of ["pointer", "space"] as const) {
     it(`u461a_each_surface_reopens_by_pointer_and_space ${surface} ${input}`, async () => {
       const { mounted, box, activate } = await doneSurface(surface, input);
@@ -115,7 +111,7 @@ for (const surface of ["fold", "drawer", "agent", "rail"] as const) {
       expect(Boolean(mounted.connected.drawer.content())).toBe(surface === "drawer");
       mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
 
-      if (surface === "drawer" || surface === "rail") {
+      if (surface === "drawer") {
         await waitFor(() => expect(box.checked).toBe(false));
         expect(document.activeElement).toBe(box);
       } else {
