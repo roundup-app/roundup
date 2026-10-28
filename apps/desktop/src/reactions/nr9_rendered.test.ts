@@ -509,7 +509,7 @@ esac
   } finally { await close(); await real.stop(); await rm(forge, { recursive: true, force: true }); }
 }, 60_000);
 
-it.skipIf(!captureDir("U3787c")).each(["tree-40", "tabs-8", "conflict"])("u3787c_reactions_list_rendered_%s", async seed => {
+it.skipIf(!captureDir("U3787c")).each(["agents-10", "tree-40", "tabs-8", "conflict"])("u3787c_reactions_list_rendered_%s", async seed => {
   const { browser, evaluate, wait, close } = await reactionBrowser();
   const server = await appServer();
   const dir = captureDir("U3787c")!;
@@ -555,6 +555,7 @@ it.skipIf(!captureDir("U3787c")).each(["tree-40", "tabs-8", "conflict"])("u3787c
     expect(await evaluate("document.activeElement.dataset.reactionOpener")).toBe("keys-4");
     await browser("press", "Home");
     expect(await evaluate("document.activeElement.dataset.reactionOpener")).toBe("keys-0");
+    await capture("focus");
     await browser("press", "Meta+a");
     expect(await evaluate("document.querySelectorAll('.reaction-row[data-row-selected=true]').length")).toBe(5);
     expect(await evaluate(`${daemon}.calls`)).toEqual([]);
