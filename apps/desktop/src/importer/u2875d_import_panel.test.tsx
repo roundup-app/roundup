@@ -157,17 +157,17 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       document.querySelectorAll('.import-check')[2].click();
       return true;
     })()`);
-    await lane.until("!!document.querySelector('.import-recovery [role=status]')");
+    await lane.until("!!document.querySelector('.import-panel [role=status][aria-label=\"Import choices conflict\"]')");
     await lane.capture("U3049a", "conflict");
     expect(await lane.calls("project.importCommit")).toEqual([]);
-    await lane.browser("focus", ".import-recovery button");
+    await lane.browser("find", "role", "button", "focus", "--name", "Open choices 1", "--exact");
     await lane.browser("press", "Enter");
     await lane.until("document.querySelector('.import-confirm')?.disabled && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
     await lane.capture("U3049b", "recovered");
     await lane.evaluate(`(() => {
       const read = Storage.prototype.getItem;
       Storage.prototype.getItem = function(key) { if (key === 'roundup:import:/Users/you/harness') throw new Error('unreadable'); return read.call(this, key); };
-      document.querySelector('.import-recovery button').click();
+      [...document.querySelectorAll('.import-recovery button')].find(button => button.textContent === 'Open choices 1').click();
       return true;
     })()`);
     await lane.until("document.querySelector('.import-panel').textContent.includes('could not be restored')");
@@ -362,7 +362,14 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         document.querySelector('.todo-project-root').click();
         return true;
       })()`);
-      await lane.evaluate("window.dispatchEvent(new Event('focus'))");
+      await lane.evaluate(`(async () => {
+        const { projectMenu } = await import('/src/testing/menuProbe.ts');
+        for (const command of ['view:reactions', 'view:made']) {
+          if (!projectMenu.items.some(item => item.id === command && item.enabled)) throw new Error('Native menu action unavailable: ' + command);
+          window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command}}));
+        }
+        window.dispatchEvent(new Event('focus'));
+      })()`);
       await lane.until("document.querySelectorAll('.reaction-row').length === 7 && document.querySelectorAll('.made-row').length === 2");
 
       if (phase === "names") {
