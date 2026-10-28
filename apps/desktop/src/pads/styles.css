@@ -398,3 +398,7 @@ li[aria-selected="true"] svg {
   background-color: var(--text-selection);
   color: var(--text-selection-ink);
 }
+
+.pad-grip { cursor: grab; opacity: 0; }
+.pad-grip:focus-visible, .shelf-row[data-selected="true"] .pad-grip { opacity: 1; }
+.pad-row-head:hover .pad-grip { opacity: 1; }
