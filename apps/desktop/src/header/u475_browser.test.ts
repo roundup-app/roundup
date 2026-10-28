@@ -136,7 +136,7 @@ it.skipIf(!captureDir("P3557c"))("p3557c_header_rendered_failure_before_and_afte
   await browser("wait", "--fn", "!!document.querySelector('.tab-recover') && !document.querySelector('.tab-rename')");
   await browser("click", ".tab-recover");
   await browser("wait", "--fn", "!!document.querySelector('.header-recovery')");
-  await browser("eval", "window.__fake.app.clipboardWrite = async () => {throw new Error('Clipboard access denied')}; [...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Copy name').click()");
+  await browser("eval", "window.__fake.app.clipboardWrite = async () => { throw new Error('Clipboard access denied'); }; [...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Copy name').click()");
   await browser("wait", "--fn", "!!document.querySelector('.header-recovery [role=alert]')");
 
   const capture = async (step: string) => {

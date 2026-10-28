@@ -229,7 +229,7 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
       return true;
     })()`);
     await lane.browser("click", ".import-confirm");
-    await lane.until("!!document.querySelector('.import-candidate [role=alert]')");
+    await lane.until("document.querySelector('.import-candidate [role=alert]')?.checkVisibility()");
     await lane.capture("U3815", "partial-failure");
     await lane.evaluate(`(() => {
       const write = Storage.prototype.setItem;
@@ -242,11 +242,11 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     await lane.evaluate(`(() => { window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: '/Users/you/harness', command: 'project-settings' } })); return true; })()`);
     await lane.until("!!document.querySelector('.settings-view textarea')");
     await lane.capture("U3814", "project-settings");
-    await lane.browser("click", ".todo-project-root");
+    await lane.browser("click", '.rail-row[data-id="agent-1"]');
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
     await lane.browser("click", "#shelf-tab-pads");
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
-    await lane.browser("press", "Meta+t");
+    await lane.browser("click", ".terminal-new");
     await lane.until("!!document.querySelector('.bubble:not([hidden])')");
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
     await lane.capture("U3814", "terminal-bubble-and-settings");
