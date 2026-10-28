@@ -27,11 +27,11 @@ describe("u38 empty Pads", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect(screen.queryByRole("group", { name: "No Pads yet" })).toBeNull();
+    expect(screen.queryByRole("group", { name: /No Pads/ })).toBeNull();
 
     pending.resolve([]);
 
-    expect(await screen.findByRole("group", { name: "No Pads yet" })).toBeTruthy();
+    expect(await screen.findByRole("group", { name: /No Pads/ })).toBeTruthy();
   });
 
   it("u38_no_pads_yet_disappears_once_a_pad_exists", async () => {

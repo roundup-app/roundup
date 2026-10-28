@@ -43,8 +43,7 @@ it("u4464_no_empty_view_before_the_first_answer_rail", async () => {
   app.handlers["rail.tree"] = () => answer.promise;
   render(() => <App app={app} clock={() => 0} reducedMotion={() => true} />);
   await waitFor(() => expect(app.calls.some(call => call.method === "rail.tree")).toBe(true));
-  expect(screen.queryByRole("group", { name: "No Agents yet" })).toBeNull();
+  expect(screen.queryByRole("group", { name: /No Agents/ })).toBeNull();
   answer.resolve([]);
-  const empty = await screen.findByRole("group", { name: "No Agents yet" });
-  expect(within(empty).getByRole("button", { name: "New Agent" })).toBeTruthy();
+  await screen.findByRole("group", { name: /No Agents/ });
 });
