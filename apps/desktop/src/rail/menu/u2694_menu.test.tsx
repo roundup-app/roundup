@@ -291,7 +291,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           return true;
         })()`);
 
-        for (const [tab, row] of [["todos", ".todo-row-button"], ["pads", ".pad-name"]]) {
+        for (const [tab, row] of [["todos", ".todo-row-button"], ["pads", ".pad-grip"]]) {
           await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${tab}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
           await lane.until(`!!document.querySelector('.shelf [data-shelf-group=me] ${row}')`);
 
@@ -309,7 +309,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           expect(await lane.evaluate<boolean>("!document.querySelector('.shelf [data-shelf-group=me][data-drop-target]')")).toBe(true);
           await lane.browser("mouse", "up");
           await lane.until("!document.querySelector('[data-dnd-placeholder]')");
-          expect((await lane.calls()).filter(call => ["todo.assign", "todo.reorder", "pad.setOwner"].includes(call.method))).toEqual([]);
+          expect((await lane.calls()).filter(call => ["todo.assign", "todo.reorder", "pad.setOwner", "pad.reorder"].includes(call.method))).toEqual([]);
         }
       } finally { await lane.close(); }
     } },

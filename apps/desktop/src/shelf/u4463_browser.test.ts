@@ -6,13 +6,15 @@ import { captureDir } from "../testing/captures";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
-const dir = captureDir("U4463");
+const directory = captureDir("U4463");
+
+const dir = directory ? join(directory, process.env.ROUNDUP_U4463_BASELINE === "1" ? "base" : "head") : null;
 
 const capture = async (name: string) => {
   if (!dir) return;
   mkdirSync(dir, { recursive: true });
-  await browser("screenshot", join(dir, `${name}.png`));
-  writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+  const [, checks] = await Promise.all([browser("screenshot", join(dir, `${name}.png`)), evaluate("window.__checks()")]);
+  writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(checks, null, 2));
 };
 
 const cases = dir ? [["tree-40", 240], ["tree-40", 320], ["empty-project", 240], ["empty-project", 320]] as const : [["tree-40", 320]] as const;
@@ -55,6 +57,9 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
 
   await capture(`${seed}-${width}-todos`);
   await evaluate(`document.querySelector('.shelf-bar [role=switch]').focus()`);
+  await browser("press", "Tab");
+  await browser("press", "Shift+Tab");
+  await capture(`${seed}-${width}-focus`);
   await browser("press", "Space");
   await browser("wait", "--fn", `document.querySelector('.shelf-bar [role=switch]').getAttribute('aria-checked') === 'true'`);
   expect(await evaluate(`window.__fake.app.calls.filter(c => c.method === 'workstream.setAuto').map(c => c.params.auto)`)).toEqual([true]);
@@ -71,4 +76,34 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
   await browser("wait", ".pads-tab");
   await settle();
   await capture(`${seed}-${width}-pads`);
+
+  if (dir && seed === "tree-40") {
+    await browser("click", "#shelf-tab-todos");
+    await browser("click", ".shelf-bar .shelf-add");
+    await browser("fill", ".todos-tab .entry-field", "Review this work");
+    await evaluate(`window.__fake.failNext(-32003, 'Todo refused; retry after reconnecting')`);
+    await browser("press", "Enter");
+    await browser("wait", ".todos-tab [role=alert]");
+    await capture(`tree-40-${width}-todo-refused`);
+    await browser("hover", ".todos-tab [role=alert]");
+    await browser("wait", "[role=tooltip]");
+    await capture(`tree-40-${width}-todo-refused-detail`);
+    await browser("click", ".todos-tab .entry-field");
+    await browser("press", "Escape");
+    await evaluate(`(async () => {
+      const tree = await window.__fake.app.rpc('rail.tree', {});
+      tree.find(node => node.id === 'backend').name = 'W'.repeat(60);
+      await window.__fake.app.rpc('rail.rename', {id:'backend',name:'W'.repeat(60)});
+      const [template] = await window.__fake.app.rpc('todo.list', null);
+      const todos = Array.from({length:200}, (_, index) => ({...template,id:index+1,title:'Review item '+index,home:'backend',done:true,blockers:[],blocked:false}));
+      window.__fake.app.handlers['todo.list'] = () => todos;
+      window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'todo.updated',data:todos[0]});
+    })()`);
+    await browser("wait", "--fn", `document.querySelector('[data-todo-count]')?.textContent === '200/200'`);
+    await settle();
+    await capture(`tree-40-${width}-long-200-todos`);
+    await browser("click", "#shelf-tab-pads");
+    await settle();
+    await capture(`tree-40-${width}-long-200-pads`);
+  }
 }, 60_000);
