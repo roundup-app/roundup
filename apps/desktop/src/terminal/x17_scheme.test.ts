@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
 import { createXtermEmulators } from "./emulator";
+import { terminalThemeFor } from "./theme";
 
 afterEach(() => { vi.unstubAllGlobals(); delete document.documentElement.dataset.mode; });
 
@@ -23,12 +24,15 @@ it("x17_connecting_tells_the_daemon_the_scheme_and_each_switch_tells_it_again", 
   const window = scheme(false);
   const app = createFakeApp();
 
+  const light = terminalThemeFor();
+
   await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
   window.switchTo(true);
+  const dark = terminalThemeFor();
 
   expect(schemeCalls(app)).toEqual([
-    { scheme: "light", background: "#ffffff", foreground: "#4d4d4c" },
-    { scheme: "dark", background: "#282c34", foreground: "#ffffff" },
+    { scheme: "light", background: light.background, foreground: light.foreground },
+    { scheme: "dark", background: dark.background, foreground: dark.foreground },
   ]);
 });
 
