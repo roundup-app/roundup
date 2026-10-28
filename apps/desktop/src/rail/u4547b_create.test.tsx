@@ -34,12 +34,16 @@ it("u4547b_create_selects_one_mode_after_saving_its_prompt", async () => {
   expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
 });
 
-it("u4547b_failed_creation_keeps_input_and_retries_the_same_workstream", async () => {
+it.each(["create", "save"])("u4547b_failed_creation_keeps_input_and_retries_the_same_workstream_%s", async failure => {
   const tree = [workstream("existing")];
   const m = await mountRail(tree);
-  m.app.handlers["rail.createWorkstream"] = () => { const made = workstream("made"); tree.push(made);
+  m.app.handlers["rail.createWorkstream"] = () => {
+    if (failure === "create") throw new RpcError(-32003, "Create refused");
+    const made = workstream("made");
+    tree.push(made);
 
- return made; };
+    return made;
+  };
 
   m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save refused"); };
 
@@ -53,11 +57,15 @@ it("u4547b_failed_creation_keeps_input_and_retries_the_same_workstream", async (
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "New Mode" }));
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" }).value).toBe(" exact\n ");
+  m.app.handlers["rail.createWorkstream"] = () => { const made = workstream("made"); tree.push(made);
+
+ return made; };
+
   m.app.handlers["workstream.setOpeningPrompt"] = () => null;
   m.app.handlers["workstream.restart"] = () => tree[1]!;
   fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect(railCallsTo(m.app, "rail.createWorkstream")).toHaveLength(1);
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toHaveLength(failure === "create" ? 2 : 1);
   expect(railCallsTo(m.app, "workstream.restart")).toHaveLength(1);
 });
 
@@ -102,4 +110,25 @@ it("u4547b_other_footer_actions_keep_their_kind", async () => {
   await waitFor(() => expect(railCallsTo(m.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]));
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
   expect(railCallsTo(m.app, "workstream.setOpeningPrompt")).toEqual([]);
+});
+
+it("u4547b_late_creation_failure_preserves_the_newer_draft", async () => {
+  const m = await mountRail([workstream("w")]);
+  let refuse!: (error: Error) => void;
+  m.app.handlers["rail.createWorkstream"] = () => new Promise((_, reject) => { refuse = reject; });
+  fireEvent.click(screen.getByRole("button", { name: "New Mode" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: "First" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: " first\n " } });
+  fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
+  await waitFor(() => expect(railCallsTo(m.app, "rail.createWorkstream")).toHaveLength(1));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "New Mode" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Second" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: " second\n " } });
+  refuse(new RpcError(-32003, "Create refused"));
+  await waitFor(() => expect(m.connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" }).value).toBe(" second\n ");
+  expect(m.connected.drafts.list().map(draft => draft.value.text)).toEqual([" first\n ", " second\n "]);
+  expect(railCallsTo(m.app, "workstream.restart")).toEqual([]);
 });

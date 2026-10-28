@@ -1,13 +1,13 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { workstream, agent } from "../testing/nodes";
+import { workstream, agent, door } from "../testing/nodes";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 import { copy } from "../copy";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 it.each([" exact e\u0301\n ", ""])("u4547c_saving_reclassifies_the_same_workstream_without_launching_%j", async prompt => {
-  const tree = [workstream("w", { opening_prompt: prompt ? "" : "previous" }), agent("child", "idle", "", { parent: "w" })];
+  const tree = [door("w", "working", "working", { opening_prompt: prompt ? "" : "previous" }), agent("child", "idle", "", { parent: "w" })];
   const m = await mountRail(tree);
   m.rail.select("w");
   m.app.handlers["workstream.setOpeningPrompt"] = ({ prompt }) => { tree[0] = { ...tree[0]!, opening_prompt: prompt ?? "" };
@@ -26,6 +26,7 @@ it.each([" exact e\u0301\n ", ""])("u4547c_saving_reclassifies_the_same_workstre
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("treeitem", { name: prompt ? copy.modesHead : copy.workstreamsHead })).toBeTruthy();
     expect(m.rail.selected()).toBe("w");
+    expect(m.rail.nodes.find(node => node.id === "w")).toMatchObject({ attempt: "1", terminal_id: "t-w" });
     expect(m.rail.nodes.find(node => node.id === "child")?.parent).toBe("w");
   }
 

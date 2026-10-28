@@ -21,6 +21,8 @@ it("u4547b_creation_starts_with_the_saved_first_prompt", async () => {
     await waitFor(async () => expect(await inputs()).toEqual([{ resume: false, prompt }]), { timeout: 20_000 });
     await app.rpc("workstream.restart", { id: node.id, request: "create-mode" });
     expect(await inputs()).toEqual([{ resume: false, prompt }]);
+    await app.rpc("workstream.setOpeningPrompt", { id: node.id, prompt: " changed for the next session\n " });
+    expect(await inputs()).toEqual([{ resume: false, prompt }]);
   } finally { await real.stop(); await rm(dir, { recursive: true, force: true }); }
 }, 180_000);
 
