@@ -107,22 +107,23 @@ it("u4459_the_bar_stays_clickable_under_the_lowest_bubble", async () => {
     await page.pointer("move", edge.x, 2000);
     await page.release(edge.x, 2000);
     // Bubble.drag applies the final pending place synchronously on pointerup.
-    for (const selector of ['button.terminal-tab', 'button.terminal-new']) {
-      const centre = await point(selector);
-      expect(await page.call<boolean>(`(selector, at) => document.querySelector(selector).contains(document.elementFromPoint(at.x, at.y))`, selector, centre)).toBe(true);
-    }
     const dir = scheme === "dark" ? captureDir("U4459") : null;
+
     if (dir) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, "lowest-bubble.png"), Buffer.from(await page.shot(), "base64"));
       writeFileSync(join(dir, "lowest-bubble.checks.json"), JSON.stringify(await page.call(`() => window.__checks()`)));
     }
-    const tab = await point('button.terminal-tab');
+
+    const tab = await point('button.terminal-tab[aria-label="zsh"]');
+    await page.click(tab.x, tab.y);
+    await page.until(`() => document.querySelector('.bubble[aria-label="zsh"]:not([hidden])')`);
     await page.click(tab.x, tab.y);
     await page.until(`() => !document.querySelector('.bubble:not([hidden])')`);
     const add = await point('button.terminal-new');
     const count = await page.call<number>(`() => window.__fake.app.calls.filter(call => call.method === 'terminal.open').length`);
     await page.click(add.x, add.y);
     await page.until(`() => window.__fake.app.calls.filter(call => call.method === 'terminal.open').length > ${count}`);
+    expect(await page.call<number>(`() => window.__fake.app.calls.filter(call => call.method === 'terminal.open').length`)).toBe(count + 1);
   }
 }, 60_000);

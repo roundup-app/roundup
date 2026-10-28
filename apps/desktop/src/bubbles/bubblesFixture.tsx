@@ -65,11 +65,14 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
     // scenarios supplying their own measured bar keep their own layout adapter.
     if (!vi.isMockFunction(Element.prototype.getBoundingClientRect)) {
       const original = Element.prototype.getBoundingClientRect;
+
       const boxes = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
         return this.matches(".bubbles, .centre-stack") ? new DOMRect(0, 0, 800, 600) : original.call(this);
       });
+
       onCleanup(() => boxes.mockRestore());
     }
+
     const [screens, setScreens] = createSignal<Screens>();
 
     return (

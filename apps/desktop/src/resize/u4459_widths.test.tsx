@@ -11,6 +11,7 @@ it("u4459_the_widths_leave_the_centre_its_minimum", () => {
   vi.spyOn(window, "getComputedStyle").mockImplementation(element => {
     const computed = style(element);
     vi.spyOn(computed, "getPropertyValue").mockImplementation(name => ({ "--rail-width": "480px", "--shelf-span": "560px", "--centre-min-width": "388px" })[name] ?? "");
+
     return computed;
   });
   let available = 0;
@@ -19,6 +20,7 @@ it("u4459_the_widths_leave_the_centre_its_minimum", () => {
     widths.rail.commit(10000);
     widths.shelf.commit(10000);
     available = 1280 - widths.rail.now();
+
     return <Layout widths={widths} header={null} rail={null} centre={null} shelf={null} overlay={null} />;
   });
   expect(available).toBeGreaterThanOrEqual(388);
