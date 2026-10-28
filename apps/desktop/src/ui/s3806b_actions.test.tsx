@@ -33,7 +33,7 @@ type Row = {
   selected: string;
   origin: string;
   method: string;
-  params: unknown;
+  params: Record<string, unknown>;
   /** Installs the pending handler for this row's method; `entered` runs as the call arrives. */
   hold: (app: FakeApp, entered: () => void) => Pending;
   confirms: boolean;
@@ -44,7 +44,7 @@ type Row = {
 /** The scoped Rail Switcher actions that reach `rpc`, with the opening Project's object and the arguments its activation captures. */
 const ROWS: Row[] = [
   { owner: "Rail", label: "New Agent", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
-    params: { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
+    params: { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null },
     hold: (app, entered) => {
       const { handler, gate } = pending(entered, agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
 
@@ -53,7 +53,7 @@ const ROWS: Row[] = [
       return gate;
     } },
   { owner: "Rail", label: "New Agent with a prompt", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
-    params: { cwd: "/p", prompt: "A\ne\u0301 🧭", parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
+    params: { cwd: "/p", prompt: "A\ne\u0301 🧭", parent: "ops", model: null, effort: null },
     hold: (app, entered) => {
       const { handler, gate } = pending(entered, agent("created", "idle", "idle"));
       app.handlers["agent.spawn"] = handler;
@@ -156,7 +156,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
   await waitFor(() => expect(ofMethod()).toHaveLength(1));
   expect(trace).toEqual(row.confirms ? ["question:closed", `${row.method}:closed`] : [`${row.method}:closed`]);
-  expect(ofMethod().map((call) => call.params)).toEqual([row.params]);
+  const visibleParams = row.method === "agent.spawn" ? { ...row.params, cols: 100, rows: 30 } : row.params;
+  expect(ofMethod().map((call) => call.params)).toEqual([visibleParams]);
   await waitFor(() => expect(field()).toBeNull());
 
   // Changing the tree and selection must not retarget the pending action.
@@ -217,7 +218,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       }
 
       await waitFor(() => expect(ofMethod()).toHaveLength(2));
-      expect(ofMethod().map(call => call.params)).toEqual([row.params, row.params]);
+      expect(ofMethod().map(call => call.params)).toEqual([visibleParams, row.params]);
       await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
 
       if (submitted) {
