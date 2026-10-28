@@ -316,3 +316,50 @@ not rendering evidence. The metadata records the WebGL canvas rather than its
 separate link-overlay canvas. Replay enters through `__fake.writeOutput`, so
 snapshot restoration and subsequent output share the same bytes; a bounded
 parse wait precedes the paint frame and selection.
+
+### Matched Linux observation, 2026-10-28
+
+Baseline `c0ab5e0d24beccc11faddd3759fd73ba2657cdce` and head
+`e88f5b85b9cd3a623541f9af7dd48a5f221d1e0c` replay SHA-256
+`5884dab79050166104654bc5077dabfa61991c1eb36d57aee7fa3d046c281449`
+in Dark at 1512×950, DPR 2. Both use loaded Fira Code 400/700 and WebGL;
+canvas backing dimensions are twice their CSS dimensions.
+
+| Surface | Base → head cell width | Base → head row pitch | Base → head grid |
+| --- | --- | --- | --- |
+| Agent | 7 → 6.5 CSS px | 19.512 → 22 CSS px | 126×43 → 136×38 |
+| Door | 7 → 6.5 CSS px | 19.512 → 22 CSS px | 126×43 → 136×38 |
+| Shell | 7 → 6.5 CSS px | 19.515 → 22 CSS px | 100×33 → 108×29 |
+
+The painted pairs show narrower tracking, joined `->`, `=>`, `!=`, `===`,
+continuous table edges/intersections and distinct bold. The dense Door and shell
+retain visible failure feedback. D2/D5/D6 pass on all six screens; the Check
+delta exits 0. D8 and its aggregate D10 already fail on the baseline and remain
+failing; no passing Check regresses. The independent critic judges these images.
+This prerequisite makes no thinner-stroke claim: #4619 / #4624 owns that slice.
+
+The preference reset first opens the target origin's fixture: storage is denied
+on the initial document in this browser setup. The capture then loads the App
+with clean preferences. Its original 60-second per-test bound is retained.
+
+| Command / observer | Exit / result |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | 0 |
+| `pnpm --filter desktop exec vitest run src/terminal/u102_emulator.test.ts src/terminal/u3517_type.test.ts src/terminal/s3806c_scale.test.ts` | 0; 22 tests, all six scale guards unchanged |
+| `pnpm --filter desktop exec vitest run src/terminal/u13_size.test.tsx src/terminal/u103_snapshot.test.tsx src/perf/k1_opt_in.test.ts src/perf/k2_keystrokes.test.ts` | 0; 53 tests |
+| `pnpm --filter desktop exec vitest related --run src/terminal/u3517_browser.test.ts` | 0; three behavior tests |
+| `ROUNDUP_CAPTURES=U4592 U500_BASE_ROOT=/tmp/roundup-4651-base/apps/desktop pnpm --filter desktop exec vitest run src/terminal/u3517_browser.test.ts --retry 0` with the browser environment above | 0; three behavior tests and all three paired capture cases |
+| `loop/rules.sh delta artifacts/ux/U4592/base artifacts/ux/U4592/head` | 0; no new failed Check |
+| `timeout 180 just capture U4592` with the same capture environment | 124; workspace-wide run exceeded the command bound; the focused observer above supplies all six paired screens |
+
+The initial focused capture attempts exited 1 with storage denied before any
+App capture; those attempts supply no visual evidence. The first broad related
+run was stopped after it selected unrelated App/Daemon observers; the changed
+capture file's related run and the focused regression runs above completed.
+Raw logs remain uncommitted in `artifacts/ux/U4592/validation/`.
+
+The latest completed main CI run [40754668320](https://github.com/roundup-app/roundup/actions/runs/40754668320)
+on `fbec3b5e5d1487565b34503353225e5c6b12512d` passed both `mac` and
+`mac-clippy`. No native timing is inferred; the existing K1/K2 tests above retain
+the opt-in build and echoed-character timing boundaries. Native appearance and
+WKWebView timing remain post-merge observations.
