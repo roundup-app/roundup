@@ -202,7 +202,7 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
 
     for (const activation of ["click", "Enter", "Space"]) {
       if (activation === "click") {
-        await browser("hover", `.rail-row[data-id="${alpha.id}"]`);
+        await browser("focus", `.rail-row[data-id="${alpha.id}"]`);
         await until(`getComputedStyle(document.querySelector('${control}')).pointerEvents === 'auto'`);
         await browser("click", control);
       }
@@ -228,12 +228,12 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
       const todoControl = '[data-id="tokens"] [data-pads-control]';
       const todoGroup = '[data-shelf-group="unassigned"]';
 
-      await browser("hover", '[data-id="tokens"]');
+      await browser("focus", '.rail-row[data-id="tokens"]');
       await browser("click", todoControl);
       await until("document.activeElement.matches('.todo-row-button') && !document.activeElement.closest('[hidden]')");
       await browser("click", `${todoGroup} .shelf-group-control`);
       await until(`document.querySelector('${todoGroup}')?.getAttribute('aria-expanded') === 'false'`);
-      await browser("hover", '[data-id="tokens"]');
+      await browser("focus", '.rail-row[data-id="tokens"]');
       await browser("click", todoControl);
       await until("document.activeElement.matches('.todo-row-button') && !document.activeElement.closest('[hidden]')");
       await capture("tree-40-todo-control");
