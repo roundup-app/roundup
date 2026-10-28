@@ -279,7 +279,7 @@ it.skipIf(!groundOutput)("u4456c_floating_menu_picker_dialog", async () => {
     await read("if(document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click(); for (const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if (control.closest('[role=treeitem]')?.getAttribute('aria-expanded') === 'false') control.click()");
     await wait("[...document.querySelectorAll('.todo-row-button')].some(row => row.checkVisibility())");
     await read("[...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility()).focus()");
-    await browser("press", "o");
+    await read("window.__fake.app.rpc('todo.list', null).then(todos => { const row = [...document.querySelectorAll('.todo-row-button')].find(row => row.checkVisibility() && todos.some(todo => !todo.done && todo.id === Number(row.closest('[data-todo]')?.dataset.todo))); row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', {key:'o',code:'KeyO',bubbles:true,cancelable:true})); })");
     await wait("!!document.querySelector('[role=menu]')");
     await groundCapture(base, "tree-40", "system", "owner-menu");
     await read("[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.includes('New Workstream')).click()");
