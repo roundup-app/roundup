@@ -261,13 +261,15 @@ export const Bubbles = (props: {
       const stack = parent?.getBoundingClientRect();
       const controls = [...parent?.querySelectorAll(".resource-agent, .terminal-tabs") ?? []]
         .filter(element => element.querySelector("button, input, [role=tab]"));
-      const siblings = controls.length ? controls : [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
+      const boxes = controls.map(element => element.getBoundingClientRect()).filter(box => box.width > 0 && box.height > 0);
+      const siblings = boxes.length ? boxes : [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []]
+        .map(element => element.getBoundingClientRect()).filter(box => box.width > 0 && box.height > 0);
       const nextEdges = [...controls, ...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
 
       for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
       for (const edge of nextEdges) if (!edges.includes(edge)) watched.observe(edge);
       edges = nextEdges;
-      const tops = siblings.map(element => element.getBoundingClientRect()).filter(box => box.width > 0 && box.height > 0).map(box => box.top);
+      const tops = siblings.map(box => box.top);
       host.style.bottom = stack ? `${Math.max(0, stack.bottom - Math.min(stack.bottom, ...tops))}px` : "";
 
       const corner = host.getBoundingClientRect();
