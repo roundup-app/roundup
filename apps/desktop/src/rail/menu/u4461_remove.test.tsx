@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import {afterEach, expect, it } from "vitest";
+import { createFakeApp } from "../../testing/fakeApp";
+import { goesLine, staysLine, judgeRemoval } from "./removal";
 import { todo } from "../../todos/testHarness";
 import { padOf } from "../../pads/padsFixture";
 import { RpcError } from "../../app/seam";
@@ -99,4 +101,15 @@ it("u4461_a_failed_native_question_authorizes_nothing_and_retries", async () => 
   app.answerRemoval!("cancel");
   await waitFor(() => expect(document.activeElement).toBe(rowOf("chosen")));
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
+});
+
+it.each([
+  { agents: [], done: 0, open: 0, expected: ["Goes: workstream", null] },
+  { agents: [agent("new-agent", "working", "busy", { parent: "workstream" })], done: 1, open: 1, expected: ["Goes: workstream, 1 done Todo", "Stays (Remove this): new-agent, 1 open Todo"] },
+  { agents: [agent("finished", "done", "finished", { parent: "workstream" }), agent("alpha", "working", "busy", { parent: "workstream" }), agent("beta", "working", "busy", { parent: "workstream" })], done: 2, open: 3, expected: ["Goes: workstream, finished, 2 done Todos", "Stays (Remove this): alpha, beta, 3 open Todos"] },
+])("u4601_three_plans_have_two_list_copy_$done_$open", async fixture => {
+  const app = createFakeApp();
+  app.handlers["todo.list"] = () => Array.from({ length: fixture.done + fixture.open }, (_, index) => todo(index + 1, { home: "workstream", done: index < fixture.done }));
+  const plan = await judgeRemoval(app, [workstream("workstream", { terminal_id: "live-shell" }), ...fixture.agents], "workstream");
+  expect([goesLine(plan, "workstream"), staysLine(plan)]).toEqual(fixture.expected);
 });
