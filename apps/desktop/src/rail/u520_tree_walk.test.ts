@@ -78,12 +78,12 @@ run("u520 the Rail is a tree", () => {
     await at("tokens");
     await press("Home");
     await page.until(`() => document.activeElement?.matches('.section-head') === true`);
-    expect(await page.call<string | null>(`() => document.activeElement?.getAttribute('data-value')`)).toBe("section:workstreams");
+    expect(await page.call<boolean>(`() => document.activeElement === document.querySelector('.rail-tree .section-head')`)).toBe(true);
     await press("End");
     expect(await page.call<boolean>(`() => { const rows = [...document.querySelectorAll('[role=tree] [data-part=item], [role=tree] [data-part=branch-control]')].filter((row) => row.checkVisibility()); return rows.at(-1) === document.activeElement; }`)).toBe(true);
     await press("Home");
     await page.until(`() => document.activeElement?.matches('.section-head') === true`);
-    expect(await page.call<string | null>(`() => document.activeElement?.getAttribute('data-value')`)).toBe("section:workstreams");
+    expect(await page.call<boolean>(`() => document.activeElement === document.querySelector('.rail-tree .section-head')`)).toBe(true);
     // A letter jumps to the row whose name begins with it.
     await press("m");
     await at("migrate");
