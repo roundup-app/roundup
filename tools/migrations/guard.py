@@ -50,9 +50,9 @@ def audit(before, after):
     errors = []
     for directory, names in sorted(after.items()):
         old = before.get(directory, set())
-        maximum = max(old) if old else None
+        maximum = max(old, key=lambda n: n.removesuffix(b"/up.sql")) if old else None
         for name in sorted(names - old):
-            if maximum is not None and name <= maximum:
+            if maximum is not None and name.removesuffix(b"/up.sql") <= maximum.removesuffix(b"/up.sql"):
                 errors.append(f"{os.fsdecode(directory)}: {os.fsdecode(name)} inserts at/before base maximum {os.fsdecode(maximum)}")
         prefixes = defaultdict(set)
         for name in names:

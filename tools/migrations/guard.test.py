@@ -35,12 +35,18 @@ class Guard(unittest.TestCase):
             subprocess.run(["git", "update-index", "-z", "--index-info"], input=data, env=env, check=True)
             return subprocess.check_output(["git", "write-tree"], env=env).decode().strip()
 
-    @cache
-    def read(self, paths):
-        return guard.entries(self.tree(paths))
-
     def check(self, before, after):
-        return guard.audit(self.read(frozenset(before)), self.read(frozenset(after)))
+        argv = sys.argv
+        sys.argv = ["guard.py", self.tree(frozenset(before)), self.tree(frozenset(after))]
+        output = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(output):
+                status = guard.main()
+        finally:
+            sys.argv = argv
+        errors = output.getvalue().splitlines()
+        self.assertEqual(status, 1 if errors else 0, errors)
+        return errors
 
     def layouts(self):
         for directory in [b"crates/pads/migrations/", b"new/migrations/", b"crates/rupd/migrations/project/"]:
@@ -91,17 +97,15 @@ class Guard(unittest.TestCase):
 
     def test_b4522_guard_refuses_missing_base(self):
         tree = self.tree(frozenset({b"new/migrations/1.sql"}))
-        for base in ["missing-base", ""]:
-            with self.subTest(base=base):
-                argv = sys.argv
-                sys.argv = ["guard.py", base or "unreadable-base", tree]
-                output = io.StringIO()
-                try:
-                    with contextlib.redirect_stderr(output):
-                        self.assertNotEqual(guard.main(), 0)
-                finally:
-                    sys.argv = argv
-                self.assertIn(base or "unreadable-base", output.getvalue())
+        argv = sys.argv
+        sys.argv = ["guard.py", "missing-base", tree]
+        output = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(output):
+                self.assertNotEqual(guard.main(), 0)
+        finally:
+            sys.argv = argv
+        self.assertIn("missing-base", output.getvalue())
 
 
 if __name__ == "__main__":

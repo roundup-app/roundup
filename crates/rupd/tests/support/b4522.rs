@@ -136,8 +136,8 @@ async fn b4522_existing_pad_deletion_survives_repair() {
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
     let actor = contracts::Actor::user();
     db.execute(
-        "INSERT INTO pads(key,name,owner,text,updated_at) VALUES('notes','notes','you','kept text',1)",
-        [],
+        "INSERT INTO pads(key,name,owner,text,updated_at) VALUES('notes','notes',?1,'kept text',1)",
+        [serde_json::to_string(&actor).unwrap()],
     )
     .unwrap();
     let tx = db.transaction().unwrap();
