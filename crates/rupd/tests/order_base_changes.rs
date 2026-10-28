@@ -115,13 +115,9 @@ async fn u2773c_orders_unchanged_base_applies_exactly_once() {
         1,
         "U2773c: one accepted mutation"
     );
-    let bytes = recorded_bytes(&run).await;
-    let text = String::from_utf8(bytes.clone()).unwrap();
-    assert_eq!(text.matches("submitted Order").count(), 1);
-    assert_eq!(
-        bytes.iter().filter(|byte| **byte == b'\r').count(),
-        1,
-        "U2773c: exactly one Terminal submit"
+    assert!(
+        recorded_bytes(&run).await.is_empty(),
+        "A4452d: an Order types no Terminal byte"
     );
     run.finish().await;
 }
