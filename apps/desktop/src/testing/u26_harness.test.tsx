@@ -88,7 +88,7 @@ describe("u26 the harness seeds", () => {
     showShelfTab("Pads");
     const name = (await screen.findAllByText("pad-0"))[0]!;
     fireEvent.click(name);
-    fireEvent.click(name.closest(".shelf-row")!.querySelector('[aria-label="Open"]')!);
+    fireEvent.keyDown(name.closest("button")!, { key: "Enter" });
 
     await screen.findByRole("textbox", { name: "Pad body" });
     expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);
