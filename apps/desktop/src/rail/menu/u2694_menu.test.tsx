@@ -225,7 +225,7 @@ it("u3515a_source_identity_follows_the_object_not_selection", async () => {
     } else {
       const tree = kind === "shell" ? [workstream("w"), agent("a", "idle", "ready", { parent: "w" })] : [agent("a", "idle", "ready")];
       const { app } = await mountBubbles(kind === "shell" ? "w" : "a", [info(kind, { owner: kind === "shell" ? "w" : "a" })], tree);
-      fireEvent.contextMenu(await waitFor(() => document.querySelector(".terminal-tab-pair") ?? Promise.reject(new Error("No Terminal tab"))));
+      fireEvent.contextMenu(await waitFor(() => document.querySelector(".bubble-header") ?? Promise.reject(new Error("No Terminal tab"))));
       expect(entry(app, "Send to Agent").children?.map(child => child.id)).toEqual(["send:a"]);
       await app.closeMenu();
     }
@@ -306,7 +306,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
     } },
     { name: "Terminal tab: no eligible receiver", run: async () => {
       const { app } = await mountBubbles(null, [info("shell", { owner: "/p" })], []);
-      const tab = await waitFor(() => document.querySelector(".terminal-tab-pair") ?? Promise.reject(new Error("No Terminal tab")));
+      const tab = await waitFor(() => document.querySelector(".bubble-header") ?? Promise.reject(new Error("No Terminal tab")));
       fireEvent.contextMenu(tab);
       expect(app.menuLabels()).not.toContain("Send to Agent");
       await app.closeMenu();
@@ -490,9 +490,9 @@ it.each([
     expected: [["send", "4"], ["copy-link", "4"], ["rename", "5"], ["close", "7"]],
     receivers: ["a"],
     mount: async () => {
-      const { app, container } = await mountBubbles("w", [info("shell", { owner: "w" })], [workstream("w"), agent("a", "idle", "ready", { parent: "w" })]);
+      const { app } = await mountBubbles("w", [info("shell", { owner: "w" })], [workstream("w"), agent("a", "idle", "ready", { parent: "w" })]);
 
-      return { app, target: container.querySelector(".terminal-tab-pair")! };
+      return { app, target: document.querySelector(".bubble-header")! };
     },
   },
   {

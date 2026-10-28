@@ -58,7 +58,7 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
   expect(await read(`document.querySelector('.rail-row[data-selected=true]').dataset.id === window.selectedWorkstream`)).toBe(true);
   expect(await read(`window.__fake.app.outputSubscriptions.some(s => s.id === '101' && !s.released)`)).toBe(true);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.close')`)).toEqual([]);
-  expect(await read(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed')`)).toBe("true");
+  expect(await read(`document.querySelector('.bubble[data-bubble="101"]').hasAttribute('hidden')`)).toBe(false);
   await browser("keyboard", "type", "after");
   await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'beforeafter'`);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === '101')`)).toBe(true);
@@ -68,8 +68,8 @@ it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer
   await capture("U3756a", `${seed}-after`);
 
   if (seed === "tree-40") {
-    await read(`document.querySelector('.terminal-tab[data-bubble="101"]').click()`);
-    await wait(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed') === 'false'`);
+    await browser("click", '.bubble[data-bubble="101"] button[aria-label="Minimise"]');
+    await wait(`document.querySelector('.bubble[data-bubble="101"]').hidden`);
     await read(`window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Terminal could not open: retry New Terminal'); }`);
     await browser("press", "Meta+t");
     await wait(`document.body.textContent.includes('Terminal could not open: retry New Terminal')`);
@@ -82,7 +82,7 @@ const fresh = async (seed = "tree-40") => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, process.env.U3756_BASELINE === "1"));
-  await wait(`!!window.__fake && !!document.querySelector('.terminal-new')`);
+  await wait(`!!window.__fake && !!document.querySelector('.bubbles')`);
 };
 
 const openRow = async (selector: string) => {
@@ -179,13 +179,13 @@ for (const listFirst of [false, true]) {
 
       if (intervene) await newer("drawer");
       await read(`window.finishOpen()`);
-      await wait(`!!document.querySelector('.terminal-tab[data-bubble="101"]')`);
+      await wait(`!!document.querySelector('.bubble[data-bubble="101"]')`);
       // The wanted effect queues Bubble focus after list reconciliation (Bubbles.tsx).
       await read(`new Promise(resolve => queueMicrotask(resolve))`);
 
       if (intervene) {
         expect(await read(`document.activeElement === window.newerFocus && (document.activeElement.value ?? document.activeElement.textContent) === window.newerText`)).toBe(true);
-        await read(`document.querySelector('.terminal-tab[data-bubble="101"]').click()`);
+        await read(`window.dispatchEvent(new CustomEvent('roundup:reveal-bubble', {detail: document.querySelector('.bubble[data-bubble="101"]').dataset.bubble}))`);
         await wait(`!!document.activeElement?.closest('.bubble[data-bubble="101"]')`);
       } else await wait(`!!document.activeElement?.closest('.bubble[data-bubble="101"]')`);
       await browser("keyboard", "type", "one");
@@ -361,8 +361,8 @@ it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_owner", async () => 
 it("u3756b_a_terminal_name_return_frame_yields_to_the_newer_ask_bar", async () => {
   await load();
   await choose("bubble");
-  await browser("dblclick", '.terminal-tab[data-bubble="101"] .terminal-tab-name');
-  await wait(`document.activeElement?.matches('.terminal-tab-editor input')`);
+  await browser("dblclick", '.bubble[data-bubble="101"] .bubble-name');
+  await wait(`document.activeElement?.matches('.bubble-title-editor input')`);
   await holdFrames();
   await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))`);
   await choose("ask");

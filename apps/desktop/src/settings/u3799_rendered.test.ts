@@ -19,7 +19,7 @@ describe.runIf(Boolean(output))("u3799 isolated rendered observer", () => {
 });
 
 it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
-  ["ask-history", "made", "resources", "workstreams", "terminal-tabs", "import-work"].map(view => [seed, view] as const),
+  ["ask-history", "made", "resources", "workstreams", "import-work"].map(view => [seed, view] as const),
 ))("u4277c_requested_%s_%s_empty_and_filled", async (seed, view) => {
   const { openLane } = await import("../todos/laneBrowser");
   const { mkdirSync, writeFileSync } = await import("node:fs");
@@ -116,9 +116,9 @@ it.skipIf(!captureDir("U4277c")).each(["tree-40", "tabs-8"].flatMap(seed =>
         await lane.resetCalls();
 
         // U4274b/c: Rail and Terminal navigation are primary; their visibility commands were retired.
-        if (view !== "workstreams" && view !== "terminal-tabs") await command(view === "import-work" ? view : `view:${view}`);
-        const selector = {"ask-history":".ask-rows",made:".ask-bar",resources:".resource-inspection",workstreams:".project-overview","terminal-tabs":".terminal-tabs","import-work":".import-panel"}[view];
-        await lane.until(view === "terminal-tabs" && !filled ? "!document.querySelector('.terminal-tabs')" : `!!document.querySelector('${selector}')`);
+        if (view !== "workstreams") await command(view === "import-work" ? view : `view:${view}`);
+        const selector = {"ask-history":".ask-rows",made:".ask-bar",resources:".resource-inspection",workstreams:".project-overview","import-work":".import-panel"}[view];
+        await lane.until(`!!document.querySelector('${selector}')`);
         expect((await lane.calls()).filter(call => ["agent.spawn", "rail.startDoor", "ask.send", "terminal.write", "project.importCommit"].includes(call.method))).toEqual([]);
 
         if (view === "ask-history") await lane.until("document.querySelector('.ask-rows')?.getAttribute('aria-busy') === 'false'");

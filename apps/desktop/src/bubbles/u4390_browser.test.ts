@@ -63,7 +63,7 @@ const capture = async (step: string) => {
 
   const observed = await read<{ checks: unknown }>(`({
     checks: window.__checks(),
-    tabs: [...document.querySelectorAll('.terminal-tab')].map(tab => tab.dataset.bubble),
+    tabs: [...document.querySelectorAll('.bubble')].map(tab => tab.dataset.bubble),
     focused: document.activeElement?.outerHTML,
     shown: [...document.querySelectorAll('.bubble:not([hidden])')].map(bubble => bubble.dataset.bubble),
     root: document.querySelector('.todo-project-root')?.getAttribute('aria-pressed'),
@@ -88,7 +88,7 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
     document.querySelector('.todo-project-root').click();
     window.__fake.emit({name:'terminal.changed'});
   })()`);
-  await until("document.querySelectorAll('.terminal-tab').length === 1 && !!document.querySelector('.terminal-tab[data-bubble=project]')");
+  await until("document.querySelectorAll('.bubble').length === 1 && !!document.querySelector('.bubble[data-bubble=project]')");
   await capture("root");
   await read(`(() => {
     const app = window.__fake.app, race = window.__rootRace;
@@ -99,7 +99,7 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
       if (++race.lists === 1) race.stale = resolve;
       else race.first = resolve;
     });
-    document.querySelector('.terminal-new').click();
+    window.dispatchEvent(new KeyboardEvent('keydown', {key:'t',code:'KeyT',metaKey:true,bubbles:true}));
     window.__fake.emit({name:'terminal.changed'});
   })()`);
   await until("!!window.__rootRace.stale && !!window.__rootRace.ack");
@@ -113,7 +113,7 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
     race.first([race.project, race.opened]);
   })()`);
   // The New Terminal control re-enables only after openTerminal joins its Rail refresh.
-  await until("!document.querySelector('.terminal-new').disabled");
+  await until("!document.querySelector('.bubbles').disabled");
 
   if (!baseline) {
     await until("document.activeElement?.closest('.bubble')?.dataset.bubble === 'root-new'");
@@ -129,18 +129,18 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
 
   if (baseline) {
     await read("document.querySelector('[data-id=first-workstream] .name').click()");
-    await until("!!document.querySelector('.terminal-tab[data-bubble=root-new]')");
+    await until("!!document.querySelector('.bubble[data-bubble=root-new]')");
   }
 
   {
     await read(`(() => {
       const app = window.__fake.app, race = window.__rootRace;
       app.handlers['terminal.close'] = () => {app.handlers['terminal.list'] = () => [race.project]; return null;};
-      document.querySelector('[aria-label="Close new shell"]').click();
+      document.querySelector('.bubble[data-bubble=root-new] [aria-label=Close]').click();
     })()`);
     await until("!!window.__question.answer");
     await read("window.__question.answer(true)");
-    await until("!document.querySelector('.terminal-tab[data-bubble=root-new]') && !document.querySelector('.bubble[data-bubble=root-new]')");
+    await until("!document.querySelector('.bubble[data-bubble=root-new]') && !document.querySelector('.bubble[data-bubble=root-new]')");
     await read("document.querySelector('.todo-project-root').click()");
     await until("document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'true'");
     await capture("closed");
@@ -154,12 +154,12 @@ it("u4390_rendered_root_open_first_listing_close_and_dense_failure", async () =>
     document.querySelector('[data-id=first-workstream] .name').click();
     window.__fake.emit({name:'terminal.changed'});
   })()`);
-  await until("document.querySelectorAll('.terminal-tab').length === 16");
+  await until("document.querySelectorAll('.bubble').length === 16");
   await capture("dense");
   await read(`(() => {
     window.__fake.app.handlers['terminal.open'] = () => {throw new Error('Cannot open Terminal: shell unavailable. Check the shell path and retry.');};
-    document.querySelector('.terminal-new').click();
+    window.dispatchEvent(new KeyboardEvent('keydown', {key:'t',code:'KeyT',metaKey:true,bubbles:true}));
   })()`);
-  await until("!document.querySelector('.terminal-new').disabled && document.querySelector('.bubbles [role=alert]')?.textContent.includes('Check the shell path and retry.')");
+  await until("!document.querySelector('.bubbles').disabled && document.querySelector('.bubbles [role=alert]')?.textContent.includes('Check the shell path and retry.')");
   await capture("dense-failure");
 }, 60_000);

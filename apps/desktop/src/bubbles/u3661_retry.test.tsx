@@ -5,7 +5,7 @@ import { bubbleCalls, mountBubbles } from "./bubblesFixture";
 
 afterEach(cleanup);
 
-const closeButton = (name: string) => document.querySelector<HTMLButtonElement>(`[aria-label="Close ${name}"]`)!;
+const closeButton = (name: string) => document.querySelector<HTMLButtonElement>(`.bubble[aria-label="${name}"] button[aria-label="Close"]`)!;
 
 /** Terminal 2 (zsh) fails to close, so its failure line shows Retry. */
 const failTerminalTwo = async () => {

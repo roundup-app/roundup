@@ -1,4 +1,4 @@
-import { render, waitFor } from "@solidjs/testing-library";
+import { fireEvent, screen, render, waitFor } from "@solidjs/testing-library";
 import { vi } from "vitest";
 import { createSignal, onCleanup, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -10,6 +10,9 @@ import { Pane } from "../terminal/Pane";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { Screens } from "../terminal/screens";
 import { ResourceStrip } from "../resources/ResourceStrip";
+import { Switcher } from "../switcher/Switcher";
+import { leaderKey } from "../keys/leaderFixture";
+import { REVEAL_BUBBLE } from "./places";
 import { Bubbles } from "./Bubbles";
 
 export const TREE: RailNode[] = [workstream("w"), agent("a", "working", "busy", { parent: "w" }), agent("b", "working", "busy", { parent: "w", order: 1 }), workstream("other", { order: 1 })];
@@ -45,6 +48,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
     return null;
   };
 
+  const [recoveryOpen, setRecoveryOpen] = createSignal(0);
   const [recovery, recover] = createSignal<{ project: string; revision: string }>();
   const [exit, setExit] = createSignal<{ code: number | null } | null>(null);
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0, exit);
@@ -77,10 +81,11 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
 
     return (
       <ConnectedProjectContext.Provider value={connected}>
+        <Switcher onOpen={() => {}} onFailure={() => {}} onTerminalRecovery={() => setRecoveryOpen(value => value + 1)} />
         <div class="rail-row" tabindex="0">row</div>
         <div class="centre-stack">
           <Pane createEmulator={unfocused} screensRef={setScreens} />
-          <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
+          <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} recoveryOpen={recoveryOpen()} />}</Show>
           <Show when={hasHost()}><ResourceStrip /></Show>
         </div>
       </ConnectedProjectContext.Provider>
@@ -114,3 +119,14 @@ export const bubbleNames = (): string[] =>
     .map((bubble) => bubble.querySelector(".bubble-name")?.textContent ?? "");
 
 export const bubbleCalls = (app: ReturnType<typeof createFakeApp>, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
+
+/** Drive the same reveal seam as the command menu; its UI is proved by U4453c. */
+export const revealBubble = (id: string): void => {
+  window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: id }));
+};
+
+export const openBubbleRecovery = async (): Promise<void> => {
+  leaderKey("KeyK");
+  fireEvent.click(await screen.findByRole("option", { name: "Unfinished work…" }));
+  await screen.findByRole("dialog", { name: "Unfinished work" });
+};

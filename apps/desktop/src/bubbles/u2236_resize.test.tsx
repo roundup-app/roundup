@@ -213,7 +213,7 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     fireEvent(window, new MouseEvent("pointerup"));
     expect(geometry()).toMatchObject({ x: before.x + 20, y: before.y + 10, w: before.w, h: before.h });
 
-    fireEvent.dblClick(document.querySelector('.terminal-tab[data-bubble="2"] .terminal-tab-name')!);
-    await waitFor(() => expect(document.querySelector(".terminal-tab-editor input")).not.toBeNull());
+    fireEvent.dblClick(document.querySelector('.bubble[data-bubble="2"] .bubble-name')!);
+    await waitFor(() => expect(document.querySelector(".bubble-title-editor input")).not.toBeNull());
   });
 });

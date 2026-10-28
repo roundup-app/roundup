@@ -19,7 +19,7 @@ it.each(["new", " NeW ", "nsh", "New Agent with a prompt", "zzzz-no-match", "", 
       { value: "ws", label: "new" },
       { value: "first", label: "New Agent" },
       { value: "second", label: "New Agent" },
-      { value: "terminal:7", label: "new-shell" },
+      { value: "terminal:7", label: "Show new-shell" },
     ];
 
     await mountSwitcher("ws", [
@@ -40,16 +40,16 @@ it.each(["new", " NeW ", "nsh", "New Agent with a prompt", "zzzz-no-match", "", 
     };
 
     await search(query);
-    await waitFor(() => expect(options().map(row => row.dataset.value)).toEqual([...ranked(destinations), ...ranked(actions)]));
+    await waitFor(() => expect(options().map(row => row.dataset.value).filter(value => !value?.startsWith("action:close-terminal"))).toEqual([...ranked(destinations), ...ranked(actions)]));
     const groups = within(document.querySelector(".switcher")!).queryAllByRole("group", { name: "Actions" });
 
-    expect(groups.flatMap(group => within(group).getAllByRole("option").map(row => row.getAttribute("data-value")))).toEqual(ranked(actions));
+    expect(groups.flatMap(group => within(group).getAllByRole("option").map(row => row.getAttribute("data-value"))).filter(value => !value?.startsWith("action:close-terminal"))).toEqual(ranked(actions));
   },
 );
 
 const options = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('.switcher [role="option"]')];
 
-const actionRows = (): HTMLElement[] => options().filter((row) => row.dataset.value?.startsWith("action:"));
+const actionRows = (): HTMLElement[] => options().filter((row) => /^action:(chord|leader):/.test(row.dataset.value ?? ""));
 
 const actionNames = (): (string | null | undefined)[] => actionRows().map((row) => row.querySelector(".switcher-name")?.textContent);
 
@@ -178,7 +178,7 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
     if (key === "W") {
       await questionDialog();
       await answerQuestion(true);
-      await waitFor(() => expect(document.querySelector('.bubble[data-bubble="7"]')).toBeNull());
+      await waitFor(() => expect(document.querySelector('.bubble[data-bubble="7"] .bubble-header')).toBeNull());
     } else await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(true));
     results.push(app.calls.filter((call) => call.method === "terminal.close" || call.method === "terminal.write"));
     cleanup();
@@ -209,11 +209,11 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
 
   if (context === "rail") focus = document.querySelector<HTMLElement>('[data-id="ann"][role="treeitem"]')!;
   else if (context === "pane") focus = document.querySelector<HTMLElement>(".pane-screen [tabindex]")!;
-  else if (context === "bubble") focus = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!;
+  else if (context === "bubble") focus = document.querySelector<HTMLElement>('.bubble[data-bubble="7"] .bubble-header')!;
   else if (context === "editor") {
-    fireEvent.dblClick(document.querySelector('.terminal-tab[data-bubble="7"] .terminal-tab-name')!);
-    await waitFor(() => expect(document.querySelector(".terminal-tab-editor input")).not.toBeNull());
-    focus = document.querySelector<HTMLInputElement>(".terminal-tab-editor input")!;
+    fireEvent.dblClick(document.querySelector('.bubble[data-bubble="7"] .bubble-name')!);
+    await waitFor(() => expect(document.querySelector(".bubble-title-editor input")).not.toBeNull());
+    focus = document.querySelector<HTMLInputElement>(".bubble-title-editor input")!;
   } else {
     focus = document.createElement("input");
     document.body.append(focus);
@@ -270,7 +270,7 @@ it("u2572c_no_selection_no_attention_and_a_removed_Bubble_never_fall_back", asyn
   expect(actionRows().map(row => row.dataset.value)).toEqual(["action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T", "action:chord:⌘/"]);
   press("Escape", {}, field()!);
   connected.rail.select("ws");
-  document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
+  document.querySelector<HTMLElement>('.bubble[data-bubble="7"] .bubble-header')!.focus();
   await show();
   expect(actionRows().map(row => row.dataset.value)).toContain("action:leader:W");
   app.handlers["terminal.list"] = () => [];
@@ -282,7 +282,7 @@ it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s"
   if (context === "App") await openTabs({ api: [agent("a", "needs-you", "asks")], web: [agent("w", "error", "failure")] });
   else {
     await mountSwitcher(context === "rail" ? "ann" : "ops");
-    document.querySelector<HTMLElement>(context === "rail" ? '[data-id="ann"][role="treeitem"]' : '.terminal-tab[data-bubble="7"]')!.focus();
+    document.querySelector<HTMLElement>(context === "rail" ? '[data-id="ann"][role="treeitem"]' : '.bubble[data-bubble="7"] .bubble-header')!.focus();
   }
 
   await show();
@@ -325,8 +325,8 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
   app.handlers["rail.createWorkstream"] = () => new Promise(() => {});
   fireEvent.click(document.querySelector<HTMLButtonElement>('.rail-actions [data-button="add"]')!);
   await show();
-  expect(actionNames()).toContain("New Agent");
-  expect(actionNames()).not.toContain("New Agent with a prompt");
+  expect(actionRows().map(row => row.dataset.value)).toContain("action:chord:⌘N");
+  expect(actionRows().map(row => row.dataset.value)).not.toContain("action:chord:⇧⌘N");
   await chooseAction("New Agent", "enter");
   expect(document.activeElement).toBe(prompt);
   expect(prompt.value).toBe("keep my draft");
@@ -351,12 +351,12 @@ it("u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream", asy
   const second = workstream("second", { order: 1 });
   const { app, connected } = await mountSwitcher(null, [first, second], []);
   await show();
-  expect(actionNames()).toContain("New Terminal");
+  expect(actionRows().map(row => row.dataset.value)).toContain("action:chord:⌘T");
   await search("New Terminal");
   const stale = actionRows()[0]!;
   app.handlers["rail.tree"] = () => [second];
   await connected.rail.refresh();
-  await waitFor(() => expect(actionNames()).not.toContain("New Terminal"));
+  await waitFor(() => expect(actionRows().map(row => row.dataset.value)).not.toContain("action:chord:⌘T"));
   fireEvent.click(stale);
   expect(field()).not.toBeNull();
   expect(app.calls.filter((call) => call.method === "terminal.open")).toEqual([]);
@@ -365,13 +365,13 @@ it("u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream", asy
 
 it("u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open", async () => {
   const { app } = await mountSwitcher("ops");
-  document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
+  document.querySelector<HTMLElement>('.bubble[data-bubble="7"] .bubble-header')!.focus();
   await show();
-  expect(actionNames()).toContain("Close the Bubble");
+  expect(actionRows().map(row => row.dataset.value)).toContain("action:leader:W");
   app.handlers["terminal.close"] = () => new Promise(() => {});
-  fireEvent.click(document.querySelector<HTMLButtonElement>('.terminal-tab-pair[data-bubble="7"] button[aria-label^="Close "]')!);
+  fireEvent.click(document.querySelector<HTMLButtonElement>('.bubble[data-bubble="7"] button[aria-label="Close"]')!);
   await answerQuestion(true);
-  await waitFor(() => expect(actionNames()).not.toContain("Close the Bubble"));
+  await waitFor(() => expect(actionRows().map(row => row.dataset.value)).not.toContain("action:leader:W"));
   expect(app.calls.filter((call) => call.method === "terminal.close").map((call) => call.params)).toEqual([{ id: "7" }]);
   expect(field()).not.toBeNull();
 });

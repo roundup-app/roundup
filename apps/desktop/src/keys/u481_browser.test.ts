@@ -71,7 +71,7 @@ const closed = async () => wait(`!document.querySelector('.help') && document.ac
 
 it("u481_help_escape_restores_focus_without_underlying_action", async () => {
   await load();
-  await browser("click", ".terminal-new");
+  await browser("eval", "window.dispatchEvent(new KeyboardEvent('keydown', {key:'t',code:'KeyT',metaKey:true,bubbles:true}))");
   await wait(`!!document.querySelector(".bubble .xterm-screen")`);
   await prepare(); await open();
   await browser("press", "Meta+k");
@@ -120,7 +120,7 @@ it("u496_top_layer_escape_is_order_independent", async () => {
   for (const [reverse, nested, top] of [[false, true, "modal"], [true, false, "menu"]] as const) {
     await browser("set", "viewport", reverse ? "1440" : "1280", "800");
     await load();
-    await browser("click", ".terminal-new");
+    await browser("eval", "window.dispatchEvent(new KeyboardEvent('keydown', {key:'t',code:'KeyT',metaKey:true,bubbles:true}))");
     await wait(`!!document.querySelector(".bubble .xterm-screen")`);
     await mountLayers(reverse, nested);
     await browser("click", top === "modal" ? '[data-registry-modal-trigger]' : '[data-registry-menu-trigger]');

@@ -207,7 +207,7 @@ export const Bubble = (props: {
           style={{ display: place().min ? "none" : "block", left: `${props.origin.left}px`, top: `${props.origin.top}px` }}>
           <section class="bubble" data-bubble={id} role="group" aria-label={props.name} hidden={place().min}
             style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
-            <header class="bubble-header" tabindex="0" ref={header} onContextMenu={props.menu} onPointerDown={(event) => {
+            <header class="bubble-header" aria-label={props.name} tabindex="0" ref={header} onContextMenu={props.menu} onPointerDown={(event) => {
                 // SAFETY: a pointer event on the header always targets an Element.
                 if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => clamped({ ...from, x: from.x + dx, y: from.y + dy }, props.extent()));
               }} onDblClick={(event) => {

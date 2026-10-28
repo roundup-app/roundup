@@ -1,3 +1,4 @@
+import { revealBubble } from "./bubblesFixture";
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { Menu } from "../ui/Menu";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -109,7 +110,8 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     expect(left("2")).toBe(200);
     expect(left("1")).not.toBe(200);
 
-    document.querySelector<HTMLElement>('.terminal-tab[data-bubble="1"]')!.focus();
+    revealBubble("1");
+    document.querySelector<HTMLElement>('.bubble[data-bubble="1"] .bubble-header')!.focus();
     press(document.body, 400, 300);
     drag({ x: 500, y: 300 });
     await frame();
@@ -126,7 +128,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     await frame();
     expect(bubble("2").hidden).toBe(false);
     expect(document.querySelectorAll(".bubble:not([hidden])")).toHaveLength(1);
-    expect(document.querySelectorAll(".terminal-tab")).toHaveLength(2);
+    expect(document.querySelectorAll(".bubble")).toHaveLength(2);
     expect(left("2")).toBe(150);
   });
 
@@ -294,12 +296,13 @@ describe("u421 a right-button drag pulls a bubble out", () => {
 it("u469_pull_restores_only_its_target_and_keeps_all_tabs", async () => {
   const mounted = await ready();
 
-  document.querySelector<HTMLElement>('.terminal-tab[data-bubble="1"]')!.focus();
+  revealBubble("1");
+    document.querySelector<HTMLElement>('.bubble[data-bubble="1"] .bubble-header')!.focus();
   press(document.body, 400, 300);
   drag({ x: 450, y: 300 });
   await frame();
   release(450, 300);
   expect([...document.querySelectorAll('.bubble:not([hidden])')].map(element => element.getAttribute("data-bubble"))).toEqual(["1"]);
-  expect(document.querySelectorAll('.terminal-tab')).toHaveLength(2);
+  expect(document.querySelectorAll('.bubble')).toHaveLength(2);
   expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([]);
 });

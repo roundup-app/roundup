@@ -51,7 +51,7 @@ const start = async () => {
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('[data-id="runner"]')`);
   await read(`document.querySelector('[data-id="runner"]').click()`);
-  await wait(`!!document.querySelector('.pane-screen .xterm-helper-textarea') && !!document.querySelector('.terminal-tab[data-bubble="101"]')`);
+  await wait(`!!document.querySelector('.pane-screen .xterm-helper-textarea') && !!document.querySelector('.bubble[data-bubble="101"]')`);
   await read(`document.querySelector('.pane-screen .xterm-helper-textarea').focus()`);
   await read(`window.__switchStart = window.__fake.app.calls.length`);
 };
@@ -79,8 +79,10 @@ it("u2742c_round_trips_type_only_into_the_focused_terminal", async () => {
 
 it("u2742c_targets_stay_eligible_in_the_current_project", async () => {
   await start();
-  // A focused tab takes precedence over the newest-started fallback (103).
-  await read(`document.querySelector('button.terminal-tab[data-bubble="101"]').focus()`);
+  // Choose the earlier Terminal, then switch back to it from the Agent pane.
+  await read(`window.dispatchEvent(new CustomEvent("roundup:reveal-bubble", {detail:"101"}))`);
+  await wait(focused("101"));
+  await read(`document.querySelector(".pane-screen textarea").focus()`);
   await key();
   await wait(focused("101"));
   await key();
@@ -89,12 +91,12 @@ it("u2742c_targets_stay_eligible_in_the_current_project", async () => {
   await wait(focused("101"));
   // Removing the last-used target leaves the newest eligible Terminal as fallback.
   await read(`window.__fake.app.rpc('terminal.close', {id:'101'})`);
-  await wait(`!document.querySelector('button.terminal-tab[data-bubble="101"]')`);
+  await wait(`!document.querySelector('.bubble[data-bubble="101"]')`);
   await read(`document.querySelector('.pane-screen textarea').focus()`);
   await key();
   await wait(focused("103"));
   // The dense sibling has eight private Terminals; none is eligible from runner.
-  expect(await read(`([...document.querySelectorAll('.terminal-tab')].map(e => e.dataset.bubble))`)).toEqual(["102", "103"]);
+  expect(await read(`([...document.querySelectorAll('.bubble')].map(e => e.dataset.bubble))`)).toEqual(["102", "103"]);
   await read(`window.__fake.app.exitDaemon({code:1})`);
   await wait(`document.body.textContent.includes('Daemon exited 1')`);
   const before = await read(`window.__fake.app.calls.length`);
@@ -110,7 +112,7 @@ it("u2742a_an_unfocused_run_does_not_activate_or_steal_focus", async () => {
     window.__fake.app.handlers['terminal.list'] = async params => [...await list(params), {id:'999',incarnation:'fixture-999',cwd:'/p',title:'new Run',program:'zsh',running:true,exit_code:null,owner:'runner'}];
     window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
   })()`);
-  await wait(`!!document.querySelector('.terminal-tab[data-bubble="999"]')`);
+  await wait(`!!document.querySelector('.bubble[data-bubble="999"]')`);
   expect(await read(`({same:document.activeElement === window.__agentFocus, inside:!!document.querySelector('.bubble:focus-within')})`)).toEqual({ same: true, inside: false });
 }, 90_000);
 
@@ -147,15 +149,15 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
     await browser("mouse", "up", "left");
     await wait(`!document.querySelector('.bubble:not([hidden])')`);
     expect(await read(`({presses:window.__outsidePresses, mutations:window.__fake.app.calls.slice(window.__outsideStart).filter(c => ['terminal.open','terminal.close','terminal.write','agent.prompt'].includes(c.method))})`), target).toEqual({ presses: 1, mutations: [] });
-    await browser("click", '.terminal-tab[data-bubble="103"]');
+    await browser("click", '.bubble[data-bubble="103"]');
     await wait(focused("103"));
   }
 
   // The real tab rename field owns ⌘B; it must never be mistaken for a Terminal tab.
-  await read(`document.querySelector('.terminal-tab[data-bubble="103"] .terminal-tab-name').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
-  await wait(`!!document.querySelector('.terminal-tab-editor input')`);
+  await read(`document.querySelector('.bubble[data-bubble="103"] .bubble-name').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
+  await wait(`!!document.querySelector('.bubble-title-editor input')`);
   await key();
-  expect(await read(`!!document.activeElement?.closest('.terminal-tab-editor')`)).toBe(true);
+  expect(await read(`!!document.activeElement?.closest('.bubble-title-editor')`)).toBe(true);
   await browser("press", "Escape");
   await read(`document.querySelector('[data-id="runner"]').focus()`);
   await read(`window.__helpReturn = document.activeElement; window.__helpStart = window.__fake.app.calls.length`);
@@ -225,7 +227,7 @@ it("u2742c_project_switches_do_not_reuse_a_previous_projects_target", async () =
     app.handlers['terminal.snapshot'] = () => ({cols:80,rows:24,after:0,data:''});
     app.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
   })()`);
-  await wait(`!!document.querySelector('.terminal-tab[data-bubble="103"]')`);
+  await wait(`!!document.querySelector('.bubble[data-bubble="103"]')`);
   await read(`document.querySelector('.pane-screen textarea').focus()`);
   await key();
   await wait(focused("103"));
@@ -242,7 +244,7 @@ it("u2742c_project_switches_do_not_reuse_a_previous_projects_target", async () =
     window.__other.handlers['terminal.write'] = () => null;
     window.__other.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
   })()`);
-  await wait(`!!document.querySelector('.terminal-tab[data-bubble="103"]')`);
+  await wait(`!!document.querySelector('.bubble[data-bubble="103"]')`);
   await key();
   await wait(focused("103"));
   await browser("keyboard", "type", "other-project");
@@ -253,11 +255,13 @@ it("u2742c_project_switches_do_not_reuse_a_previous_projects_target", async () =
 it("u2742c_a_terminal_tab_without_a_main_agent_has_no_switch_pair", async () => {
   await start();
   await read(`document.querySelector('.rail-row[data-id="first-workstream"]').click()`);
-  await wait(`!!document.querySelector('.terminal-tab[data-bubble="103"]') && document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'first-workstream'`);
-  await read(`document.querySelector('.terminal-tab[data-bubble="103"]').focus(); window.__beforeNoPair = window.__fake.app.calls.length`);
+  await wait(`!!document.querySelector('.bubble[data-bubble="103"]') && document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'first-workstream'`);
+  await read(`window.dispatchEvent(new CustomEvent("roundup:reveal-bubble", {detail:"103"}))`);
+  await wait(focused("103"));
+  await read(`document.querySelector('.bubble[data-bubble="103"] .bubble-header').focus(); window.__beforeNoPair = window.__fake.app.calls.length`);
   await key();
-  expect(await read(`({tab:!!document.activeElement?.matches('.terminal-tab[data-bubble="103"]'), calls:window.__fake.app.calls.slice(window.__beforeNoPair).filter(c => ['terminal.open','terminal.close','terminal.write'].includes(c.method))})`)).toEqual({ tab: true, calls: [] });
-  await read(`(() => {const bubble=document.querySelector('.bubble[data-bubble="103"]');if(bubble.hidden)document.querySelector('.terminal-tab[data-bubble="103"]').click();else bubble.querySelector('textarea').focus();})()`);
+  expect(await read(`({tab:!!document.activeElement?.matches('.bubble[data-bubble="103"] .bubble-header'), calls:window.__fake.app.calls.slice(window.__beforeNoPair).filter(c => ['terminal.open','terminal.close','terminal.write'].includes(c.method))})`)).toEqual({ tab: true, calls: [] });
+  await read(`window.dispatchEvent(new CustomEvent('roundup:reveal-bubble', {detail: "103"}))`);
   await wait(focused("103"));
   expect(await read(`(() => {const event=new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true,cancelable:true});document.activeElement.dispatchEvent(event);return event.defaultPrevented;})()`)).toBe(true);
   expect(await read(`window.__fake.app.calls.slice(window.__beforeNoPair).filter(c => ['terminal.open','terminal.close','terminal.write'].includes(c.method))`)).toEqual([]);

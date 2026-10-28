@@ -1,3 +1,4 @@
+import { revealBubble } from "./bubblesFixture";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -12,7 +13,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const focusBubble = (id: string): void => {
-  fireEvent.click(document.querySelector(`.terminal-tab[data-bubble="${id}"]`)!);
+  revealBubble(`${id}`);
   bubble(id).querySelector<HTMLElement>("button")?.focus();
 };
 
@@ -78,8 +79,7 @@ describe("u165 the keys for bubbles", () => {
 
     leaderKey("KeyM");
     expect(bubble("1").hidden).toBe(true);
-    await waitFor(() => expect(document.activeElement?.classList.contains("terminal-tab")).toBe(true));
-    leaderKey("KeyM");
+    revealBubble("1");
     expect(bubble("1").hidden).toBe(false);
   });
 

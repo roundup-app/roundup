@@ -30,7 +30,7 @@ it("u501_controls_have_names", async () => {
     const names = await read<{ named: string[]; unnamed: number; titled: number }>(`(() => {
       const icon = [...document.querySelectorAll('.bubbles button, .toasts button, .resource-strip button')].filter(button => button.checkVisibility() && !button.textContent.trim().replace(/[·\\s]/g, ''));
 
-      return { named: icon.map(button => button.getAttribute('aria-label') ?? '').filter(Boolean), unnamed: icon.filter(button => !button.getAttribute('aria-label')).length, titled: document.querySelectorAll('.ink[title], .resource-value[title], .terminal-tab-pair [title], .ask [title], .toasts [title], [class*=resize] [title]').length };
+      return { named: icon.map(button => button.getAttribute('aria-label') ?? '').filter(Boolean), unnamed: icon.filter(button => !button.getAttribute('aria-label')).length, titled: document.querySelectorAll('.ink[title], .resource-value[title], .bubble [title], .ask [title], .toasts [title], [class*=resize] [title]').length };
     })()`);
 
     expect(names.unnamed, seed).toBe(0);

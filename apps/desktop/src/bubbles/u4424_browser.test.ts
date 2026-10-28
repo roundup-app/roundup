@@ -86,10 +86,10 @@ it("u4424a_u4424b_rendered_host_absence_replacement_and_dense_failure", async ()
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", origin).href);
   await until("!!window.__fake && !!document.querySelector('[data-id=dense]')");
   await read("document.querySelector('[data-id=dense] .name').click()");
-  await until("document.querySelectorAll('.terminal-tab').length >= 8");
+  await until("document.querySelectorAll('.bubble').length >= 8");
   await capture("U4424b", "dense");
   await read(`(() => {
-    const host = document.querySelector('.resource-agent');
+    const host = document.querySelector('.resource-strip');
     window.__hostProbe = {host, parent:host.parentElement, next:host.nextSibling};
     host.remove();
     window.dispatchEvent(new KeyboardEvent('keydown',{key:'t',code:'KeyT',metaKey:true,bubbles:true,cancelable:true}));
@@ -97,15 +97,15 @@ it("u4424a_u4424b_rendered_host_absence_replacement_and_dense_failure", async ()
   await until("window.__fake.app.calls.some(c=>c.method==='terminal.open') && !!document.querySelector('.bubble:not([hidden])')");
   await capture("U4424a", "opened-without-host");
   await read("window.__hostProbe.parent.insertBefore(window.__hostProbe.host,window.__hostProbe.next)");
-  await until("!!document.querySelector('.resource-agent .terminal-tabs')");
+  await until("!!document.querySelector('.resource-strip')");
   await read("window.__hostProbe.bubble = document.querySelector('.bubble:not([hidden])'); window.__fake.writeOutput(window.__hostProbe.bubble.dataset.bubble,'retained before removal\\r\\n'); window.__hostProbe.host.remove()");
-  await until("!document.querySelector('.resource-agent')");
+  await until("!document.querySelector('.resource-strip')");
   await capture("U4424b", "absent");
 
   if (!baseline) expect(await read("window.__hostProbe.bubble.isConnected")).toBe(true);
-  await read("window.__fake.writeOutput(window.__hostProbe.bubble.dataset.bubble,'output while host absent\\r\\n'); window.__hostProbe.parent.insertBefore(document.createElement('span'),window.__hostProbe.next).className='resource-agent'");
+  await read("window.__fake.writeOutput(window.__hostProbe.bubble.dataset.bubble,'output while host absent\\r\\n'); window.__hostProbe.parent.insertBefore(document.createElement('span'),window.__hostProbe.next).className='resource-strip'");
 
-  if (!baseline) await until("!!document.querySelector('.resource-agent .terminal-tabs')");
+  if (!baseline) await until("!!document.querySelector('.resource-strip')");
   await capture("U4424b", "replaced");
 
   if (!baseline) expect(await read("window.__hostProbe.bubble === document.querySelector('.bubble:not([hidden])') && window.__hostProbe.bubble.isConnected")).toBe(true);
@@ -119,8 +119,8 @@ it("u4424a_u4424b_rendered_host_absence_replacement_and_dense_failure", async ()
   })()`);
   expect(await read("window.__fake.app.shownMenus.length")).toBe(1);
 
-  if (baseline) await read("document.querySelector('.resource-agent').replaceWith(window.__hostProbe.host)");
-  await read("document.querySelector('.terminal-tab[data-bubble=\"110\"]').click()");
+  if (baseline) await read("document.querySelector('.resource-strip').replaceWith(window.__hostProbe.host)");
+  await read("window.dispatchEvent(new CustomEvent('roundup:reveal-bubble', {detail: document.querySelector('.bubble[data-bubble=\"110\"]').dataset.bubble}))");
   await until("!!document.querySelector('.bubble[data-bubble=\"110\"]:not([hidden])')");
   await read("window.__fake.app.handlers['terminal.close']=()=>{throw new Error('Cannot close Terminal: shell is busy. Stop the command and retry.');}; document.querySelector('.bubble:not([hidden]) [aria-label=Close]').click()");
   await until("!!window.__question.answer");
