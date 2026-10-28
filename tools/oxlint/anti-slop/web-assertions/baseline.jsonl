@@ -341,9 +341,6 @@
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_a_bad_stored_value_means_todos","identity":"56c8616a8efafac079066bc243dab21c8c5c3c11d59ccf075da4eff12dead7f8"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_add_keeps_its_path","identity":"058ee5b3c74df7930aacd7a0efe7824b7d3b69ac87859a8eb0caf40de2bf94ee"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_add_keeps_its_path","identity":"1274d269781f49d20f40d7cd358acef49343ef4d7ac1b73c46b709c86509d00d"}
-{"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_pointer_toggle_and_range_follow_visible_order","identity":"e8efe578a58cc7a39d17846d3f3cf2ba9ae3571644f5e660db142a0ab51fa7db"}
-{"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_keyboard_toggle_range_and_bounds","identity":"dc35abadecf61163e596d6f4a357224772ccf61d82aea91fe73e1bc0917b7b9b"}
-{"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_ranges_skip_folded_rows_and_keep_a_toggled_off_anchor","identity":"64820949d9299d1f8297f0d380272f4e6b4fffaa14b393bf794b283d02e7f925"}
 {"file":"apps/desktop/src/shelf/u460_project.test.tsx","test":"u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf","identity":"190aede7b2010045991e35c63656ddb2453ebfe21938f97990a1e7c91d10f12f"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572b_actions_share_key_behavior_in_the_opening_view: rejected Terminal %s","identity":"d2191d3b6f5fbd6fc5e78a3d44ceecb2b6cfa36d20d5548c58b9b3b06b76ec43"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending","identity":"fc6dcd68ee23e2c7f00a6e147c3fb2c0f66a0fa9b67808b045cfa9876384318a"}
