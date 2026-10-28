@@ -22,7 +22,6 @@ export const shortcutLabel = (press: string, keyName = ""): string => {
 };
 
 export const CHORDS: readonly Chord[] = [
-  { keys: "⌘O", what: copy.chooseFolder, presses: ["meta+KeyO"] },
   { keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"] },
   { keys: "⇧⌘N", what: copy.newAgentWithAPrompt, presses: ["meta+shift+KeyN"] },
   { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
@@ -51,6 +50,8 @@ export const CHORDS: readonly Chord[] = [
   { keys: "X", what: copy.triageDone, presses: ["KeyX"], inShelf: true, inTriage: true },
   { keys: "C", what: copy.triageComment, presses: ["KeyC"], inShelf: true, inTriage: true },
   { keys: "Esc", what: copy.triageLeave, presses: ["Escape"], inShelf: true, inTriage: true },
+  // U4464: first-run-only; preserve the existing Project chord order.
+  { keys: "⌘O", what: copy.chooseFolder, presses: ["meta+KeyO"] },
 ];
 
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */

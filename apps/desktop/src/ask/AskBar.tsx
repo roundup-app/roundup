@@ -354,13 +354,15 @@ const ProjectOverview = () => {
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
 
+  const emptyWorkstreams = () => hasView("workstreams") && workstreams().length === 0;
+
   const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
 
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
     <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
-    <Show when={attention().length > 0} fallback={<EmptyState art="check" {...{ title: hasView("workstreams") && workstreams().length === 0 ? copy.noWorkstreamYet : copy.projectAttention(0) }} line={hasView("workstreams") && workstreams().length === 0 ? copy.emptyWorkstreamsLine : copy.emptyCentreLine} />}>
+    <Show when={attention().length > 0} fallback={<EmptyState art="check" {...{ title: emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0) }} line={emptyWorkstreams() ? copy.emptyWorkstreamsLine : copy.emptyCentreLine} />}>
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
     </Show>
     <ul class="overview-list">
