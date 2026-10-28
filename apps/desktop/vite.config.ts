@@ -193,11 +193,15 @@ export default defineConfig({
       },
     ],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
-    server: { deps: { inline: [/solid-js/, /@excalidraw/, /@xterm\/addon-ligatures/] } },
+    server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
   },
   resolve: {
     conditions: ["browser", "development|production"],
     // tsconfig.json's `@contracts/*` path, for the one value the webview imports from there (S11).
-    alias: { "@contracts": fileURLToPath(new URL("../../contracts/generated", import.meta.url)) },
+    alias: {
+      "@contracts": fileURLToPath(new URL("../../contracts/generated", import.meta.url)),
+      // 0.10 ships its declared ESM module but omits its CommonJS main.
+      "@xterm/addon-ligatures": fileURLToPath(new URL("./node_modules/@xterm/addon-ligatures/lib/addon-ligatures.mjs", import.meta.url)),
+    },
   },
 });
