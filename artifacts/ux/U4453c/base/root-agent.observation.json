@@ -1,0 +1,12 @@
+{
+  "calls": [
+    {
+      "method": "terminal.open",
+      "params": {
+        "workstream": null
+      }
+    }
+  ],
+  "selected": "agent-3",
+  "shown": []
+}

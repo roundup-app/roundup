@@ -210,6 +210,14 @@ export const boundedTestTimeoutRule = defineRule({
     }
 
     return {
+      ExportDefaultDeclaration(node) {
+        if (!/(?:^|[/\\])(?:vite|vitest)\.config\.[cm]?[jt]s$/.test(context.filename)) return;
+        const declaration = resolved(source, node.declaration);
+        if (declaration.type === "CallExpression" && isConfigDefinition(source, declaration.callee)) return;
+        const options = objectProperty(source, declaration, "test");
+        const configured = objectProperty(source, options, "testTimeout");
+        if (configured) defaults.add(configured);
+      },
       CallExpression(node) {
         if (isConfigDefinition(source, node.callee)) {
           const options = objectProperty(source, node.arguments[0], "test");

@@ -27,7 +27,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
+export const SEEDS = ["first-run", "first-run-five", "first-run-missing-binary", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -290,7 +290,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return changed(null);
   };
 
-  const removeWorkstream = async (workstream: RailNode): Promise<Removal> => {
+  const removeWorkstream = async (workstream: RailNode, scope?: "this" | "all" | null): Promise<Removal> => {
     const result: Removal = { removed: [], kept: [] };
     const descendants = (id: string): RailNode[] => nodes.filter((other) => other.parent === id).flatMap((child) => [child, ...descendants(child.id)]);
     const agentsBelow = descendants(workstream.id).filter((each) => each.kind === "agent");
@@ -301,7 +301,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
       const state = finished && node.worktree !== null ? await app.handlers["agent.worktreeState"]?.({ id: node.id }) : undefined;
       const reason: KeptReason | null = !finished ? "running" : state && state.ahead > 0 ? "ahead" : state?.dirty ? "dirty" : null;
 
-      if (reason !== null) staying.set(node.id, reason);
+      if (scope !== "all" && reason !== null) staying.set(node.id, reason);
     }
 
     for (const node of agentsBelow) {
@@ -315,12 +315,15 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
       }
     }
 
-    for (const other of descendants(workstream.id)) nodes.splice(nodes.indexOf(other), 1);
+    for (const other of descendants(workstream.id)) {
+      exit(other.terminal_id ?? `t-${other.id}`);
+      nodes.splice(nodes.indexOf(other), 1);
+    }
 
     for (const todo of (await app.handlers["todo.list"]?.(null)) ?? []) {
       if (todo.home !== workstream.id) continue;
 
-      if (todo.done) {
+      if (todo.done || scope === "all") {
         await app.handlers["todo.delete"]?.({ operation: crypto.randomUUID(), ids: [todo.id] });
         result.removed.push({ id: String(todo.id), kind: "todo", name: todo.title });
       } else {
@@ -349,12 +352,14 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return result;
   };
 
-  app.handlers["rail.remove"] = ({ id }) => {
+  app.handlers["rail.remove"] = ({ id, scope, operation }) => {
     const node = find(id);
+
+    if (scope === "all" && (node.kind !== "workstream" || operation != null)) throw new RpcError(-32602, "scope all requires a Workstream without an operation");
 
     exit(node.terminal_id ?? `t-${id}`);
 
-    if (node.kind === "workstream") return removeWorkstream(node);
+    if (node.kind === "workstream") return removeWorkstream(node, scope);
 
     const siblings = nodes.filter((other) => other.parent === node.parent).sort((left, right) => left.order - right.order);
     const at = siblings.findIndex((other) => other.id === id);
@@ -491,9 +496,14 @@ const afterFirstLoad = (app: FakeApp, action: () => void) => {
 /** A fake App on a Daemon holding the named seed; `now` is the clock the Statuses are measured from. */
 export const seedApp = (name: SeedName, now: number): Controls => {
   const app = createFakeApp();
+
+  if (name === "first-run-five") app.recentProjects = async () => ["/repos/roundup", "/repos/payments-api", "/repos/notes", "/repos/site", "/repos/tools"];
+
+  if (name === "first-run-missing-binary") app.claudeBinary = async () => null;
+
   const tree = (name === "tree-40" || name === "import-candidates") ? nestedTree(now) : cyclingAgents(now, 10, () => null);
 
-  const nodes = name === "first-run" || name === "empty-project"
+  const nodes = name.startsWith("first-run") || name === "empty-project"
     ? []
     : name === "context-bar"
       ? contextBarAgents(now)
@@ -521,7 +531,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       : tree;
 
   const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
-  app.opened.project = name === "first-run" ? null : PROJECT;
+  app.opened.project = name.startsWith("first-run") ? null : PROJECT;
 
   if (name === "tree-40") {
     // U3744, U3745: a cap of 3 and the first Workstream whose Door never started waiting for a slot.

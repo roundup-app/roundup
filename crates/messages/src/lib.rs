@@ -68,11 +68,6 @@ use tokio::sync::broadcast::error::RecvError;
 /// Lookup errors do not call `record`; callback errors propagate unchanged. The callback owns
 /// rollback of partial work. Poisoned lifecycle locks panic, as in Agents.
 pub trait TerminalOwners: Module {
-    /// Passive evidence only; implementations without a running Agent collect none.
-    fn observe_coordination(&self, _agent: &str, _message: u32) -> Option<agents::MeasurementWait> {
-        None
-    }
-
     fn with_terminal_owner(
         &self,
         terminal: &str,
@@ -81,10 +76,6 @@ pub trait TerminalOwners: Module {
 }
 
 impl TerminalOwners for agents::Agents {
-    fn observe_coordination(&self, agent: &str, message: u32) -> Option<agents::MeasurementWait> {
-        agents::Agents::observe_coordination(self, agent, message)
-    }
-
     fn with_terminal_owner(
         &self,
         terminal: &str,

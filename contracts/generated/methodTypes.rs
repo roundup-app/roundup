@@ -1,7 +1,5 @@
 // @generated from the RPC declarations. Do not edit.
 &[
-    Method { name: "project.measurements", params: "null", result: "project_Measurements" },
-    Method { name: "project.measurementSummary", params: "project_MeasurementSummaryParams", result: "project_MeasurementSummary" },
     Method { name: "terminal.open", params: "terminal_OpenParams", result: "terminal_Opened" },
     Method { name: "agent.spawn", params: "agent_SpawnParams", result: "agent_RailNode" },
     Method { name: "agent.extras", params: "null", result: "agent_Extras" },
@@ -73,6 +71,7 @@
     Method { name: "pad.write", params: "pad_WriteParams", result: "pad_Pad" },
     Method { name: "pad.append", params: "pad_AppendParams", result: "pad_Pad" },
     Method { name: "pad.appendSection", params: "pad_AppendSectionParams", result: "pad_Pad" },
+    Method { name: "pad.reorder", params: "pad_ReorderParams", result: "pad_Pad" },
     Method { name: "pad.setOwner", params: "pad_SetOwnerParams", result: "pad_Pad" },
     Method { name: "pad.move", params: "pad_MoveParams", result: "pad_Pad" },
     Method { name: "pad.delete", params: "pad_DeleteParams", result: "pad_Deletion" },

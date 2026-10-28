@@ -8,3 +8,5 @@ Module: `crates/rup` (one Daemon method). Ids: U419.
 - **Send, Failure, Feed, Kept.** Retired by U467: the Thread's composer, its Attachments and its feed are gone, so no Message body names an Attachment's path. A pasted image reaches a Terminal as U418 says.
 
 Observer: the Rust cases above against a real `rupd`. No browser capture, since no layout changes; no native Mac capture.
+
+**Attachment file**: The copy of a pasted image the Daemon keeps under its data folder (`attachment.save`) so a path can name it in a Message; a native-dropped Attachment needs none.

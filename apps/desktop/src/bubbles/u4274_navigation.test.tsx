@@ -2,8 +2,9 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage } from "../testing/menuProbe";
+import { openSwitcher } from "../switcher/switcherFixture";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
-import { agent, info } from "../testing/nodes";
+import { agent, door, info } from "../testing/nodes";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
@@ -33,6 +34,9 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   const portal = document.querySelector(".resource-agent");
   const initial = screen.getByRole("group", { name: "Terminals" });
   expect(within(initial).getAllByRole("button")).toEqual([within(initial).getByRole("button", { name: "New Terminal" })]);
+  fireEvent.keyDown(document, { key: "Tab" });
+  within(initial).getByRole("button", { name: "New Terminal" }).focus();
+  expect(await screen.findByRole("tooltip")).toBeDefined();
   expect(daemon.calls.filter(call => ["terminal.open", "agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toHaveLength(0);
   shells.push(info("shell", { owner: "/p" }));
   await connected().rail.refresh({ terminals: true });
@@ -138,3 +142,150 @@ it("u4277c_hidden_project_terminals_never_report_empty", async () => {
   const bar = await screen.findByRole("group", { name: "Terminals" });
   expect(within(bar).queryByRole("status")).toBeNull();
 });
+
+it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_once_and_focuses: %s", async selection => {
+  const { connected, daemon, nodes, shells, emulators } = await mountNavigation(selection === "empty" || selection === "root-agent");
+
+  if (selection === "root-agent") {
+    nodes.push(agent("root-agent", "idle", "ready"));
+    shells.push(info("unrelated", { owner: "/p" }));
+    await connected().rail.refresh({ terminals: true });
+  }
+
+  if (selection !== "empty") connected().rail.select(selection);
+  const selected = connected().rail.selected();
+  const owner = selection === "empty" || selection === "root-agent" ? null : "home";
+  daemon.handlers["terminal.open"] = () => {
+    shells.push(info("shell", { owner: owner ?? "/p" }));
+
+    return { terminal_id: "shell" };
+  };
+
+  if (selection === "a1" || selection === "root-agent") await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe(`t-${selection}`));
+
+  openSwitcher();
+  const field = await screen.findByRole("combobox");
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  fireEvent.input(field, { target: { value: "New Terminal" } });
+  const option = await screen.findByRole("option", { name: /New Terminal/ });
+  expect(option).toBeDefined();
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
+  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner }]);
+  expect(emulators.made.has("shell")).toBe(true);
+  expect(document.querySelectorAll('.bubble[data-bubble="shell"]')).toHaveLength(1);
+  expect(connected().rail.selected()).toBe(selected);
+
+  if (selection === "root-agent") {
+    expect(document.querySelector('.terminal-tab[data-bubble="unrelated"]')).toBeNull();
+    connected().rail.select(null);
+    expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).not.toBeNull();
+    connected().rail.select(selected);
+    expect(document.querySelector('.terminal-tab[data-bubble="shell"]')).toBeNull();
+  }
+});
+
+it.each(["agent", "door", "workstream", "ask", "inbox", "resources"].flatMap(view => [false, true].map(populated => ({ view, populated }))))("u4453c_terminal_bar_stays_in_every_view: $view $populated", async ({ view, populated }) => {
+  const { connected, nodes, shells } = await mountNavigation(!populated);
+
+  if (populated) {
+    nodes.push(door("supervisor", "idle", "Ready", { parent: "home" }));
+    shells.push(info("shell", { owner: "home", title: "shell" }));
+    await connected().rail.refresh({ terminals: true });
+    connected().rail.select(view === "agent" ? "a1" : view === "door" ? "supervisor" : view === "ask" ? null : "home");
+  }
+
+  if (view === "inbox" || view === "resources") connected().showView(view);
+  const bar = screen.getByRole("group", { name: "Terminals" });
+  expect(within(bar).getByRole("button", { name: "New Terminal" }).hasAttribute("disabled")).toBe(false);
+  expect(bar.querySelector('.terminal-tab[data-bubble="shell"]') !== null).toBe(populated && view !== "ask");
+
+});
+
+it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
+  const { connected, shells, daemon } = await mountNavigation();
+  shells.push(info("saved", { owner: "home", title: "zsh" }));
+  await connected().rail.refresh({ terminals: true });
+  connected().rail.select("home");
+  const tab = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="saved"]')!;
+  fireEvent.dblClick(tab);
+  const field = await screen.findByRole("textbox", { name: "Terminal name" });
+  const text = "  saved e\u0301 🫧  ";
+  fireEvent.input(field, { target: { value: text } });
+  fireEvent.keyDown(field, { key: "Escape" });
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-bubble")).toBe("saved"));
+  shells[0] = { ...shells[0]!, running: false, exit_code: 0 };
+  await connected().rail.refresh({ terminals: true });
+  const retained = connected().drafts.list();
+  daemon.handlers["terminal.open"] = () => {
+    shells.push(info("new", { owner: "home" }));
+
+    return { terminal_id: "new" };
+  };
+
+  fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("new"));
+  expect(connected().drafts.list()).toEqual(retained);
+  const recovery = document.querySelector<HTMLButtonElement>(".terminal-recover")!;
+  recovery.focus();
+  expect(document.activeElement).toBe(recovery);
+  fireEvent.click(recovery);
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(dialog.querySelector(".draft-value")?.textContent).toBe(text);
+  expect(connected().drafts.list()).toEqual([expect.objectContaining({ destination: { surface: "bubbles", object: shells[0]!.incarnation, recipient: "saved" }, value: { name: text, base: "zsh" } })]);
+  expect(daemon.calls.filter(call => ["terminal.open", "terminal.close", "terminal.write"].includes(call.method))).toEqual([{ method: "terminal.open", params: { workstream: "home" } }]);
+});
+
+it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_root_agent_new_terminal", async () => {
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { captureDir } = await import("../testing/captures");
+  const { openLane } = await import("../todos/laneBrowser");
+  const { startAppServer } = await import("../testing/appServer");
+  const baseline = process.env.ROUNDUP_BASELINE_ROOT ? await startAppServer({ root: process.env.ROUNDUP_BASELINE_ROOT }) : null;
+  const page = await openLane(1512, "dark", "u4453c-root-agent");
+  const origin = await page.evaluate<string>("location.origin");
+
+  try {
+    for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", origin]]) {
+      await page.evaluate("localStorage.clear()");
+      await page.browser("open", new URL("/harness.html?seed=agents-10", url).href);
+      await page.until("!!window.__fake && !!document.querySelector('[data-id=agent-3]')");
+      await page.browser("click", "[data-id=agent-3]");
+      await page.until("document.querySelector('[data-id=agent-3]').getAttribute('data-selected') === 'true'");
+      await page.browser("press", "Meta+k");
+      await page.until("!!document.querySelector('.hint-line.leader')");
+      await page.browser("press", "k");
+      await page.until("document.activeElement?.getAttribute('role') === 'combobox'");
+      await page.browser("fill", "[role=combobox]", "New Terminal");
+      await page.until("!!document.querySelector('[role=option]')");
+      await page.browser("press", "Enter");
+      await page.until("window.__fake.app.calls.filter(c => c.method === 'terminal.open').length === 1 && !document.querySelector('[role=combobox]')");
+
+      if (side === "head") await page.until("document.activeElement?.closest('.bubble') !== null");
+      await page.evaluate("document.fonts.ready.then(() => true)");
+      const output = join(captureDir("U4453c")!, side!);
+      mkdirSync(output, { recursive: true });
+      const observed = await page.evaluate<{ checks: unknown }>("({checks:window.__checks(), selected:document.querySelector('.rail-row[data-selected=true]')?.dataset.id, focused:document.activeElement?.closest('.bubble')?.dataset.bubble, shown:[...document.querySelectorAll('.bubble:not([hidden])')].map(b=>b.dataset.bubble), calls:window.__fake.app.calls.filter(c=>c.method==='terminal.open')})");
+      writeFileSync(join(output, "root-agent.checks.json"), JSON.stringify(observed.checks, null, 2));
+      writeFileSync(join(output, "root-agent.observation.json"), JSON.stringify({ ...observed, checks: undefined }, null, 2));
+      await page.browser("screenshot", join(output, "root-agent.png"));
+
+      if (side === "head") expect(observed).toMatchObject({ selected: "agent-3", calls: [{ method: "terminal.open", params: { workstream: null } }] });
+      await page.evaluate("localStorage.clear()");
+      await page.browser("open", new URL("/harness.html?seed=tree-40", url).href);
+      await page.until("!!window.__fake && !!document.querySelector('[data-id=migrate]')");
+      await page.browser("click", "[data-id=migrate]");
+      await page.until("document.querySelector('[data-id=migrate]').getAttribute('data-selected') === 'true'");
+      await page.evaluate("window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Cannot open Terminal: the shell could not start. Check the shell configuration and retry New Terminal.'); }; true");
+      await page.until("!!document.querySelector('.terminal-new')");
+      await page.browser("click", ".terminal-new");
+      await page.until("document.querySelector('.bubbles [role=alert]')?.textContent.includes('Check the shell configuration')");
+      writeFileSync(join(output, "root-agent-dense-open-failure.checks.json"), JSON.stringify(await page.evaluate("window.__checks()"), null, 2));
+      await page.browser("screenshot", join(output, "root-agent-dense-open-failure.png"));
+    }
+  } finally {
+    await page.close();
+    await baseline?.close();
+  }
+}, 120_000);

@@ -133,6 +133,8 @@ export const xtermOptions: ITerminalOptions = {
   fontSize: DEFAULT_FONT_SIZE,
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
+  // WebGL draws box borders across the full cell even with extra line height.
+  customGlyphs: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
@@ -442,19 +444,23 @@ export const createXtermEmulators = (
       return dispose;
     });
 
+    const loadRenderer = () => {
+      if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
+        loadedWebgl = createWebgl();
+
+        return loadedWebgl;
+      }, console.warn, () => probe?.renderer(false, id));
+
+      probe?.renderer(!webglDenied, id);
+    };
+
     const open = () => {
       if (!opened) {
         terminal.open(element);
         opened = true;
         dropInlineGround(element, disposers);
 
-        if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
-          loadedWebgl = createWebgl();
-
-          return loadedWebgl;
-        }, console.warn, () => probe?.renderer(false, id));
-
-        probe?.renderer(!webglDenied, id);
+        loadRenderer();
       }
     };
 
@@ -473,6 +479,9 @@ export const createXtermEmulators = (
         }
 
         terminal.resize(cols, rows);
+
+        // Recreate after the snapshot resize so the old renderer never reads the reflowing buffer.
+        if (opened && !loadedWebgl) loadRenderer();
       },
       setFontSize: (size) => {
         if (terminal.options.fontSize === size) return;

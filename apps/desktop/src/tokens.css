@@ -123,7 +123,7 @@
 
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-instant: 0s;
-  --duration-drawer: 180ms;
+  --duration-drawer: 250ms;
   --duration-crossfade: 120ms;
   --duration-copy: 1500ms;
   --duration-press: 100ms;
@@ -154,10 +154,10 @@
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
   --mono: var(--font-mono);
-  --font-terminal: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --text-terminal: 14px;
-  --line-terminal: 1.06;
-  --letter-terminal: 0px;
+  --font-terminal: "Fira Code", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-terminal: 11px;
+  --line-terminal: 1.5;
+  --letter-terminal: 0.95px;
   --text-caption: 11px;
   --text-small: 12px;
   --text-body: 13px;
@@ -191,12 +191,12 @@
 
 @media (prefers-color-scheme: dark) {
  :root {
-    --terminal-background: #282c34;
-    --terminal-foreground: #ffffff;
-    --terminal-cursor: #ffffff;
-    --terminal-cursor-text: #282c34;
-    --terminal-selection: #ffffff;
-    --terminal-selection-text: #282c34;
+    --terminal-background: #1a1b1d;
+    --terminal-foreground: #d4d4d4;
+    --terminal-cursor: #d4d4d4;
+    --terminal-cursor-text: #1a1b1d;
+    --terminal-selection: #d4d4d4;
+    --terminal-selection-text: #1a1b1d;
     --terminal-black: #1d1f21;
     --terminal-red: #cc6666;
     --terminal-green: #b5bd68;
@@ -213,12 +213,12 @@
     --terminal-bright-magenta: #c397d8;
     --terminal-bright-cyan: #70c0b1;
     --terminal-bright-white: #eaeaea;
-    --ground: var(--gray-2);
+    --ground: var(--terminal-background);
     --surface: var(--gray-3);
     --button-neutral: var(--gray-4);
     --button-accent-ink: var(--gray-1);
     --key-chip-fill: var(--gray-3);
-    --sunken: var(--gray-1);
+    --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(255, 255, 255, 0.08);
     --selected-hover: rgba(255, 255, 255, 0.10);
@@ -308,12 +308,12 @@ button, file-tree-container, diffs-container {
 
 :root[data-mode="dark"] {
     --surface: var(--gray-3);
-    --terminal-background: #282c34;
-    --terminal-foreground: #ffffff;
-    --terminal-cursor: #ffffff;
-    --terminal-cursor-text: #282c34;
-    --terminal-selection: #ffffff;
-    --terminal-selection-text: #282c34;
+    --terminal-background: #1a1b1d;
+    --terminal-foreground: #d4d4d4;
+    --terminal-cursor: #d4d4d4;
+    --terminal-cursor-text: #1a1b1d;
+    --terminal-selection: #d4d4d4;
+    --terminal-selection-text: #1a1b1d;
     --terminal-black: #1d1f21;
     --terminal-red: #cc6666;
     --terminal-green: #b5bd68;
@@ -330,9 +330,9 @@ button, file-tree-container, diffs-container {
     --terminal-bright-magenta: #c397d8;
     --terminal-bright-cyan: #70c0b1;
     --terminal-bright-white: #eaeaea;
-    --ground: var(--gray-2);
+    --ground: var(--terminal-background);
     --key-chip-fill: var(--gray-3);
-    --sunken: var(--gray-1);
+    --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(255, 255, 255, 0.08);
     --selected-hover: rgba(255, 255, 255, 0.10);
@@ -395,36 +395,22 @@ button, file-tree-container, diffs-container {
 }
 
 @font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2") format("woff2");
+  font-family: "Fira Code";
+  src: url("/fonts/fira-code/FiraCode-Regular.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: block;
 }
 
 @font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono/JetBrainsMono-Bold.woff2") format("woff2");
+  font-family: "Fira Code";
+  src: url("/fonts/fira-code/FiraCode-Bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: block;
 }
 
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono/JetBrainsMono-Italic.woff2") format("woff2");
-  font-style: italic;
-  font-weight: 400;
-  font-display: block;
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono/JetBrainsMono-BoldItalic.woff2") format("woff2");
-  font-style: italic;
-  font-weight: 700;
-  font-display: block;
-}
+/* Fira Code ships upright faces; xterm/browser synthesize italic at both weights. */
 
 /* U3512e: Drawer/Shelf depth, scroll cues and non-elevation resets retain their roles. */
 .worktree-tree::before,
@@ -480,4 +466,25 @@ button, file-tree-container, diffs-container {
 }
 :root[data-system-accent][data-mode="dark"] {
   --accent: rgb(var(--system-accent-dark-channels));
+}
+
+/* U4456c: floating labels and disabled controls keep a distinct dark fill;
+   Light retains its sunken fill. Root aliases prevent a local self-reference. */
+.app-tooltip,
+.tab-tip,
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
+.app-dialog-form textarea:disabled,
+.import-prompt:disabled,
+.note-form input:disabled,
+.note-form textarea:disabled,
+.app-select-trigger:disabled,
+.app-combobox-input:disabled,
+.app-switch-track[data-disabled],
+.app-checkbox-box[data-disabled] {
+  --sunken: light-dark(var(--root-sunken), var(--surface));
+}
+
+/* Both flat tab bars retain a lighter selected base without changing the pane. */
+[data-flat-tab][data-selected="true"] {
+  --ground: light-dark(var(--root-ground), var(--surface));
 }

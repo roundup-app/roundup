@@ -20,44 +20,6 @@ impl Module for Agents {
 }
 
 impl Agents {
-    async fn rpc_project_measurements(
-        &self,
-        _ctx: &Ctx,
-        method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        let shared = &self.shared;
-        {
-            let summary = if method == "project.measurementSummary" {
-                Some(params::<contracts::project::MeasurementSummaryParams>(
-                    value,
-                )?)
-            } else {
-                None
-            };
-            let mut rail = shared.rail();
-            // Lock order is rail, runs, timing: `observe_coordination` takes timing while it
-            // holds runs, so the live Status is read before timing is locked, never under it.
-            let tree = summary
-                .as_ref()
-                .map(|_| shared.presented_tree(&rail))
-                .transpose()?;
-            let mut timing = shared.timing.lock().expect("measurement timing lock");
-            timing.sample();
-            let cause = timing.failure();
-            let mut measurements = rail.measurements(self.project_dir())?;
-            if cause.is_some() {
-                measurements.cause = cause;
-            }
-            if let Some((params, tree)) = summary.zip(tree) {
-                // U3016i: the live Status says whether an Agent still runs.
-                reply(&measurement::summarize(measurements, tree, params)?)
-            } else {
-                reply(&measurements)
-            }
-        }
-    }
-
     async fn rpc_agent_spawn(
         &self,
         ctx: &Ctx,
@@ -698,15 +660,28 @@ impl Agents {
     ) -> Result<Value, RpcError> {
         let shared = &self.shared;
         {
-            let contracts::agent::RemoveParams { id, operation } = params(value)?;
+            let contracts::agent::RemoveParams {
+                id,
+                operation,
+                scope,
+            } = params(value)?;
             if operation.is_some() {
                 return Err(RpcError::forbidden(
                     "reversible removal requires the Project Daemon",
                 ));
             }
+            let scope = scope.unwrap_or_default();
             shared.guard_reach(&ctx.actor, &id, false)?;
+            if scope == RemoveScope::All && shared.rail().node(&id)?.kind != NodeKind::Workstream {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    "scope all requires a Workstream",
+                ));
+            }
             if shared.rail().node(&id)?.kind == NodeKind::Workstream {
-                let removal = shared.remove_workstream(ctx.actor.clone(), &id).await?;
+                let removal = shared
+                    .remove_workstream(ctx.actor.clone(), &id, scope)
+                    .await?;
                 for item in &removal.removed {
                     Self::touch_rail(ctx, &item.id)?;
                 }

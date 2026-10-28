@@ -337,3 +337,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     },
   };
 };
+
+
+/** U4523: current ownership is a Rail fact; historical names keep using nameOf. */
+export const currentOwner = (rail: Pick<RailState, "nodes" | "exitOf">, actor: Actor | null | undefined) => {
+  const node = actor?.kind === "agent" ? rail.nodes.find(node => node.id === actor.id) : undefined;
+
+  return node ? { id: node.id, name: node.name, live: node.terminal_id !== null && rail.exitOf(node) === null } : undefined;
+};
