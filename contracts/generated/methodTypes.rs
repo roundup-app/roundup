@@ -143,6 +143,7 @@
     Method { name: "message.resolveResult", params: "message_ResolveResultParams", result: "message_ResultObservation" },
     Method { name: "message.reconcileWork", params: "message_ProgressParams", result: "message_Reconciliation" },
     Method { name: "message.resumeWork", params: "message_ResumeWorkParams", result: "message_ResumeWork" },
+    Method { name: "workstream.restart", params: "workstream_RestartParams", result: "agent_RailNode" },
     Method { name: "workstream.clear", params: "workstream_ClearParams", result: "workstream_ClearResult" },
     Method { name: "workstream.rewindPlan", params: "workstream_RewindPlanParams", result: "workstream_RewindPlan" },
     Method { name: "workstream.rewind", params: "workstream_RewindParams", result: "workstream_Rewind" },
