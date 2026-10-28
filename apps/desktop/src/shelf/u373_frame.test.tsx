@@ -78,16 +78,52 @@ describe("u373 and u370 on one mounted App", () => {
   });
 
   it("u373_counts_follow_the_scope", async () => {
-    await shared();
-    const counts = () => ["Todos", "Pads"].map(name => tabNamed(name).querySelector(".shelf-count")?.textContent ?? "0");
+    const { app } = await shared();
+    const counts = () => ["Todos", "Pads"].map(name => Number(tabNamed(name).querySelector(".shelf-count")?.textContent ?? 0));
 
-    await waitFor(() => expect(counts()).toEqual(["7", "4"]));
+    await waitFor(() => expect(counts()).toEqual([7, 4]));
     fireEvent.click(document.querySelector('.rail-row[data-id="payments"]')!);
-    await waitFor(() => expect(counts()).toEqual(["0", "4"]));
+    await waitFor(() => expect(counts()).toEqual([0, 4]));
     fireEvent.click(document.querySelector('.rail-row[data-id="tokens"]')!);
-    await waitFor(() => expect(counts()).toEqual(["3", "4"]));
+    await waitFor(() => expect(counts()).toEqual([3, 4]));
     fireEvent.click(document.querySelector('[data-todo-root]')!);
-    await waitFor(() => expect(counts()).toEqual(["7", "4"]));
+    await waitFor(() => expect(counts()).toEqual([7, 4]));
+
+    // The Switcher selects each Terminal's owner, including a Project-root Terminal.
+    for (const [workstream, todoCount] of [["payments", 0], [null, 7]] as const) {
+      const opened = await app.rpc("terminal.open", { workstream });
+
+      leaderKey("KeyK");
+      const field = await screen.findByRole("combobox");
+
+      fireEvent.input(field, { target: { value: "zsh" } });
+
+      const option = await waitFor(() => {
+        const entry = document.querySelector(`[role="option"][data-value="terminal:${opened.terminal_id}"]`);
+
+        expect(entry).not.toBeNull();
+
+        return entry!;
+      });
+
+      fireEvent.click(option);
+      await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull());
+      await waitFor(() => expect(counts()).toEqual([todoCount, 4]));
+    }
+
+    fireEvent.click(tabNamed("Pads"));
+    await waitFor(() => expect(document.querySelector(".pads-tab [data-shelf-group]")).not.toBeNull());
+    const group = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="payments"]')!;
+
+    fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+    await waitFor(() => expect(group.getAttribute("aria-expanded")).toBe("false"));
+    expect(counts()).toEqual([7, 4]);
+    fireEvent.click(tabNamed("Pads"));
+    await waitFor(() => expect(shelf().hidden).toBe(true));
+    // U2539b unmounts requested surfaces when closed; the chord reopens the retained Pads tab.
+    chord();
+    await waitFor(() => expect(shelf().hidden).toBe(false));
+    expect(counts()).toEqual([7, 4]);
   });
 
   it("u373_tab_navigation_stays_on_tabs", async () => {

@@ -334,7 +334,9 @@ impl Terminals {
         shell: &str,
         owner: &str,
         env: BTreeMap<String, String>,
+        size: (u16, u16),
     ) -> Result<Spawned, RpcError> {
+        window(size.0, size.1)?;
         let start =
             integration::start(&self.integration_dir, shell, &env).map_err(RpcError::internal)?;
         let mut command = vec![shell.to_owned()];
@@ -344,8 +346,8 @@ impl Terminals {
                 cwd: cwd.to_owned(),
                 command: Some(command),
                 env: start.env,
-                cols: 80,
-                rows: 24,
+                cols: size.0,
+                rows: size.1,
             },
             owner,
         )
@@ -939,7 +941,8 @@ fn spawn_error(program: Option<&str>, err: &impl std::fmt::Display) -> RpcError 
     }
 }
 
-fn window(cols: u16, rows: u16) -> Result<PtySize, RpcError> {
+/// Validate Terminal dimensions before allocating launch resources.
+pub fn window(cols: u16, rows: u16) -> Result<PtySize, RpcError> {
     if cols == 0 || rows == 0 {
         return Err(invalid("cols and rows must be at least 1"));
     }
