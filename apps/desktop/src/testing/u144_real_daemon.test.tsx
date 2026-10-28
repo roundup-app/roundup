@@ -263,9 +263,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
-      fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-      fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "check selected source" } });
-      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await saveNote("check selected source");
       fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
@@ -696,7 +694,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const clipboard = vi.fn(async (_text: string) => {});
     vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
-    await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
+    await waitFor(() => expect(clipboard).toHaveBeenCalledWith(`\n${exact}\n`));
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
     cleanup();
