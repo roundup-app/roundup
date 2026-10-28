@@ -45,3 +45,34 @@ it("a4452c_a_refused_opening_prompt_keeps_the_original_workstream_draft", async 
   await m.app.pickMenu("Opening prompt…");
   expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Opening prompt" })).value).toBe("  /compose exact words\n");
 });
+
+it.each(["Escape", "Close"])("a4452c_closing_with_%s_returns_focus_to_the_workstream", async close => {
+  const m = await mountRail([workstream("w")], [], undefined, () => true);
+  const row = rowOf("w");
+  row.focus();
+  fireEvent.contextMenu(row);
+  await m.app.pickMenu("Opening prompt…");
+  const field = await screen.findByRole("textbox", { name: "Opening prompt" });
+  field.focus();
+  if (close === "Escape") fireEvent.keyDown(field, { key: "Escape" });
+  else fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(document.activeElement).toBe(row));
+});
+
+it("a4452c_retry_saves_the_retained_prompt_without_refocusing_the_field", async () => {
+  const m = await mountRail([workstream("w")], [], undefined, () => true);
+  m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
+  fireEvent.contextMenu(rowOf("w"));
+  await m.app.pickMenu("Opening prompt…");
+  const field = await screen.findByRole("textbox", { name: "Opening prompt" });
+  fireEvent.input(field, { target: { value: "Read the plan\nThen run tests" } });
+  fireEvent.blur(field);
+  await screen.findByRole("alert");
+  m.app.handlers["workstream.setOpeningPrompt"] = () => null;
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(railCallsTo(m.app, "workstream.setOpeningPrompt")).toEqual([
+    { id: "w", prompt: "Read the plan\nThen run tests" },
+    { id: "w", prompt: "Read the plan\nThen run tests" },
+  ]);
+});

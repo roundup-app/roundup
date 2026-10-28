@@ -850,5 +850,16 @@
   overscroll-behavior: contain;
   white-space: pre-wrap;
   overflow: auto;
-  resize: vertical;
+  resize: none;
+  min-height: calc(var(--space-6) * 5);
 }
+
+.opening-prompt-dialog { width: calc(var(--dialog-min-width) + var(--space-6) * 3); }
+.opening-prompt-dialog [data-part="title"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opening-prompt-dialog .opening-prompt-field { gap: var(--space-2); }
+.opening-prompt-dialog .app-dialog-actions { align-items: center; }
+.opening-prompt-dialog .reserved-line { flex: 1; }
