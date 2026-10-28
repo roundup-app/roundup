@@ -18,12 +18,6 @@ export function baselineEntries(root) {
   return cache.get(root);
 }
 
-export const rekeyPath = "tools/oxlint/anti-slop/web-assertions/rekey.jsonl";
-function rekeyEntries(root) {
-  const file = resolve(root, rekeyPath);
-  return existsSync(file) ? readBaseline(readFileSync(file, "utf8")) : [];
-}
-
 /** Independent review approves the first baseline; every later head must only shrink it. */
 export function baselineErrors(root) {
   const entries = baselineEntries(root);
@@ -51,14 +45,7 @@ export function baselineErrors(root) {
   const present = spawnSync("git", ["cat-file", "-e", object], { cwd: root, encoding: "utf8" });
   if (present.status === 0) {
     const original = new Set(readBaseline(execFileSync("git", ["show", object], { cwd: root, encoding: "utf8" })).map(assertionKey));
-    // A re-key moves one base entry to a new identity (the identity function changed), so the count cannot grow.
-    const rekeyed = new Set();
-    for (const row of rekeyEntries(root)) {
-      const from = assertionKey({ file: row.file, test: row.test, identity: row.from });
-      if (original.has(from) && !rekeyed.has(from)) rekeyed.add(assertionKey({ file: row.file, test: row.test, identity: row.to }));
-    }
-    for (const key of keys) if (!original.has(key) && !rekeyed.has(key)) errors.push("Added or broadened assertion baseline entry: " + key);
-    if (keys.size > original.size) errors.push("Assertion baseline grew from " + original.size + " to " + keys.size + " entries");
+    for (const key of keys) if (!original.has(key)) errors.push("Added or broadened assertion baseline entry: " + key);
   }
   return errors;
 }
