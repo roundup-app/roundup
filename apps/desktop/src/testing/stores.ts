@@ -371,7 +371,7 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
       return { ...pad };
     },
     "pad.setOwner": ({ name, owner }) => {
-      const selected = v.parse(ownerActor, owner ?? null);
+      const selected = v.parse(v.unwrap(ownerActor), owner);
 
       return changePad(store, announce, name, (pad) => ({ ...pad, owner: selected }));
     },
