@@ -8,18 +8,22 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 
 afterEach(cleanup);
+
 beforeEach(() => localStorage.clear());
 
 const names = ["alpha", "same é 🧭", "same é 🧭", "delta", "終 é 🧭", "hidden", "disabled", "folded"];
+
 const published = (title: string, at: number): Deliverable => ({
   id: `record-${at}`, project: "original-project", maker: { kind: "agent", id: "maker", parent: null }, maker_name: "Maker", home: "home",
   title, published_at: 1792713600000, target: { kind: "external", availability: "not-checked", url: `https://example.com/${at}` },
 });
+
 const inventory = [
   { opening: "Project → Needs you", selector: ".overview-entry", command: null },
   { opening: "Project → requested Workstreams overview", selector: ".overview-entry", command: "view:workstreams" },
   { opening: "Project menu → Made", selector: ".made-open", command: "view:made" },
 ];
+
 const mount = async (command: string | null, selector: string) => {
   const app = createFakeApp();
   app.opened.project = { path: "/p", name: "Project" };
@@ -30,6 +34,7 @@ const mount = async (command: string | null, selector: string) => {
   const { factory } = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} prepareIdle={open => { if (command === "view:workstreams") open.showView("workstreams"); }} />);
   await screen.findByRole("region", { name: "Project overview" });
+
   if (command === "view:made") openProjectPage(command, "/p");
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
   const rows = [...document.querySelectorAll<HTMLButtonElement>(selector)];
@@ -38,18 +43,22 @@ const mount = async (command: string | null, selector: string) => {
   rows.at(-3)!.hidden = true;
   rows.at(-2)!.disabled = true;
   rows.at(-1)!.closest("li")!.setAttribute("inert", "");
+
   return { app, rows, eligible };
 };
+
 const selected = (rows: HTMLButtonElement[]) => rows.filter(row => row.dataset.rowSelected === "true");
 
 it.each(inventory)("u3787c_each_list_navigates_visible_rows $opening", async ({ command, selector }) => {
   const { app, rows, eligible } = await mount(command, selector);
   const before = app.calls.length;
   eligible[1]!.focus();
-  for (const [key, at] of [["Home", 0], ["ArrowUp", 0], ["End", eligible.length - 1], ["ArrowDown", eligible.length - 1], ["ArrowUp", eligible.length - 2], ["ArrowDown", eligible.length - 1], ["a", command === "view:workstreams" ? 1 : 0]] as const) {
+
+  for (const [key, at] of [["Home", 0], ["ArrowUp", 0], ["End", eligible.length - 1], ["ArrowDown", eligible.length - 1], ["ArrowUp", eligible.length - 2], ["ArrowDown", eligible.length - 1], ["a", command === "view:workstreams" ? 1 : 0], ["l", command === "view:workstreams" ? 1 : 0]] as const) {
     fireEvent.keyDown(document.activeElement!, { key });
     expect(document.activeElement).toBe(eligible[at]);
   }
+
   expect(selected(rows)).toEqual([eligible[command === "view:workstreams" ? 1 : 0]]);
   expect(app.calls.slice(before)).toEqual([]);
   expect(document.querySelector(".todo-drawer, .rail-row[data-selected=true]")).toBeNull();
@@ -96,4 +105,20 @@ it.each(["Enter", " "])("u3787c_overview_activation_selects_only_the_original_at
   fireEvent.keyDown(eligible[2]!, { key });
   await waitFor(() => expect(document.querySelector('.rail-row[data-id="node-2"][data-selected=true]')).not.toBeNull());
   expect(app.calls.slice(before).some(call => ["agent.spawn", "terminal.write", "ask.send"].includes(call.method))).toBe(false);
+});
+
+it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening", async ({ command, selector }) => {
+  const { app, rows } = await mount(command, selector);
+  fireEvent.click(rows[1]!, { metaKey: true });
+  expect(selected(rows)).toEqual([rows[1]]);
+
+  if (command !== "view:made") openProjectPage("view:made", "/p");
+  await screen.findByRole("region", { name: "Made" });
+  fireEvent.click(screen.getByRole("button", { name: "Close Made" }));
+  await waitFor(() => expect(document.querySelector(".made")).toBeNull());
+
+  if (command === "view:made") openProjectPage("view:made", "/p");
+  await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
+  expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)])).toEqual([]);
+  expect(app.openedTargets).toEqual([]);
 });
