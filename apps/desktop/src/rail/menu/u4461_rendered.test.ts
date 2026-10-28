@@ -78,7 +78,11 @@ it("u4461_removal_failure_keeps_the_captured_workstream_in_the_rendered_app", as
     await lane.browser("click", ".native-alert-failure button:first-child");
     await lane.until("window.__question.shown !== null");
   } else {
-    await lane.browser("click", '.rail-row[data-id="backend"]');
+    // Hover reveals the row's controls over its middle, so press the start of the name.
+    const name = await lane.evaluate<{ x: number; y: number }>(`(() => { const b = document.querySelector('.rail-row[data-id="backend"] .name').getBoundingClientRect(); return { x: Math.round(b.left + 8), y: Math.round(b.top + b.height / 2) }; })()`);
+    await lane.browser("mouse", "move", String(name.x), String(name.y));
+    await lane.browser("mouse", "down");
+    await lane.browser("mouse", "up");
     await lane.browser("press", "Meta+Backspace");
     await lane.until("window.__question.shown !== null");
   }
