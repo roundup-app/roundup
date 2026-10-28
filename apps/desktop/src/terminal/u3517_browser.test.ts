@@ -100,6 +100,8 @@ for (const state of ["agent", "door", "shell"]) {
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
+      // Reset preferences on the target origin before mounting its App.
+      await browser("open", url("/src/ui/u498.html", base));
       await read("localStorage.clear(); sessionStorage.clear()");
       await load(seed, base, "webgl", 2);
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
@@ -174,7 +176,7 @@ for (const state of ["agent", "door", "shell"]) {
         writeFileSync(join(dir, `${state}.metrics.json`), JSON.stringify(record, null, 2));
       }
     }
-  }, 120_000);
+  }, 60_000);
 }
 
 
