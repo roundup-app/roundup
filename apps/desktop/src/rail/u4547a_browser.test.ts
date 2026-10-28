@@ -33,6 +33,16 @@ it("u4547a_rendered_heading_keys_preserve_focus_without_calls", async () => {
   }
 
   expect(await lane.calls()).toEqual([]);
+  await lane.browser("press", "ArrowDown");
+  await lane.until("document.activeElement?.getAttribute('data-id') !== null && document.activeElement?.closest('[role=treeitem]')?.getAttribute('aria-level') === '2'");
+  await lane.browser("press", "ArrowUp");
+  await lane.until("document.activeElement?.matches('.section-head') === true");
+  await lane.browser("press", "End");
+  await lane.until("document.activeElement?.getAttribute('data-id') !== null");
+  await lane.browser("press", "Home");
+  await lane.until("document.activeElement?.matches('.section-head') === true");
+  expect(await lane.evaluate("document.activeElement.closest('[role=treeitem]').getAttribute('aria-level')")).toBe("1");
+  expect(await lane.calls()).toEqual([]);
   await lane.capture("U4547a", "reopened");
   await lane.evaluate("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.')");
   await lane.browser("click", ".rail-actions button");
