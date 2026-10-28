@@ -327,5 +327,18 @@ p.ink[role="alert"] {
 .kind-mark-leaving[data-tone="accent"] { color: var(--accent); }
 .kind-mark-leaving[data-tone="grey"] { color: var(--grey); }
 
+.section-head[data-part="branch-control"] {
+  width: 100%;
+  gap: var(--space-2);
+  color: var(--grey);
+}
+
+.section-head [data-part="branch-indicator"][data-state="open"] {
+  transform: rotate(90deg);
+}
+
 .empty-state-actions { display: grid; gap: var(--space-2); }
 .empty-state-start { display: flex; align-items: center; gap: var(--space-2); }
+
+.section-head:focus-visible { color: var(--text); }
+.section-head [data-part="branch-indicator"] { margin-left: auto; }
