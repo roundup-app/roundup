@@ -719,12 +719,14 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     const deadline = AbortSignal.timeout(5_000);
     const cancellation = AbortSignal.any(signal ? [signal, deadline] : [deadline]);
     const cancelled = Promise.withResolvers<never>();
+
     const abort = () => {
       dispose();
       cancelled.reject(deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : cancellation.reason);
     };
 
     cancellation.addEventListener("abort", abort, { once: true });
+
     if (cancellation.aborted) abort();
 
     try {
