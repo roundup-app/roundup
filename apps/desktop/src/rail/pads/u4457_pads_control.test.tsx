@@ -109,6 +109,13 @@ describe("u4457 the Pads control opens the Shelf", () => {
     expect(document.querySelector('[role=tree] [data-id="a2"]')?.getAttribute("aria-selected")).toBe("true");
   });
 
+  it("u4457_a_control_counting_only_finished_todos_opens_and_focuses_them", async () => {
+    await mount([], [todo(1, { title: "finished work", creator: by("a1"), done: true })]);
+    await waitFor(() => expect(control("a1")).not.toBeNull());
+    fireEvent.click(control("a1")!);
+    await waitFor(() => expect(screen.getByRole("button", { name: /Done #1 finished work/ })).toBe(document.activeElement));
+  });
+
   it("u4457_the_control_keeps_its_count_and_name", async () => {
     await mount([padOf("notes", by("a1")), padOf("plan", by("a1"))]);
     await waitFor(() => expect(control("a1")?.getAttribute("aria-label")).toBe("2 pads"));
