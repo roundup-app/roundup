@@ -99,6 +99,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   const { app } = seedApp("tree-40", Date.now());
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await screen.findAllByRole("treeitem");
+  await showEverythingInApp();
   app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
   const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
   overview.focus();
@@ -118,7 +119,6 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   fireEvent.click(rowOf("agent-1"));
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   // U4453b owns Overview activation: it now closes the requested screen.
-  await showEverythingInApp();
   await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
   fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
   fireEvent.keyDown(document.querySelector('.shelf .todo-row-button')!, { key: "Enter" });
