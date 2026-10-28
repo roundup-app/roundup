@@ -252,7 +252,10 @@ impl Daemon {
             ActorKind::Agent => {
                 let nodes = self.rail().await?;
                 if nodes.iter().any(|node| {
-                    node.id == owner.id && node.kind == contracts::agent::NodeKind::Agent
+                    node.id == owner.id
+                        && (node.kind == contracts::agent::NodeKind::Agent
+                            || (node.kind == contracts::agent::NodeKind::Workstream
+                                && node.attempt.is_some()))
                 }) {
                     Ok(())
                 } else {

@@ -214,11 +214,11 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
 
     if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
     else {
-      const first = await screen.findByRole("button", { name: /#5 / });
+      const first = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / });
 
       if (entry === "selection") {
         fireEvent.click(first, { metaKey: true });
-        fireEvent.click(screen.getByRole("button", { name: /#7 / }), { metaKey: true });
+        fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }), { metaKey: true });
         fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
       } else { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     }
@@ -369,13 +369,13 @@ for (const entry of ["selection", "clear-done"] as const) {
 
     if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
     else {
-      fireEvent.click(await screen.findByRole("button", { name: /#5 / }), { metaKey: true });
-      fireEvent.click(screen.getByRole("button", { name: /#7 / }), { metaKey: true });
+      fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }), { metaKey: true });
+      fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }), { metaKey: true });
       fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
     }
 
     await screen.findByText("Could not delete same #7: The chosen Todo is no longer available. Refresh to check again.");
-    expect(screen.getByRole("button", { name: /#7 / }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }).getAttribute("aria-pressed")).toBe("true");
     pressUndo();
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
     expect(daemon.calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([{ ids: [5, 7], operation: expect.any(String) }]);
@@ -416,7 +416,7 @@ for (const kind of ["todo", "pad"] as const) {
 
     if (kind === "pad") await showPads();
 
-    const row = await screen.findByRole("button", { name: kind === "todo" ? /#5 / : "first" });
+    const row = await screen.findByRole("button", { name: kind === "todo" ? /^(Idle|Blocked|Done) #5 / : "first" });
     fireEvent.click(row);
     fireEvent.keyDown(row, { key: "Backspace", code: "Backspace" });
     await screen.findByRole("alert", { name: new RegExp(`Could not delete .*${refusal}`) });
