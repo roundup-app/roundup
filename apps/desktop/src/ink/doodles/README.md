@@ -6,7 +6,7 @@ Pablo Stanley’s [Open Doodles](https://www.opendoodles.com/), bundled under
 Each file comes from `https://opendoodles.s3-us-west-1.amazonaws.com/<filename>`.
 Geometry is unchanged; export metadata and unused IDs were removed, the root
 was wrapped in a reusable SVG symbol, and the two fills now use the existing
-`--accent` and `--text-muted` Tokens. External SVG use loads only mounted scenes;
+`--accent` and `--grey` Tokens. External SVG use loads only mounted scenes;
 Vite’s `?no-inline` keeps their bytes outside the entry and eager JS closure.
 
 | Source SVG | Empty view / next activity |

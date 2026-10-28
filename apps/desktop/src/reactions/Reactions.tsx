@@ -189,7 +189,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
         <button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button>
         <button type="button" data-button="quiet" onClick={props.state.dismiss}>{copy.clear}</button>
       </ReservedLine>
-      <Show when={read().list.length > 0} fallback={<Show when={!read.loading && read().failure === null}><EmptyState art="play" {...{ title: copy.reactionsEmpty }} line={reactionCopy.emptyHelp} /></Show>}>
+      <Show when={read().list.length > 0} fallback={<Show when={!read.loading && read().failure === null}><EmptyState art="loving" {...{ title: copy.reactionsEmpty }} line={reactionCopy.emptyHelp} /></Show>}>
         <ul class="reaction-list">
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
             const reaction = () => read().list.find(reaction => reaction.id === id)!;

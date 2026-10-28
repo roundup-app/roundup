@@ -370,7 +370,7 @@ export const Pads = (props: {
 
       </Show></ReservedLine>
       <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
-        <EmptyState art="order" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
+        <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
       <OwnerGroups groups={groups} dragging={dragging} reveal={() => null} focus={requestedGroup} onFocused={connected.finishPadsRequest}>{group => <PadRows
         selection={selection}
