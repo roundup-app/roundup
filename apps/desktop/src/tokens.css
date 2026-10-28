@@ -157,7 +157,7 @@
   --font-terminal: "Fira Code", ui-monospace, "SF Mono", Menlo, monospace;
   --text-terminal: 11px;
   --line-terminal: 1.7;
-  --letter-terminal: 0.5px;
+  --letter-terminal: 0px;
   --weight-terminal: 300;
   --text-caption: 11px;
   --text-small: 12px;

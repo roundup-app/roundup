@@ -101,21 +101,7 @@ for (const state of ["agent", "door", "shell"]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
       await read("localStorage.clear(); sessionStorage.clear()");
-      await load(seed, base, process.env.U4592_CANDIDATE === "dom" ? "dom" : "webgl");
-
-      if (process.env.U4592_CANDIDATE) await read(`(async () => {
-        const { xtermOptions } = await import('/src/terminal/emulator.ts');
-        xtermOptions.letterSpacing = 0.95;
-        xtermOptions.fontWeight = 400;
-        xtermOptions.lineHeight = 1.5;
-        xtermOptions.fontWeightBold = 700;
-        if ('${process.env.U4592_CANDIDATE}' === 'light') {
-          const face = new FontFace('Fira Code', 'url(/fonts/fira-code/FiraCode-Light.woff2)', {weight:'300'});
-          document.fonts.add(await face.load());
-          xtermOptions.fontWeight = 300;
-        }
-        if ('${process.env.U4592_CANDIDATE}' === 'smoothing') document.documentElement.style.webkitFontSmoothing = 'antialiased';
-      })()`);
+      await load(seed, base, "webgl");
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
       let id = state === "agent" ? "t-agent-3" : "t-payments";
       let surface = ".pane";
@@ -167,7 +153,7 @@ for (const state of ["agent", "door", "shell"]) {
       })()`);
 
       const record = { ...metrics, ...metadata, commit: base ? execFileSync('git', ['rev-parse','origin/main'], {encoding:'utf8'}).trim() : execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8'}).trim(),
-        seed, state, candidate: process.env.U4592_CANDIDATE ?? 'selected',
+        seed, state, candidate: 'selected',
         streamIdentity: createHash('sha256').update(replay).digest('hex'),
         claudeVersion: 'deterministic Claude Code-style replay; no live Claude process', platform: process.platform };
 
@@ -175,7 +161,7 @@ for (const state of ["agent", "door", "shell"]) {
       let screenshot: string | undefined;
 
       for (const scenario of captureIds) {
-        const dir = join(captureDir(scenario)!, process.env.U4592_CANDIDATE ? `candidates/${process.env.U4592_CANDIDATE}` : base ? "base" : "head");
+        const dir = join(captureDir(scenario)!, base ? "base" : "head");
 
         mkdirSync(dir, { recursive: true });
         const path = join(dir, `${state}.png`);

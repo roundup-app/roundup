@@ -17,7 +17,7 @@ keeps its existing stack. `--weight-terminal` selects 300 through xterm’s publ
 | `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
 | `--text-terminal` | `fontSize` | 11 CSS px |
 | `--line-terminal` | `lineHeight` | 1.7, unitless |
-| `--letter-terminal` | `letterSpacing` | 0.5 CSS px |
+| `--letter-terminal` | `letterSpacing` | 0 CSS px |
 | `--weight-terminal` | `fontWeight` | 300 (bold 700) |
 
 Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
@@ -41,11 +41,16 @@ strokes with unchanged bold. Candidate images and metadata live under
 `artifacts/ux/U4592/candidates/`. This is a Builder observation; the independent
 critic judges the paired main/head images. It establishes no WebKit rendering fact.
 
-The selected WebGL path uses the bundled Light face. The official ligature
-addon candidate visibly joined operators, but failed four existing scale guards
-that pass on main; it is rejected from this slice. The shared renderer stays
-unchanged apart from public font-weight and metric options. Joined ligatures
-remain part of the incomplete U4592 acceptance.
+The selected WebGL path uses the bundled Light face and the official ligature
+addon 0.9.0, whose browser fallback includes `->`, `=>`, `!=` and `===`.
+It registers through xterm’s public character-joiner API after open and before
+WebGL activation. The addon is disposed before the Terminal: deregistration
+requests a refresh and therefore needs a live renderer. This resolves the
+four Agent/Door scale failures from the earlier candidate without changing
+S3806c’s assertions. Version 0.10.0 was also inspected, but its published
+package declares a missing CommonJS entry; the existing Vite test path cannot
+resolve it. The supported 0.9.0 browser package remains compatible with the
+public xterm 6 character-joiner API.
 No custom glyph or shader code is added. xterm’s public weight reaches the atlas
 2D context’s font; host smoothing cannot inherit into its detached canvas.
 See [TextureAtlas](https://github.com/xtermjs/xterm.js/blob/6.0.0/addons/addon-webgl/src/TextureAtlas.ts)
@@ -59,12 +64,18 @@ Paired observations use the same replay bytes and Dark 1512×950 viewport in
 requested weights, display/canvas scale, rectangles, grid counts and stream hash.
 Native appearance and K1–K3 timing remain the owner’s post-merge observations.
 
-The tracking Token is 0.5px, but installed xterm 6 rounds `letterSpacing` with
-`Math.round` in both renderers. Both 0.95 and 0.5 therefore add one device pixel:
-paired DPR-1 captures retain 7px cells and 126 columns in the Agent/Door.
-Reduced horizontal tracking is **not demonstrated**. U4592 and #4619 remain
-incomplete until a supported rendering path supplies that change without a
-private renderer patch or changing the requested Token, font, size or scale.
+The owner’s whole-pixel decision on #4627 replaces the earlier 0.5px request
+with 0px. xterm 6 adds `Math.round(letterSpacing)` device pixels to each cell:
+0.95 and 0.5 both add one; 0 adds none. Thus the same setting removes one
+physical pixel at DPR 1 or 2 (respectively 1 or 0.5 CSS px), without scaling the
+font or canvas. The paired observer records the actual DPR and advance; Linux
+measurements establish no native WKWebView observation.
+
+The paired DPR-1 Agent observation measures 7→6 CSS px cells and 126→148
+columns at the same host width; rows measure 19→22 CSS px. Joined `->`, `=>`,
+`!=` and `===` remain visible in regular and bold output with continuous table
+borders. Font size remains 11 CSS px, and the failure message stays visible.
+The independent critic judges all paired surfaces and Checks.
 
 ## Historical U4456 correction
 

@@ -13,6 +13,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ImageAddon } from "@xterm/addon-image";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
+import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { IMarker, ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
@@ -458,6 +459,10 @@ export const createXtermEmulators = (
     const open = () => {
       if (!opened) {
         terminal.open(element);
+        const ligatures = new LigaturesAddon();
+        terminal.loadAddon(ligatures);
+        // Deregister while the renderer is alive: addon disposal requests a final refresh.
+        disposers.push(() => ligatures.dispose());
         opened = true;
         dropInlineGround(element, disposers);
 
