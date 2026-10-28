@@ -15,8 +15,13 @@ beforeAll(async () => { lane = await openLane(1512, "dark", "u3732"); }, 180_000
 afterAll(async () => { await lane?.close(); });
 
 it("u3732_drag_to_a_group_calls_set_owner_once", async () => {
-  await lane.evaluate(`(() => { document.querySelector('#shelf-tab-pads').click(); return true; })()`);
+  await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
   await lane.until(`!!document.querySelector('.pads-tab [data-pad="pad-0"]')`);
+  await lane.evaluate(`window.__fake.app.rpc('pad.create', { name: 'destination', text: null })`);
+  await lane.evaluate(`window.__fake.app.rpc('pad.setOwner', { name: 'destination', owner: { kind: 'agent', id: 'agent-3', parent: null } })`);
+  await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="agent-3"]')`);
+  await lane.evaluate(`(() => { const row = document.querySelector('.pads-tab [data-pad="pad-0"]'); for (const group of document.querySelectorAll('.pads-tab [data-shelf-group]')) if (group.contains(row) && group.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part="branch-control"]').click(); return true; })()`);
+  await lane.until(`!document.querySelector('.pads-tab [data-pad="pad-0"]').closest('[hidden], [data-state="closed"]')`);
   await lane.resetCalls();
 
   const from = await centre(lane, '.pads-tab [data-pad="pad-0"] .sortable-handle');
@@ -24,12 +29,12 @@ it("u3732_drag_to_a_group_calls_set_owner_once", async () => {
   await move(lane, from);
   await lane.browser("mouse", "down");
   await move(lane, { x: from.x, y: from.y - 6 });
-  await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="me"]')`);
-  await move(lane, await centre(lane, '.pads-tab [data-shelf-group="me"] .shelf-group-head'));
-  await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="me"][data-drop-target]')`);
+  await lane.until(`!!document.querySelector('[data-dnd-placeholder]')`);
+  await move(lane, await centre(lane, '.pads-tab [data-shelf-group="agent-3"] .shelf-group-head'));
+  await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="agent-3"][data-drop-target]')`);
   await lane.browser("mouse", "up");
   await lane.until(`window.__fake.app.calls.some(call => call.method === 'pad.setOwner')`);
 
-  expect((await lane.calls()).filter(call => call.method !== "pad.list" && call.method.startsWith("pad."))).toEqual([{ method: "pad.setOwner", params: { name: "pad-0", owner: { kind: "user", id: "you", parent: null } } }]);
-  await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="me"] [data-pad="pad-0"]')`);
+  expect((await lane.calls()).filter(call => call.method !== "pad.list" && call.method.startsWith("pad."))).toEqual([{ method: "pad.setOwner", params: { name: "pad-0", owner: { kind: "agent", id: "agent-3", parent: null } } }]);
+  await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="agent-3"] [data-pad="pad-0"]')`);
 }, 60_000);

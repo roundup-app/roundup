@@ -41,7 +41,13 @@ export const OwnerGroups = <T,>(props: {
   createEffect(() => props.onClosedChange?.(closed()));
 
   const shown = createMemo<OwnerGroup<T>[]>((previous = []) => {
-    const groups = props.groups().filter(group => group.items.length > 0);
+    const nonempty = (groups: readonly OwnerGroup<T>[]): OwnerGroup<T>[] => groups.flatMap(group => {
+      const children = nonempty(group.children ?? []);
+
+      return group.items.length > 0 || children.length > 0 ? [{ ...group, children }] : [];
+    });
+
+    const groups = nonempty(props.groups());
 
     if (!props.dragging()) return groups;
 
@@ -51,8 +57,12 @@ export const OwnerGroups = <T,>(props: {
     return groups.toSorted((a, b) => (order.get(a.id) ?? groups.length) - (order.get(b.id) ?? groups.length));
   });
 
+  const allGroups = () => shown().flatMap(group => [group, ...(group.children ?? [])]);
+  const entry = (group: OwnerGroup<T>): Entry => ({ id: group.id, name: group.name, children: [...(group.items.length ? [{ id: `${group.id}:items`, name: "", children: [] }] : []), ...(group.children ?? []).map(entry)] });
+  const total = (group: OwnerGroup<T>): number => group.items.length + (group.children ?? []).reduce((sum, child) => sum + total(child), 0);
+
   const collection = createMemo(() => createTreeCollection<Entry>({
-    rootNode: { id: "root", name: "", children: shown().map(group => ({ id: group.id, name: group.name, children: [{ id: `${group.id}:items`, name: "", children: [] }] })) },
+    rootNode: { id: "root", name: "", children: shown().map(entry) },
     nodeToValue: node => node.id, nodeToString: node => node.name, isNodeDisabled: node => node.id.endsWith(":items"),
   }));
 
@@ -61,8 +71,8 @@ export const OwnerGroups = <T,>(props: {
   createEffect(() => {
     const id = props.focus?.();
 
-    if (id === null || id === undefined || !shown().some(group => group.id === id)) return;
-    setClosed(kept => kept.filter(each => each !== id));
+    if (id === null || id === undefined || !allGroups().some(group => group.id === id)) return;
+    setClosed(kept => kept.filter(each => each !== id && !shown().some(group => group.id === each && group.children?.some(child => child.id === id))));
     const focus = captureFocus();
 
     // Ark Collapsible applies its controlled open state before the next paint; a hidden Todo cannot take native focus.
@@ -77,6 +87,28 @@ export const OwnerGroups = <T,>(props: {
     }));
   });
 
+  const branches = (groups: Accessor<readonly OwnerGroup<T>[]>, path: Accessor<number[]>, offset: Accessor<number> = () => 0): JSX.Element => (
+    <For each={groups().map(group => group.id)}>{(id, at) => {
+        const group = () => groups().find(each => each.id === id)!;
+        const indexPath = () => [...path(), at() + offset()];
+
+        return <TreeView.NodeProvider node={entry(group())} indexPath={indexPath()}>
+        <TreeView.Branch data-shelf-group={id} data-drop-target={props.target?.() === id ? "" : undefined}>
+          <div class="shelf-group-head" hidden={props.bare?.() === id}>
+            <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
+              <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
+              <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
+              <span class="shelf-group-count" data-state="">{props.count ? props.count(group()) : total(group())}</span>
+            </TreeView.BranchControl>
+            {props.mark?.(group())}
+
+          </div>
+          {props.detail?.(group())}
+          <TreeView.BranchContent>{props.children(group)}{branches(() => group().children ?? [], indexPath, () => group().items.length ? 1 : 0)}</TreeView.BranchContent>
+        </TreeView.Branch>
+      </TreeView.NodeProvider>; }}</For>
+  );
+
   return <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
     onExpandedChange={details => {
       const branches = collection().getBranchValues();
@@ -84,24 +116,7 @@ export const OwnerGroups = <T,>(props: {
       setClosed(kept => [...kept.filter(id => !branches.includes(id)), ...branches.filter(id => !details.expandedValue.includes(id))]);
     }}>
     <TreeView.Tree class="shelf-groups" aria-label={copy.shelfLabel}>
-      <For each={shown().map(group => group.id)}>{(id, at) => {
-        const group = () => shown().find(each => each.id === id)!;
-
-        return <TreeView.NodeProvider node={collection().rootNode.children![at()]!} indexPath={[at()]}>
-        <TreeView.Branch data-shelf-group={id} data-drop-target={props.target?.() === id ? "" : undefined}>
-          <div class="shelf-group-head" hidden={props.bare?.() === id}>
-            <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
-              <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
-              <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
-              <span class="shelf-group-count" data-state="">{props.count ? props.count(group()) : group().items.length}</span>
-            </TreeView.BranchControl>
-            {props.mark?.(group())}
-
-          </div>
-          {props.detail?.(group())}
-          <TreeView.BranchContent>{props.children(group)}</TreeView.BranchContent>
-        </TreeView.Branch>
-      </TreeView.NodeProvider>; }}</For>
+      {branches(shown, () => [])}
     </TreeView.Tree>
   </TreeView.Root>;
 };

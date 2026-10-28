@@ -24,12 +24,12 @@ import { type ConnectedProject, useConnectedProject, useCreation } from "../stat
 import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
 import { USER } from "./owner";
-import { shownPads } from "./shownPads";
+import { padGroups, shownPads } from "./shownPads";
 import { shelfScope } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { OwnerPicker } from "../todos/OwnerPicker";
-import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
+import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { Sortable } from "../ui/sortable";
 import { CHORDS, TEXT_FIELDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -166,6 +166,9 @@ export const Pads = (props: {
   };
 
   const shown = shownPads(connected, list);
+  const groups = createMemo(() => padGroups(connected, shown()));
+  const flatGroups = () => groups().flatMap(group => [group, ...(group.children ?? [])]);
+  const requestedGroup = () => flatGroups().find(group => group.actor?.kind === "agent" && group.actor.id === connected.padsRequest() && group.items.length > 0)?.id ?? null;
 
   const selection = createSelection(() => shown().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
 
@@ -304,12 +307,12 @@ export const Pads = (props: {
     target: (name: string, x: number, y: number) => {
       const own = padOf(name);
 
-      for (const element of document.querySelectorAll<HTMLElement>(".pads-tab [data-shelf-group]")) {
+      for (const element of [...document.querySelectorAll<HTMLElement>(".pads-tab [data-shelf-group]")].toReversed()) {
         const box = element.getBoundingClientRect();
 
         if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
         const group = element.dataset.shelfGroup!;
-        const found = ownersOnRail(connected).find(each => each.id === group);
+        const found = flatGroups().find(each => each.id === group);
 
         // Unassigned is no owner a Pad can take, the own group is no change, and a group that left the Rail takes nothing.
         if (!found || found.actor === null || !own || sameOwner(found.actor, own.owner)) return null;
@@ -369,7 +372,7 @@ export const Pads = (props: {
       <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
         <EmptyState art="order" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
-      <OwnerGroups groups={() => ownerGroups(connected, shown(), pad => pad.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={() => null} focus={connected.padsRequest} onFocused={connected.finishPadsRequest}>{group => <PadRows
+      <OwnerGroups groups={groups} dragging={dragging} reveal={() => null} focus={requestedGroup} onFocused={connected.finishPadsRequest}>{group => <PadRows
         selection={selection}
         bulk={bulk}
         pads={pads}

@@ -132,7 +132,7 @@ it("u3732_real_daemon_agent_owner", async () => {
     await browser("press", "ArrowDown");
     await browser("press", "Enter");
     await until(`document.activeElement.closest('[data-pad]')?.dataset.pad === 'agent-pad'`);
-    await owned("pad", "agent-pad", { kind: "user", id: "you", parent: null }, "me");
+    await owned("pad", "agent-pad", { kind: "user", id: "you", parent: null }, "unassigned");
   } catch (error) {
     console.error(await evaluate("JSON.stringify({text:document.body.innerText, active:document.activeElement.outerHTML})").catch(() => "browser unavailable"));
     throw error;
@@ -174,13 +174,18 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
   };
 
   try {
-    const alpha = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: "Pad author" });
+    const workstream = await app.rpc("rail.createWorkstream", { name: "Pad Home", parent: null });
+    const other = await app.rpc("rail.createWorkstream", { name: "Other Home", parent: null });
+    const alpha = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: workstream.id, name: "Pad author" });
     const beta = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: "Selected Agent" });
 
     for (const name of ["notes", "plan"]) {
       await app.rpc("pad.create", { name, text: null });
       await app.rpc("pad.setOwner", { name, owner: { kind: "agent", id: alpha.id, parent: null } });
     }
+
+    await app.rpc("pad.move", { name: "notes", home: workstream.id });
+    await app.rpc("pad.move", { name: "plan", home: other.id });
 
     const recording = captureDir("U4457");
 
@@ -198,9 +203,14 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
     const before = await evaluate("document.querySelectorAll('.rail-row').length");
     await capture("before");
     const control = `.rail-row[data-id="${alpha.id}"] [data-pads-control]`;
-    const group = `.pads-tab [data-shelf-group="${alpha.id}"]`;
+    const group = `.pads-tab [data-shelf-group="${workstream.id}:${alpha.id}"]`;
 
     for (const activation of ["click", "Enter", "Space"]) {
+      if (activation !== "click") {
+        await browser("click", `.pads-tab [data-shelf-group="${workstream.id}"] .shelf-group-control`);
+        await until(`document.querySelector('.pads-tab [data-shelf-group="${workstream.id}"]')?.getAttribute('aria-expanded') === 'false'`);
+      }
+
       if (activation === "click") {
         await browser("focus", `.rail-row[data-id="${alpha.id}"]`);
         await until(`getComputedStyle(document.querySelector('${control}')).pointerEvents === 'auto'`);
@@ -216,7 +226,8 @@ it("u4457_the_real_daemon_pads_control_supports_pointer_enter_and_space", async 
       await until(`document.querySelector('${group}')?.getAttribute('aria-expanded') === 'true' && document.activeElement === document.querySelector('${group} .shelf-group-control')`);
       expect(await evaluate("document.querySelectorAll('.rail-row').length")).toBe(before);
       expect(await evaluate(`document.querySelector('.rail-row[data-id="${beta.id}"]')?.getAttribute('aria-selected')`)).toBe("true");
-      expect(await evaluate(`document.querySelectorAll('${group} [data-pad]').length`)).toBe(2);
+      expect(await evaluate("document.querySelectorAll('.pads-tab [data-pad]').length")).toBe(2);
+      expect(await evaluate("Number(document.querySelector('#shelf-tab-pads .shelf-count')?.textContent)")).toBe(2);
       await capture(activation);
     }
 
