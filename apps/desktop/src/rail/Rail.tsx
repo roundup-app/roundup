@@ -866,8 +866,8 @@ export const Rail = () => {
             if (canSpawn()) guarded(() => rail.createWorkstream());
           }}
         >
-          <Icon name="plus" />{copy.addWorkstreamWord}</button>
-        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="plus" />{copy.addAgentWord}</button>
+          <Icon name="messages" />{copy.addWorkstreamWord}</button>
+        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
       </div>
     </>
   );

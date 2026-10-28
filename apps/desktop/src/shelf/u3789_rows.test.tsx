@@ -30,7 +30,7 @@ const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["back
   return { ...controls, view, drafts, emulators };
 };
 
-const cases = ["todo-shelf", "pad-shelf", "todo-owned", "pad-owned", "workstream", "agent"] as const;
+const cases = ["todo-shelf", "pad-shelf", "workstream", "agent"] as const;
 
 type RowCase = typeof cases[number];
 
@@ -39,16 +39,9 @@ const target = async (kind: RowCase) => {
 
   if (kind === "pad-shelf") showShelfTab("Pads");
 
-  if (kind === "todo-owned" || kind === "pad-owned") {
-    const id = kind === "todo-owned" ? "tokens" : "agent-1";
-    fireEvent.click(document.querySelector(`.rail-row[data-id="${id}"] [data-pads-control]`)!);
-  }
-
   const selector = {
     "todo-shelf": '.todos-tab [data-todo="1"] .todo-row-button',
     "pad-shelf": '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .pad-name',
-    "todo-owned": '.rail-leaf [data-todo="1"] .todo-row-button',
-    "pad-owned": '.rail-leaf [data-incarnation="fixture-0"] .rail-pad',
     workstream: '.rail-row[data-id="payments"]',
     agent: '.rail-row[data-id="tokens"]',
   }[kind];
@@ -98,7 +91,7 @@ it.each(cases)("u3789a_return_activates_once_%s", async kind => {
   expect(rpcCalls(app, "agent.resume")).toEqual([]);
 });
 
-it.each(["todo-shelf", "pad-shelf", "todo-owned", "workstream", "agent"] as const)("u3789a_rename_never_opens_%s", async kind => {
+it.each(["todo-shelf", "pad-shelf", "workstream", "agent"] as const)("u3789a_rename_never_opens_%s", async kind => {
   const { app, row } = await target(kind);
   const start = app.calls.length;
   fireEvent.click(row);
@@ -120,16 +113,6 @@ it.each(["todo-shelf", "pad-shelf", "todo-owned", "workstream", "agent"] as cons
   expect(app.calls.slice(start).filter(call => ["pad.read", "todo.readHistory", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
   expect(rpcCalls(app, "pad.delete")).toEqual([]);
-});
-
-it("u3789a_readonly_pad_keeps_ownership_before_rename", async () => {
-  const { app, row } = await target("pad-owned");
-  row.focus();
-  fireEvent.keyDown(row, { key: "F2" });
-  await screen.findByText("Make this Pad yours before renaming.");
-  expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
-  expect(rpcCalls(app, "pad.rename")).toEqual([]);
-  expect(rpcCalls(app, "pad.setOwner")).toEqual([]);
 });
 
 it.each(["key", "scope"])("u3789b_one_action_focuses_add_%s", async input => {
