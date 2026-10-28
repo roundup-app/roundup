@@ -18,6 +18,11 @@
       "headFailures": {}
     },
     {
+      "state": "bubbles-dense-new-focused",
+      "baseFailures": {},
+      "headFailures": {}
+    },
+    {
       "state": "bubbles-dense-rename-failure",
       "baseFailures": {},
       "headFailures": {}
