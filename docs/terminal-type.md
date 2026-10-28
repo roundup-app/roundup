@@ -16,8 +16,8 @@ keeps its existing stack. xterm's normal/bold defaults already select 400/700.
 | --- | --- | --- |
 | `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
 | `--text-terminal` | `fontSize` | 11 CSS px |
-| `--line-terminal` | `lineHeight` | 1.5, unitless |
-| `--letter-terminal` | `letterSpacing` | 0.95 CSS px |
+| `--line-terminal` | `lineHeight` | 1.7, unitless (22 CSS px rows) |
+| `--letter-terminal` | `letterSpacing` | 0 CSS px (U4592 / #4627) |
 
 Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
 its 1.23 interface scale does not apply to Terminal text. The real rendered
@@ -117,14 +117,12 @@ Capture cases clear prior preferences before opening each surface, and hold
 write/resize refusals so an unrelated successful refit cannot erase the intended
 failure feedback before the reading.
 
-## Fractional tracking dependency (U4592, #4633)
+## Historical fractional tracking investigation (U4592, #4633)
 
-No published capability is selected. The following is a failing dependency
-reproduction, not U4592 completion. #4633 stays open until a maintained published
-release/addon preserves fractional tracking through its public API and passes
-its renderer regressions. #4635 owns the upstream source implementation.
-App integration, joined-operator integration, matched
-App captures and performance remain on #4627/#4619.
+The following retains the rejected fractional-spacing reproduction. The owner
+closed #4633 and #4635 and selected whole-pixel tracking in #4627 on 2026-10-28.
+No upstream renderer change or publication is required. The measurements below
+remain evidence that 0.5px does not tighten the installed renderer.
 
 Registry metadata and the exact published tarballs were inspected on 2026-10-28:
 
@@ -265,7 +263,46 @@ measurements and both screenshots exited 0. The distinction required by #4633
 fails. No candidate is integrated. This observation does not establish joined
 operators/boxes, later painting, fitted resize, selection, input, fallback or
 context-loss acceptance, nor App visual/performance or WKWebView results.
-Those remain required when an upstream-supported published candidate exists.
+The whole-pixel integration below owns those observations.
 
 The diagnostic PNG files and metrics are retained, uncommitted, under
 `artifacts/ux/U4592/xterm-dependency/`; these are not matched App captures.
+
+## Whole-pixel tracking and joined operators (#4627)
+
+The owner’s 2026-10-28 decision supersedes the fractional Token request:
+`--letter-terminal: 0px` reaches xterm’s public `letterSpacing` option. Fira Code,
+11px size, normal/bold 400/700 and every colour are unchanged in this prerequisite;
+#4619 / PR #4624 owns the lighter 300 face. `--line-terminal: 1.7` retains the
+required 22px rows. The earlier 19px calibration above is historical.
+
+Reuse: the installed xterm 6.0.0 / WebGL 0.19.0 public whole-pixel option already
+supplies the narrower advance; no custom renderer is needed. For joining, the
+[official ligatures addon 0.10.0](https://registry.npmjs.org/@xterm/addon-ligatures/0.10.0),
+published 2025-12-22 from xterm’s release commit
+`f447274f430fd22513f6adbf9862d19524471c04`, is selected. Its
+[implementation](https://github.com/xtermjs/xterm.js/blob/f447274f430fd22513f6adbf9862d19524471c04/addons/addon-ligatures/src/LigaturesAddon.ts)
+uses the public character-joiner API and documented browser fallback operators.
+Its published ESM `module` exists, but the declared CommonJS `main` is absent;
+Vite’s alias selects that shipped ESM entry for both build and tests. No package
+source or renderer state is patched. The addon is loaded after `open()` and
+explicitly disposed before the terminal: deregistration requests a refresh,
+which fails if the renderer has already been destroyed. All six S3806c scale
+guards remain unchanged, including selection, scrollback and zero input writes.
+
+The [0.9.0 addon](https://registry.npmjs.org/@xterm/addon-ligatures/0.9.0) is
+rejected: its peer contract requires xterm ^5.0.0. The alternative
+[font-ligatures 1.4.1](https://registry.npmjs.org/font-ligatures/1.4.1), last
+released 2022-01-07, parses font ligatures but supplies no xterm lifecycle or
+rendering integration; the maintained official addon already owns that adapter.
+It is an addon dependency, not a reason to write a second joiner. The stable,
+beta and DOM tracking candidates above remain rejected for fractional tracking;
+DOM also lacks the custom glyphs needed for continuous 22px boxes. The installed
+WebGL renderer and its existing fallback/context-loss path remain in use.
+
+The U4592 observer replays identical bytes into Agent, Door and shell surfaces
+at 1512×950, Dark, DPR 2. `*.metrics.json` records full commits, replay SHA-256,
+requested Tokens, loaded faces, renderer, backing size and content/grid metrics;
+PNGs and Check readings remain under `artifacts/ux/U4592/{base,head}/`.
+This Linux DPR-2 observer represents the owner’s display density, not their Mac
+or WKWebView timing. Native appearance remains a post-merge owner observation.
