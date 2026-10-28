@@ -2,6 +2,7 @@
 import contextlib
 from functools import cache
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -10,6 +11,8 @@ import tempfile
 import unittest
 
 import guard
+
+FIXTURES = json.loads(Path(__file__).with_name("fixtures.json").read_text())
 
 
 class Guard(unittest.TestCase):
@@ -49,7 +52,8 @@ class Guard(unittest.TestCase):
         return errors
 
     def layouts(self):
-        for directory in [b"crates/pads/migrations/", b"new/migrations/", b"crates/rupd/migrations/project/"]:
+        for path in FIXTURES["layouts"]:
+            directory = path.encode()
             for suffix in [b".sql", b"/up.sql"]:
                 yield directory, suffix
 
@@ -80,13 +84,7 @@ class Guard(unittest.TestCase):
 
     def test_b4522_guard_accepts_only_recorded_duplicates(self):
         # Literal inventory is independent of the implementation's exception map.
-        groups = [
-            (b"crates/rupd/migrations/project/", [b"0015-message-results.sql", b"0015-todo-change-actor.sql"]),
-            (b"crates/rupd/migrations/project/", [b"0020-continuations.sql", b"0020-todo-refs.sql"]),
-            (b"crates/rupd/migrations/project/", [b"0023-agent-finished.sql", b"0023-measurement-no-tokens-or-money.sql", b"0023-remove-decisions.sql"]),
-            (b"crates/rupd/migrations/project/", [b"0026-pad-deletions.sql", b"0026-todo-deletions.sql"]),
-            (b"crates/messages/migrations/", [b"001/up.sql", b"001-digest/up.sql"]),
-        ]
+        groups = [(d.encode(), [n.encode() for n in names]) for d, names in FIXTURES["groups"]]
         all_paths = {d + n for d, names in groups for n in names}
         self.assertEqual(self.check(all_paths, all_paths), [])
         for d, names in groups:

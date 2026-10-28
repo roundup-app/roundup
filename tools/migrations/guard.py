@@ -1,18 +1,17 @@
 """B4522: audit migration names in local Git trees; never read SQL contents."""
 import argparse
+import json
 from collections import defaultdict
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
 
 # Exact applied collisions only. A base tree cannot grant additional exceptions.
 RECORDED = {
-    (b"crates/rupd/migrations/project", 15): {b"0015-message-results.sql", b"0015-todo-change-actor.sql"},
-    (b"crates/rupd/migrations/project", 20): {b"0020-continuations.sql", b"0020-todo-refs.sql"},
-    (b"crates/rupd/migrations/project", 23): {b"0023-agent-finished.sql", b"0023-measurement-no-tokens-or-money.sql", b"0023-remove-decisions.sql"},
-    (b"crates/rupd/migrations/project", 26): {b"0026-pad-deletions.sql", b"0026-todo-deletions.sql"},
-    (b"crates/messages/migrations", 1): {b"001/up.sql", b"001-digest/up.sql"},
+    (row["directory"].encode(), row["prefix"]): {name.encode() for name in row["members"]}
+    for row in json.loads(Path(__file__).with_name("recorded.json").read_text())
 }
 
 
