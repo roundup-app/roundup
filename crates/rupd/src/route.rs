@@ -151,10 +151,8 @@ impl Daemon {
         ) {
             self.before_prompt_effect(&conn.actor, method).await?;
         }
-        if method == "todo.restore" {
-            if conn.actor.kind != ActorKind::User {
-                return Err(RpcError::forbidden("only the user restores deleted Todos"));
-            }
+        if method == "todo.restore" && conn.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user restores deleted Todos"));
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
         if owner == "daemon" {
