@@ -191,14 +191,14 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   // Measure a real destination row at this depth, so nested DOM containers and
   // list insets cannot add indentation a second time to the library's proxy.
   const placeSlot = (drop: SortableDrop | null) => {
-    if (!slot || !sourceRow || !list) return;
-    const rows = local.tree ? withDepth(local.tree.rows) : [];
+    if (!slot || !sourceRow || !list || !local.tree) return;
+    const rows = withDepth(local.tree.rows);
     const depth = drop?.depth ?? rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === sourceRow))?.depth ?? 0;
     const target = landingRows.find(entry => rows.find(row => row.id === entry.id)?.depth === depth)?.element ?? sourceRow;
     const box = target.getBoundingClientRect();
     const targetDepth = rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === target))?.depth ?? 0;
-    const step = local.tree?.indent ?? 0;
-    const inset = local.tree?.inset(target) ?? 0;
+    const step = local.tree.indent;
+    const inset = local.tree.inset(target);
     const indent = inset + (depth - targetDepth) * step;
     const parent = slot.parentElement;
 
