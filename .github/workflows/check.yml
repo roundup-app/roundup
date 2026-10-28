@@ -56,8 +56,10 @@ jobs:
             base=$(git rev-parse --verify "$BASE^{commit}")
             # Once installed, a PR cannot expand its own duplicate exceptions.
             if git cat-file -e "$base:tools/migrations/guard.py" 2>/dev/null; then
-              guard=$(mktemp)
-              git show "$base:tools/migrations/guard.py" > "$guard"
+              trusted=$(mktemp -d)
+              git show "$base:tools/migrations/guard.py" > "$trusted/guard.py"
+              git show "$base:tools/migrations/recorded.json" > "$trusted/recorded.json"
+              guard="$trusted/guard.py"
             fi
           fi
           python3 "$guard" "$BASE"
