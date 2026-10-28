@@ -107,6 +107,6 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
     }
   } finally {
-    try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
+    try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
   }
 }, 240_000);
