@@ -6,7 +6,7 @@ import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "../copy";
-import { createEffect, createSignal, For, Show, lazy } from "solid-js";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
@@ -17,8 +17,6 @@ import { todoCreationEditor, todoEditor } from "./editors";
 import { typedText, useUnfinishedWork } from "./unfinishedWork";
 
 const Pads = (props: Parameters<typeof import("../pads/Pads").Pads>[0]) => <Deferred load={() => import("../pads/Pads")} label={copy.pads}>{module => <module.Pads {...props} />}</Deferred>;
-
-const OrderDrawer = lazy(() => import("../orders/OrderDrawer").then(module => ({ default: module.OrderDrawer })));
 
 /**
  * U3289c: the Overview row's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
@@ -103,10 +101,6 @@ const DraftRecoveryPanel = () => {
       return () => drawer.open(() => creation({ recovery: { project: project.path, revision: row.draft.revision, list: todos } }), "key");
     }
 
-    if (surface === "orders" && node(row)) {
-      return () => drawer.open(() => <OrderDrawer id={object} recovery={{ project: project.path, revision: row.draft.revision }} />, "key", { kind: "work-order", project: project.path });
-    }
-
     const target = node(row);
 
     // The remaining surfaces keep their editor on screen; Open brings it into view.
@@ -132,7 +126,7 @@ const DraftRecoveryPanel = () => {
             </div>
           </div>
           <div class="draft-actions">
-            <Show when={row.cause === "gone" || row.draft.policy === "credential"} fallback={<button data-button="quiet" type="button" onClick={open(row)}>{copy.openDraft}</button>}>
+            <Show when={row.draft.destination.surface === "orders" || row.cause === "gone" || row.draft.policy === "credential"} fallback={<button data-button="quiet" type="button" onClick={open(row)}>{copy.openDraft}</button>}>
               <CopyButton app={app} identity={row.draft.revision} text={typedText(row.draft).join("\n")} onSuccess={() => clear(row.draft.revision)} onFailure={error => setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error.message) }))}>{copy.copyDraft}</CopyButton>
             </Show>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(row.draft.revision)}>{copy.discardRow}</button>

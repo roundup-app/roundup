@@ -668,10 +668,17 @@ const d12 = (page: Page): Measure => {
   for (const list of SHELF_LISTS) {
     const own = rows.filter((one) => one.list === list);
 
-    const indent = (row: Element) => list === "todos" && row.matches('[role="treeitem"]')
-      ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("tree-step") ?? page.token("space-5") ?? "0") : 0;
+    const indent = (row: Element) => {
+      const level = list === "pads" ? row.closest("[data-shelf-group]")?.getAttribute("aria-level") : row.getAttribute("aria-level");
 
-    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
+      return (Number(level ?? 1) - 1) * parseFloat(page.token("tree-step") ?? page.token("space-5") ?? "0");
+    };
+
+    const glyphs = own.flatMap(({ row }) => {
+      const glyph = row.querySelector(".shelf-glyph")?.firstElementChild;
+
+      return glyph ? [left(glyph) - indent(row)] : [];
+    });
 
     const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
@@ -697,7 +704,7 @@ const d12 = (page: Page): Measure => {
     }
 
     own.forEach(({ row }) => {
-      found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row });
+      found.push({ diff: glyphs.length ? Math.max(...glyphs) - Math.min(...glyphs) : 0, row });
 
       for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].filter(line => line.textContent?.trim() && !line.matches(".todo-group-status"))) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
     });
