@@ -14,6 +14,6 @@ it("u4464_no_empty_view_before_the_first_answer", async () => {
   render(() => <ConnectedProjectContext.Provider value={connected}><Inbox /></ConnectedProjectContext.Provider>);
   expect(screen.queryByRole("group")).toBeNull();
   answer.resolve([]);
-  const empty = await screen.findByRole("group", { name: "Nothing waits for you" });
-  expect(empty.getAttribute("aria-labelledby")).toBeTruthy();
+  await screen.findByRole("group", { name: "Nothing waits for you" });
+  expect(screen.getByRole("group").hasAttribute("aria-labelledby")).toBe(true);
 });
