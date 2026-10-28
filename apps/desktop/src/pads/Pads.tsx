@@ -351,7 +351,7 @@ export const Pads = (props: {
       <Show when={isEmpty() && !naming()}>
         <EmptyState icon="order" heading={copy.noPadsYet} hint={copy.noPadsHint} />
       </Show>
-      <OwnerGroups groups={() => ownerGroups(connected, shown(), pad => pad.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={() => null}>{group => <PadRows
+      <OwnerGroups groups={() => ownerGroups(connected, shown(), pad => pad.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={() => null} focus={connected.padsRequest} onFocused={connected.finishPadsRequest}>{group => <PadRows
         selection={selection}
         bulk={bulk}
         pads={pads}
@@ -454,7 +454,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
 
   const open = (source: "key" | "pointer") => {
     const name = pad.name;
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message)} onFailureCleared={() => props.onItemFailure(pad, null)} />, source);
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message)} onFailureCleared={() => props.onItemFailure(pad, null)} />, source, { kind: "pad", project: connected.project.path });
   };
 
   const rename = () => { if (pad.owner.kind === "user") setEditing(true); else props.onItemFailure(pad, copy.renamePadOwnership); };
