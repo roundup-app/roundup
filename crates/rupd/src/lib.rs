@@ -34,6 +34,8 @@ mod rewind;
 mod route;
 mod specialist;
 mod storage;
+#[cfg(feature = "test-support")]
+pub mod test_support;
 mod todo_refs;
 mod waits;
 mod wake;

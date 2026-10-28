@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 88] = [
+pub const TOOL_METHODS: [&str; 89] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -20,6 +20,7 @@ pub const TOOL_METHODS: [&str; 88] = [
     "todo.create",
     "todo.assign",
     "todo.comment",
+    "todo.comments",
     "todo.addRef",
     "todo.removeRef",
     "todo.get",
@@ -117,7 +118,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 79] = [
+pub const NO_TOOL: [&str; 78] = [
     // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
     "pad.reorder",
     // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
@@ -142,7 +143,6 @@ pub const NO_TOOL: [&str; 79] = [
     // U462, T21, T23: the open Drawer fetches and acknowledges History; an Agent only leaves a comment.
     "todo.getHistory",
     "todo.readHistory",
-    "todo.comments",
     "todo.unread",
     "todo.markCommentsRead",
     // U3808: the App reads recorded Hand-offs for the plan marker; only the Daemon hands a Todo (T25).
