@@ -445,7 +445,7 @@ export const App = (props: {
     const connected = activeConnection();
 
     if (!connected || connected instanceof Error || connected.padsRequest() === null) return;
-    frame.setTab("pads");
+    frame.setTab(connected.padsTab());
 
     if (!frame.open()) frame.toggle("key");
   });
