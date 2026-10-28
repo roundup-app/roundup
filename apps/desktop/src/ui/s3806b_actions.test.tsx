@@ -7,7 +7,14 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { FakeApp } from "../testing/fakeApp";
 import { Rail } from "../rail/Rail";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { agent } from "../testing/nodes";
+import { App } from "../App";
+import { createFakeApp } from "../testing/fakeApp";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { tab, path } from "../header/stripFixture";
+import { rowOf, settled } from "../rail/railFixture";
+import type { ConnectedProject } from "../state/connectedProject";
+import { useBrowserStorage } from "../state/storage";
+import { agent, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
 afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); localStorage.clear(); sessionStorage.clear(); });
@@ -28,7 +35,7 @@ const pending = <T,>(entered: () => void, value: T) => {
 };
 
 type Row = {
-  owner: "Rail" | "Bubble";
+  owner: "Rail" | "Bubble" | "App";
   label: string;
   selected: string;
   origin: string;
@@ -82,11 +89,35 @@ const activate = (row: HTMLElement, how: "enter" | "pointer"): void => {
   } else switcherKey("Enter", {}, field()!);
 };
 
-const cases = ROWS.flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
-  (row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : ["dismiss", "resolve", "reject", "unknown"] as const)).map((outcome) => ({ row, how, outcome }))));
+// App owns the surviving notice; the real Rail captures each original spawn contract.
+const APP_ROWS: Row[] = ROWS.filter(row => row.method === "agent.spawn").map(row => ({ ...row, owner: "App", params: { cwd: path("first"), prompt: row.label === "New Agent" ? null : "A\ne\u0301 🧭", parent: "ops", model: null, effort: null } }));
+
+const mountApp = async () => {
+  useBrowserStorage(localStorage);
+  const app = createFakeApp();
+  app.add(path("first"));
+  app.add(path("second"));
+  app.of(path("first")).handlers["rail.tree"] = () => [workstream("ops")];
+  app.of(path("second")).handlers["rail.tree"] = () => [workstream("other")];
+  let original: ConnectedProject | undefined;
+  const emulators = fakeEmulators();
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { if (open.project.path === path("first")) original = open; }} />);
+  await screen.findByRole("tab", { name: /^first/ });
+  fireEvent.click(tab("first"));
+  await waitFor(() => expect(original).toBeDefined());
+  await screen.findByText("ops", { selector: ".name" });
+  fireEvent.click(rowOf("ops"));
+  await settled();
+
+  return { app: app.of(path("first")), connected: original!, other: app.of(path("second")) };
+};
+
+const cases = [...ROWS, ...APP_ROWS].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
+  (row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : ["dismiss", "resolve", "reject", "unknown"] as const)).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
-  const { app, connected } = await mountSwitcher(row.selected);
+  const mounted = row.owner === "App" ? await mountApp() : await mountSwitcher(row.selected);
+  const { app, connected } = mounted;
   const trace: string[] = [];
   const reply = row.hold(app, () => trace.push(`${row.method}:${field() === null ? "closed" : "open"}`));
 
@@ -159,18 +190,24 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   expect(ofMethod().map((call) => call.params)).toEqual([row.params]);
   await waitFor(() => expect(field()).toBeNull());
 
-  // Changing the tree and selection must not retarget the pending action.
-  const tree = app.handlers["rail.tree"]!;
-  // SAFETY: the fake Daemon's rail.tree handler answers a RailNode[].
-  app.handlers["rail.tree"] = (params) => [...(tree(params) as RailNode[]).filter((node) => node.id !== (outcome === "missing" ? row.selected : row.removes)), agent("keep", "idle", "idle", { order: 9 })];
-  await connected.rail.refresh({ terminals: true });
-  connected.rail.select("keep");
+  if (row.owner === "App") {
+    fireEvent.click(tab("second"));
+    await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
+  } else {
+    // Changing the tree and selection must not retarget the pending action.
+    const tree = app.handlers["rail.tree"]!;
+    // SAFETY: the fake Daemon's rail.tree handler answers a RailNode[].
+    app.handlers["rail.tree"] = (params) => [...(tree(params) as RailNode[]).filter((node) => node.id !== (outcome === "missing" ? row.selected : row.removes)), agent("keep", "idle", "idle", { order: 9 })];
+    await connected.rail.refresh({ terminals: true });
+    connected.rail.select("keep");
+  }
   expect(ofMethod()).toHaveLength(1);
 
   if (outcome === "resolve") {
     reply.resolve();
     await Promise.resolve();
-    expect(connected.rail.selected()).toBe("keep");
+    expect(connected.rail.selected()).toBe(row.owner === "App" ? "ops" : "keep");
+    if (row.owner === "App") expect(document.querySelector('[data-id="created"]')).toBeNull();
 
     if (submitted) {
       await waitFor(() => expect(connected.drafts.list().some(entry => entry.revision === submitted.revision)).toBe(false));
@@ -181,6 +218,17 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     await waitFor(() => expect(document.body.textContent).toContain(`${row.label} rejected by the Daemon`));
 
     if (row.method === "agent.spawn") {
+      if (row.owner === "App") {
+        const notice = await screen.findByRole("alert");
+        expect(notice.textContent).toContain("New Agent");
+        expect(notice.textContent).toContain(`${row.label} rejected by the Daemon`);
+        expect(ofMethod()).toHaveLength(1);
+        const queryDraft = connected.drafts.list().filter(entry => entry.destination.surface === "switcher");
+        fireEvent.click(screen.getByRole("button", { name: "Open first" }));
+        await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
+        expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
+        expect(ofMethod()).toHaveLength(1);
+      }
       const notice = document.querySelector(".rail-command-notice")!;
       const retry = notice.querySelector("button");
       expect(retry).not.toBeNull();
@@ -189,7 +237,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       // guarded's finally releases the add action after publishing the failure.
       await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="New Agent"]')?.getAttribute("aria-disabled")).toBeNull());
       const recovery = connected.rail.commandFailure.retry();
-      cleanup();
+      if (row.owner !== "App") cleanup();
       expect(connected.rail.commandFailure.retry()).toBe(recovery);
 
       if (submitted) {
@@ -197,7 +245,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
         expect(connected.drafts.list()).toContainEqual(newer);
       }
 
-      render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+      if (row.owner !== "App") render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
       app.handlers["agent.spawn"] = () => agent("recovered", "idle", "idle");
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
 
@@ -233,6 +281,12 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
   expect(ofMethod()).toHaveLength(1);
   expect(app.calls.slice(before).filter((call) => call.method === "terminal.write")).toEqual([]);
+
+  if (row.owner === "App") {
+    expect("other" in mounted && mounted.other.calls.filter(call => call.method === row.method)).toEqual([]);
+    fireEvent.click(tab("first"));
+    await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
+  }
 
   // The query the user typed comes back exactly.
   openSwitcher();
