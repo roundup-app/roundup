@@ -100,8 +100,10 @@ for (const state of ["agent", "door", "shell"]) {
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
+      // Storage belongs to this origin; a fresh headless profile may still be on about:blank.
+      await load(seed, base, "webgl", 1);
       await read("localStorage.clear(); sessionStorage.clear()");
-      await load(seed, base, "webgl", 2);
+      await load(seed, base, "webgl", 1);
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
       let id = state === "agent" ? "t-agent-3" : "t-payments";
       let surface = ".pane";
