@@ -1,5 +1,5 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { showShelfTab } from "../testing/shelfTabs";
@@ -186,7 +186,8 @@ it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_th
   const app = await open();
   await toRail();
   showShelfTab("Todos");
-  const control = target === "Todos tab" ? screen.getByRole("tab", { name: /Todos/ }) : await screen.findByRole("button", { name: target });
+  const shelf = within(document.querySelector<HTMLElement>(".shelf")!);
+  const control = target === "Todos tab" ? screen.getByRole("tab", { name: /Todos/ }) : await shelf.findByRole("button", { name: target });
   control.focus();
   await waitFor(() => expect(line().some(hint => hint.startsWith("D "))).toBe(false));
   fireEvent.keyDown(document.activeElement!, { key: target !== "Maximise" ? "t" : "m", code: target !== "Maximise" ? "KeyT" : "KeyM" });
@@ -199,9 +200,9 @@ it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_th
     fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
     expect(control.getAttribute("aria-pressed")).toBe("false");
   } else {
-    expect(screen.getByRole("button", { name: "Restore" })).toBe(control);
+    expect(shelf.getByRole("button", { name: "Restore" })).toBe(control);
     fireEvent.keyDown(document.activeElement!, { key: "m", code: "KeyM" });
-    expect(screen.getByRole("button", { name: "Maximise" })).toBe(control);
+    expect(shelf.getByRole("button", { name: "Maximise" })).toBe(control);
   }
 
   expect(app.calls.filter(call => call.method === "todo.complete" || call.method === "todo.delete")).toEqual([]);
