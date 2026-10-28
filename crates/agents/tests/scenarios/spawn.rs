@@ -156,10 +156,11 @@ def draw(marker):
     size = os.get_terminal_size(0)
     print("\033[2J\033[H" + marker + " %d %d pid=%d" % (size.columns, size.lines, os.getpid()), flush=True)
 
-signal.signal(signal.SIGWINCH, lambda *_: draw("later"))
+signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGWINCH})
 draw("first")
 while True:
-    signal.pause()
+    signal.sigwait({signal.SIGWINCH})
+    draw("later")
 '"#;
 
 async fn size_report(f: &Fixture, id: &str, marker: &str) -> String {
@@ -171,7 +172,11 @@ async fn size_report(f: &Fixture, id: &str, marker: &str) -> String {
             if text.contains(marker) {
                 return text;
             }
-            output.next().await.expect("program keeps its PTY open");
+            assert!(
+                output.next().await.is_some(),
+                "program closed its PTY: {:?}",
+                f.terminals.read_screen(id, None).unwrap().lines
+            );
         }
     })
     .await
