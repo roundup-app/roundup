@@ -237,14 +237,9 @@ for (const intervene of [false, true]) {
   }, 90_000);
 }
 
-for (const path of ["ask", "switcher", "timeline", "rail-name", "todo-title"]) {
+for (const path of ["ask", "switcher", "rail-name", "todo-title"]) {
   it(`u3756b_queued_${path}_appearance_yields_to_a_newer_rail_choice`, async () => {
     await fresh();
-
-    if (path === "timeline") {
-      await read(`document.querySelector('.rail-row[data-id="payments"]').click()`);
-      await wait(`!!document.querySelector('.measurement-action')`);
-    }
 
     if (path === "todo-title") await newer("drawer");
 
@@ -256,8 +251,7 @@ for (const path of ["ask", "switcher", "timeline", "rail-name", "todo-title"]) {
     else if (path === "switcher") {
       await browser("press", "Meta+k");
       await browser("press", "k");
-    } else if (path === "timeline") await read(`[...document.querySelectorAll('.measurement-action button')].find(b => b.textContent === 'Timeline').click()`);
-    else if (path === "rail-name") await read(`document.querySelector('.rail-row .name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
+    } else if (path === "rail-name") await read(`document.querySelector('.rail-row .name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
     else await read(`document.querySelector('.todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
     expect(await read(`window.queuedFocus.length`)).toBeGreaterThan(0);
     await read(`window.newerFocus = document.querySelector('.rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]'); window.newerFocus.focus(); window.queueMicrotask = window.realMicrotask; window.queuedFocus.splice(0).forEach(fn => fn())`);

@@ -59,7 +59,7 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   fireEvent.click(recorder);
   expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
@@ -85,8 +85,7 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
 
       if (command === "import-work") expect(await within(page).findByRole("checkbox", { name: new RegExp(name) })).toBeTruthy();
       else await waitFor(() => expect(within(page).getByRole("textbox")).toHaveProperty("value", String(cap)));
-      // Shared-row return is proved by u4315b_back_to_ask_clears_centre_navigation.
-      fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+      fireEvent.click(within(page).getByRole("button", { name: "Close" }));
     }
 
     expect(app.of(path(name)).calls.filter(call => call.method === "project.get")).toHaveLength(1);
