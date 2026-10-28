@@ -79,7 +79,7 @@ it.each([
   try {
     view.row("alpha.ts").focus();
 
-    for (const key of prefix) fireEvent.keyDown(view.root.activeElement ?? view.row("alpha.ts"), { key });
+    for (const key of prefix) expect(fireEvent.keyDown(view.root.activeElement ?? view.row("alpha.ts"), { key })).toBe(false);
     await waitFor(() => expect(view.tree.getFocusedPath()).toBe(path), { timeout: 1000 });
     expect(view.tree.getSelectedPaths()).toEqual([path]);
     expect(view.tree.getVisibleCount()).toBe(6);
@@ -147,5 +147,39 @@ it.each(["input", "textarea", "editable", "terminal"])("u3787c_vanilla_prefix_le
     expect(fireEvent.keyDown(editor, { key: "e" })).toBe(true);
     expect(view.tree.getSelectedPaths()).toEqual(["alpha.ts"]);
     expect(view.tree.getFocusedPath()).toBe("alpha.ts");
+  } finally { view.close(); }
+});
+
+it.each(["q", " "])("u3787i_unmatched_key_and_space_reach_the_app_%s", async key => {
+  const view = await mountTree({ typeahead: "name-prefix", search: true });
+  let received = 0;
+  const receive = () => received++;
+
+  document.body.addEventListener("keydown", receive);
+
+  try {
+    view.row("alpha.ts").focus();
+    const event = new KeyboardEvent("keydown", { key, bubbles: true, composed: true, cancelable: true });
+
+    view.row("alpha.ts").dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(received).toBe(1);
+    expect(view.tree.getSelectedPaths()).toEqual([]);
+    expect(view.tree.getFocusedPath()).toBe("alpha.ts");
+    expect(view.tree.isSearchOpen()).toBe(false);
+  } finally {
+    document.body.removeEventListener("keydown", receive);
+    view.close();
+  }
+});
+
+it("u3787i_space_extends_an_active_name_prefix", async () => {
+  const view = await mountTree({ typeahead: "name-prefix", paths: ["echo.ts", "e two.ts"] });
+
+  try {
+    view.row("e two.ts").focus();
+    fireEvent.keyDown(view.row("e two.ts"), { key: "e" });
+    expect(fireEvent.keyDown(view.row("echo.ts"), { key: " " })).toBe(false);
+    expect(view.tree.getSelectedPaths()).toEqual(["e two.ts"]);
   } finally { view.close(); }
 });

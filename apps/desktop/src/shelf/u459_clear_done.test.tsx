@@ -23,7 +23,7 @@ it("u459_clear_done_success_removes_only_done_rows", async () => {
   await confirmDeletion();
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);
-  expect(screen.getByRole("button", { name: /#3 / })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #3 / })).toBeTruthy();
 });
 
 it("u459_failed_done_rows_are_visible_and_selected", async () => {
@@ -39,6 +39,6 @@ it("u459_failed_done_rows_are_visible_and_selected", async () => {
   await confirmDeletion();
   await screen.findByText("Could not delete todo 2 #2: The chosen Todo is no longer available. Refresh to check again.");
   await questionClosed();
-  expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(1);
 });

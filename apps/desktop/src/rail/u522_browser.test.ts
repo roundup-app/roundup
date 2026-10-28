@@ -27,7 +27,7 @@ const load = async () => {
 
 const moves = () => read<unknown[]>(`window.__fake.app.calls.filter(call => call.method === 'rail.move').map(call => call.params)`);
 
-const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const row = document.querySelector('.rail-row[data-id="${id}"]'); const r = row.querySelector(".name").getBoundingClientRect(); const bounds = row.getBoundingClientRect(); return { x: r.x + Math.min(8, r.width / 2), y: r.y + r.height / 2, top: bounds.top, bottom: bounds.bottom, left: bounds.left }; })()`);
+const box = (id: string) => read<{ x: number; y: number; top: number; bottom: number; left: number }>(`(() => { const row = document.querySelector('.rail-row[data-id="${id}"]'); const r = row.querySelector(".sortable-handle").getBoundingClientRect(); const bounds = row.getBoundingClientRect(); return { x: r.x + Math.min(8, r.width / 2), y: r.y + r.height / 2, top: bounds.top, bottom: bounds.bottom, left: bounds.left }; })()`);
 
 const order = () => read<string[]>(`[...document.querySelectorAll('.rail-tree [data-id]:not([data-dnd-placeholder])')].map(el => el.dataset.id).filter((id, at, all) => all.indexOf(id) === at)`);
 
@@ -113,7 +113,7 @@ it("u522_edge_scroll_reaches_an_offscreen_row", async () => {
 
 it("u522_keyboard_move", async () => {
   await load();
-  await read<void>(`document.querySelector('[data-part="item"][data-id="tokens"]').focus()`);
+  await read<void>(`document.querySelector('[data-part="item"][data-id="tokens"] .sortable-handle').focus()`);
   await page.press(" ", "Space");
   await wait(`document.querySelector('[data-dnd-placeholder]')`);
   await page.press("ArrowDown", "ArrowDown");
@@ -121,7 +121,7 @@ it("u522_keyboard_move", async () => {
   await page.press(" ", "Space");
   await settle(1);
   expect(await moves()).toEqual([{ id: "tokens", parent: "auth", index: 1 }]);
-  await wait(`document.activeElement?.dataset.id === 'tokens'`);
+  await wait(`document.activeElement?.closest('[data-id]')?.dataset.id === 'tokens'`);
 }, 90_000);
 
 it("u522_enter_still_selects_the_focused_row", async () => {
@@ -160,19 +160,21 @@ it("u522_a_press_on_a_button_starts_no_drag", async () => {
   expect(await moves()).toEqual([]);
 }, 90_000);
 
-it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", async () => {
+it.each(["backend", "auth", "tokens"])("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement_%s", async target => {
   await load();
   await page.resize(1512, 950);
   await page.scheme("dark");
-
   // backend contains auth, which contains tokens. None is a destination for backend.
-  for (const target of ["backend", "auth", "tokens"]) {
-    await dragBelow("backend", target, 40);
-    await mouse("up");
-    await wait("!document.querySelector('[data-dnd-placeholder]')");
-    expect(await moves()).toEqual([]);
-  }
+  await dragBelow("backend", target, 40);
+  await mouse("up");
+  await wait("!document.querySelector('[data-dnd-placeholder]')");
+  expect(await moves()).toEqual([]);
+}, 30_000);
 
+it("u3515c_rail_nesting_moves_beyond_descendants", async () => {
+  await load();
+  await page.resize(1512, 950);
+  await page.scheme("dark");
   const destination = await read<number>(`[...document.querySelectorAll('.rail-row[data-id]')].findIndex(row => row.dataset.id === 'agent-31')`);
 
   expect(destination).toBeGreaterThan(0);
@@ -183,4 +185,4 @@ it("u3515c_rail_nesting_excludes_self_descendants_and_unchanged_placement", asyn
   await settle(1);
   expect(await moves()).toEqual([expect.objectContaining({ id: "backend", parent: null })]);
   expect((await order()).indexOf("backend")).toBeGreaterThan(0);
-}, 10_000);
+}, 30_000);

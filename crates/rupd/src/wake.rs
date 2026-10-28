@@ -14,6 +14,17 @@ use crate::digest::{Reader, World};
 
 const MAX_IDS: usize = 20;
 
+pub(super) fn parse_request(params: serde_json::Value) -> Result<WakeParams, RpcError> {
+    let WakeParams { ids, any } = rpc::params(params)?;
+    if ids.is_empty() || ids.len() > MAX_IDS {
+        return Err(RpcError::new(
+            code::INVALID_PARAMS,
+            format!("ids must name 1 to {MAX_IDS} Agents"),
+        ));
+    }
+    Ok(WakeParams { ids, any })
+}
+
 /// What the deciding task remembers between Events: serialised by its lock, so a registration and a
 /// live Event never decide one request at once.
 #[derive(Default)]
@@ -59,13 +70,7 @@ impl Waker {
         if caller.kind != ActorKind::Agent {
             return Err(RpcError::forbidden("only an Agent may ask to be woken"));
         }
-        let WakeParams { ids, any } = rpc::params(params)?;
-        if ids.is_empty() || ids.len() > MAX_IDS {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                format!("ids must name 1 to {MAX_IDS} Agents"),
-            ));
-        }
+        let WakeParams { ids, any } = parse_request(params)?;
         let mut seen = std::collections::HashSet::new();
         if let Some(repeated) = ids.iter().find(|id| !seen.insert(id.as_str())) {
             return Err(RpcError::new(

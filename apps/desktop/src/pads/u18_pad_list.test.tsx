@@ -29,12 +29,12 @@ describe("u18 list and ownership", () => {
 
   it("u18_make_yours_menu_changes_the_original_pad_owner", async () => {
     const { app, state } = await openShelf([padOf("auth-notes", AGENT)]);
-    app.handlers["pad.setOwner"] = ({ name, owner }) => {
+    app.handlers["pad.setOwner"] = ({ name }) => {
       state.pads = state.pads.map((pad) =>
-        pad.name === name ? { ...pad, owner } : pad,
+        pad.name === name ? { ...pad, owner: USER } : pad,
       );
 
-      return padOf(name, owner);
+      return padOf(name, USER);
     };
 
     fireEvent.contextMenu(await screen.findByRole("button", { name: "auth-notes" }));

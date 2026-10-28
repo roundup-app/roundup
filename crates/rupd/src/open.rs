@@ -318,3 +318,19 @@ impl Daemon {
         }
     }
 }
+
+#[cfg(feature = "test-support")]
+impl Daemon {
+    /// U4593 seeds a controlled Agent observation without starting a program.
+    pub fn set_agent_status_for_test(&self, id: &str, kind: contracts::Kind) {
+        self.agents.set_status_for_test(
+            id,
+            contracts::Status {
+                kind,
+                label: "fixture".into(),
+                since: 0,
+                finished: "0".into(),
+            },
+        );
+    }
+}
