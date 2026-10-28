@@ -104,7 +104,7 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     })()`);
 
     await lane.until(`!!document.querySelector('.rail [data-todo="${made}"]')`);
-    const point = await lane.evaluate<{x: number; y: number}>(`(() => {const box=document.querySelector('.rail [data-todo="${made}"] .todo-row-button').getBoundingClientRect();return {x:Math.round(box.left+box.width/2),y:Math.round(box.top+box.height/2)};})()`);
+    const point = await lane.evaluate<{x: number; y: number}>(`(() => {const box=document.querySelector('.rail [data-todo="${made}"] .sortable-handle').getBoundingClientRect();return {x:Math.round(box.left+box.width/2),y:Math.round(box.top+box.height/2)};})()`);
 
     await lane.browser("mouse", "move", String(point.x), String(point.y));
     await lane.browser("mouse", "down", "right");

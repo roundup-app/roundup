@@ -19,7 +19,7 @@ it("u3732_drag_to_a_group_calls_set_owner_once", async () => {
   await lane.until(`!!document.querySelector('.pads-tab [data-pad="pad-0"]')`);
   await lane.resetCalls();
 
-  const from = await centre(lane, '.pads-tab [data-pad="pad-0"] .pad-name');
+  const from = await centre(lane, '.pads-tab [data-pad="pad-0"] .sortable-handle');
 
   await move(lane, from);
   await lane.browser("mouse", "down");

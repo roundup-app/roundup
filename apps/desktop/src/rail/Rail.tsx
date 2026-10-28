@@ -759,6 +759,8 @@ export const Rail = () => {
                           }}
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
+                          handleRef={parts.handleRef}
+                          draggable={daemonExit() === null}
                           onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
                         />
                         }</Sortable.Item>

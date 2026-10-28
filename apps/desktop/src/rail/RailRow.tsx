@@ -1,3 +1,4 @@
+import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -111,6 +112,8 @@ export const RailRowView = (props: {
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
   lifted: boolean; sortRef: (element: HTMLElement | undefined) => void;
+  handleRef: (element: HTMLButtonElement | undefined) => void;
+  draggable: boolean;
   onOpenMenu: (x: number, y: number) => void;
 }) => {
   const connected = useConnectedProject();
@@ -190,6 +193,7 @@ export const RailRowView = (props: {
       <span class="row-tail">
         <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
         <Show when={!workstream()}><span class="row-controls"><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></span></Show>
+        <Show when={props.draggable}><Sortable.Handle label={`Move ${props.row.node.name}`} ref={props.handleRef} /></Show>
       </span>
     </p>
     <ReservedLine overlay message={pads.failure.message()}><button type="button" data-button="quiet" onClick={pads.failure.clear}>{copy.close}</button></ReservedLine>

@@ -826,7 +826,7 @@ export const Todos = (props: {
             let registered: HTMLButtonElement | null = null;
             const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < tree().filter(row => row.parent === parent).length - 1] : []; } };
 
-            return <Sortable.Item id={String(todo.id)} index={at()} pressable>{parts => {
+            return <Sortable.Item id={String(todo.id)} index={at()}>{parts => {
             const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
             <OpenRow
               copyWith={registerCopy(todo.id)}
