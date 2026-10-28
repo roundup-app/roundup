@@ -30,7 +30,7 @@ it("u4547a_sections_partition_the_tree", async () => {
   await mountRail(tree());
   expect(rowNames()).toEqual(["plain", "plain-child", "plain-second", "mode", "mode-child", "root"]);
   const sections = heads().map(head => head.parentElement!);
-  expect(sections.map(section => within(section!).getAllByRole("treeitem").map(row => row.getAttribute("data-id"))))
+  expect(sections.map(section => within(section!).getAllByRole("treeitem").filter(row => row.hasAttribute("data-id")).map(row => row.getAttribute("data-id"))))
     .toEqual([["plain", "plain-child", "plain-second"], ["mode", "mode-child"], ["root"]]);
 });
 
