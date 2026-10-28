@@ -1,6 +1,6 @@
 {
-  "observed_revision": "15d380f48700337ecc156466810a9c6906707e50",
-  "baseline_revision": "391ad6af3ea8990bc44ae7c5fb033b4fdd723a59",
+  "observed_revision": "a6118f3d37a9d9e2f4afa5fded06951294e406a9",
+  "baseline_revision": "95dff3cba013d21bcd906e0a2f22676dddc6212c",
   "original_pr_head": "1e71ebcb4b2115d2ff07c7de0775ae067ea822d0",
   "observer": "ROUNDUP_CAPTURES=U4453b,U3791b,U3078i pnpm --filter desktop exec vitest run src/orders/u3078i_rendered.test.ts",
   "environment": {
@@ -23,5 +23,7 @@
     "cause": "Progress rows have no KindGlyph; D10 reports the failed D4. Reproduced unchanged on the original PR head via the same visible Rail menu.",
     "prior_evidence": "artifacts/ux/P3557c/head/agents-10-open.checks.json"
   },
-  "capture_setup_repair": "Installed missing ffmpeg after the first recording could not be encoded; the repeated capture observer passed."
+  "capture_setup_repair": "Installed missing ffmpeg in this runner; repeated baseline and head observers passed with PNG and video for both seeds.",
+  "continued_pr": 4587,
+  "retained_head": "ffaa0b9ffd136859cb063bfa8347a3cdd02dcd70"
 }
