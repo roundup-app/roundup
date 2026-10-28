@@ -1,3 +1,4 @@
+import { EmptyState } from "../ink/EmptyState";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { AskPart } from "@contracts/ask/AskPart";
@@ -67,7 +68,8 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   return (
     <section class="ask-history" aria-label={copy.askHistory}>
     <div class="made-heading"><h2 class="overview-heading">{copy.askHistory}</h2><button type="button" data-button="quiet" onClick={() => { hideView("ask-history"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.askHistory)}</button></div>
-    <Show when={parts().length === 0 && asks.loadState() !== "failed"}><ReservedLine class="ask-history-status" status={asks.loadState() === "loading" ? copy.askHistoryLoading : copy.askHistoryEmpty} /></Show>
+    <Show when={parts().length === 0 && asks.loadState() === "loading"}><ReservedLine class="ask-history-status" status={copy.askHistoryLoading} /></Show>
+    <Show when={parts().length === 0 && asks.loadState() === "ready"}><EmptyState art="messages" {...{ title: copy.askHistoryEmpty }} line={copy.emptyAskLine} /></Show>
     <ul class="ask-rows" aria-label={copy.askRows} aria-busy={asks.loadState() === "loading"}>
       <For each={parts()}>
         {({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
