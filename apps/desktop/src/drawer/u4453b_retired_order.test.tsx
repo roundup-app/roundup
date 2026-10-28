@@ -1,10 +1,13 @@
+import { agent, door } from "../testing/nodes";
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { mountApp } from "../testing/appFixture";
 import { openRecovery } from "../testing/recovery";
 
 const destination = { surface: "orders", object: "a", recipient: "a" };
+
 const value = { done: " \t完成\n ", ask: "\n 草稿 🧭  ", title: "  é\t ", baseAsk: "old", field: "ask" };
+
 const exact = "  é\t \n\n 草稿 🧭  \n \t完成\n ";
 
 it("u4453b_retired_order_drafts_keep_exact_copy_and_identity", async () => {
@@ -15,11 +18,19 @@ it("u4453b_retired_order_drafts_keep_exact_copy_and_identity", async () => {
   await first.drafts("/p").retry();
 
   cleanup();
+
   // mountApp clears storage only between tests, so this mount reads the persisted revision.
-  const { app, drafts } = await mountApp();
+  const { app, drafts } = await mountApp(fake => {
+    fake.add("/elsewhere");
+    fake.handlers["rail.tree"] = () => [agent("b", "working", "working"), agent("c", "working", "working"), door("r", "done", "finished")];
+    fake.of("/elsewhere").handlers["rail.tree"] = fake.handlers["rail.tree"];
+  });
+
+  fireEvent.click(await screen.findByRole("tab", { name: /^elsewhere/ }));
+  fireEvent.click(await screen.findByRole("tab", { name: /^p/ }));
   await openRecovery();
   const recovery = within(await screen.findByRole("region", { name: "Unfinished work" }));
-  expect(recovery.queryByRole("button", { name: "Open" })).toBeNull();
+  expect(recovery.getAllByRole("button")).toHaveLength(2);
   fireEvent.click(recovery.getByRole("button", { name: "Copy" }));
   await screen.findByRole("button", { name: "Copied" });
   expect(app.clipboardWrites).toEqual([exact]);

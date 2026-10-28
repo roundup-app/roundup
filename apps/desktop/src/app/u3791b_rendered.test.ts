@@ -11,7 +11,6 @@ it("u3791b_rendered_failure_keeps_explicit_recovery", async () => {
     const tree = app.handlers["rail.tree"]!;
     app.handlers["rail.tree"] = async args => (await tree(args)).map(node => node.id === "a"
       ? { ...node, work: { kind: "work", ask: "Finish the repair", limits: [] } } : node);
-    app.handlers["agent.spawnPrompt"] = () => ({ prompt: "Finish the repair" });
     app.handlers["message.progress"] = () => seed.progress;
     app.handlers["message.reconcileWork"] = () => seed.plan;
     app.handlers["message.resumeWork"] = () => { throw new RpcError(-32002, "diagnostic remains exactly as supplied"); };
