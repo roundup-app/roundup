@@ -190,6 +190,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   expect(ofMethod().map((call) => call.params)).toEqual([row.params]);
   await waitFor(() => expect(field()).toBeNull());
 
+  const queryDraft = connected.drafts.list().filter(entry => entry.destination.surface === "switcher");
+
   if (row.owner === "App") {
     fireEvent.click(tab("second"));
     await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
@@ -223,7 +225,9 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
         expect(notice.textContent).toContain("New Agent");
         expect(notice.textContent).toContain(`${row.label} rejected by the Daemon`);
         expect(ofMethod()).toHaveLength(1);
-        const queryDraft = connected.drafts.list().filter(entry => entry.destination.surface === "switcher");
+        expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
+        expect("other" in mounted && mounted.other.calls.filter(call => call.method === row.method || call.method === "message.send" || call.method === "terminal.write")).toEqual([]);
+        expect(app.badges.filter(count => count > 0)).toEqual([]);
         fireEvent.click(screen.getByRole("button", { name: "Open first" }));
         await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
         expect(connected.drafts.list().filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
