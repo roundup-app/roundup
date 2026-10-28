@@ -88,7 +88,3 @@ exact manifest reads and the merge-base comparison.
   and types 7.29.8 for expressions Oxlint sees only as strings. Maintenance:
   [8.0.9, October 23](https://github.com/babel/babel/releases/tag/v8.0.9).
   Python reuses its built-in AST.
-
-## Timeout re-key
-
-`rekey.jsonl` maps 59 baseline entries from the identity that included the timeout argument to the current one. The normalized keys are now on `main`. This file is historical evidence only: lint never reads it or accepts a key absent from the merge base's baseline. Editing or adding migration rows cannot authorize another assertion.
