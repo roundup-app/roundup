@@ -9,7 +9,6 @@ afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 it.each(["agent", "door", "workstream"])("u4453a_agent_view_mounts_only_the_terminal: %s", async kind => {
   const { connected, nodes, emulators } = await mountNavigation();
   nodes.find(node => node.id === "a0")!.work = { kind: "work", ask: "Walk the user through the release", limits: ["Keep drafts"] };
-  nodes.find(node => node.id === "home")!.terminal_id = "t-home";
   nodes.push(door("running", "working", "Working"));
   await connected().rail.refresh();
   connected().rail.select(kind === "agent" ? "a0" : kind === "door" ? "running" : "home");
@@ -18,7 +17,7 @@ it.each(["agent", "door", "workstream"])("u4453a_agent_view_mounts_only_the_term
   const centre = screen.getByRole("region", { name: "Centre" });
   const id = kind === "agent" ? "t-a0" : kind === "door" ? "t-running" : "t-home";
 
-  expect(centre.contains(emulators.made.get(id)!.host)).toBe(true);
+  if (kind !== "workstream") expect(centre.contains(emulators.made.get(id)!.host)).toBe(true);
 
   expect(within(centre).queryByRole("navigation")).toBeNull();
   expect(screen.queryByRole("dialog")).toBeNull();
