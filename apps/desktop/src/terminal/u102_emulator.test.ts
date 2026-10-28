@@ -132,6 +132,7 @@ it("u102_a_second_chord_before_restoration_keeps_the_reflow_anchor", async () =>
   if (!terminal) throw new Error("xterm was not created");
   spy.mockRestore();
   vi.spyOn(terminal, "open").mockImplementation(() => {});
+  vi.spyOn(terminal, "registerCharacterJoiner").mockReturnValue(0);
   vi.spyOn(terminal, "focus").mockImplementation(() => {});
   let cols = 100;
   vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => terminal.resize(cols, 24));
