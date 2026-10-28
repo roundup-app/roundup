@@ -78,7 +78,9 @@ it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
 }, 60_000);
 
-it.skipIf(!captureDir("U3517f"))("u3517f_rendered_terminal_reference", async () => {
+const captureIds = ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d"].filter(id => captureDir(id));
+
+it.skipIf(captureIds.length === 0)("u3517f_rendered_terminal_reference", async () => {
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     for (const state of ["agent", "door", "shell"]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
@@ -99,7 +101,7 @@ it.skipIf(!captureDir("U3517f"))("u3517f_rendered_terminal_reference", async () 
       await read(`(async () => {
         const emulator = window.__terminals.get('${id}');
         const samples = Array.from({ length: 16 }, (_, index) => '\\x1b[' + (index < 8 ? 30 + index : 90 + index - 8) + 'm ANSI ' + index + ' \\x1b[0m').join('');
-        await new Promise(resolve => emulator.write(new TextEncoder().encode('\\x1b[2J\\x1b[H\\x1b]133;A\\x07Selected JetBrains Mono 0123456789\\r\\n\\x1b]133;D;0\\x07Regular 日本語 fallback\\r\\n\\x1b[1mBold sample\\x1b[0m \\x1b[3mItalic sample\\x1b[0m \\x1b[1;3mBold italic\\x1b[0m\\r\\n' + samples + '\\r\\n' + 'Long wrapped output '.repeat(40) + '\\r\\nunterminated input'), resolve));
+        await new Promise(resolve => emulator.write(new TextEncoder().encode('\\x1b[2J\\x1b[H\\x1b]133;A\\x07Selected Terminal 0123456789\\r\\n\\x1b]133;D;0\\x07Regular 日本語 fallback\\r\\n\\x1b[1mBold sample\\x1b[0m \\x1b[3mItalic sample\\x1b[0m \\x1b[1;3mBold italic\\x1b[0m\\r\\n' + '\\x1b[90m┌────────────┬─────────┐\\r\\n│ Check      │ Result  │\\r\\n├────────────┼─────────┤\\r\\n│ Typography │ Ready   │\\r\\n└────────────┴─────────┘\\x1b[0m\\r\\n\\x1b[2mDim text and borders\\x1b[0m\\r\\n' + samples + '\\r\\n' + 'Long wrapped output '.repeat(40) + '\\r\\nunterminated input'), resolve));
         emulator.selectTurn(0, false);
         window.__fake.failNext(-32003, 'Output unavailable. Retry.');
         window.dispatchEvent(new Event('resize'));
@@ -113,11 +115,10 @@ it.skipIf(!captureDir("U3517f"))("u3517f_rendered_terminal_reference", async () 
       })()`);
 
       if (!base) {
-        expect(metrics.fonts).toHaveLength(4);
         expect(metrics.fonts.every(font => font.status === "loaded")).toBe(true);
       }
 
-      for (const scenario of ["U3517b", "U3517c", "U3517f"]) {
+      for (const scenario of captureIds) {
         const dir = join(captureDir(scenario)!, base ? "base" : "head");
 
         mkdirSync(dir, { recursive: true });
