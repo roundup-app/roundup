@@ -194,6 +194,14 @@ pub(crate) mod tests {
                 "u4462_the_hint_takes_the_key_equivalent_colour_and_font",
                 crate::menu::tests::u4462_the_hint_takes_the_key_equivalent_colour_and_font,
             ),
+            (
+                "u4462_the_hint_stop_is_the_key_equivalent_edge",
+                crate::menu::tests::u4462_the_hint_stop_is_the_key_equivalent_edge,
+            ),
+            (
+                "u4462_installed_and_popup_menus_use_one_decoration",
+                crate::menu::tests::u4462_installed_and_popup_menus_use_one_decoration,
+            ),
         ];
         let args: Vec<_> = std::env::args().collect();
         if args.iter().any(|arg| arg == "--list") {
