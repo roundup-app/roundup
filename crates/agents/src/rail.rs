@@ -471,6 +471,17 @@ impl Rail {
             .map(|name| name.unwrap_or_else(|| GONE_AGENT.into()))
     }
 
+    /// Last allocated identity, including removed nodes; SQLite never reuses it.
+    pub fn last_id(&self) -> Result<i64, RpcError> {
+        self.db
+            .query_row(
+                "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name='nodes'), 0)",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(sql)
+    }
+
     pub fn node(&self, id: &str) -> Result<RailNode, RpcError> {
         find(&load(&self.db)?, id).cloned()
     }

@@ -424,6 +424,15 @@ async fn serving_a_module_that_hangs() -> (
     std::path::PathBuf,
 ) {
     let (dir, mut daemon) = daemon();
+    daemon
+        .agents
+        .call(
+            &daemon.ctx(Actor::user()),
+            "rail.createWorkstream",
+            json!({"name":"fixture"}),
+        )
+        .await
+        .unwrap();
     let (says, said) = mpsc::unbounded_channel();
     let release = Arc::new(tokio::sync::Notify::new());
     daemon.register(Arc::new(Hangs {
@@ -453,7 +462,9 @@ async fn a_half_closed_call_still_runs() {
     let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
     let mut client = UnixStream::connect(&socket).await.unwrap();
     client
-        .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\",\"params\":{\"id\":\"fixture\"}}\n")
+        .write_all(
+            b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\",\"params\":{\"id\":\"1\"}}\n",
+        )
         .await
         .unwrap();
     client.shutdown().await.unwrap();

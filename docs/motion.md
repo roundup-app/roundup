@@ -48,7 +48,7 @@ Key source always overrides the preset to instant. Under reduced motion every no
 | Todo comment / arrival | No accepted independent entrance | Instant; delete `todo-comment-in` | Existing comment identity and scroll ownership | U3010a M11 |
 | Tool-call details / pointer fold | Structural continuity / layout | Motion layout 200 ms; transform/opacity | Final geometry once; no `call-fold` height keyframes; key immediate | U3010a/c M5/M11 |
 | Scrollbar thumb / pointer enter-leave | Feedback / fade | Existing 200 ms Token/easing; opacity | Retarget opacity; no interpolated color | U3747; U3010a/d |
-| Lifted row and landing slot / drag hold | Direct manipulation / none | No floating label; slot-space displacement uses `--duration-crossfade` / `--easing-out`; keyboard/reduced motion instant | Escape/outside cancels; on commit M5; dashed slot/accent outline stay | U3010c M6; #3540 |
+| Right-edge grip, lifted row and landing slot / drag hold | Direct manipulation / none | No floating label; slot-space displacement uses `--duration-crossfade` / `--easing-out`; keyboard/reduced motion instant | Escape/outside cancels and returns focus to the initiating grip; on commit M5; dashed slot/accent outline stay | U3010c M6; #3540 |
 | Glyph / Kind change | State indication / crossfade | 150 ms; opacity | Latest Kind wins; old glyph inert | U3010c M9; U446 amended |
 | Working Glyph / at rest | State indication / turning arc | Existing 960 ms linear cycle; transform | Stop on Kind change, disposal or reduced motion | U446; U3010c/d M9/M10 |
 | Other five Kinds, Rail leaf fold, hover, restored state / all | Immediate state / none | 0 | No arrival pulse, shake or timed hover | U446/U405/U112; U3010a |
