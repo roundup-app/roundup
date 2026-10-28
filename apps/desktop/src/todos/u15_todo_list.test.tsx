@@ -141,13 +141,13 @@ describe("u15 Todo list", () => {
 
   it("u15_a_refetch_that_changes_one_todo_leaves_every_other_row_in_place", async () => {
     const { app, store } = await mountTodos([todo(1), todo(2)]);
-    const before = (await screen.findByRole("button", { name: /#2/ }));
+    const before = (await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2/ }));
     store.todos = [todo(1, { title: "renamed" }), todo(2)];
 
     app.emit(todoEvent("todo.updated", todo(1)));
 
-    await screen.findByRole("button", { name: /renamed/ });
-    expect(screen.getByRole("button", { name: /#2/ })).toBe(before);
+    await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ renamed/ });
+    expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2/ })).toBe(before);
   });
 
   it("u15_listing_blocked_todos_does_a_constant_amount_of_work_per_todo", () => {

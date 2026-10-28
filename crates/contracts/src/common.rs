@@ -18,6 +18,25 @@ pub struct Actor {
     pub parent: Option<String>,
 }
 
+/// An owner input: an explicit Actor, or `me`, an exact Rail name, `name:<Rail name>` or a canonical Agent id.
+/// The Daemon resolves it before dispatch; stored owners are always Actors.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(untagged)]
+pub enum Owner {
+    Actor(Actor),
+    Agent(String),
+}
+
+impl Owner {
+    /// Stores refuse unresolved selectors rather than persisting a name as an identity.
+    pub fn into_actor(self) -> Result<Actor, String> {
+        match self {
+            Self::Actor(actor) => Ok(actor),
+            Self::Agent(_) => Err("an owner selector must be resolved by the Daemon".into()),
+        }
+    }
+}
+
 impl Actor {
     pub fn user() -> Self {
         Self {

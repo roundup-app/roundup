@@ -13,7 +13,7 @@ const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async () => {
   const mounted = await mountTodos([todo(5, { title: "session store" }), todo(7, { title: "other" })], true);
-  fireEvent.keyDown(await screen.findByRole("button", { name: /#5/ }), { key: "Enter" });
+  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }), { key: "Enter" });
   await within(drawer()).findByText("Blocker");
 
   return mounted;
@@ -43,13 +43,13 @@ describe("u150 Todo deletion", () => {
       return { operation: params.operation, deleted: params.ids, missing: [], state: "deleted" };
     };
 
-    fireEvent.keyDown(await screen.findByRole("button", { name: /#5/ }), { key: "Enter" });
+    fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }), { key: "Enter" });
     await within(drawer()).findByText("Blocker");
     await remove();
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: /#5/ })).toBeNull());
-    expect(screen.getByRole("button", { name: /#7/ })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ })).toBeNull());
+    expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7/ })).toBeTruthy();
   });
 
   it("u150_an_error_keeps_the_drawer_and_the_item", async () => {
@@ -58,6 +58,6 @@ describe("u150 Todo deletion", () => {
     await remove();
 
     expect([(await screen.findByText(/not found/)).textContent, connected.drawer.content() === null]).toEqual(["not found", false]);
-    expect(screen.getAllByRole("button", { name: /#5/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }).length).toBeGreaterThan(0);
   });
 });
