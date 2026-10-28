@@ -139,7 +139,7 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(await keyFrame("t", "KeyT", "!!document.querySelector('.bubble:not([hidden])') && !!document.activeElement.closest('.bubble')", true)).toBe(true);
     await browser("wait", ".bubble .xterm-screen");
     await leader();
-    expect(await keyFrame("m", "KeyM", "!document.querySelector('.bubble:not([hidden])') && document.activeElement.matches('button.terminal-tab')")).toBe(true);
+    expect(await keyFrame("m", "KeyM", "!document.querySelector('.bubble:not([hidden])') && !!document.activeElement.closest('.pane-screen')")).toBe(true);
     await settle();
     await leader();
     expect(await keyFrame("m", "KeyM", "!!document.querySelector('.bubble:not([hidden])') && !!document.activeElement.closest('.bubble')")).toBe(true);

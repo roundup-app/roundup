@@ -117,7 +117,7 @@ it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_an
 const placement = async (where: "agent" | "door" | "bubble") => {
   await app();
 
-  if (where === "bubble") await browser("click", ".terminal-new");
+  if (where === "bubble") await read("window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', code: 'KeyT', metaKey: true, bubbles: true })) || true");
   else await selectRow(where === "agent" ? "migrate" : "payments");
 
   const selector = where === "bubble" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
@@ -164,11 +164,11 @@ it.each(["agent", "bubble"] as const)("u2680a_terminal_boundaries_never_create_b
     await drag(points.output, area);
     expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 
-    if (where === "bubble" && await read<boolean>("!document.querySelector('.bubble:not([hidden])')")) await browser("click", ".terminal-tab");
+    if (where === "bubble" && await read<boolean>("!document.querySelector('.bubble:not([hidden])')")) await read("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', metaKey: true, bubbles: true })) || true");
     await drag(area, points.output);
     expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 
-    if (where === "bubble" && await read<boolean>("!document.querySelector('.bubble:not([hidden])')")) await browser("click", ".terminal-tab");
+    if (where === "bubble" && await read<boolean>("!document.querySelector('.bubble:not([hidden])')")) await read("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', metaKey: true, bubbles: true })) || true");
   }
 }, 180_000);
 
@@ -312,7 +312,7 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
   await browser("click", ".window-title");
   await wait("!document.querySelector('.bubble:not([hidden])')");
   expect(await read<string>("window.__emu.selection()")).toBe("");
-  await browser("click", ".terminal-tab");
+  await read("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', metaKey: true, bubbles: true })) || true");
   await wait("!!document.querySelector('.bubble:not([hidden])')");
   expect(await read<string>("window.__emu.selection()")).toBe("");
 }, 90_000);
@@ -433,7 +433,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
     await browser("set", "media", "dark");
     await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 
-    if (seed === "bubbles") await browser("click", ".terminal-new");
+    if (seed === "bubbles") await read("window.dispatchEvent(new KeyboardEvent('keydown', { key: 't', code: 'KeyT', metaKey: true, bubbles: true })) || true");
     else await selectRow(seed === "tree-40" ? "migrate" : "agent-4");
     await wait("window.__terminals.size > 0 && !!document.querySelector('.xterm-screen')");
     const output = "\x1b]133;A\x07$ \x1b]133;B\x07printf example\r\n\x1b]133;C\x07alpha bravo charlie\r\n\x1b]133;D;0\x07";
