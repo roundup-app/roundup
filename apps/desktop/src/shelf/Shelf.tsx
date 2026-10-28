@@ -115,7 +115,7 @@ export const Shelf = (props: { open: Accessor<boolean> }) => {
 
   return (
     <>
-      <div class="shelf-bar" data-shelf-scope ref={setLine}><Show when={tabs().value === "pads"}><span class="shelf-scope-name">{connected.project.name}</span></Show></div>
+      <div class="shelf-bar" data-shelf-scope ref={setLine}><span class="shelf-scope-name" hidden={tabs().value !== "pads"}>{connected.project.name}</span></div>
       <ShelfActions.Provider value={{ mount: actions, open: props.open, scope: line }}>
       <ScrollShadow>
         <For each={SHELF_TABS}>
