@@ -872,3 +872,40 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
 
 #[path = "../tests/support/b4522.rs"]
 mod b4522;
+
+#[test]
+fn a32_retired_state_is_dropped_without_losing_project_records() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("project.db");
+    let mut db = Connection::open(&path).unwrap();
+    let mut previous = migrations();
+    previous.pop();
+    apply(&mut db, previous).unwrap();
+    db.execute_batch("INSERT INTO nodes (id,kind,name,ord,iteration,opening_prompt) VALUES (1,'workstream','saved',0,3,'Keep this prompt');
+        INSERT INTO iterations VALUES ('1',2,7);
+        INSERT INTO checkpoints VALUES ('1',1,123,'saved card','[]');
+        INSERT INTO marks VALUES ('1',1,3,1,'{\"iteration\":3,\"agents\":[]}');").unwrap();
+    drop(db);
+    for _ in 0..2 {
+        let db = open(dir.path()).unwrap();
+        let retired: u32 = db.query_row("SELECT (SELECT count(*) FROM sqlite_schema WHERE name='iterations') + (SELECT count(*) FROM pragma_table_info('nodes') WHERE name='iteration') + (SELECT count(*) FROM pragma_table_info('marks') WHERE name='iteration')", [], |r| r.get(0)).unwrap();
+        assert_eq!(retired, 0);
+        let node: (String, String) = db
+            .query_row(
+                "SELECT name,opening_prompt FROM nodes WHERE id=1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(node, ("saved".into(), "Keep this prompt".into()));
+        let card: (String, String, bool) = db.query_row("SELECT c.title,m.content,m.usable FROM checkpoints c JOIN marks m ON c.workstream=m.workstream AND c.id=m.checkpoint", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+        assert_eq!(
+            card,
+            (
+                "saved card".into(),
+                "{\"iteration\":3,\"agents\":[]}".into(),
+                true
+            )
+        );
+    }
+}
