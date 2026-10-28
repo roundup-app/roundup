@@ -110,6 +110,8 @@ Tests (`u387_`, Vitest against the fake App and Chromium on `just harness`): `u3
 
 GLOSSARY.md's **Glyph** becomes "The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ◌ ◔ ○ ✓`." in the implementing PR (Contract recipe). Observer: Vitest `u401_` cases; WKWebView stays the user's `just app` observation. Moves: D1, D3, D4, D5, D12.
 
+**Chip**: An extra label after a name; it never changes the Glyph.
+
 **U403 a Workstream row leads with its chevron.** _Amended only as listed by U3789e (`ui-shelf.md`); U3789a–d govern those replacement clauses._ Amended by U447: the `WORKSTREAMS` head returns. Found by the user's approval on 2026-10-12 (see U401). Overturns U172's Workstream-row clause, U173's line 2 and U385's Workstream case; changes no contract, App seam command or Token. Given the Rail on `agents-10` and `tree-40` (U26) at a 288 px Rail and 1280 by 800, in both schemes for non-capture observers (captures and critic Check readings use dark only, U3725), with one Workstream open and one folded, when a test reads the rendered tree and computed style, then:
 
 - **Pieces.** The row holds, in order: the chevron (always visible, a `button` that folds the Workstream, hit height at least 24 px, D6), the Door's Glyph (amended by U3704: before the name, left edge and size of its Agents' Glyphs, so Glyphs and names line up down the Workstream), the name (U29's ellipsis), and the right side. The `WO` badge (`badgeOf`, `apps/desktop/src/rail/RailRow.tsx:33,144`), the `WORKSTREAMS` head and its rule, and the `1/1` count are not rendered. Test: `u403_the_row_leads_with_the_chevron`, `u403_no_badge_head_or_count`.
