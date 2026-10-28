@@ -9,9 +9,9 @@ export type ActorKind = "user" | "agent" | "ext";
 
 export type Event = { 
 
-seq?: number, actor: Actor, } & ({ "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" });
+seq?: number, actor: Actor, } & ({ "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.queueChanged" });
 
-export type EventData = { "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" };
+export type EventData = { "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.queueChanged" };
 
 export type HistoryParams = { item: string, };
 
@@ -814,15 +814,10 @@ export type workstream_AutoParams = { id: string, auto: boolean, };
 
 export type workstream_CapParams = { cap: number | null, };
 
-export type workstream_ClearParams = { 
 
-permissionMode?: agent_PermissionMode, id: string, reason: string, without_handoff?: boolean, };
-
-export type workstream_ClearResult = { pending: boolean, };
 
 export type workstream_Files = "keep" | "restore";
 
-export type workstream_HandoffParams = { id: string, summary: string, keep_todos: Array<number>, keep_pads: Array<string>, };
 
 export type workstream_PlanAgent = { agent: string, name: string, 
 
@@ -862,9 +857,7 @@ export type workstream_StartChoice = { "kind": "now" } | { "kind": "queued" } | 
 
 export type workstream_StartWorkstreamParams = { id: number, name: string, start: workstream_StartChoice, };
 
-export type workstream_WorkstreamClearFailedEvent = { id: string, code: number, message: string, };
 
-export type workstream_WorkstreamClearedEvent = { id: string, iteration: number, };
 
 // Frozen from main c8c12a4a3, independently of the Specta outputs.
 export type todo_DeleteParams = { operation: string, ids: Array<number> };
@@ -1132,10 +1125,7 @@ export type Before = {
   "todo/Values": todo_Values;
   "workstream/AutoParams": workstream_AutoParams;
   "workstream/CapParams": workstream_CapParams;
-  "workstream/ClearParams": workstream_ClearParams;
-  "workstream/ClearResult": workstream_ClearResult;
   "workstream/Files": workstream_Files;
-  "workstream/HandoffParams": workstream_HandoffParams;
   "workstream/PlanAgent": workstream_PlanAgent;
   "workstream/QueueEntry": workstream_QueueEntry;
   "workstream/QueueFailure": workstream_QueueFailure;
@@ -1151,8 +1141,6 @@ export type Before = {
   "workstream/Rewound": workstream_Rewound;
   "workstream/StartChoice": workstream_StartChoice;
   "workstream/StartWorkstreamParams": workstream_StartWorkstreamParams;
-  "workstream/WorkstreamClearFailedEvent": workstream_WorkstreamClearFailedEvent;
-  "workstream/WorkstreamClearedEvent": workstream_WorkstreamClearedEvent;
 };
 
 export type BeforeRpcMethods = {
@@ -1293,10 +1281,8 @@ export type BeforeRpcMethods = {
   "rail.remove": { params: agent_NodeId; result: agent_Removal | null };
   "agent.resume": { params: agent_ResumeParams; result: agent_RailNode };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
-  "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
   "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
-  "workstream.handoff": { params: workstream_HandoffParams; result: null };
   "todo.startWorkstream": { params: workstream_StartWorkstreamParams; result: agent_RailNode };
   "workstream.queue": { params: null; result: workstream_QueueState };
   "workstream.dequeue": { params: workstream_QueuedWorkstream; result: null };

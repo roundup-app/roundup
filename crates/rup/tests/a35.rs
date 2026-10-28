@@ -369,67 +369,6 @@ async fn a35_write_records_a_mark_per_agent_and_a_plan_changes_nothing() {
     fx.project.model.as_ref().unwrap().assert_matched();
 }
 
-#[tokio::test]
-async fn a35_a_clear_makes_earlier_marks_unusable() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let mut events = fx.project.subscribed().await;
-    fx.user
-        .request(
-            "workstream.clear",
-            json!({"id": fx.ws, "reason": "next iteration"}),
-        )
-        .await
-        .unwrap();
-    let mut working = false;
-    loop {
-        let status = daemon::next(&mut events, |event| match event {
-            contracts::EventData::AgentStatus(status) if status.id == fx.ws => Some(status),
-            _ => None,
-        })
-        .await;
-        working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
-            break;
-        }
-    }
-    as_actor(&fx.project, ActorKind::Agent, &fx.ws)
-        .await
-        .request(
-            "workstream.handoff",
-            json!({"id": fx.ws, "summary": "Build the login page.", "keep_todos": [], "keep_pads": []}),
-        )
-        .await
-        .unwrap();
-    daemon::next(&mut events, |event| match event {
-        contracts::EventData::WorkstreamCleared(data) => Some(data.iteration),
-        _ => None,
-    })
-    .await;
-    assert_eq!(listed(&fx).await[0]["rewindable"], false);
-    // The fresh Door writes its conversation before a Mark can record it.
-    let mut working = false;
-    loop {
-        let status = daemon::next(&mut events, |event| match event {
-            contracts::EventData::AgentStatus(status)
-                if status.id == fx.ws && status.attempt == "2" =>
-            {
-                Some(status)
-            }
-            _ => None,
-        })
-        .await;
-        working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
-            break;
-        }
-    }
-    write(&fx).await;
-    assert_eq!(listed(&fx).await[1]["rewindable"], true);
-    assert_eq!(store(&fx).marks(&fx.ws, 2, 2).unwrap().agents.len(), 1);
-    fx.project.model.as_ref().unwrap().assert_matched();
-}
-
 /// The Door's own rewind call: the only caller A35 allows.
 async fn rewind_as(
     fx: &Fix,

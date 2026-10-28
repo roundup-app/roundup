@@ -140,35 +140,30 @@ impl Agents {
             })?
     }
 
-    /// A32: stop the program of the Door of Workstream `id`.
+    /// A4452c: stop the program before a fresh Door session.
     pub async fn stop_door(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
         self.shared.stop(actor, id).await
     }
 
-    /// A32: start the Door's next Iteration as a fresh conversation whose first prompt is
-    /// `handoff`, and return once its `SessionStart` has arrived, within `bound`. Only then is its
-    /// Iteration advanced; a start that does not get there leaves the Door stopped.
+    /// A4452c: start a fresh conversation and await SessionStart within `bound`.
     pub async fn restart_door(
         &self,
         ctx: &Ctx,
         id: &str,
-        handoff: String,
-        iteration: u32,
         bound: Duration,
-        permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
         let parked = self.shared.node(id)?;
         let params = StartDoorParams {
             id: id.to_owned(),
             model: parked.model,
             effort: parked.effort,
-            permission_mode,
+            permission_mode: None,
             engine: None,
             cols: None,
             rows: None,
         };
         let node = self
-            .start_door_with(ctx, params, Some(handoff), true)
+            .start_door_with(ctx, params, Some(String::new()), true)
             .await?;
         let attempt = node.attempt.clone().unwrap_or_default();
         let started = async {
@@ -194,7 +189,6 @@ impl Agents {
                 bound.as_secs()
             )));
         }
-        self.shared.rail().set_iteration(id, iteration)?;
         self.shared.node(id)
     }
 
@@ -209,8 +203,7 @@ impl Agents {
         self.start_door_with(ctx, params, None, true).await
     }
 
-    /// `first` is A32's Handoff: it replaces the Door's order as the first prompt and a saved
-    /// conversation is not resumed.
+    /// `first` requests a fresh conversation, replacing the saved order as its first prompt.
     pub(super) async fn start_door_with(
         &self,
         ctx: &Ctx,

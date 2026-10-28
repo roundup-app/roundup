@@ -198,40 +198,6 @@ impl NamedRail {
         id
     }
 
-    pub async fn begin_clear(&self) -> rpc::Client {
-        let events = rpc::Client::connect(&self.served.socket()).await.unwrap();
-        events.request("events.subscribe", ()).await.unwrap();
-        self.user
-            .request(
-                "workstream.clear",
-                serde_json::json!({"id":self.door,"reason":"Continue"}),
-            )
-            .await
-            .unwrap();
-        events
-    }
-
-    pub async fn cleared(&self, events: &mut rpc::Client) -> u32 {
-        tokio::time::timeout(Duration::from_secs(20), async {
-            while let Some(event) = events.next_event().await {
-                match event.data {
-                    contracts::EventData::WorkstreamCleared(cleared) if cleared.id == self.door => {
-                        return cleared.iteration;
-                    }
-                    contracts::EventData::WorkstreamClearFailed(failed)
-                        if failed.id == self.door =>
-                    {
-                        panic!("{failed:?}")
-                    }
-                    _ => {}
-                }
-            }
-            panic!("clear event connection closed");
-        })
-        .await
-        .expect("the Handoff was applied")
-    }
-
     pub async fn rename(&self) {
         for (id, name) in [
             (&self.door, "Planning"),

@@ -121,7 +121,7 @@ fn mode(launch: &Value) -> Option<&str> {
 }
 
 #[tokio::test]
-async fn u3801_rpc_launch_choices_reach_spawn_resume_and_the_cleared_door() {
+async fn u3801_rpc_launch_choices_reach_spawn_and_resume() {
     let run = Run::start().await;
     let mut count = 0;
     for selected in [
@@ -177,23 +177,6 @@ async fn u3801_rpc_launch_choices_reach_spawn_resume_and_the_cleared_door() {
         assert_eq!(mode(&launches[count - 1]), selected);
         assert!(
             launches[count - 1]["argv"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|a| a == "--resume")
-        );
-        let mut params =
-            json!({"id":door["id"], "reason":"new launch choices", "without_handoff":true});
-        if let Some(selected) = selected {
-            params["permissionMode"] = selected.into();
-        }
-        run.user.request("workstream.clear", params).await.unwrap();
-        run.node(&door["id"], Some(2)).await;
-        count += 1;
-        let launches = run.launches(count).await;
-        assert_eq!(mode(&launches[count - 1]), selected);
-        assert!(
-            !launches[count - 1]["argv"]
                 .as_array()
                 .unwrap()
                 .iter()
