@@ -174,7 +174,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (action) {
       if (!openingSurvives() || !action.available()) return;
       close(true);
-      action.run();
+      // Let the dialog release its focus trap before the command requests its destination.
+      queueMicrotask(action.run);
 
       return;
     }
@@ -212,17 +213,14 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           input = element;
           // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
           element.addEventListener("input", () => { restoring = false; setText(element.value); retain(); });
-          element.addEventListener("focus", () => {
-            // Ark selects an input after focusing it; restore the retained caret after that selection.
-            queueMicrotask(() => {
-              if (!restoring || !element.isConnected || document.activeElement !== element) return;
-              const selection = savedSelection;
-
-              if (selection) element.setSelectionRange(selection.start, selection.end, selection.direction);
+          element.addEventListener("select", () => {
+            // Native select follows Ark's focus selection and controlled-value caret update.
+            if (restoring && element.isConnected && document.activeElement === element) {
               restoring = false;
-            });
+
+              if (savedSelection) element.setSelectionRange(savedSelection.start, savedSelection.end, savedSelection.direction);
+            } else retain();
           });
-          element.addEventListener("select", retain);
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {

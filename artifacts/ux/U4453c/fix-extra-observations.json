@@ -1,0 +1,12 @@
+[
+  {
+    "side": "base",
+    "state": "bubbles-dense-rename-failure",
+    "failures": {}
+  },
+  {
+    "side": "head",
+    "state": "bubbles-dense-rename-failure",
+    "failures": {}
+  }
+]
