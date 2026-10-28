@@ -59,3 +59,8 @@
 .app-switch:has(input[data-pressed="true"]:not(:disabled)) {
   opacity: var(--press-opacity);
 }
+
+/* Pointer activation ends the keyboard ring even when the input keeps focus. */
+.app-switch:not([data-keyboard-focus]):has(input:focus-visible) .app-switch-track {
+  outline: none;
+}

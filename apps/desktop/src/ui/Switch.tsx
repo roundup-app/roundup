@@ -1,14 +1,18 @@
 import "./Field.css";
 import "./Switch.css";
+import { trackFocusVisible } from "@zag-js/focus-visible";
 import { Switch as ArkSwitch } from "@ark-ui/solid/switch";
-import { createUniqueId, Show, type JSX } from "solid-js";
+import { createSignal, createUniqueId, onCleanup, onMount, Show, type JSX } from "solid-js";
 
 /** A labelled switch over Ark; the caller supplies the acknowledged value. */
 export const Switch = (props: { class?: string; checked: boolean; disabled?: boolean; invalid?: boolean; description?: string; onCheckedChange: (checked: boolean) => void; children: JSX.Element }): JSX.Element => {
   const descriptionId = createUniqueId();
+  const [keyboardFocus, setKeyboardFocus] = createSignal(false);
+
+  onMount(() => onCleanup(trackFocusVisible({ onChange: details => setKeyboardFocus(details.isFocusVisible) })));
 
   return (
-    <ArkSwitch.Root class={`app-switch ${props.class ?? ""}`} checked={props.checked} disabled={props.disabled} invalid={props.invalid}
+    <ArkSwitch.Root data-keyboard-focus={keyboardFocus() ? "" : undefined} class={`app-switch ${props.class ?? ""}`} checked={props.checked} disabled={props.disabled} invalid={props.invalid}
       onCheckedChange={(details) => props.onCheckedChange(details.checked)}>
       <ArkSwitch.Control class="app-switch-track"><ArkSwitch.Thumb class="app-switch-thumb" /></ArkSwitch.Control>
       <ArkSwitch.Label class="app-switch-label">{props.children}</ArkSwitch.Label>
