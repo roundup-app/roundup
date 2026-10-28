@@ -107,6 +107,7 @@
 
 .centre-frame { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .centre-navigation-host { flex: none; height: var(--space-6); }
+.centre-navigation-host:empty { display: none; }
 .centre-frame .settings-center { flex: 1; height: auto; min-height: 0; }
 .settings-sections {
   display: grid;

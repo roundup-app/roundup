@@ -44,8 +44,9 @@ it("u2539b_selected_agent_keeps_identity_and_returns_to_landing", async () => {
   const { connected, nodes } = await mount();
   fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
-  expect(within(screen.getByRole("navigation", { name: "Centre" })).getByText(nodes.find(node => node.id === "a0")!.name)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  expect(screen.queryByRole("navigation", { name: "Centre" })).toBeNull();
+  key("KeyK", { metaKey: true });
+  key("KeyA");
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
 });
 
@@ -76,7 +77,7 @@ it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens
   openProjectPage(`view:${view}`, "/p");
   await waitFor(() => expect(connected().view()).toBeNull());
 
-  if (view === "resources") fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  if (view === "resources") { key("KeyK", { metaKey: true }); key("KeyA"); }
   expect(document.querySelector(".ask-input")).not.toBeNull();
 });
 

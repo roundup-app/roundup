@@ -605,7 +605,7 @@ export const Rail = () => {
       aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
-      onClick={() => rail.select(null)}
+      onClick={() => { connected.showView(null); rail.select(null); }}
       onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
         const entries = recoveryEntries();
 

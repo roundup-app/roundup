@@ -3,7 +3,6 @@ import { Tabs } from "../ui/Tabs";
 import { FlatTab } from "../ui/FlatTab";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
-import { KindGlyph } from "../ink/KindGlyph";
 import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
 import { MeasurementDashboard } from "./MeasurementDashboard";
@@ -20,6 +19,7 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
+import { leaderChord } from "../keys/chords";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
 import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -287,27 +287,40 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
     return current !== null && ["ask-history", "reactions", "made", "notes", "resources"].includes(current) ? current : null;
   });
 
+  /** U4453b: the Back to Ask action, for the requested screens' button and the leader's `A`. */
+  const backToAsk = () => {
+    if (props.backDisabled) return;
+
+    props.backRequested?.();
+    connected.showView(null);
+    rail.select(null);
+    setView(null);
+  };
+
+  const askable = () => selected() !== null || requested() !== null || !!props.requested;
+  const navigated = () => !props.requested && !requested();
+
+  registerKeys({ kind: "leader" }, [{ chords: leaderChord("A"), when: () => askable() && !props.backDisabled, run: backToAsk }]);
+
+  /** U4453a: an Agent, Door or Workstream shows only its Terminal; the row stays for Ask and the requested screens. */
   const navigation = () => <nav class="pane-navigation" aria-label={copy.centreRegion}>
     <div class="pane-identity">
-      <Show when={selected()?.kind === "agent"}><span class="pane-name">{selected()?.name}</span><Show when={connected.drawer.content() === null ? selected()?.status?.kind : undefined}>{kind => <KindGlyph kind={kind()} />}</Show></Show>
-      <Show when={!props.requested && !requested() && selected()?.kind === "workstream"} fallback={
-        <Show when={props.requested ?? requested()}>{name => <span class="pane-name">{props.viewLabel?.(name()) ?? name()}</span>}</Show>
-      }>
-
-          <Tabs.List class="measurement-action" aria-label={selected()?.name}>
-            <FlatTab selected={view() === "dashboard"}><Tabs.Trigger ref={dashboardAction} value="dashboard" tabIndex={view() === null ? 0 : undefined}>{copy.measurementTime}</Tabs.Trigger></FlatTab>
-            <FlatTab selected={view() === "timeline"}><Tabs.Trigger ref={timelineAction} value="timeline">{copy.timeline}</Tabs.Trigger></FlatTab>
-          </Tabs.List>
-      </Show>
+      <Show when={props.requested ?? requested()}>{name => <span class="pane-name">{props.viewLabel?.(name()) ?? name()}</span>}</Show>
     </div>
     {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- The design system requires a focusable disabled button to expose its reason as title. */}
-    <Show when={selected() || requested() || props.requested}><button type="button" data-button="quiet" aria-disabled={props.backDisabled} title={props.backDisabled ? copy.importPendingBack : undefined} onClick={() => { if (props.backDisabled) return; props.backRequested?.(); connected.showView(null); rail.select(null); setView(null); }}><Icon name="left" />{copy.backToAsk}</button></Show>
+    <Show when={requested() || props.requested}><button type="button" data-button="quiet" aria-disabled={props.backDisabled} title={props.backDisabled ? copy.importPendingBack : undefined} onClick={backToAsk}><Icon name="left" />{copy.backToAsk}</button></Show>
   </nav>;
 
   return (
     <Tabs.Root value={view()} onKeyDown={event => { if (event.key === "Escape" && dashboard() && !event.defaultPrevented) { event.preventDefault(); backFromView(); } }} onValueChange={details => { if (details.value === "dashboard" || details.value === "timeline") setView(details.value); }} style={{ display: "contents" }}>
     <div class="pane">
-      <Show when={props.navigationHost} fallback={navigation()}>{host => <Portal mount={host()}>{navigation()}</Portal>}</Show>
+      <Show when={!selected() || !navigated()}><Show when={props.navigationHost} fallback={navigation()}>{host => <Portal mount={host()}>{navigation()}</Portal>}</Show></Show>
+      <Show when={navigated() && selected()?.kind === "workstream"}>
+        <Tabs.List class="measurement-action" aria-label={selected()?.name}>
+          <FlatTab selected={view() === "dashboard"}><Tabs.Trigger ref={dashboardAction} value="dashboard" tabIndex={view() === null ? 0 : undefined}>{copy.measurementTime}</Tabs.Trigger></FlatTab>
+          <FlatTab selected={view() === "timeline"}><Tabs.Trigger ref={timelineAction} value="timeline">{copy.timeline}</Tabs.Trigger></FlatTab>
+        </Tabs.List>
+      </Show>
       <Show when={view() === "dashboard" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <Tabs.Content value="dashboard" class="pane-view"><MeasurementDashboard focusOnMount={false} home={home} name={selected()?.name ?? ""} back={backFromView} /></Tabs.Content>}</Show>
       <Show when={view() === "timeline" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <Tabs.Content value="timeline" class="pane-view"><TimelineView focusOnMount={false} home={home} name={selected()?.name ?? ""} back={backFromView} /></Tabs.Content>}</Show>
       <div class="pane-origin" classList={{ "pane-origin-hidden": dashboard() }}>
@@ -347,13 +360,13 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
       </div>
       <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
-      <div class="pane-failure">
-        <ReservedLine message={notice()?.message}>
+      <Show when={notice()}>{shown => <div class="pane-failure">
+        <ReservedLine message={shown().message}>
           <Show when={notice()?.kind === "scheme"}><button data-button="quiet" type="button" onClick={() => void connected.terminalScheme.retry()}>{copy.retry}</button></Show>
           <Show when={notice()?.kind === "notice" && props.retryNotice}><button data-button="quiet" type="button" onClick={() => props.retryNotice?.()}>{copy.retry}</button></Show>
           <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
         </ReservedLine>
-      </div>
+      </div>}</Show>
     </div>
     </Tabs.Root>
   );
