@@ -134,7 +134,8 @@ it.each([1, 2])("u4601_pad_counts_use_singular_and_plural_%s", async count => {
 it("u4601_the_lists_follow_the_removal_plan", async () => {
   const app = createFakeApp();
   app.handlers["agent.worktreeState"] = ({ id }) => ({ dirty: id === "dirty", ahead: id === "ahead" ? 2 : 0, behind: 0 });
-  app.handlers["pad.list"] = () => ["dirty", "ahead"].map(id => ({ ...padOf(id, { kind: "agent", id, parent: null }), home: "chosen" }));
+  app.handlers["todo.list"] = () => [todo(1, { home: "chosen", done: true }), todo(2, { home: "chosen" })];
+  app.handlers["pad.list"] = () => ["finished", "dirty", "ahead"].map(id => ({ ...padOf(id, { kind: "agent", id, parent: null }), home: "chosen" }));
 
   const plan = await judgeRemoval(app, [
     workstream("chosen"),
@@ -145,7 +146,7 @@ it("u4601_the_lists_follow_the_removal_plan", async () => {
   ], "chosen");
 
   expect([goesLine(plan, "chosen"), staysLine(plan)]).toEqual([
-    "Goes: chosen, finished",
-    "Stays (Remove this): running, dirty, ahead, 2 Pads",
+    "Goes: chosen, finished, 1 done Todo, 1 Pad",
+    "Stays (Remove this): running, dirty, ahead, 1 open Todo, 2 Pads",
   ]);
 });
