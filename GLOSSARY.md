@@ -175,7 +175,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Brief | same | — |
 | Context | same | — |
 | Channel | same | — |
-| Opening prompt (`OpeningPromptParams`, `opening_prompt`, `workstream.setOpeningPrompt`) | same | — |
+| Mode first prompt (`OpeningPromptParams`, `opening_prompt`, `workstream.setOpeningPrompt`) | First prompt | — |
 | Claude inbox (`CoordinationSink`, `with_coordination`, `coordinate`) | same | — |
 | Mcp | same | — |
 | Tool call | same | — |
