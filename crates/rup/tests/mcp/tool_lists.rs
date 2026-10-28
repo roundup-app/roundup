@@ -117,7 +117,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 75] = [
+pub const NO_TOOL: [&str; 77] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -196,6 +196,9 @@ pub const NO_TOOL: [&str; 75] = [
     "workstream.clear",
     "close_project",
     "projects",
+    // S6, U52: first-run facts belong to the App; Agents reach only their own Project's Daemon.
+    "recent_projects",
+    "claude_binary",
     "open_target",
     "open_in_editor",
     "save_pasted_image",

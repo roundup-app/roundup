@@ -92,6 +92,8 @@ export const SEAM_COMMANDS = [
   "system_accent",
   "native_open",
   "projects",
+  "recent_projects",
+  "claude_binary",
   "record_idle_evidence",
   "select_project_menu",
   "open_project",
