@@ -203,7 +203,7 @@ async fn h11_an_agent_that_ends_while_a_steer_waits_is_not_found() {
 }
 
 #[tokio::test]
-async fn h11_only_the_user_or_a_doors_own_workstream_may_steer() {
+async fn a4452d_agent_authored_text_never_types() {
     let f = Arc::new(frozen(Fixture::running(RECORD), Duration::from_secs(30)));
     let workstream = f.workstream("team", None).await;
     let child = f.spawn(Some(&workstream), None).await.unwrap();
@@ -233,14 +233,40 @@ async fn h11_only_the_user_or_a_doors_own_workstream_may_steer() {
     }
     assert_eq!(read(&typed(&f)), "");
 
+    // A4452d: a Door's own text goes to the inbox, and no byte is typed.
     let door = from(ActorKind::Agent, &workstream);
-    let call = {
-        let f = Arc::clone(&f);
-        tokio::spawn(async move { f.agents.call(&door, "agent.prompt", params).await })
-    };
-    until_typed(&f, paste("go").len()).await;
-    signal(&f, &child.id, "UserPromptSubmit").await;
-    assert_eq!(call.await.unwrap().unwrap(), Value::Null);
+    f.agents.call(&door, "agent.prompt", params).await.unwrap();
+    assert_eq!(f.inbox().len(), 1);
+    assert_eq!(f.inbox()[0].0, child.id);
+    assert_eq!(read(&typed(&f)), "");
+}
+
+#[tokio::test]
+async fn a4452c_only_the_user_sets_the_opening_prompt() {
+    let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
+    let workstream = f.workstream("team", None).await;
+    let params = json!({"id": workstream, "prompt": "hello"});
+    for kind in [ActorKind::Agent, ActorKind::Ext] {
+        let ctx = Ctx {
+            actor: Actor {
+                kind,
+                id: workstream.clone(),
+                parent: None,
+            },
+            ..f.ctx()
+        };
+        let err = f
+            .agents
+            .call(&ctx, "workstream.setOpeningPrompt", params.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::FORBIDDEN);
+    }
+    assert!(f.tree().await.iter().all(|n| n.opening_prompt.is_none()));
+    f.call("workstream.setOpeningPrompt", params).await.unwrap();
+    let tree = f.tree().await;
+    let node = tree.iter().find(|n| n.id == workstream).unwrap();
+    assert_eq!(node.opening_prompt.as_deref(), Some("hello"));
 }
 
 #[tokio::test]
