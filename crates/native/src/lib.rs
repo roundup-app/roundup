@@ -47,3 +47,8 @@ fn diagnostic(operation: &'static str, error: &tauri::Error) {
 mod menu;
 #[cfg(target_vendor = "apple")]
 pub use menu::{context_menu, project_menu_hints};
+
+#[cfg(target_vendor = "apple")]
+mod alert;
+#[cfg(target_vendor = "apple")]
+pub use alert::removal_alert;
