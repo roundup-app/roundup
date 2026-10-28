@@ -835,6 +835,8 @@ export const copy = {
   todoNoEstimates: "no estimates",
   todoWithoutEstimates: (count: number) => `+ ${count} without estimate`,
   todoAuto: "Auto",
+  openingPrompt: "Opening prompt",
+  openingPromptHint: "Typed once when this Workstream is cleared",
   todoAutoHint: "Supervisor hands out unassigned Todos",
   todoAutoHandling: "The supervisor is handing these out",
   todoMoveTo: (id: number, name: string) => `Move #${id} to ${name}`,
