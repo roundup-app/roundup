@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -167,7 +168,7 @@ it("u4277c_empty_history_keeps_composition_without_target_actions", async () => 
   const list = document.querySelector<HTMLElement>(".ask-rows")!;
   await waitFor(() => expect(list.getAttribute("aria-busy")).toBe("false"));
   expect(within(list).queryAllByRole("listitem")).toHaveLength(0);
-  expect(document.querySelector('.ask-history-status[role="status"]')).not.toBeNull();
+  expect(screen.getByRole("group", { name: copy.askHistoryEmpty })).toBeTruthy();
   expect(document.querySelector('.ask-input')).toBeTruthy();
   expect(app.calls.filter(call => ["ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
