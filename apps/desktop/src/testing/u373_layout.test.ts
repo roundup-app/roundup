@@ -46,14 +46,18 @@ run("u373 the tabs", () => {
     await page.press("Tab", "Tab");
     expect(await page.call<boolean>(`() => document.activeElement.closest('.shelf [role="tabpanel"], [data-shelf-scope]') !== null`)).toBe(true);
 
-    // Return across the Shelf's controls, regardless of its rows or tooltip tab stops.
-    // Stop on the tab row or outside the Shelf so a window cycle cannot hide a wrong order.
-    for (let step = 0; step < 64; step++) {
-      await page.press("Tab", "Tab", 8);
+    // CDP uses bit 3 for Shift; each press sends exactly one Shift+Tab.
+    const shift = 1 << 3;
+    let steps = 0;
+
+    // Stop outside the Shelf too, so a window cycle cannot hide a wrong order.
+    for (; steps < 64; steps++) {
+      await page.press("Tab", "Tab", shift);
 
       if (await page.call<boolean>(`() => document.activeElement.closest('.shelf-tabs') !== null || document.activeElement.closest('.shelf') === null`)) break;
     }
 
+    expect(steps, "Shift+Tab did not leave the Shelf panel within 64 presses").toBeLessThan(64);
     expect(await page.call<string>(`() => document.activeElement.id`)).toBe("shelf-tab-todos");
   });
 });
