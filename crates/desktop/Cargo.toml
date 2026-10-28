@@ -31,6 +31,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-window-state = { version = "=2.5.0", path = "vendor/tauri-plugin-window-state-2.5.0" }
 tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5.0" }
 time = "0.3.55"
+which = "8.0.6"
 tokio = { workspace = true, features = ["process", "io-util"] }
 
 [[test]]
