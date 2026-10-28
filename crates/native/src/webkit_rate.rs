@@ -199,8 +199,8 @@ pub(crate) mod tests {
                 crate::menu::tests::u4462_the_hint_stop_is_the_key_equivalent_edge,
             ),
             (
-                "u4462_installed_and_popup_menus_use_one_decoration",
-                crate::menu::tests::u4462_installed_and_popup_menus_use_one_decoration,
+                "u4462_installed_and_tracked_menus_use_one_decoration",
+                crate::menu::tests::u4462_installed_and_tracked_menus_use_one_decoration,
             ),
         ];
         let args: Vec<_> = std::env::args().collect();

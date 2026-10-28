@@ -270,7 +270,7 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) fn u4462_installed_and_popup_menus_use_one_decoration() {
+    pub(crate) fn u4462_installed_and_tracked_menus_use_one_decoration() {
         let _main = MainThreadMarker::new().expect("native test harness runs on the main thread");
         // SAFETY: AppKit objects stay retained on the main thread for the whole probe.
         unsafe {
