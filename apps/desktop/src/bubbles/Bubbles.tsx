@@ -934,8 +934,8 @@ export const Bubbles = (props: {
   return (
     <div class="bubbles" ref={setLayer}>
       {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
-      <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
-        <div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
+      <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); element.setAttribute("data-flat-bar", ""); }}>
+        <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
           <For each={shownIds()}>{id => <Tab id={id} />}</For>
