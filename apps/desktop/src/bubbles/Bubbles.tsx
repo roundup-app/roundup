@@ -1,3 +1,4 @@
+import { focusPane, bubbleElement, focusedId, focusItem as focusBubble } from "./focus";
 import { captureFocus } from "../keys/focus";
 import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
 import { createTerminalClose } from "./close";
@@ -30,11 +31,7 @@ import type { Place, Extent } from "./places";
 import "./styles.css";
 /** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
-const focusPane = (): void => {
-  const target = document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
-  target?.focus();
-  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
-};
+
 const ESCAPE = "Escape".split(" ");
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 export const Bubbles = (props: {
@@ -313,18 +310,7 @@ export const Bubbles = (props: {
 
   const { close, closing, Failure: CloseFailure } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure);
 
-  const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
-
-  const focusItem = (id: string): void => {
-    const place = places()[id];
-
-    if (place?.min) document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)?.focus();
-    else props.screens.emulatorFor(id).focus();
-  };
-
-  const focusedId = (active: Element | null = document.activeElement): string | null => {
-    return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
-  };
+  const focusItem = (id: string) => focusBubble(id, places()[id], props.screens);
 
   let generation = 0;
 
