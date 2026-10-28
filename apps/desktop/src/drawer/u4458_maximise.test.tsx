@@ -17,8 +17,8 @@ it("u4458_maximise_button_and_m_toggle_a_pad_and_a_todo_drawer", () => {
     restore.focus();
     fireEvent.keyDown(restore, { key: "m", code: "KeyM" });
     expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
-    fireEvent.keyDown(screen.getByLabelText("body"), { key: "m", code: "KeyM" });
-    expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
+    const types = fireEvent.keyDown(screen.getByLabelText("body"), { key: "m", code: "KeyM" });
+    expect([screen.getByLabelText("Drawer").dataset.maximised, types]).toEqual(["false", true]);
     drawer.close("key");
   }
 });
