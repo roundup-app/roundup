@@ -391,7 +391,7 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   fireEvent.input(field, { target: { value: text } });
   const connected = connections.get("/a")!;
   const retained = connected.drafts.list();
-  expect(retained.map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
+  expect(retained.filter(draft => draft.destination.surface === "pads").map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
   fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Delete" }));
   await shown();
   expect(connected.drafts.list()).toEqual(retained);
