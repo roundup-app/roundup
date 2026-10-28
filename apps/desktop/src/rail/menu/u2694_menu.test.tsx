@@ -293,11 +293,13 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
 
         for (const [tab, row] of [["todos", ".todo-row-button"], ["pads", ".pad-grip"]]) {
           await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${tab}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
-          await lane.until(`!!document.querySelector('.shelf [data-shelf-group=me] ${row}')`);
+          const group = tab === "pads" ? "unassigned" : "me";
+          await lane.until(`!!document.querySelector('.shelf [data-shelf-group="${group}"] ${row}')`);
+          await lane.evaluate(`(() => { const group = document.querySelector('.shelf [data-shelf-group="${group}"]'); if (group.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part="branch-control"]').click(); return true; })()`);
 
           const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {
             const point = element => { const box = element.getBoundingClientRect(); return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) }; };
-            return { from: point(document.querySelector('.shelf ${row}')), to: point(document.querySelector('.shelf [data-shelf-group=me] .shelf-group-head')) };
+            return { from: point(document.querySelector('.shelf ${row}')), to: point(document.querySelector('.shelf [data-shelf-group="${group}"] .shelf-group-head')) };
           })()`);
 
           await lane.resetCalls();
@@ -306,7 +308,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           await lane.browser("mouse", "move", String(points.from.x + 6), String(points.from.y - 6));
           await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
           await lane.browser("mouse", "move", String(points.to.x), String(points.to.y));
-          expect(await lane.evaluate<boolean>("!document.querySelector('.shelf [data-shelf-group=me][data-drop-target]')")).toBe(true);
+          expect(await lane.evaluate<boolean>(`!document.querySelector('.shelf [data-shelf-group="${group}"][data-drop-target]')`)).toBe(true);
           await lane.browser("mouse", "up");
           await lane.until("!document.querySelector('[data-dnd-placeholder]')");
           expect((await lane.calls()).filter(call => ["todo.assign", "todo.reorder", "pad.setOwner", "pad.reorder"].includes(call.method))).toEqual([]);

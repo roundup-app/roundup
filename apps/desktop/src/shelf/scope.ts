@@ -59,7 +59,7 @@ export const ownersOnRail = (connected: ConnectedProject): Owner[] => {
 
 export const sameOwner = (a: Actor | null, b: Actor | null) => a === null || b === null ? a === b : a.kind === b.kind && a.id === b.id;
 
-export type OwnerGroup<T> = Owner & { items: T[] };
+export type OwnerGroup<T> = Owner & { items: T[]; children?: OwnerGroup<T>[] };
 
 /** U3717: every owner of the Rail with the items it owns once each; an owner that left the Rail reads as Unassigned. Empty groups are kept: the caller decides when they show. */
 export const ownerGroups = <T,>(connected: ConnectedProject, items: readonly T[], ownerOf: (item: T) => Actor | null): OwnerGroup<T>[] => {
