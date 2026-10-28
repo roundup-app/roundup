@@ -126,6 +126,8 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
 });
 
+const removalPlurals = new Intl.PluralRules("en");
+
 export const copy = {
   claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
   recentFolders: "Recent folders",
@@ -418,8 +420,6 @@ export const copy = {
   removeThis: "Remove this",
   removeAll: "Remove all",
   nativeRemovalAlertUnavailable: "Native removal alert unavailable; retry",
-  removeAllWorktreeLoss: (name: string) => `Remove all deletes the Worktree directory, files and branch for ${name}.`,
-  removeAllAlsoRemoves: (items: string) => `Remove all also removes: ${items}`,
   leaderChord: "⌘K",
   leaderPanel: "Press a key",
   leaderShortNeedsYou: "Needs you",
@@ -877,11 +877,12 @@ export const copy = {
   resumeOutcomeUnknownTheDaemonMayHaveResumed: "Resume outcome unknown: The Daemon may have resumed it",
   unlandedWorkAhead: (value1: CopyValue) => `Unlanded work: ${value1} ahead`,
   unlandedWorkUncommittedChanges: "Unlanded work: Uncommitted changes",
+  removeWorkstreamQuestion: (name: string) => `Remove “${name}”?`,
+  doneTodoCount: (count: number) => `${count} done ${removalPlurals.select(count) === "one" ? "Todo" : "Todos"}`,
+  openTodoCount: (count: number) => `${count} open ${removalPlurals.select(count) === "one" ? "Todo" : "Todos"}`,
+  removalPadCount: (count: number) => `${count} ${removalPlurals.select(count) === "one" ? "Pad" : "Pads"}`,
+  staysRemoveThis: (items: string) => `Stays (Remove this): ${items}`,
   goes: (value1: CopyValue) => `Goes: ${value1}`,
-  agentNoun: "Agents",
-  openTodoNoun: "open Todos",
-  staysAtTheProjectRoot: (value1: CopyValue) => `Stays at the Project root: ${value1}`,
-  moreAgents: (value1: CopyValue) => `+ ${value1} more`,
   padCount: (value1: CopyValue) => `${value1} pads`,
   todoCount: (value1: CopyValue) => `${value1} todos`,
   padsAndTodos: (value1: CopyValue) => `${value1} pads and todos`,
@@ -893,8 +894,6 @@ export const copy = {
   clipboardCopyRetry: "Try again, or select the text and copy it with the context menu.",
   copy: "Copy",
   comma: ", ",
-
-  doneTodos: "done Todos",
 
   nothing: "Nothing",
   makeYours: "Make yours",
