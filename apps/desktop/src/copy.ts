@@ -128,6 +128,9 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 });
 
 export const copy = {
+  claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
+  recentFolders: "Recent folders",
+  claudeNotFound: "CLAUDE NOT FOUND, install Claude Code",
   askHistory: "Ask history",
   resources: "Resources", resourcesLoading: "Loading resources…", resourcesEmpty: "No resource measurements for this Agent",
   terminalTabs: "Terminal tabs",
@@ -640,7 +643,7 @@ export const copy = {
   selected: " selected",
   deleteWord: "Delete ",
   questionMark: "?",
-  agentsMayStillBeWritingDeletingDoesNot: ". Agents may still be writing; deleting does not stop them",
+  agentsMayStillBeWritingDeletingDoesNot: (names: CopyValue) => `${names} may still be writing; deleting does not stop them`,
   refresh: "Refresh",
   colon: ": ",
 
