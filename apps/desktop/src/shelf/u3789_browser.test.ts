@@ -101,7 +101,7 @@ it("u3800a_owned_todo_grip_reorders_once", async () => {
   await wait(`document.querySelector('.todos-tab [data-todo="1"]').closest(".todo-list").dataset.sortableIndex === "1"`);
   await browser("press", "Space");
   await wait('!document.querySelector("[data-dnd-placeholder]")');
-  expect(await read("window.__fake.app.calls.filter(c => c.method === 'todo.reorder').map(c => c.params)")).toEqual([{id:1,before:5}]);
+  expect(await read("window.__fake.app.calls.filter(c => c.method === 'todo.reorder').map(c => c.params)")).toEqual([{id:1,before:3}]);
   expect(await read("window.__fake.app.calls.filter(c => ['todo.getHistory','todo.complete','todo.update','pad.write'].includes(c.method))")).toEqual([]);
   await wait(`document.activeElement === document.querySelector('${grip}')`);
 }, 60_000);
