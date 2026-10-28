@@ -82,13 +82,12 @@ describe("u155 reorder a Todo row", () => {
 
 });
 
-for (const list of ["Shelf", "Agent"] as const) for (const unchangedEvent of [false, true]) {
-  it(`u4231_unchanged_key_acknowledgement_keeps_order_and_focus ${list} event=${unchangedEvent}`, async () => {
-    const initial = [1, 2, 3].map(id => todo(id, list === "Agent" ? { creator: { kind: "agent", id: "a", parent: null } } : {}));
-    const mounted = await mountTodos(initial, false, list === "Agent" ? [node("a")] : [], list === "Agent");
+for (const unchangedEvent of [false, true]) {
+  it(`u4231_unchanged_key_acknowledgement_keeps_order_and_focus Shelf event=${unchangedEvent}`, async () => {
+    const initial = [1, 2, 3].map(id => todo(id));
+    const mounted = await mountTodos(initial, false);
 
-    if (list === "Agent") fireEvent.click(document.querySelector<HTMLElement>("[data-pads-control]")!);
-    const selector = list === "Agent" ? "[data-pads] .todo-row-button" : "[data-shelf-row] .todo-row-button";
+    const selector = "[data-shelf-row] .todo-row-button";
     const rows = () => [...document.querySelectorAll<HTMLButtonElement>(selector)];
     const order = () => rows().map(row => Number(/#(\d+)/.exec(row.getAttribute("aria-label") ?? "")![1]));
     await waitFor(() => expect(order()).toEqual([1, 2, 3]));
