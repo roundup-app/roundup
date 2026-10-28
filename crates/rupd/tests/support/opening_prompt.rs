@@ -77,11 +77,22 @@ async fn clear(run: &mut Run) {
 #[tokio::test]
 async fn a4452c_clear_never_sends_the_saved_prompt() {
     let mut run = door(Some("/compose /intent keep spacing")).await;
-    assert!(recorded_bytes(&run).await.is_empty(), "first launch starts idle");
+    assert!(
+        recorded_bytes(&run).await.is_empty(),
+        "first launch starts idle"
+    );
     clear(&mut run).await;
-    assert!(recorded_bytes(&run).await.is_empty(), "Clear cannot type an Opening prompt");
+    assert!(
+        recorded_bytes(&run).await.is_empty(),
+        "Clear cannot type an Opening prompt"
+    );
     let tree = run.user.request("rail.tree", Value::Null).await.unwrap();
-    let node = tree.as_array().unwrap().iter().find(|node| node["id"] == run.child).unwrap();
+    let node = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == run.child)
+        .unwrap();
     assert_eq!(node["status"]["kind"], "idle");
     assert_eq!(node["opening_prompt"], "/compose /intent keep spacing");
     run.finish().await;

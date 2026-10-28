@@ -56,24 +56,7 @@ struct Saved {
     archive: String,
     iteration: u32,
     removed: Vec<Removed>,
-    /// A4452c: the Workstream's saved opening prompt as the clear began, and how far it got.
-    opening: Option<Opening>,
     restarted: Option<String>,
-}
-
-/// A4452c: the text A35's reservation holds for the restarted Door, typed once.
-#[derive(Clone)]
-struct Opening {
-    text: String,
-    reserved: bool,
-    delivery: OpeningDelivery,
-}
-
-#[derive(Clone)]
-enum OpeningDelivery {
-    Unwritten,
-    Uncertain,
-    Acknowledged,
 }
 
 /// How a clear begins.
@@ -295,11 +278,6 @@ impl Daemon {
                     archive: format!("archive-{iteration}"),
                     iteration,
                     removed: Vec::new(),
-                    opening: node.opening_prompt.clone().map(|text| Opening {
-                        text,
-                        reserved: false,
-                        delivery: OpeningDelivery::Unwritten,
-                    }),
                     restarted: None,
                 }
             }
@@ -421,15 +399,6 @@ impl Daemon {
                 .then_some(saved.archive.as_str()),
         );
         let next = saved.iteration + 1;
-        let key = format!("clear-{id}-{next}");
-        if let (Some(opening), Some(messages)) = (&mut saved.opening, self.sender.get())
-            && !opening.reserved
-        {
-            messages
-                .reserve_restart(id, &key, Some(&opening.text))
-                .await?;
-            opening.reserved = true;
-        }
         if saved.restarted.is_none() {
             agents.stop_door(Actor::user(), id).await?;
             let ctx = self.ctx(Actor::user());
@@ -445,7 +414,6 @@ impl Daemon {
                 .await?;
             saved.restarted = node.attempt;
         }
-        self.type_opening_prompt(agents, id, &key, saved).await?;
         if let Some(messages) = self.sender.get() {
             messages.end_iteration(id)?;
         }
@@ -457,45 +425,6 @@ impl Daemon {
             }),
         );
         self.bus.emit(Actor::user(), EventData::RailChanged);
-        Ok(())
-    }
-
-    /// A4452c: keep the restarted Attempt and its acknowledgement across recording failures;
-    /// retrying a clear must never type the saved text a second time.
-    async fn type_opening_prompt(
-        &self,
-        agents: &agents::Agents,
-        id: &str,
-        key: &str,
-        saved: &mut Saved,
-    ) -> Result<(), RpcError> {
-        let (Some(opening), Some(messages)) = (&mut saved.opening, self.sender.get()) else {
-            return Ok(());
-        };
-        let attempt = saved
-            .restarted
-            .as_deref()
-            .ok_or_else(|| RpcError::conflict("restarted Door missing"))?;
-        match opening.delivery {
-            OpeningDelivery::Unwritten => {
-                // Startup coordination is admitted before a user prompt, but types nothing.
-                agents.first_steer_completion(id, attempt).await?;
-                opening.delivery = OpeningDelivery::Uncertain;
-                agents
-                    .prompt(id, agents::Steer::User(&opening.text))
-                    .await?;
-                opening.delivery = OpeningDelivery::Acknowledged;
-            }
-            OpeningDelivery::Uncertain => {
-                return Err(RpcError::new(
-                    code::UNKNOWN_OUTCOME,
-                    "Opening prompt acceptance is unknown; do not retry the prompt",
-                ));
-            }
-            OpeningDelivery::Acknowledged => {}
-        }
-        messages.record_restart_prompt(id, key, attempt).await?;
-        messages.release_restart(id, key, attempt).await?;
         Ok(())
     }
 
