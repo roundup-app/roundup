@@ -60,6 +60,6 @@ it("u3517c_scheme_changes_reach_open_new_and_unattached_terminals", async () => 
 });
 
 it("u4592_terminal_tracking_token", () => {
-  expect(/--letter-terminal:\s*([^;]+);/.exec(tokens)?.[1]?.trim()).toBe("0.5px");
-  expect(xtermOptions.letterSpacing).toBe(0.5);
+  expect(/--letter-terminal:\s*([^;]+);/.exec(tokens)?.[1]?.trim()).toBe("0px");
+  expect(xtermOptions.letterSpacing).toBe(0);
 });
