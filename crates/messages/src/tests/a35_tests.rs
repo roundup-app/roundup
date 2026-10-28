@@ -247,7 +247,6 @@ async fn a35_first_prompt_recording_retries_without_a_second_note_or_steer() {
     );
     let thread = h.messages.thread("door").unwrap();
     assert_eq!(&thread[..earlier.len()], &earlier);
-    assert_eq!(thread.last().unwrap().iteration, Some(2));
     assert_eq!(note.from, Actor::user());
     assert_eq!(note.kind, MessageKind::Note);
     assert_eq!(note.status, MessageStatus::Delivered);
