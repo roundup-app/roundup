@@ -120,7 +120,7 @@ fn main() {
         "parent": null, "order": i, "status": null, "attempt": null,
         "status_revision": null, "terminal_id": null, "worktree": null,
         "can_resume": false, "channel": null, "work": null, "stray": [],
-        "model": null, "effort": null, "iteration": 1
+        "model": null, "effort": null
     })).collect();
     let frame = json!({"jsonrpc": "2.0", "id": 1, "result": rows});
     let input = frame.to_string();

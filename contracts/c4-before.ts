@@ -168,7 +168,7 @@ model: string | null,
 
 effort: string | null, 
 
-iteration?: number, 
+
 
 inbox?: agent_Inbox, 
 
@@ -375,7 +375,7 @@ id?: string, status: message_MessageStatus | null, };
 
 export type message_Message = { id: number, from: Actor, to: string, kind: message_MessageKind, body: string, replyTo: number | null, status: message_MessageStatus, reason: message_Reason | null, at: number, 
 
-iteration?: number, };
+};
 
 export type message_MessageId = { id: number, };
 

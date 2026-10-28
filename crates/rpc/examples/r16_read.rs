@@ -21,7 +21,7 @@ async fn main() {
         "parent": null, "order": i, "status": null, "attempt": null,
         "status_revision": null, "terminal_id": null, "worktree": null,
         "can_resume": false, "channel": null, "work": null, "stray": [],
-        "model": null, "effort": null, "iteration": 1
+        "model": null, "effort": null
     })).collect();
     let frame = format!("{}\n", json!({"jsonrpc": "2.0", "id": 1, "result": rows}));
     println!("frame_bytes_with_newline={}", frame.len());
