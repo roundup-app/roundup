@@ -206,9 +206,11 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("click", "[data-todo-root]");
   await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected=true]')");
   await browser("click", "#shelf-tab-pads");
-  await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group=payments] [data-part=branch-control]')");
+  await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group] [data-part=branch-control]')");
   await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .sortable-handle').length >= 2");
-  const padOrder = "[...document.querySelectorAll('.pads-tab [data-shelf-group=payments] [data-pad]')].filter(row=>row.closest('[data-shelf-group]').dataset.shelfGroup==='payments').map(row=>row.dataset.pad)";
+  // U2744a: a Pad list is the one a group's own rows form, so Agent subgroups never mix into the order.
+  const ownList = "[...document.querySelectorAll('.pads-tab .shelf-list')].find(list => list.querySelectorAll('[data-pad]').length >= 2)";
+  const padOrder = `[...${ownList}.querySelectorAll('[data-pad]')].map(row=>row.dataset.pad)`;
   const names = await read<string[]>(padOrder);
   const first = names[0]!;
   const second = names[1]!;
