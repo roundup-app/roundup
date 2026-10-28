@@ -24,6 +24,9 @@ concurrency:
 # L89: a PR's lanes test only what its diff reaches (`loop/affected.py`): the merge ref's first parent is the `main` it
 # merges into. An empty base, on every other event, tests everything.
 env:
+  # A new experiment title starts an isolated cache; pushes with the same title restore it.
+  CI3781_CACHE: >-
+    ${{ github.event_name == 'pull_request' && startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && format('pr{0}-{1}', github.event.pull_request.number, github.event.pull_request.title) || '' }}
   BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
 
 # L98: bash -eo pipefail, so a failure left of a pipe fails the step.
@@ -46,13 +49,32 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: B4522 migration filename boundaries
+        run: |
+          guard=tools/migrations/guard.py
+          if [ -n "$BASE" ]; then
+            base=$(git rev-parse --verify "$BASE^{commit}")
+            # Once installed, a PR cannot expand its own duplicate exceptions.
+            if git cat-file -e "$base:tools/migrations/guard.py" 2>/dev/null; then
+              trusted=$(mktemp -d)
+              git show "$base:tools/migrations/guard.py" > "$trusted/guard.py"
+              git show "$base:tools/migrations/recorded.json" > "$trusted/recorded.json"
+              guard="$trusted/guard.py"
+            fi
+          fi
+          python3 "$guard" "$BASE"
+          python3 tools/migrations/guard.test.py
+      - name: C9 artifact checker boundaries
+        run: python3 tools/release/check.test.py
       # N7: every launch reference has an entry; the `mac` lane, which runs the rest of N7, skips App-only PRs.
       - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - id: plan
         env:
           RUSTUP_TOOLCHAIN: stable
         run: |
-          rust=$(python3 loop/affected.py rust "$BASE")
+          rust_base="$BASE"
+          if [ -n "$CI3781_CACHE" ]; then rust_base=''; fi
+          rust=$(python3 loop/affected.py rust "$rust_base")
           web=$(python3 loop/affected.py web "$BASE")
           {
             echo "rust=${rust:+true}"
@@ -87,6 +109,9 @@ jobs:
   rust:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
+    env:
+      BASE: >-
+        ${{ github.event_name == 'pull_request' && !startsWith(github.event.pull_request.title, 'CI3781 experiment: ') && 'HEAD^1' || '' }}
     name: rust ${{ matrix.partition }}
     strategy:
       fail-fast: false
@@ -98,7 +123,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          # Empty BASE makes the unchanged R26 baseline guard read origin/main.
+          fetch-depth: ${{ env.CI3781_CACHE != '' && '0' || '2' }}
+          # Repeated experiment pushes retain their source tree despite unrelated main merges.
+          ref: ${{ env.CI3781_CACHE != '' && github.event.pull_request.head.sha || '' }}
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
@@ -106,6 +134,32 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           save-cache: ${{ matrix.partition == 1 }}
+          experiment-cache: ${{ env.CI3781_CACHE }}
+      - name: C9b native release size
+        if: matrix.partition == 1
+        run: |
+          cargo build --locked --release -p rupd
+          mkdir -p target/release-evidence
+          git rev-parse HEAD > target/release-evidence/commit.txt
+          rustc -Vv > target/release-evidence/toolchain.txt
+          uname -a > target/release-evidence/host.txt
+          cp Cargo.toml target/release-evidence/Cargo.toml
+          python3 tools/release/check.py binary target/release/rupd | tee target/release-evidence/size.json
+      - name: C9 native evidence
+        if: ${{ always() && matrix.partition == 1 }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}-${{ github.run_attempt }}
+          path: target/release-evidence/
+          if-no-files-found: error
+          retention-days: 30
+      - name: U4251 raw SDK storage capability
+        if: matrix.partition == 1
+        timeout-minutes: 1
+        run: node --test crates/agents/sidecar/storage.test.mjs
+      - name: CI4018 experiment cache regression
+        if: matrix.partition == 1
+        run: node --test .github/actions/setup/cache.test.mjs
       - name: E12 network observer dependencies
         run: |
           if ! command -v strace || ! command -v ip || ! command -v setpriv; then
@@ -119,7 +173,9 @@ jobs:
         timeout-minutes: 15
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
-          python3 tools/e14/observe.py run --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+          observation=()
+          if [ -n "$CI3781_CACHE" ]; then observation+=(--build-observation); fi
+          python3 tools/e14/observe.py run "${observation[@]}" --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
       - name: E14 observer regression
         if: ${{ !cancelled() && matrix.partition == 1 }}
         run: python3 tools/e14/observe.test.py
@@ -148,13 +204,27 @@ jobs:
         with:
           node: 'false'
       - run: just clippy
+      - name: Z4280a fresh desktop build
+        if: ${{ !cancelled() }}
+        run: |
+          fresh_target=$(mktemp -d "$RUNNER_TEMP/z4280a.XXXXXX")
+          CARGO_TARGET_DIR="$fresh_target" cargo build --locked -p desktop 2>&1 | tee "$RUNNER_TEMP/z4280a-build.log"
+          ! grep -F 'Modifiers::SUPER' "$RUNNER_TEMP/z4280a-build.log"
+      - name: Z4280a build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: z4280a-macos-build-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/z4280a-build.log
+          if-no-files-found: error
+          retention-days: 30
 
   # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
     needs: plan
     if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     runs-on: macos-latest
-    timeout-minutes: 12
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
         with:
@@ -164,6 +234,23 @@ jobs:
         with:
           save-cache: 'true'
           node: 'false'
+      - name: C9b native release size
+        run: |
+          cargo build --locked --release -p rupd
+          mkdir -p target/release-evidence
+          git rev-parse HEAD > target/release-evidence/commit.txt
+          rustc -Vv > target/release-evidence/toolchain.txt
+          uname -a > target/release-evidence/host.txt
+          cp Cargo.toml target/release-evidence/Cargo.toml
+          python3 tools/release/check.py binary target/release/rupd | tee target/release-evidence/size.json
+      - name: C9 native evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}-${{ github.run_attempt }}
+          path: target/release-evidence/
+          if-no-files-found: error
+          retention-days: 30
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-since "$BASE" --profile mac
@@ -209,6 +296,24 @@ jobs:
         with:
           rust: 'build'
           browser: 'true'
+      - name: C9c production desktop size
+        if: matrix.partition == 1
+        run: |
+          pnpm --filter desktop build
+          python3 tools/release/check.py modules target/release-modules.json --inventory tools/release/inventory.json --dist apps/desktop/dist
+          mkdir -p target/release-evidence
+          git rev-parse HEAD > target/release-evidence/commit.txt
+          python3 tools/release/check.py dist apps/desktop/dist | tee target/release-evidence/dist.json
+      - name: C9 desktop evidence
+        if: ${{ always() && matrix.partition == 1 }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-web-${{ github.run_attempt }}
+          path: |
+            target/release-evidence/
+            target/release-modules.json
+          if-no-files-found: error
+          retention-days: 30
       - name: U26 Linux fault observer dependencies
         run: |
           sudo apt-get update -qq
@@ -255,6 +360,13 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
+      - name: R3800 startup artifact checker observers
+        run: node --test apps/desktop/budgets/*.test.mjs
+      # A failed build or checker fails this job, and `check` needs it to succeed.
+      - name: R3800 production entry budget
+        run: |
+          pnpm --filter desktop build
+          pnpm --filter desktop check:startup
       - name: T3797a real-tool lint observers
         run: pnpm --filter lint-boundaries test:boundaries
       - name: U26 Linux fault observer dependencies

@@ -1,3 +1,4 @@
+import type { createCopyFeedback } from "./CopyButton";
 import { writeText } from "../app/clipboard";
 import type { RpcMethods } from "@contracts/methods";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -9,8 +10,9 @@ import type { App, AppSeam, MenuItem } from "../app/seam";
 export type MenuEntry = {
   id: string;
   label: string;
-  /** The chord as `keys/chords.ts` shows it: label text, never an accelerator. */
+  /** The chord as `keys/chords.ts` shows it: one-step native accelerator or separate sequence hint. */
   shortcut?: string | undefined;
+  group?: MenuItem["group"];
   enabled?: boolean;
   run?: () => void | Promise<void>;
   children?: MenuEntry[];
@@ -18,6 +20,8 @@ export type MenuEntry = {
 
 const wire = (entry: MenuEntry): MenuItem => {
   const item: MenuItem = { id: entry.id, label: entry.label, enabled: entry.enabled ?? true };
+
+  if (entry.group !== undefined) item.group = entry.group;
 
   if (entry.shortcut !== undefined) item.shortcut = entry.shortcut;
 
@@ -36,12 +40,43 @@ const find = (entries: MenuEntry[], id: string): MenuEntry | undefined => {
   return undefined;
 };
 
-/** U2694a: the only caller of `showContextMenu`. Pops the system menu of `model` at `x`, `y`, then runs the chosen item; closing with no choice runs nothing. */
-export const contextMenu = async (app: Pick<App, "showContextMenu">, model: MenuEntry[], x: number, y: number): Promise<void> => {
-  const chosen = await app.showContextMenu(model.map(wire), x, y);
-  const entry = chosen === null ? undefined : find(model, chosen);
+// U4322a: stable action ids, shared by every producer; child order remains the producer's.
+const groups = [
+  ["open", "dismiss", "recover"],
+  ["start-now", "dequeue", "move-up", "move-down"],
+  ["start", "restart", "yolo", "stop", "resume"],
+  ["complete"],
+  ["folder", "editor", "send", "copy-link", "copy"],
+  ["rename", "clear", "assign", "make-yours", "move", "move-up", "move-down"],
+  ["add"],
+  ["remove", "delete", "close"],
+];
 
-  if (entry && entry.enabled !== false) await entry.run?.();
+const applicable = (entries: MenuEntry[]): MenuEntry[] => entries.flatMap(entry => {
+  if (entry.enabled === false) return [];
+
+  if (!entry.children) return [entry];
+  const children = applicable(entry.children);
+
+  return children.length ? [{ ...entry, children }] : [];
+});
+
+/** U4322a/b: project applicable groups, then dispatch only a chosen leaf on the captured object. */
+export const contextMenu = async (app: Pick<App, "showContextMenu">, model: MenuEntry[], x: number, y: number): Promise<void> => {
+  const queue = model.some(entry => entry.id === "dequeue");
+
+  const ordered = groups.flatMap((ids, index) => ids.flatMap(id => {
+    if ((id === "move-up" || id === "move-down") && (queue ? index !== 1 : index !== 5)) return [];
+
+    return model.flatMap(entry => entry.id === id ? [{ ...entry, group: String(index) }] : []);
+  }));
+
+  const known = new Set(groups.flat());
+  const entries = applicable([...ordered, ...model.filter(entry => !known.has(entry.id))]);
+  const chosen = await app.showContextMenu(entries.map(wire), x, y);
+  const entry = chosen === null ? undefined : find(entries, chosen);
+
+  if (entry && !entry.children) await entry.run?.();
 };
 
 /** LK1: the kinds a link names. */
@@ -79,6 +114,7 @@ export const linkEntries = (
   running: (node: RailNode) => boolean,
   fail: (message: string) => void,
   copied: () => void = () => {},
+  feedback?: ReturnType<typeof createCopyFeedback>,
 ): MenuEntry[] => {
   const attempt = async (call: (link: string) => Promise<void>, verb: "copy" | "send" = "send") => {
     try {
@@ -115,9 +151,18 @@ export const linkEntries = (
 
   return [
     children.length ? { id: "send", label: copy.sendToAgentMenu, children } : { id: "send", label: copy.sendToAgentMenu, enabled: false },
-    { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
-      await writeText(app, target.kind === "deliverable" ? copy.linkNote(link) : link);
-    }, "copy") },
+    { id: "copy-link", label: copy.copyLink, run: () => {
+      const write = async () => {
+        const link = await linkOf(app, target).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
+
+        if (link.kind === "unavailable") throw new Error(link.cause);
+
+        await writeText(app, target.kind === "deliverable" ? copy.linkNote(link.url) : link.url).catch(error => { throw new Error(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); });
+      };
+
+      return feedback ? feedback.run(write, copied, error => fail(error.message))
+        : attempt(async link => { await writeText(app, target.kind === "deliverable" ? copy.linkNote(link) : link); }, "copy");
+    } },
   ];
 };
 
@@ -150,6 +195,8 @@ export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) =>
   const stop = () => {
     document.removeEventListener("pointerup", release);
     window.removeEventListener("pointerdown", stop, true);
+    window.removeEventListener("blur", stop);
+    window.removeEventListener("pointercancel", stop, true);
   };
 
   const release = (event: PointerEvent) => {
@@ -160,4 +207,6 @@ export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) =>
 
   document.addEventListener("pointerup", release);
   window.addEventListener("pointerdown", stop, true);
+  window.addEventListener("blur", stop);
+  window.addEventListener("pointercancel", stop, true);
 };

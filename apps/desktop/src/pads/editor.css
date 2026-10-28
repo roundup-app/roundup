@@ -1,0 +1,3 @@
+/* Editor defaults stay below the App's Token rules even when this lazy chunk loads last. */
+@import "@milkdown/crepe/theme/common/style.css" layer(editor);
+@import "@milkdown/crepe/theme/classic.css" layer(editor);

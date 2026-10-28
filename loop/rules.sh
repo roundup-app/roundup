@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen|scenario-closes|empty-diff <pr> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen|scenario-closes|empty-diff <pr or local> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -9,17 +9,17 @@ cd "$(dirname "$0")/.."
 # grep that treats "no match" as success but a real error as failure.
 g() { grep "$@" || [ $? -eq 1 ]; }
 
-# Avoid words from GLOSSARY.md, lowercased; a two-word term joins with `_`.
+# Avoid words from the `Code term | User label | Avoid` tables of GLOSSARY.md, lowercased; a two-word term joins with `_`.
+# An Avoid cell ends at its first `.` or `;`; `—` marks a row with none.
 avoid_phrases() {
   local phrases
-  phrases=$(awk -F '|' '
-    /^\|/ {
-      for (i = 2; i <= 4; i++) gsub(/^[ \t]+|[ \t]+$/, "", $i)
-      if (NF == 5 && $2 == "Code term" && $3 == "User label" && $4 == "Avoid") { table = 1; next }
-      if (table && NF == 5 && $4 !~ /^[-: ]*$/ && $4 != "—") print $4
-    }' GLOSSARY.md | sed 's/[.;].*//' | tr ',' '\n' |
-    awk 'NF { print tolower(($2 != "" && $2 != "in") ? $1 "_" $2 : $1) }')
-  [ -n "$phrases" ] || { echo "rule 6: no Avoid data found in GLOSSARY.md" >&2; return 1; }
+  [ -f GLOSSARY.md ] || { echo "rule 6: GLOSSARY.md is missing" >&2; return 1; }
+  phrases=$(awk -F'|' '
+    /^\| *Code term *\| *User label *\| *Avoid *\|/ { in_table = 1; next }
+    /^\|/ { if (in_table && $4 !~ /^[ -]*$/) print $4; next }
+    { in_table = 0 }' GLOSSARY.md | sed 's/[.;].*//' | tr ',' '\n' |
+    awk 'NF && $1 != "—" { print tolower(($2 != "" && $2 != "in") ? $1 "_" $2 : $1) }')
+  [ -n "$phrases" ] || { echo "rule 6: no Avoid words found in the GLOSSARY.md tables" >&2; return 1; }
   echo "$phrases"
 }
 
@@ -546,15 +546,21 @@ def frozen_gate(pr, base, head):
         *(f'  {path}' for path in paths[:5]), *([f'  and {len(paths) - 5} more'] if len(paths) > 5 else []),
         "Restore main's side of those paths; loop changes come from the user's own PRs."]))
 
-# A PR whose changed files all sit under scenarios/ lands no code, so closing a work Issue from it closes the Issue early.
-CLOSES = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?[ \t]+#\d+', re.I)
+# A PR whose changed files all sit under scenarios/ lands no code, so closing an implementation Issue from it closes the
+# Issue early. A `Mode: specify` Issue is done by that very PR, so it may close it.
+CLOSES = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?[ \t]+#(\d+)', re.I)
+SPECIFY = re.compile(r'^Mode: specify[ \t]*$', re.M)
 
 def scenario_closes_gate(pr, base, head):
     paths = git('diff', '--name-only', base+'...'+head).splitlines()
+    if not (paths and all(path.startswith('scenarios/') for path in paths)):
+        return
     text = '\n'.join([pr.get('body') or '', git('log', '--format=%B', base+'..'+head)])
-    found = CLOSES.search(text)
-    require(not (paths and all(path.startswith('scenarios/') for path in paths) and found),
-            f'scenario-closes: a scenario-only PR holds "{found and found.group(0)}"; use Refs: #N')
+    for found in CLOSES.finditer(text):
+        issue = one(f'{repo}/issues/{found.group(1)}')
+        require(SPECIFY.search(issue.get('body') or ''),
+                f'scenario-closes: a scenario-only PR holds "{found.group(0)}", but #{found.group(1)} is not a '
+                'Mode: specify Issue; use Refs: #N (a scenario-only PR may close only a Mode: specify Issue)')
 
 # L46: a PR whose head has no net change against its base merges nothing; only one that closes its Issue (work other PRs
 # already landed, `.agents/data/pr.md`) may be empty.
@@ -566,7 +572,9 @@ def empty_diff_gate(pr, base, head):
             '"Closes #N"; a PR that only undid its own change never merges.')
 
 try:
-    pr = one(pull)
+    # `local`: the checkout's HEAD against origin/main, before any PR exists (`just ready`); its author counts as a bot.
+    pr = {'base': {'ref': 'main', 'sha': git('rev-parse', 'origin/main')}, 'head': {'sha': git('rev-parse', 'HEAD')},
+          'user': {'type': 'Bot'}} if number == 'local' else one(pull)
     base_gate(pr)
     if command != 'base':
         head, base = sha(pr['head']['sha']), sha(pr['base']['sha'])
@@ -588,7 +596,7 @@ PY
 
 case "${1:-}" in
   base | ci-trailers | frozen | scenario-closes | empty-diff)
-    [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
+    [[ ${2:-} =~ ^([0-9]+|local)$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
   scenario-ids) [ $# -eq 1 ] || { echo "usage: loop/rules.sh scenario-ids" >&2; exit 2; }

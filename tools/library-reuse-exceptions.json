@@ -1,0 +1,170 @@
+[
+  {
+    "telltale": "system-time",
+    "file": "crates/agents/tests/launch/trust.rs",
+    "symbol": "a4_a_config_lock_its_holder_left_behind_is_broken_once_stale",
+    "reason": "Test fixture backdates the proper-lockfile-compatible ConfigLock mtime to exercise stale-lock recovery."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/checkpoints/src/store.rs",
+    "symbol": "Checkpoints::write",
+    "reason": "Existing checkpoint wall-clock milliseconds; Z3799c / #3830 owns migration preserving the pre-epoch default and signed overflow refusal."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/checkpoints/src/marks_tests.rs",
+    "symbol": "n14_interrupted_write_preserves_existing_marks",
+    "reason": "Real interrupted-writer test waits for its child with a deadline before checking retained marks."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/desktop/src/paste.rs",
+    "symbol": "save_in_cache",
+    "reason": "Existing filesystem clock for pasted-image naming and seven-day pruning; Z3799c / #3830 owns the boundary-preserving migration."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/desktop/src/paste.rs",
+    "symbol": "tests::u418_refuses_a_type_it_does_not_name",
+    "reason": "Test supplies a filesystem timestamp to the type-refusal seam."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/desktop/src/paste.rs",
+    "symbol": "tests::u418_refuses_bytes_over_the_limit",
+    "reason": "Test supplies filesystem timestamps to both sides of the paste-size boundary."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/desktop/src/paste.rs",
+    "symbol": "tests::u418_a_save_prunes_files_older_than_seven_days_and_only_those",
+    "reason": "Filesystem pruning test uses a reference clock to set fixture mtimes."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/desktop/tests/app.rs",
+    "symbol": "s4_just_app_refuses_to_start_when_something_already_answers_on_the_dev_port",
+    "reason": "Native launcher integration test bounds the just-app child lifetime while checking dev-port refusal."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/provenance/src/store.rs",
+    "symbol": "Touches::record_revision",
+    "reason": "Existing provenance milliseconds with saturating overflow; Z3799c / #3830 owns the migration preserving recorded ordering."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rup/tests/attachment.rs",
+    "symbol": "u419_start_removes_files_older_than_7_days",
+    "reason": "Real attachment-cache test sets an eight-day-old filesystem mtime."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/rup/tests/e2e/aimock.rs",
+    "symbol": "Model::start_at",
+    "reason": "Real model-fixture startup waits for HTTP health while detecting early child exit, bounded at ten seconds."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/rup/tests/e2e/daemon.rs",
+    "symbol": "Project::drop",
+    "reason": "Real-Daemon fixture shutdown waits within BOUND before killing and reaping its owned process."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rup/tests/e2e/reaction.rs",
+    "symbol": "utc_in",
+    "reason": "Real-Daemon reaction test constructs a future UTC instant relative to the running process clock."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rup/tests/evidence_support/mod.rs",
+    "symbol": "receipt",
+    "reason": "Real receipt-server fixture supplies a fresh observed_at for the Daemon freshness check."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/rup/tests/project_data.rs",
+    "symbol": "refused_with",
+    "reason": "Real-Daemon startup-refusal test observes bounded child exit and diagnostics."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/rup/tests/signal.rs",
+    "symbol": "rup",
+    "reason": "Signal integration fixture observes owned rup exit with a deadline before kill/reap cleanup."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/rup/tests/signal.rs",
+    "symbol": "h15_rup_signal_never_runs_more_than_one_os_thread",
+    "reason": "Linux thread-count integration observation samples the running child until exit, bounded by HOOK_TIMEOUT / 2."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rupd/src/attachment.rs",
+    "symbol": "Attachments::open",
+    "reason": "Existing filesystem mtime age comparison for seven-day attachment pruning; Z3799c / #3830 owns migration, including future-file retention."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rupd/src/deliverables.rs",
+    "symbol": "Daemon::deliverable_call",
+    "reason": "Existing publication timestamp bound to the created record; Z3799c / #3830 owns migration preserving publication identity and units."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rupd/src/import_tests.rs",
+    "symbol": "large_storage_discovery",
+    "reason": "Import performance fixture makes recent transcript timestamps relative to the real Daemon discovery clock."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rupd/src/removal.rs",
+    "symbol": "removal_touch",
+    "reason": "Existing removal provenance milliseconds with pre-epoch refusal; Z3799c / #3830 owns the contract-preserving migration."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rupd/src/rewind.rs",
+    "symbol": "Daemon::rewind_run",
+    "reason": "Existing rewind operation key includes epoch nanoseconds; Z3799c / #3830 owns migration preserving identity and pre-epoch refusal."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/rupd/src/vendor_list_tests.rs",
+    "symbol": "u3523a_period_live_sessions_and_source_failures",
+    "reason": "Vendor-list fixture sets an hour-old mtime to prove period filtering against real discovery time."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/rupd/tests/b21_stopped_door.rs",
+    "symbol": "Run::shutdown",
+    "reason": "Real-Daemon integration fixture bounds graceful shutdown, then kills and reaps its owned child."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/rupd/tests/d1_attached.rs",
+    "symbol": "wait_for_exit",
+    "reason": "Attached-Daemon integration test observes owned child exit under the existing EXIT_BOUND."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/rupd/tests/support/rupd_harness.rs",
+    "symbol": "start",
+    "reason": "Real-Daemon fixture waits for daemon.ping while detecting early child exit under START_BOUND."
+  },
+  {
+    "telltale": "polling-wait",
+    "file": "crates/terminal/src/lib.rs",
+    "symbol": "reap",
+    "reason": "Explicit Z3742p exclusion: portable-pty terminal reap poll; its Program lock owns reaping and signalling."
+  },
+  {
+    "telltale": "system-time",
+    "file": "crates/todos/src/tests/history.rs",
+    "symbol": "t15_restart_retains_change_time",
+    "reason": "Persistence test brackets real stored change timestamps before a restart; the production clock is already migrated."
+  }
+]

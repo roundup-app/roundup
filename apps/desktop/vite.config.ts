@@ -1,16 +1,36 @@
+import { readFileSync } from "node:fs";
+import postcss from "postcss";
+import valueParser from "postcss-value-parser";
 import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
-import { defineConfig } from "vitest/config";
+import { visualizer } from "rollup-plugin-visualizer";
+import { configDefaults, defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
+import { buildModules } from "./budgets/build.ts";
+
+const queryTokens = new Map<string, string>();
+
+postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")).walkDecls(declaration => {
+  if (declaration.prop.startsWith("--query-")) queryTokens.set(declaration.prop, declaration.value);
+});
+
 const served = realDaemonFromEnv(process.env);
+
+// These scenario-prescribed files own no browser or App server, including S3806b when its caller slice lands.
+const webkitGuards = [
+  "src/ui/s3806a_interruption.test.tsx",
+  "src/ui/s3806b_actions.test.tsx",
+  "src/terminal/s3806c_scale.test.ts",
+];
 
 // Radix Colors scopes light to `:root, .light, .light-theme` and dark to `.dark, .dark-theme`, which the App never toggles
 // (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light
 // stays on `:root`, dark moves to `:root` under the same media query tokens.css uses.
 export default defineConfig({
-  plugins: [solid(), ...(served ? [realDaemon(served)] : []), {
+  build: { manifest: true },
+  plugins: [solid(), buildModules(), visualizer({ filename: "../../target/release-modules.json", template: "raw-data" }), ...(served ? [realDaemon(served)] : []), {
     name: "roundup-dev-ready",
     apply: "serve",
     configureServer(server) {
@@ -44,8 +64,56 @@ export default defineConfig({
     postcss: {
       plugins: [
         {
+          postcssPlugin: "roundup-query-tokens",
+          Once(root) {
+            const reduced = postcss.atRule({ name: "media", params: "(prefers-reduced-motion: reduce)" });
+            const rule = postcss.rule({ selector: ":root" });
+
+            const motionTokens = new Set<string>();
+
+            root.walkDecls(/^--(?:duration|delay)-/, declaration => { motionTokens.add(declaration.prop); });
+
+            for (const prop of motionTokens) if (prop !== "--duration-reduced") rule.append(postcss.decl({ prop, value: "0s" }));
+
+            if (motionTokens.size === 0) return;
+
+            reduced.append(rule);
+            root.append(reduced);
+          },
+          AtRule: {
+            container(query) {
+              const params = valueParser(query.params);
+
+              params.walk(node => {
+                if (node.type !== "function" || node.value !== "env") return;
+
+                const name = valueParser.stringify(node.nodes).trim();
+                const value = queryTokens.get(name);
+
+                if (!value) throw query.error(`Unknown query Token: ${name}`);
+                Object.assign(node, { type: "word", value });
+              });
+              query.params = params.toString();
+            },
+          },
+        },
+        {
           postcssPlugin: "roundup-vendor-control-feedback",
           Once(root) {
+            root.walkDecls(/^(?:animation|transition)(?:-.+)?$/, declaration => {
+              if (!declaration.source?.input.file?.includes("/node_modules/")) return;
+
+              const value = valueParser(declaration.value);
+
+              value.walk(node => {
+                if (node.type !== "word") return;
+
+                const dimension = valueParser.unit(node.value);
+
+                if (dimension && (dimension.unit === "ms" || dimension.unit === "s")) node.value = `var(--duration-vendor, ${node.value})`;
+              });
+              declaration.value = value.toString();
+            });
             // Imported editors keep their selection paint, but cannot add rings or press washes (U3528).
             root.walkRules((rule) => {
               if (!rule.source?.input.file?.includes("/node_modules/")) return;
@@ -66,7 +134,7 @@ export default defineConfig({
         {
           postcssPlugin: "radix-colors-prefers-color-scheme",
           Once(root, { AtRule }) {
-            for (const node of root.nodes) {
+            for (const node of [...root.nodes]) {
               if ((node.type !== "rule" && node.type !== "atrule") || !node.source?.input.file?.includes("/@radix-ui/colors/")) continue;
 
               const rules: { selector: string }[] = [];
@@ -78,6 +146,12 @@ export default defineConfig({
 
 
               for (const rule of rules) rule.selector = ":root";
+
+              const explicit = node.clone();
+
+              if (explicit.type === "rule") explicit.selector = `:root[data-mode="${dark ? "dark" : "light"}"]`;
+              else explicit.walkRules(rule => { rule.selector = `:root[data-mode="${dark ? "dark" : "light"}"]`; });
+              node.after(explicit);
 
               if (!dark) continue;
               const scoped = new AtRule({ name: "media", params: "(prefers-color-scheme: dark)" });
@@ -103,11 +177,21 @@ export default defineConfig({
     reporters: ["default", ["json", { stdout: true }]],
     // Vitest returns empty CSS by default; the Drawer and tokens tests need the real rules.
     css: { include: [/styles\.css/, /tokens\.css/, /buttons\.css/, /xterm\.css/, /src\/ui\/\w+\.css/] },
-    include: ["src/**/*.test.{ts,tsx}"],
     // L89: `--shard` balances by measured time, not path hash.
     sequence: { sequencer: TimedSequencer },
     setupFiles: ["src/testing/domStubs.ts"],
-    globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+    // Inline projects inherit jsdom, stubs, transforms and resolution. Only queued App tests start their global setup.
+    projects: [
+      { test: { name: "webkit-guards", include: webkitGuards } },
+      {
+        test: {
+          name: "app",
+          include: ["src/**/*.test.{ts,tsx}"],
+          exclude: [...configDefaults.exclude, ...webkitGuards],
+          globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+        },
+      },
+    ],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
     server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
   },

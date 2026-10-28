@@ -1,0 +1,49 @@
+{
+  "scenario": "Z3788c",
+  "scope": "Terminal Pane observer/window listener only",
+  "base_revision": "eef20cf41403aa8591c68bcd26920e3f33e848c9",
+  "head_revision": "26cb83ca8e637b66e57e653e497d25083393e139",
+  "host": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "node": "v22.23.3",
+  "pnpm": "10.14.0",
+  "gzip": "level 9; each recursively reachable static-import file counted/compressed once; checkStartup in budgets/startup.mjs",
+  "base": {
+    "exit": 0,
+    "entry": "assets/index-8-ir7Fhn.js",
+    "files": [
+      "assets/index-8-ir7Fhn.js"
+    ],
+    "raw": 1387259,
+    "gzip": 437372,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "head": {
+    "exit": 0,
+    "entry": "assets/index-CFX7z8Bi.js",
+    "files": [
+      "assets/index-CFX7z8Bi.js"
+    ],
+    "raw": 1387384,
+    "gzip": 437429,
+    "ceiling": 437814,
+    "diagnostic": ""
+  },
+  "mutation": "Removing observer disconnect, window listener removal and pending-frame cancellation makes both owner cleanup cases fail: retired fits=1 rather than 0. Restored before production implementation.",
+  "claims": "No Z3788a entry no-growth/409600 pass, no image memory or native timing claim.",
+  "merge_verification": {
+    "revision": "f2e5bd02ae3303cda1a82f447b615febf5af87c4",
+    "main": "e912a89447d29931fabbdd43b3f2d81d7b013cef",
+    "result": {
+      "exit": 0,
+      "entry": "assets/index-BEg5J6kB.js",
+      "files": [
+        "assets/index-BEg5J6kB.js"
+      ],
+      "raw": 1388238,
+      "gzip": 437698,
+      "ceiling": 437814,
+      "diagnostic": ""
+    }
+  }
+}

@@ -16,7 +16,6 @@ pub(super) fn agent_context() -> Offered {
 pub(super) fn agent_digest() -> Offered {
     Offered {
         own_id: true,
-        door_only: true,
         ..offered_without_params(
             "agent.digest",
             "Ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told.",
@@ -27,7 +26,6 @@ pub(super) fn agent_digest() -> Offered {
 /// M10: only a Door writes a Checkpoint.
 pub(super) fn checkpoint_write() -> Offered {
     Offered {
-        door_only: true,
         ..offered::<checkpoint::WriteParams>(
             "checkpoint.write",
             "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
@@ -99,7 +97,6 @@ pub(super) fn agent_spawn() -> Offered {
 /// LC7: the names a Door may give a child, by kind.
 pub(super) fn agent_extras() -> Offered {
     Offered {
-        door_only: true,
         ..offered_without_params(
             "agent.extras",
             "List the skills, plugins and MCP servers of the user's setup that `agent_spawn`'s `extras` and `agent_extras_add` accept.",
@@ -110,7 +107,6 @@ pub(super) fn agent_extras() -> Offered {
 /// LC8: add extras to a running child.
 pub(super) fn agent_extras_add() -> Offered {
     Offered {
-        door_only: true,
         ..offered::<agent::ExtrasAddParams>(
             "agent.extras_add",
             "Give a running child of yours skills, plugins or MCP servers by name. The child is stopped and relaunched with its conversation; an unknown name fails and the child keeps running.",

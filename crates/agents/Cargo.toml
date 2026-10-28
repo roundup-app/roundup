@@ -5,8 +5,6 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
-rangemap = "1.6"
-axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 async-trait.workspace = true
 contracts = { path = "../contracts" }
 checkpoints = { path = "../checkpoints" }
@@ -28,12 +26,14 @@ terminal = { path = "../terminal" }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["process"] }
 unicode-normalization = "0.1"
+url = "2"
 time = { version = "0.3.55", features = ["parsing"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 libproc = "0.14"
 
 [dev-dependencies]
+agents = { path = ".", features = ["test-support"] }
 stats_alloc = "0.1"
 messages = { path = "../messages" }
 provenance = { path = "../provenance" }

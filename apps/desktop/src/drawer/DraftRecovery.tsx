@@ -1,18 +1,21 @@
-import { writeText } from "../app/clipboard";
+import { EmptyState } from "../ink/EmptyState";
+import { NameField } from "../ui/Editable";
+import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "../copy";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show, lazy } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
 import { PadDrawer } from "../pads/PadDrawer";
 import { Pads } from "../pads/Pads";
-import { OrderDrawer } from "../orders/OrderDrawer";
 import { todoCreationEditor, todoEditor } from "./editors";
 import { typedText, useUnfinishedWork } from "./unfinishedWork";
+
+const OrderDrawer = lazy(() => import("../orders/OrderDrawer").then(module => ({ default: module.OrderDrawer })));
 
 /**
  * U3289c: the Overview row's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
@@ -49,15 +52,6 @@ const DraftRecoveryPanel = () => {
 
   type Row = ReturnType<typeof work.rows>[number];
 
-  const copyText = async (row: Row) => {
-    try {
-      await writeText(app, typedText(row.draft).join("\n"));
-      clear(row.draft.revision);
-    } catch (error) {
-      setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }));
-    }
-  };
-
   const node = (row: Row) => rail.nodes.find((candidate) => candidate.id === (row.draft.destination.surface === "terminal_selection" ? row.draft.value.source : row.draft.destination.object));
 
   const title = (row: Row) => {
@@ -73,14 +67,27 @@ const DraftRecoveryPanel = () => {
   const open = (row: Row) => {
     const { surface, object } = row.draft.destination;
 
+    if (surface === "row-name") {
+      const todo = todos.all().find(todo => object === `todo:${todo.id}`);
+      const pad = pads.pads().find(pad => object === `pad:${pad.incarnation}`);
+
+      return () => drawer.open(() => <NameField object={object} name={todo?.title ?? pad?.name ?? String(row.draft.value.base)}
+        version={async () => null} close={() => drawer.close("key")} fail={message => { if (message) setFailures(current => ({ ...current, [row.draft.revision]: message })); }}
+        commit={async (text, base, version) => {
+          if (todo) await app.rpc("todo.update", { id: todo.id, title: text, body: null, expected_change: Number(version) });
+          else if (pad) await app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: pad.incarnation });
+          else throw new Error(copy.railDraftMissingTarget);
+        }} />, "key");
+    }
+
     if (surface === "pads" && row.draft.value.originalName) {
-      return () => drawer.open(() => <PadDrawer name={String(row.draft.value.originalName)} pads={pads.pads} recovery={{ project: project.path, revision: row.draft.revision, list: pads }} onLateFailure={() => {}} />, "key");
+      return () => drawer.open(() => <PadDrawer name={String(row.draft.value.originalName)} pads={pads.pads} recovery={{ project: project.path, revision: row.draft.revision, list: pads }} onLateFailure={() => {}} />, "key", { kind: "pad", project: project.path });
     }
 
     const editor = todoEditor.get();
 
     if (surface === "todos" && editor && todos.all().some((todo) => String(todo.id) === object)) {
-      return () => drawer.open(() => editor({ id: Number(object), todos, recovery: { project: project.path, revision: row.draft.revision } }), "key");
+      return () => drawer.open(() => editor({ id: Number(object), todos, recovery: { project: project.path, revision: row.draft.revision } }), "key", { kind: "todo", project: project.path });
     }
 
     if (surface === "pads" && object === "creation") {
@@ -94,7 +101,7 @@ const DraftRecoveryPanel = () => {
     }
 
     if (surface === "orders" && node(row)) {
-      return () => drawer.open(() => <OrderDrawer id={object} recovery={{ project: project.path, revision: row.draft.revision }} />, "key");
+      return () => drawer.open(() => <OrderDrawer id={object} recovery={{ project: project.path, revision: row.draft.revision }} />, "key", { kind: "work-order", project: project.path });
     }
 
     const target = node(row);
@@ -108,7 +115,7 @@ const DraftRecoveryPanel = () => {
     <ReservedLine message={(drafts.problem() && !drafts.problem()!.destination?.surface.startsWith("rail-") ? copy.draftProblem(drafts.problem()!.cause) : null)}>
 <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.tryAgain}</button></Show>
       </ReservedLine>
-    <Show when={work.rows().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
+    <Show when={work.rows().length} fallback={<EmptyState art="order" {...{ title: copy.noUnfinishedWork }} line={copy.emptyDraftsLine} />}>
       <ul class="draft-revisions">
         <For each={work.rows()}>{(row) => <li data-revision={row.draft.revision}>
           <div class="draft-destination">
@@ -123,7 +130,7 @@ const DraftRecoveryPanel = () => {
           </div>
           <div class="draft-actions">
             <Show when={row.cause === "gone" || row.draft.policy === "credential"} fallback={<button data-button="quiet" type="button" onClick={open(row)}>{copy.openDraft}</button>}>
-              <button data-button="quiet" type="button" onClick={() => void copyText(row)}>{copy.copyDraft}</button>
+              <CopyButton app={app} identity={row.draft.revision} text={typedText(row.draft).join("\n")} onSuccess={() => clear(row.draft.revision)} onFailure={error => setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error.message) }))}>{copy.copyDraft}</CopyButton>
             </Show>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(row.draft.revision)}>{copy.discardRow}</button>
           </div>

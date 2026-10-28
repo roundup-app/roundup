@@ -1,0 +1,50 @@
+{
+  "@solid-primitives/resize-observer": {
+    "version": "2.2.0",
+    "published": "2026-07-05T22:11:43.693Z",
+    "peerDependencies": {
+      "solid-js": "^1.6.12"
+    },
+    "dist": {
+      "shasum": "f6d76c0f765bb2008117c2e7504eb1707ef1268c",
+      "tarball": "https://registry.npmjs.org/@solid-primitives/resize-observer/-/resize-observer-2.2.0.tgz",
+      "fileCount": 5,
+      "integrity": "sha512-9Fuu/EWBeGj+atGHRJp70HKhdfalmpjwxY8a32NZixdLNmfCJ45AfhLQNr6uOzETbbiMx4iCKlTrJ8KZCHC2Ww==",
+      "signatures": [
+        {
+          "sig": "MEUCIQDfATXJCId/Mu2036yn58T8P1uk5VFfrRtTIvX6KMcCuQIgE/9kGWyO1HyYULWgpKnT+tZso9HtG/OvMWu+jPMEhOo=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "unpackedSize": 17399
+    },
+    "repository": {
+      "url": "git+https://github.com/solidjs-community/solid-primitives.git",
+      "type": "git"
+    }
+  },
+  "@solid-primitives/event-listener": {
+    "version": "2.4.6",
+    "published": "2026-07-04T20:38:29.908Z",
+    "peerDependencies": {
+      "solid-js": "^1.6.12"
+    },
+    "dist": {
+      "shasum": "95704ae633b92551334e48399ad8785aa7f9f426",
+      "tarball": "https://registry.npmjs.org/@solid-primitives/event-listener/-/event-listener-2.4.6.tgz",
+      "fileCount": 17,
+      "integrity": "sha512-5I0YJcTVYIWoMmgBSROBZGcz+ymhew/pGTg2dHW74BUjFKsV8Li4bOZYl0YAGP4mHw5o4UBd9/BEesqBci3wxw==",
+      "signatures": [
+        {
+          "sig": "MEYCIQCJQ8oBuykI6+tdZJ4BlNGaFvWnbmsIa6/lElrAIDMhPQIhAOzmERFA9F/utcE7uXf7Y1COk1fsPc+SR2PzlbY9nHGs",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "unpackedSize": 35354
+    },
+    "repository": {
+      "url": "git+https://github.com/solidjs-community/solid-primitives.git",
+      "type": "git"
+    }
+  }
+}

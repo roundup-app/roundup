@@ -9,7 +9,6 @@ pub mod extras;
 pub mod inbox;
 mod launch;
 mod launch_files;
-pub(crate) mod measurement;
 mod models;
 mod placement;
 mod profiles;
@@ -25,6 +24,7 @@ use serde_json::Value;
 use crate::{AgentAdapter, Observation};
 
 pub use brief::Role;
+pub(crate) use discovery::ImportCandidate;
 pub use launch::{Folders, INTENT_MISSING, Launcher, STATE_EVENTS, settings_marker};
 pub use models::{Lean, Pair, efforts, engines, models};
 pub use profiles::{

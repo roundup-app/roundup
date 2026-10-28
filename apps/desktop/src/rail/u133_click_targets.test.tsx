@@ -1,8 +1,9 @@
 import { showShelfTab } from "../testing/shelfTabs";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
+import { chromePath, openPage } from "../testing/chromePage";
 import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import buttonsCss from "../buttons.css?inline";
@@ -48,7 +49,7 @@ describe("u133 click targets", () => {
   it("u133_export_md_is_a_button", async () => {
     await mount("tree-40");
     showShelfTab("Pads");
-    fireEvent.click(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")));
+    fireEvent.keyDown(await found(() => document.querySelector<HTMLElement>(".shelf .pad-name")), { key: "Enter" });
     const exportMd = await exportButton();
     const drawer = await found(() => document.querySelector<HTMLElement>('[aria-label="Drawer"]'));
 

@@ -1,16 +1,18 @@
 # Native motion run: the owner's Mac runbook
 
-For U3010d (#3013). One command per workload, one paste back. This document claims no result.
+For U3010d (#3013). One command per workload, one paste back. This document claims no result. Acceptance uses scheduling evidence only; presentation stays unmeasured with no displayed-frame claim.
 
 ## Build
 
 Base and head are the two commits U3010d compares; build and run each in its own checkout, alternating base, head, base, head, base, head. The recorder (U3010e) must be in both: for a base before it, cherry-pick `apps/desktop/src/perf/` and the `perf-frames` recipe onto it.
 
+The historical pre-layer baseline is `843150f7ce0f09569c6eea1a6c21b076c92d2635`. For the final Motion migration, identify its pre-implementation source and final implementation head on #3013; apply the same observer-only overlay to both and retain source, patch and binary hashes.
+
 ## Before you run
 
-- AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered and the Mac awake.
-- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the `glyphs` run starts ten stand-in Agents (`fake_claude.py`, no model call) and tells each it works. `layers` and `todos` first make four Todos.
-- The command drives the workload itself, every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Touch nothing in the window. A control the command cannot find leaves the run invalid (exit 2).
+- AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered, the Mac awake and the screen session unlocked.
+- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the all three motion workloads prepare the same `tree-40-native-v1` fixture using the stand-in Agents (`fake_claude.py`, no model call). The fixture derives the nested tree, names, Todo body/long title and Pad contents from `testing/seeds.ts`: its 38-node tree gains two Agent leaves, all eight Todos start open, and each of two owners has a three-level branch plus a reorder sibling. Ten Agents work. The selected streaming shell remains visible. Setup refuses existing Todos/Pads or any Rail beyond the measurement Workstream; it neither adopts nor deletes user data. It requires dark 1512×950 and identifies the actual reserved/overlay Shelf mode. A fixture not prepared within the existing ten-second setup bound is incomplete; never increase the bound.
+- The command schedules one workload cycle every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or observed native pointer reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Glyphs uses page-driven preparation; Layers observes trusted pointer/key activation. For Todos, the page performs insertion, completion and done-fold; pointer reorder is observed, never generated (see implementation status). A control the command cannot find leaves the run invalid (exit 2).
 
 ## Run
 
@@ -20,17 +22,13 @@ ROUNDUP_ALLOW_WINDOW=1 just perf-frames <layers|todos|glyphs>
 
 It builds the App with the recorder, opens a window kept above everything for about 100 s (10 s warm-up, 60 s sample, 30 s idle) under the 64 KiB/s Terminal stream, and writes the report to `target/perf-frames-<workload>.json`. Set `ROUNDUP_ALLOW_WINDOW=1` only for this run; no agent or CI job sets it.
 
-## What the report measures
-
-`stages.scheduling` is the `requestAnimationFrame` interval series the thresholds judge. `stages.update` is the main-thread cost of each sample frame's rendering update (style, layout and paint recording together, from the animation callback to the next task); it has no threshold and is not displayed time. `stages.presentation` stays `unmeasured` in the page report, its reason naming the entry types the webview lists (`performance_entry_types`). The native presentation procedure below supplies a separate report; callback timing never fills this stage.
-
 ## Exit codes
 
 | Code | Meaning | Decides |
 | --- | --- | --- |
-| 0 | every required stage measured and passing | acceptance evidence complete (never printed while presentation is unmeasured) |
+| 0 | valid scheduling sample meets thresholds | scheduling passes for this run; all workloads and paired comparisons still required |
 | 1 | a valid sample misses the scheduling thresholds | diagnose and repair; keep the report |
-| 2 | invalid run, unmeasured stage or no report | incomplete: repeat an invalid run; an unmeasured presentation stage leaves U3010d incomplete even when scheduling passes |
+| 2 | invalid run or no scheduling report | incomplete: retain diagnostics and repeat after repairing the cause |
 
 ## Paste back into #3013
 
@@ -44,108 +42,359 @@ macOS: <version>   WebKit: <Safari/WebKit version>
 Display: <Hz>   Power: <AC or battery, Low Power Mode on or off>
 ````
 
-## Native presentation evidence (after the observer PR merges)
+## U3800 shared drag qualification
 
-The page cannot fill `stages.presentation`. `perf-presentation` consumes a separate native export; it never starts a window, sends input or changes the scheduling report. Its tests use invented timestamps and prove report validity only. No native presentation result is claimed by those tests.
-
-Use Xcode Instruments' **Animation Hitches** instrument, recording all processes so the WKWebView's WebContent/render-server work is included. [Apple describes its frame lifetime and displayed-frame tracks](https://developer.apple.com/documentation/xcode/improving-app-responsiveness). Availability for this Mac, display and WKWebView must be established by the trace, not by the template's name. A vsync track alone measures display opportunities; callback, commit, GPU completion, expected presentation and hitch-only rows cannot supply actual presentation intervals.
-
-The retained trace has completed both ownership inspections below without establishing an attributable source. **No further export or timing run is requested.** First establish a different source with an explicit ownership chain and actual endpoint semantics; then use this sequence for an authorized Mac run:
-
-1. Build the source revisions first. Keep the existing three alternating base/head pairs, all workload variants, load/fixture, 10 s warmup, 60 s sample and 30 s idle. Use the same observer on both revisions. For an older base, transfer only the observer changes from the merged PR; retain the original source revision and the observer patch/binary hashes separately. No concurrent builds during sampling.
-2. Start an all-process Instruments recording, then run the existing `ROUNDUP_ALLOW_WINDOW=1 just perf-frames <workload>` command. Stop recording after the report is written; save each `.trace` under a unique name beside its original scheduling JSON and diagnostics. Retain failures and missing-stage captures. Record Instruments/Xcode versions and settings along with the existing machine, fixture, load, binary and cleanup metadata. Keep the screen unlocked, awake and uncovered throughout; a locked screen invalidates the run.
-3. In Instruments, identify the **actual** presentation endpoint of the WKWebView's frames and its one surface/display. Retain the attribution view with the trace. Do not combine different surfaces, displays or expected/actual lifetimes. If that track is unsupported or cannot be attributed, return the trace/table-of-contents and reason as **unmeasured**; do not manufacture timestamps or repeat the old callback-only observation as a presentation result.
-4. Export only the tables needed for attribution, one at a time, with the installed `xcrun xctrace export`. First save the table of contents, then inspect its run numbers and schema names. Use a new output directory, retain stdout/stderr and check free space before each export. Do not run the bulk `instruments-analyzer` exporter: its parallel workers each unpack the trace and exhausted the owner's disk in the [2026-10-24 capture](https://github.com/saadshahd/roundup/issues/3013#issuecomment-6388867069). A failed export is retained as an observer error, never an empty successful series.
-
-### Attribution prerequisite before another capture
-
-The owner's capture at `17e407711302654aedeb34350c69ba89c46a8a8d` did **not** establish an attributable presentation series. Its three surface ids (7, 12, 13) each ran at roughly 39 frames/s on a 120 Hz display, with a combined rate near 117 frames/s; the owner identified them as rotating display buffers, with no link to roundup or its WebContent process. A surface id and display id alone are insufficient. Do not rerun the same capture or use a lifetime endpoint as a WKWebView presentation just because its rate looks plausible.
-
-```text
-retained trace → ownership links + actual endpoint semantics → native input
-missing link  → unmeasured; retain evidence, no interval distribution
-```
-
-The [owner's completed offline export](https://github.com/saadshahd/roundup/issues/3013#issuecomment-6389100337) found:
-
-| Source | Observed result | Missing link |
-| --- | --- | --- |
-| `visual-chain` | 28 rows of connection UUID chains and route `CB` | No process or surface identity |
-| `visual-connection` | Schema only, zero rows, export exit 0 | No source/sink relation for those UUIDs |
-| `process-info` | 5,355 rows, including roundup and WebContent identities | No display, layer or surface identity |
-| `metal-known-compositor-process` | One row identifying WindowServer | No relation to roundup/WebContent content |
-
-Those four exports cannot establish attribution. Keep `/tmp/i3013-x2` and its logs; do not repeat them or reinterpret their absence as a presentation-budget failure.
-
-### Completed Metal ownership inspection
-
-The [owner's completed Metal export](https://github.com/saadshahd/roundup/issues/3013#issuecomment-6389400184) at `626e639af` also failed to establish attribution. Both sequential exports exited 0; free space remained 433 GiB. Retain the full XML, referenced definitions, per-file hashes and logs in `/tmp/i3013-x3`; do not repeat these exports.
-
-| Source | Rows / bytes | Observed limit |
-| --- | --- | --- |
-| `metal-io-surface-access` | 124,477 / 56,827,450 | GPU access records have process/surface fields, but no display, window, layer or actual presentation event |
-| `metal-object-dependency-chain-display` | 11,301 / 3,096,745 | Dependency rows have in/out times, root/block ids, colour and track; no process, surface or display fields |
-
-The access table contains eight roundup rows, all on tiny 64×64 or 128×64 surfaces, and zero rows for the three identified WebContent pids. The WebKit GPU process has 256 rows on thirteen surfaces, none shared with WindowServer. Numeric surface ids occur with different sizes and unrelated processes, so equality alone does not establish the same rendered content over time. The single roundup segment/root numeric match is 10.5 s apart and has different engineering types; it is not an ownership join. A dependency out-time is not an independently established display endpoint.
-
-```text
-process → rendered content → displayed surface → actual endpoint
-         missing links in the retained trace
-```
-
-Presentation remains unmeasured. No timestamp extractor can be derived from these rows, and another run of the same capture would not repair their missing semantics. Keep the original scheduling reports separate; these failed attribution attempts demonstrate no presentation-budget failure.
-
-### Source capability required before another Mac request
-
-The next engineering step is to establish a source that exposes both target identity and actual presentation times without a new native permission. Retain the field names, rows, referenced definitions, identifier namespaces and lifetimes for every ownership link; do not join by temporal proximity, equal numbers in unrelated namespaces, combined refresh or App pid alone. [Apple distinguishes commit, render and presentation times](https://developer.apple.com/documentation/xcode/understanding-hitches-in-your-app). It must identify its clock/resolution, distinguish dropped frames from displayed frames and provide complete coverage of the fixed sample window. Review its API or observed schema before writing a collector; test extraction and refusal of unsupported evidence without starting a window. Only after that collector merges should the owner be asked for the remaining paired sequence.
-
-Two native API names do not supply that missing source:
-
-| Candidate | Capability checked | Why it cannot fill this report |
-| --- | --- | --- |
-| WKWebView `_doAfterNextPresentationUpdate:` | [WebKit implementation at `e381818e`](https://github.com/WebKit/WebKit/blob/e381818e3a0e7ec7883904754024b603c2fb2272/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm), method of that name | Its source describes a callback after the next WebProcess transaction. The callback supplies no actual display timestamp or complete per-frame series; measuring its invocation would substitute another callback clock. This is upstream source research, not a claim about the installed WebKit build. |
-| Metal `MTLDrawable.presentedTime` | [Apple's displayed-time property](https://developer.apple.com/documentation/metal/mtldrawable/presentedtime) and [drawable ownership](https://developer.apple.com/documentation/metal/mtldrawable) | It is an actual endpoint for an owned drawable (zero for an unpresented/dropped frame). No WKWebView-to-drawable ownership relation has been established here. A separate Metal layer would measure that layer rather than roundup's existing rendered content. |
-
-Neither a private callback hook nor a new renderer is justified by these findings. Source unavailability stays an engineering gap on #3013, with acceptance open; it does not authorize a new permission, relaxed thresholds, inferred FPS or another callback-only timing request.
-
-### Alternative source considered: ScreenCaptureKit
-
-ScreenCaptureKit can select [specific windows on a display](https://developer.apple.com/documentation/screencapturekit/sccontentfilter/init(display:including:)), and Apple defines [`SCStreamFrameInfo.displayTime`](https://developer.apple.com/documentation/screencapturekit/scstreamframeinfo/displaytime) as a WindowServer display timestamp. These offer a candidate identity and endpoint, unlike page callbacks. They do not establish a complete WKWebView presentation series: [`minimumFrameInterval`](https://developer.apple.com/documentation/screencapturekit/scstreamconfiguration/minimumframeinterval) throttles delivery, and [a complete frame status](https://developer.apple.com/documentation/screencapturekit/scframestatus/complete) describes a generated capture buffer, not proof that none were omitted. Captured window updates would also need to distinguish Terminal changes from the animated content before supporting a smoothness claim.
-
-[Apple's capture sample](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-in-macos) requires Screen Recording permission. U3010d authorizes no new native permission, so this runbook does not prescribe that sample, a permission prompt or a capture helper. Even with existing access, a stream must not set `all_frames: true` merely because its requested capture rate matches the display. This is source research, not a supported observer or a request for a ScreenCaptureKit run.
-
-Only after verifying both ownership and actual endpoint semantics may a complete per-target timestamp series be normalized below. Derive the extraction from the observed schema and retain the exact query and raw rows; the previous `start_ns + duration_ns` query over a guessed `hitches-frame-lifetimes` surface is not valid evidence for this captured WKWebView. Never combine the three display-buffer series, filter late frames, zero-fill missing rows or substitute refresh ticks. Hash the retained trace files and keep a manifest mapping hashes to relative paths, plus the attribution evidence, with the report. A changed instrument schema requires renewed verification.
-
-The scheduling JSON now records `windows_epoch_ms.sample_start`, `sample_end` and `idle_end` using `performance.timeOrigin` plus the first recorder callback and the fixed protocol windows. They exclude setup and warmup. Convert `sample_start` to trace-relative nanoseconds by subtracting the trace's start epoch (from its run metadata), then multiplying milliseconds by 1,000,000. Retain both clock origins, conversion and their resolution; a clock change, unalignable origins or resolution coarser than the display period invalidates the observation. Do not choose a favourable subwindow. Check the scheduling report's `invalid` list before attributing its matching native sample.
-
-Normalize the native export to this JSON shape. Angle-bracket values are observed metadata, not defaults; `timestamps_ns` is the native query's numeric array, including a presentation at/before sample start and at/after sample end. `resolution_ns` is the effective instrument AND clock-alignment resolution, not the number of digits exported. `all_frames` is true only for a complete attributed presentation series, never a hitch list. Keep this input file with the original trace and scheduling report.
-
-```json
-{
-  "source": {
-    "stage": "presentation",
-    "tool": "<Instruments and Xcode versions>",
-    "trace": "<retained .trace path and SHA-256>",
-    "schema": "<verified actual-presentation table and endpoint interpretation>",
-    "target": "<WKWebView attribution evidence, surface and display>",
-    "all_frames": true
-  },
-  "revision": "<full immutable source SHA>",
-  "workload": "layers",
-  "refresh_hz": 120,
-  "resolution_ns": 1000000,
-  "sample_start_ns": 0,
-  "timestamps_ns": []
-}
-```
-
-The example's empty array deliberately cannot pass. Replace its refresh, resolution, start and samples with observed values, then run this offline command from roundup (it needs no `ROUNDUP_ALLOW_WINDOW`):
+The `drag` workload runs the current shared Sortable, with forty Todos and the existing 64 KiB/s Terminal stream. It observes trusted native releases and Escape cancellations; it generates no pointer input. This is distinct from the already completed Pragmatic `drag-compatibility` probe in #3551, which must not be repeated.
 
 ```sh
-cargo run --release -p perf --bin perf-presentation -- \
-  --input /absolute/native-input.json --out /absolute/presentation-report.json
+ROUNDUP_ALLOW_WINDOW=1 just perf-frames drag
 ```
 
-The consumer retains raw timestamps and intervals, nearest-rank p50/p95/p99/max and the >1.5P count/rate. It applies U3010d's existing presentation thresholds independently. It refuses incomplete coverage, duplicate/reversed timestamps, missing provenance, a callback stage or insufficient resolution; it includes intervals crossing the sample boundaries so cropping cannot hide a late frame. Exit 1 means a measured presentation budget miss; exit 2 means invalid/unmeasured evidence or a passing **single stage** with full acceptance still incomplete. This command never exits 0, never overwrites an existing output and never promotes the page's scheduling report to a presentation pass.
+Use the build and machine controls above. Start dragging during the ten-second warm-up, then complete at least one gesture in every two-second window of the sixty-second sample. Repeat this sequence: move a Todo below another, drag it right into a child gap and release, move it back out, then drag and Escape. Keep the Terminal visible and streaming. Stop input for the thirty-second idle window. Missing gestures invalidate the run (exit 2); they never count as a performance pass. The report retains `dragActions.released` and `dragActions.cancelled` alongside the raw frame series and completed-action verdict. Verify both counts are nonzero and inspect the resulting order/parents; gesture counts alone establish no mutation result.
 
-Paste both reports and retain the trace, clock conversion, raw exports, attribution and full run manifest. The 30 s idle observation, style/layout/paint attribution, cleanup and same-machine three-pair regression comparisons remain required, separate evidence. A passing imported presentation sample alone cannot close #3013. Request a new Mac capture only after the observer repair merges and the attribution prerequisite establishes a usable native source.
+For the provisional installed dnd-kit candidate, retain three same-host reports, the commit and binary hashes, dependency versions and each failed command/exit. For the 10% regression check, alternate three base and three head runs. The base is main `a87bbeffc`; transfer only this head's `apps/desktop/src/perf/frame_run.ts` observer to a separate base checkout, retaining the base revision and observer-patch hash separately. The observer accepts the existing library drag marker as well as the new source marker, so both builds count actual gestures. Keep U3010d's thresholds and rule 7's 10% bound. Report presentation stages as unmeasured; scheduling evidence makes no displayed-frame claim. No Chromium result selects a WKWebView timing winner.
+
+In a normal App build of that same commit, also exercise a Rail, Todo and Pad drag, Escape, a small-travel click and keyboard reorder. With Tauri file handling enabled, drop two real files into a Terminal and verify their quoted absolute paths arrive once. A failed internal drag or lost/duplicate path rejects this candidate; a missing native observation leaves qualification incomplete. Retain #3551's Pragmatic failure as its disqualification, not as evidence about this pointer-based implementation.
+
+## Observer implementation status (#4244)
+
+Do not request another owner sequence from this partial observer. The three reports
+already returned at `95e2219df28a5483a869415f72ed64c557fa555b` stay retained,
+including their missing viewport and possibly disturbed Glyphs tail. They are
+historical scheduling evidence, with presentation unmeasured.
+
+The Layers driver samples displayed bounding boxes to reverse at the first
+observed crossing of half the displacement from the displayed box captured at
+trusted activation to the requested destination.
+It refuses missing targets, absent displacement, a jump directly to the endpoint,
+and movement not observed within the existing 400 ms settling bound. Drawer
+open/close/reopen segments each wait for that observation, then Escape interrupts
+the reopening segment. Shelf closes/opens/closes at the same measured boundaries,
+then a trusted keyboard activation reopens it immediately. The report's `observer` retains the viewport, actual Shelf
+mode and layer segments (targets, timestamps, start/destination/observed positions
+and completion), with trusted pointer/key sources named explicitly. The observer
+never generates those inputs or changes focus. Each activation has the existing
+one-second input bound; geometry retains the 400 ms settling bound. A reversal
+or key interruption arriving after the preceding segment reaches its endpoint
+is refused. The action's start box and timestamp are read in the capture listener before
+the existing layer owner receives the activation, rather than when the input
+phase began waiting or in the task after propagation. Its first journal sample
+retains that box; post-propagation samples cannot move the displacement origin.
+A trusted pointer activation completes only when the existing owner acknowledges
+the requested Drawer or Shelf state. Missing activation is retained as an incomplete action. The Drawer reversal
+observes a trusted primary `pointerdown` on its existing leading hairline,
+not the corner Close button while that button is outside the viewport. The
+observed press must be on the panel itself within its computed border width,
+and the existing Drawer owner must acknowledge `data-open=false` after
+propagation. Content/padding presses and unapplied activations do not qualify.
+The action journal names `.drawer` as that reversal target; no new hit region,
+input generation or focus owner is introduced.
+
+In an eventual qualified Mac Layers sequence, select the first original Todo
+during warmup so its Open control is exposed; this is preparation, not a measured
+open. Alternate Drawer and Shelf every two seconds during the sample. For Drawer, pointer-open a Todo, press the Drawer’s existing leading hairline to close,
+pointer-reopen, then Escape from inside the Drawer. For Shelf, pointer-toggle
+closed/open/closed, then activate its focused tab with Space or Return. Reverse
+on each measured half-displacement, and interrupt the third segment while it is
+still moving. The page observes the existing controls; it cannot supply native
+pointer input. Late, synthetic or missing input makes the run invalid. This is an
+observer implementation, not a request to perform that sequence: complete the
+remaining qualifications below first.
+
+The App now prepares the same deterministic derived fixture for layers, Todos and
+Glyphs. `observer.fixture` retains canonical UTF-8 JSON bytes, SHA-256, logical
+identity, allocated Rail/Todo/owner/blocker targets, Pads, working Agent ids and
+streaming Terminal id. Its readback must match the fixture; all ten Glyphs must be
+visible before sampling, and the selected streaming Terminal must remain visible.
+Base and head must retain identical `bytes`/`sha256`; allocated ids are reported
+separately and need not match. Preserve this entire observer overlay unchanged on
+both immutable sources. This is a preparation implementation, not native evidence.
+
+Before sampling Layers or Todos, preparation opens both owner groups and every
+fixture parent through the existing Ark disclosure controls, in dependency order.
+It waits for each parent's expanded acknowledgement and refuses setup unless all
+eight original rows are mounted outside hidden/inert subtrees. Missing controls,
+unapplied disclosure actions or a missing row fail within the existing setup
+bound; setup does not mutate Todos or take focus. Rendered geometry remains a
+separate Chromium observation, never WKWebView timing.
+
+The temporary insertion remains a root in the selected owner group: completed
+nested rows remain under their parent and cannot exercise the global done fold.
+The original depth-three branches stay expanded alongside that structural cycle.
+
+The Todo driver restores the original eight open rows in canonical order before each
+four-action repeat. It deletes only its recorded temporary insertion, preserves
+original owners, bodies, homes and blockers, and refuses changed fixture content.
+Each repeat inserts a temporary root in alternating owner groups, completes it,
+toggles the done fold, then observes a pointer reorder of that group's original
+root sibling before its first root. The report's `todo_actions` names actual ids,
+input sources and completion, including refused/unapplied actions. Restoration
+RPC reorders are preparation and never counted as pointer gestures.
+
+For the eventual qualified Mac procedure, Todo cycles 3, 7, 11, … are observed
+input phases: move the original sibling (`todo 4`, then `todo 8`, alternating)
+before that owner's first root (`todo 1`, then `todo 5`) using the native pointer.
+The phase begins 6 seconds after sampling starts and repeats every 8 seconds;
+release within its one-second input bound. The existing drag owner performs the
+mutation and focus work. Missing trusted down/release, missing rows, cancellation
+or an order not acknowledged within the existing 400 ms settling bound leaves
+the action incomplete. Synthetic events and RPC-only order changes cannot pass
+this phase. Do not perform these steps yet: this partial observer still needs the
+remaining qualification below, and no new owner sequence is requested.
+
+Before #4244 can close, demonstrate this setup and trusted pointer reorder on the
+rendered observer, qualify the trusted layer interruption sequence in both Shelf cases and complete the measured live reduced
+motion variants through the existing preference owner. The report marks its variant `unqualified` and explicitly marks native
+qualification incomplete. A scheduling pass alone does not complete that work.
+
+Before any new Mac request, #3013 also needs its separately scoped `crates/perf`
+stream/idle repair: qualify the exact batches and received bytes and stop the load
+before settled idle. This App change neither qualifies nor changes that producer.
+Keep the existing warmup/sample/idle windows, stream rate, scheduling thresholds,
+pairing, baselines and native permission unchanged.
+
+### Live preference evidence
+
+`observer.preference` records the initial App reduced-motion value and every live
+change, using the same accessor already supplied to all App motion consumers.
+Each entry retains the page's `performance.now()` timestamp and the driver phase
+(`warmup`, `sample`, or `after-actions`). Compare these timestamps with the layer
+samples before attributing a switch to a halfway crossing. `after-actions` means
+the action driver returned; it does not assert that the stream stopped or that
+settled idle was qualified. Recorder cleanup removes only its observation and
+never the App's preference listener.
+
+The page neither changes the OS preference nor supplies a second preference
+owner. This journal alone does not qualify a live reduced-motion variant: a
+switch still needs measured halfway and completed-action evidence for that
+workload. Reports retain `variant: "unqualified"` until that exists. Do not ask
+for a Mac sequence to fill this implementation gap.
+
+### Chromium activation preparation (2026-10-27)
+
+On the isolated U26 App in dark 1512×950, the derived fixture read back forty
+Rail nodes, eight Todos and four Pads, with SHA-256
+`40f860b17ca9495710305f4dc4372aa08be3792b0fd5ebccaddf988131eeda55`.
+The fake App's existing spawn handler was adapted to retain the requested Agent
+name and its signal handler to emit Status changes; this proves no native spawn.
+A headless agent-browser pointer opened original Todo 1 through its existing
+Open control. `domLayers` retained the activation box at left 1512, destination
+952 and first observed halfway crossing at 1174.516845703125, with completion
+true. The activation box precedes the post-propagation samples. This observation
+qualifies that origin/crossing path only: no full interruption sequence, pointer
+reorder, live halfway preference switch or native timing was qualified.
+
+### Displacement at a live source change
+
+During `sample`, a live preference change now retains `movement` when the last
+trusted pointer layer segment is still visibly between its endpoints. It includes
+the panel, actual action target, activation timestamp, origin, destination,
+displayed left edge and signed displacement fraction. The read happens in the
+shared accessor recorder's synchronous computation; it is not a later frame,
+an animation-time percentage or the most recently sampled position. The initial
+preference value, warmup/after-actions changes, missing/unactivated targets and
+settled geometry carry no movement claim.
+
+For a halfway switch, compare `movement.progress` with 0.5 and the segment's raw
+samples. A change observed before halfway or without `movement` does not establish
+the reduced-motion variant. This evidence alone never changes `variant` from
+`unqualified`: completed trusted actions, both Shelf cases, and Todo/Glyph halfway
+switches still require their rendered observer qualification. The page observes
+the existing preference; it generates no OS preference change or input. No Mac
+sequence is requested by this slice.
+
+### Fixture checks at action boundaries
+
+For Layers, Todos and Glyphs, setup and each two-second action boundary now
+require the original ten working Glyph identities to remain visible, the original
+streaming Terminal to remain selected and on screen, and the viewport (including
+device pixel ratio) and Shelf mode to match setup. The driver checks before it
+starts an action and after the action's two-second window, including the last
+window. Loss at either boundary stops subsequent actions and makes scheduling
+invalid (exit 2); `observer.fixture_failures` retains timestamped causes. Earlier
+completed actions remain in their journals. These checks do not observe transient
+changes between boundaries or establish native stream liveness/byte accounting.
+
+The reduced-motion source and report variant remain unchanged: stopping an arc
+through the shared reduced-motion preference keeps its working identity; changing
+an Agent's Kind away from working cannot count toward the fixture's ten Glyphs.
+
+Isolated dark Chromium preparation (2026-10-27) retained the derived fixture and
+all passing Checks at 1512×950. The real `createFrameRun` Glyphs driver then
+observed original `agent-9` become idle during sampling while the measurement
+Door remained working. The additional Door cannot replace a missing fixture
+Glyph. The report retains the fixture-loss cause at 23711 ms and exits 2 with
+incomplete actions. It also retains a frame-clock stall during concurrent local
+validation; this is invalid preparation, not a scheduling or WKWebView timing
+result. The fake App supplied readiness and status only, with no qualified
+64 KiB/s native stream. Raw setup, rendered boxes, Checks and the report remain
+under `artifacts/ux/U3010d/fixture-boundaries/`. The bounded whole-suite capture
+was incomplete; its focused observer completed.
+
+### Nested fixture preparation (#4244)
+
+An isolated dark 1512×950 Chromium run prepared the unchanged
+`tree-40-native-v1` bytes through `prepareFixture`, adapting the harness's existing
+spawn/signal handlers only. It unfolded all eight original rows, then drove two
+`domTodos` repeats with trusted pointer reorders `4 → 1` and `8 → 5`, restoring
+the fixture between repeats. Both groups' insertion, completion, fold and reorder
+journals completed; original owners and blockers remained intact. D2/D5/D6 passed.
+D14 passed setup and the first group’s settled reading; the second group’s
+after-action reading failed. Retain that failure; this is not full Check qualification.
+Raw setup, action journals, boxes, Checks, scripts and screenshots remain under
+`artifacts/ux/U3010d/nested-fixture/`. The broad `just capture U3010d,U3010e,U3010g`
+invocation ended at its 60-second outer bound, so no whole-suite capture pass is
+claimed. This direct action-seam observation qualifies no 60-second sample,
+stream byte accounting, halfway preference variant or WKWebView timing.
+
+### Working-arc displacement at a live source change
+
+For the Glyphs workload, each sample-phase preference change now retains
+`glyphs`: the visible fixture Agent ids, raw computed transform matrices and
+displayed rotation in degrees (0–360). The existing shared accessor recorder
+reads this before the App's effects cancel the loops. Only a connected, visible
+current arc with a running transform animation is included; outgoing frozen
+marks, opacity-only fades, stopped loops and non-fixture Agents cannot supply
+this evidence. An empty array establishes no moving arc. Initial preference,
+warmup and after-actions entries carry no Glyph displacement claim.
+
+The half-turn is 180 degrees of displayed rotation. The raw matrix is retained
+so a rendered observer can check that reading; animation time/progress is never
+used as rotation. A snapshot does not establish a crossing or a completed live
+reduced-motion variant. Keep `variant: "unqualified"` until the complete required
+fixture, actions and measured halfway source switch are demonstrated. No new
+Mac sequence is requested.
+
+Isolated dark Chromium preparation at 1512×950 read all ten derived fixture
+arcs while moving; after emulating reduced motion it read no running transform
+arcs. D2/D5/D6 passed in both readings. Raw matrices, fixture bytes/hash and
+Checks remain under `artifacts/ux/U3010d/glyph-displacement/`, with uncommitted
+screenshots. This checks the geometry read path, not a halfway switch, full scheduling
+run, native stream or WKWebView timing.
+
+### Todo displacement at a live source change
+
+During `sample`, a Todos preference entry retains `todos`: the latest structural
+action's start timestamp, action name and actual targets, plus its visible moving
+rows. Each row records its displayed box origin, computed transform, the existing
+row owner's two translation endpoints and the projected displacement fraction.
+The reader uses displayed translation, never animation time. Fades, loops,
+non-translation effects, hidden rows and settled positions supply no displacement.
+An empty `rows` array establishes no moving row; a missing action supplies no
+Todo evidence. This observation uses the App's existing live preference accessor
+and neither changes the source nor owns another subscription.
+
+`todo_actions` now retains `at_ms` before invoking the action and
+`completed_at_ms` when its result returns, alongside the existing authoritative
+`completed` verdict. A returned RPC can precede visible motion; compare these
+with the preference entry timestamp and raw row geometry. The temporary insertion
+and original fixture ids remain distinguishable in `targets`. Recording a
+halfway row snapshot does not establish a completed live reduced-motion variant:
+retain `variant: "unqualified"` until the complete required sequence is observed.
+No new Mac sequence is requested; #4244 remains open for that qualification.
+
+Isolated dark 1512×950 Chromium preparation retained the derived fixture hash
+`40f860b17ca9495710305f4dc4372aa08be3792b0fd5ebccaddf988131eeda55`.
+The focused reorder observation did not catch moving rows within the unchanged
+400 ms bound; its first rendered reads arrived after the displacement had ended.
+D2/D5/D6 passed; D14 failed during the action and passed at settled reduced motion.
+Retain this as incomplete reader qualification, not a halfway switch or native
+result. Raw observations, setup script and screenshots are under
+`artifacts/ux/U3010d/todo-displacement/`. The broad capture command was bounded
+at 45 seconds; no whole-suite capture pass is claimed.
+
+### Live switch completion
+
+A sample-phase enable change now retains `settlement`: `pending` until the existing
+post-update task reads the motion owners, then `settled`, `moving` or `unavailable`
+with its actual page timestamp. Layers must reach the recorded destination (or
+finish a closed panel's lifetime); Todos require an acknowledged action, mounted
+original rows and no displayed row translation; Glyphs require the same ten visible
+working identities with no running arc transforms. Missing fixture identities or
+required targets produce `unavailable`, never settlement.
+
+A later source change marks a pending observation `superseded`; recorder disposal
+marks it `disposed`. Neither late callback can overwrite that result. The initial
+value, disabling changes and changes outside the sample claim no settlement.
+The App keeps its sole live preference source. This readback neither switches the
+OS preference nor proves a halfway crossing, action sequence, native timing or
+settled idle. Keep the variant unqualified until those separate obligations hold.
+
+Isolated dark Chromium at 1512×950 observed all ten fixture arcs moving, then
+emulated the live reduced-motion source shared by a freshly mounted App and the
+recorder. The corrected preparation retained ten raw matrices at 201.9375 degrees; its post-update
+readback recorded settlement and no running arcs. D2/D5/D6 passed before and after.
+All rendered Checks passed. The initial CSS-link setup reported D1/D10 failures;
+those readings and its earlier 27.675-degree switch remain in `initial-*.json`.
+Importing the existing styles through Vite repaired that observer setup. Neither
+switch retained a measured half-turn crossing: this is **not halfway evidence**. It qualifies the shared-source snapshot/readback
+path only. The fake App supplied no qualified native stream, scheduling sample or
+settled idle. Raw readings and screenshots remain under
+`artifacts/ux/U3010d/preference-settlement/`; no WKWebView result is claimed.
+
+### Frame before a live switch
+
+Each sample-phase change may retain `previous_frame`: the most recent frame
+callback's timestamp, source value and raw displacement for this workload. It
+uses the recorder's existing frame callback, not a second animation loop or
+preference subscription. Only one preceding snapshot is held. It is attached
+only when it follows the previous source change, predates this change and reads
+the value being replaced; a stale frame cannot survive a rapid toggle back.
+
+Compare the same layer action timestamp/target, Todo action/row, or working
+Glyph identity in `previous_frame` and the change's synchronous snapshot. A
+halfway crossing needs a preceding displacement below 0.5 (Glyph rotation below
+180 degrees), a switch at or beyond that point while still moving, and the
+existing post-update settlement. A missing pair, changed action/identity or a
+wrapped rotation establishes no crossing. The recorder retains facts rather
+than declaring these pairs qualified. The variant stays `unqualified`.
+
+These extra reads are observer work inside the scheduling sample. Preserve the
+identical observer overlay on base and head. This adds neither native input nor
+a timing result; complete the remaining full fixture, layer/Shelf sequences and
+all live variants before requesting another Mac sequence.
+
+Isolated dark Chromium preparation at 1512×950 retained ten derived fixture
+arcs and a preceding frame at 176.475 degrees, then switched the injected media
+query seam at the first observed crossing, 188.962 degrees. The mounted App and
+recorder consumed the same `createReducedMotion` accessor. The journal retains
+that preceding frame and the synchronous switch matrices; post-update readback
+reports settlement. Every rendered Check passed. The earlier wide-gap pair
+remains retained. Raw fixture bytes/hash, source
+snapshots, Checks, scripts and uncommitted screenshot are under
+`artifacts/ux/U3010d/preference-crossing/`. This is preparation of the correlation
+path through an injected preference seam, not an OS preference observation, full
+workload variant, native stream, scheduling sample, settled idle or WKWebView
+result. The broad capture invocation was stopped after starting unrelated suites;
+no whole-suite capture pass is claimed.
+
+### Reduced Layers action phase
+
+The driver reads the existing App reduced-motion accessor before each segment.
+With normal motion it still requires measured half-displacement and a reversal
+before settlement. With reduced motion it observes the same trusted pointer
+sequence at final geometry, followed by the same trusted key action. A live
+source switch during an in-flight normal segment can complete that segment at
+final geometry; it cannot supply half-displacement evidence. Each journal entry
+retains `reduced` at trusted activation and its actual `criterion`:
+`halfway`, `reduced-settlement` or `key-settlement`. Key completion requires both
+the existing owner's requested state and the observed destination. No new
+preference subscription or focus owner is introduced. Missing targets, input,
+displacement or settlement still invalidate the run within the existing bounds.
+
+This phase does not qualify a complete reduced-motion variant: reports retain
+`variant: "unqualified"` until all fixture/actions and the measured halfway
+source change are demonstrated. No new owner sequence is requested.
+
+Dark isolated Chromium preparation at 1512×950 with the unchanged derived
+fixture completed the three reduced Drawer pointer segments. The following key
+step did not complete; the initial attempt retained focus outside the Drawer.
+Additional keyboard-input attempts also failed and remain retained. The first
+reduced Shelf close removed its tabs and box, preventing the required pointer
+reopening; #4408 owns that production prerequisite outside this observer's
+scope. D2/D5/D6 and all other rendered Checks passed in these retained readings.
+Raw fixture bytes/hash, action journals, scripts and uncommitted screenshots
+remain under `artifacts/ux/U3010d/reduced-layers/`. These preparations establish
+neither a full variant nor a selected native stream, scheduling sample,
+settled idle, OS preference change or WKWebView timing. #3013 retains the
+stream/idle repair and immutable paired native qualification.

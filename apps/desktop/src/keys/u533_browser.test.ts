@@ -32,7 +32,7 @@ beforeAll(async () => {
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());
-  await browser("--profile", profile, "open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await browser("set", "viewport", "1280", "800");
 }, 90_000);
 
@@ -80,4 +80,4 @@ it("u533_message_an_agent_in_two_chords_on_tree_40", async () => {
   expect(seen.written).toBe("hello\r");
   expect(seen.order.length).toBeGreaterThan(0);
   expect(seen.order.every((call) => call.startsWith("terminal.write t-agent-23"))).toBe(true);
-}, 120_000);
+}, 60_000);

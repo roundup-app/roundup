@@ -1,3 +1,5 @@
+import type { Fixture } from "./fixture";
+
 /** Seconds of the `docs/motion.md` Native performance protocol, in ms. */
 const PROTOCOL = { warmup: 10_000, sample: 60_000, idle: 30_000 };
 
@@ -45,8 +47,48 @@ export type UpdateStage =
 
 const UPDATE_SCOPE = "from the requestAnimationFrame callback to the next task: style, layout and paint recording together; not compositor, not presentation";
 
+/** `reduced` is the source at trusted activation; `criterion` states how this segment actually ended. A source switch can change the latter. */
+export type LayerAction = { panel: "drawer" | "shelf"; source: "trusted-pointer" | "trusted-key"; criterion: "halfway" | "reduced-settlement" | "key-settlement"; reduced: boolean; target: string; at_ms: number; from: number; destination: number; observed: number | null; completed: boolean; samples: { at_ms: number; left: number }[] };
+
+/** Action evidence is separate from scheduling: RPC preparation never claims a native gesture. */
+export type TodoAction = { at_ms: number; completed_at_ms: number | null; action: "insert" | "complete" | "fold" | "reorder"; targets: number[]; source: "rpc" | "synthetic-pointer" | "trusted-pointer"; completed: boolean };
+
+/** Changes observed through the same live accessor the App consumes; no second preference source. */
+export type PreferenceAction = {
+  at_ms: number;
+  reduced: boolean;
+  phase: "warmup" | "sample" | "after-actions";
+  /** Last sampled frame before this source change, including its source value; compare matching targets/actions to establish a crossing. */
+  previous_frame?: { at_ms: number; reduced: boolean } & Pick<PreferenceAction, "movement" | "glyphs" | "todos">;
+  /** Post-update result for this exact enable change, never a halfway or native qualification. */
+  settlement?: { status: "pending" | "superseded" | "disposed" } | { status: "settled" | "moving" | "unavailable"; at_ms: number };
+  /** Row translations read at the source change, correlated to the latest structural action. Empty rows claim no displacement. */
+  todos?: {
+    action_at_ms: number;
+    action: TodoAction["action"];
+    targets: number[];
+    rows: { target: number; transform: string; from: string; to: string; x: number; y: number; progress: number }[];
+  };
+  /** Visible fixture arcs with a running transform loop, sampled at the live source change. Degrees are displayed rotation, not timeline progress. */
+  glyphs?: { target: string; transform: string; degrees: number }[];
+  /** Actual displayed displacement at the source change, never elapsed animation time. Absent outside an observed moving layer. */
+  movement?: { panel: "drawer" | "shelf"; target: string; action_at_ms: number; from: number; destination: number; observed: number; progress: number };
+};
+
 export type FrameReport = {
   probe: "roundup-frame-recorder";
+  /** App-driver facts are absent from recorder-only harness runs; they confer no native qualification. */
+  observer?: {
+    viewport: { width: number; height: number; device_pixel_ratio: number };
+    shelf_mode: string;
+    fixture_failures: { at_ms: number; reason: string }[];
+    layer_actions: LayerAction[];
+    todo_actions?: TodoAction[];
+    preference: PreferenceAction[];
+    fixture?: Fixture;
+    variant: "unqualified";
+    native_qualification: string;
+  };
   workload: string;
   refresh_hz: number;
   period_ms: number;
@@ -69,8 +111,8 @@ export type FrameReport = {
   /** Epoch milliseconds align the page sample with a separately recorded native trace. */
   windows_epoch_ms?: { sample_start: number; sample_end: number; idle_end: number };
   invalid: string[];
-  verdict: "fail" | "invalid" | "incomplete";
-  exit: 1 | 2;
+  verdict: "pass" | "fail" | "invalid";
+  exit: 0 | 1 | 2;
 };
 
 /** Nearest rank, the same rule as `crates/perf`. */
@@ -112,7 +154,7 @@ export type Facts = {
   stalled?: boolean;
 };
 
-/** What a run proves. Only a valid run is judged, and the webview never measures presentation, so no report here is a pass. */
+/** What a run proves. Only a valid run is judged; a pass covers scheduling only, never presentation. */
 export const buildReport = (facts: Facts): FrameReport => {
   const period = 1000 / facts.hz;
   const sample = series(facts.sample, period);
@@ -158,8 +200,8 @@ export const buildReport = (facts: Facts): FrameReport => {
     },
     performance_entry_types: entryTypes,
     invalid,
-    verdict: invalid.length > 0 ? "invalid" : meets ? "incomplete" : "fail",
-    exit: invalid.length === 0 && !meets ? 1 : 2,
+    verdict: invalid.length > 0 ? "invalid" : meets ? "pass" : "fail",
+    exit: invalid.length > 0 ? 2 : meets ? 0 : 1,
   };
 };
 

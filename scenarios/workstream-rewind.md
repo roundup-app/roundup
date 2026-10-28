@@ -17,16 +17,13 @@ Module: `crates/agents`, `crates/contracts`, `crates/rupd`, `crates/rup` and `co
 - **Failure and events.** One call at a time per Workstream (`CONFLICT` otherwise). If a step fails the call returns its error, steps already done stay done, a second call with the same params continues and snapshots restored twice are the same; `workstream.rewound` and one `rail.changed` are emitted once, after the last selected surviving child's `SessionStart`, or recorded drop for a child that cannot run. A rewind logs a `wrote` Touch on `rail:<id>` by the calling Door (M2). Asserted in `a35_one_rewind_at_a_time`, `a35_a_failed_step_retries_without_repeating_work` and `a35_rewound_is_emitted_once_after_the_last_session_start`.
 Observer: `a35_` tests in `crates/rup/tests/**` against a real `rupd` with a deterministic fake `claude` that writes a conversation file and a real git repo, comparing files, branches, Rail, argv and conversation files, never a seeded tree. Implementation spans those existing modules in scoped PRs; contract changes update every caller together and regenerate `contracts/generated/`. Laws touched by restart handling: M1, M4, M6, M7, M9 and M10 (`scenarios/proofs.md`); implementation keeps `proofs/messages` and `docs/messages.md` agreeing and does not weaken a Message law. Native check, the user's Mac only: with a real `claude`, write a Checkpoint, send a child one distinctive later ask, ask the Door to rewind that child through its tool with `keep`, then ask the child about that later ask; it does not know. The Door retains its own conversation. The `ask` of the build run names the build and the steps.
 
-Definition (relocated): **Retirement reservation**:
-The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for delivery, separate from a retained Agent's Restart reservation.
-
-Definition (relocated): **Restart reservation**:
-The Daemon coordinator's durable protection of Message delivery to a retained Agent during its conversation restart (A35). Pending Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
-
-Definition (relocated): **Rewind** (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`):
-A Door's tool call that takes one child, or every child of its Workstream, back to one of its Checkpoints: each rewound Agent restarts on a copy of its conversation cut at its Mark, and the working files return to the Mark only when the call says `restore`. A child that started after the Checkpoint leaves the Rail. It is not Claude Code's own `/rewind`, which the user types in a child's Terminal, and it never types one (A35).
-
 U374 is removed by #1580: no App Checkpoint rewind word, picker, or files-choice form is required. The implementation removes U374-only code, tests and captures alongside the obsolete App-facing rewind callers; existing Checkpoint storage and A35's Daemon support remain. Test: `a35_rewind_has_no_app_only_caller_or_u374_surface` (vitest, `apps/desktop/src/a35_surface.test.ts`) inventories surviving callers and verifies the removed Thread surface is absent. The user may still use Claude Code's own `/rewind` directly in a child's Terminal; the Door uses its direct tool instead (policy). No visual change is claimed by this specification.
+
+**Mark**: The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
+
+**Restart reservation**: The Daemon coordinator's durable protection of Message delivery to a retained Agent during its conversation restart (A35). Pending Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
+
+**Retirement reservation**: The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for delivery, separate from a retained Agent's Restart reservation.
 
 ## A2961 process requirements
 

@@ -10,6 +10,7 @@ contracts = { path = "../contracts" }
 pads = { path = "../pads" }
 rpc = { path = "../rpc" }
 serde_json.workspace = true
+time = "0.3.55"
 
 rusqlite.workspace = true
 rusqlite_migration.workspace = true

@@ -1,3 +1,4 @@
+import { useBrowserStorage } from "../state/storage";
 import { render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { expect } from "vitest";
@@ -11,6 +12,7 @@ export const path = (name: string): string => `/Users/me/${name}`;
 /** The App on a fake whose open Projects are `names`, each with its own Rail tree; it returns before any Project connects. */
 export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = false) => {
   if (!keepStorage) window.localStorage.clear();
+  useBrowserStorage(window.localStorage);
 
   const app = createFakeApp();
   const names = Object.keys(trees);
@@ -35,12 +37,14 @@ export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = 
 
   await waitFor(() => expect(projectTabs().map((tab) => tab.getAttribute("aria-busy"))).toEqual(Object.keys(trees).map(() => "false")));
 
+  await (await import("../rail/railFixture")).settled();
+
   return opened;
 };
 
 export const tab = (name: string): HTMLElement => within(projectTablist()).getByRole("tab", { name: new RegExp(`^${name}`) });
 
-export const header = (): HTMLElement => screen.getByRole("banner");
+export const header = (): HTMLElement => screen.getByRole("region", { name: "Rail" });
 
 export const rowSelected = (id: string): string | null => document.querySelector(`[role=treeitem][data-id="${id}"]`)?.getAttribute("aria-selected") ?? null;
 

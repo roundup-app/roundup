@@ -36,7 +36,7 @@ const capture = async (step: string) => {
 };
 
 it("p3557c_rendered_failure_clears_with_its_deleted_pad", async () => {
-  await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+  await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
   await browser("wait", "[role=tree]");
   const pads = "window.__fake.app.handlers['pad.list']";
   const name = JSON.parse(await browser("eval", `window.__fake.app.rpc('pad.list').then(list => list.find(pad => pad.owner.kind === 'user').name)`));
@@ -51,4 +51,4 @@ it("p3557c_rendered_failure_clears_with_its_deleted_pad", async () => {
   await browser("wait", "--fn", "!document.querySelector('[role=alert]')");
   await capture("dark-failure-cleared");
   expect(JSON.parse(await browser("eval", "!!document.querySelector('[role=alert]')"))).toBe(false);
-}, 180_000);
+}, 60_000);

@@ -4,9 +4,17 @@
 //! returns the new Terminal's id together with a [`broadcast::Receiver`] of its events. The receiver
 //! exists before the reader thread reads any output, so none is missed.
 
+mod contract_handlers;
 mod integration;
 mod output;
+mod program;
+mod pty;
+mod recorder;
 mod scheme;
+mod screen;
+
+use program::Program;
+use screen::{ScreenParser, ScreenState, Seen};
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
@@ -14,7 +22,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{SyncSender, TrySendError};
-use std::sync::{Arc, Mutex, MutexGuard, mpsc};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, mpsc};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -28,7 +36,7 @@ use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
 use serde_json::Value;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 
 /// Events a slow subscriber may fall behind by before it is told it lagged (it never blocks the reader).
 const EVENT_BACKLOG: usize = 1024;
@@ -40,7 +48,7 @@ const SNAPSHOT_MAX_CELLS: u32 = 65_536;
 const SNAPSHOT_MAX_HISTORY_CELLS: usize = 262_144;
 const TITLE_ROWS: u16 = 24;
 const TITLE_COLS: u16 = 80;
-/// How often the reader thread checks whether a program that closed its PTY has ended.
+/// How often the reaper checks whether the original program has ended.
 const REAP_POLL: Duration = Duration::from_millis(5);
 const READ_CHUNK: usize = 8192;
 /// Writes a Terminal accepts ahead of its program reading them. Past this, `write` is `CONFLICT`:
@@ -118,16 +126,26 @@ impl OutputStream {
     }
 }
 
-/// The program, shared by whoever reaps it and whoever stops it.
-/// Invariant: only code holding this lock reaps or signals, and signals only when `try_wait` under
-/// that lock has just said the program is still running. A reaped pid is never signalled.
-type Program = Arc<Mutex<Box<dyn Child + Send + Sync>>>;
-
 /// What it takes to drive a running program. Dropped from the Terminal's entry once it is reaped.
 struct Handle {
     master: Mutex<Box<dyn MasterPty + Send>>,
     input: SyncSender<Input>,
     program: Program,
+    recorder: Arc<OnceLock<Mutex<recorder::Recording>>>,
+}
+
+impl Handle {
+    fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
+        match self.input.try_send(input) {
+            Ok(()) => Ok(()),
+            Err(TrySendError::Full(_)) => Err(RpcError::conflict(format!(
+                "terminal {id} is not reading its input"
+            ))),
+            Err(TrySendError::Disconnected(_)) => Err(RpcError::internal(format!(
+                "terminal {id} can no longer take input"
+            ))),
+        }
+    }
 }
 
 type InputWriter = dyn Fn(Box<dyn Write + Send>) -> Box<dyn Write + Send> + Send + Sync;
@@ -137,7 +155,7 @@ type ExitHold = dyn Fn() + Send + Sync;
 type Effect = Box<dyn FnOnce(&mut dyn Write) -> Result<(), RpcError> + Send>;
 
 enum Input {
-    Bytes(Vec<u8>),
+    Bytes(Vec<u8>, Vec<recorder::Sample>),
     Effect(Effect, tokio::sync::oneshot::Sender<Result<(), RpcError>>),
 }
 
@@ -153,53 +171,12 @@ struct Entry {
     screen: Arc<Mutex<ScreenState>>,
 }
 
-struct ScreenState {
-    parser: ScreenParser,
-    after: u64,
-    /// X13: the last megabyte of output; its end is `after`.
-    log: output::Log,
-    /// X16: where each reader's next `terminal.read` begins; it ends with the Terminal.
-    cursors: std::collections::HashMap<String, u64>,
-    snapshot_available: bool,
-    scrollback_rows: usize,
-    cols: u16,
-    rows: u16,
-    /// X17: the program turned on mode 2031 and gets a notice when the scheme changes.
-    scheme_notices: bool,
-}
-
-enum ScreenParser {
-    Pending,
-    Active(Box<vt100::Parser<Seen>>),
-    Failed,
-}
-
-impl ScreenState {
-    fn ensure_parser(&mut self) -> Option<&mut vt100::Parser<Seen>> {
-        if matches!(&self.parser, ScreenParser::Pending) {
-            let (rows, cols, scrollback) = if self.snapshot_available {
-                (self.rows, self.cols, self.scrollback_rows)
-            } else {
-                (TITLE_ROWS, TITLE_COLS, 0)
-            };
-            self.parser = ScreenParser::Active(Box::new(vt100::Parser::new_with_callbacks(
-                rows,
-                cols,
-                scrollback,
-                Seen::default(),
-            )));
-        }
-        match &mut self.parser {
-            ScreenParser::Active(parser) => Some(parser),
-            ScreenParser::Pending | ScreenParser::Failed => None,
-        }
-    }
-}
-
-/// State shared with each Terminal's reader thread.
 struct Shared {
+    clock: Arc<dyn Fn() -> f64 + Send + Sync>,
     bus: Bus,
     table: Mutex<BTreeMap<u64, Entry>>,
+    /// Wait registrations exist until the original program ends, independently of its PTY.
+    program_ends: Mutex<BTreeMap<u64, watch::Receiver<bool>>>,
     /// Env var names stripped from every spawned program's environment, however they reached the
     /// Daemon: its own environment or a caller's `params.env` (`open_with`'s caller owns the list).
     clean_env: Vec<String>,
@@ -236,7 +213,7 @@ impl Shared {
             .get(&number)
             .and_then(|entry| entry.handle.clone());
         if let Some(handle) = handle
-            && let Err(err) = handle.input.try_send(Input::Bytes(bytes))
+            && let Err(err) = handle.input.try_send(Input::Bytes(bytes, Vec::new()))
         {
             eprintln!("terminal {number}: scheme reply dropped: {err}");
         }
@@ -296,7 +273,9 @@ impl Terminals {
         Ok(Self {
             shared: Arc::new(Shared {
                 bus,
+                clock: recorder::clock(),
                 table: Mutex::new(BTreeMap::new()),
+                program_ends: Mutex::new(BTreeMap::new()),
                 clean_env: clean_env
                     .iter()
                     .map(|marker| (*marker).to_owned())
@@ -480,8 +459,8 @@ impl Terminals {
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
         }
-        // The reader and input threads start before the program (the reader receives the child over a
-        // channel), so no later failure can leave a program that nobody waits for.
+        // All three threads start before the program, so a thread-creation failure leaves no
+        // program behind. The reaper observes completion independently of PTY EOF.
         let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;
         let writer = pair.master.take_writer().map_err(RpcError::internal)?;
         let writer = match &self.input_writer {
@@ -489,7 +468,7 @@ impl Terminals {
             None => writer,
         };
         let number = self.next.fetch_add(1, Ordering::Relaxed);
-        let snapshot_available = snapshot_size_supported(params.cols, params.rows);
+        let snapshot_available = screen::snapshot_size_supported(params.cols, params.rows);
         let scrollback = if snapshot_available {
             SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(params.cols))
         } else {
@@ -506,33 +485,61 @@ impl Terminals {
             rows: params.rows,
             scheme_notices: false,
         }));
-        let (arrival, child_arrives) = mpsc::channel();
+        let (program_arrival, program_arrives) = mpsc::channel::<Program>();
+        let (reaped, completion) = mpsc::channel();
+        let (ended, program_ended) = watch::channel(false);
+        let program_shared = Arc::clone(&self.shared);
+        std::thread::Builder::new()
+            .name(format!("terminal-{number}-reap"))
+            .spawn(move || {
+                if let Ok(program) = program_arrives.recv() {
+                    let code = program::exit_code(number, reap(&program));
+                    ended.send_replace(true);
+                    program_shared
+                        .program_ends
+                        .lock()
+                        .expect("terminal program ends lock")
+                        .remove(&number);
+                    let _ = reaped.send(code);
+                }
+            })
+            .map_err(RpcError::internal)?;
+        let (arrival, child_arrives) = mpsc::channel::<Arc<Handle>>();
         let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
         let pump_output = output.clone();
         let shared = Arc::clone(&self.shared);
         let reader_screen = Arc::clone(&screen);
         let exit_hold = self.exit_hold.clone();
+        let recorder = Arc::new(OnceLock::new());
         std::thread::Builder::new()
             .name(format!("terminal-{number}"))
             .spawn(move || {
                 // No child means the program never started: nothing to report.
-                if let Ok(program) = child_arrives.recv() {
-                    pump(
+                if let Ok(handle) = child_arrives.recv() {
+                    pty::read(
                         &shared,
                         number,
                         reader,
-                        &program,
+                        &handle,
                         &reader_screen,
-                        pump_output,
-                        exit_hold.as_deref(),
+                        &pump_output,
                     );
+                    let code = completion
+                        .recv()
+                        .expect("the reaper reports program completion");
+                    if let Some(hold) = exit_hold {
+                        hold();
+                    }
+                    drop(pump_output);
+                    shared.finish(number, code);
                 }
             })
             .map_err(RpcError::internal)?;
         let (input, queued) = mpsc::sync_channel(WRITE_BACKLOG);
+        let input_clock = Arc::clone(&self.shared.clock);
         std::thread::Builder::new()
             .name(format!("terminal-{number}-input"))
-            .spawn(move || type_queued(number, queued, writer))
+            .spawn(move || pty::type_queued(number, queued, writer, input_clock))
             .map_err(RpcError::internal)?;
         let argv0 = params
             .command
@@ -547,13 +554,20 @@ impl Terminals {
         // Only the program may hold the slave end, or reading never sees it close.
         drop(pair.slave);
         let pid = program.lock().expect("program lock").process_id();
-        let handle = Handle {
+        let handle = Arc::new(Handle {
             input,
             program: Arc::clone(&program),
             master: Mutex::new(pair.master),
-        };
+            recorder,
+        });
 
         let (sender, events) = broadcast::channel(EVENT_BACKLOG);
+        // Install the wait registration before list can expose this Terminal.
+        self.shared
+            .program_ends
+            .lock()
+            .expect("terminal program ends lock")
+            .insert(number, program_ended);
         self.shared.table().insert(
             number,
             Entry {
@@ -570,13 +584,18 @@ impl Terminals {
                 },
                 events: sender,
                 output: Some(output.clone()),
-                handle: Some(Arc::new(handle)),
+                handle: Some(Arc::clone(&handle)),
                 screen,
             },
         );
-        arrival
-            .send(program)
-            .expect("the reader thread waits for its child");
+        assert!(
+            program_arrival.send(program).is_ok(),
+            "the reaper thread waits for its program"
+        );
+        assert!(
+            arrival.send(handle).is_ok(),
+            "the reader thread waits for its child"
+        );
         Ok(Spawned {
             id: number.to_string(),
             events,
@@ -592,7 +611,19 @@ impl Terminals {
     /// read them. `NOT_FOUND` if it is unknown or has exited; `CONFLICT` if the program has left
     /// [`WRITE_BACKLOG`] writes unread.
     pub async fn write(&self, id: &str, bytes: &[u8]) -> Result<(), RpcError> {
-        self.enqueue(id, Input::Bytes(bytes.to_vec()))
+        self.write_at(id, bytes, (self.shared.clock)())
+    }
+
+    fn write_at(&self, id: &str, bytes: &[u8], received: f64) -> Result<(), RpcError> {
+        let handle = self.running(id)?;
+        let samples = match handle.recorder.get() {
+            Some(recorder) => recorder
+                .lock()
+                .expect("recorder lock")
+                .receive(bytes, received),
+            None => Vec::new(),
+        };
+        handle.enqueue(id, Input::Bytes(bytes.to_vec(), samples))
     }
 
     /// Await the physical write and flush in input order. Refusal to enqueue has no effect;
@@ -631,15 +662,7 @@ impl Terminals {
     }
 
     fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
-        match self.running(id)?.input.try_send(input) {
-            Ok(()) => Ok(()),
-            Err(TrySendError::Full(_)) => Err(RpcError::conflict(format!(
-                "terminal {id} is not reading its input"
-            ))),
-            Err(TrySendError::Disconnected(_)) => Err(RpcError::internal(format!(
-                "terminal {id} can no longer take input"
-            ))),
-        }
+        self.running(id)?.enqueue(id, input)
     }
 
     /// Tell a running Terminal its window is now `cols` x `rows`. `NOT_FOUND` as for [`Terminals::write`].
@@ -653,7 +676,7 @@ impl Terminals {
         state.cols = cols;
         state.rows = rows;
         if state.snapshot_available
-            && snapshot_size_supported(cols, rows)
+            && screen::snapshot_size_supported(cols, rows)
             && (matches!(&state.parser, ScreenParser::Pending)
                 || state.scrollback_rows * usize::from(cols) <= SNAPSHOT_MAX_HISTORY_CELLS)
         {
@@ -686,7 +709,7 @@ impl Terminals {
             .ensure_parser()
             .ok_or_else(|| RpcError::internal("terminal screen parser stopped"))?;
         let (rows, cols) = parser.screen().size();
-        let data = formatted_snapshot(parser.screen())?;
+        let data = screen::formatted_snapshot(parser.screen())?;
         Ok(Snapshot {
             cols,
             rows,
@@ -765,42 +788,6 @@ impl Terminals {
             .get(&number)
             .map(|entry| Arc::clone(&entry.screen))
             .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))
-    }
-
-    /// Stop a running Terminal's program (SIGHUP, then SIGKILL if it lingers) and return once it is
-    /// stopped. It stays listed as exited once `terminal.exited` is emitted. `NOT_FOUND` as for
-    /// [`Terminals::write`], including a program that ended just before this call.
-    pub async fn kill(&self, id: &str) -> Result<(), RpcError> {
-        let handle = self.running(id)?;
-        // portable-pty's `Child::kill` waits out the SIGHUP grace period, so keep it off the runtime.
-        tokio::task::spawn_blocking(move || {
-            let mut program = handle.program.lock().expect("terminal program lock");
-            match program.try_wait() {
-                Ok(None) => program.kill().map_err(RpcError::internal)?,
-                Ok(Some(_)) => return Err(RpcError::not_found("running terminal")),
-                Err(err) => return Err(RpcError::internal(err)),
-            }
-            drop(program);
-            // portable-pty returns right after SIGKILL; a second kill must already see the program gone.
-            reap(&handle.program).map(drop).map_err(RpcError::internal)
-        })
-        .await
-        .map_err(RpcError::internal)?
-    }
-
-    /// Whether Terminal `id`'s program has ended, which can be before the Terminal is exited: a
-    /// descendant holding the PTY open delays `terminal.exited` on Linux. An unknown Terminal has
-    /// no program running either.
-    pub fn program_ended(&self, id: &str) -> bool {
-        match self.running(id) {
-            Ok(handle) => handle
-                .program
-                .lock()
-                .expect("terminal program lock")
-                .try_wait()
-                .map_or(true, |status| status.is_some()),
-            Err(_) => true,
-        }
     }
 
     /// The pid of Terminal `id`'s program, only while it runs (H21).
@@ -901,63 +888,6 @@ impl Terminals {
     }
 }
 
-/// Collects what the parser sees that the Daemon acts on: window titles (OSC 0 and 2) and the colour
-/// requests of X17. vt100 stitches sequences split across reads.
-#[derive(Default)]
-struct Seen {
-    titles: Vec<String>,
-    requests: Vec<scheme::Request>,
-}
-
-impl vt100::Callbacks for Seen {
-    fn set_window_title(&mut self, _: &mut vt100::Screen, title: &[u8]) {
-        self.titles
-            .push(String::from_utf8_lossy(title).into_owned());
-    }
-
-    fn unhandled_csi(
-        &mut self,
-        _: &mut vt100::Screen,
-        first: Option<u8>,
-        second: Option<u8>,
-        params: &[&[u16]],
-        last: char,
-    ) {
-        self.requests
-            .extend(scheme::from_csi(first, second, params, last));
-    }
-
-    /// vt100 splits an OSC on every `;` and only reports a title that is a single piece, so a
-    /// title containing `;` arrives here and would otherwise be dropped.
-    fn unhandled_osc(&mut self, _: &mut vt100::Screen, params: &[&[u8]]) {
-        if let [b"0" | b"2", pieces @ ..] = params {
-            self.titles
-                .push(String::from_utf8_lossy(&pieces.join(&b';')).into_owned());
-        }
-        self.requests.extend(scheme::from_osc(params));
-    }
-}
-
-/// Feed queued writes to the PTY. It blocks on a program that does not read, which is why it has a
-/// thread of its own instead of one from the pool `kill` also needs.
-fn type_queued(number: u64, queued: mpsc::Receiver<Input>, mut writer: Box<dyn Write + Send>) {
-    for input in queued {
-        match input {
-            Input::Bytes(bytes) => {
-                if let Err(err) = writer.write_all(&bytes).and_then(|()| writer.flush()) {
-                    eprintln!("terminal {number}: input stopped: {err}");
-                    return;
-                }
-            }
-            Input::Effect(effect, completed) => {
-                if !completed.is_closed() {
-                    let _ = completed.send(effect(&mut *writer));
-                }
-            }
-        }
-    }
-}
-
 /// Wait for the program to end without holding the lock while it runs, so `kill` can take it.
 fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
     loop {
@@ -967,121 +897,6 @@ fn reap(program: &Program) -> std::io::Result<portable_pty::ExitStatus> {
             None => std::thread::sleep(REAP_POLL),
         }
     }
-}
-
-/// Read until the program closes the PTY, publishing each chunk, then report how it ended.
-fn pump(
-    shared: &Shared,
-    number: u64,
-    mut reader: Box<dyn Read + Send>,
-    program: &Program,
-    screen: &Mutex<ScreenState>,
-    output: broadcast::Sender<Chunk>,
-    exit_hold: Option<&ExitHold>,
-) {
-    let mut chunk = [0u8; READ_CHUNK];
-    // Linux reports the closed PTY as an error, macOS as end of file: both mean "no more output".
-    while let Ok(read) = reader.read(&mut chunk) {
-        if read == 0 {
-            break;
-        }
-        let seen = {
-            let mut state = screen.lock().expect("terminal screen lock");
-            let offset = state.after;
-            let parsed = state.ensure_parser().map(|parser| {
-                catch_unwind(AssertUnwindSafe(|| {
-                    parser.process(&chunk[..read]);
-                    std::mem::take(parser.callbacks_mut())
-                }))
-            });
-            state.after += read as u64;
-            state.log.push(&chunk[..read]);
-            // Sent under the lock so a snapshot's `after` and a subscription's start never straddle a chunk.
-            let _ = output.send(Chunk {
-                offset,
-                bytes: Arc::from(&chunk[..read]),
-            });
-            match parsed {
-                Some(Ok(seen)) => {
-                    for request in &seen.requests {
-                        if let scheme::Request::Notices(on) = request {
-                            state.scheme_notices = *on;
-                        }
-                    }
-                    seen
-                }
-                Some(Err(_)) => {
-                    eprintln!("terminal {number}: screen parser panicked; snapshots are off");
-                    state.parser = ScreenParser::Failed;
-                    Seen::default()
-                }
-                None => Seen::default(),
-            }
-        };
-        shared.answer(number, &seen.requests);
-        seen.titles
-            .into_iter()
-            .for_each(|title| shared.retitle(number, title));
-    }
-    let code = match reap(program) {
-        Ok(status) if status.signal().is_some() => None,
-        Ok(status) => Some(i32::try_from(status.exit_code()).unwrap_or(i32::MAX)),
-        Err(err) => {
-            // `None` means "killed by a signal"; an unknown ending must not look like one.
-            eprintln!("terminal {number}: cannot wait for program: {err}");
-            Some(-1)
-        }
-    };
-    if let Some(hold) = exit_hold {
-        hold();
-    }
-    drop(output);
-    shared.finish(number, code);
-}
-
-fn formatted_snapshot(screen: &vt100::Screen) -> Result<Vec<u8>, RpcError> {
-    let visible = screen.state_formatted();
-    let alternate = screen.alternate_screen();
-    let prefix = if alternate {
-        b"\x1b[?1049h".as_slice()
-    } else {
-        &[]
-    };
-    if prefix.len() + visible.len() > SNAPSHOT_MAX_BYTES {
-        return Err(RpcError::conflict(
-            "terminal visible screen exceeds snapshot limit",
-        ));
-    }
-
-    let mut history = Vec::new();
-    if !alternate {
-        let mut prior = screen.clone();
-        prior.set_scrollback(SNAPSHOT_SCROLLBACK);
-        let count = prior.scrollback();
-        let (_, cols) = prior.size();
-        for offset in (1..=count).rev() {
-            prior.set_scrollback(offset);
-            let row = prior.rows(0, cols).next().unwrap_or_default();
-            let mut line = row.into_bytes();
-            line.extend_from_slice(b"\r\n");
-            history.push(line);
-        }
-    }
-    let mut total = prefix.len() + visible.len() + history.iter().map(Vec::len).sum::<usize>();
-    while total > SNAPSHOT_MAX_BYTES {
-        total -= history.remove(0).len();
-    }
-    let mut data = Vec::with_capacity(total);
-    data.extend_from_slice(prefix);
-    for line in history {
-        data.extend_from_slice(&line);
-    }
-    data.extend_from_slice(&visible);
-    Ok(data)
-}
-
-fn snapshot_size_supported(cols: u16, rows: u16) -> bool {
-    u32::from(cols) * u32::from(rows) <= SNAPSHOT_MAX_CELLS
 }
 
 /// What the OS would refuse at exec time, caught here so it is the caller's error with a short message.
@@ -1147,61 +962,7 @@ impl Module for Terminals {
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
-        match method {
-            "terminal.spawn" => {
-                // M14: a Terminal an Agent starts is owned by it; the user's and an Extension's is ownerless (X1).
-                let spawned = if ctx.actor.kind == contracts::ActorKind::Agent {
-                    self.spawn_owned(params(value)?, &ctx.actor.id).await?
-                } else {
-                    self.spawn(params(value)?).await?
-                };
-                reply(&TerminalId { id: spawned.id })
-            }
-            "terminal.write" => {
-                let WriteParams { id, data } = params(value)?;
-                let bytes = STANDARD
-                    .decode(data)
-                    .map_err(|err| invalid(format!("data is not base64: {err}")))?;
-                if ctx.actor.kind == contracts::ActorKind::Agent {
-                    self.write_completed(&id, bytes).await.and(reply(&()))
-                } else {
-                    self.write(&id, &bytes).await.and(reply(&()))
-                }
-            }
-            "terminal.resize" => {
-                let ResizeParams { id, cols, rows } = params(value)?;
-                self.resize(&id, cols, rows).await.and(reply(&()))
-            }
-            "terminal.close" => {
-                let TerminalId { id } = params(value)?;
-                self.close(&id).await.and(reply(&()))
-            }
-            "terminal.kill" => {
-                let TerminalId { id } = params(value)?;
-                self.kill(&id).await.and(reply(&()))
-            }
-            "terminal.scheme" => self.set_scheme(params(value)?).await.and(reply(&())),
-            "terminal.show" => {
-                let TerminalId { id } = params(value)?;
-                self.screen(&id)?;
-                self.shared
-                    .bus
-                    .emit(Actor::daemon(), EventData::TerminalShown(TerminalId { id }));
-                reply(&())
-            }
-            "terminal.list" => reply(&self.list()),
-            "terminal.snapshot" => {
-                let TerminalId { id } = params(value)?;
-                reply(&self.snapshot(&id)?)
-            }
-            "terminal.screen" => {
-                let TerminalId { id } = params(value)?;
-                reply(&self.read_screen(&id, None)?)
-            }
-            "terminal.read" => reply(&self.read(&params::<ReadParams>(value)?)?),
-            "terminal.search" => reply(&self.search(&params::<SearchParams>(value)?)?),
-            _ => Err(RpcError::method_not_found(method)),
-        }
+        contracts::terminal_methods!(rpc::dispatch_methods, self, ctx, method, value)
     }
 }
 

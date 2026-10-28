@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ToolCall } from "@contracts/agent/ToolCall";
 import { agent, door, event } from "../testing/nodes";
-import { mountAskBar } from "./askFixture";
+import { mountAskBar as mountQuietAskBar } from "./askFixture";
 
 const START = 1_700_000_000_000;
 
@@ -182,3 +182,11 @@ it("u3780c_payload_text_is_inert", async () => {
   expect(region.querySelector("img")).toBeNull();
   expect(within(region).getByText("<img src=x onerror=alert(1)>")).toBeDefined();
 });
+
+const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
+  const mounted = await mountQuietAskBar(...args);
+  mounted.connected.showView(null);
+  mounted.connected.showView("workstreams");
+
+  return mounted;
+};

@@ -49,6 +49,13 @@ const app = async (base = false) => {
   await wait("!!document.querySelector('.shelf-tabs')");
 };
 
+const selectRow = async (id: string) => {
+  await browser("focus", `.rail-row[data-id="${id}"]`);
+  await wait(`document.activeElement?.matches('.rail-row[data-id="${id}"]')`);
+  await browser("press", "Enter");
+  await wait(`document.querySelector('.rail-row[data-id="${id}"]')?.dataset.selected === 'true'`);
+};
+
 const point = (selector: string, end = false) => read<{ x: number; y: number }>(`(() => {
   const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
   return { x: Math.round(${end ? 'box.right - 2' : 'box.left + 2'}), y: Math.round(box.top + box.height / 2) };
@@ -111,7 +118,7 @@ const placement = async (where: "agent" | "door" | "bubble") => {
   await app();
 
   if (where === "bubble") await browser("click", ".terminal-new");
-  else await browser("click", `[data-id="${where === "agent" ? "migrate" : "payments"}"] .name`);
+  else await selectRow(where === "agent" ? "migrate" : "payments");
 
   const selector = where === "bubble" ? ".bubble:not([hidden]) .xterm-screen" : ".pane-screen .xterm-screen";
 
@@ -191,20 +198,19 @@ it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$wher
 
 const editorKinds = ["pad", "rename"] as const;
 
-const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "overview", base = false) => {
+const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "ask", base = false) => {
   await app(base);
   let selector: string;
 
-  if (kind === "overview") {
-    await browser("open", url("/harness.html?seed=earlier-run&renderer=dom"));
-    await wait("!!document.querySelector('[data-id=earlier-agent]')");
-    await browser("click", '[data-id="earlier-agent"] .name');
-    await wait("!!document.querySelector('.overview-card p')");
-    selector = ".overview-card p";
+  if (kind === "ask") {
+    await browser("click", "[data-todo-root]");
+    selector = 'textarea[aria-label="Ask"]';
+    await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
+    await browser("fill", selector, "Keep this selected draft");
   } else if (kind === "diff") {
     await browser("open", url("/src/changes/u2540.html"));
     await wait("!!document.querySelector('.worktree-control')");
-    await browser("find", "role", "button", "click", "--name", "roundup/agent-1", "--exact");
+    await browser("click", ".worktree-control");
     await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
     await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
     await browser("find", "role", "button", "click", "--name", "View diff", "--exact");
@@ -214,10 +220,14 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
     const source = kind === "pad-source" ? "```mermaid\ngraph LR\nA-->B\n```" : "alpha [bravo](https://example.com) charlie delta echo foxtrot";
 
     await browser("eval", `window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(source)} })`);
-    await browser("click", '[data-id="payments"] .name');
+    await selectRow("payments");
     await browser("click", "#shelf-tab-pads");
+    await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
+    await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
     await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
-    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').click()");
+    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').focus()");
+    await wait("document.activeElement?.matches('.pad-name')");
+    await browser("press", "Enter");
     await wait("!!document.querySelector('.ProseMirror[contenteditable=true]')");
     selector = ".ProseMirror";
 
@@ -260,6 +270,11 @@ it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "d
   const selector = await editor(kind);
 
   if (gesture === "drag") {
+    // Rename initially selects its full name; collapse it before starting a new pointer selection.
+    await wait(`document.activeElement === document.querySelector(${JSON.stringify(selector)})`);
+    await browser("press", "Home");
+    await wait(`document.querySelector(${JSON.stringify(selector)}).selectionStart === document.querySelector(${JSON.stringify(selector)}).selectionEnd`);
+
     const from = await read<{ x: number; y: number }>(`(() => {
       const editor = document.querySelector(${JSON.stringify(selector)});
       const box = (editor.querySelector('p') ?? editor).getBoundingClientRect();
@@ -304,10 +319,14 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
 
 it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await app();
-  await browser("click", '[data-id="agent-1"] .name');
+  await selectRow("agent-1");
   await browser("click", "#shelf-tab-pads");
+  await wait("document.querySelector('#shelf-tab-pads')?.getAttribute('aria-selected') === 'true'");
+  await browser("eval", "document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
   await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
-  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').click()");
+  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
+    await wait("document.activeElement?.matches('.pad-name')");
+    await browser("press", "Enter");
   const selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
@@ -349,7 +368,7 @@ it.each(["agent", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xter
   expect(await journal("#host .xterm-screen", true)).toEqual(appOn);
 }, 120_000);
 
-it.each([...editorKinds, "pad-source", "diff", "overview"] as const)("u3529a_text_keeps_its_webview_menu_%s", async kind => {
+it.each([...editorKinds, "pad-source", "diff", "ask"] as const)("u3529a_text_keeps_its_webview_menu_%s", async kind => {
   const selector = await editor(kind);
   const field = kind === "diff" ? "document.querySelector('diffs-container').shadowRoot.querySelector('[data-line]')" : `document.querySelector(${JSON.stringify(selector)})`;
 
@@ -414,7 +433,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
     await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 
     if (seed === "bubbles") await browser("click", ".terminal-new");
-    else await browser("click", seed === "tree-40" ? '[data-id="migrate"] .name' : '[data-id=agent-4] .name');
+    else await selectRow(seed === "tree-40" ? "migrate" : "agent-4");
     await wait("window.__terminals.size > 0 && !!document.querySelector('.xterm-screen')");
     const output = "\x1b]133;A\x07$ \x1b]133;B\x07printf example\r\n\x1b]133;C\x07alpha bravo charlie\r\n\x1b]133;D;0\x07";
 

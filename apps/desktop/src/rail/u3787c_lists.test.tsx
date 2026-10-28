@@ -1,0 +1,101 @@
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { afterEach, expect, it, vi } from "vitest";
+import { agent, event, terminal, workstream } from "../testing/nodes";
+import { todo } from "../todos/testHarness";
+import { mountRail, railCallsTo, rowOf } from "./railFixture";
+
+afterEach(cleanup);
+
+const kinds = [workstream, (id: string) => agent(id, "idle", "ready"), terminal];
+
+// Opening inventory: the open Project mounts Rail; double-click and F2 open each node rename.
+it.each(kinds)("u3787c_each_list_selects_only_visible_rows_%#", async make => {
+  const { rail, app, connected } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((id, order) => ({ ...make(`row-${order}`), name: id, order })));
+  const selected = () => [...document.querySelectorAll<HTMLElement>(".rail-row[data-selected=true]")].map(row => row.querySelector(".name")?.textContent);
+  const before = app.calls.length;
+  fireEvent.click(rowOf("Alpha"), { metaKey: true });
+  fireEvent.click(rowOf("Beta"), { metaKey: true });
+  await waitFor(() => expect(selected()).toEqual(["Alpha", "Beta"]));
+  fireEvent.click(rowOf("Delta"), { shiftKey: true });
+  await waitFor(() => expect(selected()).toEqual(["Beta", "Gamma", "Delta"]));
+  fireEvent.click(rowOf("Gamma"), { metaKey: true });
+  await waitFor(() => expect(selected()).toEqual(["Beta", "Delta"]));
+  fireEvent.click(rowOf("終 e\u0301 😀"), { metaKey: true, shiftKey: true });
+  await waitFor(() => expect(selected()).toEqual(["Gamma", "Delta", "終 e\u0301 😀"]));
+  rowOf("Alpha").focus();
+  fireEvent.keyDown(rowOf("Alpha"), { key: "a", metaKey: true });
+  await waitFor(() => expect(selected()).toHaveLength(5));
+  expect(rail.selected()).toBeNull();
+  expect(connected.drawer.content()).toBeNull();
+  expect(app.calls.slice(before)).toEqual([]);
+});
+
+it.each(kinds.flatMap(make => ["F2", "double-click"].map(open => ({ make, open }))))("u3787c_escape_restores_the_name_%#", async ({ make, open }) => {
+  const { app, connected } = await mountRail([make("Original")]);
+  const row = rowOf("Original");
+  row.focus();
+
+  if (open === "F2") fireEvent.keyDown(row, { key: "F2" });
+  else fireEvent.dblClick(row);
+  const field = screen.getByRole<HTMLInputElement>("textbox", { name: "Name" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  fireEvent.input(field, { target: { value: "  e\u0301 🧭 終  " } });
+  const underlying = vi.fn();
+  document.addEventListener("keydown", underlying);
+
+  try { fireEvent.keyDown(field, { key: "Escape" }); }
+  finally { document.removeEventListener("keydown", underlying); }
+
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("Original")));
+  expect(underlying).not.toHaveBeenCalled();
+  expect(railCallsTo(app, "rail.rename")).toEqual([]);
+  expect(connected.drafts.list().map(draft => draft.value.text)).toEqual(["  e\u0301 🧭 終  "]);
+  fireEvent.keyDown(rowOf("Original"), { key: "F2" });
+  expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Name" }).value).toBe("  e\u0301 🧭 終  ");
+});
+
+it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
+  const { rail } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
+
+  fireEvent.click(rowOf("Beta"));
+
+  const press = async (name: string, key: string, expected: string) => {
+    rowOf(name).focus();
+    fireEvent.keyDown(rowOf(name), { key });
+    await waitFor(() => expect(document.activeElement).toBe(rowOf(expected)));
+  };
+
+  await press("Gamma", "Home", "Alpha");
+  await press("Alpha", "ArrowUp", "Alpha");
+  await press("Alpha", "End", "終 e\u0301 😀");
+  await press("終 e\u0301 😀", "ArrowDown", "終 e\u0301 😀");
+  await press("終 e\u0301 😀", "ArrowUp", "Delta");
+  await press("Delta", "ArrowDown", "終 e\u0301 😀");
+  fireEvent.keyDown(rowOf("終 e\u0301 😀"), { key: "a", metaKey: true });
+  await press("終 e\u0301 😀", "B", "Beta");
+  expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["Beta"]);
+  expect(rail.selected()).toBe("row-1");
+});
+
+it("u3787c_ranges_have_no_implicit_anchor_and_skip_folded_rows", async () => {
+  await mountRail([workstream("group"), agent("hidden", "idle", "ready", { parent: "group" }), ...["Alpha", "Beta", "Gamma", "Delta", "End"].map((name, order) => agent(`node-${order}`, "idle", "ready", { name, order: order + 1 }))]);
+  fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+  await waitFor(() => expect(document.querySelector('.rail-row[data-id="hidden"]')).toBeNull());
+  fireEvent.click(rowOf("Gamma"), { shiftKey: true });
+  expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["Gamma"]);
+  fireEvent.keyDown(rowOf("Gamma"), { key: "a", metaKey: true });
+  expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["group", "Alpha", "Beta", "Gamma", "Delta", "End"]);
+});
+
+it.each(kinds)("u3787c_navigation_and_selection_skip_ineligible_rows_%#", async make => {
+  await mountRail(["Alpha", "Hidden", "Disabled", "Beta"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
+  rowOf("Hidden").hidden = true;
+  rowOf("Disabled").setAttribute("aria-disabled", "true");
+  rowOf("Alpha").focus();
+  fireEvent.keyDown(rowOf("Alpha"), { key: "H" });
+  expect(document.activeElement).toBe(rowOf("Alpha"));
+  fireEvent.keyDown(rowOf("Alpha"), { key: "ArrowDown" });
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("Beta")));
+  fireEvent.keyDown(rowOf("Beta"), { key: "a", metaKey: true });
+  expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["Alpha", "Beta"]);
+});

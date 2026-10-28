@@ -2,11 +2,28 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "Valid handoff after bad ids"
+      },
+      "response": {
+        "content": "The valid Handoff was received."
+      }
+    },
+    {
+      "match": {
         "userMessage": "too much fluff",
         "hasToolResult": false
       },
       "response": {
         "content": "I will leave the Handoff unanswered."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "I want a login page",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
       }
     },
     {

@@ -1,6 +1,7 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
-import { createMemo, createSignal, onCleanup } from "solid-js";
+import { createEventListener } from "@solid-primitives/event-listener";
+import { createMemo, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "../copy";
@@ -24,6 +25,8 @@ const MORE = "more";
 /** What an event of U410 asks for. `key` is the acting Agent, so its repeats replace its Toast; `open` answers a failure line, or `null`. */
 export type Candidate = {
   key: string;
+  /** Original Project and owning surface, captured by the producer. */
+  project?: string;
   /** P3557c: the item a failure of `open` is about, such as `todo:7`; the same item opening again, deleted or saved clears that failure. */
   item: string;
   kind: Kind;
@@ -54,22 +57,21 @@ export type ToastQueue = {
 export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () => number = Date.now): ToastQueue => {
   const [entries, setEntries] = createSignal<readonly Entry[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
-  let failedItem: string | null = null;
+  const failures = new Map<string, { item: string; message: string }>();
   const kept = new Map<string, Candidate>();
   // Entries whose card is closing stay findable until the next push, for the activation that closed them.
   const known = new Map<string, Entry>();
   const displayed = new Set<string>();
   let lastChime = Number.NEGATIVE_INFINITY;
   let next = 0;
-  let listening = false;
+  const [listening, setListening] = createSignal(false);
 
   const toast = createToast({
     limit: MOST_SHOWN,
     newestFirst: true,
     onDismiss: (id) => {
-      if (id === FAILURE) {
-        failedItem = null;
-        setFailure(null);
+      if (failures.delete(id)) {
+        setFailure([...failures.values()].at(-1)?.message ?? null);
 
         return;
       }
@@ -82,7 +84,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
       sync();
     },
     onActivate: (id, source) => {
-      if (id === MORE || id === FAILURE) return;
+      if (id === MORE || failures.has(id)) return;
 
       const entry = known.get(id);
 
@@ -90,29 +92,30 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
 
       void Promise.resolve(entry.open(source)).then((message) => {
         if (message === null) settle(entry.item);
-        else showFailure(message, entry.item);
+        else showFailure(message, entry);
       });
     },
   });
 
-  function clearFailure() {
-    if (failure() === null) return;
-
-    failedItem = null;
-    setFailure(null);
-    toast.store.remove(FAILURE);
-  }
-
   function settle(item: string) {
-    if (failedItem === item) clearFailure();
+    for (const [id, failed] of failures) {
+      if (failed.item !== item) continue;
+      failures.delete(id);
+      toast.store.remove(id);
+    }
+
+    setFailure([...failures.values()].at(-1)?.message ?? null);
   }
 
-  /** A new line replaces the old one. */
-  function showFailure(message: string, item: string) {
-    clearFailure();
-    failedItem = item;
+  /** Same Project/scope/read replaces its cause and item; other owners stay independent. */
+  function showFailure(message: string, entry: Entry) {
+    const id = JSON.stringify([FAILURE, entry.project ?? "", "item", "read"]);
+
+    toast.store.remove(id);
+    failures.delete(id);
+    failures.set(id, { item: entry.item, message });
     setFailure(message);
-    toast.show({ id: FAILURE, name: "", content: "", body: () => <ReservedLine message={message}><button type="button" data-button="quiet" onClick={() => toast.dismiss(FAILURE)}>{copy.close}</button></ReservedLine>, duration: NO_TIME, extra: true });
+    toast.show({ id, name: "", content: "", body: () => <ReservedLine message={message}><button type="button" data-button="quiet" onClick={() => toast.dismiss(id)}>{copy.close}</button></ReservedLine>, duration: NO_TIME, extra: true });
   }
 
   const shown = createMemo(() => Math.min(entries().length, MOST_SHOWN));
@@ -159,7 +162,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
   const comeBack = () => {
     if (!inFront()) return;
 
-    stopListening();
+    setListening(false);
 
     const waiting = [...kept.values()];
 
@@ -167,19 +170,8 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     waiting.forEach(show);
   };
 
-  const stopListening = () => {
-    listening = false;
-    window.removeEventListener("focus", comeBack);
-    document.removeEventListener("visibilitychange", comeBack);
-  };
-
-  const listenForReturn = () => {
-    if (listening) return;
-
-    listening = true;
-    window.addEventListener("focus", comeBack);
-    document.addEventListener("visibilitychange", comeBack);
-  };
+  createEventListener(window, () => listening() ? "focus" : [], comeBack);
+  createEventListener(document, () => listening() ? "visibilitychange" : [], comeBack);
 
   const sound = () => {
     const at = now();
@@ -189,8 +181,6 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     lastChime = at;
     chime();
   };
-
-  onCleanup(stopListening);
 
   return {
     toast,
@@ -207,7 +197,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
         show(candidate);
       } else {
         kept.set(candidate.key, candidate);
-        listenForReturn();
+        setListening(true);
       }
 
       sound();

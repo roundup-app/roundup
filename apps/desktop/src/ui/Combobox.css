@@ -1,19 +1,9 @@
-/* U529: the field has no outline of its own (U3528 keeps only its caret), a row has no hover box, and the highlighted row is a filled --sunken row (D6, D7). */
 .app-combobox-label {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
   overflow: hidden;
   clip-path: inset(50%);
-}
-
-.app-combobox-input {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
 }
 
 .app-combobox-list {
@@ -31,7 +21,8 @@
   cursor: default;
 }
 
-.app-combobox-item[data-highlighted] {
+.app-combobox-item[data-highlighted],
+.app-combobox-item[data-row-selected=true] {
   background-color: var(--sunken);
 }
 
@@ -54,10 +45,20 @@
 
 .app-popover.choice-picker {
   z-index: var(--layer-menu);
-  min-width: var(--pad-menu-min-width);
+  box-sizing: border-box;
+  width: 100%;
   padding: var(--space-1);
 }
 
 .choice-picker .app-combobox-input {
   box-sizing: border-box;
+}
+
+/* Content selection shares one ground; the keyboard position changes only its tone. */
+.app-combobox-item[data-collection-value] {
+  border-radius: 0;
+}
+
+.app-combobox-item[data-row-selected=true]:focus {
+  background-color: var(--selected);
 }

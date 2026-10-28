@@ -8,7 +8,6 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 
 NEEDS_USER = 'flag:needs-user'
 NEEDS_MAC = 'flag:needs-mac'
@@ -33,20 +32,22 @@ GH_TIMEOUT = 120
 # The longest a rate-limited call waits for the quota to come back.
 RATE_WAIT_CAP = 300
 RATE_LIMITED = re.compile(r'API rate limit exceeded|secondary rate limit', re.I)
+# What a job with no better use of its time waits for the hourly quota: a whole window.
+RESET_WAIT_CAP = 3600 + 60
 # A secondary limit leaves the hourly quota untouched, so there is no reset to wait for.
 SECONDARY_WAIT = 60
 
 
-def rate_wait(stderr):
-    """Seconds, at most RATE_WAIT_CAP, to wait before a call that `stderr` shows was rate limited: a `Retry-After` hint
+def rate_wait(stderr, cap=RATE_WAIT_CAP):
+    """Seconds, at most `cap`, to wait before a call that `stderr` shows was rate limited: a `Retry-After` hint
     in it, else the time to the hourly quota's reset (`gh api rate_limit` costs none), else SECONDARY_WAIT when quota remains."""
     if hint := re.search(r'retry[- ]after:?\s*(\d+)', stderr, re.I):
-        return min(int(hint[1]), RATE_WAIT_CAP)
+        return min(int(hint[1]), cap)
     core = json.loads(subprocess.run(['gh', 'api', 'rate_limit'], check=True, text=True, stdout=subprocess.PIPE,
                                      timeout=60).stdout)['resources']['core']
     if core['remaining'] > 0:
         return SECONDARY_WAIT
-    return min(max(core['reset'] - time.time(), 1), RATE_WAIT_CAP)
+    return min(max(core['reset'] - time.time(), 1), cap)
 
 
 def call(*args, timeout=60):
@@ -67,8 +68,47 @@ def call(*args, timeout=60):
             run.check_returncode()
 
 
+def after_rate_limit(attempt):
+    """`attempt()`. `call` waits out a rate limit for at most RATE_WAIT_CAP; when the quota's reset is further off and the call
+    still fails on it, wait for the reset itself (at most RESET_WAIT_CAP) and run `attempt` once more."""
+    try:
+        return attempt()
+    except subprocess.CalledProcessError as error:
+        if not RATE_LIMITED.search(error.stderr or ''):
+            raise
+        time.sleep(rate_wait(error.stderr, RESET_WAIT_CAP))
+        return attempt()
+
+
 def gh(*args):
     return json.loads(call(*args, timeout=GH_TIMEOUT))
+
+
+def graphql(fields):
+    """The repository's `fields` (a GraphQL selection) as one query: GraphQL has its own hourly quota, so a read that took
+    a REST call per Issue leaves the REST quota to the jobs that need it."""
+    return gh('api', 'graphql', '-F', 'owner={owner}', '-F', 'repo={repo}', '-f',
+              f'query=query($owner:String!,$repo:String!){{repository(owner:$owner,name:$repo){{{fields}}}}}')['data']['repository']
+
+
+def blockers(numbers):
+    """{Issue: the Issues blocking it, in the REST shape `classify` reads} for each of `numbers`, in one call."""
+    found = graphql(' '.join(f'i{n}:issue(number:{n}){{blockedBy(first:100){{totalCount nodes{{number state stateReason}}}}}}'
+                             for n in numbers)) if numbers else {}
+    for n in numbers:
+        if found[f'i{n}']['blockedBy']['totalCount'] > 100:
+            raise ValueError(f'#{n} has more than 100 blockers')
+    return {n: [dict(number=d['number'], state=d['state'].lower(), state_reason=(d['stateReason'] or '').lower() or None)
+                for d in found[f'i{n}']['blockedBy']['nodes']] for n in numbers}
+
+
+def strikes(numbers, since):
+    """{Issue: the times, at or after `since`, of this bot's `STRIKE` comments among its last 100} for each of `numbers`, in one call."""
+    found = graphql(' '.join(f'i{n}:issue(number:{n}){{comments(last:100){{nodes{{author{{login __typename}} body createdAt}}}}}}'
+                             for n in numbers)) if numbers else {}
+    return {n: [created(c['createdAt']) for c in found[f'i{n}']['comments']['nodes']
+                if c['author'] and (c['author']['__typename'], c['author']['login']) == ('Bot', BOT.removesuffix('[bot]'))
+                and c['body'].startswith(STRIKE) and created(c['createdAt']) >= since] for n in numbers}
 
 
 def running(pr):
@@ -123,7 +163,8 @@ def order(issue):
         return dict(mode='specify', issue=issue['number'], url=issue['html_url'], ids=issue['title'], file='',
                     slug=f'issue-{issue["number"]}', priority=50, request=True, respecify=False)
     key = field(body, 'Key')
-    if not re.fullmatch(r'[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*', key):
+    # `repair-<number>` is the slug of the repair run of this Issue (L96); a Key of that name would run as one.
+    if not re.fullmatch(r'[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*', key) or key == f'repair-{issue["number"]}':
         raise ValueError('invalid Key')
     spec = field(body, 'Specification')
     # The Issue form displays the specification as a clickable repository link.
@@ -305,15 +346,21 @@ def all_issues():
 def list_issues():
     """Every Issue. With `$ORDERS_CLOSED_CACHE` naming an existing file, the open Issues plus the closed ones that file
     holds, updated with those changed since its read: two calls once it is warm. With the variable and no file, every
-    page, once, and the file is written; without the variable, every page. The file is rewritten on each read."""
+    page, once, and the file is written; without the variable, every page. An empty or failed warm open read
+    recovers every Issue before replacing the cache. The file is rewritten only after a successful read."""
     path = os.environ.get(CLOSED_CACHE)
     if not path:
         return all_issues()
     file, started = Path(path), time.time()
+    opened = []
     if file.is_file():
         cache = json.loads(file.read_text())
+        try:
+            opened = rest_issues('state=open')
+        except subprocess.CalledProcessError as error:
+            print(f'::warning::REST open-Issue list failed ({error.returncode}); reading every Issue', file=sys.stderr)
+    if opened:
         since = datetime.fromtimestamp(cache['read'] - CACHE_OVERLAP, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-        opened = rest_issues('state=open')
         closed = {int(number): issue for number, issue in cache['closed'].items()}
         closed.update({issue['number']: {key: issue.get(key) for key in KEPT} for issue in rest_issues(f'state=closed&since={since}')})
         for issue in opened:
@@ -328,22 +375,15 @@ def list_issues():
 
 def read_orders():
     issues = list_issues()
-    def dependencies(issue):
-        if issue['state'] == 'closed' or issue.get('issue_dependencies_summary', {}).get('total_blocked_by') == 0:
-            return issue['number'], []
-        pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue["number"]}/dependencies/blocked_by?per_page=100',
-                   '--paginate', '--slurp')
-        return issue['number'], [dependency for page in pages for dependency in page]
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        blocked = dict(pool.map(dependencies, issues))
+    owed = [issue['number'] for issue in issues
+            if issue['state'] != 'closed' and issue.get('issue_dependencies_summary', {}).get('total_blocked_by') != 0]
+    blocked = {issue['number']: [] for issue in issues} | blockers(owed)
     prs = gh('pr', 'list', '--state', 'open', '--limit', '1000', '--json', 'number,headRefName,body,isCrossRepository')
     rows, now = classify(issues, blocked, prs), time.time()
     # A strike comment changes its Issue, so only an Issue changed in the last DAY can be held.
     changed = {issue['number'] for issue in issues if created(issue['updated_at']) > now - DAY}
     ready = [row['issue'] for row in rows if (row['state'] == 'ready' or row.get('invalid')) and row['issue'] in changed]
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        struck = pool.map(lambda number: [created(c['created_at']) for c in marked(number, STRIKE, now - DAY)], ready)
-        return cool(rows, dict(zip(ready, struck)), now)
+    return cool(rows, strikes(ready, now - DAY), now)
 
 
 class NotReady(Exception):

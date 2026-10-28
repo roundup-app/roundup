@@ -56,12 +56,12 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     if (process.env.ROUNDUP_BASELINE_ROOT) {
       baseline = await createServer({ root: process.env.ROUNDUP_BASELINE_ROOT, configFile: join(process.env.ROUNDUP_BASELINE_ROOT, "vite.config.ts"), logLevel: "silent", plugins: [realDaemon({ project: real.dir, socket: join(real.dir, "rupd.sock") })], server: { host: "127.0.0.1", port: 0 } });
       await baseline.listen();
-      await browser("open", `${baseline.resolvedUrls!.local[0]}harness.html?daemon=1`);
+      await browser("open", `${baseline.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
       await until("!!document.querySelector('.ask-input')");
       await capture("base/overview");
     }
 
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
     await until("!!document.querySelector('.ask-input')");
     await until("document.querySelectorAll('.made-row').length === 12 && document.querySelector('.made')?.getAttribute('aria-busy') === 'false'");
     await capture("overview");
@@ -82,11 +82,12 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     await browser("set", "media", "light");
     await until("matchMedia('(prefers-color-scheme: light)').matches");
     // Scope follows Rail selection without replacing its Terminal.
-    await browser("click", `.rail [data-id="${home.id}"] [data-part="branch-control"]`);
-    await until(`document.querySelector('.rail [data-id="${home.id}"] [data-part="branch-control"]')?.dataset.selected === 'true'`);
+    await browser("focus", `.rail-row[data-id="${home.id}"]`);
+    await until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
+    await browser("press", "Enter");
+    await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await capture("home-strip");
-    await browser("click", ".made-trigger");
-    await until("document.querySelectorAll('.made-row').length === 10");
+    await until("document.querySelectorAll('.ask-bar .made-row').length === 10");
     expect(await evaluate("!!document.querySelector('.pane')")).toBe(true);
     await capture("home");
   } finally {
@@ -95,7 +96,7 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     await baseline?.close();
     await real.stop();
   }
-}, 120_000);
+}, 60_000);
 
 it("u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen", async () => {
   const real = await startRealDaemon({}, true);
@@ -109,7 +110,7 @@ it("u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen", async 
 
   try {
     const original = await app.rpc("rail.createWorkstream", { name: "Captured", parent: null });
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("wait", ".ask-input");
     await browser("eval", `(() => {
@@ -133,7 +134,7 @@ it("u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen", async 
     expect(restored.data.result).toEqual([exact, 2, 6, "backward", false]);
     expect(await app.rpc("ask.list", null)).toEqual([]);
     await browser("open", "about:blank");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
     await browser("wait", ".ask-input");
     expect(JSON.parse(await browser("eval", "(() => { const field = document.querySelector('.ask-input'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]; })()")).data.result).toEqual([exact, 2, 6, "backward"]);
     await browser("eval", `document.querySelector('.ask-input').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true}))`);
@@ -152,7 +153,7 @@ it("u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen", async 
     rmSync(profile, { recursive: true, force: true });
     await real.stop();
   }
-}, 120_000);
+}, 60_000);
 
 it.skipIf(!captureDir("U3021c"))("u3021c_ask_selected_revision_browser_focus", async () => {
   const real = await startRealDaemon({}, true);
@@ -171,7 +172,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_ask_selected_revision_browser_focus", a
     for (let n = 0; n < 10; n += 1) await app.rpc("rail.createWorkstream", { name: `Work ${n}`, parent: null });
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
     await browser("wait", ".ask-input");
     // Mount the owner once in an isolated document. Selection changes its props, never its lifetime.
     await browser("eval", `(async () => {
@@ -225,7 +226,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_ask_selected_revision_browser_focus", a
     rmSync(profile, { recursive: true, force: true });
     await real.stop();
   }
-}, 120_000);
+}, 60_000);
 
 
 it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identity_on_the_dense_failure_screen", async () => {
@@ -254,7 +255,7 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
     await real.restart();
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
     await browser("wait", "--fn", "document.querySelectorAll('.made-row').length === 13");
     await capture("before");
     // A browser has no native host menu. Preserve its selection boundary while the App,
@@ -306,4 +307,4 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
     rmSync(profile, { recursive: true, force: true });
     await real.stop();
   }
-}, 120_000);
+}, 60_000);

@@ -47,7 +47,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
 
         if (theme === "contrast") args.push("--args", "--force-high-contrast");
 
-        await browser(...args, "open", new URL("/harness.html?seed=tree-40", origin).href);
+        await browser(...args, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
         await browser("set", "viewport", "1512", "950");
         await browser("set", "media", theme === "dark" ? "dark" : "light");
         await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
@@ -96,4 +96,4 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
       }
     }
   } finally { await server.close(); }
-}, 180_000);
+}, 60_000);

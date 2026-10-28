@@ -35,7 +35,8 @@ describe("u19 create", () => {
   });
 
   it("u19_enter_calls_pad_create_with_the_name_and_leaves_a_fresh_focused_field", async () => {
-    const { app } = await openShelf([]);
+    const { app, connected } = await openShelf([]);
+    connected.rail.select(AGENT.id);
     app.handlers["pad.create"] = ({ name }) => padOf(name, USER);
 
     const field = await typeName("notes");
@@ -43,6 +44,7 @@ describe("u19 create", () => {
     await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.create")).toEqual([
       { method: "pad.create", params: { name: "notes", text: null } },
     ]));
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual([{ name: "notes", home: AGENT.id }]));
     expect(field).toHaveProperty("value", "");
     expect(document.activeElement).toBe(field);
   });
@@ -115,6 +117,7 @@ it("u2773a_pads_creation_restores_exact_work", async () => {
   fireEvent.select(field);
   expect(connected.drafts.list().at(-1)?.value).toEqual({ name: "  exact é 🪁  ", home: AGENT.id });
   fireEvent.keyDown(field, { key: "Escape" });
+  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.at(-1).selection).toMatchObject({ start: 2, end: 7, direction: "backward" }));
   cleanup();
   const restored = await openShelf([], false, true);
   fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
@@ -140,7 +143,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     fireEvent.input(field, { target: { value: "  recoverable é 🪁  " } });
     const clipboard = vi.fn(async () => {});
     vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
-    fireEvent.click(screen.getByRole("button", { name: "Copy name" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy name" }));
     expect(clipboard).toHaveBeenCalledWith("  recoverable é 🪁  ");
     expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);
     fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
@@ -148,7 +151,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     expect(field.value).toBe("");
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-    expect(connected.drafts.problem()).toBeNull();
+    await waitFor(() => expect(connected.drafts.problem()).toBeNull());
     expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts).toEqual([older]);
     expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1);
   } finally {
@@ -168,7 +171,7 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   cleanup();
   render(() => <ConnectedProjectContext.Provider value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
   const calls = [...app.calls];
-  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
   const field = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
   await waitFor(() => expect(document.activeElement).toBe(field));
   expect(field.value).toBe("  earlier é 🪁  ");
@@ -180,7 +183,7 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   connected.drawer.close("key");
   expect(connected.drafts.list()).toEqual(retained);
   expect(app.calls).toEqual(calls);
-  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {}, settled: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
   const editing = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
   await waitFor(() => expect(document.activeElement).toBe(editing));
   const b = retained.at(-1)!;
@@ -190,6 +193,7 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   fireEvent.input(editing, { target: { value: "edited A 🌱" } });
   connected.drawer.close("key");
   const { draftStorage } = await import("../state/storage");
+  await waitFor(() => expect(draftStorage(connected.project.path).list().some(draft => draft.value.name === editing.value)).toBe(true));
   const durable = draftStorage(connected.project.path).list();
   expect(durable).toContainEqual(b);
   expect(durable.some(draft => draft.value.name === "edited A 🌱")).toBe(true);

@@ -7,11 +7,11 @@
   min-width: 0;
 }
 
-.markdown > :first-child {
+.markdown :first-child {
   margin-top: 0;
 }
 
-.markdown > :last-child {
+.markdown :last-child {
   margin-bottom: 0;
 }
 

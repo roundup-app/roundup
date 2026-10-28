@@ -1,4 +1,4 @@
-//! N20: current standalone stores still write and reopen; no historical fixtures.
+//! N20 standalone reopen and B3563e historical Project upgrade observers.
 use std::{path::Path, sync::Arc};
 
 use contracts::{Actor, ActorKind, Verb};
@@ -242,16 +242,7 @@ fn action_rows(db: &rusqlite::Connection) -> Vec<(i64, String, Vec<String>)> {
 #[tokio::test]
 async fn b3563e_upgrade_preserves_messages_and_never_replays_old_actions() {
     let dir = tempfile::tempdir().unwrap();
-    drop(rupd::Daemon::open(dir.path()).unwrap());
-
-    // Make it the Project an older version left: the two latest migrations not yet run, Messages
-    // behind each wait reason, both approval Routes, and Door actions waiting, started and done.
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    let version: i64 = db
-        .query_row("PRAGMA user_version", [], |row| row.get(0))
-        .unwrap();
-    db.execute_batch(&format!("PRAGMA user_version = {}", version - 2))
-        .unwrap();
+    let db = storage::project(dir.path(), 37);
     let user = json!({"kind": "user", "id": "you", "parent": null}).to_string();
     let message = |id,
                    from: &str,

@@ -3,7 +3,7 @@
 /* Any button, including the buttons inside a row (a Rail or Shelf row, a Todo's title), which U172 draws and which take no `data-button`: plain text on no surface. */
 button {
   /* The hooks a component or a kind may set: the surface at rest, the inline pad, the leading pad and the radius. */
-  --button-surface: transparent;
+  --button-surface: var(--transparent);
   --button-inline: 0;
   --button-lead: var(--button-inline);
   --button-radius: var(--radius-control);
@@ -72,12 +72,12 @@ button {
   color: var(--text);
 }
 
-/* U137: the Add Agent icon and label rest at a stronger grey on the selected wash to keep D5; hover reaches --text. */
-.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+/* U133: selected ground needs stronger ink; plain rows keep neighbouring icons’ tone. */
+.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], [data-pressed="true"]) {
   color: var(--ink-rest-selected);
 }
 
-.rail-row[data-selected="true"] button.rail-add:hover:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+.rail-row button.rail-add:hover:not([aria-disabled="true"], [data-pressed="true"]) {
   color: var(--text);
 }
 
@@ -99,20 +99,21 @@ button:hover:not([aria-disabled="true"]),
 }
 
 /* Every button answers with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
-/* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-button:active:not([aria-disabled="true"]),
-button[data-pressed="true"]:not([aria-disabled="true"]) {
+/* Opacity also reaches independently coloured Glyphs and filled controls whose label overrides the pressed ink (U133). */
+/* Sortable ends the transient press when dragging begins, leaving only the row's selected wash. */
+:is(button, a[href], summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="treeitem"])[data-pressed="true"]:not(input, :disabled, [aria-disabled="true"], [data-disabled]):where(:not([data-dnd-dragging], [data-dnd-dragging] *)) {
   color: var(--ink-pressed);
-  transition-duration: 0s;
+  opacity: var(--press-opacity);
+  transition: none;
 }
 
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
 button[data-feedback="ink"]:hover:not([aria-disabled="true"]) {
   color: var(--text);
-  background-color: transparent;
+  background-color: var(--transparent);
 }
 
-button[data-feedback="ink"]:active:not([aria-disabled="true"]) {
+button[data-feedback="ink"][data-pressed="true"]:not([aria-disabled="true"]) {
   color: var(--ink-pressed);
 }
 
@@ -123,11 +124,11 @@ button[data-feedback="ink"]:active:not([aria-disabled="true"]) {
 }
 
 /* U510: a toggled control rests one ink step below hover, which reaches --text; a press dims to --ink-pressed. */
-:is([data-button="icon"])[aria-pressed="true"]:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+:is([data-button="icon"])[aria-pressed="true"]:not([data-pressed="true"], [aria-disabled="true"]) {
   color: var(--ink-rest-selected);
 }
 
-:is([data-button="icon"])[aria-pressed="true"]:hover:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+:is([data-button="icon"])[aria-pressed="true"]:hover:not([data-pressed="true"], [aria-disabled="true"]) {
   color: var(--text);
 }
 
@@ -137,8 +138,8 @@ button[aria-disabled="true"] {
   cursor: default;
 }
 
-/* U137: a disabled add keeps one distinct ink with D5 contrast on the selected wash. */
-.rail-row[data-selected="true"] .rail-add[aria-disabled="true"] {
+/* A disabled add keeps its ink when selection or focus changes the row ground. */
+.rail-row .rail-add[aria-disabled="true"] {
   color: var(--grey);
 }
 
@@ -152,8 +153,8 @@ button[aria-disabled="true"] {
   color: var(--text);
 }
 
-[data-flat-tab] button:is(:active, [data-pressed="true"]):not([aria-disabled="true"]),
-[data-flat-add]:is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
+[data-flat-tab] button[data-pressed="true"]:not([aria-disabled="true"]),
+[data-flat-add][data-pressed="true"]:not([aria-disabled="true"]) {
   color: var(--ink-pressed);
 }
 
@@ -163,7 +164,7 @@ button[aria-disabled="true"] {
 }
 
 /* U2716a: the Overview band's washes and tile are the owner's explicit chrome exception. */
-.rail > .todo-project-root {
+.rail .todo-project-root {
   position: relative;
   flex: none;
   height: calc(var(--space-6) + var(--space-2));
@@ -180,11 +181,11 @@ button[aria-disabled="true"] {
 }
 
 /* The band's inset overrides the Rail's padding for its other fixed children. */
-.rail > button.todo-project-root[data-todo-root] {
+.rail button.todo-project-root[data-todo-root] {
   padding-inline: var(--space-3);
 }
 
-.todo-project-root > .overview-tile {
+.todo-project-root .overview-tile {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -196,20 +197,20 @@ button[aria-disabled="true"] {
   color: var(--text);
 }
 
-.rail > .todo-project-root:hover {
+.rail .todo-project-root:hover {
   background: var(--hover);
 }
 
-.rail > .todo-project-root[aria-pressed="true"] {
+.rail .todo-project-root[aria-pressed="true"] {
   background: var(--ground);
 }
 
-.todo-project-root[aria-pressed="true"] > .overview-tile {
+.todo-project-root[aria-pressed="true"] .overview-tile {
   background: var(--accent);
   color: var(--ground);
 }
 
-.rail > .todo-project-root[data-todo-drop] {
+.rail .todo-project-root[data-todo-drop] {
   background: var(--hover);
 }
 
@@ -241,10 +242,24 @@ button[aria-disabled="true"] {
   color: var(--surface);
 }
 
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
+  color: var(--text);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"][data-pressed="true"]:not(:disabled, [aria-disabled="true"], [data-disabled]) {
+  color: var(--button-accent-ink);
+}
+
 :is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="icon"] {
   --button-inline: 0;
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:is(:hover, :active) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:is(:hover, [data-pressed="true"]) {
   background-color: var(--button-surface);
+}
+
+/* Native visible inputs retain their own hit area and activation. */
+input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-disabled="true"]) {
+  opacity: var(--press-opacity);
+  transition: none;
 }

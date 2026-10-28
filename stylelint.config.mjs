@@ -5,6 +5,13 @@ const focusRingRule = 'roundup/no-focus-ring';
 const noFocusRing = stylelint.createPlugin(focusRingRule, () => (root, result) => {
   root.walkDecls((declaration) => {
     if (!/^(outline(?:-.+)?|box-shadow)$/i.test(declaration.prop)) return;
+
+    if (root.source?.input.file?.endsWith('/apps/desktop/src/ui/Field.css') &&
+        declaration.prop === 'outline' && declaration.value === 'var(--stroke-width) solid var(--accent)' &&
+        declaration.parent?.type === 'rule' && declaration.parent.selector.split(/,\s*\n/).every(selector =>
+          /(?:\[data-scope="(?:field|number-input|date-picker)"\]|\.app-(?:select-trigger|combobox-input|checkbox|switch|radio|dialog-form)|\.(?:import-prompt|note-form))/.test(selector))) return;
+
+    if (root.source?.input.file?.endsWith('/apps/desktop/src/ui/Field.css') && declaration.prop === 'outline-offset' && declaration.value === 'var(--stroke-width)') return;
     let focused = false;
 
     for (let parent = declaration.parent; parent; parent = parent.parent) {
@@ -58,9 +65,46 @@ const tokenElevation = stylelint.createPlugin(elevationRule, () => (root, result
   });
 });
 
+const containerRule = 'roundup/container-token-threshold';
+
+// The built-in unit rule visits media preludes, but not container preludes.
+const containerTokenThreshold = stylelint.createPlugin(containerRule, () => async (root, result) => {
+  const queries = [];
+  root.walkAtRules(/^container$/i, query => { queries.push(query); });
+
+  for (const query of queries) {
+    const media = query.clone({ name: 'media', params: query.params.slice(query.params.indexOf('(')) });
+    media.removeAll();
+    const probe = root.clone().removeAll().append(media);
+
+    await stylelint.utils.checkAgainstRule({
+      ruleName: 'unit-disallowed-list', ruleSettings: ['px', 'ms', 's', 'rem'], root: probe,
+    }, warning => {
+      stylelint.utils.report({ ruleName: containerRule, result, node: query, message: warning.text });
+    });
+  }
+});
+
 export default {
-  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation],
+  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation, containerTokenThreshold],
+  overrides: [{ files: ['**/tokens.css'], rules: {
+    'unit-disallowed-list': null,
+    'color-no-hex': null,
+    'color-named': null,
+    'declaration-property-value-disallowed-list': null,
+    [containerRule]: null,
+  } }],
   rules: {
+    'declaration-no-important': true,
+    'unit-disallowed-list': ['px', 'ms', 's'],
+    'selector-max-compound-selectors': 2,
+    'selector-combinator-disallowed-list': ['>'],
+    'color-no-hex': true,
+    'color-named': 'never',
+    'declaration-property-value-disallowed-list': {
+      '/.*/': [/(?<![-\w])transparent\b/i, /(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^;]*?[\s,(/][+-]?(?:\d|\.\d)/i],
+    },
+    [containerRule]: true,
     [focusRingRule]: true,
     [elevationRule]: true,
     'declaration-property-value-allowed-list': {

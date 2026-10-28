@@ -1,0 +1,42 @@
+[
+  {
+    "scheme": "light",
+    "control": ".app-radio:last-child",
+    "body": "rgba(0, 0, 0, 0)",
+    "foreground": "rgb(29, 29, 31)",
+    "ground": "#ffffff",
+    "html": "rgb(255, 255, 255)",
+    "opacity": 0.9,
+    "compositedTextContrast": 12.499022236218739
+  },
+  {
+    "scheme": "light",
+    "control": ".app-segment:last-child",
+    "body": "rgba(0, 0, 0, 0)",
+    "foreground": "rgb(29, 29, 31)",
+    "ground": "#ffffff",
+    "html": "rgb(255, 255, 255)",
+    "opacity": 0.9,
+    "compositedTextContrast": 12.499022236218739
+  },
+  {
+    "scheme": "dark",
+    "control": ".app-radio:last-child",
+    "body": "rgba(0, 0, 0, 0)",
+    "foreground": "rgb(245, 245, 247)",
+    "ground": "#1c1c1e",
+    "html": "rgb(28, 28, 30)",
+    "opacity": 0.9,
+    "compositedTextContrast": 12.821674484990897
+  },
+  {
+    "scheme": "dark",
+    "control": ".app-segment:last-child",
+    "body": "rgba(0, 0, 0, 0)",
+    "foreground": "rgb(245, 245, 247)",
+    "ground": "#1c1c1e",
+    "html": "rgb(28, 28, 30)",
+    "opacity": 0.9,
+    "compositedTextContrast": 12.821674484990897
+  }
+]

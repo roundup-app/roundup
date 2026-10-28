@@ -1,30 +1,35 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
-/* U2232: the hint line's row above the tab row. The bar's ground and rule (flat-tab.styles.css) start where it ends, so the tab row keeps the Rail footer's height (--rail-actions-height). */
+/* Hints share the Terminal bar and reserve no separate row. */
 :root {
-  --hint-row-height: calc(var(--space-4) + var(--space-2));
+  --hint-row-height: var(--length-zero);
 }
 
 /* U444, U2340c: the centre's last line, one line the Terminal's width; it holds its height empty or filled, so the Terminal never moves. */
 .resource-strip {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(var(--space-6), 1fr) auto auto;
-  grid-template-rows: var(--hint-row-height) var(--rail-actions-height);
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: var(--line);
   flex: none;
   box-sizing: border-box;
   align-items: center;
   gap: 0 var(--space-3);
   width: 100%;
-  height: calc(var(--hint-row-height) + var(--rail-actions-height));
+  height: var(--line);
   padding: 0 var(--space-2) 0 0;
   color: var(--grey);
   font-family: var(--font-ui);
   font-size: var(--text-small);
 }
 
+/* An unrequested changes control leaves no empty inspection band above navigation. */
+.resource-strip:empty {
+  display: none;
+}
+
 /* Each part stays whole; a value is never split from its icon (D10). */
-.resource-strip > span {
+.resource-strip .resource-agent {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -55,8 +60,8 @@
 /* The name is for a screen reader; the icon speaks to the eye. */
 .resource-name {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
@@ -65,7 +70,6 @@
 /* Selected-Agent resources fit beside long Terminal names without changing the bar's height, below the hint line (U2230b). */
 .terminal-tabs-host {
   align-self: stretch;
-  padding-left: var(--space-2);
   grid-column: 1;
   grid-row: 2;
 }
@@ -89,26 +93,58 @@
   scrollbar-width: none;
 }
 
-/* U2230b: the bar's first line, the width of the bar and above the tabs and resource values: grey labels beside key chips, never in the way of a click. Hints that do not fit whole are hidden from the end. */
+/* Hints use only the room left by the tabs and controls; whole trailing hints hide. */
 .hint[hidden] {
   display: none;
 }
 
+.hint-line .hint {
+  flex: none;
+}
+
 .hint-line {
-  grid-column: 1 / -1;
-  grid-row: 1;
+  position: relative;
   display: flex;
+  align-items: center;
   column-gap: var(--space-4);
   box-sizing: border-box;
-  height: var(--space-4);
-  inline-size: 0;
-  min-inline-size: 100%;
-  margin: 0 0 var(--space-2);
-  padding: 0 var(--space-2);
+  flex: 1;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  margin-inline-start: var(--space-4);
   overflow: hidden;
   color: var(--grey);
   line-height: var(--space-4);
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
+}
+
+.resource-inspection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+}
+
+
+.resource-values {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.resource-inspection .resource-stale {
+  grid-column: auto;
+  grid-row: auto;
+  inline-size: auto;
+}
+
+.resource-inspection button {
+  justify-self: end;
 }

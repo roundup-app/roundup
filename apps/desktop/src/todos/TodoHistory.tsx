@@ -1,4 +1,4 @@
-import { writeText } from "../app/clipboard";
+import { CopyButton } from "../ui/CopyButton";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
@@ -129,7 +129,7 @@ export const TodoHistory = (props: { id: number; saved?: () => number; onCapture
     if ((event.name === "todo.updated" || event.name === "todo.unblocked") && event.data.id === props.id) void refresh();
 
     // Deleting a blocker changes surviving Todos' history without changing their own fields in this Event.
-    if (event.name === "todo.deleted" && event.data.id !== props.id) void refresh();
+    if ((event.name === "todo.restored" || event.name === "todo.deleted") && event.data.id !== props.id) void refresh();
   }));
   onCleanup(() => { alive = false; latest++; });
 
@@ -156,12 +156,10 @@ export const TodoHistory = (props: { id: number; saved?: () => number; onCapture
         <Icon name={opened() ? "down" : "right"} />
         <span class="todo-history-count" data-state={loaded()?.unread ? "unread" : "read"}>{count() > 0 ? copy.changesCount(count()) : copy.changes}</span>
       </button>
-      <Show when={opened() && loaded()}>{record => <button type="button" data-button="quiet" onClick={() => {
-        void writeText(app, JSON.stringify({
+      <Show when={opened() && loaded()}>{record => <CopyButton app={app} text={JSON.stringify({
           lines: record().history.changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent)),
           history: record().history, failure: failure(),
-        }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-      }}>{copy.copy}</button>}</Show></div>
+        }, null, 2)} onSuccess={() => failCopy(null)} onFailure={error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton>}</Show></div>
       <Show when={opened()}>
 
         <For each={loaded()?.history.changes ?? []}>{(change) => <>

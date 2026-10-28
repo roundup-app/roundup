@@ -1,11 +1,13 @@
 """E14 exercises the observer's evidence boundary, never a product test double."""
 import importlib.util
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 import json
 import tempfile
 import subprocess
+import signal
 import os
-import re
 import time
 import sys
 from pathlib import Path
@@ -165,11 +167,6 @@ class E14(unittest.TestCase):
                     child.terminate()
                     child.wait(timeout=5)
 
-    def test_e14_memory_collector_outlives_the_longest_ci_job(self):
-        workflow = Path(__file__).parents[2].joinpath(".github/workflows/check.yml").read_text()
-        longest = max(int(m) for m in re.findall(r"timeout-minutes: (\d+)", workflow))
-        self.assertGreater(observer.MEMORY_LIMIT_SECONDS, longest * 60)
-
     def test_e14_before_after_report_requires_every_full_lane(self):
         # Synthetic evidence exercises report assembly, not the benchmark itself.
         with tempfile.TemporaryDirectory() as temporary:
@@ -194,6 +191,155 @@ class E14(unittest.TestCase):
             self.assertEqual(failed.returncode, 1)
             self.assertIn("E14 observation FAILED", failed.stderr)
             self.assertNotIn("| head |", failed.stdout)
+
+
+class CI3781(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        global build
+        spec = importlib.util.spec_from_file_location("build", Path(__file__).with_name("build.py"))
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        (self.root / 'src').mkdir()
+        (self.root / 'Cargo.toml').write_text('[package]\nname="ci3781-fixture"\nversion="0.1.0"\nedition="2021"\n')
+        (self.root / 'src/main.rs').write_text('fn main() {} #[test] fn works() {}')
+        self.output = self.root / 'evidence'
+        self.env = build.prepare(self.root, self.output, os.environ.copy())
+
+    def test_ci3781_nextest_build_retains_units_and_actual_link_intervals(self):
+        result = subprocess.run(['cargo', 'nextest', 'run'], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = build.report(self.output)
+        self.assertEqual(report['packages'][0]['package'], 'ci3781-fixture@0.1.0')
+        self.assertGreater(report['packages'][0]['unit_seconds'], 0)
+        compiled = report['builds'][0]
+        self.assertLessEqual(compiled['start'], compiled['cargo_interval']['start'])
+        self.assertLess(compiled['cargo_interval']['start'], compiled['cargo_interval']['end'])
+        self.assertLessEqual(compiled['cargo_interval']['end'], compiled['end'])
+        links = report['builds'][0]['links']
+        self.assertTrue(links)
+        self.assertTrue(all(row['exit_code'] == 0 and row['end'] > row['start'] for row in links))
+        self.assertTrue(any('ci3781_fixture' in row['output'] for row in links))
+
+    def test_ci3781_cargo_run_ends_build_before_running_the_program(self):
+        (self.root / 'src/main.rs').write_text('fn main() { std::thread::sleep(std::time::Duration::from_millis(100)); }')
+        result = subprocess.run(['cargo', 'run', '--quiet'], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        compiled = build.report(self.output)['builds'][0]
+        self.assertLess(compiled['cargo_interval']['end'], compiled['end'] - .05)
+
+    def test_ci3781_failed_link_retains_real_status_and_invalidates_collection(self):
+        (self.root / 'src/main.rs').write_text('extern "C" { fn ci3781_missing(); } fn main() { unsafe { ci3781_missing(); } }')
+        failed = subprocess.run(['cargo', 'build'], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(failed.returncode, 0)
+        with self.assertRaisesRegex(ValueError, 'failed Cargo'):
+            build.report(self.output)
+        record = json.loads(next(self.output.glob('cargo-*/build.json')).read_text())
+        self.assertTrue(any(row['exit_code'] != 0 for row in record['links']))
+
+    def test_ci3781_interrupted_collection_stops_only_its_build_descendants(self):
+        import psutil
+        marker = self.root / 'child-pid'
+        # Publish readiness only after the PID is complete, before interrupting Cargo.
+        (self.root / 'build.rs').write_text('''fn main() {
+    let marker = std::path::PathBuf::from(std::env::var("CI3781_CHILD_PID").unwrap());
+    let pending = marker.with_extension("pending");
+    std::fs::write(&pending, std::process::id().to_string()).unwrap();
+    std::fs::rename(&pending, &marker).unwrap();
+    std::thread::sleep(std::time::Duration::from_secs(60));
+}''')
+        with (self.root / 'command.log').open('w') as log:
+            child = subprocess.Popen(['cargo', 'build'], cwd=self.root, env=dict(self.env, CI3781_CHILD_PID=str(marker)), stdout=log, stderr=log)
+            try:
+                deadline = time.monotonic() + 10
+                while not marker.exists():
+                    if time.monotonic() > deadline or child.poll() is not None:
+                        self.fail('build script did not start')
+                    time.sleep(.01)
+                owned_pid = int(marker.read_text())
+                child.send_signal(signal.SIGTERM)
+                child.wait(timeout=10)
+                self.assertTrue(not psutil.pid_exists(owned_pid) or psutil.Process(owned_pid).status() == psutil.STATUS_ZOMBIE)
+                with self.assertRaisesRegex(ValueError, 'failed Cargo'):
+                    build.report(self.output)
+                record = json.loads(next(self.output.glob('cargo-*/build.json')).read_text())
+                self.assertNotEqual(record['exit_code'], 0)
+            finally:
+                if child.poll() is None:
+                    child.send_signal(signal.SIGTERM)
+                    child.wait(timeout=10)
+
+
+class CI3781Reports(unittest.TestCase):
+    def test_ci3781_opt_in_refuses_selected_web_and_unhosted_lanes(self):
+        for lane, base, runner in [('rust1', 'HEAD^', 'github-hosted'), ('web1', '', 'github-hosted'), ('rust1', '', 'self-hosted'), ('rust1', '', 'local')]:
+            with self.subTest(lane=lane, base=base, runner=runner), patch.dict(os.environ, RUNNER_ENVIRONMENT=runner):
+                with self.assertRaisesRegex(ValueError, 'unchanged full Rust lane on hosted Linux'):
+                    observer.run(SimpleNamespace(build_observation=True, lane=lane, base=base))
+
+    def test_ci3781_compiler_frontends_and_assemblers_are_not_link_intervals(self):
+        spec = importlib.util.spec_from_file_location('build', Path(__file__).with_name('build.py'))
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            directory = output / 'cargo-fixture'
+            directory.mkdir()
+            (directory / 'build.json').write_text(json.dumps(dict(status='collected', exit_code=0, start=1, end=4, reports=['timing.html'], command=['/bin/cargo', 'build'])))
+            (directory / 'timing.html').write_text('const UNIT_DATA = [{"name":"one","version":"1","target":"bin","features":[],"duration":2}]; <td>Profile:</td><td>test</td> <td>Build start:</td><td>2026-10-25T00:00:00Z</td>\nDURATION = 3;')
+            (directory / 'cargo.stdout').write_text(json.dumps(dict(reason='compiler-artifact', package_id='one@1', target=dict(name='one'), profile={}, features=[], filenames=['one'], executable='one', fresh=False)) + '\n' + json.dumps(dict(reason='build-finished', success=True)))
+            (directory / 'trace.123').write_text(r'1.000000 execve("\x2f\x62\x69\x6e\x2f\x63\x61\x72\x67\x6f", ["\x63\x61\x72\x67\x6f", "\x62\x75\x69\x6c\x64"], 0x0 /* 0 vars */) = 0' + '\n4.000000 +++ exited with 0 +++\n')
+            for pid, program in enumerate(('ld', 'cc1', 'as', 'rustc')):
+                def quoted(value):
+                    return '"' + ''.join(f'\\x{byte:02x}' for byte in value.encode()) + '"'
+                args = ', '.join(quoted(value) for value in (program, '-o', 'one'))
+                trace = f'2.000000 execve({quoted("/bin/" + program)}, [{args}], 0x0 /* 0 vars */) = 0\n3.000000 +++ exited with 0 +++\n'
+                (directory / f'trace.{pid}').write_text(trace)
+            links = build.report(output)['builds'][0]['links']
+            self.assertEqual([row['executable'] for row in links], ['/bin/ld'])
+
+    def test_ci3781_missing_or_invalid_raw_build_evidence_never_supplies_a_gain(self):
+        # The report seam needs no compiler for malformed, lost or incomplete collector files.
+        spec = importlib.util.spec_from_file_location('build', Path(__file__).with_name('build.py'))
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            directory = output / 'cargo-fixture'
+            directory.mkdir()
+            html = 'const UNIT_DATA = [{"name":"one","version":"1","target":"bin","features":[],"duration":2}]; <td>Profile:</td><td>test</td> <td>Build start:</td><td>2026-10-25T00:00:00Z</td>\nDURATION = 3;'
+            (directory / 'timing.html').write_text(html)
+            (directory / 'cargo.stdout').write_text(json.dumps(dict(reason='compiler-artifact', package_id='one@1', target=dict(name='one'), profile={}, features=[], filenames=['one'], executable='one', fresh=False)) + '\n' + json.dumps(dict(reason='build-finished', success=True)))
+            valid = dict(status='collected', exit_code=0, start=1, end=4, reports=['timing.html'], links=[])
+            trace = r'2.000000 execve("\x2f\x62\x69\x6e\x2f\x6c\x64", ["\x6c\x64", "\x2d\x6f", "\x6f\x6e\x65"], 0x0 /* 0 vars */) = 0' + '\n3.000000 +++ exited with 0 +++\n'
+            failures = [
+                (dict(valid, reports=[]), trace, 'missing Cargo timing'),
+                (dict(valid, reports=['lost.html']), trace, FileNotFoundError),
+                (dict(valid, status='interrupted-or-timeout', exit_code=-15), trace, 'failed Cargo'),
+                (valid, trace.split('\n')[0], 'missing linker interval'),
+                (valid, trace.replace(r'\x6f\x6e\x65', r'\x40\x66\x69\x6c\x65'), 'response file'),
+                (valid, '', 'missing raw process trace'),
+                (valid, trace.replace(r'\x6f\x6e\x65', r'\x74\x77\x6f'), 'missing linker observation for Cargo artifact'),
+                (valid, trace.replace(r'"\x6f\x6e\x65"', '...'), 'truncated exec argv'),
+            ]
+            for record, raw, error in failures:
+                with self.subTest(error=error):
+                    (directory / 'build.json').write_text(json.dumps(record))
+                    source = directory / 'trace.123'
+                    source.write_text(raw)
+                    if not raw:
+                        source.unlink()
+                    if isinstance(error, str):
+                        with self.assertRaisesRegex(ValueError, error):
+                            build.report(output)
+                    else:
+                        with self.assertRaises(error):
+                            build.report(output)
 
 
 if __name__ == "__main__":

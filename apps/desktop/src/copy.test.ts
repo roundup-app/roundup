@@ -15,7 +15,7 @@ import { join } from "node:path";
 const ROOT = join(process.cwd(), "src");
 
 const sources = () => readdirSync(ROOT, { recursive: true, encoding: "utf8" }).filter((file) =>
-  /\.tsx?$/.test(file) && !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|^copy\.ts$)/.test(file));
+  /\.tsx?$/.test(file) && !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|^copy(\.ts|\/\w+\.ts)$)/.test(file));
 
 const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancestors: readonly Node[]) => void) => {
   read(node, ancestors);
@@ -37,7 +37,7 @@ const STRUCTURE = new Set([
   // U3309: physical key codes (including the generated Digit template) never render as copy.
   "ArrowUp", "ArrowDown", "Digit ",
   // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
-  "D", "E", "O", "A", "X", "C", "Tab", "J K", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
+  "D", "E", "O", "A", "X", "C", "Tab", "J K", "P", "KeyP", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
   "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
   // U3529: display media and a recovery availability discriminant, never displayed copy.
@@ -151,6 +151,38 @@ const candidates = (source: string): { line: number; text: string }[] => {
 it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
   const missing = sources().flatMap((file) => candidates(readFileSync(join(ROOT, file), "utf8")).map(({ line, text }) => `${file}:${line}: ${text}`));
   expect(missing).toEqual([]);
+});
+
+it("u471_no_supervisor_in_app_copy", () => {
+  const found: string[] = [];
+
+  const read = (file: string, text: string) => {
+    if (/\bsupervisors?\b/i.test(text)) found.push(`${file}: ${text}`);
+  };
+
+  const catalogues = ["copy.ts", ...readdirSync(join(ROOT, "copy"), { recursive: true, encoding: "utf8" }).filter((file) => /\.ts$/.test(file) && !file.includes(".test.")).map((file) => `copy/${file}`)];
+
+  for (const file of catalogues) {
+    visit(parse(readFileSync(join(ROOT, file), "utf8"), { sourceType: "module", plugins: ["typescript"] }), [], (node, ancestors) => {
+      const parent = ancestors.at(-1);
+
+      if (ancestors.some((each) => each.type.startsWith("TS") && each.type !== "TSAsExpression" && each.type !== "TSSatisfiesExpression") || parent?.type === "ImportDeclaration" || parent?.type === "ObjectProperty" && parent.key === node) return;
+
+      if (node.type === "StringLiteral") read(file, node.value);
+
+      if (node.type === "TemplateElement") read(file, node.value.cooked ?? node.value.raw);
+    });
+  }
+
+  // The native producers accept catalogue labels unchanged. Inspect only their
+  // authored title arguments and (id, title) entries, never ids or supplied names.
+  for (const file of ["crates/desktop/src/menu.rs", "crates/native/src/menu.rs"]) {
+    const source = readFileSync(join(ROOT, "../../..", file), "utf8").split("#[cfg(test)]")[0]!;
+
+    for (const match of source.matchAll(/(?:MenuItem|Submenu)::with_id\([^,]+,\s*"[^"]*",\s*"([^"]*)"|\("[^"]*",\s*"([^"]*)"\)|itemWithTitle:\s*&\*NSString::from_str\("([^"]*)"\)/g)) read(file, match[1] ?? match[2] ?? match[3]!);
+  }
+
+  expect(found).toEqual([]);
 });
 
 it("u471_catalogue_distinguishes_internal_fallback_props_from_app_copy", () => {

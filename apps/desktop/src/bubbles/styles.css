@@ -43,7 +43,7 @@
 
 /* The dim ends at the floating Shelf's leading edge. */
 .window[data-shelf="open"][data-shelf-mode="overlay"] .centre-stack::before {
-  right: max(0px, var(--shelf-span));
+  right: max(var(--length-zero), var(--shelf-span));
 }
 
 .bubble[hidden],
@@ -51,10 +51,7 @@
   display: none;
 }
 
-/* The library's open state is the only display rule; the popover is shown in the same turn. */
-.bubble-frame[data-state="open"] {
-  display: block !important;
-}
+
 
 .bubble {
   position: absolute;
@@ -70,14 +67,14 @@
 
 /* U3517c: the shell viewport shares the Terminal canvas ground. */
 .bubble-body,
-.bubble .xterm .xterm-viewport,
-.bubble .xterm .xterm-scrollable-element {
+.bubble .xterm-viewport.xterm-viewport,
+.bubble .xterm-scrollable-element.xterm-scrollable-element {
   background-color: var(--terminal-background);
 }
 
 /* U371: an overlay Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins; a reserved Shelf is its own column and the pane is already narrower. */
 .window[data-shelf="open"][data-shelf-mode="overlay"] .bubbles {
-  right: max(0px, calc(var(--shelf-span) - var(--space-4)));
+  right: max(var(--length-zero), calc(var(--shelf-span) - var(--space-4)));
 }
 
 /* U2307c: a macOS panel bar, 28 px: close and minimise dots at the left, the name centred on the bar, a status dot after it. */
@@ -119,8 +116,8 @@
   opacity: 0;
 }
 
-.bubble-header:hover .bubble-dot .icon,
-.bubble-header:focus-within .bubble-dot .icon {
+.bubble-header:hover .icon,
+.bubble-header:focus-within .icon {
   opacity: 1;
 }
 
@@ -141,11 +138,6 @@
   background: var(--terminal-background);
 }
 
-.bubble-body > div {
-  height: 100%;
-  width: 100%;
-}
-
 /* U2236: transparent hit areas over the shown bubble's edges and corners; nothing is drawn. */
 .bubble-zone {
   position: absolute;
@@ -156,6 +148,7 @@
 
 /* U469: every Terminal keeps a pair of separate keyboard controls in the last line. */
 .terminal-tabs-host {
+  display: flex;
   container: terminal-tabs / inline-size;
   order: -1;
   flex: 1;
@@ -168,9 +161,17 @@
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
-  height: var(--space-5);
+  height: var(--rail-actions-height);
   position: relative;
   z-index: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.terminal-tab-list {
+  display: flex;
+  min-width: 0;
   overflow-x: auto;
   overscroll-behavior: contain;
   overflow-y: hidden;
@@ -179,23 +180,43 @@
   white-space: nowrap;
 }
 
+.terminal-tabs-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
 .terminal-tab-pair {
   display: inline-flex;
   flex: none;
   align-items: center;
   align-self: stretch;
   min-height: var(--space-5);
-  column-gap: var(--space-3);
-  /* The name's button pad and the close control's icon inset are --space-1 each, so the name and the × both sit --space-2 from the tab's edges, as the + does. */
+  column-gap: 0;
+  /* The close control keeps its edge inset; the name reserves a leading slot. */
   padding-inline: var(--space-1);
 }
 
 .terminal-tab {
   --button-inline: var(--space-1);
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: calc(var(--row-text-inset) - var(--space-3) - var(--flat-tab-edge)) auto var(--space-3);
   align-items: center;
   gap: var(--space-1);
   min-width: var(--space-5);
+}
+
+/* U131: a Terminal has no leading Kind, but reserves the same title column.
+   The empty slot also belongs to the rename field. */
+.terminal-tab::before {
+  content: "";
+}
+
+/* FlatTab's inactive edge spacers must not add gaps before the title. */
+.terminal-tab-pair [data-button="icon"] {
+  margin-inline-start: var(--space-3);
 }
 
 .terminal-tab [data-state] {
@@ -219,14 +240,14 @@
 }
 
 .terminal-tab-name {
-  max-width: min(calc(4 * var(--space-6)), max(0px, calc(100cqw - 2 * var(--space-5) - var(--space-4))));
+  max-width: min(calc(4 * var(--space-6)), max(var(--length-zero), calc(100cqw - 2 * var(--space-5) - var(--space-4))));
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 /* U2234: the name's editor sits in the tab with the label's type and no box of its own. */
 .terminal-tab-editor {
-  display: inline-flex;
+  display: inline-grid;
   align-items: center;
   padding-inline: var(--button-inline, var(--space-1));
   min-height: var(--space-5);
@@ -257,7 +278,7 @@
 
 .terminal-tab-editor [data-part="input"]:active {
   color: var(--ink-pressed);
-  transition-duration: 0s;
+  transition-duration: var(--duration-instant);
 }
 
 .terminal-tab-editor [data-part="preview"] {
@@ -279,6 +300,13 @@
   background: var(--ground);
 }
 
+/* The centre-wide failure stays above navigation; a Bubble’s own failure stays inside its frame. */
+.bubbles .bubble-failure[data-overlay="true"] {
+  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
+  inset-inline: var(--space-2);
+  inline-size: auto;
+}
+
 .bubble-recovery {
   width: calc(100% - var(--space-5) * 2);
   max-width: calc(var(--space-5) * 20);
@@ -295,4 +323,10 @@
 .bubble-recovery.draft-recovery [data-part="title"] {
   font-size: var(--text-title);
   font-weight: 600;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+ :root:has(.bubble:focus-within) .centre-stack::before {
+    backdrop-filter: none;
+  }
 }

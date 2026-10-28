@@ -1,45 +1,42 @@
+import { EmptyState } from "../ink/EmptyState";
+import { makeEventListener } from "@solid-primitives/event-listener";
+import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { appSettings } from "../settings/preferences";
-import { MeasurementDashboard } from "./MeasurementDashboard";
-import { TimelineView } from "../timeline/TimelineView";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
-import { OrderDrawer } from "../orders/OrderDrawer";
-import { OrderLine } from "../orders/OrderLine";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
-import { NoteQueue } from "./NoteQueue";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
-import { KeyHint } from "../keys/KeyHint";
-import { createXtermEmulators } from "./emulator";
+import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
 import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
 import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
 
+
 /**
  * The selected row's Terminal. Every error line of the centre lives in the pane's one fixed-height slot, so the
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
+export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
   let fontSize: number | undefined;
   let zoomed = storage.read() !== null;
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
-  const createEmulator = props.createEmulator ?? createXtermEmulators();
+  const createEmulator = props.createEmulator ?? lazyXtermEmulators();
 
-  const screens = createScreens(connected, (id) => {
+  const screens = createScreens(connected, (id, copy) => {
     fontSize ??= storage.read() ?? appSettings().fontSize;
-    const emulator = createEmulator(id);
+    const emulator = createEmulator(id, copy);
 
     emulator.setFontSize(fontSize);
 
@@ -54,19 +51,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   props.screensRef?.(screens);
 
-  const [view, setView] = createSignal<"dashboard" | "timeline" | null>(null);
-  const dashboard = () => view() !== null;
-  let dashboardAction: HTMLButtonElement | undefined;
-  let timelineAction: HTMLButtonElement | undefined;
-
-  const backFromView = () => {
-    const action = view() === "timeline" ? timelineAction : dashboardAction;
-
-    setView(null);
-    queueMicrotask(() => action?.focus());
-  };
-
-  createEffect(on(rail.selected, () => setView(null), { defer: true }));
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
 
   /** Why the selected Workstream's Door is not running, so a stopped, failed or still-starting Door each read differently. */
@@ -76,23 +60,32 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.doorPending(workstream.id), rail.doorFailure(workstream.id) !== null) : null;
   });
 
-  const closedAgent = createMemo(() => {
-    const node = selected();
-
-    return node?.kind === "agent" && rail.exitOf(node) !== null
-      && (node.terminal_id !== null || node.status?.kind === "done" || node.status?.kind === "error");
-  });
-
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
 
-  createEffect(() => props.observeTerminal?.(dashboard() ? null : terminalId()));
+  createEffect(() => props.observeTerminal?.(terminalId()));
   onCleanup(() => props.observeTerminal?.(null));
+
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
-  const notice = createMemo(() => props.notice ?? storageFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
+  const notice = createMemo(() => {
+    if (props.notice != null) return { kind: "notice" as const, message: props.notice };
+
+    if (rail.commandFailure.surface() === "pane") return { kind: "command" as const, message: rail.commandFailure.message() };
+
+    const stored = storageFailure();
+
+    if (stored !== null) return { kind: "storage" as const, message: stored };
+
+    const scheme = connected.terminalScheme.failure();
+
+    if (scheme !== null) return { kind: "scheme" as const, message: scheme };
+
+    const terminal = screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId());
+
+    return terminal === null ? null : { kind: "terminal" as const, message: terminal };
+  });
+
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pendingFrame: number | null = null;
-
-  let windowResized = false;
 
   const refit = () => {
     pendingFrame = null;
@@ -101,18 +94,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     if (resizeDragging() || drawerSliding() || shelfSliding()) return;
 
-    if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
-
-    windowResized = false;
+    if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), true);
   };
 
   const refitNextFrame = () => {
     pendingFrame ??= requestAnimationFrame(refit);
-  };
-
-  const onWindowResize = () => {
-    windowResized = true;
-    refitNextFrame();
   };
 
   // U389, U371: a Resize edge drag changes the pane's width every frame; the Terminal is fitted once when it ends.
@@ -139,9 +125,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     }
 
     untrack(() => {
-      const size = screens.show(id, host, !rail.restored());
+      const show = (focus: boolean) => screens.resize(id, screens.show(id, host, focus));
 
-      screens.resize(id, size);
+      if (rail.restored() || !rail.terminalFocus()(() => show(true))) show(false);
     });
   });
 
@@ -175,7 +161,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     zoomed = key !== "reset";
     fontSize = next;
     screens.setFontSize(next);
-    setStorageFailure(zoomed ? storage.write(next) : storage.clear());
+    void (zoomed ? storage.write(next) : storage.clear()).then(setStorageFailure);
     refitNextFrame();
   };
 
@@ -192,17 +178,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   /** P3557c: only a Terminal failure is the user's to dismiss; a retention, Rail or Daemon line keeps its own recovery. */
   const dismissFailure = (): (() => void) | null => {
-    if (props.notice != null || storageFailure() !== null) return null;
+    if (notice()?.kind !== "terminal") return null;
 
     const id = terminalId();
 
     return rail.doorFailure(selected()?.id ?? "") === null && id !== null && !screens.viewedInBubble(id) && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
-  };
-
-  const focusTerminal = () => {
-    const current = terminalId();
-
-    if (current !== null) screens.emulatorFor(current).focus();
   };
 
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
@@ -256,21 +236,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     unlistenDrop?.();
   });
 
-  let watched: ResizeObserver | undefined;
-
   // A Card appearing, growing or going changes the Terminal's room without a window resize.
-  const watch = (body: HTMLElement) => {
-    if (typeof ResizeObserver === "undefined") return;
+  const resizeObserver = typeof ResizeObserver === "undefined" ? undefined : makeResizeObserver(refitNextFrame);
 
-    watched = new ResizeObserver(refitNextFrame);
-    watched.observe(body);
-    onCleanup(() => watched?.disconnect());
-  };
-
-  window.addEventListener("resize", onWindowResize);
+  makeEventListener(window, "resize", refitNextFrame);
   onCleanup(() => {
-    window.removeEventListener("resize", onWindowResize);
-
     if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
 
     screens.dispose();
@@ -278,51 +248,26 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   return (
     <div class="pane">
-      <Show when={selected()?.kind === "workstream"}>
-        <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setView("dashboard")}>{copy.measurementTime}</button><button ref={timelineAction} data-button="quiet" type="button" onClick={() => setView("timeline")}>{copy.timeline}</button></div>
-      </Show>
-      <Show when={view() === "dashboard" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <MeasurementDashboard home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
-      <Show when={view() === "timeline" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <TimelineView home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
-      <div class="pane-origin" classList={{ "pane-origin-hidden": dashboard() }}>
+      <div class="pane-origin">
 
-      <Show when={selected()?.kind !== "workstream" && !closedAgent() ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <div
         class="pane-body"
         classList={{ "drop-over": dropOver() }}
         ref={(element) => {
           body = element;
-          watch(element);
+          resizeObserver?.observe(element);
         }}
       >
         <div class="pane-screen" ref={setScreen} />
-        <Show when={selected() === null && notice() === null}>
-          <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
-            <div class="pane-empty pane-door">
-              <p class="light">{rail.workstreamCreating() ? copy.creatingWorkstream : copy.noWorkstreamYet}</p>
-              <button data-button="primary" class="word pane-action" aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.workstreamCreating() && connected.daemonExit() === null) void rail.createWorkstream(); }}>
-                <Icon name="plus" />{copy.newWorkstreamWord}</button>
-              <ul class="pane-empty-keys">
-                <For each={CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut)}>{(row) => (
-                  <li><KeyHint chipAfter keys={row.keys}>{row.what}</KeyHint></li>
-                )}</For>
-              </ul>
-            </div>
-          </Show>
-        </Show>
-        <Show when={selected()?.kind === "agent" && !closedAgent() && terminalId() === null && notice() === null}>
-          <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
-        </Show>
-        <Show when={closedAgent()}>
-          <OrderDrawer id={selected()!.id} inline />
+        <Show when={selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
+          <EmptyState art="editor" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
         <Show when={doorState()}>
           {(state) => (
-            <div class="pane-empty pane-door">
-              <p class="light">{doorStateText(state())}</p>
-              <button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
+            <div class="pane-door"><EmptyState art="play" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="play" />
                 {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
-              </button>
+              </button>} />
             </div>
           )}
         </Show>
@@ -332,13 +277,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           )}
         </Show>
       </div>
-      <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
-      <div class="pane-failure">
-        <ReservedLine message={notice() ?? rail.workstreamFailure()}>
+      <Show when={notice()}><div class="pane-failure">
+        <ReservedLine message={notice()?.message}>
+          <Show when={notice()?.kind === "scheme"}><button data-button="quiet" type="button" onClick={() => void connected.terminalScheme.retry()}>{copy.retry}</button></Show>
+          <Show when={notice()?.kind === "notice" && props.retryNotice}><button data-button="quiet" type="button" onClick={() => props.retryNotice?.()}>{copy.retry}</button></Show>
           <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
         </ReservedLine>
-      </div>
+      </div></Show>
     </div>
   );
 };

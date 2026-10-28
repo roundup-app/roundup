@@ -1,0 +1,26 @@
+diff --git a/dist/index.js b/dist/index.js
+index 53a2fb9ba250d01abf042ffeac2e9da01d208dad..7e451b82a6c88591133048449423aecdc8217cdb 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -56,7 +56,7 @@ function createLiveRegion(opts = {}) {
+       border: "0",
+       clip: "rect(0 0 0 0)",
+       height: "1px",
+-      margin: "-1px",
++      margin: "0",
+       overflow: "hidden",
+       padding: "0",
+       position: "absolute",
+diff --git a/dist/index.mjs b/dist/index.mjs
+index c3a2194422c1403d9ae0e6468450a532a2bd1b47..6d830f74ed96d40f25e4a8fb661039346874c3f1 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -32,7 +32,7 @@ function createLiveRegion(opts = {}) {
+       border: "0",
+       clip: "rect(0 0 0 0)",
+       height: "1px",
+-      margin: "-1px",
++      margin: "0",
+       overflow: "hidden",
+       padding: "0",
+       position: "absolute",

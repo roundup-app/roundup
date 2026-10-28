@@ -10,13 +10,15 @@
 }
 
 .window-bar .shelf-tabs {
+  padding-inline: var(--space-4);
   grid-column: 4 / 6;
   justify-self: end;
-  padding-inline: var(--space-4);
 }
 
 .shelf-tabs {
   display: flex;
+  align-items: center;
+  min-height: var(--space-6);
   min-width: 0;
   gap: var(--space-2);
 }
@@ -25,13 +27,20 @@
 .shelf-tab {
   display: inline-flex;
   gap: var(--space-1);
-  align-items: center;
-  --button-inline: 0;
+  align-items: baseline;
+  padding-block: var(--space-1);
 }
 
-.shelf-tab > .section-head {
+.shelf-tab .section-head {
   color: inherit;
   text-transform: uppercase;
+  height: auto;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.shelf-tab .icon {
+  align-self: center;
 }
 
 .shelf-count {
@@ -88,21 +97,19 @@
   height: 100%;
 }
 
-.shelf-panel > section {
+.shelf-panel :is(.todos-tab, .pads-tab) {
   display: flex;
   flex-direction: column;
   min-height: 100%;
 }
 
-.shelf-panel > section > :not(.reserved-line[data-overlay="true"]) ~ :not(.reserved-line[data-overlay="true"]) {
-  margin-top: var(--space-2);
-}
+.shelf-panel :is(.todos-tab, .pads-tab) { gap: var(--space-2); }
 
 .shelf-add {
   font-family: var(--font-ui);
 }
 
-.shelf-panel > p {
+.shelf-panel p {
   padding-right: var(--space-4);
   padding-left: var(--space-4);
 }
@@ -132,80 +139,71 @@
   justify-content: space-between;
   gap: var(--space-2);
 }
-.shelf-done-line > .todo-row-button {
+.shelf-done-line .todo-row-button {
   flex: 1;
 }
 
 /* U459: Clear done stays above U379's full-row fold hit target. */
-.shelf-done-line > button:not(.todo-row-button) {
+.shelf-done-line button:not(.todo-row-button) {
   position: relative;
   z-index: 1;
 }
 
-/* U371: a rejected call keeps its complete explanation visible at the Shelf width. */
-.shelf p[role="alert"]:not(.reserved-content > *) {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  overflow: visible;
-  text-overflow: clip;
-}
-
-
 /* Ark owns selection and panel focus; keep the Shelf's flat, inset-free bar. */
 .shelf-tabs.app-tabs-list { gap: var(--space-2); }
-.shelf-tab.app-tabs-trigger { --button-inline: 0; }
-.shelf-tab[data-selected] { --button-surface: transparent; --button-hover: transparent; }
+.shelf-tab[data-selected] { --button-surface: var(--transparent); --button-hover: var(--transparent); }
 .shelf-panel.app-tabs-content { padding: 0; }
 .shelf-bulk-line[hidden] { display: none; }
 
 .shelf-tab[data-open="false"] { color: var(--grey); }
 
 /* U2744a: quiet scope and Rail disclosures use the existing type and space scale. */
-.shelf-bar { justify-content: flex-start; gap: var(--space-2); color: var(--text); font-size: var(--text-body); height: auto; min-height: var(--header-height); align-items: baseline; padding-block: var(--space-1); line-height: var(--space-4); }
-/* U3730: the scope's name and the tab's one add control share a line; the control trails in the accent, so it reads as the action. */
-.shelf-scope-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.shelf-bar > div, .shelf-scope-action:not([hidden]) { display: contents; }
+.shelf-bar { justify-content: flex-start; gap: var(--space-1); color: var(--text); font-size: var(--text-body); height: auto; min-height: var(--header-height); align-items: center; position: relative; padding-block: var(--space-1); line-height: var(--space-4); }
+.shelf-scope-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* U4463: progress leads; controls stay together at the trailing edge. */
+.shelf-scope-host { display: flex; flex: 1; min-width: 0; }
+.shelf-scope-action:not([hidden]) { display: flex; flex: 1; min-width: 0; justify-content: flex-end; align-items: center; gap: var(--space-1); }
 .shelf-scope-action[hidden] { display: none; }
-.shelf-bar .shelf-add { flex: none; margin-inline-start: auto; margin-block: 0; padding-block: 0; min-height: var(--space-5); display: inline-flex; flex-wrap: wrap; align-content: center; align-items: baseline; align-self: baseline; padding-inline: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--accent); }
-.shelf-bar .shelf-add > svg { align-self: center; }
-/* The scope name, + Todo and the icon buttons share one centre line; Triage tops the bar's padded row like Maximise and Close and sits 8 px from them, apart from + Todo. */
-.shelf-bar .shelf-triage { align-self: flex-start; margin-inline-start: var(--space-2); }
-.shelf-bar:has(.shelf-triage) { padding-inline-end: 0; }
+.shelf-bar .shelf-add { flex: none; margin: 0; padding: 0; min-height: var(--space-5); display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-body); font-weight: 400; line-height: var(--space-4); color: var(--grey); }
+.shelf-add svg { align-self: center; }
+.shelf-bar .todo-progress { flex: 1; min-width: 0; padding: 0; margin-inline-end: var(--space-3); }
+.shelf-bar .app-progress { grid-template-columns: minmax(var(--space-3), 1fr) auto; gap: var(--space-1); }
+.shelf-bar .todo-progress-count { min-width: 0; }
+.shelf-bar .shelf-triage { align-self: center; }
+.shelf-bar .app-switch { gap: var(--space-1); color: var(--grey); font-size: var(--text-body); line-height: var(--space-4); }
+.shelf-bar .app-switch-track { align-self: center; }
 .shelf-groups.app-tree { padding: 0; }
 .shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
-.shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: transparent; }
+.shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: var(--transparent); }
 .shelf-groups [data-part="branch"] { cursor: pointer; }
 .shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
+.pads-tab [data-shelf-group][aria-level="2"] { margin-inline-start: var(--tree-step); }
 .shelf-groups [data-part="branch-indicator"] { display: flex; flex: none; }
 .shelf-group-head { display: flex; align-items: center; }
 .shelf-group-head[hidden] { display: none; }
-.shelf-group-head .shelf-group-control { flex: 1; min-width: 0; }
-.shelf-group-add { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 24px; min-height: 24px; padding: 0; color: var(--grey); background: transparent; border: 0; cursor: pointer; }
+.shelf-group-head .shelf-group-control { flex: 1; min-width: 0; --tree-row-cue: none; }
+.shelf-group-add { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: var(--space-5); min-height: var(--space-5); padding: 0; color: var(--grey); background: var(--transparent); border: 0; cursor: pointer; }
 .shelf-group-add:hover { color: var(--text); }
-.shelf-groups [data-shelf-group][data-drop-target] .shelf-group-control { color: var(--text); }
+[data-shelf-group][data-drop-target] .shelf-group-control { color: var(--text); }
 .shelf-group-count { flex: none; }
 .shelf-groups [data-part="branch-text"] { min-width: 0; display: flex; }
 .shelf-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.shelf-groups [data-shelf-group][data-drop-target] :is(.shelf-group-count, .shelf-group-add) { color: var(--text); }
+[data-shelf-group][data-drop-target] :is(.shelf-group-count, .shelf-group-add) { color: var(--text); }
 
-.shelf-controls {
+.shelf-controls,
+.drawer-controls {
   position: absolute;
-  top: var(--space-1);
   right: var(--space-4);
   display: flex;
   gap: var(--space-2);
   z-index: 1;
 }
-.shelf-bar { max-width: calc(100% - var(--space-6) * 2 - var(--space-4)); box-sizing: border-box; }
-.shelf-bar:has(.shelf-triage) { max-width: calc(100% - var(--space-6) * 2 - var(--space-2)); }
+.shelf-controls { top: var(--space-1); }
+.shelf-bar { box-sizing: border-box; }
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
-.window[data-shelf-maximised="true"]:not(:has(.drawer[data-open="true"])) .shelf { width: calc(100% - var(--rail-width)); }
-.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { visibility: hidden; }
-/* U3724: the hint line stays in view; the Shelf ends above the strip that holds it. */
-.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre .hint-line { visibility: visible; }
-.window[data-shelf-maximised="true"][data-shelf-mode="reserved"]:not(:has(.drawer[data-open="true"])) .shelf { bottom: calc(var(--hint-row-height) + var(--rail-actions-height)); }
-/* The strip under the Shelf shares its ground, so no seam shows beside the hidden Terminal bar. */
-.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { background-color: var(--sunken); }
+:is(.window[data-shelf-maximised="true"]:not(:has(.drawer[data-open="true"])) .shelf, .drawer[data-maximised="true"]) { width: calc(100% - var(--rail-width)); }
+/* Hidden content must also suppress descendants that explicitly restore visibility. */
+:is(.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])), .window:has(.drawer[data-open="true"][data-maximised="true"])) .centre { content-visibility: hidden; }
 
 /* U3752: the mode's keys sit after the rows, stuck to the bottom of the scroll area, so no row moves. */
 .triage-hints {
@@ -250,20 +248,15 @@
 }
 
 .todo-auto {
-  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: var(--space-2);
+  align-items: center;
 }
 
-.todo-auto-hint {
-  color: var(--grey);
-  font-size: var(--text-small);
-}
+/* Reserve the refusal line below the head so its overlay cannot cover Todo progress. */
+.shelf-bar:has(.shelf-scope-action:not([hidden]) .reserved-line:not([data-empty="true"])) { margin-block-end: var(--line); }
+.todo-auto .reserved-line { inset-inline: var(--space-4); inline-size: auto; top: 100%; bottom: auto; }
 
-.shelf .todos-tab .shelf-row .todo-row-button {
+.todos-tab .todo-row-button {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
@@ -276,8 +269,10 @@
   margin-inline-end: var(--space-2);
 }
 
-/* U3309: the row's failure uses its reserved line even when body prose wraps. */
-.todo-row-notice .reserved-content > .ink {
+/* U3807: keep the failure on its fixed line despite the Shelf's wrapping prose. */
+.todo-row-notice p.ink[role="alert"] {
+  margin: 0;
+  padding: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -288,9 +283,8 @@
   font-weight: 400;
 }
 
-.todo-row[data-lifted="true"] .shelf-title,
-.shelf-groups [data-shelf-group][data-drop-target] > .shelf-group-head .shelf-group-control,
-.shelf-groups [data-shelf-group][data-drop-target] > .todo-busy {
+[data-shelf-group][data-drop-target] .shelf-group-control,
+[data-shelf-group][data-drop-target] .todo-busy {
   color: var(--accent);
 }
 
@@ -315,23 +309,34 @@
   pointer-events: none;
 }
 
-.shelf .todos-tab .todo-row-notice:has(.reserved-line:not([data-empty="true"])) {
+.todos-tab .todo-row-notice:has(.reserved-line:not([data-empty="true"])) {
   z-index: 1;
   pointer-events: auto;
 }
 
 /* U3309: reserve the second line even for a Todo without body prose. The notice stacks on the body's cell, in flow, so no positioned column paints over the title button's cover (U379). */
-.shelf .todos-tab .todo-inset > .shelf-text {
+.todo-inset .shelf-text {
   display: grid;
   min-block-size: var(--line);
 }
 
-.shelf .todos-tab .todo-inset > .shelf-text > :is(.item-description, .todo-row-notice) {
+.todo-inset :is(.item-description, .todo-row-notice) {
   grid-area: 1 / 1;
 }
 
-.shelf .todos-tab .todo-inset > .shelf-text > .todo-row-notice {
+.todo-inset .todo-row-notice {
   align-self: start;
   block-size: var(--line);
   pointer-events: none;
+}
+
+/* U4457: pointer-driven focus still identifies the destination; it clears when focus leaves the header. */
+.shelf-group-head .shelf-group-control:focus {
+  background-image: linear-gradient(var(--selected), var(--selected));
+  color: var(--text);
+}
+
+/* U4457: show every Todo counted by the requested Agent without adding it to the bulk selection. */
+.todos-tab .shelf-row[data-requested="true"] {
+  background-image: linear-gradient(var(--selected), var(--selected));
 }

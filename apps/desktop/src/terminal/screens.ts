@@ -1,4 +1,6 @@
-import { clipboardFailure, readPaste, writeText } from "../app/clipboard";
+import { throttle } from "@solid-primitives/scheduled";
+import { forgetScrollback, restoreScrollback, retainScrollback } from "./scrollback";
+import { clipboardFailure, readPaste } from "../app/clipboard";
 import { copy as appCopy } from "../copy";
 import { createEffect, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -78,7 +80,9 @@ const takeFirst = (stream: Stream): void => {
 };
 
 type Holder = {
+  retain: (() => void) & { clear: () => void };
   ready: boolean;
+  incarnation: string | undefined;
   emulator: Emulator;
   stopClipboard: (() => void) | null;
   atBottom: Accessor<boolean>;
@@ -86,6 +90,7 @@ type Holder = {
   stream: Stream | null;
   complete: boolean;
   shownSize: Size | null;
+  resizeSize: Size | null;
 };
 
 type FailureEntry = { message: string; order: number };
@@ -98,7 +103,7 @@ const FAILURE_KINDS = ["snapshot", "live", "output", "clipboard", "link"] as con
 const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null => {
   if (!state) return null;
 
-  return [state.snapshot, state.live, state.output, state.clipboard, state.link].reduce<FailureEntry | null>(
+  return Object.values(state).reduce<FailureEntry | null>(
     (latest, entry) => entry && (!latest || entry.order > latest.order) ? entry : latest,
     null,
   );
@@ -125,31 +130,50 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       if (message === null && previous[kind] === null) return current;
 
-      const state: TerminalFailures = {
-        ...previous,
-        [kind]: message === null ? null : { message, order: ++failureOrder },
-      };
+      const state: TerminalFailures = { ...previous };
+
+      if (message !== null && (kind === "live" || kind === "link")) {
+        state.live = null;
+        state.link = null;
+      }
+
+      state[kind] = message === null ? null : { message, order: ++failureOrder };
 
       const next = new Map(current);
 
+      // One Terminal scope per Project: replacing a kind also replaces its owned Terminal.
+      // Acknowledgments still clear only their original id and operation.
+      if (message !== null) for (const [otherId, other] of next) {
+        const replaced = { ...other };
+        const sameKind = kind === "live" || kind === "link" ? ["live", "link"] as const : [kind];
+
+        for (const operation of sameKind) replaced[operation] = null;
+
+        if (newestFailure(replaced)) next.set(otherId, replaced);
+        else next.delete(otherId);
+      }
+
       next.delete(id);
 
-      if (state.snapshot !== null || state.live !== null || state.output !== null || state.clipboard !== null || state.link !== null) next.set(id, state);
+      if (newestFailure(state)) next.set(id, state);
 
       return next;
     });
   };
 
-  const resize = (id: string, size: Size, changedOnly = false): void => {
+  const resize = (id: string, size: Size, changedOnly = true): void => {
     const holder = holders.get(id);
 
-    if (holder && !holder.ready) return;
+    if (disposed || (holder && !holder.ready)) return;
 
-    if (changedOnly && holder?.shownSize?.cols === size.cols && holder.shownSize.rows === size.rows) return;
+    if (changedOnly && holder?.resizeSize?.cols === size.cols && holder.resizeSize.rows === size.rows) return;
 
-    if (holder?.shownSize) holder.shownSize = size;
+    if (holder) { holder.shownSize = size; holder.resizeSize = size; }
 
-    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size }));
+    if (!exited(id) && daemonExit() === null) void attempt(id, app.rpc("terminal.resize", { id, ...size })).then((delivered) => {
+      // A refused size was never delivered; the next host notification can retry it without hiding its failure.
+      if (!delivered && holder?.resizeSize === size) holder.resizeSize = null;
+    });
   };
 
   const reflow = (id: string, holder: Holder): void => {
@@ -275,8 +299,27 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       }
 
       stream.after = end;
+      holder.retain();
       takeFirst(stream);
     }
+  };
+
+  const retain = (id: string, holder: Holder, after: number): void => {
+    if (!holder.incarnation || !holder.emulator.serialize) return;
+
+    if (exited(id)) {
+      forgetScrollback(project.path, holder.incarnation);
+
+      return;
+    }
+
+    holder.emulator.write(new Uint8Array(), () => {
+      if (disposed) return;
+      const output = holder.emulator.serialize?.();
+
+      if (output) retainScrollback(project.path, holder.incarnation!, { ...output, after },
+        cause => setFailure(id, "output", appCopy.terminalRestoreFailed(cause)));
+    });
   };
 
   const restore = async (id: string, holder: Holder, stream: Stream): Promise<void> => {
@@ -285,25 +328,41 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     stream.restoring = true;
 
     try {
-      const snapshot = await app.rpc("terminal.snapshot", { id });
+      const retained = await restoreScrollback(
+        connected, id, holder.incarnation, holder.emulator, holder.complete, shownTo.get(id),
+        () => stream.open && stream.after === null && !stream.lost,
+        cause => setFailure(id, "output", appCopy.terminalRestoreFailed(cause)),
+      );
 
       if (!stream.open) return;
 
-      const bytes = fromBase64(snapshot.data);
+      if (retained !== null) {
+        stream.after = retained;
+        requestAnimationFrame(() => reflow(id, holder));
+      }
 
-      if (holder.complete) holder.emulator.reset();
+      if (retained === null) {
+        const snapshot = await app.rpc("terminal.snapshot", { id });
 
-      holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
-      holder.emulator.write(bytes, () => requestAnimationFrame(() => reflow(id, holder)));
-      stream.after = snapshot.after;
+        if (!stream.open) return;
+
+        if (holder.complete) holder.emulator.reset();
+
+        holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
+        holder.emulator.write(fromBase64(snapshot.data), () => requestAnimationFrame(() => reflow(id, holder)));
+
+        stream.after = snapshot.after;
+      }
+
       holder.complete = true;
+      holder.retain();
       setFailure(id, "snapshot", null);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       if (!stream.open) return;
 
-      setFailure(id, "snapshot", `terminal.snapshot: ${thrown.message}`);
+      setFailure(id, "snapshot", appCopy.terminalRestoreFailed(thrown.message));
 
       if (!holder.complete) stream.after = stream.queue[0]?.offset ?? stream.start ?? 0;
 
@@ -358,6 +417,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     // A callback that outlives its subscription (released, replaced or disposed) reaches nothing.
     if (!stream.open || holder.stream !== stream) return;
 
+    if (!("gap" in message)) holder.emulator.outputArrived?.(message);
+
     if (!stream.placed) {
       stream.early.push(message);
 
@@ -409,7 +470,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (!stream) return;
 
-    if (stream.placed) shownTo.set(id, stream.position);
+    if (stream.placed && stream.after !== null) {
+      shownTo.set(id, stream.after);
+
+      if (holder.complete) retain(id, holder, stream.after);
+    }
+
+    holder.retain.clear();
 
     stream.open = false;
     stream.queue = [];
@@ -431,15 +498,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     return node === undefined ? rail.terminalExit(id) !== null : rail.exitOf(node) !== null;
   };
 
-  const attempt = async (id: string, call: Promise<unknown>): Promise<void> => {
+  const attempt = async (id: string, call: Promise<unknown>): Promise<boolean> => {
     try {
       await call;
 
       setFailure(id, "live", null);
+
+      return true;
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailure(id, "live", thrown.message);
+
+      return false;
     }
   };
 
@@ -463,7 +534,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (known) return known;
 
-    const emulator = createEmulator(id);
+    const emulator = createEmulator(id, (text) => copy(id, text));
 
     const [atBottom, setAtBottom] = createSignal(true);
     // Tauri may run two `rpc` calls out of order, so at most one write is in flight; what is typed meanwhile goes as one write.
@@ -475,10 +546,14 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       try {
         while (typed.length > 0) {
+          const batch = typed;
+
+          emulator.inputEncoding?.(batch);
+
           const data = toBase64(Uint8Array.from(typed));
 
           typed = [];
-          emulator.inputEncoded?.();
+          emulator.inputEncoded?.(batch);
           await attempt(id, app.rpc("terminal.write", { id, data }));
         }
       } finally {
@@ -504,10 +579,18 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
-      emulator, ready: !emulator.ready, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
+      retain: throttle(() => {
+        const after = holder.stream?.after;
+
+        if (after != null) retain(id, holder, after);
+      }, 2000),
+      emulator, ready: !emulator.ready, incarnation: rail.terminals().find(terminal => terminal.id === id)?.incarnation, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null, resizeSize: null,
     };
 
     holders.set(id, holder);
+    emulator.onResize?.((size) => {
+      if (holder.stream?.open) resize(id, size);
+    });
 
     void emulator.ready?.then(() => {
       if (disposed) return;
@@ -522,13 +605,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const emulatorFor = (id: string): Emulator => holderFor(id).emulator;
 
-  const copy = async (id: string): Promise<void> => {
-    const selection = emulatorFor(id).selection();
+  const copy = async (id: string, text?: string): Promise<void> => {
+    const selection = text ?? emulatorFor(id).selection();
 
-    if (!selection) return;
+    if (!selection && text === undefined) return;
 
     try {
-      await writeText(app, selection);
+      await app.writeClipboardText(selection);
       setFailure(id, "clipboard", null);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
@@ -689,6 +772,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       for (const [id, holder] of holders) {
         void release(id, holder);
         holder.stopClipboard?.();
+        holder.retain.clear();
         holder.emulator.dispose();
       }
 

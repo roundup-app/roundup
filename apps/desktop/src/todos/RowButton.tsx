@@ -4,7 +4,7 @@ import type { JSX } from "solid-js";
 import "./rowButton.styles.css";
 
 /** A clickable row of the Shelf or a Drawer: plain text, no button chrome; a long title wraps under its `#`, not under the glyph; `hang={false}` is the Shelf's (U359), whose Glyph is its own column. */
-export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed?: boolean | undefined; selectionActive?: boolean | undefined; children: JSX.Element; ref?: (row: HTMLButtonElement) => void; reorderable?: boolean; keysSuspended?: boolean; hang?: boolean; label?: string; onKeyDown?: (event: KeyboardEvent) => void; /** U3709: the run for Tab (`false`) or ⇧Tab (`true`), or null where it is not this row's. */ nest?: ((out: boolean) => (() => Promise<string | null>) | null) | undefined; onNest?: ((run: () => Promise<string | null>) => void) | undefined; onPointerDown?: (event: PointerEvent) => void }) => {
+export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed?: boolean | undefined; selectionActive?: boolean | undefined; children: JSX.Element; ref?: (row: HTMLButtonElement) => void; reorderable?: boolean; keysSuspended?: boolean; hang?: boolean; label?: string; onKeyDown?: (event: KeyboardEvent) => void; onOpen?: () => void; onRename?: () => void; /** U3709: the run for Tab (`false`) or ⇧Tab (`true`), or null where it is not this row's. */ nest?: ((out: boolean) => (() => Promise<string | null>) | null) | undefined; onNest?: ((run: () => Promise<string | null>) => void) | undefined; onPointerDown?: (event: PointerEvent) => void }) => {
   let button: HTMLButtonElement | undefined;
 
   // One layer holds both bindings: only the first eligible layer of a press is consulted.
@@ -26,6 +26,21 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
 
   return (
     <button type="button" class="todo-row-button"
+      onDblClick={() => props.onRename?.()}
+      on:keydown={(event) => {
+        if (event.target === event.currentTarget && !event.defaultPrevented && !props.keysSuspended) props.onKeyDown?.(event);
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+
+        if (event.key === "Enter" && props.onOpen) { event.preventDefault();
+
+ if (!event.repeat) props.onOpen(); }
+
+        if (event.key === "F2" && props.onRename) { event.preventDefault();
+
+ if (!event.repeat) props.onRename(); }
+      }}
       onClick={(event) => props.onClick(event)} onPointerDown={(event) => props.onPointerDown?.(event)}
       data-reorderable={props.reorderable ? "" : undefined}
       aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed}

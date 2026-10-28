@@ -11,14 +11,14 @@
   --trees-border-radius-override: 0;
   --trees-font-family-override: var(--font-ui);
   --trees-font-size-override: var(--text-small);
-  --trees-focus-ring-color-override: transparent;
-  --trees-focus-ring-width-override: 0px;
+  --trees-focus-ring-color-override: var(--transparent);
+  --trees-focus-ring-width-override: var(--length-zero);
   --trees-search-fg-override: var(--text);
   --trees-search-bg-override: var(--sunken);
   --trees-scrollbar-thumb-override: var(--scrollbar-thumb);
   --trees-selected-fg-override: var(--text);
   --trees-selected-bg-override: var(--selected);
-  --trees-selected-focused-border-color-override: transparent;
+  --trees-selected-focused-border-color-override: var(--transparent);
   --trees-file-icon-color: var(--grey);
   --trees-icon-gray: var(--grey);
   --trees-icon-red: var(--grey);
@@ -41,7 +41,7 @@
   --trees-status-deleted-override: currentColor;
 }
 [data-type="item"]:hover { color: var(--text); }
-[data-type="item"]:active { color: var(--ink-pressed); transition-duration: 0s; }
+[data-type="item"][data-pressed="true"] { color: var(--ink-pressed); transition-duration: var(--duration-instant); }
 [data-type="item"] { color: var(--grey); }
 [data-item-section="decoration"]:empty { display: none; }
 [data-item-section="content"] {
@@ -61,9 +61,9 @@
 }
 [data-truncate-group-container], [data-truncate-segment-priority],
 [data-truncate-container], [data-truncate-grid],
-[data-truncate-grid] > div,
+[data-truncate-grid] div,
 [data-truncate-content="visible"] { display: inline; direction: ltr; }
-[data-truncate-content="visible"] > span { unicode-bidi: normal; }
+[data-truncate-content="visible"] span { unicode-bidi: normal; }
 [data-truncate-content="overflow"], [data-truncate-marker],
 :host [data-truncate-marker-cell] { display: none; }
 
@@ -89,7 +89,7 @@
   transform: none;
   background-image: linear-gradient(var(--hairline), var(--hairline));
   background-position: left;
-  background-size: 1px 100%;
+  background-size: var(--hairline-width) 100%;
   background-repeat: no-repeat;
 }
 [data-item-section="spacing-item"] + [data-item-section="spacing-item"] { margin-left: var(--space-1); }

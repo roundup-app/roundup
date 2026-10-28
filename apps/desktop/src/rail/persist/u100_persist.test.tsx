@@ -1,7 +1,7 @@
 import { leaderKey } from "../../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { App } from "../../App";
+import { RequestedApp as App } from "../../testing/requestedApp";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { seedApp } from "../../testing/seeds";
 import type { SeedName } from "../../testing/seeds";
@@ -182,8 +182,9 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   expect(focus).not.toHaveBeenCalled();
   expect(scroll).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(field);
+  await waitFor(() => expect(app.calls.some((call) => call.method === "terminal.snapshot")).toBe(true));
   expect(app.calls.map((call) => call.method).sort()).toEqual([
-    "ask.list", "daemon.ping", "deliverable.list", "message.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "workstream.queue",
+    "ask.list", "daemon.ping", "deliverable.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "workstream.queue",
   ]);
   field.remove();
 });
@@ -214,7 +215,7 @@ it("u100_later_selection_reveals_ancestors_and_saves_each_change", async () => {
   app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "logins", status: { kind: "error", label: "failed", since: 0, finished: "0" } } }));
   leaderKey("KeyJ");
   expect(row("logins")?.getAttribute("aria-selected")).toBe("true");
-  expect(read()).toEqual({ selected: "logins", collapsed: [] });
+  await waitFor(() => expect(read()).toEqual({ selected: "logins", collapsed: [] }));
 });
 
 it("u100_done_lines_are_not_restored", async () => {

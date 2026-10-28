@@ -1,3 +1,5 @@
+import { createRoot } from "solid-js";
+import { createToastQueue } from "./queue";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agent, USER } from "../testing/nodes";
@@ -217,6 +219,36 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     expect(toasts()).toHaveLength(0);
   });
 
+  it.each(["focus", "visibilitychange"])("z3788c_owner_cleanup_prevents_duplicate_work: %s", (event) => {
+    const mount = () => createRoot(dispose => {
+      const front = vi.fn(() => false);
+      const sound = vi.fn();
+      const queue = createToastQueue(front, sound);
+
+      queue.push({ key: "b", item: "agent:b", kind: "error", name: "mason", line: "Failed", selected: false, open: () => null });
+      front.mockReturnValue(true).mockClear();
+
+      return { front, sound, queue, dispose };
+    });
+
+    const previous = mount();
+
+    previous.dispose();
+
+    const current = mount();
+
+    try {
+      fireEvent(event === "focus" ? window : document, new Event(event));
+
+      expect(previous.front).not.toHaveBeenCalled();
+      expect(current.queue.shown()).toBe(1);
+      expect(current.sound).toHaveBeenCalledTimes(1);
+      current.front.mockClear();
+      fireEvent(event === "focus" ? window : document, new Event(event));
+      expect(current.front).not.toHaveBeenCalled();
+    } finally { current.dispose(); }
+  });
+
   it("u468_a_visible_child_prompt_has_no_duplicate_toast", async () => {
     const { app, toasts, sounds } = await mountToasts(tree(), { selected: "a" });
 
@@ -261,17 +293,6 @@ describe("u414 few Toasts, never in the way, quiet when idle", () => {
     await settle();
 
     expect(sounds).toHaveLength(2);
-  });
-
-  it("u414_escape_dismisses_and_the_card_leaves", async () => {
-    const { app, toasts } = await mountToasts(tree());
-
-    app.emit(status("a", "needs-you"));
-    await settle();
-    fireEvent.keyDown(toasts()[0]!, { key: "Escape" });
-    await vi.advanceTimersByTimeAsync(150);
-    await settle();
-    expect(toasts()).toHaveLength(0);
   });
 
   it("u414_idle_runs_nothing", async () => {

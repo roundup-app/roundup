@@ -40,7 +40,7 @@ const open = async (path: string) => { await browser("open", new URL(path, serve
 const click = (name: string) => browser("find", "role", "button", "click", "--name", name, "--exact");
 
 const showDiff = async () => {
-  await click("roundup/agent-1");
+  await browser("click", ".worktree-control");
   await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
   await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
   await click("View diff");
@@ -168,11 +168,11 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     const app = createServedApp(real.base);
     const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Recovery", order: { kind: "work", ask: "inspect", limits: [] } });
     await writeFile(join(node.worktree!.path, "same.ts"), "exact work\n");
-    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await wait(`!!document.querySelector('.rail-row[data-id="${node.id}"] .name')`);
     await browser("eval", `document.querySelector('.rail-row[data-id="${node.id}"] .name').click()`);
     await wait("!!document.querySelector('.worktree-control')");
-    await press(node.worktree!.branch);
+    await browser("click", ".worktree-control");
     await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
     await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
     await press("View diff");
@@ -188,11 +188,12 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     await capture("real-retention-failure", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-retention.png");
     expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
+    const retained = await browser("eval", "document.querySelector('.note-form textarea').value");
     await press("Close changes");
     await wait("!document.querySelector('.worktree-panel')");
-    await press("Recover Changes drafts");
+    await press("Recover notes");
     await wait("!!document.querySelector('.note-recovery')");
-    expect(await browser("eval", "document.querySelector('.note-recovery').textContent")).toContain("retain this exact");
+    expect(await browser("eval", "document.querySelector('.note-recovery').textContent")).toContain(retained);
     await capture("real-recovery-actions", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-recovery.png");
     // The densest established seed exposes a retention failure without truncating a note.
@@ -220,7 +221,7 @@ it("p3557c_failure_lifetime_changes_rendered", async () => {
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(checks[id].status, id).toBe("pass");
   };
 
-  await click("roundup/agent-1");
+  await browser("click", ".worktree-control");
   await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
   await browser("eval", `(() => {
     window.__fake.app.editorFailure = new Error('Editor refused this file; retry opening it.');

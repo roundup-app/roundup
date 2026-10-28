@@ -1,11 +1,20 @@
+import Hourglass from "lucide-solid/icons/hourglass";
+import { ReducedMotionContext } from "./app/reducedMotion";
+import { debounce } from "@solid-primitives/scheduled";
+import { pressFeedback } from "./ui/pressFeedback";
+import { storageCopy } from "./copy/storage";
+import { writeText } from "./app/clipboard";
+import { storageProblems, retainedStorage } from "./state/storage";
+import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
-import { applyAppAppearance } from "./settings/preferences";
-import { registerKeys } from "./keys/registry";
-import { LEADER } from "./keys/chords";
+import { appSettings, applySystemAccent, applyAppAppearance } from "./settings/preferences";
+import { captureActions, registerKeys } from "./keys/registry";
+import { Combobox } from "./ui/Combobox";
+import { CHORDS, LEADER } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -30,6 +39,9 @@ import { Rail } from "./rail/Rail";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
+import type { LinkContent } from "@contracts/link/LinkContent";
+import { PadHost } from "./pads/PadDrawer";
+import { TodoHost } from "./todos/TodoDrawer";
 import { Capture } from "./todos/Capture";
 import { Keys } from "./keys/Keys";
 import { createNow, DisplayClockContext } from "./state/clock";
@@ -38,7 +50,7 @@ import { createProjectsState } from "./state/projects";
 import type { OpenTab } from "./state/projects";
 import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
-import { createXtermEmulators } from "./terminal/emulator";
+import { lazyXtermEmulators } from "./terminal/lazyEmulator";
 import type { EmulatorFactory } from "./terminal/emulator";
 import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
@@ -59,6 +71,10 @@ import { createWidths } from "./resize/widths";
 
 const daemonExitText = ({ code, recovery, cause }: DaemonExit): string | null =>
   recovery ? null : cause ?? copy.daemonExit(exitText(code === null ? { kind: "signal" } : { kind: "code", code }));
+
+const linkedItem = (content: LinkContent, onLateFailure: (message: string) => void) =>
+  content.kind === "pad" ? <PadHost name={content.id} heading={content.section?.heading} onLateFailure={onLateFailure} />
+    : content.kind === "todo" ? <TodoHost id={content.todo.id} /> : null;
 
 const RUNNING = new Set(["working", "needs-you", "blocked"]);
 
@@ -160,9 +176,9 @@ const Connection = (props: {
   return null;
 };
 
-/** The regions of the open Project, inside its connection; nothing while it connects, and `failed` when connecting failed. */
-const InProject = (props: { open: ConnectedProject | Error | undefined; failed?: (failure: Error) => JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
-  <Show when={props.open} keyed>
+/** Project regions show loading until their connection is ready, and failure if setup fails. */
+const InProject = (props: { open: ConnectedProject | Error | undefined; failed?: (failure: Error) => JSX.Element; pending?: JSX.Element; children: (open: ConnectedProject) => JSX.Element }) => (
+  <Show when={props.open} keyed fallback={props.pending}>
     {(open) =>
       open instanceof Error ? (
         props.failed?.(open)
@@ -179,6 +195,7 @@ export const App = (props: {
   clock: Clock;
   createEmulator?: EmulatorFactory | undefined;
   prepareIdle?: ((project: ConnectedProject) => void) | undefined;
+  initialShelfOpen?: boolean;
   observeTerminal?: ((project: string | null, id: string | null) => void) | undefined;
   /** U410: the Toast sound; the webview's own by default. */
   chime?: Chime | undefined;
@@ -203,6 +220,7 @@ export const App = (props: {
   };
 
   onMount(() => {
+    onCleanup(pressFeedback(document, props.reducedMotion));
     window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
@@ -212,9 +230,14 @@ export const App = (props: {
   });
 
   applyAppAppearance();
+  applySystemAccent(props.app);
   const projects = createProjectsState(props.app);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
+  registerKeys({ kind: "app" }, [{ chords: ["Meta+KeyZ"],
+    when: event => !event.shiftKey && !(document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]")),
+    run: event => { if (!event.repeat && projects.active()) void drafts(projects.active()!).todoUndo.undo(); },
+  }]);
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
@@ -248,6 +271,11 @@ export const App = (props: {
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
+  const capture = props.app.capture;
+  onMount(() => {
+    void capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
+  });
+  onCleanup(() => { void capture?.configure(null); });
 
   createEffect(on(projects.active, () => setJumpFailure(null), { defer: true }));
 
@@ -301,6 +329,15 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection;
   };
 
+  const [nativeFailure, setNativeFailure] = createSignal<string | null>(null);
+  onMount(() => {
+    const owner = getOwner();
+    const handler = import("./app/nativeOpen").then(({ watchNativeOpen }) => runWithOwner(owner, () => watchNativeOpen({ solid: { createEffect, createSignal, onCleanup }, app: props.app, projects, connectionOf, item: linkedItem, fail: setNativeFailure }))!);
+    const stop = props.app.onNativeOpen?.(request => void handler.then(handle => handle(request)).catch(error => setNativeFailure(String(error))));
+    onCleanup(() => void stop?.then(release => release()));
+    void stop?.catch(error => setNativeFailure(String(error)));
+  });
+
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
       const nodes = railOf(tab.project.path)?.nodes ?? [];
@@ -340,6 +377,49 @@ export const App = (props: {
     return path === null ? undefined : connections().get(path);
   });
 
+  const [captureConnection, setCaptureConnection] = createSignal<ConnectedProject>();
+  const captureOwner = () => captureConnection() ?? activeConnection();
+
+  const [captureShow, setCaptureShow] = createSignal<() => void>();
+  const [capturePending, setCapturePending] = createSignal(false);
+  const [captureChoosing, setCaptureChoosing] = createSignal(false);
+
+  const openCapture = async () => {
+    if (captureChoosing()) return;
+
+    if (projects.active() === null) {
+      setCaptureChoosing(true);
+      await projects.choose();
+      setCaptureChoosing(false);
+
+      if (projects.active() === null) return;
+    }
+
+    setCapturePending(true);
+  };
+
+  createEffect(() => {
+    const show = captureShow();
+
+    if (!capturePending() || !show) return;
+    setCapturePending(false);
+    show();
+  });
+  createEffect(() => registerKeys({ kind: "app" }, [{
+    action: CHORDS.find(row => row.what === copy.captureATodo)!,
+    capture: () => ({
+      available: () => !captureChoosing() && (projects.active() === null || connectionOf(projects.active()!)?.daemonExit() === null),
+      invoke: () => void openCapture(),
+    }),
+  }]));
+
+  const storageFailures = createMemo(() => {
+    const open = activeConnection();
+    const railKey = open && !(open instanceof Error) ? `roundup:rail:${open.project.path}` : null;
+
+    return storageProblems().filter(problem => problem.key !== railKey);
+  });
+
   createEffect(() => {
     if (!props.prepareIdle) return;
 
@@ -348,7 +428,93 @@ export const App = (props: {
     if (open && !(open instanceof Error)) props.prepareIdle(open);
   });
 
-  createEffect(() => { void props.app.selectProjectMenu(projects.active()).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error))); });
+  // U370, U373: the Shelf's open state and open tab, kept per Project.
+  const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
+  const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth, props.initialShelfOpen ?? false);
+  createEffect(() => {
+    const connected = activeConnection();
+    const request = connected && !(connected instanceof Error) ? connected.creation() : null;
+
+    if (!request || request.kind === "terminal") return;
+    frame.setTab(request.kind === "todo" ? "todos" : "pads");
+
+    if (!frame.open()) frame.toggle("key");
+  });
+  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K S` does, on the Pads tab.
+  createEffect(() => {
+    const connected = activeConnection();
+
+    if (!connected || connected instanceof Error || connected.padsRequest() === null) return;
+    frame.setTab(connected.padsTab());
+
+    if (!frame.open()) frame.toggle("key");
+  });
+  const widths = createWidths(projects.active);
+  const shelfTabs = createShelfTabs(frame);
+  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
+
+  const [menuFocus, setMenuFocus] = createSignal<Element | null>(null);
+  const recordFocus = () => setMenuFocus(document.activeElement);
+  document.addEventListener("focusin", recordFocus);
+  onCleanup(() => document.removeEventListener("focusin", recordFocus));
+
+  const views = [
+    ["ask-history", copy.askHistory], ["resources", copy.resources],
+    ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
+  ] as const;
+
+  const taskKeys = new Set(["⌘O", "⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
+
+  const menuItems = createMemo(() => {
+    menuFocus();
+    const actions = captureActions(menuFocus());
+    const connected = activeConnection();
+    const available = connected !== undefined && !(connected instanceof Error);
+
+    return [
+      ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "ask-history" || id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
+      ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => row.keys !== "T" && taskKeys.has(row.keys))].map(row => {
+        const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
+
+        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : row.what, group: "press" in row || row.keys === "⌘/" ? "navigate" as const : "create" as const, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: (available || row.keys === "⌘O") && (actions.find(action => action.value === id)?.available() ?? false) };
+      }),
+    ].filter(item => item.enabled);
+  });
+
+  let menuWriting = false;
+  let menuWritten: unknown;
+  const nativeMenu = createMemo(() => ({ path: projects.active(), items: menuItems() }));
+
+  const writeMenu = async () => {
+    if (menuWriting) return;
+    menuWriting = true;
+
+    try {
+      while (menuWritten !== nativeMenu()) {
+        const next = nativeMenu();
+        menuWritten = next;
+        await props.app.selectProjectMenu(next.path, next.items);
+      }
+    } catch (error) { setWindowFailure(error instanceof Error ? error.message : String(error)); }
+    finally { menuWriting = false; }
+  };
+
+  createEffect(() => { nativeMenu(); void writeMenu(); });
+  let menuEnded = false;
+  let stopMenu: (() => void) | undefined;
+  void props.app.onProjectPage(({ path, command }) => {
+    if (path !== projects.active()) return;
+    const open = connectionOf(path);
+
+    if (!open) return;
+
+    if (command.startsWith("view:")) {
+      const view = command.slice(5);
+
+      if (views.some(([id]) => id === view) && (view !== "resources" || open.rail.nodes.some(node => node.id === open.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null)))) { if (open.hasView(view)) open.hideView(view); else open.showView(view); }
+    } else captureActions(menuFocus()).find(action => action.value === command)?.run();
+  }).then(stop => { if (menuEnded) stop(); else stopMenu = stop; });
+  onCleanup(() => { menuEnded = true; stopMenu?.(); });
 
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
   const jumpTo = (path: string) => {
@@ -360,27 +526,30 @@ export const App = (props: {
     if (next) rail?.select(next.id);
   };
 
-  // U370, U373: the Shelf's open state and open tab, kept per Project.
-  const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
-  const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth);
-  const widths = createWidths(projects.active);
-  const shelfTabs = createShelfTabs(frame);
-  const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
-
   onCleanup(shelfFocus.stop);
   registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "S")!, capture: () => {
     const wasOpen = frame.open();
 
     return {
-      available: () => shelfElement() != null,
+      available: () => activeConnection() != null,
       invoke: () => { if (frame.open() === wasOpen) shelfFocus.toggle("key"); },
     };
   } }]);
 
-  const emulators = () => props.createEmulator ?? createXtermEmulators();
+  const [projectPicker, setProjectPicker] = createSignal(false);
+  const [projectQuery, setProjectQuery] = createSignal("");
+  const [projectHighlight, setProjectHighlight] = createSignal<string | null>(null);
+  let projectPanel: HTMLElement | undefined;
+  const projectMatches = () => projects.tabs().filter(tab => tab.project.name.toLowerCase().includes(projectQuery().toLowerCase())).map(tab => ({ value: tab.project.path, label: tab.project.name }));
+  createEffect(() => { if (!projectMatches().some(item => item.value === projectHighlight())) setProjectHighlight(projectMatches()[0]?.value ?? null); });
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "P")!, capture: () => ({ available: () => projects.tabs().length > 1, invoke: () => { setProjectQuery(""); setProjectPicker(true); } }) }]);
+  registerKeys({ kind: "layer", element: () => projectPanel, active: projectPicker, modal: true }, [{ chords: ["Escape"], run: () => setProjectPicker(false) }]);
+
+  const emulators = () => props.createEmulator ?? lazyXtermEmulators();
+
 
   return (
-    <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
+    <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
         {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
@@ -394,24 +563,17 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
-        shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle }}
+        railOpen={projects.tabs().length > 0}
+        busy={projects.tabs().length > 0 && activeConnection() === undefined}
+        shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle, attach: frame.attach, sliding: frame.sliding() }}
         header={
           <WindowBar
             app={props.app}
-            shelf={
-              <Tabs.RootProvider value={shelfTabs} style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
-                <Show when={projects.tabs().length > 0} fallback={<ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
-                  <InProject open={activeConnection()} failed={() => <ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
-                    {() => <ProjectShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}
-                  </InProject>
-                </Show>
-              </Tabs.RootProvider>
-            }
             onFailure={setWindowFailure}
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
             rail={railOf(projects.active() ?? "")}
           >
-            <Strip
+            <Show when={projects.tabs().length > 0}><Strip
               tabs={stripTabs()}
               active={projects.active()}
               onSelect={projects.select}
@@ -420,12 +582,13 @@ export const App = (props: {
               onClose={(path) => projects.close(path)}
               onChoose={() => void projects.choose()}
               app={props.app}
-            />
+            /></Show>
           </WindowBar>
         }
         rail={
           <>
             <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
+              <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
@@ -442,10 +605,40 @@ export const App = (props: {
           </>
         }
         centre={
+          <div class="storage-center">
+          <For each={drafts.paths?.() ?? keys()}>{path => {
+            const undo = drafts(path).todoUndo;
+
+            const shown = () => projects.active() === path && undo.visible();
+            const failure = () => shown() ? undo.feedbackFailure() : null;
+            const status = () => shown() && undo.available() ? undo.feedback() : null;
+
+            return <ReservedLine overlay class="todo-undo" aria-live="polite" message={failure()} status={status()}>
+              <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
+              <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
+            </ReservedLine>;
+          }}</For>
+          <Show when={nativeFailure()}>{message => <ReservedLine message={message()} />}</Show>
+          <Show when={storageFailures().length > 0}><div class="storage-failure"><ReservedLine message={storageCopy.failure(storageFailures())}>
+            <button data-button="quiet" type="button" onClick={() => void Promise.all(storageFailures().map(problem => problem.retry()))}>{storageCopy.saveRetry}</button>
+          </ReservedLine></div></Show>
+          <Show when={retainedStorage().length > 0}><div class="storage-retained" role="group" aria-label={storageCopy.retained(retainedStorage().length)}>
+            <span>{storageCopy.retained(retainedStorage().length)}</span>
+            <For each={retainedStorage()}>{record => {
+              const [copied, setCopied] = createSignal(false);
+              const clearCopied = debounce(() => setCopied(false), 2000);
+
+              return <button data-button="quiet" type="button" onClick={() => void writeText(props.app, JSON.stringify(record)).then(() => { setCopied(true); clearCopied(); }).catch(error => { setCopied(false); setWindowFailure(error instanceof Error ? error.message : String(error)); })}>
+                <span class="storage-copy-label" style={{ visibility: copied() ? "hidden" : "visible" }} aria-hidden={copied()}>{storageCopy.recoveryLabel(record.key)}</span>
+                <span class="storage-copy-label" style={{ visibility: copied() ? "visible" : "hidden" }} aria-hidden={!copied()}>{storageCopy.recoveryLabel(record.key, true)}</span>
+              </button>;
+            }}</For>
+          </div></Show>
+          <div class="centre-frame">
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
-          <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} />}>
-            <InProject open={activeConnection()} failed={failureLine}>
+          <Show when={projects.tabs().length > 0} fallback={<ChooseProject app={props.app} onOpen={path => void projects.open(path)} failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
+            <InProject open={activeConnection()} failed={failureLine} pending={<div role="img" aria-label={copy.loadingProject} class="light" style={{ padding: "var(--space-4)" }}><Hourglass class="icon" aria-hidden="true" /></div>}>
               {(open) => {
                 const tracked = emulators();
                 const [screens, setScreens] = createSignal<Screens>();
@@ -454,14 +647,17 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
-                    <AskBar />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
+                    <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
                     <ProjectSettingsView />
                     </div>
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip />
+                    <ResourceStrip returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
+
+                      if (id) screens()?.emulatorFor(id).focus();
+                      else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />
                   </div>
                 );
               }}
@@ -470,12 +666,19 @@ export const App = (props: {
           </div>
           <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
           </div>
+          </div>
+          </div>
         }
+        shelfTabs={<Tabs.RootProvider value={shelfTabs} style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
+          <Show when={frame.rendered()}><InProject open={activeConnection()} failed={() => <ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
+            {() => <ProjectShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}
+          </InProject></Show>
+        </Tabs.RootProvider>}
         shelf={
           <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
-            <Show when={projects.tabs().length > 0} fallback={<Tabs.Content value={frame.tab()} class="shelf-panel"><EmptyShelf /></Tabs.Content>}>
+            <Show when={projects.tabs().length > 0} fallback={<Show when={frame.rendered()}><Tabs.Content value={frame.tab()} class="shelf-panel"><EmptyShelf /></Tabs.Content></Show>}>
               <InProject open={activeConnection()} failed={() => <Tabs.Content value={frame.tab()} class="shelf-panel" />}>
-                {() => <Shelf open={frame.open} />}
+                {() => <Show when={frame.rendered()}><Shelf open={frame.open} /></Show>}
               </InProject>
             </Show>
           </Tabs.RootProvider>
@@ -486,18 +689,22 @@ export const App = (props: {
               {(open) => (
                 <>
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
-                  <Help />
                   <Leader />
                   <InboxKey />
-                  <Capture onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />
+                  
                 </>
               )}
             </InProject>
+            <Show when={projectPicker()}><section class="switcher" ref={projectPanel}>
+              <Combobox.Root items={projectMatches()} inputValue={projectQuery()} onInput={setProjectQuery} highlightedValue={projectHighlight()} onHighlightChange={setProjectHighlight} label={copy.switchProject} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label} focusScope={() => projectPanel} onDismiss={() => setProjectPicker(false)} onSelect={path => { setProjectPicker(false); projects.select(path); }} />
+            </section></Show>
+            <InProject open={captureOwner()}>{(open) => <Capture onReady={show => setCaptureShow(() => show)} onNativeOpen={shown => setCaptureConnection(shown ? open : undefined)} onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />}</InProject>
+            <Help projectOpen={activeConnection() != null} shelfOpen={frame.open()} />
             <Toasts queue={toasts} />
           </>
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider>
+    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider></ReducedMotionContext.Provider>
   );
 };

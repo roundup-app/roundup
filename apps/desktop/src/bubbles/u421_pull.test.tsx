@@ -1,4 +1,5 @@
-import { cleanup, waitFor } from "@solidjs/testing-library";
+import { cleanup, render, waitFor } from "@solidjs/testing-library";
+import { Menu } from "../ui/Menu";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { placesStorage } from "./places";
 import { bubbleCalls, bubbleNames, mountBubbles } from "./bubblesFixture";
@@ -278,14 +279,13 @@ describe("u421 a right-button drag pulls a bubble out", () => {
 
   it("u421_an_open_rail_menu_closes_on_the_press_and_starts_no_pull", async () => {
     await ready();
-    const open = document.createElement("div");
+    const open = render(() => <Menu.Root open><Menu.Trigger>More</Menu.Trigger><Menu.Positioner><Menu.Content><Menu.Item value="a">A</Menu.Item></Menu.Content></Menu.Positioner></Menu.Root>);
 
-    open.setAttribute("role", "menu");
-    document.body.append(open);
+    await waitFor(() => expect(document.querySelector('[role="menu"]')).not.toBeNull());
     press(document.body, 400, 300);
     drag({ x: 450, y: 300 });
     release(450, 300);
-    open.remove();
+    open.unmount();
     expect(menu().defaultPrevented).toBe(false);
   });
 });

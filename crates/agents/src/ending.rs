@@ -32,6 +32,7 @@ impl Agents {
 impl Shared {
     pub(super) fn release_closing(&self, id: &str, ended: bool) {
         let mut runs = self.runs();
+        self.events.observed.notify_waiters();
         if let Some(Slot::Running(run)) = runs.get_mut(id) {
             run.closing = false;
             run.ended |= ended;
@@ -106,7 +107,7 @@ impl Shared {
                 .await
                 .map_err(RpcError::internal)??;
         }
-        let (terminal_id, worktree, measured_attempt) = {
+        let (terminal_id, worktree) = {
             let rail = self.rail();
             let mut node = rail.node(id)?;
             if checked_node.as_ref().is_some_and(|checked| {
@@ -164,7 +165,6 @@ impl Shared {
                 matches!(ending, Ending::Remove | Ending::Discard)
                     .then_some(node.worktree)
                     .flatten(),
-                node.attempt,
             )
         };
         if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
@@ -182,14 +182,6 @@ impl Shared {
             }
             None => Ok(()),
         };
-        if killed.is_ok()
-            && let Some(attempt) = measured_attempt
-        {
-            self.timing
-                .lock()
-                .expect("measurement timing lock")
-                .end_attempt(id, &attempt);
-        }
         if killed.is_ok()
             && let Some(worktree) = worktree
         {
@@ -217,6 +209,7 @@ impl Shared {
         let result = {
             let mut rail = self.rail();
             let mut runs = self.runs();
+            self.events.observed.notify_waiters();
             if let Err(err) = killed {
                 if let Some(Slot::Running(run)) = runs.get_mut(id) {
                     run.closing = false;
@@ -308,9 +301,6 @@ pub(super) async fn kill_or_already_gone(
     Ok(())
 }
 
-/// How often `program_ended` looks at the program.
-const PROGRAM_POLL: Duration = Duration::from_millis(50);
-
 /// Ask a Terminal's Claude Code to end itself, so it counts the end as a clean one and not as a
 /// failed start (`claude_code::EXIT_KEY`), and return whether the Terminal exited within
 /// `CLEAN_EXIT_BOUND`. `exit` is the Terminal's own event stream, subscribed before the first
@@ -332,7 +322,7 @@ pub(super) async fn exit_through_claude_code(
     let outcome = tokio::time::timeout(CLEAN_EXIT_BOUND, async {
         tokio::select! {
             () = wait_for_exit(exit) => None,
-            () = program_ended(terminals, terminal_id) => None,
+            () = terminals.wait_program_ended(terminal_id) => None,
             err = presses => Some(err),
         }
     })
@@ -353,15 +343,6 @@ pub(super) async fn exit_through_claude_code(
             );
             false
         }
-    }
-}
-
-/// Resolve once the Terminal's program is reaped. A descendant that holds the PTY open keeps the
-/// Terminal's exit event back, so the event alone would wait the whole bound for a program that
-/// is already gone.
-async fn program_ended(terminals: &Terminals, terminal_id: &str) {
-    while !terminals.program_ended(terminal_id) {
-        tokio::time::sleep(PROGRAM_POLL).await;
     }
 }
 

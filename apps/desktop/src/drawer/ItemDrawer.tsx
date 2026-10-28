@@ -29,6 +29,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
 
   const [newer, setNewer] = createSignal<string | null>(null);
   let latest = 0;
+  const [failure, setFailure] = createSignal<string | null>(null);
 
   const lineOf = (history: Parameters<typeof lastTouchLine>[0]) =>
     (props.sentence ? padTouchSentence : lastTouchLine)(history, connected.rail.nameOf);
@@ -39,22 +40,23 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
     return { line: lineOf(history), value: await props.read() };
   });
 
-  onCleanup(
-    connected.events.subscribe((event) => {
-      if (!props.touchedBy?.(event)) return;
+  const refreshHistory = async () => {
+    const mine = ++latest;
+    const item = props.item;
 
-      // Two Events can start two reads that resolve in either order; only the read started last may set the line.
-      const mine = ++latest;
+    try {
+      const history = await connected.app.rpc("provenance.history", { item });
 
-      // A Daemon that went away leaves the line as it was.
-      void connected.app
-        .rpc("provenance.history", { item: props.item })
-        .then((history) => {
-          if (mine === latest) setNewer(lineOf(history));
-        })
-        .catch(() => undefined);
-    }),
-  );
+      if (mine === latest) { setNewer(lineOf(history)); setFailure(null); }
+    } catch (error) {
+      if (mine === latest) setFailure(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  onCleanup(connected.events.subscribe((event) => {
+    if (props.touchedBy?.(event)) void refreshHistory();
+  }));
+  onCleanup(() => { latest += 1; });
 
   return (
     <ErrorBoundary fallback={(error: Error, reset) => (
@@ -66,6 +68,7 @@ const ItemDrawerBody = <Value,>(props: Props<Value>) => {
         {(item) => (
           <>
             {props.children(item().value)}
+            <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void refreshHistory()}>{copy.tryAgain}</button></ReservedLine>
             <Show when={newer() ?? item().line}>
               {(line) => (
                 <p class="light" style={props.sentence ? { "font-family": "var(--font-ui)" } : { "white-space": "pre" }}>

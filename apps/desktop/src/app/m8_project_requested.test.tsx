@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-lib
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
 import { createProjectDrafts } from "../state/connectedProject";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { RpcError } from "./seam";
@@ -190,7 +190,7 @@ it("u3021c_copy_and_discard_keep_other_revisions", async () => {
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
   const row = within(recovery).getAllByRole("listitem").find((item) => item.dataset.revision === gone)!;
 
-  expect(within(row).queryByRole("button", { name: "Open" })).toBeNull();
+  expect(within(row).getAllByRole("button")).toHaveLength(2);
   fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
   expect(clipboard).toHaveBeenCalledTimes(1);
   expect(clipboard).toHaveBeenCalledWith(`${exact}\nSame name`);
@@ -319,7 +319,9 @@ it.each([
   const a = holder.edit(destination, { note, excerpt }, null, "ordinary").draft;
   holder.submit(a.revision);
   holder.settle(a.revision, "unknown");
-  const b = holder.edit(destination, { note: "newer", excerpt: "kept" }, null, "ordinary").draft;
+  const retained = holder.edit(destination, { note: "newer", excerpt: "kept" }, null, "ordinary");
+  await retained.retained;
+  const b = retained.draft;
   const saved = holder.list();
   const reopened = createProjectDrafts();
   const copied = vi.fn(async (_text: string) => {});
@@ -329,7 +331,7 @@ it.each([
   await openRecovery();
   const panel = await screen.findByRole("region", { name: "Unfinished work" });
   const row = panel.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!;
-  expect(within(row).queryByRole("button", { name: "Open" })).toBeNull();
+  expect(reopened(FIRST.path).list().find(draft => draft.revision === a.revision)?.destination).toEqual(destination);
   fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
   expect(copied).toHaveBeenCalledWith(note + "\n" + excerpt);
   expect(reopened(FIRST.path).list()).toEqual(saved);

@@ -90,6 +90,7 @@ impl Shared {
             return;
         }
         run.first_pending = false;
+        self.events.observed.notify_waiters();
         if let Some(status) = run.adapter.refuse_prompt() {
             run.status_revision = run
                 .status_revision
@@ -233,6 +234,315 @@ impl From<SteerError> for PromptError {
         match error {
             SteerError::Refused(err) | SteerError::Uncertain(err) => err,
         }
+    }
+}
+
+impl Shared {
+    /// H11, H16: the one place a prompt is written to a Terminal. `first` marks the H12 first
+    /// Steer, which goes before any Message. `text` goes out once, as one
+    /// bracketed paste and then `\r` as a write of its own, when `id` is `idle`.
+    /// User slash commands also accept post-write local-command Signals (A2698a). `first` binds the initial Steer to its Attempt.
+    /// Nothing is written again on any failure.
+    pub(super) async fn prompt(
+        &self,
+        id: &str,
+        text: &str,
+        first: Option<&str>,
+        verbatim: bool,
+        record: Option<PromptRecord>,
+    ) -> Result<(), SteerError> {
+        let name = self
+            .rail()
+            .name(id)
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        let not_found = |name: &str| PromptError::NotFound {
+            id: id.to_owned(),
+            name: name.to_owned(),
+        };
+        let (terminal_id, attempt, submitted, slash_written) = loop {
+            let mut completion = {
+                let mut runs = self.runs();
+                let Some(Slot::Running(run)) = runs.get_mut(id) else {
+                    return Err(SteerError::Refused(match runs.get(id) {
+                        Some(Slot::Starting { .. } | Slot::Resuming { .. }) => PromptError::Busy {
+                            id: id.to_owned(),
+                            name: name.clone(),
+                            kind: Kind::Working,
+                        },
+                        _ => not_found(&name),
+                    }));
+                };
+                if first.is_some_and(|attempt| attempt != run.attempt)
+                    || run.ended
+                    || run.closing
+                    || run.adapter.is_ended()
+                {
+                    return Err(SteerError::Refused(not_found(&name)));
+                }
+                let kind = run
+                    .adapter
+                    .status()
+                    .map_or(Kind::Working, |status| status.kind);
+                let ahead = run.first_pending && first.is_none();
+                // An idle Signal can precede the first Steer's task resuming from its ack.
+                // Subscribe under the admission lock so Busy cannot miss the final wake-up.
+                if ahead
+                    && matches!(kind, Kind::Idle | Kind::Error)
+                    && matches!(run.first_prompt, Some(FirstPrompt::Acknowledged))
+                    && let Some(completion) = &run.first_completion
+                {
+                    completion.subscribe()
+                } else {
+                    if ahead
+                        || !matches!(kind, Kind::Idle | Kind::Error)
+                        || run
+                            .steer
+                            .as_ref()
+                            .is_some_and(|steer| !steer.submitted.is_closed())
+                    {
+                        return Err(SteerError::Refused(PromptError::Busy {
+                            id: id.to_owned(),
+                            name: name.clone(),
+                            kind,
+                        }));
+                    }
+                    let (steer, submitted) = oneshot::channel();
+                    let slash_written = (verbatim && first.is_none() && text.starts_with('/'))
+                        .then(|| Arc::new(Mutex::new(false)));
+                    run.steer = Some(SteerWait {
+                        submitted: steer,
+                        slash_written: slash_written.clone(),
+                    });
+                    // The first Steer stays ahead of Messages through physical completion.
+                    if first.is_some() && matches!(run.first_prompt, Some(FirstPrompt::Reserved)) {
+                        run.first_prompt = Some(FirstPrompt::Written);
+                    }
+                    break (
+                        run.terminal_id.clone(),
+                        run.attempt.clone(),
+                        submitted,
+                        slash_written,
+                    );
+                }
+            };
+            completion
+                .wait_for(Option::is_some)
+                .await
+                .map_err(|_| SteerError::Refused(not_found(&name)))?;
+        };
+        let delivery = {
+            let mut rail = self.rail();
+            if first.is_some() {
+                rail.first_instruction(id, &attempt)
+            } else if let Some(revision) = record.as_ref().and_then(|r| r.revision.as_deref()) {
+                rail.prepare_instruction(revision, &attempt, text, false)
+                    .map(Some)
+            } else {
+                Ok(None)
+            }
+        }
+        .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        let retaining = self.me.upgrade();
+        let retained_delivery = delivery.clone();
+        let bytes = if verbatim {
+            claude_code::verbatim_bytes(text)
+        } else {
+            claude_code::steer_bytes(text)
+        };
+        let before = self.steer.before_steer.clone();
+        let agent = id.to_owned();
+        // B6: await the physical effect before starting the submit timeout. An enqueue
+        // acknowledgement could otherwise leave bytes to execute after completion.
+        let effect = self
+            .terminals
+            .write_with(&terminal_id, move |writer| {
+                if let Some(before) = before {
+                    before(&agent)?;
+                }
+                if let (Some(shared), Some(delivery)) = (&retaining, &retained_delivery) {
+                    shared.rail().instruction_state(
+                        delivery,
+                        contracts::agent::InstructionState::Uncertain,
+                    )?;
+                }
+                claude_code::write_submitted(writer, &bytes, slash_written.as_deref()).map_err(
+                    |err| {
+                        RpcError::unknown_outcome(format!(
+                            "Steer bytes may have been written: {err}"
+                        ))
+                    },
+                )
+            })
+            .await;
+        if let (Some(delivery), Err(error)) = (&delivery, &effect)
+            && error.code != code::UNKNOWN_OUTCOME
+        {
+            self.rail()
+                .instruction_state(delivery, contracts::agent::InstructionState::Refused)
+                .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        }
+        let failure = match effect {
+            Err(err) if err.code == code::NOT_FOUND => {
+                let name = self
+                    .rail()
+                    .name(id)
+                    .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+                return Err(SteerError::Refused(not_found(&name)));
+            }
+            Err(err) => {
+                eprintln!("agents: could not write the prompt to terminal {terminal_id}: {err}");
+                let reason = PromptError::NotAccepted {
+                    id: id.to_owned(),
+                    name: self
+                        .rail()
+                        .name(id)
+                        .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                };
+                if err.code == code::UNKNOWN_OUTCOME {
+                    SteerError::Uncertain(reason)
+                } else {
+                    SteerError::Refused(reason)
+                }
+            }
+            Ok(()) => {
+                if let Some(written) = record.and_then(|r| r.written) {
+                    written(id).expect("announce a physically written Steer");
+                }
+                match tokio::time::timeout(self.steer_bound, submitted).await {
+                    Ok(Ok(())) => {
+                        if let Some(delivery) = delivery {
+                            self.rail()
+                                .instruction_state(
+                                    &delivery,
+                                    contracts::agent::InstructionState::Submitted,
+                                )
+                                .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
+                        }
+                        return Ok(());
+                    }
+                    _ => SteerError::Uncertain(PromptError::NotAccepted {
+                        id: id.to_owned(),
+                        name: self
+                            .rail()
+                            .name(id)
+                            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                    }),
+                }
+            }
+        };
+        let name = self
+            .rail()
+            .name(id)
+            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
+        let mut runs = self.runs();
+        let ended = match runs.get_mut(id) {
+            Some(Slot::Running(run)) if run.terminal_id == terminal_id => {
+                run.steer = None;
+                run.ended || run.closing
+            }
+            _ => true,
+        };
+        Err(if ended {
+            match failure {
+                SteerError::Refused(_) => SteerError::Refused(not_found(&name)),
+                SteerError::Uncertain(_) => SteerError::Uncertain(not_found(&name)),
+            }
+        } else {
+            failure
+        })
+    }
+    /// H13, H16: the other place a Terminal is written on an Agent's behalf. One `ESC` goes out
+    /// when `id` has a turn to end; this returns when the Agent's title shows it is no longer
+    /// working (`Kind::Idle`). Physical completion precedes the title timeout; `NOT_ACKED`
+    /// means the Escape was written but its outcome is uncertain. Nothing is retried.
+    pub(super) async fn interrupt(&self, id: &str) -> Result<(), RpcError> {
+        let name = self.rail().name(id)?;
+        let not_found = || RpcError::not_found(format!("{name} is not running"));
+        let (terminal_id, acked) = {
+            let mut runs = self.runs();
+            let Some(Slot::Running(run)) = runs.get_mut(id) else {
+                return Err(match runs.get(id) {
+                    Some(Slot::Starting { .. } | Slot::Resuming { .. }) => RpcError::new(
+                        code::NOT_RUNNING,
+                        format!("{name} has no turn to interrupt yet"),
+                    ),
+                    _ => not_found(),
+                });
+            };
+            if run.ended || run.closing {
+                return Err(not_found());
+            }
+            let kind = run
+                .adapter
+                .status()
+                .map_or(Kind::Working, |status| status.kind);
+            if matches!(kind, Kind::Idle | Kind::Done | Kind::Error) {
+                return Err(RpcError::new(
+                    code::NOT_RUNNING,
+                    format!("{name} is {kind:?}, with no turn to interrupt"),
+                ));
+            }
+            if run
+                .interrupt
+                .as_ref()
+                .is_some_and(|waiting| !waiting.is_closed())
+            {
+                return Err(RpcError::conflict(format!(
+                    "{name} is already being interrupted"
+                )));
+            }
+            let (waiting, acked) = oneshot::channel();
+            run.interrupt = Some(waiting);
+            (run.terminal_id.clone(), acked)
+        };
+        // B6: an enqueue acknowledgement cannot bound the Escape's effect. Await its
+        // physical completion so no timeout result leaves a future write behind.
+        let written = self
+            .terminals
+            .write_with(&terminal_id, |writer| {
+                writer
+                    .write_all(&claude_code::interrupt_bytes())
+                    .and_then(|()| writer.flush())
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!(
+                            "Interrupt bytes may have been written: {err}"
+                        ))
+                    })
+            })
+            .await;
+        let error = match written {
+            Err(err) => {
+                let name = self.rail().name(id)?;
+                eprintln!("agents: could not write the interrupt to terminal {terminal_id}: {err}");
+                if err.code == code::UNKNOWN_OUTCOME {
+                    RpcError::unknown_outcome(format!(
+                        "{name}: Interrupt outcome uncertain; do not retry: {err}"
+                    ))
+                } else {
+                    RpcError::new(
+                        err.code,
+                        format!("{name}: Interrupt refused; no bytes written: {err}"),
+                    )
+                }
+            }
+            Ok(()) => match tokio::time::timeout(self.steer.interrupt_bound, acked).await {
+                Ok(Ok(())) => return Ok(()),
+                _ => {
+                    let name = self.rail().name(id)?;
+                    eprintln!("agents: {id}: the title did not change after the interrupt");
+                    RpcError::new(
+                        code::NOT_ACKED,
+                        format!(
+                            "{name} did not acknowledge the interrupt; Escape written; outcome uncertain; do not retry"
+                        ),
+                    )
+                }
+            },
+        };
+        if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
+            run.interrupt = None;
+        }
+        Err(error)
     }
 }
 

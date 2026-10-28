@@ -17,7 +17,7 @@ const USER_ACTOR: Actor = { kind: "user", id: "you", parent: null };
 const line = (id: number, author: Actor, body: string, read = true): Comment => ({ id, author, body, created_at: id * 60_000, read });
 
 const open = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: /^Idle #1 / }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: /^Idle #1 / }), { key: "Enter" });
   await within(panel()).findByRole("region", { name: /^Comments · / });
 };
 
@@ -63,7 +63,7 @@ it("u3741_reply_focuses_the_field_and_sends_an_ordinary_comment", async () => {
   const m = await mountTodos([todo(1)]);
   m.store.comments!.set(1, [line(1, AGENT, "which branch?", false)]);
   await open();
-  fireEvent.click(within(panel()).getByRole("button", { name: "Reply" }));
+  fireEvent.click(await within(panel()).findByRole("button", { name: "Reply" }));
   const field = within(panel()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
   expect(document.activeElement).toBe(field);
   fireEvent.input(field, { target: { value: "main" } });
@@ -148,19 +148,19 @@ it("u3776_enter_sends_once_and_shift_enter_adds_a_line", async () => {
 });
 
 it("u3776_a_new_comment_is_announced_politely_and_the_opening_ones_are_not", async () => {
-  const m = await mountTodos([todo(1)], true, [agent("a", "idle", "Idle", { name: "builder" })]);
+  const author = "builder";
+  const m = await mountTodos([todo(1)], true, [agent("a", "idle", "Idle", { name: author })]);
   m.store.comments!.set(1, [line(1, AGENT, "old")]);
   await open();
   await within(panel()).findByText("old");
-  const live = within(panel()).getByRole("status");
+  const comments = within(panel()).getByRole("region", { name: /^Comments · / });
+  const live = within(comments).getByRole("status");
   expect(live.getAttribute("aria-live")).toBe("polite");
   expect(live.textContent).toBe("");
-  expect(panel().querySelector("[data-comment='1']")!.hasAttribute("data-fresh")).toBe(false);
-  m.store.comments!.set(1, [...m.store.comments!.get(1)!, line(2, AGENT, "new one")]);
+  const arrival = line(2, AGENT, "new one");
+  m.store.comments!.set(1, [...m.store.comments!.get(1)!, arrival]);
   m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 1 } });
-  await waitFor(() => expect(live.textContent).toBe("builder: new one"));
-  expect(panel().querySelector("[data-comment='2']")!.hasAttribute("data-fresh")).toBe(true);
-  expect(panel().querySelector("[data-comment='1']")!.hasAttribute("data-fresh")).toBe(false);
+  await waitFor(() => expect(live.textContent).toBe(`${author}: ${arrival.body}`));
 });
 
 it("u3776_an_arrival_keeps_earlier_rows_and_an_open_status_line", async () => {

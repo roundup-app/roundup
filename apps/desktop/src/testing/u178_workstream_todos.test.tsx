@@ -52,7 +52,7 @@ const mount = async (real: StartedDaemon, draftsFor = createProjectDrafts()) => 
 };
 
 const openBody = async (id: number, body: string) => {
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }), { key: "Enter" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   await within(drawer).findByRole("button", { name: /^Changes/ });
@@ -120,7 +120,7 @@ it("u2773c_todos_unavailable_original_keeps_project_local_recovery", async () =>
 
   fireEvent.input(field, { target: { value: "  recover after removal 🧪  " } });
   connected.drawer.close("key");
-  await external.rpc("todo.delete", { id: original.id });
+  await external.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [original.id] });
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(String(original.id)));
   expect(connected.drafts.list().find(draft => draft.destination.object === String(original.id))?.value.text).toBe("  recover after removal 🧪  ");
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
@@ -161,6 +161,7 @@ it("u2773e_todos_failed_retention_survives_real_project_reopen", async () => {
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
 
   fireEvent.input(field, { target: { value: "  in memory after close 🧪  " } });
+  await waitFor(() => expect(a.connected.drafts.problem()).toMatchObject({ operation: "retain", cause: "write" }));
   a.unmount();
   writes.mockRestore();
   const reopened = await mount(one, owners);
@@ -169,7 +170,7 @@ it("u2773e_todos_failed_retention_survives_real_project_reopen", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "  in memory after close 🧪  ");
-  expect(reopened.connected.drafts.problem()).toBeNull();
+  await waitFor(() => expect(reopened.connected.drafts.problem()).toBeNull());
   expect(reopened.calls.filter(method => method === "todo.create")).toEqual([]);
 }, 60_000);
 
@@ -181,7 +182,7 @@ it("u2773a_todos_real_browser_reload_restores_without_creation", async () => {
   const before = await app.rpc("todo.list", null);
 
   try {
-    await browser("open", `${one.base}/harness.html?daemon=1`);
+    await browser("open", `${one.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("wait", "[aria-label^='add todo to']");
     await browser("click", "[aria-label^='add todo to']");
@@ -254,11 +255,13 @@ it("u2773b_todos_browser_discards_hidden_revision_without_delivery", async () =>
   const original = await app.rpc("todo.create", { title: "discard by pointer", body: "keep this base", blockers: null });
 
   try {
-    await browser("open", `${one.base}/harness.html?daemon=1`);
+    await browser("open", `${one.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", `[aria-label="Idle #${original.id} discard by pointer"]`);
+    await browser("click", `[data-todo="${original.id}"] .todo-row-button`);
+    await browser("press", "Enter");
     await browser("wait", ".drawer .todo-history-line");
     await browser("dblclick", ".todo-detail-body p");
     await browser("fill", '[aria-label="Body"]', "  discard editor 🧪  ");

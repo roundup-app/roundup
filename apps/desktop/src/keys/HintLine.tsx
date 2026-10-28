@@ -1,8 +1,9 @@
 import { KeyHint } from "./KeyHint";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
-import { hintsFor } from "./chords";
+import { hintsFor, LEADER } from "./chords";
 import type { HintPlace } from "./chords";
 import { copy } from "../copy";
+import { captureActions, leaderArmed } from "./registry";
 
 /** Where keyboard focus sits, for the hint line: `null` anywhere that has no hints, a modal layer such as Help included (U2230a). */
 const placeAt = (focus: Element | null): HintPlace | null =>
@@ -25,6 +26,16 @@ export const HintLine = () => {
   const place = createMemo(() => placeAt(focus()));
 
   const hints = () => {
+    if (leaderArmed()) {
+      const actions = captureActions(document.activeElement);
+
+      return LEADER.filter(key => {
+        const matches = actions.filter(row => row.value === `action:leader:${key.keys}`);
+
+        return matches.length === 0 || matches.some(action => action.available());
+      }).map(key => ({ keys: key.keys, label: key.short }));
+    }
+
     const at = place();
 
     if (at === null) return [];
@@ -94,7 +105,7 @@ export const HintLine = () => {
   });
 
   return (
-    <p class="hint-line" ref={line} data-place={place() ?? undefined}>
+    <p class="hint-line" classList={{ leader: leaderArmed() }} role={leaderArmed() ? "status" : undefined} aria-label={leaderArmed() ? copy.leaderPanel : undefined} ref={line} data-place={place() ?? undefined}>
       <For each={hints()}>{(hint) => <KeyHint keys={hint.keys}>{hint.label}</KeyHint>}</For>
     </p>
   );

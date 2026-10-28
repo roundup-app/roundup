@@ -16,7 +16,9 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import deadline  # noqa: E402
 import orders  # noqa: E402
+import push  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 NEEDS_USER = orders.NEEDS_USER
@@ -98,8 +100,7 @@ RERUNS = 6
 STRANDED = 600
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
 CAUSES = {
-    'check': FAILED,
-    'rules': FAILED,
+    'check': FAILED, 'rules': FAILED,
     'review': 'The review run rejected this head; its findings are the last verdict below. Never answer by undoing the '
               "PR's whole change: `rules` fails a head with no net change against `main`. If you cannot meet the findings "
               'without dropping the work, leave a draft with a `Stopped:` line naming the finding and push nothing.',
@@ -316,10 +317,10 @@ def stream(command, prompt, events, env, account, rights=RUN_RIGHTS):
         if rights is not None:
             subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
         with open(events, 'w') as log, subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                                        text=True, env=env) as run:
+                                                        text=True, env=env, start_new_session=True) as run:
             run.stdin.write(prompt)
             run.stdin.close()
-            for line in run.stdout:
+            for line in deadline.lines(run, deadline.ends):
                 log.write(line)
                 log.flush()
                 try:
@@ -378,12 +379,12 @@ def claude_env():
     empty, which Claude Code would read as a login. Exits with an error annotation when `ANTHROPIC_API_KEY` is empty or a
     step still holds the Max token."""
     if not switched():
-        return os.environ
+        return {**os.environ, **deadline.BASH_LIMITS}
     if not os.environ.get('ANTHROPIC_API_KEY'):
         raise SystemExit('::error::CLAUDE_API is set but the secret ANTHROPIC_API_KEY is empty')
     if os.environ.get('CLAUDE_CODE_OAUTH_TOKEN'):
         raise SystemExit('::error::CLAUDE_API is set but this step holds CLAUDE_CODE_OAUTH_TOKEN')
-    return {name: value for name, value in os.environ.items() if name != 'CLAUDE_CODE_OAUTH_TOKEN'}
+    return {**deadline.BASH_LIMITS, **{name: value for name, value in os.environ.items() if name != 'CLAUDE_CODE_OAUTH_TOKEN'}}
 
 
 def log_cost(label, cost):
@@ -546,9 +547,12 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT)
 
 
 def keep(branch, issue, run_url):
-    """L23: the action's App token lasts an hour and a run may not. When the commits a run left on `branch` beyond `main`
-    are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
+    """L23: the action's App token lasts an hour and a run may not. Work the run left uncommitted
+    is committed first. When the commits a run left on `branch` beyond `main` are not all on GitHub, or `issue` is still ready with no open PR from `branch`, push them with a fresh token and
     open a draft naming the Issue, which `built` hands to L81, then revoke the token."""
+
+    push.save(branch, CLAUDE_ACCOUNT)
+
     def rev(ref):
         return subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref], text=True, capture_output=True,
                               timeout=60).stdout.strip()
@@ -567,8 +571,7 @@ def keep(branch, issue, run_url):
     token = os.environ['GH_TOKEN'] = app_token()
     try:
         remote = f"https://x-access-token:{token}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"
-        push = ['git', 'push', remote, f'refs/heads/{branch}:refs/heads/{branch}']
-        subprocess.run(push, timeout=300, check=True)
+        push.land(remote, branch, CLAUDE_ACCOUNT)
         if not draft:
             return
         order = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
@@ -592,12 +595,7 @@ def attach(branch):
     on its `Scenarios:` line, until its body holds `ATTACH_MOST`, 50 to a `gh pr edit --attach`; the directory also holds other scenarios' captures, untracked.
     The upload needs a user token, which only this call holds: `PR_ATTACH_TOKEN` is set on the step that runs it, after
     the model ends. Captures are evidence for people, so a failure here exits 1 and changes no PR."""
-    # The run works in its own worktree on `branch`; the checkout the step starts in may not be it.
-    listing = subprocess.run(['git', 'worktree', 'list', '--porcelain'], check=True, text=True, capture_output=True,
-                             timeout=60).stdout
-    trees = {block.split('\nbranch refs/heads/')[1].split('\n')[0]: block.split('\n')[0].removeprefix('worktree ')
-             for block in listing.split('\n\n') if '\nbranch refs/heads/' in block}
-    base = Path(trees.get(branch, '.'))
+    base = push.worktree(branch)
     captures = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov')
                       for path in (base / 'artifacts/ux').glob(f'**/{pattern}')
                       if 'base' not in path.parts and 'head' not in path.parts)
@@ -807,7 +805,7 @@ def changed_scenarios(pr, head):
     """Ids, in file order, of the scenarios PR `pr`'s diff adds or changes: the heading above each changed line of a
     `scenarios/*.md` file at `head`. A deleted heading is a retired scenario and names none."""
     touched, path, hunk, at = {}, None, False, 0
-    for line in call('pr', 'diff', str(pr)).splitlines():
+    for line in call('pr', 'diff', str(pr), '--allow-escape-sequences').splitlines():
         if line.startswith('diff --git'):
             path, hunk = None, False
         elif found := re.fullmatch(r'\+\+\+ b/(scenarios/[^/]+\.md)', line):
@@ -833,8 +831,8 @@ def changed_scenarios(pr, head):
 
 
 def issue_of(branch):
-    """The Issue whose work Key names `build/<key>`, or None."""
-    return next((row['issue'] for row in orders.read_orders() if row['slug'] and f"build/{row['slug']}" == branch), None)
+    """The Issue whose work Key names `build/<key>`, or None. A Key needs no dependency or strike read."""
+    return next((row['issue'] for row in orders.classify(orders.list_issues(), {}, []) if row['slug'] and f"build/{row['slug']}" == branch), None)
 
 
 def link(pr, issue=None):
@@ -896,7 +894,7 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
     if not ran:
         print('the run made no tool call; nothing to record')
         return
-    if slug.startswith('repair-'):
+    if slug == f'repair-{issue}':
         # L96: a repair run opens no PR; it failed when the Issue still does not parse.
         current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
         if current['state'] == 'open' and not orders.waits(current):
@@ -1213,7 +1211,8 @@ def clauses(ids):
 
 def patch_id(head):
     """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' for an empty diff."""
-    diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff')
+    diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
+                '--allow-escape-sequences')
     found = subprocess.run(['git', 'patch-id', '--stable'], input=diff, check=True, text=True, capture_output=True).stdout
     return found.split()[0] if found else ''
 
@@ -1254,8 +1253,7 @@ def review_task(pr, head):
     order = orders.gh('issue', 'view', linked[1], '--json', 'title,body') if linked else None
     lines = [f'Review PR #{pr}, head {head}.', *named,
              *([f"\nThe work order:\n\n{order['title']}\n\n{order['body'] or ''}"] if order else []),
-             '\nThe scenarios, as `main` holds them:\n\n' +
-             (clauses(ids) or 'The PR names none.')]
+             '\nThe scenarios, as `main` holds them:\n\n' + (clauses(ids) or 'The PR names none.')]
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
         lines += ['\nEarlier verdicts, oldest first. Each finding is a claim to re-derive as Review run step 3 says, '
@@ -1404,7 +1402,7 @@ def main(args):
             return claude(sys.stdin.read(), model, schema, os.environ['GITHUB_OUTPUT'], rights=None, budget=budget, effort=effort,
                           flags=('--max-turns', str(turns), '--allowedTools', READ_ONLY_TOOLS))
         case ['pick']:
-            pick(slot_count())
+            orders.after_rate_limit(lambda: pick(slot_count()))
         case ['attach', branch]:
             attach(branch)
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):

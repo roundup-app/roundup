@@ -33,7 +33,9 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `pad_append`: add text to the end of any Pad.
 - `pad_appendSection`: add text at the end of the section under a Markdown heading of any Pad.
 - `pad_setOwner`: give a Pad to another Actor.
-- `pad_delete`: delete a Pad you no longer need.
+- `pad_delete`: delete a Pad you no longer need; supply an operation and expectedIncarnation to reconcile an unknown reply.
+- `pad_getDeletion`: read your retained deletion operation on its original Project before retrying an unknown deletion.
+- `pad_restore`: restore your deletion operation in its original Project once, keeping its original Pad creation.
 - `checkpoint_list`: read the Checkpoints written for a Workstream, oldest first.
 - `agent_context`: ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved.
 - `agent_wake`: ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking.
@@ -75,8 +77,6 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `agent_worktreeState`: read what a Worktree holds and whether it can land; yours or one in your Reach.
 - `route_list`: see the Routes: whom each Agent's questions go to.
 - `project_get`: read the Project's settings.
-- `project_measurements`: read retained measurements and collection coverage.
-- `project_measurementSummary`: read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision.
 - `project_setWorktrees`: turn Worktrees on or off for the Project and set the command Landing runs.
 - `provenance_history`: list the Touches on one item, such as `todo:3` or `rail:5`.
 - `provenance_touched`: list the Touches one Actor made.
@@ -102,17 +102,13 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 
 To read a Terminal of your Runs or your Workstream, search first with `terminal_search` for a pattern, read what is new with `terminal_read` and the `next` of your last read, and look at what is on screen now with `terminal_screen`. Never read from 0 again; every answer is capped, and says `truncated` when more is left.
 
-## Output style
-
-Write every reply in hold:Plain. Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. Keep prose to a few short lines and put rows in a table. Where the Project's `CLAUDE.md` asks for something else, follow it.
-
 ## Asking
 
 Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
 
 ## Reduce and show
 
-Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, and lay it out as `show-me` does. Both skills follow. When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
+Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, and lay it out as `show-me` does. Write each limit of a Work order as a rule that reads on its own, such as "Change no file in the repo". Both skills follow. When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
 
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;

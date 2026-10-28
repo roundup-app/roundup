@@ -1,6 +1,7 @@
+import { settled } from "../rail/railFixture";
 import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createRoot, createSignal } from "solid-js";
 import { createProjectDrafts, ProjectDraftsContext } from "../state/connectedProject";
@@ -16,7 +17,9 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" });
 
 const edit = async (name = "api") => {
-  fireEvent.dblClick(tab(name).querySelector(".tab-name")!);
+  await settled();
+  const target = await screen.findByRole("tab", { name: new RegExp(`^${name}`) });
+  fireEvent.dblClick(target.querySelector(".tab-name")!);
 
   return await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
 };
@@ -33,15 +36,6 @@ describe("u183 rename in place", () => {
     expect(input.value).toBe("api");
     expect(input.selectionStart).toBe(0);
     expect(input.selectionEnd).toBe(3);
-  });
-
-  it("u183_f2_opens_it_from_the_focused_tab", async () => {
-    await openTabs({ api: [], web: [] });
-
-    tab("api").focus();
-    fireEvent.keyDown(tab("api"), { key: "F2" });
-
-    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" })).value).toBe("api");
   });
 
   it("u183_enter_saves_and_returns_focus_to_the_tab", async () => {
@@ -195,40 +189,73 @@ it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => 
   b.value = "B";
   press("Enter");
   fireEvent.click(tab("web"));
+  await waitFor(() => expect(replies).toHaveLength(2));
   replies[1]!.accept({ path: path("api"), name: "B" });
   await waitFor(() => expect(tab("B")).toBeDefined());
   replies[0]!.reject(new RpcError(-32602, "older rename rejected"));
   await screen.findByText("older rename rejected");
   expect(tab("B")).toBeDefined();
   fireEvent.click(tab("B"));
-  await waitFor(() => expect(document.querySelector(".window-title")?.textContent).toBe("B"));
+  await waitFor(() => expect(document.querySelector(".window-title")?.textContent).toBe(b.value));
   expect(replies).toHaveLength(2);
 });
 
 
-it("u2773a_header_restores_exact_work", async () => {
+// Production opening inventory: focused-tab F2, name double-click, native menu Rename.
+// Recovery in the mounted Strip is copy/discard-only; it opens no additional rename target.
+it.each(["F2", "double-click", "native Rename"] as const)("u3787c_escape_restores_the_name_project_%s", async opening => {
   const { app, view } = await openTabs({ api: [], web: [] });
-  let sends = 0;
-  const rename = app.renameProject;
-  app.renameProject = (...args) => { sends++;
+  const sends = vi.spyOn(app, "renameProject");
+  fireEvent.click(tab("api"));
+  await settled();
+  const original = tab("api");
+  const saved = original.textContent;
+  original.focus();
 
- return rename(...args); };
+  if (opening === "F2") fireEvent.keyDown(original, { key: "F2" });
+  else if (opening === "double-click") fireEvent.dblClick(original.querySelector(".tab-name")!);
+  else {
+    fireEvent.contextMenu(original);
+    await app.pickMenu("Rename");
+  }
 
-  const input = await edit();
-  fireEvent.input(input, { target: { value: "  e\u0301 🪁 雪  " } });
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  const exact = "  e\u0301 🪁 雪\t  ";
+  fireEvent.input(input, { target: { value: exact } });
   input.setSelectionRange(2, 6, "backward");
   fireEvent.select(input);
-  press("Escape");
+  const underlying = vi.fn();
+  document.addEventListener("keydown", underlying);
+
+  try { press("Escape"); }
+  finally { document.removeEventListener("keydown", underlying); }
+
+  expect(tab("api").textContent).toBe(saved);
   expect(document.activeElement).toBe(tab("api"));
+  expect(tab("api").getAttribute("aria-selected")).toBe("true");
+  expect(underlying).not.toHaveBeenCalled();
+  expect(sends).not.toHaveBeenCalled();
+  const records = () => JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts;
+  await waitFor(() => expect(records()).toEqual([expect.objectContaining({ destination: { surface: "header", object: path("api"), recipient: null },
+    value: { name: exact, base: "api" }, selection: { start: 2, end: 6, direction: "backward" }, status: "draft" })]));
+  const retained = records()[0];
   fireEvent.click(tab("web"));
+  await settled();
   fireEvent.click(tab("api"));
   const restored = await edit();
-  expect(restored.value).toBe("  e\u0301 🪁 雪  ");
-  expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 6, "backward"]);
+  expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([exact, 2, 6, "backward"]);
   fireEvent.blur(restored);
-  expect(sends).toBe(0);
+  expect(records()).toEqual([retained]);
+  expect(sends).not.toHaveBeenCalled();
   view.unmount();
+  const { app: reopened } = await openTabs({ api: [], web: [] }, true);
+  const restoredSends = vi.spyOn(reopened, "renameProject");
+  const reloaded = await edit();
+  expect([reloaded.value, reloaded.selectionStart, reloaded.selectionEnd, reloaded.selectionDirection]).toEqual([exact, 2, 6, "backward"]);
+  expect(restoredSends).not.toHaveBeenCalled();
 });
+
 
 it("u2773c_header_external_change_keeps_original", async () => {
   const { app } = await openTabs({ api: [], web: [] });
@@ -262,11 +289,13 @@ it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", asyn
   const older = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
   fireEvent.input(older, { target: { value: "A 雪" } });
   press("Enter");
+  await waitFor(() => expect(calls).toHaveLength(1));
   calls[0]!.reject(new RpcError(-32003, "Project name changed"));
   await waitFor(() => expect(finishRead).toBeDefined());
   const newer = await edit("api");
   fireEvent.input(newer, { target: { value: "B" } });
   press("Enter");
+  await waitFor(() => expect(calls).toHaveLength(2));
   calls[1]!.accept({ path: original, name: "B" });
   await screen.findByRole("tab", { name: "B" });
   fireEvent.click(tab("web"));
@@ -331,13 +360,13 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   vi.spyOn(app, "clipboardWrite").mockImplementation(async (value: string) => { copied.push(value); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual(["  recover e\u0301 🪁  "]));
+  await within(dialog).findByRole("button", { name: "Retry storage only" });
   write.mockRestore();
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
   await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
-  expect(within(dialog).queryByRole("button", { name: "Retry storage only" })).toBeNull();
   expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts[0].value.name).toBe("  recover e\u0301 🪁  ");
   fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
-  expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts).toEqual([]);
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts).toEqual([]));
   expect(sends).not.toHaveBeenCalled();
 
 });
@@ -542,6 +571,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   await waitFor(() => expect(copied).toEqual([a.value.name]));
   fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
   expect(drafts.list()).toEqual([b]);
+  await waitFor(() => expect(createProjectDrafts()(path("api")).list()).toEqual([b]));
   view.unmount();
   const reopened = createProjectDrafts();
   expect(reopened(path("api")).list()).toEqual([b]);
@@ -613,15 +643,15 @@ it.each([
     if (action === "failed save" || action === "unknown save") app.renameProject = vi.fn(async () => { throw new RpcError(action === "failed save" ? -32602 : -32603, action); });
     await edit(project);
     press("Enter");
-    await waitFor(() => expect(records(project).some((draft: { status: string }) => draft.status === "pending")).toBe(false));
+    await waitFor(() => expect(records(project)).toEqual(project === "web" ? [] : action === "acknowledged save" ? [a] : [a, { ...b, status: action === "failed save" ? "failed" : "unknown" }]));
     fireEvent.click(document.querySelector(`[data-path="${path("api")}"] [role="tab"]`)!);
     fireEvent.click(await within(document.querySelector(`[data-path="${path("api")}"]`)!).findByRole("button", { name: /^Recover unfinished work ·/ }));
     dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   }
 
   await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ }) === null).toBe(clears));
-  expect(records("api")).toEqual(action === "discard copied revision" ? [b] : action === "discard other revision" ? [a]
-    : action === "acknowledged save" ? [a] : action === "failed save" || action === "unknown save" ? [a, { ...b, status: action === "failed save" ? "failed" : "unknown" }] : [a, b]);
+  await waitFor(() => expect(records("api")).toEqual(action === "discard copied revision" ? [b] : action === "discard other revision" ? [a]
+    : action === "acknowledged save" ? [a] : action === "failed save" || action === "unknown save" ? [a, { ...b, status: action === "failed save" ? "failed" : "unknown" }] : [a, b]));
   expect(records("web")).toEqual(action === "other Project save" ? [] : [elsewhere]);
 });
 
@@ -631,11 +661,13 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   const other = await edit("web");
   fireEvent.input(other, { target: { value: "  other Project 雪  " } });
   press("Escape");
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("web")}`)!).drafts.at(-1).value.name).toBe("  other Project 雪  "));
   const untouched = window.localStorage.getItem(`roundup:drafts:${path("web")}`);
   fireEvent.click(tab("api"));
   const input = await edit();
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
-  fireEvent.input(input, { target: { value: "  memory e\u0301 🧭  " } });
+  const memory = "  memory e\u0301 🧭  ";
+  fireEvent.input(input, { target: { value: memory } });
   press("Escape");
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
@@ -646,9 +678,9 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   fireEvent.click(within(dialog).getByRole("button", { name: action === "dismiss" ? "Close · Copy name" : "Discard this revision" }));
   await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ })).toBeNull());
   expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
-  expect(within(dialog).getByRole("button", { name: "Retry storage only" })).toBeDefined();
+  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: "Retry storage only" }).disabled).toBe(false);
 
-  if (action === "dismiss") expect(within(dialog).getByText("  memory e\u0301 🧭  ", { exact: true, normalizer: text => text })).toBeDefined();
+  if (action === "dismiss") expect(within(dialog).getByText(memory, { exact: true, normalizer: text => text })).toBeDefined();
   expect(window.localStorage.getItem(`roundup:drafts:${path("web")}`)).toBe(untouched);
 });
 
@@ -656,11 +688,14 @@ it.each(["dismiss", "close Project"] as const)("p3557c_failure_lifetime_header_m
   const { app } = await openTabs({ api: [], web: [] });
   fireEvent.click(tab("web"));
   const input = await edit("web");
-  fireEvent.input(input, { target: { value: "  untouched 雪  " } });
+  const original = "  untouched 雪  ";
+  fireEvent.input(input, { target: { value: original } });
   press("Escape");
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("web")}`)!).drafts.at(-1).value.name).toBe("  untouched 雪  "));
   const untouched = window.localStorage.getItem(`roundup:drafts:${path("web")}`);
   fireEvent.click(tab("api"));
   vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
+  await settled();
   fireEvent.contextMenu(tab("api"));
   await app.pickMenu("Copy");
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
@@ -674,13 +709,14 @@ it.each(["dismiss", "close Project"] as const)("p3557c_failure_lifetime_header_m
     fireEvent.click(within(reopened).getByRole("button", { name: "Close · Copy name" }));
     expect(within(reopened).queryByRole("alert")).toBeNull();
   } else {
-    fireEvent.contextMenu(tab("api"));
+    await settled();
+  fireEvent.contextMenu(tab("api"));
     await app.pickMenu("Close");
     await waitFor(() => expect(projectTabs()).toHaveLength(1));
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · web" }));
     const reopened = await screen.findByRole("dialog", { name: "Unfinished work" });
     expect(within(reopened).queryByRole("alert")).toBeNull();
-    expect(within(reopened).getByText("  untouched 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+    expect(within(reopened).getByText(original, { exact: true, normalizer: text => text })).toBeDefined();
   }
 
   expect(window.localStorage.getItem(`roundup:drafts:${path("web")}`)).toBe(untouched);

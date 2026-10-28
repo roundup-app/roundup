@@ -1,0 +1,12 @@
+{
+  "collectionExit": 0,
+  "analysisExit": 2,
+  "allLengthsCollected": true,
+  "allSelectionsAcknowledged": true,
+  "allFocusTargets": "Selection focus target",
+  "allTerminalWrites": [],
+  "cleanup": {
+    "ownedBrowserProfileRemoved": true
+  },
+  "virtualizationAuthorized": false
+}

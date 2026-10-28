@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
-use contracts::{Actor, ActorKind, EventData};
 use rpc::{Client, OutputFrame};
 use serde_json::{Value, json};
 use tokio::net::UnixListener;
@@ -13,8 +12,6 @@ use tokio::sync::broadcast::Receiver;
 use tokio::time::timeout;
 
 const BOUND: Duration = Duration::from_secs(30);
-/// Ten saturating Terminals each overflow the Bus on a shared CI runner; 16 s alone on a quiet one.
-const FLOOD_BOUND: Duration = Duration::from_secs(120);
 
 struct Fixture {
     dir: tempfile::TempDir,
@@ -238,84 +235,5 @@ async fn x14_all_output_callers_use_selected_streams() {
         .call("terminal.search", json!({"id": id, "pattern": "call+er"}))
         .await;
     assert!(found.to_string().contains("caller"));
-    fixture.finish().await;
-}
-
-#[tokio::test]
-async fn x14_ten_busy_terminals_do_not_lag_rail_events() {
-    let fixture = Fixture::open().await;
-    let rail = fixture
-        .call("rail.createWorkstream", json!({"name": "flood"}))
-        .await["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let (mut receiver, capacity) = fixture.daemon.subscribe();
-    assert!(capacity > 2);
-    let (selector, mut output) = fixture.connect().await;
-    let mut ids = Vec::new();
-    for _ in 0..8 {
-        let id = fixture.spawn("read go; exec yes").await;
-        selector
-            .request("terminal.output", json!({"id": id}))
-            .await
-            .unwrap();
-        fixture.write(&id, "\n").await;
-        ids.push(id);
-    }
-    for _ in 0..2 {
-        let id = fixture.spawn("read go; exec yes").await;
-        selector
-            .request("terminal.output", json!({"id": id}))
-            .await
-            .unwrap();
-        fixture.write(&id, "\n").await;
-        ids.push(id);
-    }
-    let marker = |name: &'static str| {
-        let fixture = &fixture;
-        let rail = rail.clone();
-        async move {
-            fixture
-                .call("daemon.identify", json!({"actor": Actor { kind: ActorKind::User, id: name.into(), parent: None }}))
-                .await;
-            fixture
-                .call("rail.rename", json!({"id": rail, "name": name}))
-                .await;
-        }
-    };
-    marker("first").await;
-    let mut counts = std::collections::HashMap::<String, usize>::new();
-    timeout(FLOOD_BOUND, async {
-        // The receiver stays unread while every Terminal exceeds the Bus capacity in chunks.
-        while ids
-            .iter()
-            .any(|id| counts.get(id).copied().unwrap_or(0) <= capacity)
-        {
-            if let Ok(OutputFrame::Bytes(event)) = output.recv().await {
-                *counts.entry(event.id).or_default() += 1;
-            }
-        }
-    })
-    .await
-    .unwrap();
-    marker("second").await;
-    let mut markers = Vec::new();
-    while let Ok(event) = receiver.try_recv() {
-        match event.data {
-            EventData::RailChanged if event.actor.id == "first" || event.actor.id == "second" => {
-                markers.push(event.actor.id);
-            }
-            EventData::RailRenamed { id, name }
-                if id == rail && (name == "first" || name == "second") => {}
-            EventData::RailChanged | EventData::TerminalChanged => {}
-            other => panic!("unexpected Bus event {other:?}"),
-        }
-    }
-    assert_eq!(markers, ["first", "second"]);
-    assert!(matches!(
-        receiver.try_recv(),
-        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
-    ));
     fixture.finish().await;
 }

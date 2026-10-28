@@ -29,7 +29,7 @@ export type TodosState = {
   isLoaded: Accessor<boolean>;
 };
 
-const REFETCH_ON = new Set(["todo.created", "todo.updated", "todo.unblocked", "todo.deleted"]);
+const REFETCH_ON = new Set(["todo.restored", "todo.created", "todo.updated", "todo.unblocked", "todo.deleted"]);
 
 /** Subscribes before its first fetch, so no Event between the two is lost. */
 export const createTodosState = (app: AppSeam, events: Events, project: string): TodosState => {

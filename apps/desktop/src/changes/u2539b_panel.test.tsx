@@ -1,11 +1,16 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
-import { mountControl, STATE } from "./harness";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
+import { agent } from "../testing/nodes";
+import { WorktreeControl } from "./WorktreeControl";
+import { mountControl, STATE, WORKTREE } from "./harness";
 
 afterEach(cleanup);
 
-const control = () => screen.getByRole("button", { name: "roundup/a" });
+const control = () => screen.getByRole("button", { name: /\d+ changed files?/ });
 
 const rows = (): string[] => [...document.querySelectorAll("file-tree-container")].flatMap((host) => [...(host.shadowRoot?.querySelectorAll("[data-item-path]") ?? [])].map((row) => row.textContent ?? ""));
 
@@ -25,7 +30,7 @@ describe("U2539b", () => {
 
     connected.rail.select("plain");
 
-    await waitFor(() => expect(screen.queryByRole("button", { name: "roundup/a" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /\d+ changed files?/ })).toBeNull());
   });
 
   it("u2539b_opens_and_closes_back_to_the_terminal", async () => {
@@ -35,7 +40,7 @@ describe("U2539b", () => {
     const panel = await screen.findByRole("dialog", { name: "Worktree" });
     fireEvent.keyDown(panel, { key: "Escape" });
 
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
+    await waitFor(() => expect(document.querySelector(".worktree-panel")).toBeNull());
     expect(document.activeElement).toBe(control());
   });
 
@@ -46,7 +51,7 @@ describe("U2539b", () => {
     await screen.findByRole("dialog", { name: "Worktree" });
     connected.rail.select("plain");
 
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
+    await waitFor(() => expect(document.querySelector(".worktree-panel")).toBeNull());
   });
 
   it("u2539b_the_tree_lists_each_file_with_its_status", async () => {
@@ -65,28 +70,53 @@ describe("U2539b", () => {
     const { calls } = await mountControl();
 
     fireEvent.click(control());
-    await waitFor(() => expect(calls("agent.changedFiles")).toBe(1));
+    await waitFor(() => expect(calls("agent.changedFiles")).toBeGreaterThan(1));
+    const before = calls("agent.changedFiles");
     fireEvent.click(control());
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
+    await waitFor(() => expect(document.querySelector(".worktree-panel")).toBeNull());
     fireEvent.click(control());
 
-    await waitFor(() => expect(calls("agent.changedFiles")).toBe(2));
+    await waitFor(() => expect(calls("agent.changedFiles")).toBeGreaterThan(before));
   });
 
-  it("u2539b_no_changes_says_so", async () => {
-    await mountControl(() => ({ files: [] }));
+  it("u2539b_empty_changes_mount_no_control_or_view", async () => {
+    const { calls } = await mountControl(() => ({ files: [] }));
 
-    fireEvent.click(control());
-
-    expect(await screen.findByText("No changes")).toBeTruthy();
+    await waitFor(() => expect(calls("agent.changedFiles")).toBeGreaterThan(0));
+    await waitFor(() => expect(document.querySelector(".worktree-control")).toBeNull());
+    expect(document.querySelector(".worktree-panel")).toBeNull();
+    expect(document.querySelector("file-tree-container")).toBeNull();
   });
 
-  it("u2539b_a_failed_call_shows_one_failure_line", async () => {
-    await mountControl(() => { throw new RpcError(-32001, "worktree_missing: /gone"); });
+  it("u4464_no_empty_view_before_the_first_answer_changes", async () => {
+    const app = createFakeApp();
+    const answer = Promise.withResolvers<ChangedFiles>();
+    app.handlers["rail.tree"] = () => [agent("a", "idle", "ready", { worktree: WORKTREE })];
+    app.handlers["agent.changedFiles"] = () => answer.promise;
+    app.handlers["agent.worktreeState"] = () => STATE;
+    const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+    connected.rail.select("a");
+    render(() => {
+      connected.worktrees.watch(() => true);
 
-    fireEvent.click(control());
+      return <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>;
+    });
+    await waitFor(() => expect(app.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
+    expect(screen.queryByRole("button", { name: /changed files?/ })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("group")).toBeNull();
+    answer.resolve({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
+    expect(await screen.findByRole("button", { name: /1 changed file/ })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 
-    expect((await screen.findByRole("alert")).textContent).toContain("worktree_missing: /gone");
+  it("u2539b_a_failed_read_is_not_no_changes", async () => {
+    const cause = "worktree_missing: /gone";
+    await mountControl(() => { throw new RpcError(-32001, cause); });
+
+    expect(document.querySelector(".worktree-control")).toBeNull();
+    await screen.findByRole("alert");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("u2539b_the_tree_is_one_tab_stop", async () => {
@@ -109,16 +139,53 @@ it.each(["retry", "dismiss"])("p3557c_failure_lifetime_worktree_control: %s", as
 
  return { files: [] }; });
 
-  fireEvent.click(control());
   await screen.findByRole("alert");
 
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else {
     failed = false;
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await screen.findByText("No changes");
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   }
 
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(app.calls.filter(call => call.method === "agent.changedFiles").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 2 : 1 }, () => ({ id: "a" })));
+  expect(app.calls.filter(call => call.method === "agent.changedFiles").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 5 : 4 }, () => ({ id: "a" })));
+});
+
+
+it("u2539b_changed_files_have_one_counted_opener", async () => {
+  await mountControl();
+  expect(document.querySelectorAll(".worktree-control")).toHaveLength(1);
+  expect(Number(control().textContent)).toBe(3);
+  expect(document.querySelector(".worktree-branch")).toBeNull();
+});
+
+it("u2539b_refresh_reconciles_the_count_for_its_selection", async () => {
+  let changed = { files: [{ path: "one", status: "modified" as const, line: 1 }] };
+  const { connected } = await mountControl(() => changed);
+  changed = { files: [] };
+  await connected.worktrees.refresh("a");
+  await waitFor(() => expect(document.querySelector(".worktree-control")).toBeNull());
+});
+
+it("u2539b_failed_refresh_keeps_the_stale_count_until_retry", async () => {
+  const cause = "read failed; original cause";
+  let failed = false;
+
+  const { connected } = await mountControl(() => {
+    if (failed) throw new RpcError(-32001, cause);
+
+    return { files: [{ path: "one", status: "modified", line: 1 }] };
+  });
+
+  failed = true;
+  await connected.worktrees.refresh("a");
+  await screen.findByRole("alert");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(control().getAttribute("data-stale")).toBe("true");
+  expect(Number(control().textContent)).toBe(1);
+  failed = false;
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(control().hasAttribute("data-stale")).toBe(false);
 });

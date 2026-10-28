@@ -14,6 +14,8 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
 use tokio::time::Instant;
 
+use contracts::project::ImportExclusionCause;
+
 use super::discovery::{ImportExclusion, io_error, source_revision};
 use super::{Launcher, is_uuid};
 use crate::worktree::canonical_path;
@@ -23,7 +25,6 @@ const MAX_RECORD: u64 = 8 * 1024 * 1024;
 const MAX_CWDS: usize = 64;
 /// How much of an unrelated-Project session with no SDK cwd is read to find one (U3523h).
 const PROBE_BYTES: u64 = 256 * 1024;
-const MAX_FILES: usize = 10_000;
 const MAX_NOTICE_BYTES: u64 = 64 * 1024;
 
 /// A running program `claude agents --json` reported; each field only when it supplied one.
@@ -77,6 +78,8 @@ struct Row {
 #[derive(Deserialize)]
 struct Found {
     sdk: String,
+    #[serde(default)]
+    path: Option<PathBuf>,
     #[serde(default)]
     scoped: Vec<Row>,
     #[serde(default)]
@@ -168,10 +171,46 @@ impl Sidecar {
         })
     }
 
+    /// Synchronous conversation/Mark callers share the bounded, reaped sidecar transport.
+    pub(super) fn path(&self, config: &Path, request: Value) -> Result<PathBuf, RpcError> {
+        std::thread::scope(|scope| {
+            scope
+                .spawn(|| {
+                    tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .map_err(RpcError::internal)?
+                        .block_on(async {
+                            let mut running = self.start(config, Instant::now() + BUDGET).await?;
+                            let result = running.ask(&request).await;
+                            running.finish().await;
+                            result?.path.ok_or_else(|| {
+                                RpcError::internal(
+                                    "SDK returned no storage path; reinstall roundup",
+                                )
+                            })
+                        })
+                })
+                .join()
+                .map_err(|_| RpcError::internal("SDK storage worker stopped"))?
+        })
+    }
+
+    fn node(&self) -> PathBuf {
+        #[cfg(any(test, feature = "test-support"))]
+        if self.dir == Path::new(env!("CARGO_MANIFEST_DIR")).join("sidecar") {
+            return PathBuf::from("node");
+        }
+        self.dir.join("node")
+    }
+
     async fn start(&self, config: &Path, deadline: Instant) -> Result<Running, RpcError> {
-        let node = self.dir.join("node");
+        let node = self.node();
         let script = self.dir.join("list.mjs");
-        if let Some(missing) = [&node, &script].into_iter().find(|p| !p.is_file()) {
+        if let Some(missing) = [&node, &script]
+            .into_iter()
+            .find(|p| p.components().count() > 1 && !p.is_file())
+        {
             return Err(RpcError::not_found(format!(
                 "roundup's bundled Node runtime is incomplete: {} is missing; reinstall roundup (or point ROUNDUP_SIDECAR_DIR at a complete sidecar folder)",
                 missing.display()
@@ -417,42 +456,6 @@ fn read_records(
     }
 }
 
-/// Every saved source file by session id; an id in two buckets is listed under both.
-fn index_sources(root: &Path) -> Result<HashMap<String, Vec<PathBuf>>, RpcError> {
-    let mut files: HashMap<String, Vec<PathBuf>> = HashMap::new();
-    let buckets = match std::fs::read_dir(root) {
-        Ok(buckets) => buckets,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(files),
-        Err(err) => return Err(io_error(root, err)),
-    };
-    let mut seen = 0;
-    for bucket in buckets {
-        let bucket = bucket.map_err(|err| io_error(root, err))?.path();
-        if !bucket.is_dir() {
-            continue;
-        }
-        for file in std::fs::read_dir(&bucket).map_err(|err| io_error(&bucket, err))? {
-            seen += 1;
-            if seen > MAX_FILES * 10 {
-                return Err(RpcError::not_accepted(
-                    "storage contains too many conversation files to inspect",
-                ));
-            }
-            let path = file.map_err(|err| io_error(&bucket, err))?.path();
-            if path.extension().is_some_and(|ext| ext == "jsonl")
-                && let Some(stem) = path.file_stem().and_then(|stem| stem.to_str())
-                && is_uuid(stem)
-            {
-                files
-                    .entry(stem.to_ascii_lowercase())
-                    .or_default()
-                    .push(path);
-            }
-        }
-    }
-    Ok(files)
-}
-
 impl Launcher {
     /// The bundled sidecar, found beside the running Daemon unless `ROUNDUP_SIDECAR_DIR` says.
     #[must_use]
@@ -470,6 +473,16 @@ impl Launcher {
         worktrees: &[PathBuf],
         window: (i64, i64),
     ) -> Result<Listing, RpcError> {
+        self.list_current(project, worktrees, window, true).await
+    }
+
+    pub(super) async fn list_current(
+        &self,
+        project: &Path,
+        worktrees: &[PathBuf],
+        window: (i64, i64),
+        include_live: bool,
+    ) -> Result<Listing, RpcError> {
         // One listing is active: a newer one drops this one, which reaps its child, so a late
         // result never arrives.
         let mut mine = 0;
@@ -479,11 +492,21 @@ impl Launcher {
         });
         let mut newer = self.listings.subscribe();
         tokio::select! {
-            found = self.list_once(project, worktrees, window) => found,
+            found = self.list_once(project, worktrees, window, include_live) => found,
             _ = newer.wait_for(|count| *count != mine) => Err(RpcError::conflict(
                 "a newer listing replaced this one; Refresh to see its result",
             )),
         }
+    }
+
+    /// Commit rechecks saved membership without requiring the external live program to remain.
+    pub(crate) async fn list_saved(
+        &self,
+        project: &Path,
+        worktrees: &[PathBuf],
+        window: (i64, i64),
+    ) -> Result<Listing, RpcError> {
+        self.list_once(project, worktrees, window, false).await
     }
 
     async fn list_once(
@@ -491,6 +514,7 @@ impl Launcher {
         project: &Path,
         worktrees: &[PathBuf],
         window: (i64, i64),
+        include_live: bool,
     ) -> Result<Listing, RpcError> {
         let (now_ms, period_ms) = window;
         let deadline = Instant::now() + BUDGET;
@@ -508,9 +532,11 @@ impl Launcher {
                 .cloned(),
         );
         let mut live: HashMap<String, Live> = HashMap::new();
-        for root in &roots {
-            for (id, row) in live_rows(&self.bin, root, deadline).await? {
-                live.entry(id).or_insert(row);
+        if include_live {
+            for root in &roots {
+                for (id, row) in live_rows(&self.bin, root, deadline).await? {
+                    live.entry(id).or_insert(row);
+                }
             }
         }
         let mut running = sidecar.start(&self.conversation_dir, deadline).await?;
@@ -524,17 +550,73 @@ impl Launcher {
             }))
             .await?;
         let sdk = found.sdk.clone();
-        let root = self.conversation_dir.join("projects");
         let rows: Vec<(Row, bool)> = found
             .scoped
             .into_iter()
             .map(|row| (row, true))
             .chain(found.others.into_iter().map(|row| (row, false)))
             .collect();
+        let removed = removed_worktrees(&project);
+        let mut files = HashMap::new();
+        let mut eligible = Vec::new();
+        let mut failures = Vec::new();
+        for (row, scoped) in rows {
+            let mapped = row
+                .cwd
+                .as_deref()
+                .map(Path::new)
+                .map(|cwd| map_into_project(cwd, &project, &roots));
+            let unrelated = !scoped
+                && matches!(mapped, Some(Ok(None)))
+                && row
+                    .cwd
+                    .as_deref()
+                    .is_some_and(|cwd| !removed.contains(&canonical_path(Path::new(cwd))))
+                && !live.contains_key(&row.session_id);
+            if unrelated {
+                continue;
+            }
+            match running
+                .ask(&json!({"op":"resolve", "sessionId":row.session_id}))
+                .await
+            {
+                Ok(found) => {
+                    let path = found.path.ok_or_else(|| {
+                        RpcError::internal("SDK returned no storage path; reinstall roundup")
+                    })?;
+                    files.insert(row.session_id.clone(), vec![path]);
+                    eligible.push((row, scoped));
+                }
+                Err(error) => {
+                    if !error
+                        .message
+                        .to_ascii_lowercase()
+                        .contains("duplicate source identity")
+                    {
+                        return Err(error);
+                    }
+                    live.remove(&row.session_id);
+                    failures.push(ImportExclusion {
+                        source: row.session_id,
+                        cause: if error
+                            .message
+                            .to_ascii_lowercase()
+                            .contains("duplicate source identity")
+                        {
+                            ImportExclusionCause::DuplicateSource
+                        } else {
+                            ImportExclusionCause::SdkUnreadable
+                        },
+                        reason: error.message,
+                        modified_ms: Some(row.last_modified),
+                    });
+                }
+            }
+        }
         let (mut listing, reads) = tokio::task::spawn_blocking({
             let project = project.clone();
             let roots = roots.clone();
-            move || assemble(&root, &project, &roots, rows, live, now_ms, deadline)
+            move || assemble(files, &project, &roots, eligible, live, now_ms, deadline)
         })
         .await
         .map_err(RpcError::internal)??;
@@ -547,11 +629,13 @@ impl Launcher {
                 listing.candidates.retain(|c| c.source != source);
                 listing.excluded.push(ImportExclusion {
                     source,
+                    cause: ImportExclusionCause::SdkUnreadable,
                     reason: "the SDK cannot read this session".into(),
                     modified_ms: None,
                 });
             }
         }
+        listing.excluded.extend(failures);
         listing.notices = running.finish().await;
         listing.sdk = sdk;
         listing.excluded.sort_by(|a, b| a.source.cmp(&b.source));
@@ -562,7 +646,7 @@ impl Launcher {
 /// Decide each SDK row against the Project. Returns the listing and the sources the compatibility
 /// projection admitted, which the SDK is then asked to read.
 fn assemble(
-    root: &Path,
+    files: HashMap<String, Vec<PathBuf>>,
     project: &Path,
     roots: &[PathBuf],
     rows: Vec<(Row, bool)>,
@@ -570,7 +654,6 @@ fn assemble(
     _now_ms: i64,
     deadline: Instant,
 ) -> Result<(Listing, Vec<String>), RpcError> {
-    let files = index_sources(root)?;
     let removed_worktrees = removed_worktrees(project);
     let mut out = Listing::default();
     let mut admitted = Vec::new();
@@ -580,9 +663,10 @@ fn assemble(
         if !seen.insert(source.clone()) || !is_uuid(&source) {
             continue;
         }
-        let exclude = |out: &mut Listing, reason: &str| {
+        let exclude = |out: &mut Listing, cause: ImportExclusionCause, reason: &str| {
             out.excluded.push(ImportExclusion {
                 source: source.clone(),
+                cause,
                 reason: reason.into(),
                 modified_ms: Some(row.last_modified),
             });
@@ -593,12 +677,20 @@ fn assemble(
             [] => {
                 // A session the SDK read from elsewhere than local files cannot be retained.
                 if scoped {
-                    exclude(&mut out, "saved records not found");
+                    exclude(
+                        &mut out,
+                        ImportExclusionCause::RecordsMissing,
+                        "saved records not found",
+                    );
                 }
                 continue;
             }
             _ => {
-                exclude(&mut out, "duplicate source identity");
+                exclude(
+                    &mut out,
+                    ImportExclusionCause::DuplicateSource,
+                    "duplicate source identity",
+                );
                 continue;
             }
         };
@@ -648,16 +740,28 @@ fn assemble(
         }
         let Some(relative) = relative else {
             if internal {
-                exclude(&mut out, "inside roundup's own folder");
+                exclude(
+                    &mut out,
+                    ImportExclusionCause::InsideRoundup,
+                    "inside roundup's own folder",
+                );
             }
             continue;
         };
         if sidechain {
-            exclude(&mut out, "subagent record");
+            exclude(
+                &mut out,
+                ImportExclusionCause::SubagentRecord,
+                "subagent record",
+            );
             continue;
         }
         if foreign_identity {
-            exclude(&mut out, "identity does not match source");
+            exclude(
+                &mut out,
+                ImportExclusionCause::ForeignIdentity,
+                "identity does not match source",
+            );
             continue;
         }
         if !scoped {
@@ -681,6 +785,7 @@ fn assemble(
     for (source, _) in live {
         out.excluded.push(ImportExclusion {
             source,
+            cause: ImportExclusionCause::LiveWithoutRecords,
             reason: "live session has no saved records yet".into(),
             modified_ms: None,
         });
@@ -691,58 +796,4 @@ fn assemble(
             .then_with(|| a.source.cmp(&b.source))
     });
     Ok((out, admitted))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn row(id: &str, cwd: Option<&Path>) -> (Row, bool) {
-        let row = Row {
-            session_id: id.into(),
-            summary: None,
-            custom_title: None,
-            last_modified: 1,
-            cwd: cwd.map(|c| c.to_string_lossy().into_owned()),
-        };
-        (row, false)
-    }
-
-    /// U3523h: a source that is a directory fails any content open, so an `assemble` that
-    /// opens a session errors; the listing of 3,000 unrelated sessions must stay clean.
-    #[test]
-    fn u3523h_unrelated_sessions_are_not_opened() {
-        let base = std::env::temp_dir().join(format!("u3523h-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&base);
-        let root = base.join("projects");
-        let project = base.join("project");
-        let elsewhere = base.join("elsewhere");
-        for dir in [&project, &elsewhere, &root.join("bucket")] {
-            std::fs::create_dir_all(dir).unwrap();
-        }
-        let id = |n: usize| format!("{n:08x}-0000-4000-8000-000000000000");
-        let mut rows = Vec::new();
-        for n in 1..=3000 {
-            std::fs::create_dir(root.join("bucket").join(format!("{}.jsonl", id(n)))).unwrap();
-            rows.push(row(&id(n), Some(&elsewhere)));
-        }
-        let deadline = Instant::now() + Duration::from_secs(30);
-        let run = |rows| {
-            assemble(
-                &root,
-                &project,
-                std::slice::from_ref(&project),
-                rows,
-                HashMap::new(),
-                0,
-                deadline,
-            )
-        };
-        let (listing, admitted) = run(rows).expect("no unrelated session is opened");
-        assert!(listing.candidates.is_empty() && admitted.is_empty());
-        // Control: the same kind of source, with no cwd to decide it, is opened and fails.
-        let control = run(vec![row(&id(1), None)]);
-        assert!(control.is_err(), "fixture must fail a content open");
-        std::fs::remove_dir_all(&base).unwrap();
-    }
 }

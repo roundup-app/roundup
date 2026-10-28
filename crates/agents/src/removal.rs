@@ -6,14 +6,15 @@ impl Shared {
             .await
     }
 
-    /// A34: remove Workstream `id`. The Door stops first; every Agent under it is judged before any
-    /// moves; then finished Agents go, the rest move to the Project root, and the Workstream goes last.
+    /// A34/U4461: stop the Door, judge descendants, then remove the chosen contents atomically.
+    /// Scope `this` lifts unfinished work; `all` stops descendants and keeps nothing.
     pub(super) async fn remove_workstream(
         self: &Arc<Self>,
         actor: Actor,
         id: &str,
+        scope: RemoveScope,
     ) -> Result<Removal, RpcError> {
-        self.remove_workstream_with(actor, id, |_, _| Ok(()))
+        self.remove_workstream_with(actor, id, scope, |_, _| Ok(()))
             .await
             .map(|(r, ())| r)
     }
@@ -22,11 +23,14 @@ impl Shared {
         self: &Arc<Self>,
         actor: Actor,
         id: &str,
+        scope: RemoveScope,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         let _lifecycle = self.door_lifecycle.write().await;
         let door = self.rail().node(id)?;
-        if let Some(worktree) = &door.worktree {
+        if scope == RemoveScope::This
+            && let Some(worktree) = &door.worktree
+        {
             let git = self.git.bounded();
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(worktree);
@@ -48,8 +52,15 @@ impl Shared {
             let mut below = Vec::new();
             collect_below(&tree, id, &mut below);
             let mut judged = Vec::new();
-            for node in below.into_iter().filter(|n| n.kind == NodeKind::Agent) {
-                let reason = self.keep_reason(&node).await?;
+            for node in below
+                .into_iter()
+                .filter(|n| scope == RemoveScope::All || n.kind == NodeKind::Agent)
+            {
+                let reason = if scope == RemoveScope::All {
+                    None
+                } else {
+                    self.keep_reason(&node).await?
+                };
                 judged.push((node, reason));
             }
             // D9: overlap finite exit waits so sixteen removable Agents do not exceed
@@ -85,7 +96,7 @@ impl Shared {
             }
             // G5: rejudge after every stop completes, before any file or row changes.
             for (node, reason) in &mut judged {
-                if reason.is_none() {
+                if scope == RemoveScope::This && reason.is_none() {
                     *reason = self.keep_reason(node).await?;
                 }
             }
@@ -115,7 +126,7 @@ impl Shared {
             // storage transaction is open.
             let shared = Arc::clone(self);
             let (removal, out) = tokio::task::spawn_blocking(move || {
-                let mut undo = git.prepare_removal(&project, &worktrees)?;
+                let mut undo = git.prepare_removal(&project, &worktrees, scope)?;
                 let mut rail = shared.rail();
                 // Recheck the judged tree: a spawn or move during the judgement must be retried.
                 let current = rail.tree()?;
@@ -124,7 +135,7 @@ impl Shared {
                 let expected: Vec<_> = judged.iter().map(|(n, _)| &n.id).collect();
                 let actual: Vec<_> = current_below
                     .iter()
-                    .filter(|n| n.kind == NodeKind::Agent)
+                    .filter(|n| scope == RemoveScope::All || n.kind == NodeKind::Agent)
                     .map(|n| &n.id)
                     .collect();
                 if expected != actual {
@@ -160,12 +171,12 @@ impl Shared {
                         return Err(RpcError::conflict("Agent changed during removal judgement"));
                     }
                 }
-                let rail_removal = removal.clone();
-                let result = rail.remove_workstream(&id_owned, &rail_removal, |db| {
-                    let out = apply(db, &mut removal)?;
-                    undo.remove(&git, &project)?;
-                    Ok(out)
-                });
+                let result =
+                    rail.remove_workstream(&id_owned, &mut removal, None, |db, removal| {
+                        let out = apply(db, removal)?;
+                        undo.remove(&git, &project)?;
+                        Ok(out)
+                    });
                 match result {
                     Ok(out) => {
                         let mut calls = shared
@@ -260,10 +271,13 @@ impl Agents {
         &self,
         actor: Actor,
         id: &str,
+        scope: RemoveScope,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         self.shared.guard_reach(&actor, id, false)?;
-        self.shared.remove_workstream_with(actor, id, apply).await
+        self.shared
+            .remove_workstream_with(actor, id, scope, apply)
+            .await
     }
 }
 
@@ -289,6 +303,113 @@ pub(super) fn kept_agent(node: &RailNode, reason: KeptReason) -> KeptItem {
     }
 }
 
+impl Agents {
+    /// Read the retained operation after an uncertain reply, without repeating removal.
+    pub fn rail_deletion(
+        &self,
+        actor: &Actor,
+        operation: &str,
+    ) -> Result<Option<Removal>, RpcError> {
+        self.shared.rail().deletion(actor, operation)
+    }
+
+    /// Data-only removal uses the same Project graph transaction as A34. No stop, git,
+    /// Terminal close or other external effect is permitted on this path.
+    pub async fn remove_reversible_with<T: Send + 'static>(
+        &self,
+        actor: Actor,
+        id: &str,
+        operation: &str,
+        apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
+    ) -> Result<(Removal, T), RpcError> {
+        let shared = &self.shared;
+        let _lifecycle = shared.door_lifecycle.write().await;
+        shared.guard_reach(&actor, id, false)?;
+        let tree = shared.tree()?;
+        let node = tree
+            .iter()
+            .find(|n| n.id == id)
+            .ok_or_else(|| RpcError::not_found("Rail node"))?;
+        let mut removal = Removal::default();
+        let mut below = Vec::new();
+        collect_below(&tree, id, &mut below);
+        if node.kind == NodeKind::Workstream {
+            for child in &below {
+                if let Some(reason) = shared.keep_reason(child).await? {
+                    removal.kept.push(kept_agent(child, reason));
+                } else {
+                    removal.removed.push(RemovedItem {
+                        id: child.id.clone(),
+                        kind: RemovalKind::Agent,
+                        name: child.name.clone(),
+                    });
+                }
+            }
+        } else {
+            for child in tree.iter().filter(|n| n.parent.as_deref() == Some(id)) {
+                removal.kept.push(kept_agent(child, KeptReason::Running));
+            }
+        }
+        let shared = Arc::clone(shared);
+        let id = id.to_owned();
+        let operation = operation.to_owned();
+        tokio::task::spawn_blocking(move || {
+            let mut rail = shared.rail();
+            // A node moved, born or launched during judgement is not consent to remove it.
+            let now = rail.tree()?;
+            if now.len()!=tree.len() || now.iter().zip(&tree).any(|(a,b)| a.id!=b.id || a.parent!=b.parent || a.order!=b.order || a.attempt!=b.attempt || a.worktree!=b.worktree) {
+                return Err(RpcError::conflict("Rail changed during removal judgement"));
+            }
+            let runs = shared.runs();
+            let selected = |n: &&RailNode| n.id == id || removal.removed.iter().any(|i| i.kind==RemovalKind::Agent && i.id==n.id);
+            for node in tree.iter().filter(selected) {
+                if node.worktree.is_some()
+                    || runs.get(&node.id).is_some_and(|slot| !matches!(slot, Slot::Running(run) if run.ended && !run.closing))
+                    || shared.terminals.list().iter().any(|t| t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
+                    return Err(RpcError::conflict("Removing this item would stop a running process or discard its Worktree. Confirm removal to continue."));
+                }
+            }
+            drop(runs);
+            let out=rail.remove_workstream(&id,&mut removal,Some((&actor,&operation)),apply)?;
+            let result=(removal,out);
+            // Ended run facts stay in their existing holder so undo recovers their Status.
+            // They own no live process, and cannot be addressed while their Rail row is absent.
+            shared.bus.emit(actor, EventData::RailChanged);
+            Ok(result)
+        }).await.map_err(RpcError::internal)?
+    }
+}
+
+impl Agents {
+    /// Restoration holds the same lifecycle and Rail locks as removal; the owner callback
+    /// commits its Project transaction before Rail observers see the restored graph.
+    pub async fn restore_reversible_with<T: Send + 'static>(
+        &self,
+        actor: Actor,
+        apply: impl FnOnce() -> Result<(Removal, T), RpcError> + Send + 'static,
+    ) -> Result<(Removal, T), RpcError> {
+        let _lifecycle = self.shared.door_lifecycle.write().await;
+        let shared = Arc::clone(&self.shared);
+        tokio::task::spawn_blocking(move || {
+            let _rail = shared.rail();
+            let result = apply()?;
+            shared.bus.emit(actor, EventData::RailChanged);
+            Ok(result)
+        })
+        .await
+        .map_err(RpcError::internal)?
+    }
+
+    /// Participate in the owning Todo transaction; this starts no processes.
+    pub fn restore_reversible_in(
+        db: &rusqlite::Connection,
+        actor: &Actor,
+        p: &contracts::agent::DeletionParams,
+    ) -> Result<Removal, RpcError> {
+        rail::Rail::restore_removal_in(db, actor, p)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -297,7 +418,7 @@ mod tests {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use contracts::agent::NodeKind;
+    use contracts::agent::{NodeKind, RemoveScope};
     use contracts::terminal::ExitedEvent;
     use contracts::{Actor, EventData, Kind};
 
@@ -439,7 +560,10 @@ mod tests {
             .unwrap();
         let before = shared.events.tool_calls.lock().unwrap().clone();
 
-        let removal = shared.remove_workstream(Actor::user(), &ws).await.unwrap();
+        let removal = shared
+            .remove_workstream(Actor::user(), &ws, RemoveScope::This)
+            .await
+            .unwrap();
 
         assert!(removal.removed.iter().any(|item| item.id == finished));
         assert!(removal.kept.iter().any(|item| item.id == living));
@@ -550,7 +674,8 @@ mod tests {
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }
-        let removal = shared.remove_workstream_with(Actor::daemon(), &ws, |_, _| Ok(()));
+        let removal =
+            shared.remove_workstream_with(Actor::daemon(), &ws, RemoveScope::This, |_, _| Ok(()));
         tokio::pin!(removal);
         // Entry/release proves overlap without depending on the OS's PTY hangup behavior.
         tokio::time::timeout(Duration::from_secs(5), async {
@@ -620,10 +745,11 @@ mod tests {
             .terminal_id = None;
         let applied = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let applied_by_transaction = applied.clone();
-        let removal = shared.remove_workstream_with(Actor::daemon(), &ws, move |_, _| {
-            applied_by_transaction.store(true, std::sync::atomic::Ordering::SeqCst);
-            Ok(())
-        });
+        let removal =
+            shared.remove_workstream_with(Actor::daemon(), &ws, RemoveScope::This, move |_, _| {
+                applied_by_transaction.store(true, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            });
         tokio::pin!(removal);
         for _ in 0..2 {
             tokio::select! {
@@ -721,7 +847,7 @@ mod tests {
             db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
             let error = if let Some(ws) = &ws {
                 shared
-                    .remove_workstream(Actor::user(), ws)
+                    .remove_workstream(Actor::user(), ws, RemoveScope::This)
                     .await
                     .unwrap_err()
             } else {
@@ -733,7 +859,10 @@ mod tests {
             assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
             db.execute_batch("DROP TRIGGER fail_delete").unwrap();
             if let Some(ws) = &ws {
-                shared.remove_workstream(Actor::user(), ws).await.unwrap();
+                shared
+                    .remove_workstream(Actor::user(), ws, RemoveScope::This)
+                    .await
+                    .unwrap();
             } else {
                 shared.remove(Actor::user(), &id).await.unwrap();
             }

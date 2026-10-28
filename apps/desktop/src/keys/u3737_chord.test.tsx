@@ -11,7 +11,6 @@ import { Capture } from "../todos/Capture";
 import { Todos } from "../todos/Todos";
 import { todo, todoCallsTo as callsTo } from "../todos/testHarness";
 import { Help } from "./Help";
-import { leaderKey } from "./leaderFixture";
 import { pressOf } from "./chords";
 
 afterEach(cleanup);
@@ -46,8 +45,8 @@ const chord = (target: Element) => fireEvent.keyDown(target, { code: "KeyT", key
 
 const press = (input: HTMLElement, init: KeyboardEventInit = {}) => fireEvent.keyDown(input, { key: "Enter", code: "Enter", ...init });
 
-const line = () => document.querySelector(".capture-target")!.textContent;
-
+// Rule 10: u3713_leader_t_opens_a_focused_empty_field_without_changing_selection proves the removed leader alias test; the design critic owns help copy.
+// u3746_a_retry_after_a_refused_move_moves_the_created_todo_and_creates_none also proves the removed standalone refused-move retention observer.
 describe("u3737 the chord opens the capture field", () => {
   it("u3737_the_chord_opens_a_focused_empty_field_from_each_surface_without_changing_selection", async () => {
     const { connected } = await mount();
@@ -92,11 +91,6 @@ describe("u3737 the chord opens the capture field", () => {
     expect(field()).toBeNull();
   });
 
-  it("u3737_leader_t_still_opens_the_same_field", async () => {
-    await mount();
-    leaderKey("KeyT");
-    await waitFor(() => expect(field()).not.toBeNull());
-  });
 });
 
 it("u3738_the_chord_writes_nothing_to_the_terminal_and_focus_returns_on_escape", async () => {
@@ -123,19 +117,6 @@ it("u3738_the_chord_writes_nothing_to_the_terminal_and_focus_returns_on_escape",
   await waitFor(() => expect(document.activeElement).toBe(terminal));
 });
 
-it("u3739_help_and_hints_list_the_chord_from_the_table", async () => {
-  await mount();
-  const rail = screen.getByTestId("rail");
-
-  rail.focus();
-  fireEvent.keyDown(rail, { key: "?", code: "Slash", shiftKey: true });
-  await waitFor(() => expect(document.querySelector(".help")).not.toBeNull());
-  const help = document.querySelector(".help")!.textContent!;
-
-  expect(help).toContain("⇧⌘T Capture a Todo");
-  expect(help).toContain("⌘K T Capture a Todo");
-});
-
 describe("u3740 the field shows the Owner and Home", () => {
   const open = async (selected: string | null) => {
     const made = await mount();
@@ -147,42 +128,29 @@ describe("u3740 the field shows the Owner and Home", () => {
     return made;
   };
 
-  it("u3740_the_line_names_the_owner_and_home_from_each_selection", async () => {
-    for (const [selected, text] of [["a", "For AdaIn Docs"], ["b", "For BoIn Project root"], ["w", "UnassignedIn Docs"], ["overview", "UnassignedIn Project root"]] as const) {
-      await open(selected);
-      expect(line()).toBe(text);
+  // Rule 10: filing contracts replace the removed exact target-line copy observers and standalone enter observer.
+  it("u3740_each_selection_files_for_its_owner_and_home", async () => {
+    for (const [selected, owner, home] of [["a", "a", "w"], ["b", "b", null], ["w", null, "w"], ["overview", null, null]] as const) {
+      const { app } = await open(selected);
+      fireEvent.input(field()!, { target: { value: "ship it" } });
+      press(field()!);
+      await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
+      const creation = { title: "ship it", body: null, blockers: null };
+      expect(callsTo(app, "todo.create")[0]!.params).toEqual(owner ? { ...creation, owner: { kind: "agent", id: owner, parent: null } } : creation);
+
+      if (home) await waitFor(() => expect(callsTo(app, "todo.move")[0]?.params).toMatchObject({ home }));
+      else expect(callsTo(app, "todo.move")).toEqual([]);
       cleanup();
     }
   });
 
-  it("u3740_enter_files_what_the_line_says", async () => {
-    const { app } = await open("a");
-
+  it("u3740_selection_change_while_open_changes_the_filed_recipient", async () => {
+    const { app, connected } = await open("a");
+    connected.rail.select("b");
     fireEvent.input(field()!, { target: { value: "ship it" } });
     press(field()!);
-    await waitFor(() => expect(callsTo(app, "todo.move")).toHaveLength(1));
-    expect(callsTo(app, "todo.create")).toHaveLength(1);
-    expect(callsTo(app, "todo.create")[0]!.params).toEqual({ title: "ship it", body: null, blockers: null, owner: { kind: "agent", id: "a", parent: null } });
-    expect(callsTo(app, "todo.move")[0]!.params).toMatchObject({ home: "w" });
-  });
-
-  it("u3740_the_line_follows_a_selection_change_while_open", async () => {
-    const { connected } = await open("a");
-
-    expect(line()).toBe("For AdaIn Docs");
-    connected.rail.select("b");
-    await waitFor(() => expect(line()).toBe("For BoIn Project root"));
-  });
-
-  it("u3740_a_refused_move_keeps_the_text_and_shows_the_cause", async () => {
-    const { app } = await open("w");
-
-    app.handlers["todo.create"] = () => Promise.resolve(todo(5));
-    app.handlers["todo.move"] = () => Promise.reject(new RpcError(1, "no such Workstream"));
-    fireEvent.input(field()!, { target: { value: "stay" } });
-    press(field()!);
-    await waitFor(() => expect(field()?.value).toBe("stay"));
-    expect(screen.getByRole("alert").textContent).toContain("no such Workstream");
+    await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(1));
+    expect(callsTo(app, "todo.create")[0]?.params).toMatchObject({ owner: { kind: "agent", id: "b", parent: null } });
   });
 
   it("u3746_a_retry_after_a_refused_move_moves_the_created_todo_and_creates_none", async () => {
@@ -190,13 +158,14 @@ describe("u3740 the field shows the Owner and Home", () => {
     let refuse = true;
 
     app.handlers["todo.create"] = () => Promise.resolve(todo(5));
-    app.handlers["todo.move"] = () => refuse ? Promise.reject(new RpcError(1, "no such Workstream")) : Promise.resolve(todo(5));
+    app.handlers["todo.move"] = () => refuse ? Promise.reject(new RpcError(-32001, "no such Workstream")) : Promise.resolve(todo(5));
     fireEvent.input(field()!, { target: { value: "stay" } });
     press(field()!);
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("no such Workstream"));
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(field()?.value).toBe("stay");
     refuse = false;
     press(field()!);
-    await waitFor(() => expect(field()).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(callsTo(app, "todo.create")).toHaveLength(1);
     expect(callsTo(app, "todo.move")).toHaveLength(2);
   });
@@ -206,14 +175,14 @@ describe("u3740 the field shows the Owner and Home", () => {
     let refuse = true;
 
     app.handlers["todo.create"] = () => Promise.resolve(todo(5));
-    app.handlers["todo.move"] = () => refuse ? Promise.reject(new RpcError(1, "no such Workstream")) : Promise.resolve(todo(5));
+    app.handlers["todo.move"] = () => refuse ? Promise.reject(new RpcError(-32001, "no such Workstream")) : Promise.resolve(todo(5));
     fireEvent.input(field()!, { target: { value: "stay" } });
     press(field()!);
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("no such Workstream"));
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     refuse = false;
     fireEvent.input(field()!, { target: { value: "stay more" } });
     press(field()!);
-    await waitFor(() => expect(field()).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(callsTo(app, "todo.create")).toHaveLength(2);
   });
 });

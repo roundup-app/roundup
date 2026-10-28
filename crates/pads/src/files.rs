@@ -58,3 +58,10 @@ fn refused(err: io::Error, name: &str) -> RpcError {
     };
     RpcError::new(code, format!("pad file {name}.md: {err}"))
 }
+
+/// Create a mirror without replacing any existing file. Dropping the path rolls it back;
+/// keep it only after SQLite commits, so a refused restore leaves both holders unchanged.
+pub fn restore(dir: &Path, name: &str, text: &str) -> Result<tempfile::TempPath, RpcError> {
+    write_new(dir, name, text)?;
+    tempfile::TempPath::try_from_path(path(dir, name)).map_err(|e| refused(e, name))
+}

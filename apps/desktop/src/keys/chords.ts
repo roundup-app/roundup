@@ -1,8 +1,8 @@
 import { appSettings } from "../settings/preferences";
 import { copy } from "../copy";
 
-/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; inTerminals?: true; inShelf?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
+/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inFirstRun` keeps a chord in first-run Help only; `inRail` marks a chord only a focused Rail row binds (U358); `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
+export type Chord = { keys: string; what: string; presses: readonly string[]; inFirstRun?: true; inRail?: true; inTerminals?: true; inShelf?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
 export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf";
@@ -31,13 +31,14 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 5 } } },
   { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true, hint: { label: copy.todoAssignDigit, at: { shelf: 7 } } },
-  { keys: "⏎", what: copy.todoLift, presses: ["Enter"], inShelf: true },
-  { keys: "↑ ↓", what: copy.todoLiftTarget, presses: ["ArrowUp", "ArrowDown"], inShelf: true },
+  { keys: "⏎", what: copy.openDraft, presses: ["Enter"], inShelf: true },
+
   { keys: "O", what: copy.assignTodo, presses: ["KeyO"], inShelf: true, hint: { label: copy.assign, at: { shelf: 1 } } },
   { keys: "M", what: copy.maximise, presses: ["KeyM"], inShelf: true, hint: { label: copy.maximise, at: { shelf: 0 } } },
   { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 2 } } },
   { keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 3 } } },
   { keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 4 } } },
+  { keys: "⌘Z", what: copy.todoUndo, presses: ["meta+KeyZ"] },
   { keys: "⌘,", what: copy.settings, presses: ["meta+Comma"] },
   // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
   { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 6 } } },
@@ -49,6 +50,8 @@ export const CHORDS: readonly Chord[] = [
   { keys: "X", what: copy.triageDone, presses: ["KeyX"], inShelf: true, inTriage: true },
   { keys: "C", what: copy.triageComment, presses: ["KeyC"], inShelf: true, inTriage: true },
   { keys: "Esc", what: copy.triageLeave, presses: ["Escape"], inShelf: true, inTriage: true },
+  // U4464: first-run-only; preserve the existing Project chord order.
+  { keys: "⌘O", what: copy.chooseFolder, presses: ["meta+KeyO"], inFirstRun: true },
 ];
 
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
@@ -56,12 +59,15 @@ export const CHORDS: readonly Chord[] = [
 export type LeaderKey = { keys: string; what: string; short: string; press: string };
 
 export const LEADER: readonly LeaderKey[] = [
+  { keys: "A", what: copy.leaderAssignOrAsk, short: copy.leaderShortAssignOrAsk, press: "KeyA" },
+  { keys: "P", what: copy.switchProject, short: copy.projects, press: "KeyP" },
+  { keys: "C", what: copy.reviewChanges, short: copy.reviewChanges, press: "KeyC" },
   { keys: "J", what: copy.jumpToWhatNeedsYou, short: copy.leaderShortNeedsYou, press: "KeyJ" },
   { keys: "⇧J", what: copy.jumpToWhatNeedsYouInAnotherProject, short: copy.leaderShortAnotherProject, press: "Shift+KeyJ" },
   { keys: "K", what: copy.switchToARowByName, short: copy.leaderShortRow, press: "KeyK" },
   { keys: "M", what: copy.minimiseOrRestoreTheBubble, short: copy.leaderShortMinimise, press: "KeyM" },
   { keys: "W", what: copy.closeTheBubble, short: copy.leaderShortClose, press: "KeyW" },
-  { keys: "S", what: copy.showOrHideTheShelf, short: copy.leaderShortShelf, press: "KeyS" },
+  { keys: "S", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyS" },
   { keys: "T", what: copy.captureATodo, short: copy.leaderShortCapture, press: "KeyT" },
   { keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },
 ];

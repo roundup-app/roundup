@@ -2,6 +2,7 @@
 //! TypeScript SDK sidecar and a fake CLI.
 
 use super::*;
+use crate::import_tests::{import_daemon, import_fixture, import_rpc, import_source};
 use crate::tests::ask;
 
 use std::os::unix::fs::PermissionsExt;
@@ -13,12 +14,12 @@ fn now() -> String {
         .unwrap()
 }
 
-fn executable(path: &Path, text: &str) {
+pub(super) fn executable(path: &Path, text: &str) {
     std::fs::write(path, text).unwrap();
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-fn git(project: &Path, args: &[&str]) {
+pub(super) fn git(project: &Path, args: &[&str]) {
     let output = std::process::Command::new("git")
         .arg("-C")
         .arg(project)
@@ -29,7 +30,7 @@ fn git(project: &Path, args: &[&str]) {
     assert!(output.status.success(), "{output:?}");
 }
 
-fn real_node() -> String {
+pub(super) fn real_node() -> String {
     let output = std::process::Command::new("node")
         .args(["-p", "process.execPath"])
         .output()
@@ -39,7 +40,7 @@ fn real_node() -> String {
 
 /// The packaged folder: the repository's `list.mjs` (its `node_modules` resolve through the real
 /// path) and a `node` that journals each start's pid before it becomes the real runtime.
-fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
+pub(super) fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
     let dir = root.join("sidecar");
     std::fs::create_dir_all(&dir).unwrap();
     let journal = root.join("children");
@@ -64,14 +65,16 @@ fn uuid_for(id: &str, cwd: &Path) -> String {
 }
 
 /// A session file in the bucket Claude Code names for `bucket`, holding one record per cwd.
-fn session(config: &Path, bucket: &Path, number: usize, cwds: &[&Path], sidechain: bool) -> String {
+pub(super) fn session(
+    config: &Path,
+    bucket: &Path,
+    number: usize,
+    cwds: &[&Path],
+    sidechain: bool,
+) -> String {
     let id = format!("{number:08}-1111-4111-8111-111111111111");
-    let name: String = bucket
-        .to_string_lossy()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    let dir = config.join("projects").join(name);
+    // Deliberately historical fixture labels: the SDK, never a cwd encoder, resolves them.
+    let dir = config.join("projects").join(bucket.file_name().unwrap());
     std::fs::create_dir_all(&dir).unwrap();
     let lines: Vec<String> = cwds.iter().map(|cwd| record(cwd, &id, sidechain)).collect();
     std::fs::write(dir.join(format!("{id}.jsonl")), lines.join("\n") + "\n").unwrap();
@@ -268,16 +271,16 @@ async fn u3523a_vendor_results_merge_with_project_membership() {
         .map(|e| {
             (
                 e["source"].as_str().unwrap().to_owned(),
-                e["reason"].as_str().unwrap().to_owned(),
+                e["cause"].as_str().unwrap().to_owned(),
             )
         })
         .collect();
+    assert_eq!(reasons[&ids["imported"]], "alreadyImported", "{found}");
+    assert_eq!(reasons[&ids["internal"]], "insideRoundup");
     assert_eq!(
-        reasons[&ids["imported"]], "already in this Project",
-        "{found}"
+        reasons["99999999-1111-4111-8111-111111111111"],
+        "liveWithoutRecords"
     );
-    assert_eq!(reasons[&ids["internal"]], "inside roundup's own folder");
-    assert!(reasons["99999999-1111-4111-8111-111111111111"].contains("no saved records"));
     // The SDK lists no subagent-only record, so it is neither offered nor excluded by name.
     for ineligible in ["sibling", "unrelated", "subagent"] {
         assert!(
@@ -577,14 +580,9 @@ async fn u3523h_unrelated_sessions_are_not_read() {
             root.path().join(format!("gone-{}", n % 7))
         };
         let id = session(&config, &bucket, 100 + n, &[&bucket, &project], false);
-        let name: String = bucket
-            .to_string_lossy()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
         let file = config
             .join("projects")
-            .join(name)
+            .join(bucket.file_name().unwrap())
             .join(format!("{id}.jsonl"));
         let pad = vec![b' '; 1024 * 1024];
         let mut body = std::fs::read(&file).unwrap();
@@ -625,4 +623,184 @@ async fn u3523h_unrelated_sessions_are_not_read() {
             "{method}: {elapsed:?}"
         );
     }
+}
+
+#[tokio::test]
+async fn u3523d_agent_listing_binds_user_confirmation() {
+    let root = tempfile::tempdir().unwrap();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    std::fs::create_dir_all(&project).unwrap();
+    git(&project, &["init", "-q", "-b", "main"]);
+    git(&project, &["commit", "-q", "--allow-empty", "-m", "base"]);
+    session(&config, &project, 1, &[&project], false);
+    session(&config, &project, 2, &[&project], false);
+    let cli = root.path().join("claude");
+    executable(&cli, "#!/bin/sh\nprintf '[]\\n'\n");
+    let (package, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+    let launcher = agents::claude_code::Launcher::new(
+        cli.to_string_lossy(),
+        config.join(".claude.json"),
+        "rup".into(),
+        None,
+    )
+    .with_sidecar(package);
+    let daemon = daemon(&project, launcher);
+    let rpc = |method: &str, params: Value| {
+        json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}).to_string()
+    };
+    let discovered = ask(
+        &daemon,
+        &rpc("project.importDiscover", json!({"period":"month"})),
+    )
+    .await;
+    let seed = &discovered["result"]["candidates"][0];
+    let imported = ask(
+        &daemon,
+        &rpc(
+            "project.importCommit",
+            json!({"selections":[{"source":seed["source"],"revision":seed["revision"]}]}),
+        ),
+    )
+    .await;
+    let id = imported["result"]["outcomes"][0]["agent"].as_str().unwrap();
+    let ctx = daemon.ctx(Actor {
+        kind: ActorKind::Agent,
+        id: id.into(),
+        parent: None,
+    });
+    let module = daemon.modules.get("import").unwrap();
+    let listed = module
+        .call(&ctx, "import.list", json!({"period":"month"}))
+        .await
+        .unwrap();
+    let pick = &listed["candidates"][0];
+    let preview = ask(
+        &daemon,
+        &rpc(
+            "project.importDiscover",
+            json!({"period":"month", "agent":id}),
+        ),
+    )
+    .await;
+    assert_eq!(
+        preview["result"]["candidates"][0]["revision"],
+        pick["revision"]
+    );
+    let commit = daemon.modules.get("project").unwrap();
+    assert!(commit.call(&ctx, "project.importCommit", json!({"agent":id,"selections":[{"source":pick["source"],"revision":pick["revision"]}]})).await.is_err());
+    for (agent, source, revision) in [
+        (id, pick["source"].clone(), json!("forged")),
+        (id, json!("unlisted"), pick["revision"].clone()),
+        ("other", pick["source"].clone(), pick["revision"].clone()),
+    ] {
+        let refused = ask(
+            &daemon,
+            &rpc(
+                "project.importCommit",
+                json!({"agent":agent,"selections":[{"source":source,"revision":revision}]}),
+            ),
+        )
+        .await;
+        assert!(refused["error"].is_object(), "{refused}");
+    }
+    let result = ask(&daemon, &rpc("project.importCommit", json!({"agent":id,"selections":[{"source":pick["source"],"revision":pick["revision"]}]}))).await;
+    assert!(
+        result["result"]["outcomes"][0]["agent"].is_string(),
+        "{result}"
+    );
+}
+
+#[tokio::test]
+async fn u3523e_live_resume_failure_keeps_import_recoverable() {
+    let (root, launcher, daemon, _original, seed) = import_fixture(0).await;
+    let seeded = import_rpc(
+        &daemon,
+        "project.importCommit",
+        json!({"selections":[seed]}),
+    )
+    .await;
+    let listing_agent = seeded["result"]["outcomes"][0]["agent"].as_str().unwrap();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    let at = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let original = import_source(&config, &project, 2, &at);
+    let mut record: Value = serde_json::from_slice(&std::fs::read(&original).unwrap()).unwrap();
+    record["uuid"] = json!("22222222-1111-4111-8111-111111111111");
+    record["isSidechain"] = json!(false);
+    record["message"] = json!({"role":"user", "content":"Continue this work"});
+    std::fs::write(&original, format!("{record}\n")).unwrap();
+    let bytes = std::fs::read(&original).unwrap();
+    let source = "00000002-1111-4111-8111-111111111111";
+    let cli = root.path().join("fake-claude");
+    std::fs::write(&cli, format!("#!/bin/sh\nif [ \"$1\" = agents ]; then printf '%s' '[{{\"sessionId\":\"{source}\",\"pid\":424242,\"cwd\":\"{}\"}}]'; exit 0; fi\nexit 1\n", project.display())).unwrap();
+    let (package, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+    drop(daemon);
+    let launcher = launcher.with_sidecar(package);
+    let daemon = import_daemon(&project, launcher.clone());
+    let ctx = daemon.ctx(Actor {
+        kind: ActorKind::Agent,
+        id: listing_agent.into(),
+        parent: None,
+    });
+    let listed = daemon.modules["import"]
+        .call(&ctx, "import.list", json!({"period":"month"}))
+        .await
+        .unwrap();
+    let pick = listed["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["source"] == source)
+        .unwrap();
+    let params =
+        json!({"agent":listing_agent,"selections":[{"source":source,"revision":pick["revision"]}]});
+    // Listing succeeds, but a missing executable makes normal resume fail before acknowledgement.
+    std::fs::remove_file(&cli).unwrap();
+    let reply = import_rpc(&daemon, "project.importCommit", params.clone()).await;
+    let outcome = &reply["result"]["outcomes"][0];
+    assert!(outcome["error"].is_object(), "{reply}");
+    let id = outcome["agent"].as_str().unwrap();
+    assert!(outcome["workstream"].is_string());
+    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    let node = tree["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == id)
+        .unwrap();
+    assert_eq!(node["can_resume"], true, "{tree}");
+    assert_eq!(std::fs::read(&original).unwrap(), bytes);
+    drop(daemon);
+    // Recovery must use the retained copy even when the external conversation disappears.
+    std::fs::remove_file(&original).unwrap();
+    let daemon = import_daemon(&project, launcher);
+    // Replay returns the published identities and never attempts another automatic launch.
+    let replay = import_rpc(&daemon, "project.importCommit", params).await;
+    assert_eq!(replay["result"]["outcomes"][0]["agent"], id);
+    assert!(
+        replay["result"]["outcomes"][0]["error"].is_null(),
+        "{replay}"
+    );
+    assert_eq!(
+        import_rpc(&daemon, "terminal.list", Value::Null).await["result"],
+        json!([])
+    );
+    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    let recovered = tree["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == id)
+        .unwrap();
+    assert!(recovered["overview"]["id"].is_string(), "{tree}");
+    assert_ne!(recovered["overview"]["id"], source);
+    let retry = import_rpc(&daemon, "agent.resume", json!({"id":id})).await;
+    assert!(
+        retry["error"].is_object(),
+        "retry reaches the missing executable: {retry}"
+    );
+    assert!(!original.exists());
 }

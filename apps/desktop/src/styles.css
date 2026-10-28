@@ -26,14 +26,15 @@ p {
 .window {
   --shelf-span: var(--shelf-width);
   /* U409, U430: wider than the Shelf by a step; the centre ends where it begins, and it never covers the Rail. */
-  --drawer-span: max(560px, calc(var(--shelf-span) + var(--space-5)));
+  --drawer-span: max(var(--drawer-min-width), calc(var(--shelf-span) + var(--space-5)));
   /* The user set the window bar to 38 px (2026-10-17). */
-  --header-height: 38px;
+  --header-height: var(--window-header-height);
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
+  background: var(--ground);
   overflow: clip;
 }
 
@@ -46,7 +47,7 @@ p {
   pointer-events: none;
 }
 
-.overlay > * {
+.overlay :is(.drawer, .help, .app-dialog-positioner, .reserved-line) {
   pointer-events: auto;
 }
 
@@ -98,7 +99,7 @@ p {
   overflow: clip;
 }
 
-.rail > :not(.rail-actions):not(.rail-scroll) {
+.rail :is(.todo-project-root, .rail-recovery, .rail-command-notice) {
   box-sizing: border-box;
   padding-right: var(--space-4);
   padding-left: var(--space-4);
@@ -120,7 +121,7 @@ p {
   top: 0;
   bottom: 0;
   z-index: 1;
-  width: 8px;
+  width: var(--space-2);
   cursor: col-resize;
   touch-action: none;
 }
@@ -130,8 +131,8 @@ p {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 3px;
-  width: 2px;
+  left: calc(var(--space-1) - var(--hairline-width));
+  width: var(--stroke-width);
   background-color: var(--accent);
   opacity: 0;
 }
@@ -142,7 +143,7 @@ p {
 }
 
 .rail-edge {
-  left: calc(var(--rail-width) - 5px);
+  left: calc(var(--rail-width) - var(--space-1) - var(--hairline-width));
 }
 
 /* The Shelf's leading hairline is drawn here, so it slides with the Shelf: the slot is the Shelf's own width and transform. */
@@ -169,7 +170,7 @@ p {
 }
 
 .shelf-edge {
-  left: -4px;
+  left: calc(-1 * var(--space-1));
 }
 
 .shelf-edge::after {
@@ -177,14 +178,14 @@ p {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 3px;
-  width: 1px;
+  left: calc(var(--space-1) - var(--hairline-width));
+  width: var(--hairline-width);
   background-color: var(--hairline);
 }
 
 /* U161: one hairline on the Rail's trailing edge and one on the Shelf's leading edge; the Drawer keeps its own (U134). */
 .rail {
-  border-right-width: 1px;
+  border-right-width: var(--hairline-width);
   border-right-style: solid;
   border-right-color: var(--hairline);
 }
@@ -259,7 +260,7 @@ p {
   overflow: auto;
   overscroll-behavior: contain;
   background-color: var(--ground);
-  border-left-width: 1px;
+  border-left-width: var(--hairline-width);
   border-left-style: solid;
   border-left-color: var(--hairline);
 }
@@ -311,11 +312,11 @@ p {
 }
 
 /* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
-.window:has(.drawer[data-open="true"], .drawer > :not(.close)) .columns {
+.window[data-rail="open"]:has(.drawer[data-mounted="true"]) .columns {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
-.window:has(.drawer[data-motion="slide"][data-open="true"], .drawer[data-motion="slide"] > :not(.close)) .columns {
+.window:has(.drawer[data-motion="slide"][data-mounted="true"]) .columns {
   transition: width var(--duration-drawer) var(--easing-out);
 }
 
@@ -334,33 +335,21 @@ p {
   transition: none;
 }
 
-.drawer > .close {
-  position: absolute;
-  top: 8px;
-  right: 16px;
+.drawer-controls {
+  top: var(--space-2);
+}
+
+.drawer[data-maximised="true"] :is(.pad-editor, .todo-detail) {
+  width: min(100%, var(--measure));
+  align-self: center;
+}
+
+.drawer[data-maximised="true"] .todo-comments-send {
+  justify-content: flex-start;
 }
 
 .header .ink:not(.tab-mark):not(.strip-edge) {
   display: inline;
-}
-
-/* Settings (docs/design-system.md, "Surfaces and depth"; U135). Colour and contrast settings live in tokens.css; these two remove a look. */
-@media (prefers-reduced-transparency: reduce) {
-  *,
-  *::before,
-  *::after,
-  *::backdrop {
-    backdrop-filter: none !important;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0s !important;
-    animation-duration: 0s !important;
-  }
 }
 
 /* U54, U371: Help floats in the overlay layer, over the pane and the open Shelf; it opens in the frame of the key, with no motion. */
@@ -374,45 +363,33 @@ p {
   overscroll-behavior: contain;
 }
 
-.help > .app-dialog-actions { grid-column: 1 / -1; }
+.help .app-dialog-actions { grid-column: 1 / -1; }
 
 .help-line,
-.help-shelf > p {
+.help-shelf p {
   margin: 0;
 }
 
-/* U2240: the keys ⌘K waits for; it appears and goes in the frame of the key, takes no focus and no pointer events, and has no motion. */
-.leader {
-  position: fixed;
-  top: 0;
-  left: var(--leader-left, 0px);
-  width: var(--leader-width, 100%);
-  min-height: var(--header-height, calc(var(--space-5) * 2));
-  box-sizing: border-box;
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: 0 var(--space-4);
-  overflow: hidden;
-  pointer-events: none;
-  background-color: var(--sunken);
-  border-bottom: 1px solid var(--hairline);
-}
 
-/* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
-.project-tab[data-drop]::after,
-.pane-body[data-drop]::after {
+
+/* U3800b: the one file target under the pointer (a Rail row, a Project tab, or the Terminal pane as it reports `drop-over`) takes the drop look of a Sortable slot, a dashed --accent edge inside its rectangle; other targets paint nothing, and no size changes (U5, U46). */
+.project-tab[data-drop="hover"]::after,
+.pane-body.drop-over::after,
+.rail-row[data-drop="hover"]::after {
   content: "";
   position: absolute;
   inset: 0;
-  border: 2px solid var(--accent);
+  border: var(--stroke-width) dashed var(--accent);
   pointer-events: none;
 }
 
+.project-tab[data-drop],
+.rail-row[data-drop] {
+  position: relative;
+}
+
 /* U430: each resource group must fit the centre or flex-end clips its start. */
-.centre .resource-strip > span {
+.resource-strip .resource-agent {
   min-width: 0;
   max-width: 100%;
 }
@@ -496,7 +473,7 @@ code {
   min-width: 0;
 }
 
-.draft-text > .draft-name {
+.draft-text .draft-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -509,12 +486,12 @@ code {
 
 .draft-identity, .draft-object { color: var(--grey); }
 .draft-object { font-family: var(--font-mono); }
-.draft-revisions li:has([aria-pressed="true"]) .draft-name,
+li:has([aria-pressed="true"]) .draft-name,
 .draft-revisions button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
 .draft-detail { margin-top: var(--space-6); }
-.draft-detail > h3 { overflow-wrap: anywhere; }
+.draft-detail h3 { overflow-wrap: anywhere; }
 .draft-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
-.draft-destination > .icon { flex-shrink: 0; }
+.draft-destination .icon { flex-shrink: 0; }
 
 .draft-revisions li { align-items: baseline; }
 .draft-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
@@ -525,3 +502,18 @@ code {
   background-color: var(--text-selection);
   color: var(--text-selection-ink);
 }
+
+.window[data-rail="closed"] .columns { grid-template-columns: minmax(0, 1fr); }
+.window[data-rail="closed"] :is(.rail, .rail-edge) { display: none; }
+
+.choose-project { padding-inline: var(--space-4); }
+
+.project-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* U4458: keep the columns and Rail at their normal positions behind the expanded Drawer. */
+.window:has(.drawer[data-open="true"][data-maximised="true"]) .shelf { content-visibility: hidden; }
+.window:has(.drawer[data-open="true"][data-maximised="true"]) .shelf-edge-slot { visibility: hidden; }

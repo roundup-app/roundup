@@ -1,0 +1,69 @@
+diff --git a/sdk.d.ts b/sdk.d.ts
+index 78408081519fe5b09e02bd99d0aa66b2894de5a2..8b84d9ec500e923a28ecad1d4b7831cb9eedae7a 100644
+--- a/sdk.d.ts
++++ b/sdk.d.ts
+@@ -1,3 +1,10 @@
++/** roundup 0.3.309 extension: unique local source, independent of recorded cwd.
++ * Throws on absent/duplicate identity or failed storage lookup. No Model call. */
++export declare function roundupResolveSession(sessionId: string): Promise<string>;
++/** Exclusively reserve an empty local destination using SDK path authority.
++ * Caller owns filling/cleaning up the returned file; existing files are never overwritten. */
++export declare function roundupCreateDestination(sessionId: string, directory: string): Promise<string>;
++
+ import type { BetaMessage } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs';
+ import type { BetaRawMessageStreamEvent } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs';
+ import type { BetaUsage } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs';
+diff --git a/sdk.mjs b/sdk.mjs
+index 4223ff5c49973ee3f195264c61b3b918ca9bf533..6843ed2dba97ed5a3a9e3a27f4853d26e716039b 100644
+--- a/sdk.mjs
++++ b/sdk.mjs
+@@ -3,6 +3,49 @@
+ 
+ // Version: 0.3.309
+ 
++// roundup's version-pinned raw storage extension; helpers stay owned by this SDK.
++async function roundupSources(sessionId) {
++  if (!Be(sessionId)) throw new Error('Invalid sessionId (must be a UUID)');
++  // Check access explicitly: the vendor enumeration otherwise turns a failed root read
++  // into an empty result. Never authorize a successful empty lookup on that failure.
++  try { await PJ(ht()); } catch (error) {
++    if (error.code === 'ENOENT') return [];
++    throw error;
++  }
++  const matches = [];
++  for (const directory of await M9e({})) {
++    const path = ds(directory, `${sessionId}.jsonl`);
++    try {
++      const metadata = await I9e(path);
++      if (!metadata.isFile()) throw new Error(`Not a saved conversation file: ${path}`);
++      matches.push(path);
++    } catch (error) {
++      if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error;
++    }
++  }
++  return matches;
++}
++
++export async function roundupResolveSession(sessionId) {
++  const matches = await roundupSources(sessionId);
++  if (matches.length > 1) throw new Error(`Duplicate source identity: ${sessionId}`);
++  if (!matches.length) throw new Error(`Saved conversation ${sessionId} not found; Refresh to try again`);
++  return matches[0];
++}
++
++export async function roundupCreateDestination(sessionId, directory) {
++  if (!Be(sessionId)) throw new Error('Invalid sessionId (must be a UUID)');
++  if (typeof directory !== 'string' || !l9e(directory)) throw new Error('Destination requires an absolute Project directory');
++  if ((await roundupSources(sessionId)).length) throw new Error(`Saved identity already exists: ${sessionId}`);
++  // Use the same SDK path builder as local transcript writes, including long hashes.
++  const projectDir = fl(Cv(directory));
++  await hD(projectDir, { recursive: true });
++  const path = ds(projectDir, `${sessionId}.jsonl`);
++  const handle = await P9e(path, 'wx', 0o600);
++  try { return path; } finally { await handle.close(); }
++}
++
++
+ // Want to see the unminified source? We're hiring!
+ // https://job-boards.greenhouse.io/anthropic/jobs/4816199008
+ 

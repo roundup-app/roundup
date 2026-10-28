@@ -12,6 +12,8 @@ serde_json.workspace = true
 serde.workspace = true
 rusqlite.workspace = true
 rusqlite_migration.workspace = true
+time = "0.3.55"
+wait-timeout = "0.2.1"
 
 [lints]
 workspace = true

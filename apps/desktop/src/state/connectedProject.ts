@@ -1,6 +1,9 @@
+import { createTodoUndo } from "../todos/deleteTodos";
+import type { RpcMethodName } from "@contracts/methods";
+import { retryRead } from "../app/seam";
 import { notesFor } from "../changes/notes";
 import { withAppSettings } from "../settings/preferences";
-import { createContext, createRoot, createSignal, getOwner, onCleanup, useContext } from "solid-js";
+import { createContext, createEffect, createRoot, createSignal, getOwner, onCleanup, untrack, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
 import { createImport } from "../rail/importState";
 import { draftStorage } from "./storage";
@@ -18,8 +21,6 @@ import { createRailState } from "./rail";
 import { createUnseen, unseenStorage } from "./unseen";
 import type { UnseenState } from "./unseen";
 import { createQueue } from "./queue";
-import { createTimelineLog } from "../timeline/log";
-import type { TimelineLog } from "../timeline/log";
 import type { QueueView } from "./queue";
 import { createSettingsView } from "./settingsView";
 import type { SettingsViewState } from "./settingsView";
@@ -40,6 +41,7 @@ type Recovery = (draft: Draft, facts: {
 }) => Availability;
 
 type ProjectDrafts = Drafts & {
+  todoUndo: ReturnType<typeof createTodoUndo>;
   importing: ReturnType<typeof createImport> | null;
   settingsView: SettingsViewState;
   /** Surface-owned identity extraction, installed independently of the original editor.
@@ -53,10 +55,12 @@ type ProjectDrafts = Drafts & {
  * Surface owners use connected.drafts for complete forms and captured submission revisions;
  * never construct another draftStorage for a connected Project. No operation delivers work.
  */
-export const createProjectDrafts = () => {
+export const createProjectDrafts = (): ((path: string) => ProjectDrafts) & { paths?: Accessor<string[]> } => {
   const projects = new Map<string, ProjectDrafts>();
 
-  return (path: string): ProjectDrafts => {
+  const [paths, setPaths] = createSignal<string[]>([]);
+
+  const forProject = (path: string): ProjectDrafts => {
     const existing = projects.get(path);
 
     if (existing) return existing;
@@ -73,6 +77,7 @@ export const createProjectDrafts = () => {
     const recovery = new Map<string, Recovery>();
 
     const holder: ProjectDrafts = {
+      todoUndo: createTodoUndo(),
       importing: null,
       settingsView: createSettingsView(),
       editor: storage.editor,
@@ -112,9 +117,12 @@ export const createProjectDrafts = () => {
     };
 
     projects.set(path, holder);
+    setPaths(all => [...all, path]);
 
     return holder;
   };
+
+  return Object.assign(forProject, { paths });
 };
 
 /** Everything a region of an open Project reads: the Project and its live connection to the Daemon. */
@@ -129,9 +137,20 @@ export type ConnectedProject = {
   unseen: UnseenState;
   /** U3744: the Workstreams waiting to start. */
   queue: QueueView;
-  /** U3768: the Agents' Statuses heard since the Project connected, read by the timeline. */
-  timeline: TimelineLog;
   importing: ReturnType<typeof createImport>;
+  creation: Accessor<{ kind: "todo" | "pad" | "terminal"; home: string } | null>;
+  createIn: (kind: "todo" | "pad" | "terminal", home: string) => void;
+  finishCreation: () => void;
+  /** U4457: the Agent whose Pads group the Shelf is asked to show, until the Pads tab has taken it. */
+  padsRequest: Accessor<string | null>;
+  padsOwner: Accessor<string | null>;
+  showPadsOf: (agent: string, tab?: "pads" | "todos") => void;
+  padsTab: Accessor<"pads" | "todos">;
+  finishPadsRequest: () => void;
+  view: Accessor<string | null>;
+  hasView: (view: string) => boolean;
+  hideView: (view: string) => void;
+  showView: (view: string | null) => void;
   worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
   /** U504: the Asks the user sent and where each part went. */
@@ -149,7 +168,24 @@ export type ConnectedProject = {
   daemonExit: Accessor<DaemonExit | null>;
   /** Disposes connection-owned reads and X17 scheme updates when the connection ends. */
   stopTerminalScheme: () => void;
+  terminalScheme: Awaited<ReturnType<typeof syncTerminalScheme>>;
 };
+
+// Explicit read allowlist: subscriptions, cursor acknowledgments and commands never replay.
+const reads = new Set<RpcMethodName>([
+  "daemon.ping", "daemon.methods", "rail.tree", "rail.list", "terminal.list",
+  "terminal.snapshot", "terminal.screen", "terminal.read", "terminal.search",
+  "todo.list", "todo.get", "todo.listHanded", "todo.getHistory", "todo.comments",
+  "todo.unread", "todo.refs", "todo.deletion", "pad.list", "pad.read", "pad.getDeletion",
+  "agent.worktreeState", "agent.changedFiles", "agent.compareFile", "agent.spawnPrompt",
+  "agent.instructions", "agent.context", "agent.brief", "agent.skills", "agent.digest", "agent.extras",
+  "project.get", "project.getPrepared", "project.resources", "models.list", "import.list", "project.importDiscover",
+  "message.get", "message.list",
+  "message.progress", "message.reconcileWork", "route.list", "checkpoint.list", "ask.list",
+  "deliverable.list", "deliverable.get", "deliverable.resolve", "link.read",
+  "provenance.history", "provenance.touched", "reaction.list", "reaction.get", "reaction.preview",
+  "workstream.queue",
+]);
 
 export const connectProject = async (
   app: AppSeam,
@@ -162,6 +198,20 @@ export const connectProject = async (
   /** U3566: whether the selected Agent's pane is displayed in a visible, focused, active window. */
   viewing: Accessor<boolean> = () => true,
 ): Promise<ConnectedProject> => {
+  drafts.todoUndo.reconnect(app);
+  const original = app;
+
+  notesFor(original, project.path, drafts);
+
+  const rpc: AppSeam["rpc"] = (method, params) => {
+    if (!reads.has(method)) return original.rpc(method, params);
+
+    const captured = structuredClone(params);
+
+    return retryRead(() => original.rpc(method, captured));
+  };
+
+  app = { ...app, rpc, get showContextMenu() { return original.showContextMenu; } };
   // Preserve the Project-owned Notes lookup for observers using the original connection.
   notesFor(app, project.path, drafts);
   app = withAppSettings(app, id => rail.nodes.find(node => node.id === id)?.can_resume ?? false);
@@ -173,8 +223,16 @@ export const connectProject = async (
 
   const contractNotice = await checkContract(app);
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
-  const [stopTerminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
-  const rail = createRailState(app, events, storage);
+  const [terminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
+  let stopRail = () => {};
+
+  const rail = createRoot(dispose => {
+    stopRail = dispose;
+
+    return createRailState(app, events, storage);
+  });
+
+  if (ended) stopRail();
 
   await rail.settled();
 
@@ -199,7 +257,6 @@ export const connectProject = async (
 
   if (ended) stopQueue();
 
-  const timeline = createTimelineLog(events, rail);
 
   const onImported = (id: string, agent: string | null) => {
     void rail.refresh().then(() => rail.select(agent ?? id));
@@ -212,7 +269,35 @@ export const connectProject = async (
   drafts.importing = importing;
 
 
-  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
+  const [creation, setCreation] = createSignal<{ kind: "todo" | "pad" | "terminal"; home: string } | null>(null);
+  const createIn = (kind: "todo" | "pad" | "terminal", home: string) => setCreation({ kind, home });
+  const finishCreation = () => setCreation(null);
+  const [padsRequest, setPadsRequest] = createSignal<string | null>(null);
+  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "pads" | "todos" } | null>(null);
+
+  const padsOwner = () => {
+    const destination = padsDestination();
+
+    return destination?.selection === rail.selected() ? destination.agent : null;
+  };
+
+  const padsTab = () => padsDestination()?.tab ?? "pads";
+
+  const showPadsOf = (agent: string, tab: "pads" | "todos" = "pads") => {
+    setPadsDestination({ agent, selection: rail.selected(), tab });
+    setPadsRequest(agent);
+  };
+
+  const finishPadsRequest = () => setPadsRequest(null);
+
+  const [views, setViews] = createSignal<readonly string[]>([]);
+  const view = () => views().at(-1) ?? null;
+  const hasView = (name: string) => views().includes(name);
+  const showView = (name: string | null) => { setViews(previous => name === null ? [] : previous.includes(name) ? previous : [...previous, name]); };
+
+  const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
+
+  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
@@ -228,4 +313,18 @@ export const useConnectedProject = (): ConnectedProject => {
   if (!connected) throw new Error("no open Project: a region read the ConnectedProject outside one");
 
   return connected;
+};
+
+/** Consume only the creation requested for this surface, retaining its captured Home. */
+export const useCreation = (kind: "todo" | "pad" | "terminal", consume: (home: string) => void) => {
+  const connected = useConnectedProject();
+
+  createEffect(() => {
+    const request = connected.creation();
+
+    if (request?.kind !== kind) return;
+
+    connected.finishCreation();
+    untrack(() => consume(request.home));
+  });
 };

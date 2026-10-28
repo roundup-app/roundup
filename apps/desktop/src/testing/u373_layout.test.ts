@@ -26,7 +26,7 @@ afterAll(async () => {
 
 const load = async () => {
   await page.scheme("light");
-  await page.load("/harness.html?seed=tree-40", 1280, 820);
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
   await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null && document.querySelector('.shelf-tabs [role="tab"]') !== null`);
   await page.until(`() => { const left = document.querySelector(".shelf").getBoundingClientRect().left; const same = window.__last === left; window.__last = left; return same && left < window.innerWidth; }`);
 };
@@ -46,7 +46,18 @@ run("u373 the tabs", () => {
     await page.press("Tab", "Tab");
     expect(await page.call<boolean>(`() => document.activeElement.closest('.shelf [role="tabpanel"], [data-shelf-scope]') !== null`)).toBe(true);
 
-    for (let step = 0; step < 3; step++) await page.press("Tab", "Tab", 8);
+    // CDP uses bit 3 for Shift; each press sends exactly one Shift+Tab.
+    const shift = 1 << 3;
+    let steps = 0;
+
+    // Stop outside the Shelf too, so a window cycle cannot hide a wrong order.
+    for (; steps < 64; steps++) {
+      await page.press("Tab", "Tab", shift);
+
+      if (await page.call<boolean>(`() => document.activeElement.closest('.shelf-tabs') !== null || document.activeElement.closest('.shelf') === null`)) break;
+    }
+
+    expect(steps, "Shift+Tab did not leave the Shelf panel within 64 presses").toBeLessThan(64);
     expect(await page.call<string>(`() => document.activeElement.id`)).toBe("shelf-tab-todos");
   });
 });

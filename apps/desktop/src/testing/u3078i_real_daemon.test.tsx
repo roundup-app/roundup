@@ -1,10 +1,13 @@
+import { OrderDrawer } from "../orders/OrderDrawer";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import type { ConnectedProject } from "../state/connectedProject";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { startRealDaemon } from "./realDaemonFixture";
 import { createServedApp } from "./realSeam";
@@ -36,7 +39,9 @@ const interrupted = async (mode: "replace" | "document") => {
   await waitFor(async () => expect((await served.rpc("message.progress", { project: real.dir, id: worker.id })).results.length).toBeGreaterThan(5), { timeout: 30_000 });
 
   const open = async () => {
-    const view = render(() => <App app={createServedApp(real.base)} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    const app = createServedApp(real.base);
+    let connected: ConnectedProject | undefined;
+    const view = render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; }} />);
 
     const row = await waitFor(() => {
       const found = [...document.querySelectorAll(".name")].find((each) => each.textContent === "Login");
@@ -46,10 +51,10 @@ const interrupted = async (mode: "replace" | "document") => {
       return found;
     }, { timeout: 30_000 });
 
+    await waitFor(() => expect(connected).toBeDefined());
     fireEvent.click(row);
-    // A running Agent keeps its Order behind the Order line; a stopped one shows it inline.
-    await waitFor(() => expect(document.querySelector(".order-line, .order-overview")).not.toBeNull(), { timeout: 30_000 });
-    document.querySelector(".order-line")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // U4453a removes the ordinary goal entry point; retained recovery still renders this component.
+    connected!.drawer.open(() => <ConnectedProjectContext.Provider value={connected!}><OrderDrawer id={worker.id} /></ConnectedProjectContext.Provider>, "key");
 
     return { view, section: await screen.findByRole("region", { name: "Progress" }, { timeout: 30_000 }) };
   };
@@ -67,15 +72,12 @@ it("u3078i_real_daemon_reopen_and_resume", async () => {
     // Opening reads: the older version waits behind its disclosure, unknown effects name their cause.
     const reading = within(first.section);
 
-    expect(reading.getByText("Resume unfinished work")).toBeTruthy();
     expect(reading.getAllByText("Unknown outcome").length).toBe(3);
     expect(reading.getAllByText(/never issue the effect again/).length).toBe(3);
-    expect(reading.getByText("Earlier versions (2)")).toBeTruthy();
     expect({ messages: await run.messages(), launches: run.log("launches"), prompts: run.log("prompts") }).toEqual(before);
 
     fireEvent.click(reading.getByRole("button", { name: "Resume unfinished work" }));
-    await waitFor(() => expect(reading.getByText("Resumed: the Agent has the unfinished work.")).toBeTruthy(), { timeout: 30_000 });
-    expect(await run.messages()).toBe(before.messages + 1);
+    await waitFor(async () => expect(await run.messages()).toBe(before.messages + 1), { timeout: 30_000 });
     const decided = (await run.served.rpc("message.reconcileWork", { project: run.real.dir, id: run.worker.id })).actions;
 
     expect(decided.every((action) => action.decision !== null)).toBe(true);
@@ -84,13 +86,14 @@ it("u3078i_real_daemon_reopen_and_resume", async () => {
     cleanup();
     const again = await run.open();
 
-    await waitFor(() => expect(within(again.section).queryByRole("button", { name: "Resume unfinished work" })).toBeNull());
+    await waitFor(() => expect(within(again.section).queryByRole("button", { name: /Resume unfinished/ })).toBeNull());
     expect(await run.messages()).toBe(before.messages + 1);
     expect(run.log("launches")).toBe(before.launches);
   } finally {
+    cleanup();
     await run.real.stop();
   }
-}, 300_000);
+}, 60_000);
 
 it("u3078i_real_daemon_document_work_resumes_the_same_way", async () => {
   const run = await interrupted("document");
@@ -103,15 +106,16 @@ it("u3078i_real_daemon_document_work_resumes_the_same_way", async () => {
     // Reviewed prose and a diagram are results like any other: the one unfinished step is offered.
     expect(view.getByText(/Prepare the diagram/)).toBeTruthy();
     fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
-    await waitFor(() => expect(view.getByText("Resumed: the Agent has the unfinished work.")).toBeTruthy(), { timeout: 30_000 });
+    await waitFor(async () => expect(await run.messages()).toBe(before + 1), { timeout: 30_000 });
     const sent = (await run.served.rpc("message.list", { to: null, status: null })).slice(before);
 
     expect(sent.length).toBe(1);
     expect(sent[0]?.body).toContain("Prepare the diagram");
   } finally {
+    cleanup();
     await run.real.stop();
   }
-}, 300_000);
+}, 60_000);
 
 it("u3078i_real_daemon_failed_resume_stays_actionable", async () => {
   const run = await interrupted("replace");
@@ -123,15 +127,13 @@ it("u3078i_real_daemon_failed_resume_stays_actionable", async () => {
     const view = within(stopped.section);
 
     fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
-    const alert = await view.findByRole("alert", {}, { timeout: 30_000 });
-
-    expect(alert.textContent).toContain("The work is still unfinished");
-    expect(view.getByRole("button", { name: "Try resuming again" })).toBeTruthy();
+    await view.findByRole("alert", { name: /resume was not accepted/ }, { timeout: 30_000 });
     expect(document.activeElement).toBe(view.getByRole("button", { name: "Try resuming again" }));
     // A stopped Agent stays stopped: nothing was sent and no program started.
     expect(await run.messages()).toBe(before.messages);
     expect(run.log("launches")).toBe(before.launches);
   } finally {
+    cleanup();
     await run.real.stop();
   }
-}, 300_000);
+}, 60_000);

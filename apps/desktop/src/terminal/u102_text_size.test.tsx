@@ -35,14 +35,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); localStorage.clear(); });
 
 it.each([
-  ["=", false, 15], ["=", true, 15], ["+", false, 15], ["+", true, 15], ["-", false, 13], ["0", false, 14],
-])("u102_command_%s_shift_%s_sets_size_%s", async (key, shiftKey, expected) => {
+  ["=", false, 1], ["=", true, 1], ["+", false, 1], ["+", true, 1], ["-", false, -1],
+])("u102_command_%s_shift_%s_changes_size_by_%s", async (key, shiftKey, delta) => {
   const { emulator, target, app } = await mount();
   const typed = vi.fn();
   target.addEventListener("keydown", typed);
   expect(press(target, key, { shiftKey }).defaultPrevented).toBe(true);
   vi.advanceTimersToNextFrame();
-  expect(emulator.fontSize).toBe(expected);
+  expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + Number(delta));
   expect(typed).not.toHaveBeenCalled();
   expect(callsTo(app, "terminal.write")).toEqual([]);
 });
@@ -168,9 +168,10 @@ it("u102_size_survives_remount", async () => {
 
 it("u102_storage_failure_keeps_size_and_shows_the_error", async () => {
   const { emulator, target } = await mount();
-  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage full"); });
+  const failure = new Error("storage full");
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw failure; });
   press(target, "=");
   vi.advanceTimersToNextFrame();
   expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
-  expect(screen.getByText("storage full").closest(".pane-failure")).not.toBeNull();
+  expect((await screen.findByRole("alert")).textContent).toBe(failure.message);
 });

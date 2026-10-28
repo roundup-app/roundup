@@ -23,4 +23,4 @@ it("u2307c_the_bar_has_close_then_minimise_dots", async () => {
 
     expect(bar.order, scheme).toEqual(["Close", "Minimise"]);
   }
-}, 120_000);
+}, 60_000);

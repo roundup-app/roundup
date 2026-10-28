@@ -1,3 +1,5 @@
+import { rowTypeahead } from "../ui/RowCollection";
+import { captureFocus } from "../keys/focus";
 import type { Todo } from "@contracts/todo/Todo";
 import { createComputed, createEffect, createSignal, on, type Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
@@ -6,9 +8,8 @@ import { ownersOnRail, sameOwner } from "../shelf/scope";
 import type { TodosState } from "./state";
 import { rowButtonOf } from "./triage";
 import { registerKeys } from "../keys/registry";
-import { CHORDS, chordsOf, chordsFor } from "../keys/chords";
+import { CHORDS, TEXT_FIELDS, chordsFor } from "../keys/chords";
 import { shelfKeyScope } from "../shelf/keys";
-import { copy } from "../copy";
 import { failureOf } from "./failureOf";
 
 /** U3720: a hand-off unfolds its destination and restores the moved row's focus after the authoritative refetch. */
@@ -20,7 +21,8 @@ export const createOwnerAssignment = (source: {
 }) => {
   const [revealed, setRevealed] = createSignal<string | null>(null);
   const [arriving, setArriving] = createSignal<readonly string[]>([]);
-  const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
+  const [regrouped, regroup] = createSignal<{ id: number; owner: Actor | null; focus: ReturnType<typeof captureFocus> } | null>(null);
+  const setRegrouped = (request: { id: number; owner: Actor | null; focus?: ReturnType<typeof captureFocus> } | null) => regroup(request && { ...request, focus: request.focus ?? captureFocus() });
 
   createEffect(() => {
     const request = regrouped();
@@ -38,7 +40,7 @@ export const createOwnerAssignment = (source: {
       const button = rowButtonOf(id);
 
       if (button) {
-        button.focus();
+        request.focus(() => button.focus());
         setRegrouped(null);
         setRevealed(null);
       }
@@ -61,6 +63,7 @@ export const createOwnerAssignment = (source: {
   }));
 
   const assign = async (id: number, owner: Actor | null) => {
+    const focus = captureFocus();
     const advance = source.advance();
     const message = await failureOf(() => source.connected.app.rpc("todo.assign", { id, owner }));
 
@@ -70,7 +73,7 @@ export const createOwnerAssignment = (source: {
     else if (message === null) {
       // U3720, U138: the destination unfolds before its row exists, so focus has a button to land on.
       setRevealed(ownersOnRail(source.connected).find(each => sameOwner(each.actor, owner))?.id ?? "unassigned");
-      setRegrouped({ id, owner });
+      regroup({ id, owner, focus });
     }
   };
 
@@ -84,7 +87,6 @@ export const createOwnerKeys = (source: {
   active: Accessor<boolean>;
   assign: (id: number, owner: Actor | null) => Promise<void>;
 }) => {
-  const [lifted, setLifted] = createSignal<{ id: number; group: string | null } | null>(null);
   const owners = () => ownersOnRail(source.connected);
 
   const focused = (event: KeyboardEvent) => {
@@ -96,65 +98,36 @@ export const createOwnerKeys = (source: {
     return todo?.done === false ? todo : undefined;
   };
 
-  const can = (event: KeyboardEvent) => source.active() && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event) !== undefined
+  const can = (event: KeyboardEvent) => source.active() && !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event) !== undefined
     && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu][data-state=open]');
 
-  const drop = (todo: Todo, owner: Actor | null) => {
-    setLifted(null);
-
-    if (!sameOwner(todo.owner, owner)) void source.assign(todo.id, owner);
-  };
-
-  createEffect(on(() => [source.connected.rail.selected(), source.active()], () => setLifted(null), { defer: true }));
   registerKeys(shelfKeyScope, [{
     chords: chordsFor("1–9"), when: can,
     run: event => {
       const todo = focused(event);
       const target = owners().filter(owner => owner.actor?.kind === "agent")[Number(event.key) - 1];
 
-      if (todo && target) drop(todo, target.actor);
+      if (todo && target && !sameOwner(todo.owner, target.actor)) void source.assign(todo.id, target.actor);
     },
-  }, {
-    chords: chordsOf(CHORDS.find(chord => chord.keys === "⏎" && chord.inShelf)), when: can,
-    run: event => {
-      const todo = focused(event)!;
-      const kept = lifted();
-      const target = owners().find(owner => owner.id === kept?.group);
-
-      if (kept?.id === todo.id && target) drop(todo, target.actor);
-      else if (owners().some(owner => !sameOwner(owner.actor, todo.owner))) setLifted({ id: todo.id, group: null });
-    },
-  }, {
-    chords: chordsFor("↑ ↓"), when: event => can(event) && lifted()?.id === focused(event)?.id,
-    run: event => {
-      const kept = lifted()!;
-      const current = focused(event)!.owner;
-      const all = owners();
-      const offered = all.filter(owner => !sameOwner(owner.actor, current));
-      const at = offered.findIndex(owner => owner.id === kept.group);
-      const origin = all.findIndex(owner => sameOwner(owner.actor, current));
-      const from = origin < 0 ? all.length - 1 : origin;
-
-      const target = kept.group === null
-        ? event.key === "ArrowUp"
-          ? all.slice(0, from).findLast(owner => offered.includes(owner)) ?? offered[0]
-          : all.slice(from + 1).find(owner => offered.includes(owner)) ?? offered.at(-1)
-        : offered[Math.min(offered.length - 1, Math.max(0, at + (event.key === "ArrowUp" ? -1 : 1)))];
-
-      if (target) setLifted({ id: kept.id, group: target.id });
-    },
-  }, {
-    chords: chordsFor("Esc"), when: event => can(event) && lifted() !== null,
-    run: () => setLifted(null),
   }]);
+};
 
-  return {
-    lifted,
-    announcement: () => {
-      const kept = lifted();
-      const target = owners().find(owner => owner.id === kept?.group);
+/** U3720: assignment captures the focused Todo before opening its picker. */
+export const createOwnerPicker = (source: {
+  todos: TodosState;
+  when: (event: KeyboardEvent) => boolean;
+  pick: (id: number, anchor: HTMLElement) => void;
+}) => {
+  registerKeys(shelfKeyScope, [{
+    action: CHORDS.find(row => row.keys === "O")!,
+    when: source.when,
+    capture: (focus) => {
+      const row = focus instanceof HTMLElement && focus.closest(".row-head") && !focus.closest(".todo-row-actions") ? focus.closest<HTMLElement>("[data-shelf-row]") : null;
+      const id = Number(row?.dataset.todo);
+      const found = row && source.todos.byId().get(id);
+      const anchor = focus instanceof HTMLElement && !focus.matches(TEXT_FIELDS) ? focus : null;
 
-      return kept && target ? copy.todoMoveTo(kept.id, target.name) : null;
+      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) { source.pick(id, anchor); } } };
     },
-  };
+  }]);
 };

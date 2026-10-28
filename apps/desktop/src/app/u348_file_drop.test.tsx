@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { HOLD_MS } from "./dropTargets";
 import type { FileDrop } from "./seam";
 import { createFakeApp } from "../testing/fakeApp";
@@ -43,7 +43,7 @@ const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"
   }
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={factory} />);
-  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(names.length));
+  await waitFor(() => expect(screen.getAllByRole("tab").filter(tab => tab.closest('[aria-label="Projects"]'))).toHaveLength(names.length));
   await waitFor(() => expect(document.querySelectorAll(".rail-row").length).toBe((trees[names.at(-1)!] ?? []).length));
 
   const index = (element: Element, selector: string) => [...document.querySelectorAll(selector)].indexOf(element);
@@ -60,6 +60,19 @@ const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"
 
     return rects.find(([selector]) => this.matches(selector))?.[1]() ?? new DOMRect(0, 0, 0, 0);
   });
+
+  // jsdom has no paint hit testing. Supply its browser boundary from the same fixture layout.
+  document.elementsFromPoint = (x, y) => {
+    const inside = (element: Element) => {
+      const box = element.getBoundingClientRect();
+
+      return x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+    };
+
+    const target = [...document.querySelectorAll(".rail-row, .project-tab")].find(element => inside(element) && inside(element.closest(".rail, .tablist")!));
+
+    return target ? [target] : [];
+  };
 
   return { app, made };
 };

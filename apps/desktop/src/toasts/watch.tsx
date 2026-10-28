@@ -5,11 +5,9 @@ import type { Kind } from "@contracts/Kind";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Unsubscribe } from "../app/seam";
-import { usePadList } from "../rail/pads/padList";
 import type { ConnectedProject } from "../state/connectedProject";
-import { useTodoList } from "../todos/todoList";
-import { TodoDrawer } from "../todos/TodoDrawer";
-import { PadDrawer } from "../pads/PadDrawer";
+import { TodoHost } from "../todos/TodoDrawer";
+import { PadHost } from "../pads/PadDrawer";
 import type { Candidate } from "./queue";
 
 const TITLE_CHARS = 60;
@@ -23,8 +21,11 @@ const todoItem = (id: number) => `todo:${id}`;
 const padItem = (name: string) => `pad:${name}`;
 
 /** U410: the Events of one open Project that make a Toast, as Candidates. `select` is how a click reaches the Agent's row, `show` the Project's tab. */
-export const watchProject = (connected: ConnectedProject, push: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settle: (item: string) => void): Unsubscribe => {
+export const watchProject = (connected: ConnectedProject, pushCandidate: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settleItem: (item: string) => void): Unsubscribe => {
   const { rail, events, app, drawer } = connected;
+  const owned = (item: string) => JSON.stringify([connected.project.path, item]);
+  const settle = (item: string) => settleItem(owned(item));
+  const push = (candidate: Candidate) => pushCandidate({ ...candidate, key: owned(candidate.key), item: owned(candidate.item), project: connected.project.path });
   // The Kind each Agent last had, so a load or a repeat makes no Toast.
   const seen = new Map<string, Kind>(rail.nodes.flatMap((node) => (node.status ? [[node.id, node.status.kind] as const] : [])));
 
@@ -67,7 +68,7 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
     if (!listed.some((todo) => todo.id === id)) return GONE;
 
     show();
-    drawer.open(() => <TodoHost id={id} />, source);
+    drawer.open(() => <TodoHost id={id} />, source, { kind: "todo", project: connected.project.path });
 
     return null;
   };
@@ -86,7 +87,7 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
     if (!listed.some((pad) => pad.name === name)) return GONE;
 
     show();
-    drawer.open(() => <PadHost name={name} />, source);
+    drawer.open(() => <PadHost name={name} />, source, { kind: "pad", project: connected.project.path });
 
     return null;
   };
@@ -139,14 +140,4 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
       );
     }
   });
-};
-
-/** The Todo's Drawer, with the shared list the Shelf reads (U15); it lives while the Drawer does. */
-const TodoHost = (props: { id: number }) => <TodoDrawer id={props.id} todos={useTodoList()} />;
-
-/** The Pad's Drawer, as the Shelf's row opens it. */
-const PadHost = (props: { name: string }) => {
-  const list = usePadList();
-
-  return <PadDrawer name={props.name} pads={list.pads} onLateFailure={() => {}} />;
 };

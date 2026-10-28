@@ -16,19 +16,6 @@ const SIBLING = "data-sibling";
 
 const OVERLAP = "data-overlap";
 
-/** Ark reads every card as 0 px tall and so never fans them apart: stack each card above the real height of those in front, one gap between. */
-function layoutStack(group: Element) {
-  const cards = [...group.querySelectorAll<HTMLElement>(".app-toast")].sort((a, b) => Number(a.style.getPropertyValue("--index")) - Number(b.style.getPropertyValue("--index")));
-  let offset = 0;
-
-  for (const card of cards) {
-    const value = `${offset}px`;
-
-    if (card.style.getPropertyValue("--stack-y") !== value) card.style.setProperty("--stack-y", value);
-    offset += card.offsetHeight + GAP;
-  }
-}
-
 const kept = () => document.visibilityState === "hidden" || focusInStack();
 
 /** Caller supplies eligibility, identity and summaries. Ark alone owns card lifetimes. */
@@ -41,7 +28,7 @@ export function createToast(policy: {
   // Admission happens before create: no hidden Ark overflow can replay old cards.
   const closing = new Set<string>();
   // U3791: Ark's group pauses every timer while the pointer or focus is in the stack and resumes each from the time it had left; its own page-idle option sends an event nothing handles, so ToastProvider pauses on a hidden window. U3792: overlap folds the cards behind the newest one; hover or focus fans them out.
-  const store = createToaster({ placement: "bottom-end", max: Infinity, duration: DURATION, removeDelay: 150, pauseOnPageIdle: false, overlap: true, gap: GAP, offsets: "0px" });
+  const store = createToaster({ placement: "bottom-end", max: Infinity, duration: DURATION, removeDelay: 150, pauseOnPageIdle: false, overlap: true, gap: GAP, offsets: { top: "var(--space-3)", left: "var(--space-3)", right: "var(--space-3)", bottom: "calc(var(--space-3) + var(--hint-row-height) + var(--rail-actions-height))" } });
 
   // Ark resumes and folds the stack when the pointer leaves, whatever else holds it: focus still in the stack, or a hidden window, keeps the time frozen and the cards fanned out.
   const { resume, collapse } = store;
@@ -90,21 +77,15 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
     else if (!document.querySelector(".app-toasts:hover")) store.resume();
   };
 
-  let group: HTMLElement | undefined;
-  const sizes = typeof ResizeObserver === "undefined" ? { observe() {}, disconnect() {} } : new ResizeObserver(() => group && layoutStack(group));
-  const order = new MutationObserver(() => group && layoutStack(group));
-
   document.addEventListener("visibilitychange", pageIdle);
   onCleanup(() => {
-    sizes.disconnect();
-    order.disconnect();
     document.removeEventListener("visibilitychange", pageIdle);
     store.remove();
   });
 
-  return <Toaster ref={(element: HTMLElement) => { group = element; order.observe(element, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] }); }} toaster={store} label={props.label} aria-label={props.label} class="app-toasts" data-newest-first={props.toast.newestFirst}>
+  return <Toaster toaster={store} label={props.label} aria-label={props.label} class="app-toasts" style={{ "z-index": "var(--layer-toast)" }} data-newest-first={props.toast.newestFirst}>
     {(card) => {
-      return <Toast.Root ref={(element: HTMLElement) => sizes.observe(element)} onFocusIn={(event) => {
+      return <Toast.Root onFocusIn={(event) => {
         // Ark's group sends focus back to where it came from when it leaves the stack, and tracks "focus is in" only when it has such an element: hand it one that takes focus and does nothing, so Tab moves on.
         Object.defineProperty(event, "relatedTarget", { value: { focus() {} } });
       }} class="app-toast" tabIndex={-1} style={{ "--duration": "initial", "--remove-delay": "var(--duration-toast)" }} onKeyDown={(event) => {

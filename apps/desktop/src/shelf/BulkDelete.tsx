@@ -1,3 +1,6 @@
+import type { Actor } from "@contracts/Actor";
+import { currentOwner, type RailState } from "../state/rail";
+import { captureFocus } from "../keys/focus";
 import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
 import { copy } from "../copy";
@@ -6,19 +9,19 @@ import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
-import { NativeAlert } from "../ui/NativeAlert";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
 
 export const ShelfActions = createContext<{ mount: Accessor<HTMLDivElement | undefined>; open: Accessor<boolean>; /** U3730: the scope line, where the tab's one add control sits. */ scope: Accessor<HTMLElement | undefined> }>();
 
-type Target<Id> = { id: Id; label: string; owner?: string | undefined };
+type Target<Id> = { id: Id; label: string; owner?: Actor | null | undefined };
 
 type Question<Id> = { kind: "question" | "pending"; targets: readonly Target<Id>[]; done: boolean };
 
-/** U459–U460: one frozen set, one question, and a retained remainder after readback. */
+/** U3787a: dispatch the frozen set immediately; retain failed rows after readback. */
 export const createBulkDelete = <Id,>(props: {
   app: Pick<App, "ask">;
+  rail?: Pick<RailState, "nodes" | "exitOf">;
   selected: Accessor<readonly Id[]>;
   targets: Accessor<readonly Target<Id>[]>;
   done?: Accessor<readonly Target<Id>[]>;
@@ -28,7 +31,8 @@ export const createBulkDelete = <Id,>(props: {
   clear: () => void;
   cancelSelection: () => void;
   afterRemoval?: () => () => HTMLElement | null;
-  remove: (id: Id) => Promise<string | null>;
+  remove: (ids: readonly Id[]) => Promise<readonly { id: Id; message: string }[]>;
+  blocked: Accessor<boolean>;
   reload: () => Promise<string | null>;
   reveal?: () => void;
 }) => {
@@ -52,21 +56,12 @@ export const createBulkDelete = <Id,>(props: {
 
   createEffect(on(() => `${props.context()}:${host?.open()}`, reset, { defer: true }));
   onCleanup(() => { revision += 1; });
-  createEffect(() => {
-    const kept = question();
-
-    if (kept?.kind !== "question") return;
-    const eligible = kept.done ? props.done?.() ?? [] : props.targets();
-
-    if (kept.targets.some((target) => !eligible.some((row) => row.id === target.id))) setQuestion(null);
-  });
-
   createEffect(on(props.targets, targets => {
     setFailures(current => current.filter(({ target }) => targets.some(row => row.id === target.id)));
   }));
 
   const ask = (done = false, focused?: Id) => {
-    if (question()) return;
+    if (question() || props.blocked()) return;
     const targets = done ? props.done?.() ?? [] : props.targets().filter((target) => focused === undefined ? props.selected().includes(target.id) : target.id === focused);
 
     if (targets.length === 0) return;
@@ -74,6 +69,7 @@ export const createBulkDelete = <Id,>(props: {
     returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     nextFocus = props.afterRemoval?.() ?? (() => null);
     setQuestion({ kind: "question", targets: unique, done });
+    void confirm();
   };
 
   /** The opener while it lives, else a Shelf control that does: a deleted row's button is gone. */
@@ -90,29 +86,22 @@ export const createBulkDelete = <Id,>(props: {
       ?? document.querySelector<HTMLElement>('.shelf-tabs [role="tab"][aria-selected="true"]');
   };
 
-  const cancel = () => {
-    const kept = question();
-
-    if (kept?.kind !== "question") return;
-    setQuestion(null);
-  };
-
   const confirm = async () => {
     const kept = question();
 
     if (kept?.kind !== "question") return;
+    const focus = captureFocus();
     const mine = revision;
-    const eligible = kept.done ? props.done?.() ?? [] : props.targets();
-    const targets = kept.targets.map(target => ({ ...target, owner: eligible.find(row => row.id === target.id)?.owner ?? target.owner }));
+    const targets = kept.targets;
     setQuestion({ ...kept, kind: "pending", targets });
     setFailures(current => current.filter(({ target }) => !targets.some(row => row.id === target.id)));
-    const failed: { target: Target<Id>; message: string }[] = [];
+    const result = await props.remove(targets.map(target => target.id));
 
-    for (const target of targets) {
-      const message = await props.remove(target.id);
+    const failed = result.flatMap(item => {
+      const target = targets.find(target => target.id === item.id);
 
-      if (message !== null) failed.push({ target, message });
-    }
+      return target ? [{ target, message: item.message }] : [];
+    });
 
     // A lost response can follow a committed delete; readback precedes retry.
     readback = async () => {
@@ -129,7 +118,7 @@ export const createBulkDelete = <Id,>(props: {
       setFailures(remaining);
       setQuestion(null);
       readback = undefined;
-      queueMicrotask(() => focusAfter()?.focus());
+      queueMicrotask(() => focus(() => focusAfter()?.focus()));
     };
 
     await readback();
@@ -142,8 +131,7 @@ export const createBulkDelete = <Id,>(props: {
       event.preventDefault();
       event.stopPropagation();
 
-      if (question()?.kind === "question") cancel();
-      else if (!question()) { props.cancelSelection(); setFailures([]); }
+      if (!question()) { props.cancelSelection(); setFailures([]); }
     } else if (event.key === "Backspace" && !event.repeat && props.selected().length > 0) {
       event.preventDefault();
       event.stopPropagation();
@@ -172,7 +160,13 @@ export const createBulkDelete = <Id,>(props: {
     const targets = kept?.kind === "pending" ? kept.targets : props.targets().filter((target) =>
       kept ? kept.targets.some((row) => row.id === target.id) : props.selected().includes(target.id));
 
-    return [...new Set(targets.flatMap((target) => target.owner ? [target.owner] : []))];
+    const resolved = targets.flatMap(target => {
+      const owner = props.rail ? currentOwner(props.rail, target.owner) : undefined;
+
+      return owner ? [owner] : [];
+    });
+
+    return [...new Map(resolved.map(owner => [owner.id, owner])).values()];
   });
 
   const labelOf = (target: Target<Id>) => `${target.label}${props.noun === "Todos" ? ` #${String(target.id)}` : ""}`;
@@ -185,7 +179,7 @@ export const createBulkDelete = <Id,>(props: {
   );
 
   const bar = () => (
-    <Show when={props.selected().length > 0 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
+    <Show when={props.selected().length > 1 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
       <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion}>
         <Show when={props.selected().length > 0}>
           <div class="shelf-bulk-line" hidden={question()?.kind === "question"}>
@@ -195,7 +189,10 @@ export const createBulkDelete = <Id,>(props: {
           </div>
         </Show>
         <Show when={owners().length > 0}>
-          <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
+          <p>{copy.ownedBy}{owners().map(owner => owner.name).join(copy.comma)}</p>
+        </Show>
+        <Show when={owners().some(owner => owner.live)}>
+          <p>{copy.agentsMayStillBeWritingDeletingDoesNot(owners().filter(owner => owner.live).map(owner => owner.name).join(copy.comma))}</p>
         </Show>
         <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}>
           <Show when={readFailure() !== null} fallback={shown().length > 0 ? clearButton(shown()[0]!) : null}>
@@ -209,19 +206,7 @@ export const createBulkDelete = <Id,>(props: {
     </Show>
   );
 
-  /** Native confirmation names the frozen set; readback failures remain in the Shelf. */
-  const dialog = () => (
-    <NativeAlert app={props.app} open={question()?.kind === "question"}
-      question={{
-        title: question() ? `${copy.deleteWord}${question()!.targets.length}${question()!.done ? copy.doneCount : ""} ${question()!.targets.length === 1 ? (props.noun === "Todos" ? copy.todo : copy.pad) : props.noun}${copy.questionMark}` : "",
-        message: [...(question()?.targets ?? []).map(target => `${props.noun === "Todos" ? `#${String(target.id)} ` : ""}${target.label}`), ...(owners().length > 0 ? [`${copy.ownedBy}${owners().join(copy.comma)}${copy.agentsMayStillBeWritingDeletingDoesNot}`] : [])].join("\n"),
-        okLabel: copy.delete, cancelLabel: copy.keep,
-      }} onConfirm={() => void confirm()} onCancel={cancel} finalFocus={focusAfter} />
-  );
-
-  const content = () => <>{bar()}{dialog()}</>;
-
-  const Bar = (): JSX.Element => host ? <Show when={host.mount()}>{(mount) => <Portal mount={mount()}>{content()}</Portal>}</Show> : content();
+  const Bar = (): JSX.Element => host ? <Show when={host.mount()}>{(mount) => <Portal mount={mount()}>{bar()}</Portal>}</Show> : bar();
 
   return { ask, key, Bar, pending: () => question()?.kind === "pending" };
 };

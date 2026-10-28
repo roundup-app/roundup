@@ -40,6 +40,14 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   const { factory } = fakeEmulators();
   const connected = await connectProject(app, { name: "p", path }, () => reducedMotion, () => 0);
 
+  connected.showView("workstreams");
+
+  if (selected === null) {
+    connected.showView("ask-history");
+    connected.showView("made");
+    connected.showView("reactions");
+  }
+
   if (tree instanceof Promise) {
     app.handlers["rail.tree"] = () => tree;
     connected.rail = createRailState(app, connected.events);
@@ -55,7 +63,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
       <aside class="rail"><RecoveryEntry /></aside>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
-      <div class="centre-stack">{pane && <Pane createEmulator={factory} />}<AskBar recovery={recovery()} /></div>
+      <div class="centre-stack">{pane && <Pane createEmulator={factory} notice={connected.rail.failure()} retryNotice={() => void connected.rail.refresh({ terminals: true })} />}<AskBar recovery={recovery()} /></div>
     </ConnectedProjectContext.Provider>
   ));
 

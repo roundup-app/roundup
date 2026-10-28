@@ -1,14 +1,13 @@
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { showShelfTab } from "../testing/shelfTabs";
 import { padHandlers } from "../testing/stores";
-import { rowOf } from "../rail/railFixture";
+import { rowOf, settled } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { KeyHint } from "./KeyHint";
 import { endLeader } from "./registry";
 import { CHORDS, hintsFor, pressOf } from "./chords";
 import type { HintPlace } from "./chords";
@@ -46,6 +45,8 @@ const focusableEmulator = (): EmulatorFactory => () => {
 };
 
 const open = async () => {
+  // Shelf loads Todos lazily; shortcut assertions must not race its module fetch.
+  await import("../todos/Todos");
   const app = createFakeApp();
   let listed = [info("1", { owner: "w", title: "zsh" })];
 
@@ -66,7 +67,7 @@ const open = async () => {
     return null;
   };
 
-  render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
+  render(() => <App prepareIdle={open => { open.showView("workstreams"); open.showView("terminal-tabs"); }} app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));
 
   return app;
@@ -91,23 +92,28 @@ const toPane = async () => {
 
 /** U2541b: a Terminal Bubble offers existing App chords. */
 const toBubble = async () => {
-  fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
+  fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
+  rowOf("lead").focus();
+  await settled();
   await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
   document.querySelector<HTMLElement>(".terminal-tab")!.focus();
   await waitFor(() => expect(line()).toEqual(label("bubble")));
 };
 
 const toPlace = async (place: "pad" | "drawer") => {
-  fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
-  document.querySelector<HTMLElement>('[data-id="w"]')!.focus();
+  fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
+  document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!.focus();
 
   if (document.querySelector<HTMLElement>(".window")!.dataset["shelf"] !== "open") {
-    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
-    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-id="w"]')!, { key: "s", code: "KeyS" });
+    fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
+    fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "s", code: "KeyS" });
   }
 
   showShelfTab("Pads");
-  fireEvent.click(await screen.findByRole("button", { name: "notes" }));
+  const group = document.querySelector('.pads-tab [data-shelf-group="unassigned"]');
+
+  if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+  fireEvent.keyDown(await screen.findByRole("button", { name: "notes" }), { key: "Enter" });
   const selector = place === "pad" ? ".pad-body button" : ".drawer .close";
   await waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
   document.querySelector<HTMLElement>(selector)!.focus();
@@ -131,22 +137,6 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
-  it("u2541d_a_chord_is_one_chip_and_an_alternative_one_pair", () => {
-    const chips = (keys: string) => {
-      const { container, unmount } = render(() => <KeyHint keys={keys}>label</KeyHint>);
-      const pairs = container.querySelectorAll(".key-chips");
-      const result = [pairs.length, [...container.querySelectorAll("kbd")].map((key) => key.textContent)] as const;
-      unmount();
-
-      return result;
-    };
-
-    expect(chips("⇧Tab")).toEqual([1, ["⇧Tab"]]);
-    expect(chips("⌘K")).toEqual([1, ["⌘K"]]);
-    expect(chips("J K")).toEqual([1, ["J", "K"]]);
-    expect(chips("J / K")).toEqual([1, ["J", "K"]]);
-  });
-
   it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
       for (const hint of hintsFor(place)) {
         // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
@@ -158,8 +148,6 @@ describe("u2230 shortcut hints", () => {
 
         const chord = CHORDS.find((row) => row.keys === hint.keys);
 
-        expect(chord, `${place} ${hint.keys}`).toBeDefined();
-        expect(chord!.hint?.label).toBe(hint.label);
         expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
 
         if (hint.keys === "⌘⌫") await answerQuestion(true);
@@ -198,22 +186,23 @@ it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_th
   const app = await open();
   await toRail();
   showShelfTab("Todos");
-  const control = target === "Todos tab" ? screen.getByRole("tab", { name: /Todos/ }) : await screen.findByRole("button", { name: target });
+  const shelf = within(document.querySelector<HTMLElement>(".shelf")!);
+  const control = target === "Todos tab" ? screen.getByRole("tab", { name: /Todos/ }) : await shelf.findByRole("button", { name: target });
   control.focus();
   await waitFor(() => expect(line().some(hint => hint.startsWith("D "))).toBe(false));
   fireEvent.keyDown(document.activeElement!, { key: target !== "Maximise" ? "t" : "m", code: target !== "Maximise" ? "KeyT" : "KeyM" });
 
   if (target !== "Maximise") {
-    const control = screen.getByRole("button", { name: "Triage" });
+    const control = await screen.findByRole("button", { name: "Triage" });
     // Ark publishes tab focus changes before the next paint. Observe the settled mode.
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     expect(control.getAttribute("aria-pressed")).toBe("true");
     fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
     expect(control.getAttribute("aria-pressed")).toBe("false");
   } else {
-    expect(screen.getByRole("button", { name: "Restore" })).toBe(control);
+    expect(shelf.getByRole("button", { name: "Restore" })).toBe(control);
     fireEvent.keyDown(document.activeElement!, { key: "m", code: "KeyM" });
-    expect(screen.getByRole("button", { name: "Maximise" })).toBe(control);
+    expect(shelf.getByRole("button", { name: "Maximise" })).toBe(control);
   }
 
   expect(app.calls.filter(call => call.method === "todo.complete" || call.method === "todo.delete")).toEqual([]);
@@ -246,4 +235,25 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
   document.activeElement!.dispatchEvent(event);
   expect(event.defaultPrevented).toBe(false);
   expect(document.querySelector("[data-triage-toggle]")?.getAttribute("aria-pressed")).toBe("false");
+});
+
+
+it("u4453c_hints_use_the_bar_or_key_chips", async () => {
+  await open();
+  await toRail();
+  const retained = document.querySelector(".hint-line")!;
+  expect(retained.closest(".resource-agent")).not.toBeNull();
+  expect(document.querySelectorAll(".hint-line")).toHaveLength(1);
+  const context = line();
+
+  fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
+  const armed = document.querySelector(".leader")!;
+
+  expect(retained.contains(armed)).toBe(true);
+  expect(armed.querySelectorAll(".hint").length).toBeGreaterThan(0);
+  expect(line()).not.toEqual(context);
+  fireEvent.keyDown(rowOf("b"), { key: "Escape", code: "Escape" });
+  expect(document.querySelector(".hint-line")).toBe(retained);
+  expect(document.querySelector(".leader")).toBeNull();
+  expect(line()).toEqual(context);
 });

@@ -92,6 +92,7 @@ describe("x14 the App's output subscription", () => {
 
     app.emitOutput("t-a", "A1");
     app.emitOutput("t-b", "B1");
+    await vi.waitFor(() => expect([written("t-a"), written("t-b")]).toEqual([["A1"], ["B1"]]));
     screens.hide("t-a");
 
     expect([a?.released, b?.released]).toEqual([true, false]);
@@ -105,11 +106,11 @@ describe("x14 the App's output subscription", () => {
     // Replacing the selection: the Terminal shown again has a new subscription, and the old one's late callbacks reach nothing.
     screens.show("t-a", host());
     await vi.waitFor(() => expect(app.outputSubscriptions).toHaveLength(3));
-    await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "terminal.snapshot")).toHaveLength(3));
+    await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "terminal.catchUp")).toHaveLength(1));
     a?.listener(text("stale"));
     app.emitOutput("t-a", "A2");
 
-    await vi.waitFor(() => expect(written("t-a")).toEqual(["A2"]));
+    await vi.waitFor(() => expect(written("t-a")).toEqual(["A1", "A2"]));
 
     screens.dispose();
     const [, , again] = app.outputSubscriptions;
@@ -117,7 +118,7 @@ describe("x14 the App's output subscription", () => {
     expect([b?.released, again?.released]).toEqual([true, true]);
     b?.listener(text("after dispose"));
     again?.listener(text("after dispose"));
-    expect([written("t-a"), written("t-b"), made.get("t-b")?.disposed]).toEqual([["A2"], ["B1", "B2"], true]);
+    expect([written("t-a"), written("t-b"), made.get("t-b")?.disposed]).toEqual([["A1", "A2"], ["B1", "B2"], true]);
   });
 
   it("x14_selected_terminal_echo_and_rail_updates_survive_output_flood", async () => {

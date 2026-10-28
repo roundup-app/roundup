@@ -60,14 +60,18 @@ impl Daemon {
         params: Value,
     ) -> Result<Value, RpcError> {
         self.auto.start(|| self.reader());
-        let observes = method.starts_with("todo.")
+        let observes = (method.starts_with("todo.")
+            && !matches!(method, "todo.restore" | "todo.deletion"))
             || method.starts_with("workstream.")
             || matches!(
                 method,
                 "rail.startDoor" | "rail.remove" | "agent.resume" | "agent.spawn"
             );
-        let serializes = (method.starts_with("todo.") && method != "todo.startWorkstream")
-            || method == "workstream.setAuto";
+        let serializes = method.starts_with("pad.")
+            || (method.starts_with("todo.") && method != "todo.startWorkstream")
+            || method == "workstream.setAuto"
+            || method == "rail.restore"
+            || (method == "rail.remove" && params["operation"].is_string());
         let _guard = if serializes {
             Some(self.auto.gate.lock().await)
         } else {

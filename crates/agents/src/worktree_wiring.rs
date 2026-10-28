@@ -3,129 +3,6 @@ use crate::pr_checks::{Conclusion, Evidence, Gap};
 use contracts::agent::{WorktreeCheckConclusion, WorktreeEvidence, WorktreeRequiredCheck};
 
 impl Agents {
-    pub(super) async fn import_conversation(
-        &self,
-        source: &str,
-        revision: &str,
-        now_ms: i64,
-    ) -> Result<(String, String), RpcError> {
-        // Published work no longer depends on the external original. Concurrent first
-        // imports still converge under prepare_closed's lifecycle lock after validation.
-        if let Some((workstream, agent, true)) = self.shared.rail().closed_source(source)? {
-            return Ok((workstream, agent));
-        }
-        let project = self.project_dir().to_owned();
-        let launcher = self.launcher.clone();
-        let (src, rev) = (source.to_owned(), revision.to_owned());
-        let (candidate, bytes) = tokio::task::spawn_blocking(move || {
-            launcher.read_import_snapshot(&project, &src, &rev, now_ms)
-        })
-        .await
-        .map_err(RpcError::internal)??;
-        let cwd = self.project_dir().join(&candidate.cwd);
-        self.prepare_closed(source, &candidate.title, &cwd, &bytes)
-            .await
-    }
-
-    async fn prepare_closed(
-        &self,
-        source: &str,
-        title: &str,
-        cwd: &Path,
-        conversation: &[u8],
-    ) -> Result<(String, String), RpcError> {
-        let _lifecycle = self.shared.door_lifecycle.write().await;
-        {
-            let rail = self.shared.rail();
-            if let Some((workstream, agent, published)) = rail.closed_source(source)? {
-                return if published {
-                    Ok((workstream, agent))
-                } else {
-                    rail.closed_recovery_ready(None)?;
-                    Err(RpcError::conflict("source preparation is still pending"))
-                };
-            }
-            rail.closed_recovery_ready(None)?;
-        }
-        let (_, real_cwd) = real_paths(self.project_dir(), cwd)?;
-        let ids = self.shared.rail().reserve_closed(source, title)?;
-        let outcome = async {
-            let effective =
-                if let Some((mapped, made)) = self.provision_worktree(&ids.1, &real_cwd).await? {
-                    self.shared.rail().set_worktree(
-                        &ids.1,
-                        &contracts::agent::Worktree {
-                            path: made.path.to_string_lossy().into_owned(),
-                            branch: made.branch,
-                            base: made.base,
-                        },
-                    )?;
-                    mapped
-                } else {
-                    real_cwd
-                };
-            let (id, ownership) = self
-                .launcher
-                .prepare_conversation(&effective, conversation)?;
-            self.shared.rail().closed_copy(source, &ownership)?;
-            self.launcher.write_conversation(&ownership)?;
-            self.shared
-                .rail()
-                .save_conversation(&ids.1, &id, &effective.to_string_lossy())?;
-            self.shared.rail().publish_closed(source)?;
-            Ok::<_, RpcError>(())
-        }
-        .await;
-        if let Err(error) = outcome {
-            let (shared, launcher, dir, source) = (
-                Arc::clone(&self.shared),
-                self.launcher.clone(),
-                self.dir.clone(),
-                source.to_owned(),
-            );
-            let recovery = tokio::task::spawn_blocking(move || {
-                reconcile_closed(
-                    &mut shared.rail(),
-                    &shared.git.bounded(),
-                    &shared.project_dir,
-                    &dir,
-                    &launcher,
-                    &source,
-                )
-            })
-            .await
-            .map_err(RpcError::internal)?;
-            if let Err(recovery) = recovery {
-                return Err(RpcError::internal(format!(
-                    "{}; recovery refused: {}",
-                    error.message, recovery.message
-                )));
-            }
-            return Err(error);
-        }
-        let copies = self.shared.rail().closed_copies()?;
-        for (key, ownership) in copies {
-            if key == source {
-                match self.launcher.finish_conversation(&ownership) {
-                    Ok(()) => self.shared.rail().release_closed_copy(source)?,
-                    Err(error) => eprintln!(
-                        "agents: {source}: copy ownership release deferred: {}",
-                        error.message
-                    ),
-                }
-            }
-        }
-        // Publication already committed: a release failure must never turn success into a
-        // reclaimable preparation. open_in retries this idempotent release after restart.
-        if let Err(error) = self.retain_worktree(&ids.1).await {
-            eprintln!(
-                "agents: {}: ownership release deferred: {}",
-                ids.1, error.message
-            );
-        }
-        Ok(ids)
-    }
-
     /// G3: how far the Agent's Worktree is from its Base. Reads only.
     pub(super) async fn worktree_state(&self, id: &str) -> Result<WorktreeState, RpcError> {
         let record = self.shared.node(id)?.worktree;
@@ -459,8 +336,11 @@ fn evidence_wire(evidence: Evidence, stale: bool) -> WorktreeEvidence {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    mod prepared;
+    mod recovery;
 
+    use super::*;
+    use contracts::project::ImportExclusionCause::AlreadyImported;
     fn git(project: &Path, args: &[&str]) -> String {
         let output = std::process::Command::new("git")
             .current_dir(project)
@@ -505,260 +385,16 @@ mod tests {
         b"{\"sessionId\":\"external\",\"type\":\"user\",\"message\":\"retained\"}\n";
 
     #[tokio::test]
-    async fn u2875c_unpublished_resources_are_reconciled_at_every_durable_step() {
-        // The first three node/source writes share a SQLite transaction (Rail test below).
-        // These are every durable resource step after that transaction.
-        for mode in 0..3 {
-            for boundary in 0..14 {
-                if mode == 0 && matches!(boundary, 1..=4 | 10 | 13) {
-                    continue;
-                }
-                let (dir, agents, existing) = fixture();
-                if mode == 0 {
-                    agents
-                        .shared
-                        .rail()
-                        .set_worktrees(&contracts::project::Worktrees {
-                            on: false,
-                            check: None,
-                        })
-                        .unwrap();
-                }
-                let prepared = if mode == 2 {
-                    Some(enroll(&agents, dir.path(), "true").await)
-                } else {
-                    None
-                };
-                let (workstream, agent) = agents
-                    .shared
-                    .rail()
-                    .reserve_closed("interrupted", "hidden")
-                    .unwrap();
-                let mut effective = dir.path().join("src");
-                let mut provision = None;
-                if mode != 0 && boundary >= 1 {
-                    let mut plan = agents.shared.git.plan(dir.path(), &agent).unwrap();
-                    if let Some(path) = &prepared {
-                        plan.worktree.path = path.clone();
-                    }
-                    if mode == 2 {
-                        assert!(
-                            agents
-                                .shared
-                                .rail()
-                                .reserve_prepared(&agent, &plan)
-                                .unwrap()
-                        );
-                    } else {
-                        agents
-                            .shared
-                            .rail()
-                            .mark_worktree_provisioning(&agent, &plan)
-                            .unwrap();
-                    }
-                    if boundary == 2 {
-                        git(
-                            dir.path(),
-                            &[
-                                "update-ref",
-                                &format!("refs/heads/{}", plan.worktree.branch),
-                                &plan.commit,
-                            ],
-                        );
-                        git(dir.path(), &["update-ref", &plan.owner, &plan.commit]);
-                    }
-                    if boundary >= 3 {
-                        if mode == 2 {
-                            agents
-                                .shared
-                                .git
-                                .assign_prepared(dir.path(), &plan)
-                                .unwrap();
-                        } else {
-                            agents.shared.git.provision(dir.path(), &plan).unwrap();
-                        }
-                        effective = plan.worktree.path.join("src");
-                    }
-                    if boundary >= 4 {
-                        agents
-                            .shared
-                            .rail()
-                            .set_worktree(
-                                &agent,
-                                &contracts::agent::Worktree {
-                                    path: plan.worktree.path.to_string_lossy().into_owned(),
-                                    branch: plan.worktree.branch.clone(),
-                                    base: plan.worktree.base.clone(),
-                                },
-                            )
-                            .unwrap();
-                    }
-                    provision = Some(plan);
-                }
-                let mut retained = None;
-                if boundary >= 5 {
-                    let (id, ownership) = agents
-                        .launcher
-                        .prepare_conversation(&effective, RETAINED)
-                        .unwrap();
-                    agents
-                        .shared
-                        .rail()
-                        .closed_copy("interrupted", &ownership)
-                        .unwrap();
-                    if boundary >= 6 {
-                        agents.launcher.write_conversation(&ownership).unwrap();
-                    }
-                    if boundary >= 8 {
-                        agents
-                            .shared
-                            .rail()
-                            .save_conversation(&agent, &id, &effective.to_string_lossy())
-                            .unwrap();
-                    }
-                    if boundary == 6 {
-                        agents.launcher.interrupt_copy_for_test(&ownership);
-                    }
-                    retained = Some((id, effective.clone(), ownership));
-                }
-                if boundary >= 9 {
-                    agents.shared.rail().publish_closed("interrupted").unwrap();
-                }
-                if boundary >= 9 {
-                    if let Some((id, cwd, _)) = &retained {
-                        agents
-                            .launcher
-                            .replace_retained_for_test(
-                                cwd,
-                                id,
-                                b"{\"type\":\"user\",\"message\":\"published user edit\"}\n",
-                            )
-                            .unwrap();
-                    }
-                    if let Some(plan) = &provision {
-                        std::fs::write(
-                            plan.worktree.path.join("user-file"),
-                            "keep after publication",
-                        )
-                        .unwrap();
-                    }
-                }
-                if boundary >= 10
-                    && let Some(plan) = &provision
-                {
-                    agents.shared.git.finish(dir.path(), plan).unwrap();
-                }
-                if boundary >= 11
-                    && let Some((_, _, ownership)) = &retained
-                {
-                    agents.launcher.finish_conversation(ownership).unwrap();
-                }
-                if boundary >= 12 {
-                    agents
-                        .shared
-                        .rail()
-                        .release_closed_copy("interrupted")
-                        .unwrap();
-                }
-                if boundary >= 13 {
-                    agents
-                        .shared
-                        .rail()
-                        .clear_provisioning_owner(&agent)
-                        .unwrap();
-                }
-                let before = agents.shared.rail().tree().unwrap();
-                assert_eq!(
-                    before.len(),
-                    if boundary < 9 { 1 } else { 3 },
-                    "mode {mode} boundary {boundary}"
-                );
-                if boundary < 9 {
-                    assert!(
-                        agents
-                            .provision_worktree(&existing, dir.path())
-                            .await
-                            .is_err()
-                    );
-                    assert!(
-                        agents
-                            .shared
-                            .rail()
-                            .reserve_closed("other source", "other")
-                            .is_err()
-                    );
-                    assert!(agents.shared.node(&workstream).is_err());
-                    assert!(agents.shared.node(&agent).is_err());
-                    assert!(agents.shared.rail().has_conversation(&agent).is_err());
-                }
-                let agents = reopen(agents);
-                let after = agents.shared.rail().tree().unwrap();
-                assert_eq!(
-                    after.len(),
-                    if boundary < 9 { 1 } else { 3 },
-                    "mode {mode} boundary {boundary}"
-                );
-                assert_eq!(after[0].id, existing);
-                if let Some((id, cwd, ownership)) = retained {
-                    assert_eq!(
-                        agents.launcher.retained_copy_exists_for_test(&ownership),
-                        boundary >= 9
-                    );
-                    assert!(!agents.launcher.copy_owner_exists_for_test(&ownership));
-                    if boundary >= 9 {
-                        agents.launcher.assert_retained_for_test(
-                            &cwd,
-                            &id,
-                            b"{\"type\":\"user\",\"message\":\"published user edit\"}\n",
-                        );
-                    }
-                    assert_eq!(
-                        agents.launcher.record_conversation(&cwd, &id).is_ok(),
-                        boundary >= 9
-                    );
-                }
-                assert!(agents.shared.rail().provisioning().unwrap().is_empty());
-                assert_eq!(
-                    git(dir.path(), &["for-each-ref", "refs/roundup/provisioning"]),
-                    ""
-                );
-                if boundary < 9 {
-                    assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
-                    if let Some(plan) = provision {
-                        assert_eq!(plan.worktree.path.exists(), mode == 2);
-                    }
-                    let result = agents
-                        .prepare_closed("interrupted", "retry", &dir.path().join("src"), RETAINED)
-                        .await
-                        .unwrap();
-                    assert_ne!(result.1, agent);
-                }
-                if let Some(path) = prepared {
-                    assert_eq!(
-                        std::fs::read_to_string(path.join(".cache/user-dependency")).unwrap(),
-                        "keep"
-                    );
-                }
-            }
-        }
-    }
-
-    #[tokio::test]
     async fn u2875c_preview_identity_is_checked_before_import() {
         const ID: &str = "11111111-1111-4111-8111-111111111111";
         let (dir, agents, _) = fixture();
         let project = dir.path().canonicalize().unwrap();
-        let encoded: String = project
-            .to_string_lossy()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
-        let bucket = dir.path().join("projects").join(encoded);
+        let bucket = dir.path().join("projects/historical");
         std::fs::create_dir_all(&bucket).unwrap();
         let file = bucket.join(format!("{ID}.jsonl"));
         let line = |ts: &str| {
             format!(
-                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\"}}\n",
+                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\",\"message\":{{\"role\":\"user\",\"content\":\"Imported work\"}}}}\n",
                 project.join("src").display()
             )
         };
@@ -766,7 +402,7 @@ mod tests {
         let now = 1_792_411_200_000;
         let found = agents
             .launcher
-            .discover_recent(&project, now, 86_400_000)
+            .discover_recent(&project, &[], now, 86_400_000)
             .await
             .unwrap();
         let revision = found.candidates[0].revision.clone();
@@ -776,7 +412,9 @@ mod tests {
             line("2026-10-19T11:00:00Z") + &line("2026-10-19T11:30:00Z"),
         )
         .unwrap();
-        let refused = agents.import_conversation(ID, &revision, now).await;
+        let refused = agents
+            .import_conversation(ID, &revision, now, None, false)
+            .await;
         assert!(
             refused
                 .unwrap_err()
@@ -787,25 +425,22 @@ mod tests {
         // The refreshed preview imports once; a replay returns the same nodes.
         let found = agents
             .launcher
-            .discover_recent(&project, now, 86_400_000)
+            .discover_recent(&project, &[], now, 86_400_000)
             .await
             .unwrap();
         let revision = found.candidates[0].revision.clone();
         let ids = agents
-            .import_conversation(ID, &revision, now)
+            .import_conversation(ID, &revision, now, None, false)
             .await
             .unwrap();
         assert_eq!(
             agents
-                .import_conversation(ID, &revision, now)
+                .import_conversation(ID, &revision, now, None, false)
                 .await
                 .unwrap(),
             ids
         );
-        assert_eq!(
-            agents.shared.node(&ids.1).unwrap().name,
-            "Untitled conversation"
-        );
+        assert_eq!(agents.shared.node(&ids.1).unwrap().name, "Imported work");
     }
 
     #[tokio::test]
@@ -814,12 +449,7 @@ mod tests {
         const ID: &str = "22222222-2222-4222-8222-222222222222";
         let (dir, agents, _) = fixture();
         let project = dir.path().canonicalize().unwrap();
-        let encoded: String = project
-            .to_string_lossy()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
-        let bucket = dir.path().join("projects").join(encoded);
+        let bucket = dir.path().join("projects/historical");
         std::fs::create_dir_all(&bucket).unwrap();
         let n = time::OffsetDateTime::now_utc();
         let ts = format!(
@@ -834,7 +464,7 @@ mod tests {
         std::fs::write(
             bucket.join(format!("{ID}.jsonl")),
             format!(
-                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\"}}\n",
+                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\",\"message\":{{\"role\":\"user\",\"content\":\"Imported work\"}}}}\n",
                 project.join("src").display()
             ),
         )
@@ -889,7 +519,7 @@ mod tests {
         )
         .unwrap();
         assert!(again.candidates.is_empty());
-        assert_eq!(again.excluded[0].reason, "already in this Project");
+        assert_eq!(again.excluded[0].cause, AlreadyImported);
         let stale = agents
             .call(
                 &user,
@@ -898,15 +528,15 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(stale["outcomes"][0]["error"].is_string());
+        assert_eq!(stale["outcomes"][0]["error"]["code"], rpc::code::CONFLICT);
     }
 
     #[tokio::test]
     async fn u2875c_concurrent_replay_preserves_names_homes_and_removed_sources() {
         let (dir, agents, _) = fixture();
         let (a, b) = tokio::join!(
-            agents.prepare_closed("same", "first", dir.path(), RETAINED),
-            agents.prepare_closed("same", "second", dir.path(), RETAINED)
+            agents.prepare_closed("same", "first", dir.path(), RETAINED, None),
+            agents.prepare_closed("same", "second", dir.path(), RETAINED, None)
         );
         let ids = a.unwrap();
         assert_eq!(b.unwrap(), ids);
@@ -929,7 +559,7 @@ mod tests {
         let agents = reopen(agents);
         assert_eq!(
             agents
-                .prepare_closed("same", "replacement", dir.path(), b"invalid")
+                .prepare_closed("same", "replacement", dir.path(), b"invalid", None)
                 .await
                 .unwrap(),
             ids
@@ -941,7 +571,7 @@ mod tests {
         agents.shared.rail().remove(&ids.1).unwrap();
         assert_eq!(
             agents
-                .prepare_closed("same", "replacement", dir.path(), b"invalid")
+                .prepare_closed("same", "replacement", dir.path(), b"invalid", None)
                 .await
                 .unwrap(),
             ids
@@ -955,11 +585,11 @@ mod tests {
         let (first, a, _) = fixture();
         let (second, b, _) = fixture();
         let (_, one) = a
-            .prepare_closed("same source", "one", first.path(), RETAINED)
+            .prepare_closed("same source", "one", first.path(), RETAINED, None)
             .await
             .unwrap();
         let (_, two) = b
-            .prepare_closed("same source", "two", second.path(), RETAINED)
+            .prepare_closed("same source", "two", second.path(), RETAINED, None)
             .await
             .unwrap();
         let one = a.shared.rail().conversation(&one).unwrap().unwrap();
@@ -1013,47 +643,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn u2875b_failed_import_readiness_leaves_no_visible_pair_or_assignment() {
-        let (dir, agents, _) = fixture();
-        let path = enroll(&agents, dir.path(), "false").await;
-        assert!(
-            agents
-                .prepare_closed("failed", "hidden", dir.path(), RETAINED)
-                .await
-                .unwrap_err()
-                .message
-                .contains("readiness")
-        );
-        let agents = reopen(agents);
-        assert_eq!(agents.shared.rail().tree().unwrap().len(), 1);
-        assert!(
-            agents
-                .shared
-                .rail()
-                .closed_source("failed")
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            agents
-                .shared
-                .rail()
-                .worktree_owner_of(path.to_str().unwrap())
-                .unwrap()
-                .is_none()
-        );
-        assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
-        assert_eq!(
-            std::fs::read_to_string(path.join(".cache/user-dependency")).unwrap(),
-            "keep"
-        );
-    }
-
-    #[tokio::test]
     async fn u2875c_failed_source_cannot_undo_a_published_source() {
         let (dir, agents, _) = fixture();
         let published = agents
-            .prepare_closed("good", "good", dir.path(), RETAINED)
+            .prepare_closed("good", "good", dir.path(), RETAINED, None)
             .await
             .unwrap();
         let saved = agents
@@ -1064,7 +657,7 @@ mod tests {
             .unwrap();
         assert!(
             agents
-                .prepare_closed("bad", "bad", dir.path(), b"broken\n")
+                .prepare_closed("bad", "bad", dir.path(), b"broken\n", None)
                 .await
                 .is_err()
         );
@@ -1084,159 +677,6 @@ mod tests {
                 .count(),
             1
         );
-    }
-
-    #[tokio::test]
-    async fn u2875c_recovery_refusal_keeps_user_work_hidden_and_blocks_reuse() {
-        for prepared in [false, true] {
-            for changed in ["files", "ownership", "copy"] {
-                let (dir, agents, existing) = fixture();
-                if prepared {
-                    enroll(&agents, dir.path(), "true").await;
-                }
-                let (workstream, agent) = agents
-                    .shared
-                    .rail()
-                    .reserve_closed("unfinished", "hidden")
-                    .unwrap();
-                let (_, made) = agents
-                    .provision_worktree(&agent, dir.path())
-                    .await
-                    .unwrap()
-                    .unwrap();
-                let (id, ownership) = agents
-                    .launcher
-                    .prepare_conversation(&made.path, RETAINED)
-                    .unwrap();
-                agents
-                    .shared
-                    .rail()
-                    .closed_copy("unfinished", &ownership)
-                    .unwrap();
-                agents.launcher.write_conversation(&ownership).unwrap();
-                match changed {
-                    "files" => std::fs::write(made.path.join("user-file"), "keep").unwrap(),
-                    "ownership" => {
-                        let proof = agents
-                            .shared
-                            .rail()
-                            .provisioning()
-                            .unwrap()
-                            .into_iter()
-                            .find(|(node, _, _)| node.id == agent)
-                            .unwrap()
-                            .1
-                            .unwrap();
-                        git(dir.path(), &["update-ref", "-d", &proof.owner]);
-                    }
-                    "copy" => agents
-                        .launcher
-                        .replace_retained_for_test(&made.path, &id, b"changed by user")
-                        .unwrap(),
-                    _ => unreachable!(),
-                }
-                let agents = reopen(agents);
-                assert!(agents.shared.node(&workstream).is_err());
-                assert!(agents.shared.node(&agent).is_err());
-                assert_eq!(agents.shared.rail().tree().unwrap().len(), 1);
-                let error = agents
-                    .prepare_closed("another", "another", dir.path(), RETAINED)
-                    .await
-                    .unwrap_err();
-                assert!(error.message.contains("recovery refused"));
-                assert!(
-                    agents
-                        .provision_worktree(&existing, dir.path())
-                        .await
-                        .unwrap_err()
-                        .message
-                        .contains("recovery refused")
-                );
-                assert!(made.path.exists());
-                if changed == "files" {
-                    assert_eq!(
-                        std::fs::read_to_string(made.path.join("user-file")).unwrap(),
-                        "keep"
-                    );
-                }
-                if changed == "copy" {
-                    assert!(
-                        agents
-                            .launcher
-                            .record_conversation(&made.path, &id)
-                            .unwrap_err()
-                            .message
-                            .contains("complete records")
-                    );
-                    // The file remains with its exact changed bytes, as the Adapter observer asserts.
-                    agents
-                        .launcher
-                        .assert_retained_for_test(&made.path, &id, b"changed by user");
-                }
-                if prepared {
-                    assert_eq!(
-                        agents
-                            .shared
-                            .rail()
-                            .worktree_owner_of(made.path.to_str().unwrap())
-                            .unwrap(),
-                        Some(agent)
-                    );
-                }
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn u2875b_closed_publication_retains_continuation_without_a_launch() {
-        for mode in 0..3 {
-            let (dir, agents, _) = fixture();
-            if mode == 0 {
-                agents
-                    .shared
-                    .rail()
-                    .set_worktrees(&contracts::project::Worktrees {
-                        on: false,
-                        check: None,
-                    })
-                    .unwrap();
-            } else if mode == 2 {
-                enroll(&agents, dir.path(), "test -f src/file").await;
-            }
-            let (workstream, agent) = agents
-                .prepare_closed(
-                    "opaque-source",
-                    "imported",
-                    &dir.path().join("src"),
-                    b"{\"sessionId\":\"original\",\"type\":\"user\",\"message\":\"retained\"}\n",
-                )
-                .await
-                .unwrap();
-            let node = agents.shared.node(&agent).unwrap();
-            assert_eq!(node.parent.as_ref(), Some(&workstream));
-            assert!(node.can_resume);
-            assert!(node.attempt.is_none());
-            assert!(node.terminal_id.is_none());
-            assert!(node.status_revision.is_none());
-            assert_eq!(node.worktree.is_some(), mode != 0);
-            let saved = agents.shared.rail().conversation(&agent).unwrap().unwrap();
-            let bytes = agents
-                .launcher
-                .record_conversation(Path::new(&saved.1), &saved.0)
-                .unwrap();
-            assert!(String::from_utf8(bytes).unwrap().contains("retained"));
-            assert!(agents.shared.terminals.list().is_empty());
-            assert!(agents.shared.runs().is_empty());
-            let agents = reopen(agents);
-            assert!(agents.shared.node(&agent).unwrap().can_resume);
-            assert_eq!(
-                agents
-                    .prepare_closed("opaque-source", "replacement", dir.path(), b"invalid")
-                    .await
-                    .unwrap(),
-                (workstream, agent)
-            );
-        }
     }
 
     async fn enroll(agents: &Agents, project: &Path, readiness: &str) -> PathBuf {
@@ -1282,307 +722,6 @@ mod tests {
         )
         .unwrap()
     }
-
-    #[tokio::test]
-    async fn u2875b_closed_prepared_assignment_is_exclusive_without_launch() {
-        let (dir, agents, id) = fixture();
-        let path = enroll(&agents, dir.path(), "test -f src/file").await;
-        let (cwd, made) = agents
-            .provision_worktree(&id, &dir.path().join("src"))
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(made.path, path);
-        assert_eq!(cwd, path.join("src"));
-        let other = agents
-            .shared
-            .rail()
-            .insert(NodeKind::Agent, "other", None, None)
-            .unwrap();
-        let error = agents
-            .provision_worktree(&other.id, dir.path())
-            .await
-            .unwrap_err();
-        assert!(error.message.starts_with("no_prepared_directory"));
-        assert_eq!(
-            agents
-                .shared
-                .rail()
-                .worktree_owner_of(path.to_str().unwrap())
-                .unwrap(),
-            Some(id.clone())
-        );
-        let node = agents.shared.node(&id).unwrap();
-        assert!(node.attempt.is_none());
-        assert!(node.terminal_id.is_none());
-        assert!(node.status_revision.is_none());
-        assert!(agents.shared.terminals.list().is_empty());
-        assert!(agents.shared.runs().is_empty());
-        assert_eq!(
-            std::fs::read_to_string(dir.path().join("src/file")).unwrap(),
-            "base"
-        );
-    }
-
-    #[tokio::test]
-    async fn u2875c_retained_closed_worktree_survives_each_commit_boundary() {
-        for prepared in [false, true] {
-            // Ready persisted, ownership ref released, ownership record released.
-            for boundary in 0..3 {
-                let (dir, agents, id) = fixture();
-                if prepared {
-                    enroll(&agents, dir.path(), "true").await;
-                }
-                let (_, made) = agents
-                    .provision_worktree(&id, dir.path())
-                    .await
-                    .unwrap()
-                    .unwrap();
-                let plan = agents
-                    .shared
-                    .rail()
-                    .provisioning()
-                    .unwrap()
-                    .pop()
-                    .unwrap()
-                    .1
-                    .unwrap();
-                if boundary == 2 {
-                    agents.retain_worktree(&id).await.unwrap();
-                } else {
-                    agents
-                        .shared
-                        .rail()
-                        .set_worktree(
-                            &id,
-                            &contracts::agent::Worktree {
-                                path: made.path.to_string_lossy().into_owned(),
-                                branch: made.branch.clone(),
-                                base: made.base.clone(),
-                            },
-                        )
-                        .unwrap();
-                    if boundary == 1 {
-                        agents.shared.git.finish(dir.path(), &plan).unwrap();
-                    }
-                }
-                std::fs::write(made.path.join("user-work"), "retained").unwrap();
-                let agents = reopen(agents);
-                let node = agents.shared.node(&id).unwrap();
-                assert_eq!(node.worktree.unwrap().path, made.path.to_string_lossy());
-                assert!(node.attempt.is_none());
-                assert!(node.terminal_id.is_none());
-                assert!(agents.shared.terminals.list().is_empty());
-                assert_eq!(
-                    std::fs::read_to_string(made.path.join("user-work")).unwrap(),
-                    "retained"
-                );
-                assert!(agents.shared.rail().provisioning().unwrap().is_empty());
-                assert_eq!(
-                    git(dir.path(), &["for-each-ref", "refs/roundup/provisioning"]),
-                    ""
-                );
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn u2875c_interrupted_closed_provisioning_releases_owned_resources_before_reuse() {
-        for prepared in [false, true] {
-            for boundary in 0..3 {
-                let (dir, agents, id) = fixture();
-                let path = if prepared {
-                    Some(enroll(&agents, dir.path(), "true").await)
-                } else {
-                    None
-                };
-                let mut plan = agents.shared.git.plan(dir.path(), &id).unwrap();
-                if let Some(path) = &path {
-                    plan.worktree.path = path.clone();
-                }
-                if prepared {
-                    assert!(agents.shared.rail().reserve_prepared(&id, &plan).unwrap());
-                } else {
-                    agents
-                        .shared
-                        .rail()
-                        .mark_worktree_provisioning(&id, &plan)
-                        .unwrap();
-                }
-                if boundary == 1 {
-                    git(
-                        dir.path(),
-                        &[
-                            "update-ref",
-                            &format!("refs/heads/{}", plan.worktree.branch),
-                            &plan.commit,
-                        ],
-                    );
-                    git(dir.path(), &["update-ref", &plan.owner, &plan.commit]);
-                } else if boundary == 2 {
-                    if prepared {
-                        agents
-                            .shared
-                            .git
-                            .assign_prepared(dir.path(), &plan)
-                            .unwrap();
-                    } else {
-                        agents.shared.git.provision(dir.path(), &plan).unwrap();
-                    }
-                }
-                if boundary == 2 {
-                    // Readiness completed, but the source has not committed retention.
-                    assert!(plan.worktree.path.join("src/file").is_file());
-                }
-                let agents = reopen(agents);
-                assert!(agents.shared.rail().provisioning().unwrap().is_empty());
-                assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
-                assert_eq!(
-                    git(dir.path(), &["for-each-ref", "refs/roundup/provisioning"]),
-                    ""
-                );
-                assert_eq!(plan.worktree.path.exists(), prepared);
-                if prepared {
-                    assert_eq!(
-                        std::fs::read_to_string(plan.worktree.path.join(".cache/user-dependency"))
-                            .unwrap(),
-                        "keep"
-                    );
-                }
-                let retry = agents
-                    .shared
-                    .rail()
-                    .insert(NodeKind::Agent, "retry", None, None)
-                    .unwrap();
-                let (_, made) = agents
-                    .provision_worktree(&retry.id, dir.path())
-                    .await
-                    .unwrap()
-                    .unwrap();
-                if let Some(path) = path {
-                    assert_eq!(made.path, path);
-                }
-                assert!(agents.shared.node(&retry.id).unwrap().attempt.is_none());
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn u2875b_missing_mapped_directory_refuses_closed_provisioning() {
-        for prepared in [false, true] {
-            let (dir, agents, id) = fixture();
-            let path = if prepared {
-                Some(enroll(&agents, dir.path(), "true").await)
-            } else {
-                None
-            };
-            std::fs::create_dir(dir.path().join("not-in-base")).unwrap();
-            let error = agents
-                .provision_worktree(&id, &dir.path().join("not-in-base"))
-                .await
-                .unwrap_err();
-            assert!(error.message.starts_with("cwd_not_in_worktree"));
-            assert!(agents.shared.node(&id).unwrap().worktree.is_none());
-            assert!(agents.shared.node(&id).unwrap().attempt.is_none());
-            assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
-            assert_eq!(
-                git(dir.path(), &["for-each-ref", "refs/roundup/provisioning"]),
-                ""
-            );
-            if let Some(path) = path {
-                assert!(path.is_dir());
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn u2875b_failed_readiness_releases_closed_assignment_and_requires_preparation() {
-        let (dir, agents, id) = fixture();
-        let path = enroll(&agents, dir.path(), "echo unavailable; exit 1").await;
-        let error = agents
-            .provision_worktree(&id, dir.path())
-            .await
-            .unwrap_err();
-        assert!(error.message.contains("phase=readiness"));
-        assert!(agents.shared.node(&id).unwrap().worktree.is_none());
-        assert!(agents.shared.node(&id).unwrap().attempt.is_none());
-        assert!(
-            agents
-                .shared
-                .rail()
-                .prepared_unavailable(path.to_str().unwrap())
-                .unwrap()
-                .is_some()
-        );
-        assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
-        assert_eq!(
-            git(dir.path(), &["for-each-ref", "refs/roundup/provisioning"]),
-            ""
-        );
-        assert!(
-            agents
-                .provision_worktree(&id, dir.path())
-                .await
-                .unwrap_err()
-                .message
-                .contains("unavailable")
-        );
-        assert!(agents.shared.terminals.list().is_empty());
-    }
-
-    #[tokio::test]
-    async fn u2875c_prepared_recovery_preserves_user_files_and_changed_ownership() {
-        for changed_owner in [false, true] {
-            let (dir, agents, id) = fixture();
-            let path = enroll(&agents, dir.path(), "true").await;
-            agents.provision_worktree(&id, dir.path()).await.unwrap();
-            if changed_owner {
-                git(dir.path(), &["commit", "--allow-empty", "-m", "new base"]);
-                let plan = agents
-                    .shared
-                    .rail()
-                    .provisioning()
-                    .unwrap()
-                    .pop()
-                    .unwrap()
-                    .1
-                    .unwrap();
-                git(dir.path(), &["update-ref", &plan.owner, "HEAD"]);
-            } else {
-                std::fs::write(path.join("user-work"), "keep me").unwrap();
-            }
-            let agents = reopen(agents);
-            assert_eq!(
-                agents
-                    .shared
-                    .rail()
-                    .worktree_owner_of(path.to_str().unwrap())
-                    .unwrap(),
-                Some(id.clone())
-            );
-            assert!(agents.shared.node(&id).unwrap().attempt.is_none());
-            if !changed_owner {
-                assert_eq!(
-                    std::fs::read_to_string(path.join("user-work")).unwrap(),
-                    "keep me"
-                );
-            }
-            let other = agents
-                .shared
-                .rail()
-                .insert(NodeKind::Agent, "other", None, None)
-                .unwrap();
-            assert!(
-                agents
-                    .provision_worktree(&other.id, dir.path())
-                    .await
-                    .unwrap_err()
-                    .message
-                    .starts_with("no_prepared_directory")
-            );
-        }
-    }
-
     #[tokio::test]
     async fn u2875b_first_explicit_resume_launches_attempt_one_in_retained_cwd() {
         use rpc::Module;
@@ -1683,42 +822,6 @@ mod tests {
                 .call(&ctx, "agent.stop", json!({"id":id}))
                 .await
                 .unwrap();
-        }
-    }
-
-    #[tokio::test]
-    async fn u2875c_stale_provisioning_cannot_reclaim_a_new_reservation() {
-        for prepared in [false, true] {
-            let (dir, agents, id) = fixture();
-            if prepared {
-                enroll(&agents, dir.path(), "true").await;
-            }
-            let (_, made) = agents
-                .provision_worktree(&id, dir.path())
-                .await
-                .unwrap()
-                .unwrap();
-            let stale = agents
-                .shared
-                .rail()
-                .provisioning()
-                .unwrap()
-                .pop()
-                .unwrap()
-                .1
-                .unwrap();
-            agents.discard_worktree(&id, made).await;
-            let (_, made) = agents
-                .provision_worktree(&id, dir.path())
-                .await
-                .unwrap()
-                .unwrap();
-            assert!(agents.shared.git.recover(dir.path(), &stale).is_err());
-            assert!(made.path.is_dir());
-            assert_eq!(git(&made.path, &["branch", "--show-current"]), made.branch);
-            let agents = reopen(agents);
-            assert!(agents.shared.rail().provisioning().unwrap().is_empty());
-            assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
         }
     }
 }

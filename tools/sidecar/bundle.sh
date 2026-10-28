@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # U3523f: assembles the listing sidecar folder the Daemon finds beside its executable:
 # the pinned Node binary, list.mjs, the pinned SDK in node_modules, and NOTICES.md.
-# Usage: bundle.sh <dest-dir>   (run after `pnpm install`)
+# Usage: bundle.sh <dest-dir> [--local-node]   (run after `pnpm install`)
 set -euo pipefail
 
 NODE_VERSION=22.23.3
@@ -13,6 +13,17 @@ SHA_linux_x64=df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de
 dest=${1:?usage: bundle.sh <dest-dir>}
 root=$(cd "$(dirname "$0")/../.." && pwd)
 src=$root/crates/agents/sidecar
+
+# Test Daemons use the installed runtime and SDK without a network download. Each
+# fixture owns its destination; symlinks keep parallel fixtures from copying the SDK.
+if [ "${2:-}" = --local-node ]; then
+    node=$(node -p 'process.execPath')
+    test -d "$src/node_modules/@anthropic-ai/claude-agent-sdk"
+    mkdir -p "$dest"
+    ln -sf "$node" "$dest/node"
+    ln -sf "$src/list.mjs" "$dest/list.mjs"
+    exit 0
+fi
 
 case "$(uname -s)-$(uname -m)" in
     Darwin-arm64) plat=darwin-arm64; ext=tar.gz; want=$SHA_darwin_arm64 ;;

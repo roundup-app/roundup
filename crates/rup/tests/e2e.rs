@@ -11,10 +11,6 @@ mod reaction;
 #[path = "e2e/wake.rs"]
 mod wake;
 
-// The launch-site audit inventories Daemon references in this harness, including migration fixtures.
-const REACTION_FIRINGS_V1: &str =
-    include_str!("../../rupd/migrations/project/0009-reaction-firings.sql");
-
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -667,7 +663,7 @@ fn advertised(brief: &str) -> Vec<String> {
     names
 }
 
-/// Q1: the vendored style every Brief carries.
+/// Q11: style text belongs to the plugin, never the Brief.
 const HOLD_PLAIN: &str = include_str!("../../agents/assets/hold-plain.md");
 
 /// Q6: the two pinned skills every Brief carries.
@@ -689,8 +685,8 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
     assert!(!seen.brief.contains(&format!("Agent id is {}", agent.id)));
     assert!(!seen.brief.contains("coordinating Door"));
     assert!(
-        seen.brief.contains(HOLD_PLAIN),
-        "Q1: the pinned hold:Plain body"
+        !seen.brief.contains(HOLD_PLAIN),
+        "Q11: the Brief must not duplicate the plugin style"
     );
     assert!(
         seen.brief.contains(REDUCE) && seen.brief.contains(SHOW_ME),
@@ -2861,35 +2857,8 @@ async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::S
     }
 }
 
-#[tokio::test]
-async fn a33_completing_the_blocker_reads_idle() {
-    let (_project, client, agent) =
-        a33_blocked_agent("a33_completing_the_blocker_reads_idle").await;
-    let blocked = a33_reading(&client, &agent.id, Kind::Blocked).await;
-    assert_eq!(blocked.label, "waits on #1");
-    client
-        .request("todo.complete", json!({ "id": 1 }))
-        .await
-        .unwrap();
-    a33_reading(&client, &agent.id, Kind::Idle).await;
-    let blocker = client
-        .request("todo.create", json!({"title":"next blocker"}))
-        .await
-        .unwrap();
-    client
-        .request(
-            "todo.setBlockers",
-            json!({"id":2,"blockers":[blocker["id"]]}),
-        )
-        .await
-        .unwrap();
-    a33_reading(&client, &agent.id, Kind::Blocked).await;
-    client
-        .request("todo.delete", json!({"id":2}))
-        .await
-        .unwrap();
-    a33_reading(&client, &agent.id, Kind::Idle).await;
-}
+#[path = "e2e/todo_waits.rs"]
+mod todo_waits;
 
 // P14: a Pad has no Scribe.
 

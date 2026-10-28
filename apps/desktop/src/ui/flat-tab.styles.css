@@ -16,29 +16,15 @@
   content: "";
   position: absolute;
   inset: auto 0 0;
-  height: var(--rule, 1px);
+  height: var(--rule, var(--flat-tab-edge));
   background-color: var(--hairline);
   pointer-events: none;
   z-index: 0;
 }
 
-/* U2232: the Terminal tabs are the centre's last line, so the Zed bar turns over: the --sunken band and its rule start below the hint line, on the tab row's top edge, and the selected tab opens upward into the Terminal instead of joining nothing. */
-.resource-strip[data-flat-bar] {
-  isolation: isolate;
-}
-
-/* The hint line keeps the page ground; only the tab row is the --sunken band. */
-.resource-strip[data-flat-bar]::before {
-  content: "";
-  position: absolute;
+/* Terminal tabs open upward into the pane; their rule aligns with the Rail footer. */
+.terminal-tabs-host[data-flat-bar]::after {
   inset: 0 0 auto;
-  height: var(--hint-row-height);
-  background-color: var(--ground);
-  z-index: -1;
-}
-
-.resource-strip[data-flat-bar]::after {
-  inset: var(--hint-row-height) 0 auto;
 }
 
 [data-flat-tab] {
@@ -47,7 +33,7 @@
   align-items: center;
   border-style: none;
   border-radius: var(--flat-radius);
-  background-color: transparent;
+  background-color: var(--transparent);
   color: var(--grey);
 }
 
@@ -62,8 +48,8 @@
   border-style: solid;
   border-top-width: 0;
   border-bottom-width: 0;
-  border-left-width: 1px;
-  border-right-width: 1px;
+  border-left-width: var(--flat-tab-edge);
+  border-right-width: var(--flat-tab-edge);
   border-top-color: var(--hairline);
   border-bottom-color: var(--hairline);
   border-left-color: var(--hairline);
@@ -76,23 +62,34 @@
 [data-flat-tab]:not([data-selected="true"])::after {
   content: "";
   flex: none;
-  width: 1px;
+  width: var(--flat-tab-edge);
 }
 
 /* The controls inside a tab take the tab's ink and paint no ground at rest, hover or press (the button hooks of buttons.css, U170); a press dims the ink (U510). */
 [data-flat-tab],
 [data-flat-add] {
-  --button-surface: transparent;
+  --button-surface: var(--transparent);
   --button-radius: 0;
 }
 
 /* A library trigger inside a tab (the Project tab name) never paints its own selected or hover ground; only the tab ground marks selection. */
 [data-flat-tab] .app-tabs-trigger[data-selected],
 [data-flat-tab] .app-tabs-trigger[data-selected]:hover {
-  --button-surface: transparent;
+  --button-surface: var(--transparent);
 }
 
 /* A tab under a dragged item takes the --text ink, as hover does; a tab never paints a hover ground (#2173). */
 [data-flat-tab][data-drop="hover"] {
   color: var(--text);
+}
+
+/* The pane supplies the first tab's hairline; a spacer preserves selection's footprint. */
+.terminal-tab-pair:first-child[data-selected="true"] {
+  border-left-width: 0;
+}
+
+.terminal-tab-pair:first-child[data-selected="true"]::before {
+  content: "";
+  flex: none;
+  width: var(--flat-tab-edge);
 }

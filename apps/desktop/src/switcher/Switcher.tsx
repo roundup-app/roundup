@@ -1,11 +1,14 @@
+import { useDialog } from "@ark-ui/solid/dialog";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
-import { debounce } from "@solid-primitives/scheduled";
+import { batch, createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
+import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
+import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
 import { leaderChord, SWITCHER_CLOSE } from "../keys/chords";
@@ -15,17 +18,11 @@ import { entriesOf, matching } from "./entries";
 import type { Entry } from "./entries";
 import "./styles.css";
 
-const focusTarget = (): void => {
-  const target = document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
-    ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
-
-  target?.focus();
-};
-
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
   const { app, rail, project, drafts } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
+  trackSurface(open);
 
   const destination = { surface: "switcher", object: project.path, recipient: null };
 
@@ -40,16 +37,35 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const restored = v.safeParse(v.string(), current()?.value.query);
   const [text, setText] = createSignal(restored.success ? restored.output : "");
-  const [copied, setCopied] = createSignal(false);
-  const clearCopied = debounce(() => setCopied(false), 2000);
+  const feedback = createCopyFeedback();
+  const copied = feedback.copied;
+  createEffect(on(() => [text(), current()?.revision], feedback.reset));
   const [copyFailure, setCopyFailure] = createSignal<{ revision: string | null } | null>(null);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let restoring = false;
   let savedSelection = current()?.selection ?? null;
   let input: HTMLInputElement | undefined;
   let panel: HTMLElement | undefined;
-  let returnTo: Element | null = null;
-  let afterOpen: Element | null = null;
+
+  let chosenPane = false;
+  let chosenTerminal: string | null = null;
+
+  const dialog = useDialog(() => ({
+    open: open(), modal: false, trapFocus: true, preventScroll: false,
+    restoreFocus: true, closeOnInteractOutside: true,
+    "aria-label": copy.switcherLabel,
+    initialFocusEl: () => openingFocus.target(() => input),
+    finalFocusEl: () => chosenPane
+      ? chosenTerminal
+        ? document.querySelector<HTMLElement>(`[data-bubble="${chosenTerminal}"] textarea`)
+        : document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
+          ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")
+      : null,
+    // A background layer closing is not a parent dismissal of this independent dialog.
+    onRequestDismiss: event => event.preventDefault(),
+    onOpenChange: details => { if (!details.open) close(true); },
+  }));
+
   const [opening, setOpening] = createSignal<{ selected: string | null; actions: ReturnType<typeof captureActions> }>({ selected: null, actions: [] });
 
   const openingSurvives = () => rail.selected() === opening().selected
@@ -58,6 +74,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const actions = createMemo(() => openingSurvives() ? opening().actions.filter((action) => action.available()) : []);
 
   const entries = createMemo(() => entriesOf(rail.nodes, rail.terminals()));
+
+  const byValue = createMemo(() => new Map(entries().map(entry => [entry.value, entry])));
 
   const shown = createMemo(() => [
     ...matching(entries(), text()),
@@ -91,7 +109,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     const selection = input ? [input.selectionStart, input.selectionEnd, input.selectionDirection ?? "none"] as const : null;
 
     // Let removal of the pressed button finish before returning the native caret.
-    queueMicrotask(() => {
+    queueFocus(() => {
       if (!open() || !input?.isConnected) return;
       input.focus();
 
@@ -119,30 +137,22 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const copyQuery = (): void => {
     const revision = current()?.revision ?? null;
 
-    void writeText(app, text()).then(() => {
-      if (revision !== (current()?.revision ?? null)) return;
-      setCopyFailure(null);
-      setCopied(true);
-      clearCopied();
+    const query = text();
+    void feedback.run(() => writeText(app, query), () => {
+      if (revision === (current()?.revision ?? null)) setCopyFailure(null);
     }, () => {
-      if (revision !== (current()?.revision ?? null)) return;
-      setCopied(false);
-      setCopyFailure({ revision });
+      if (revision === (current()?.revision ?? null)) setCopyFailure({ revision });
     });
   };
 
   const close = (restore: boolean): void => {
     retain();
+    chosenPane = !restore;
     setOpen(false);
-
-    if (restore) {
-      if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
-
-      if (document.activeElement !== returnTo && afterOpen instanceof HTMLElement && afterOpen.isConnected) afterOpen.focus();
-    }
   };
 
-  const choose = (entry: Entry): void => {
+  const choose = (entry: Entry): void => batch(() => {
+    chosenTerminal = entry.terminal?.id ?? null;
     close(false);
     props.onFailure(null);
 
@@ -156,8 +166,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     const node = entry.node!;
 
     rail.select(node.id);
-    focusTarget();
-  };
+  });
 
   const chooseValue = (value: string | null): void => {
     const action = opening().actions.find((candidate) => candidate.value === value);
@@ -165,7 +174,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (action) {
       if (!openingSurvives() || !action.available()) return;
       close(true);
-      action.run();
+      // Let the dialog release its focus trap before the command requests its destination.
+      queueMicrotask(action.run);
 
       return;
     }
@@ -177,12 +187,15 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   createEffect(() => { if (open() && modalOutside(panel)) close(false); });
 
+  let openingFocus = captureFocus();
+
   const show = (): void => {
     if (modalOpen()) return;
-    returnTo = document.activeElement;
-    setOpening({ selected: rail.selected(), actions: captureActions(returnTo) });
+    chosenPane = false;
+    chosenTerminal = null;
+    openingFocus = captureFocus(true);
+    setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement) });
     props.onOpen();
-    afterOpen = document.activeElement;
     savedSelection = current()?.selection ?? null;
     restoring = true;
     setOpen(true);
@@ -195,26 +208,19 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   return (
     <Show when={open()}>
-      <section class="switcher" ref={(element) => {
-        panel = element;
-        queueMicrotask(() => {
-          input?.focus();
-          // Restore after Ark's initial-focus frame; a dismissed opening must not touch the next field.
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            if (!element.isConnected || !restoring || !open()) return;
-
-            const selection = savedSelection;
-
-            if (selection) input?.setSelectionRange(selection.start, selection.end, selection.direction);
-            restoring = false;
-          }));
-        });
-      }}>
-        <Combobox.Root inputValue={text()} inputRef={(element) => {
+      <section {...dialog().getContentProps()} aria-label={copy.switcherLabel} class="switcher" ref={element => { panel = element; }}>
+        <Combobox.Root autoFocus={false} focusScope={() => panel} onDismiss={() => close(false)} initialFocus={openingFocus} inputValue={text()} inputRef={(element) => {
           input = element;
           // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
           element.addEventListener("input", () => { restoring = false; setText(element.value); retain(); });
-          element.addEventListener("select", retain);
+          element.addEventListener("select", () => {
+            // Native select follows Ark's focus selection and controlled-value caret update.
+            if (restoring && element.isConnected && document.activeElement === element) {
+              restoring = false;
+
+              if (savedSelection) element.setSelectionRange(savedSelection.start, savedSelection.end, savedSelection.direction);
+            } else retain();
+          });
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {
@@ -222,12 +228,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
             retain();
           });
-        }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
+        }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);
-            const entry = entries().find((candidate) => candidate.value === item.value);
+            const entry = byValue().get(item.value);
 
             if (action) return <KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={action.keys}>{action.label}</KeyHint>;
 

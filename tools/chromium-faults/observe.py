@@ -214,10 +214,12 @@ def main():
                     event = pending.pop(key)
                     reported = event.get("reported", False)
                     alive = Path(f"/proc/{key[0]}").exists()
-                    if alive:
-                        resolved[key] = event
-                        if len(resolved) > 1024:
-                            del resolved[next(iter(resolved))]
+                    # Task exit cannot order per-CPU completion delivery. Keep
+                    # the identity and live-report state until its notification
+                    # arrives, even when the task has already vanished.
+                    resolved[key] = event
+                    if len(resolved) > 1024:
+                        del resolved[next(iter(resolved))]
                     # A vanished task independently establishes termination;
                     # otherwise the kernel map establishes only absence now.
                     event = dict(event, status="resolved" if alive else "terminated", resolution="absent from kernel live-fault map")

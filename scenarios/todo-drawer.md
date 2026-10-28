@@ -14,26 +14,17 @@ Moves: D2, D5, D6 (D2 `docs/design-system.md:126`, D5 `docs/design-system.md:129
 
 **T15 a Todo keeps its changes without enlarging lists.** Given a Todo created after history storage is installed, when its body, title, done state or blocker list changes, then its durable history holds creation's initial values followed by each successful change in mutation order. Each change identifies the changed field and its before and after values, including full multiline bodies and blocker identities; changing title and body together is one change with both fields. No-op writes, rejected writes, reads, reorder and Home changes add no history entry. Deleting a blocker records its removal in each surviving affected Todo; merely completing a blocker and changing derived `blocked` does not record a blocker-list change. Tests: `t15_initial_values_and_field_changes`, `t15_combined_update_is_one_change`, `t15_noops_and_rejections_add_nothing`, `t15_reads_reorder_and_move_add_nothing` and `t15_deleted_blocker_is_recorded`.
 
-Definition (relocated): **Read History** (`todo.readHistory`, `ReadHistoryParams`):
-log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
-
-Definition (relocated): **Change** (`Change`):
-initial Values or the before and after Values of one successful Todo mutation, or a Hand-off (`handed` names the Agent, `before` and `after` equal). `seq` orders Changes; `changed_at` is the Unix milliseconds the Daemon recorded it (absent for Changes recorded before it existed). Lists and the Rail do not carry them.
-
-Definition (relocated): **Values** (`Values`):
-a Todo's title, body, done state and blocker identities, as kept by a Change.
-
-Definition (relocated): **Get History** (`todo.getHistory`):
-fetch one Todo's History and its previous read boundary without logging a read Touch.
-
-Definition (relocated): **History** (`History`):
-the ordered durable Changes of one Todo, fetched only by its open Drawer. Reading History does not log a Touch.
-
 Cost observer (TC1): `t15_list_and_rail_do_not_load_history` needs the real Project Daemon with history storage made unavailable from a separate database connection: both public list paths answer while the history request fails. The storage-only list test cannot prove Daemon dispatch avoids history.
 
 Given stored history or a database predating history, when the Daemon restarts or migrates that database, then stored changes retain their values and order; an old Todo has its current values as a baseline, with no invented past changes. Missing Todos return NOT_FOUND from the history read. A successful persisted mutation and its history cannot disagree after restart; failure to persist history must not leave an unrecorded successful mutation. Tests: `t15_restart_retains_history`, `t15_old_database_has_current_baseline`, `t15_unknown_todo_is_not_found` and `t15_history_failure_leaves_no_unrecorded_mutation`.
 
 Given Todos with 0 and with 1000 history entries each, when the Shelf lists Todos or `rail.tree` is called, then neither reply contains history and neither path queries history storage or makes a history RPC. Only an open Todo Drawer requests its history. Tests: `t15_list_and_rail_do_not_load_history` probes both Daemon paths with query observation; `u462_only_the_open_drawer_requests_history` asserts App RPC calls. Observer: `cargo test -p todos t15_` and a `t15_` real-Daemon integration case in `crates/rup/tests/`; run `just perf` with the populated history fixture and retain AGENTS.md rule 7's budgets and 10% regression limit. Policy: own the history store, contract, Daemon dispatch and all contract callers/fakes necessary for this behavior, plus the Todo Drawer; no unrelated Shelf or Rail redesign.
+
+**History** (`History`): the ordered durable Changes of one Todo, fetched only by its open Drawer. Reading History does not log a Touch.
+
+**Values** (`Values`): a Todo's title, body, done state and blocker identities, as kept by a Change.
+
+**Change** (`Change`): initial Values or the before and after Values of one successful Todo mutation, or a Hand-off (`handed` names the Agent, `before` and `after` equal). `seq` orders Changes; `changed_at` is the Unix milliseconds the Daemon recorded it (absent for Changes recorded before it existed). Lists and the Rail do not carry them.
 
 **U462 the Todo's changes follow the user's reads.** Given a Todo with T15 history, when its Drawer opens, then below its current body and dependency groups it renders initial values and subsequent changes oldest first, naming body, title, done state and blocker additions/removals. Changed text is readable in full; history is read-only and shows no dates, times, elapsed durations, creator or last-touch metadata. It does not replace the editable current Todo. Tests: `u462_history_renders_changes_in_order_without_times` and `u462_history_does_not_replace_current_editors`.
 
@@ -42,6 +33,10 @@ Given the user's existing Touches for that Todo, when the Drawer opens, then it 
 Given an open Drawer, when another Actor changes that Todo, then history refreshes from the Daemon without losing an in-progress edit or keyboard focus, and the new change appears below the rule; this opening's captured boundary stays fixed. Closing and reopening uses the latest existing user read Touch, rather than a separate read flag or a timestamp displayed to the user. A delayed response for a closed or different Todo must not replace the selected Todo's history or move its boundary. A failed history read shows its failure and a retry control while the current Todo remains editable; retry neither invents entries nor consumes the unread boundary. Tests: `u462_live_history_keeps_edit_and_focus`, `u462_reopening_uses_existing_touches`, `u462_stale_response_cannot_replace_selected_history` and `u462_failed_history_read_can_retry`.
 
 Observer: `u462_real_daemon_history_and_reads` uses U144's real harness and U146's fake `claude`: a Door creates a Todo, the user opens and reads it, closes it, the Door changes its body/title/blockers and completes it, and the user reopens it. Assert the ordered history and rule after the previous read, then restart the Daemon and reopen the Project to assert the same stored changes. Run rendered checks and captures at U461's viewports in dark only (U3725); behavioral observers retain U461's light and dark coverage; this proves the journey's Todo evolution, not the entire journey or native macOS rendering. Moves: D2, D5, D6 (D2 `docs/design-system.md:126`, D5 `docs/design-system.md:129`, D6 `docs/design-system.md:130` on main).
+
+**Get History** (`todo.getHistory`): fetch one Todo's History and its previous read boundary without logging a read Touch.
+
+**Read History** (`todo.readHistory`, `ReadHistoryParams`): log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
 
 
 **U461a reopen from every Todo surface.** Work order: [#3067](https://github.com/saadshahd/roundup/issues/3067). Journey: Review. Amends U361's disabled done tick box and U461's completion-only control; extends U152's action coverage. Given a done Todo on each existing Todo surface (Shelf lists including the expanded done fold and Agent-filtered lists, the Drawer, and the Rail's Todo tree), when the user clicks its tick box or tabs to it and presses Space, then exactly one `todo.reopen {id}` is sent and no `todo.complete`, delete or move call occurs. The done control has an accessible action name describing reopening that Todo. Opening its Drawer is not a side effect of the tick-box action. Each surface retains its accepted checked value while pending, accepts no duplicate activation, displays a rejected call's message with the Todo still done, and allows retry. Tests: `u461a_each_surface_reopens_by_pointer_and_space`, `u461a_pending_and_failure_preserve_accepted_value` against the existing fake App seam; parameterize the surfaces and input paths rather than duplicating their proofs.

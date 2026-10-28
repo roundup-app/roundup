@@ -1,6 +1,7 @@
+import { outcomeOf } from "../app/seam";
+import { captureFocus } from "../keys/focus";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
-import { NativeAlert } from "../ui/NativeAlert";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
@@ -15,8 +16,9 @@ import { TodoRefs } from "./TodoRefs";
 import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
+import { useTodoList } from "./todoList";
 import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema } from "./EditableText";
-import { doesClearTodoFailure, failureOf, outcomeOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "./failureOf";
 import { BlockerMenu } from "./BlockerMenu";
 import type { TodosState } from "./state";
 import { blockedBy, blockersOf, kindOf, offeredAsBlockers } from "./todoView";
@@ -30,7 +32,7 @@ const TodoLine = (props: { todo: Todo }) => (
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
 export const TodoDrawer = (props: {
   id: number;
-  onComment?: () => void;
+  onComment?: (focus: ReturnType<typeof captureFocus>) => void;
   todos: TodosState;
   /** Recovery uses loaded original identities and never fetches or acknowledges History. */
   recovery?: { project: string; revision: string };
@@ -69,9 +71,12 @@ export const TodoDrawer = (props: {
   const [offering, setOffering] = createSignal(false);
   const [noticeDismissed, setNoticeDismissed] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
-  const [asking, setAsking] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
-  let deleteButton: HTMLButtonElement | undefined;
+  const [deleteRefused, setDeleteRefused] = createSignal(0);
+
+  const deletionRefusal = () => !deleteRefused() ? null
+    : drafts.todoUndo.uncertain() ? (drafts.todoUndo.ids().length ? copy.todoDeleteUnconfirmed(drafts.todoUndo.ids()) : copy.deleteUnconfirmed)
+    : drafts.todoUndo.pending() ? copy.todoRestorePending : null;
 
   const [saved, setSaved] = createSignal(0);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
@@ -103,13 +108,14 @@ export const TodoDrawer = (props: {
   let titleRow: HTMLDivElement | undefined;
 
   const toggle = () => attempt(async () => {
+    const focus = captureFocus();
     const focused = document.activeElement === titleRow?.querySelector("input");
     const reopening = props.todos.byId().get(props.id)?.done;
     await (reopening ? app.rpc("todo.reopen", { id: props.id }) : app.rpc("todo.complete", { id: props.id }));
 
     const stayed = document.activeElement === titleRow?.querySelector("input") || document.activeElement === document.body;
 
-    if (!reopening && focused && stayed) titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus();
+    if (!reopening && focused && stayed) focus(() => titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus());
   });
 
   // Picks run one after another, each from the list the previous one answered: the list state only catches up when the Event arrives.
@@ -121,7 +127,7 @@ export const TodoDrawer = (props: {
 
   // U152, U138: a keyboard step that removes the focused button hands focus to `+ blocker`, never the page body.
   let blockerButton: HTMLButtonElement | undefined;
-  let removing = false;
+  let removing: ReturnType<typeof captureFocus> | null = null;
 
   createEffect(
     on(
@@ -129,10 +135,11 @@ export const TodoDrawer = (props: {
       () => {
         if (!removing) return;
 
-        removing = false;
-        queueMicrotask(() => {
+        const focus = removing;
+        removing = null;
+        queueMicrotask(() => focus(() => {
           if (!document.activeElement || document.activeElement === document.body) blockerButton?.focus();
-        });
+        }));
       },
       { defer: true },
     ),
@@ -180,7 +187,7 @@ export const TodoDrawer = (props: {
       if (!drafts.list().some(draft => draft.revision === waiting.revision)) return;
 
       if (readFailure !== null || !change) {
-        drafts.submit(waiting.revision);
+        (await drafts.submit(waiting.revision));
         drafts.settle(waiting.revision, "failed");
         setFailure(readFailure ?? copy.originalUnverified);
 
@@ -192,7 +199,7 @@ export const TodoDrawer = (props: {
       const draft = drafts.edit(destination, { ...origin, title: change.after.title, body: change.after.body,
         done: change.after.done, blockers: blockers.map(String), baseBlockers: change.after.blockers.map(String), expected_change: change.seq }, null, "ordinary").draft;
 
-      drafts.submit(draft.revision);
+      (await drafts.submit(draft.revision));
 
       try {
         setAnswered(await app.rpc("todo.setBlockers", { id: props.id, blockers, expected_change: change.seq }));
@@ -225,14 +232,16 @@ export const TodoDrawer = (props: {
       return;
     }
 
-    if (!drafts.submit(draft.revision)) {
+    const target = props.id;
+
+    if (!(await drafts.submit(draft.revision))) {
       setFailure(copy.draftStatus[draft.status]);
 
       return;
     }
 
     try {
-      setAnswered(await app.rpc("todo.setBlockers", { id: props.id, blockers: form.blockers.map(Number), expected_change: form.expected_change }));
+      setAnswered(await app.rpc("todo.setBlockers", { id: target, blockers: form.blockers.map(Number), expected_change: form.expected_change }));
       drafts.settle(draft.revision, "acknowledged");
       clearFailure();
     } catch (error) {
@@ -246,28 +255,22 @@ export const TodoDrawer = (props: {
 
   /** U152: the other blockers stay, in order. */
   const removeBlocker = (blocker: number) => {
-    removing = true;
+    removing = captureFocus();
     changeBlockers("remove", blocker);
   };
 
   return (
     <>
       <div class="todo-detail">
-        <NativeAlert app={app} open={asking() && !!todo()}
-          question={{ title: copy.deleteTodoQuestion, message: todo() ? `#${props.id} ${todo()!.title}` : "", okLabel: copy.delete, cancelLabel: copy.keep }}
-          onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
-          onConfirm={() => {
-            setAsking(false);
-
-            if (deleting()) return;
-            setDeleting(true);
-            void attempt(async () => {
-              await app.rpc("todo.delete", { id: props.id });
-              setRemovedByMe(true);
-              drawer.close("key");
-            }).then(() => setDeleting(false));
-          }} />
-        <ReservedLine message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
+        <ReservedLine class="todo-delete-feedback"
+          aria-live={drafts.todoUndo.uncertain() ? undefined : "polite"} aria-atomic="true"
+          message={deletionRefusal() && drafts.todoUndo.uncertain() ? deletionRefusal() : failure()}
+          status={deletionRefusal() && !drafts.todoUndo.uncertain() ? deletionRefusal() : null}
+          content={deletionRefusal() ? <Show when={deleteRefused()} keyed>{press => <span>{press > 0 && deletionRefusal()}</span>}</Show> : undefined}>
+          <Show when={deletionRefusal() && drafts.todoUndo.uncertain()}>
+            <button data-button="quiet" type="button" disabled={drafts.todoUndo.pending()} onClick={() => void drafts.todoUndo.retryDelete()}>{copy.todoDeleteRetry}</button>
+          </Show>
+          <button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { setDeleteRefused(0); setFailure(null); }}>{copy.dismissFailure}</button></ReservedLine>
           <Show
             when={todo()}
             fallback={
@@ -341,8 +344,28 @@ export const TodoDrawer = (props: {
       <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
       <Show when={todo()}>
         <IconButton class="todo-delete" aria-label={copy.deleteTodo}
-          ref={(button) => { deleteButton = button; }}
-          onClick={() => { if (!deleting()) setAsking(true); }}>
+          disabled={deleting()}
+          onClick={() => {
+            if (deleting()) return;
+
+            if (drafts.todoUndo.pending() || drafts.todoUndo.uncertain()) {
+              setDeleteRefused(count => count + 1);
+
+              return;
+            }
+
+            setDeleteRefused(0);
+            const id = props.id;
+            const opening = drawer.content();
+            setDeleting(true);
+            void drafts.todoUndo.remove([id]).then(removed => {
+              if (removed) { setRemovedByMe(true);
+
+ if (drawer.content() === opening) drawer.close("key"); }
+              else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());
+              setDeleting(false);
+            });
+          }}>
           <Icon name="trash" />
         </IconButton>
       </Show>
@@ -351,3 +374,6 @@ export const TodoDrawer = (props: {
 };
 
 todoEditor.set(TodoDrawer);
+
+/** The Todo's Drawer with the shared list the Shelf reads (U15); it lives while the Drawer does. */
+export const TodoHost = (props: { id: number }) => <TodoDrawer id={props.id} todos={useTodoList()} />;

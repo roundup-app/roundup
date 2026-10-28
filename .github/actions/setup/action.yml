@@ -10,6 +10,9 @@ inputs:
   save-cache:
     description: On a push to main, save the Rust cache this job built; only a job that builds every test target sets it (L84).
     default: 'false'
+  experiment-cache:
+    description: Opt-in isolated CI3781 Rust cache namespace; honored only on hosted Linux pull requests. A new namespace prepares an empty cache, and subsequent runs restore its saved entry.
+    default: ''
   node:
     description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
     default: 'true'
@@ -37,32 +40,46 @@ runs:
     # The 184 packages download and unpack for about 35 s with nothing else to wait on: they install in the background
     # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
     # The 61 MB of packages come from a slow mirror (25 s): a cache of the downloaded archives leaves only the
-    # unpacking. The key changes with this file, which names the packages; apt downloads any package the cache holds an older version of.
+    # unpacking. The key changes with this file, which names the packages; apt downloads any package the cache holds an older version of,
+    # so an older entry restores under `restore-keys` and an edit here never leaves every lane downloading all 61 MB.
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       id: apt-archives
       uses: actions/cache@v5
       with:
         path: ~/apt-archives/*.deb
         key: apt-tauri-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/actions/setup/action.yml') }}
+        restore-keys: apt-tauri-${{ runner.os }}-${{ runner.arch }}-
     - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       name: Start Tauri packages
       shell: bash
       run: |
         mkdir -p "$HOME/apt-archives/partial"
-        setsid sudo bash -c 'apt-get update && apt-get install -y -o Dir::Cache::archives="$2" libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq; echo $? >"$1"' _ "$RUNNER_TEMP/apt.status" "$HOME/apt-archives" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
+        # A mirror that crawls at 40 kB/s (26 min for these packages) is not a stall `Acquire::http::Timeout` catches: each
+        # attempt gets 3 min, and the next resumes the partial downloads, usually from a faster mirror connection.
+        setsid sudo bash -c 'for attempt in 1 2 3 4; do timeout 180 bash -c "apt-get update && apt-get install -y -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Dir::Cache::archives=$1 libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq" && break; done; echo $? >"$2"' _ "$HOME/apt-archives" "$RUNNER_TEMP/apt.status" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
     - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: 1.99.0
         components: clippy, rustfmt
     # One key per OS for every job that builds the workspace. `check-<OS>` is the check job's own key, so Builders
-    # restore the entries main's check saved on their OS (L84). Only a push to main saves: a PR or a Builder branch would store its own 726 MB copy.
+    # restore the entries main's check saved on their OS (L84). CI3781 opt-in PRs use a separate namespace
+    # and may save it on Linux; GitHub scopes those entries to the PR merge ref, inaccessible from main.
     # The first job to save a key keeps it, so a job that builds only part of the workspace never saves.
+    # Hash the complete namespace: punctuation stays distinct without entering cache keys.
+    - if: runner.environment != 'self-hosted' && inputs.rust != 'false' && runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != ''
+      id: experiment
+      shell: bash
+      env:
+        NAMESPACE: ${{ inputs.experiment-cache }}
+      run: |
+        digest=$(printf '%s' "$NAMESPACE" | sha256sum)
+        echo "namespace=${digest%% *}" >>"$GITHUB_OUTPUT"
     - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
       uses: Swatinem/rust-cache@v2
       with:
-        shared-key: check-${{ runner.os }}
-        save-if: ${{ inputs.save-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        shared-key: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '' && format('ci3781-{0}', steps.experiment.outputs.namespace) || format('check-{0}', runner.os) }}
+        save-if: ${{ inputs.save-cache == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (runner.os == 'Linux' && github.event_name == 'pull_request' && inputs.experiment-cache != '')) }}
     # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
     # daemon build` joins it.
     - if: runner.environment != 'self-hosted' && inputs.rust == 'build'

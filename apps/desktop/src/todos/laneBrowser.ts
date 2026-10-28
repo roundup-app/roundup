@@ -30,7 +30,7 @@ export type LaneBrowser = {
   /** Writes the Checks and a screenshot through the shared capture directory when enabled. */
   capture: (id: string, step: string) => Promise<void>;
   /** Reloads the harness, makes one Todo per title, the third blocked by the first, and shows the Todos tab. */
-  seedTodos: (titles: readonly string[], blocked?: boolean) => Promise<void>;
+  seedTodos: (titles: readonly string[], blocked?: boolean, seed?: string) => Promise<void>;
   /** The Todo ids in the order the Shelf shows them. */
   order: () => Promise<number[]>;
   /** The `method` of every call the fake Daemon took since the last reset, with its params. */
@@ -52,10 +52,10 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
   await browser("set", "viewport", String(width), width === 1280 ? "800" : "950");
   await browser("set", "media", scheme, ...(reduced ? ["reduced-motion"] : []));
 
-  const reload = async () => {
+  const reload = async (seed = "tree-40") => {
     // A selected Workstream or scope outlives a reload; each test starts from tree-40 as the harness opens it.
     await browser("eval", "localStorage.clear()").catch(() => undefined);
-    await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
+    await browser("open", `${server.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=${seed}`);
     await browser("wait", ".shelf-tabs");
   };
 
@@ -83,11 +83,24 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
       writeFileSync(join(dir, `${width}x${width === 1280 ? 800 : 950}-${scheme}-${step}.checks.json`), JSON.stringify(await evaluate<Checks>("window.__checks()")) + "\n");
       await browser("screenshot", join(dir, `${width}x${width === 1280 ? 800 : 950}-${scheme}-${step}.png`));
     },
-    seedTodos: async (titles, blocked = true) => {
-      await reload();
+    seedTodos: async (titles, blocked = true, seed = "tree-40") => {
+      await reload(seed);
+
+      // tabs-8 installs its first fake Daemon on Project 2 before the App connects.
+      if (seed === "tabs-8") {
+        await until("document.querySelectorAll('.project-tab').length === 8 && !document.querySelector('.project-tab [aria-busy=true]')");
+        await browser("focus", ".project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]");
+        await browser("press", "Enter");
+        await until("document.querySelector('.project-tab[data-path=\"/Users/you/project-number-2\"] [role=tab]').getAttribute('aria-selected') === 'true'");
+      }
+
+      await browser("click", "[data-todo-root]");
+
+      // Consume the seed's initial refusal before installing this observer's exact failing action.
+      if (seed === "conflict") await evaluate("window.__fake.app.rpc('todo.list', null).catch(error => { if (error.code !== -32003) throw error; return []; })");
       await evaluate(`(async () => {
         const rpc = window.__fake.app.rpc;
-        for (const todo of await rpc('todo.list', null)) await rpc('todo.delete', { id: todo.id });
+        for (const todo of await rpc('todo.list', null)) await rpc('todo.delete', { operation: crypto.randomUUID(), ids: [todo.id] });
         window.__fake.actAs({ kind: 'agent', id: 'tokens', parent: null });
         const made = [];
         for (const title of ${JSON.stringify(titles)}) made.push(await rpc('todo.create', { title, body: null, blockers: null }));

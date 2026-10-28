@@ -2,6 +2,8 @@ import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createSignal } from "solid-js";
+import fuzzysort from "fuzzysort";
+import { chooseAction as chooseRailAction } from "../rail/railFixture";
 import { CHORDS, LEADER } from "../keys/chords";
 import { leaderKey } from "../keys/leaderFixture";
 import { openTabs, tab } from "../header/stripFixture";
@@ -10,27 +12,40 @@ import { field, mountSwitcher, openSwitcher, switcherKey as press } from "./swit
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
-it("u2572a_searches_destinations_then_grouped_actions", async () => {
-  await mountSwitcher("ws", [
-    workstream("ws", { name: "new-onboarding" }),
-    agent("a", "idle", "idle", { parent: "ws", name: "renew-token" }),
-    agent("b", "idle", "idle", { parent: "ws", name: "New Agent" }),
-  ], [info("7", { owner: "ws", title: "new-shell" })]);
-  await show();
-  fireEvent.input(field()!, { target: { value: " NeW " } });
-  await waitFor(() => expect([...document.querySelectorAll('.switcher [role="option"]')].map((row) => row.querySelector('.switcher-name')?.textContent)).toEqual([
-    "new-onboarding", "renew-token", "New Agent", "new-shell", "New Agent", "New Agent with a prompt", "New Terminal",
-  ]));
-  const groups = within(document.querySelector(".switcher")!).getAllByRole("group", { name: "Actions" });
+it.each(["new", " NeW ", "nsh", "New Agent with a prompt", "zzzz-no-match", "", "   "])(
+  "z3788b_queries_rank_both_groups_and_keep_blank_order: %s", async (query) => {
+    const destinations = [
+      { value: "renew", label: "renew-token" },
+      { value: "ws", label: "new" },
+      { value: "first", label: "New Agent" },
+      { value: "second", label: "New Agent" },
+      { value: "terminal:7", label: "new-shell" },
+    ];
 
-  expect(groups).toHaveLength(1);
-  expect(within(groups[0]!).getAllByRole("option").map((row) => row.getAttribute("data-value"))).toEqual([
-    "action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T",
-  ]);
-  expect([...document.querySelectorAll<HTMLElement>('.switcher [role="option"]')].map((row) => row.dataset.value)).toEqual([
-    "ws", "a", "b", "terminal:7", "action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T",
-  ]);
-});
+    await mountSwitcher("ws", [
+      workstream("ws", { name: "new" }),
+      agent("first", "idle", "idle", { parent: "ws", name: "New Agent" }),
+      agent("renew", "error", "failure", { parent: "ws", name: "renew-token", order: 1 }),
+      agent("second", "idle", "idle", { parent: "ws", name: "New Agent", order: 2 }),
+    ], [info("7", { owner: "ws", title: "new-shell" })]);
+    await show();
+    const actions = actionRows().map(row => ({ value: row.dataset.value!, label: row.querySelector(".switcher-name")!.textContent! }));
+
+    const ranked = (group: typeof destinations) => {
+      if (!query.trim()) return group.map(entry => entry.value);
+
+      return [...fuzzysort.go(query.trim(), group, { key: "label", threshold: 0, limit: 0 })]
+        .sort((a, b) => b.score - a.score || group.indexOf(a.obj) - group.indexOf(b.obj))
+        .map(result => result.obj.value);
+    };
+
+    await search(query);
+    await waitFor(() => expect(options().map(row => row.dataset.value)).toEqual([...ranked(destinations), ...ranked(actions)]));
+    const groups = within(document.querySelector(".switcher")!).queryAllByRole("group", { name: "Actions" });
+
+    expect(groups.flatMap(group => within(group).getAllByRole("option").map(row => row.getAttribute("data-value")))).toEqual(ranked(actions));
+  },
+);
 
 const options = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('.switcher [role="option"]')];
 
@@ -61,21 +76,6 @@ const chooseAction = async (label: string, how: "enter" | "pointer") => {
   } else press("Enter", {}, field()!);
   await waitFor(() => expect(field()).toBeNull());
 };
-
-it.each(["New Agent with a prompt", "zzzz-no-match", ""])("u2572a_action_only_empty_and_unfiltered_results: %s", async (query) => {
-  await mountSwitcher("ops");
-  await show();
-  await search(query);
-
-  if (query === "zzzz-no-match") {
-    expect(options()).toHaveLength(0);
-    expect(document.querySelector('.switcher [role="group"]')).toBeNull();
-    expect(document.querySelector(".switcher")?.textContent).toContain("No match");
-  } else {
-    const names = actionNames();
-    expect(names).toEqual(query ? ["New Agent with a prompt"] : ["New Agent", "New Agent with a prompt", "New Terminal", "Ask bar", "Jump to what needs you"]);
-  }
-});
 
 it.each(["enter", "pointer"] as const)("u2572b_actions_share_key_behavior_in_the_opening_view: creation by %s", async (how) => {
   const { app, connected } = await mountSwitcher("ops");
@@ -137,7 +137,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: r
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: Ask %s", async (byAction) => {
   await mountSwitcher("ops");
 
-  if (byAction) { await show(); await chooseAction("Ask bar", "pointer"); }
+  if (byAction) { await show(); await chooseAction("Focus the Ask bar", "pointer"); }
   else press("/", { metaKey: true, code: "Slash" });
   await waitFor(() => expect(document.activeElement?.closest(".ask-bar")).not.toBeNull());
 });
@@ -194,7 +194,7 @@ it.each(["S", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
 
     const beforeShelf = document.querySelector<HTMLElement>(".window")?.dataset.shelf;
 
-    if (byAction) { await show(); await chooseAction(key === "S" ? "Show or hide the work items" : "Jump to what needs you in another Project", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "S" ? "Open work items" : "Jump to what needs you in another Project", "enter"); }
     else leaderKey("Key" + (key === "S" ? "S" : "J"), { shiftKey: key === "⇧J" });
 
     if (key === "S") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
@@ -224,7 +224,7 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
 
   const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
     ...(context === "rail" ? ["Remove"] : []),
-    "Ask bar", "Jump to what needs you", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
+    "Focus the Ask bar", "Assign a Todo to an owner, or go back to Ask", "Jump to what needs you", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
   press("Escape", {}, field()!);
@@ -250,10 +250,10 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
   else if (change === "selection") connected.rail.select("ops");
   else {
     app.handlers["agent.spawn"] = () => new Promise(() => {});
-    fireEvent.click(document.querySelector<HTMLButtonElement>('[data-id="lead"] button[aria-label="Add Agent"]')!);
+    await chooseRailAction(app, "ops", "Agent");
   }
 
-  await waitFor(() => expect(actionNames()).not.toContain(label));
+  await waitFor(() => expect(actionRows().map(row => row.dataset.value)).not.toContain(stale.dataset.value));
   const afterChange = app.calls.length;
   fireEvent.pointerDown(stale, { button: 0 });
   fireEvent.click(stale);
@@ -267,15 +267,15 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
 it("u2572c_no_selection_no_attention_and_a_removed_Bubble_never_fall_back", async () => {
   const { app, connected } = await mountSwitcher(null, [workstream("ws", { name: "only" })], [info("7", { owner: "ws" })]);
   await show();
-  expect(actionNames()).toEqual(["New Agent", "New Agent with a prompt", "New Terminal", "Ask bar"]);
+  expect(actionRows().map(row => row.dataset.value)).toEqual(["action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T", "action:chord:⌘/"]);
   press("Escape", {}, field()!);
   connected.rail.select("ws");
   document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
   await show();
-  expect(actionNames()).toContain("Close the Bubble");
+  expect(actionRows().map(row => row.dataset.value)).toContain("action:leader:W");
   app.handlers["terminal.list"] = () => [];
   await connected.rail.refresh({ terminals: true });
-  await waitFor(() => expect(actionNames()).not.toContain("Close the Bubble"));
+  await waitFor(() => expect(actionRows().map(row => row.dataset.value)).not.toContain("action:leader:W"));
 });
 
 it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s", async (context) => {
@@ -288,9 +288,8 @@ it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s"
   await show();
 
   for (const option of actionRows()) {
-    const row = [...CHORDS, ...LEADER].find((row) => row.what === option.querySelector(".switcher-name")?.textContent)!;
+    const row = [...CHORDS, ...LEADER].find(row => `action:${"press" in row ? "leader" : "chord"}:${row.keys}` === option.dataset.value)!;
     const keys = "press" in row ? `${CHORDS[3]!.keys} ${row.keys}` : row.keys;
-    expect(option.querySelector(".key-chips")?.textContent).toBe(keys);
     expect([...option.querySelectorAll("kbd.key-chip")].map((chip) => chip.textContent).join("")).toBe(keys.replaceAll(" ", ""));
   }
 });
@@ -337,10 +336,13 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
 it("u2572b_the_Shelf_action_keeps_its_opening_toggle_after_the_overlay_closes", async () => {
   await openTabs({ web: [agent("w", "idle", "idle")] });
   const window = document.querySelector<HTMLElement>(".window")!;
+  press("k", { metaKey: true, code: "KeyK" });
+  press("s", { code: "KeyS" });
+  await waitFor(() => expect(window.dataset.shelf).toBe("open"));
   window.dataset.shelfMode = "overlay";
   await show();
   expect(window.dataset.shelf).toBe("closed");
-  await chooseAction("Show or hide the work items", "enter");
+  await chooseAction("Open work items", "enter");
   expect(window.dataset.shelf).toBe("closed");
 });
 

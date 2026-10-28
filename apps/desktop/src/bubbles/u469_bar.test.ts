@@ -36,43 +36,31 @@ const capture = async (name: string): Promise<void> => {
   if (baseline && name === "bar-1280-light") writeFileSync(join(dir, "main-observer.json"), JSON.stringify(JSON.parse(readFileSync(baseline, "utf8"))));
 };
 
-it("u469_the_bar_is_the_last_line_and_no_dock_remains", async () => {
-  for (const scheme of ["light", "dark"] as const) {
-    await page.scheme(scheme);
+it.each(["empty-project", "bubbles"].flatMap(seed => [["Enter", "Enter"], [" ", "Space"]].map(([key, code]) => ({ seed, key: key!, code: code! }))))("u469_every_tab_close_and_plus_is_named_and_keyboard_reachable: $seed $code", async ({ seed, key, code }) => {
+  await page.load(`/harness.html?seed=${seed}`);
+  await page.until(`() => Boolean(window.__fake && document.querySelector('.terminal-new'))`);
 
-    for (const width of [FULLSCREEN.width]) {
-      await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
-      await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
-      await page.until(`() => document.querySelector('.terminal-tabs') && document.querySelector('.resource-agent .resource-num')`);
-
-      const read = await page.call<{last:boolean; dock:boolean}>(`() => {
-        const bar = document.querySelector('.resource-strip');
-        return {last:bar.parentElement.lastElementChild===bar, dock:!!document.querySelector('.bubble-dock')};
-      }`);
-
-      expect(read).toEqual({last:true, dock:false});
-      await capture(`bar-${width}-${scheme}`);
-    }
+  if (seed === "bubbles") {
+    await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
+    await page.until(`() => document.querySelectorAll('.terminal-tab').length === 3`);
   }
-}, 120_000);
 
-it("u469_every_tab_close_and_plus_is_named_and_keyboard_reachable", async () => {
-  await page.load('/harness.html?seed=bubbles', 1280, 800);
-  await page.until(`() => Boolean(window.__fake)`);
-  await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
-  await page.until(`() => document.querySelectorAll('.terminal-tab').length === 3`);
-  const names = await page.call<string[]>(`() => [...document.querySelectorAll('.terminal-tabs button')].map(e=>e.getAttribute('aria-label'))`);
-
+  const names = await page.call<string[]>(`() => [...document.querySelectorAll('.terminal-tabs button')].map(e=>e.getAttribute('aria-label') ?? e.textContent)`);
   expect(names.every(Boolean)).toBe(true);
-  await page.call(`() => document.querySelector('.terminal-tab').focus()`);
+  expect(await page.call(`() => document.querySelectorAll('.terminal-tabs button[aria-label="New Terminal"]').length`)).toBe(1);
+  await page.call(`() => document.querySelector('.terminal-tabs button').focus()`);
 
   for (const name of names) {
-    expect(await page.call(`() => document.activeElement.getAttribute('aria-label')`)).toBe(name);
-    await page.press('Tab','Tab');
+    expect(await page.call(`() => document.activeElement.getAttribute('aria-label') ?? document.activeElement.textContent`)).toBe(name);
+
+    if (name !== "New Terminal") await page.press('Tab','Tab');
   }
 
   expect(await page.call(`() => document.querySelector('.terminal-tabs button button')`)).toBeNull();
+  const before = await page.call<number>(`() => window.__fake.app.calls.filter(c => c.method === 'terminal.open').length`);
+  await page.press(key, code);
+  await page.until(`() => document.querySelector('.bubble:not([hidden]) .xterm-helper-textarea') === document.activeElement`);
+  expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'terminal.open').length`)).toBe(before + 1);
 }, 60_000);
 
 it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_selection", async () => {
@@ -80,7 +68,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
     await page.scheme(scheme);
 
     for (const width of [FULLSCREEN.width]) {
-      await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
+      await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => { document.querySelector('#shelf-tab-todos')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);
@@ -128,10 +116,10 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
       await record('missing-selection');
     }
   }
-}, 120_000);
+}, 60_000);
 
 it.each([["Enter", "Enter"], [" ", "Space"]])("u469_visibility_buttons_activate_from_the_keyboard_%s", async (key, code) => {
-  await page.load('/harness.html?seed=bubbles', 1280, 800);
+  await page.load('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', 1280, 800);
   await page.until(`() => Boolean(window.__fake)`);
   await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
   await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);

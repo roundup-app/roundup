@@ -1,3 +1,5 @@
+import { rowTypeahead } from "../ui/RowCollection";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
 import { chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -6,7 +8,7 @@ import type { ShelfFrame } from "./frame";
 
 export const shelfKeyScope: KeyScope = { kind: "region", element: () => document.querySelector<HTMLElement>(".shelf") ?? undefined };
 
-const canShelfKey = (event: KeyboardEvent) => !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+const canShelfKey = (event: KeyboardEvent) => !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
   && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable], .drawer, [role=dialog], [role=alertdialog]")
   && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]');
 
@@ -35,13 +37,14 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
   let returnTo: HTMLElement | null = null;
   const tablist = () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined;
   const selectedTab = () => tablist()?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-  const firstControl = () => props.shelf()?.querySelector<HTMLElement>('.shelf button:not([disabled]), .shelf [tabindex="0"], .shelf input:not([disabled])');
+  const firstControl = () => props.shelf()?.querySelector<HTMLElement>('.shelf-controls button:not([disabled]), .shelf [role=tabpanel] [tabindex="0"], .shelf [role=tabpanel] input:not([disabled])');
 
   const toggle = (source: ActivationSource = "pointer") => {
     const opening = !props.frame.open();
     const kept = document.activeElement;
 
     if (opening) {
+      captureFocus(true);
       returnTo = kept instanceof HTMLElement && kept !== document.body ? kept : null;
     }
 
@@ -54,7 +57,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
       returnTo = null;
     }
 
-    if (opening) queueMicrotask(() => selectedTab()?.focus({ preventScroll: true }));
+    if (opening) queueFocus(() => selectedTab()?.focus({ preventScroll: true }));
   };
 
   const canEscape = (press: KeyboardEvent) => {

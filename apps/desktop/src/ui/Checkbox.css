@@ -1,14 +1,13 @@
 .app-checkbox {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: var(--space-2);
   min-width: 0;
+  min-height: var(--space-5);
   cursor: pointer;
   position: relative;
 }
-
-/* Ark owns keyboard and checked state; the transparent input covers the complete labelled hit area. */
-.app-checkbox > input {
+.app-checkbox input {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -18,34 +17,50 @@
   font: inherit;
   cursor: pointer;
 }
-
-.app-checkbox > input:hover:not(:disabled),
+.app-checkbox input:hover:not(:disabled),
 .app-checkbox:has(input:hover:not(:disabled)) .app-checkbox-label {
   color: var(--text);
 }
-
-.app-checkbox-box::before {
-  content: "○";
-  color: var(--grey);
+.app-checkbox-box {
+  margin-block-start: calc((1lh - var(--space-4)) / 2);
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--space-4);
+  height: var(--space-4);
+  border: var(--hairline-width) solid var(--form-border);
+  border-radius: var(--radius-chip);
+  background: var(--form-ground);
 }
-
-.app-checkbox:has(input:hover:not(:disabled)) .app-checkbox-box::before,
-.app-checkbox-box[data-state="checked"]::before {
-  color: var(--text);
+.app-checkbox-box:is([data-state="checked"], [data-state="indeterminate"]) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--form-on-ink);
 }
-
-.app-checkbox-box[data-state="checked"]::before {
-  content: "●";
+.app-checkbox-box svg {
+  display: block;
+  width: var(--space-3);
+  height: var(--space-3);
 }
-
 .app-checkbox-label {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
 }
-
 .app-checkbox[data-disabled] {
-  opacity: 1;
-  color: var(--grey);
+  color: var(--disabled);
+  cursor: not-allowed;
+}
+.app-checkbox-box[data-disabled] {
+  background: var(--sunken);
+  border-color: var(--disabled);
+  color: var(--disabled);
+}
+.app-checkbox-box[data-invalid] {
+  border-color: var(--red);
+}
+.app-checkbox:has(input[data-pressed="true"]:not(:disabled)) {
+  opacity: var(--press-opacity);
 }

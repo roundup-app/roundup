@@ -3,7 +3,7 @@ import * as v from "valibot";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { INTERNAL_CODE, projectSchema, rpcFailureSchema, RpcError } from "../app/seam";
-import { probeMenu, probeQuestion } from "./menuProbe";
+import { probeMenu, probeQuestion, probeRemovalQuestion } from "./menuProbe";
 import type { AppSeam, DaemonExited, OutputSubscription } from "../app/seam";
 
 const outcomeSchema = v.union([
@@ -156,6 +156,13 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     });
 
   const app: AppSeam = {
+    recentProjects: async () => [],
+    claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
+    onSystemAccent: async listener => {
+      listener(null);
+
+      return () => {};
+    },
     writeClipboardText: async () => { throw new RpcError(-32003, "Native clipboard is unavailable in the browser harness. Use the desktop App to copy."); },
     projects: () =>
       reach(async () => {
@@ -194,6 +201,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     chooseProjectPath: () => reach(async () => choice?.() === "choose" ? (await open).project.path : null),
     chooseSavePath: async () => null,
     ask: probeQuestion,
+    askRemoval: probeRemovalQuestion,
     setDockBadge: async () => {},
     // The isolated browser has no native window; these calls never move or rename a host window.
     setWindowTitle: async () => {},
@@ -283,7 +291,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
           }),
       ),
     imageUrl: (path) => `file://${path}`,
-    selectProjectMenu: async (path) => { projectMenu.path = path; },
+    selectProjectMenu: async (path, items) => { projectMenu.path = path; projectMenu.items = items ?? []; },
     onProjectPage: async (listener) => {
       const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
 

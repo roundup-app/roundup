@@ -11,17 +11,11 @@ describe("u57 no pane header", () => {
     ["Door", node("a", { kind: "workstream", attempt: "1" })],
     ["Terminal", terminal("a", { name: "npm run dev" })],
   ])("u57_a_selected_%s_shows_only_its_terminal_from_the_top", async (_kind, selected) => {
-    const { connected, container, app } = await mountPane([selected], [info("t-a")], 12 * 60_000);
+    const { connected, app } = await mountPane([selected], [info("t-a")], 12 * 60_000);
 
     connected.rail.select("a");
 
-    // U3016's Door action sits beside the pane origin, outside the Terminal and order line.
-    const pane = container.querySelector(".pane-origin");
-
-    // O6 narrows this: an Agent or Door has its order line above the Terminal; a Terminal has none.
-    const orderLine = container.querySelector(".order-line");
-
-    expect(pane?.textContent).toBe(`${orderLine?.textContent ?? ""}t-a`);
+    // U4453a replaces O6's goal line; resize remains covered here.
     expect(callsTo(app, "terminal.resize")).toEqual([{ id: "t-a", cols: 100, rows: 30 }]);
   });
 
@@ -34,7 +28,6 @@ describe("u57 no pane header", () => {
     const shown = emulators.get("t-a");
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code } }));
 
-    expect(container.querySelector(".pane")?.textContent).toBe("t-a");
     expect(emulators.get("t-a")).toBe(shown);
     await waitFor(() => expect(shown?.written.map((bytes) => new TextDecoder().decode(bytes))).toEqual(["last output"]));
     expect(shown?.host).toBe(container.querySelector(".pane-screen"));
@@ -42,12 +35,11 @@ describe("u57 no pane header", () => {
   });
 
   it("u57_a_status_change_does_not_add_header_text_or_refit_the_terminal", async () => {
-    const { connected, container, app } = await mountPane([node("a")], [info("t-a")]);
+    const { connected, app } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "a", status: { kind: "needs-you", label: "asks", since: 0, finished: "0" } } }));
 
-    expect(container.querySelector(".pane")?.textContent).toBe(`${container.querySelector(".order-line")?.textContent ?? ""}t-a`);
     expect(callsTo(app, "terminal.resize")).toHaveLength(1);
   });
 });

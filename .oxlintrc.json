@@ -24,6 +24,7 @@
     }
   ],
   "rules": {
+    "anti-slop/no-swallowed-catch": "error",
     "anti-slop/no-new-web-assertions": "error",
     "anti-slop/no-tooltip-bypass": "error",
     "anti-slop/no-inline-delete-confirmation": "error",

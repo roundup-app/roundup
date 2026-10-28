@@ -44,7 +44,9 @@ async fn t10_completing_keeps_the_place_and_deleting_leaves_the_rest() {
         .unwrap();
     h.call("todo.complete", json!({"id": 3})).await.unwrap();
     assert_eq!(order(&h).await, [3, 1, 2, 4]);
-    h.call("todo.delete", json!({"id": 1})).await.unwrap();
+    h.call("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
+        .await
+        .unwrap();
     assert_eq!(order(&h).await, [3, 2, 4]);
     h.call("todo.setBlockers", json!({"id": 2, "blockers": [4]}))
         .await

@@ -1,5 +1,6 @@
-import { writeText } from "../app/clipboard";
-import { NativeAlert } from "../ui/NativeAlert";
+import { currentOwner } from "../state/rail";
+import { captureFocus } from "../keys/focus";
+import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
 import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
@@ -17,7 +18,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
 import { createFailure } from "./failure";
-import { RpcError, INTERNAL_CODE } from "../app/seam";
+import { outcomeOf, RpcError } from "../app/seam";
 import { usePadList } from "../rail/pads/padList";
 import type { PadList } from "../rail/pads/padList";
 import { USER } from "./owner";
@@ -29,6 +30,7 @@ import "./styles.css";
 const PadRichEditor = lazy(() => import("./PadRichEditor"));
 
 const PadBody = (props: {
+  initialFocus: ReturnType<typeof captureFocus>;
   initial: Pad;
   revision?: string;
   list?: PadList;
@@ -99,9 +101,7 @@ const PadBody = (props: {
 
   const actionFailure = createFailure();
   const [deleted, setDeleted] = createSignal(false);
-  const [asking, setAsking] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
-  let deleteButton: HTMLButtonElement | undefined;
   let editor: PadEditorHandle | undefined;
   let pendingActor: Actor | null = null;
   let closed = false;
@@ -150,7 +150,7 @@ const PadBody = (props: {
 
   /** The baseline always moves to the last loaded or saved text, even mid-edit, so a later dirty-check stays correct; the field itself only follows while the user is not typing, or their keystrokes would vanish. */
   const adopt = (next: Pad) => {
-    setPad(next);
+    setPad({ ...next, owner: { ...next.owner } });
     sourceRevision = next.revision;
     setOrigin(next.text);
 
@@ -195,7 +195,7 @@ const PadBody = (props: {
 
         if (sameContent(current, pad())) return;
 
-        setPad(current);
+        setPad({ ...current, owner: { ...current.owner } });
 
         // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
         if (sent !== null && actor?.kind === "user" && current.text === sent) return;
@@ -261,10 +261,15 @@ const PadBody = (props: {
       if (text === origin() && !resolveConflict) return;
 
       capture();
-      const submission = draftRevision ? connected.drafts.submit(draftRevision) : null;
-
-      if (!submission) return;
       sent = text;
+      const submission = draftRevision ? (await connected.drafts.submit(draftRevision)) : null;
+
+      if (!submission) {
+        sent = null;
+
+        return;
+      }
+
       setSaved(false);
 
       const timeout = setTimeout(() => {
@@ -297,8 +302,8 @@ const PadBody = (props: {
 
         setSaved(!closed && !conflictActor() && currentDraft() === next.text);
       } catch (thrown) {
-        connected.drafts.settle(submission.draft.revision, thrown instanceof RpcError && thrown.code !== INTERNAL_CODE ? "failed" : "unknown");
-        setPaused(!(thrown instanceof RpcError && thrown.code !== INTERNAL_CODE));
+        connected.drafts.settle(submission.draft.revision, outcomeOf(thrown));
+        setPaused(outcomeOf(thrown) === "unknown");
         // A refusal keeps the draft; only another edit or blur retries it.
         due = null;
 
@@ -363,7 +368,9 @@ const PadBody = (props: {
     act(async () => {
       saveAfterPause.clear();
       due = null;
-      await connected.app.rpc("pad.delete", { name });
+      const failures = await connected.drafts.todoUndo.removePads([{ name, incarnation: destination.object }]);
+
+      if (failures.length) throw new Error(failures[0]!.message);
       setDeleted(true);
       actionFailure.clear();
       props.onFailureCleared?.();
@@ -458,8 +465,9 @@ const PadBody = (props: {
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name" style={cutName}>{name}</span>
-          <Show when={!ownedByUser()}>
-            <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{connected.rail.nameOf(pad().owner)}</span>
+          <Show when={currentOwner(connected.rail, pad().owner)}>{owner =>
+            <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{owner().name}</span>
+          }
           </Show>
         </span>
         <Show when={!ownedByUser()}>
@@ -484,25 +492,21 @@ const PadBody = (props: {
           <IconButton
             style={wholeWord}
             aria-label={copy.delete}
-            ref={(button) => (deleteButton = button)}
+            disabled={connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain()}
             onClick={() => {
               actionFailure.clear();
-              setAsking(true);
+              void remove("key");
             }}
           >
             <Icon name="trash" />
           </IconButton>
         </Show>
       </div>
-      <NativeAlert app={connected.app} open={asking()}
-        question={{ title: copy.padDeleteQuestion(name), message: [pad().owner.kind !== "user" ? copy.padDeleteOwnership(connected.rail.nameOf(pad().owner)) : "", currentDraft() !== origin() ? copy.padDeleteUnsaved : ""].filter(Boolean).join("\n"), okLabel: copy.delete, cancelLabel: copy.keep }}
-        onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
-        onConfirm={() => { setAsking(false); void remove("key"); }} />
       <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}
         status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
         <Show when={retentionProblem()}>
           <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
-          <button data-button="quiet" type="button" onClick={() => void writeText(connected.app, invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()).then(() => actionFailure.clear()).catch(error => actionFailure.show(copy.copyDraftFailure(String(error))))}>{sourceLabel}</button>
+          <CopyButton app={connected.app} text={invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()} onSuccess={() => actionFailure.clear()} onFailure={error => actionFailure.show(copy.copyDraftFailure(String(error)))}>{sourceLabel}</CopyButton>
           <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
         </Show>
         <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
@@ -514,6 +518,7 @@ const PadBody = (props: {
       </ReservedLine>
       <Suspense>
         <PadRichEditor
+          initialFocus={props.initialFocus}
           text={source}
           readonly={!ownedByUser() || invalid()}
           onChange={onChange}
@@ -561,6 +566,7 @@ export const PadDrawer = (props: {
   onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
+  const initialFocus = captureFocus();
 
   if (props.recovery !== undefined) {
     const recovery = props.recovery;
@@ -570,7 +576,7 @@ export const PadDrawer = (props: {
     const retained = connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null);
     const original = recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined;
 
-    return original ? <PadBody initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
+    return original ? <PadBody initialFocus={initialFocus} initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
   }
 
   return (
@@ -582,6 +588,7 @@ export const PadDrawer = (props: {
     >
       {(pad) => (
         <PadBody
+          initialFocus={initialFocus}
           initial={pad}
           pads={props.pads}
           heading={props.heading}
@@ -593,3 +600,8 @@ export const PadDrawer = (props: {
     </ItemDrawer>
   );
 };
+
+/** The Pad's Drawer over the shared list; a late failure is the caller's to show. */
+export const PadHost = (props: { name: string; heading?: string | undefined; onLateFailure?: (message: string) => void }) => (
+  <PadDrawer name={props.name} heading={props.heading} pads={usePadList().pads} onLateFailure={props.onLateFailure ?? (() => {})} />
+);

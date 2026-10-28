@@ -24,6 +24,20 @@ function member(node) {
   return node.computed ? node.property.value : node.property.name;
 }
 
+// A test's timeout is not part of what its assertions prove: editing it must not re-key them.
+function ownerText(source, owner) {
+  const text = source.getText(owner);
+  if (owner.type !== "CallExpression") return text;
+  const cuts = owner.arguments.flatMap(arg => {
+    if (arg.type === "Literal" && typeof arg.value === "number") return [arg.range];
+    if (arg.type !== "ObjectExpression") return [];
+    return arg.properties.filter(prop => prop.type === "Property" && !prop.computed && (prop.key.name ?? prop.key.value) === "timeout").map(prop => prop.range);
+  }).sort((a, b) => b[0] - a[0]);
+  let out = text;
+  for (const [start, end] of cuts) out = out.slice(0, start - owner.range[0]) + out.slice(end - owner.range[0]);
+  return out;
+}
+
 function literal(node) {
   if (node?.type === "Literal") return node.value;
   if (node?.type === "TemplateLiteral" && !node.expressions.length) return node.quasis[0].value.cooked;
@@ -216,7 +230,7 @@ return defineRule({
             else if (Array.isArray(parent[key]) && parent[key].includes(child)) path.unshift([key, parent[key].indexOf(child)]);
           }
         }
-        const identity = createHash("sha256").update(JSON.stringify([assertion, dependencies, source.getText(owner), path])).digest("hex");
+        const identity = createHash("sha256").update(JSON.stringify([assertion, dependencies, ownerText(source, owner), path])).digest("hex");
         const name = title(source, node);
         const key = assertionKey({ file, test: name, identity });
         if (enforce && remaining.delete(key)) return;

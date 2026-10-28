@@ -64,13 +64,6 @@
 }
 
 /* A square tick box, not the shared radio-like circle. */
-.import-check .app-checkbox-box::before {
-  content: "☐";
-}
-
-.import-check .app-checkbox-box[data-state="checked"]::before {
-  content: "☑";
-}
 
 .import-text {
   display: flex;
@@ -83,9 +76,10 @@
 
 .import-title {
   min-width: 0;
+  max-width: calc(100% - var(--space-6) * 2);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .import-meta {
@@ -112,10 +106,6 @@
   font-size: var(--text-small);
 }
 
-.import-unavailable {
-  padding-block: var(--space-2);
-}
-
 .import-recovery {
   display: grid;
   gap: var(--space-4);
@@ -135,12 +125,6 @@
   padding-inline-start: var(--space-4);
 }
 
-.import-panel p.ink[role="alert"] {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-}
-
 .import-meta time {
   flex: none;
 }
@@ -155,21 +139,77 @@
 }
 
 .import-list .import-candidate {
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: first baseline;
   gap: var(--space-3);
 }
 
 .import-candidate .import-check {
-  flex: 1;
+  grid-column: 1 / -1;
+  grid-row: 1;
   min-width: 0;
 }
 
-.import-candidate > button {
+.import-candidate button {
+  grid-column: 2;
+  grid-row: 1;
   opacity: 0;
 }
 
-.import-candidate:hover > button,
-.import-candidate:focus-within > button {
+.import-candidate:hover button,
+.import-candidate:focus-within button {
   opacity: 1;
+}
+
+.import-prompt {
+  width: 100%;
+  min-width: 0;
+  height: var(--space-6);
+  box-sizing: border-box;
+  resize: none;
+}
+
+.import-prompt:focus {
+  height: calc(var(--space-6) * 2);
+}
+
+.import-instructions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.import-instructions button {
+  flex: none;
+}
+
+.import-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.import-words {
+  flex: none;
+}
+
+.import-listing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.import-content,
+.import-words {
+  box-sizing: border-box;
+  width: min(100%, var(--measure));
+  min-width: 0;
+  align-self: center;
+  overflow-wrap: anywhere;
 }

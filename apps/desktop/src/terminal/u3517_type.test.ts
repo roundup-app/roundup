@@ -47,7 +47,7 @@ it("u3517c_scheme_changes_reach_open_new_and_unattached_terminals", async () => 
 
   for (const mode of ["dark", "light"] as const) {
     saveAppSettings({ mode });
-    const theme = terminalThemeFor(mode === "dark");
+    const theme = terminalThemeFor();
     await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.scheme").at(-1)?.params).toEqual({ scheme: mode, background: theme.background, foreground: theme.foreground }));
     expect(spy.mock.instances[0]!.options.theme).toMatchObject(theme);
     const next = factory(mode);

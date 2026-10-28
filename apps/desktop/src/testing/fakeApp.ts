@@ -3,8 +3,8 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
-import { menuProbe, probeQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
+import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, SystemAccent, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -23,9 +23,12 @@ const emptyReads: Handlers = {
   "rail.tree": () => [],
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "terminal.list": () => [],
+  "workstream.queue": () => ({ entries: [], running: 0, cap: 1 }),
+  "project.resources": () => ({ agents: [], total: { memory_bytes: 0, cpu_percent: 0, disk_bytes: null } }),
   "models.list": () => ({ engines: [{ id: "test-engine", label: "Claude Code" }], models: [{ id: "test-model", label: "Offered model" }], efforts: [] }),
   "terminal.scheme": () => null,
   "todo.list": () => [],
+  "todo.deletion": () => null,
   "todo.listHanded": () => [],
   "message.list": () => [],
   "pad.list": () => [],
@@ -41,7 +44,11 @@ const emptyReads: Handlers = {
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
 export type FakeApp = AppSeam & {
+  setSystemAccent(accent: SystemAccent): void;
+  nativeOpen(request: NativeOpen): void;
   questions: NativeQuestion[];
+  removalQuestions: RemovalQuestion[];
+  answerRemoval: ((answer: RemovalAnswer) => void) | undefined;
   answerQuestion: ((answer: boolean) => void) | undefined;
   questionFailure: Error | null;
   /** Every `rpc` call so far, in call order. */
@@ -113,6 +120,8 @@ export type FakeApp = AppSeam & {
 const folderOf = (path: string): string => path.split("/").pop() ?? path;
 
 export const createFakeApp = (): FakeApp => {
+  const nativeListeners = new Set<(request: NativeOpen) => void>();
+  const accentListeners = new Set<(accent: SystemAccent) => void>();
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const live = new Map<string, FakeOutputSubscription>();
   const exitListeners = new Set<(exit: DaemonExited) => void>();
@@ -125,6 +134,21 @@ export const createFakeApp = (): FakeApp => {
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
   const app: FakeApp = {
+    recentProjects: async () => [],
+    claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
+    onNativeOpen: async listener => {
+      nativeListeners.add(listener);
+
+      return () => { nativeListeners.delete(listener); };
+    },
+    nativeOpen: request => nativeListeners.forEach(listener => listener(request)),
+    onSystemAccent: async listener => {
+      accentListeners.add(listener);
+      listener(null);
+
+      return () => { accentListeners.delete(listener); };
+    },
+    setSystemAccent: accent => accentListeners.forEach(listener => listener(accent)),
     calls: [],
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },
@@ -153,7 +177,7 @@ export const createFakeApp = (): FakeApp => {
 
       if (!found) throw new Error(`no menu item ${label}`);
 
-      app.menuResolve?.(found.id);
+      if (!found.children && found.enabled) app.menuResolve?.(found.id);
       await new Promise((done) => setTimeout(done, 0));
     },
     closeMenu: async () => {
@@ -268,6 +292,7 @@ export const createFakeApp = (): FakeApp => {
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         ask: app.ask,
+        askRemoval: app.askRemoval,
         setDockBadge: app.setDockBadge,
         setWindowTitle: app.setWindowTitle,
         dragWindow: app.dragWindow,
@@ -289,6 +314,17 @@ export const createFakeApp = (): FakeApp => {
       return other;
     },
     forProject: (path) => app.of(path),
+    removalQuestions: [],
+    answerRemoval: undefined,
+    askRemoval: async question => {
+      app.removalQuestions.push(question);
+
+      if (app.questionFailure) throw app.questionFailure;
+      const answer = probeRemovalQuestion(question);
+      app.answerRemoval = chosen => questionProbe.answer?.(chosen);
+
+      return answer;
+    },
     questions: [],
     answerQuestion: undefined,
     questionFailure: null,
@@ -381,7 +417,7 @@ export const createFakeApp = (): FakeApp => {
 
       return () => dropListeners.delete(listener);
     },
-    selectProjectMenu: async (path) => { projectMenu.path = path; },
+    selectProjectMenu: async (path, items) => { projectMenu.path = path; projectMenu.items = items ?? []; },
     onProjectPage: async (listener) => {
       const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
 

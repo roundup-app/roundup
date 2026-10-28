@@ -1,0 +1,4 @@
+{
+  "exit": 2,
+  "condition": "{\"success\":false,\"data\":null,\"error\":\"Wait timed out after 30000ms\"}\n"
+}

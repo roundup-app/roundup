@@ -2,7 +2,7 @@ import { batch, createSignal } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
-import { RpcError, type AppSeam } from "../app/seam";
+import { outcomeOf, RpcError, type AppSeam } from "../app/seam";
 import type { SendParams } from "@contracts/ask/SendParams";
 import type { Events } from "../app/events";
 import { copy } from "../copy";
@@ -28,6 +28,7 @@ export type AsksState = {
   entries(): readonly AskEntry[];
   /** Fetches `ask.list` once; later changes arrive as `ask.changed`. */
   load(): void;
+  loadState(): "loading" | "ready" | "failed";
   /** U504: optimistic entry appears before intake settles. Acknowledgement means durable intake, not delivery. */
   send(request: AskSubmission): Promise<AskOutcome>;
   /** Read-only authoritative acceptance lookup. Absence cannot prove refusal of an in-flight request. */
@@ -62,6 +63,7 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
   let sequence = 0;
   const fail = (message: string): AskFailure => ({ id: ++sequence, message });
   let loaded = false;
+  const [loadState, setLoadState] = createSignal<"loading" | "ready" | "failed">("loading");
 
   const upsert = (ask: Ask): void => {
     setAsks((all) => [ask, ...all.filter((each) => each.id !== ask.id)].sort((a, b) => Number(b.at) - Number(a.at)));
@@ -86,19 +88,23 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
   return {
     entries: () => [...pending(), ...asks().map((ask) => ({ key: ask.id, text: ask.text, parts: ask.parts, pending: false }))],
 
+    loadState,
     load: () => {
       if (loaded) return;
 
       loaded = true;
+      setLoadState("loading");
       void call(() => app.rpc("ask.list", null)).then((result) => {
         if (!result.ok) {
           loaded = false;
+          setLoadState("failed");
           setListFailure(fail(result.message));
 
           return;
         }
 
         batch(() => {
+          setLoadState("ready");
           setListFailure(null);
 
           for (const ask of [...result.value].reverse()) upsert(ask);
@@ -122,10 +128,10 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         // INTERNAL and UNKNOWN_OUTCOME can follow committed intake; neither proves refusal.
-        const refused = error instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(error.code);
+        const refused = outcomeOf(error) === "failed";
         setIntakeFailure({ ...fail(message), kind: refused ? "refused" : "unknown", submission, destination: captured.workstream ?? null });
 
-        if (refused) return { kind: "refused", submission, error };
+        if (refused && error instanceof RpcError) return { kind: "refused", submission, error };
 
         return { kind: "unknown", submission, message };
       } finally {

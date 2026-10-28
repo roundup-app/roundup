@@ -73,6 +73,8 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
       await wait(`document.querySelectorAll('.project-tab')[${drawerAt}].dataset.selected === 'true'`);
       await wait(`!!document.querySelector('.shelf .todo-row-button')`);
       await browser('click', '.shelf .todo-row-button');
+
+      if (!base) await browser('press', 'Enter');
       await wait(`document.querySelector('.drawer').dataset.open === 'true' && !!document.querySelector('.drawer .todo-detail-title')`);
       await record('drawer');
       await browser('hover', '.drawer .close');

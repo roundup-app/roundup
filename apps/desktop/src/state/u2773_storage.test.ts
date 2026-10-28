@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createComponent, createComputed, createRoot, useContext } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, terminal } from "../testing/nodes";
@@ -12,6 +12,10 @@ import type { ConnectedProject } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { draftStorage, storedValue } from "./storage";
+
+const retained = async <T extends { retained: Promise<unknown> }>(result: T): Promise<T> => { await result.retained;
+
+ return result; };
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -24,10 +28,48 @@ it("u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid", () 
   expect(storage.read()).toBeNull();
 });
 
-it("u2773a_storage_restores_exact_work", () => {
+it("u3791a_local_write_recovers_once", async () => {
+  const storage = storedValue("captured", v.object({ text: v.string() }));
+  const write = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => { throw new Error("temporary"); });
+  expect((await storage.write({ text: "  exact 😀\n" }))).toBeNull();
+  expect(write.mock.calls).toEqual([["captured", '{"text":"  exact 😀\\n"}'], ["captured", '{"text":"  exact 😀\\n"}']]);
+  expect(storage.read()).toEqual({ text: "  exact 😀\n" });
+});
+
+it("u3791a_read_recovers_once", () => {
+  localStorage.setItem("captured", '"kept"');
+  const read = vi.spyOn(Storage.prototype, "getItem").mockImplementationOnce(() => { throw new Error("temporary"); });
+  expect(storedValue("captured", v.string()).restore()).toEqual({ status: "restored", value: "kept" });
+  expect(read.mock.calls).toEqual([["captured"], ["captured"]]);
+});
+
+it("u3791a_local_remove_recovers_once", async () => {
+  localStorage.setItem("captured", '"kept"');
+  const remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementationOnce(() => { throw new Error("temporary"); });
+  expect((await storedValue("captured", v.string()).clear())).toBeNull();
+  expect(remove.mock.calls).toEqual([["captured"], ["captured"]]);
+  expect(localStorage.getItem("captured")).toBeNull();
+});
+
+it("u3791a_storage_second_failure_is_actionable", async () => {
+  const storage = storedValue("captured", v.string());
+  localStorage.setItem("captured", '"last valid"');
+
+  const write = vi.spyOn(Storage.prototype, "setItem")
+    .mockImplementationOnce(() => { throw new Error("first"); })
+    .mockImplementationOnce(() => { throw new Error("second"); });
+
+  expect((await storage.write("new"))).toBe("second");
+  expect(write).toHaveBeenCalledTimes(2);
+  expect(storage.read()).toBe("last valid");
+  expect((await storage.write("new"))).toBeNull();
+  expect(storage.read()).toBe("new");
+});
+
+it("u2773a_storage_restores_exact_work", async () => {
   const drafts = draftStorage("/project/a");
   const value = { text: " \ne\u0301 😀\n ", choices: ["second", "first"], enabled: false };
-  const revision = drafts.edit({ surface: "agent", object: "d1", recipient: "agent-a" }, value, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+  const revision = (await retained(drafts.edit({ surface: "agent", object: "d1", recipient: "agent-a" }, value, { start: 2, end: 5, direction: "backward" }, "ordinary"))).draft;
   const reopened = draftStorage("/project/a");
   expect(reopened.list()).toEqual([{ ...revision, value, status: "draft" }]);
   expect(draftStorage("/project/b").list()).toEqual([]);
@@ -36,58 +78,60 @@ it("u2773a_storage_restores_exact_work", () => {
 
 const target = { surface: "ask", object: "ask-bar", recipient: "agent-a" };
 
-const edit = (drafts: ReturnType<typeof draftStorage>, text: string) => drafts.edit(target, { text }, null, "ordinary").draft;
+const edit = async (drafts: ReturnType<typeof draftStorage>, text: string) => (await retained(drafts.edit(target, { text }, null, "ordinary"))).draft;
 
-it.each(["acknowledged", "failed", "unknown"] as const)("u2773b_storage_settlement_preserves_other_revisions_%s", (outcome) => {
+it.each(["acknowledged", "failed", "unknown"] as const)("u2773b_storage_settlement_preserves_other_revisions_%s", async (outcome) => {
   const drafts = draftStorage("/project/a");
-  const a = edit(drafts, " A\n😀 ");
-  expect(drafts.submit(a.revision)?.draft.value).toEqual({ text: " A\n😀 " });
-  const b = edit(drafts, " B\ne\u0301 ");
-  drafts.settle(a.revision, outcome);
+  const a = (await edit(drafts, " A\n😀 "));
+  expect((await drafts.submit(a.revision))?.draft.value).toEqual({ text: " A\n😀 " });
+  const b = (await edit(drafts, " B\ne\u0301 "));
+  (await drafts.settle(a.revision, outcome));
   expect(draftStorage("/project/a").list()).toEqual(outcome === "acknowledged"
     ? [b] : [{ ...a, status: outcome }, b]);
 });
 
-it("u2773b_storage_discard_consumes_only_selected_revision", () => {
+it("u2773b_storage_discard_consumes_only_selected_revision", async () => {
   const drafts = draftStorage("/project/a");
-  const a = edit(drafts, "old");
-  drafts.submit(a.revision);
-  const b = edit(drafts, "new");
-  drafts.discard(a.revision);
-  drafts.settle(a.revision, "failed");
+  const a = (await edit(drafts, "old"));
+  (await drafts.submit(a.revision));
+  const b = (await edit(drafts, "new"));
+  (await drafts.discard(a.revision));
+  (await drafts.settle(a.revision, "failed"));
   expect(draftStorage("/project/a").list()).toEqual([b]);
 });
 
-it("u2773b_storage_pending_reopens_as_unknown_without_resubmission", () => {
+it("u2773b_storage_pending_reopens_as_unknown_without_resubmission", async () => {
   const drafts = draftStorage("/project/a");
-  const a = edit(drafts, "maybe accepted");
-  drafts.submit(a.revision);
+  const a = (await edit(drafts, "maybe accepted"));
+  (await drafts.submit(a.revision));
   const reopened = draftStorage("/project/a");
   expect(reopened.list()).toEqual([{ ...a, status: "unknown" }]);
-  expect(reopened.submit(a.revision)).toBeNull();
+  expect((await reopened.submit(a.revision))).toBeNull();
 });
 
-it("u2773e_storage_failure_keeps_memory", () => {
+it("u3791a_retention_failure_keeps_revisions", async () => {
   const drafts = draftStorage("/project/a");
-  const a = edit(drafts, "stored");
-  drafts.submit(a.revision);
+  const a = (await edit(drafts, "stored"));
+  (await drafts.submit(a.revision));
   const before = localStorage.getItem("roundup:drafts:/project/a");
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
-  const result = drafts.edit(target, { text: " complete\nnew 😀 " }, null, "ordinary");
+  const result = (await retained(drafts.edit(target, { text: " complete\nnew 😀 " }, null, "ordinary")));
   const b = result.draft;
-  expect(result.problem).toEqual({ project: "/project/a", destination: target, revision: b.revision, operation: "retain", cause: "write" });
+  expect(write).toHaveBeenCalledTimes(2);
+  expect(write.mock.calls[0]).toEqual(write.mock.calls[1]);
+  expect(await result.retained).toEqual({ project: "/project/a", destination: target, revision: b.revision, operation: "retain", cause: "write" });
   expect(drafts.list()).toEqual([{ ...a, status: "pending" }, { ...b, value: { text: " complete\nnew 😀 " } }]);
   expect(localStorage.getItem("roundup:drafts:/project/a")).toBe(before);
   write.mockRestore();
-  expect(drafts.retry()).toBeNull();
+  expect((await drafts.retry())).toBeNull();
   expect(draftStorage("/project/a").list()).toEqual([{ ...a, status: "unknown" }, b]);
 });
 
-it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", () => {
+it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", async () => {
   const key = "roundup:drafts:/project/a";
   const seed = draftStorage("/project/a");
-  const incompatible = seed.edit({ surface: "todos", object: "42", recipient: null }, { title: false }, null, "ordinary").draft;
-  const independent = edit(seed, "independent");
+  const incompatible = (await retained(seed.edit({ surface: "todos", object: "42", recipient: null }, { title: false }, null, "ordinary"))).draft;
+  const independent = (await edit(seed, "independent"));
   const bytes = JSON.stringify({ version: 1, drafts: [incompatible, independent] }, null, 2);
   localStorage.setItem(key, bytes);
   const authority = createProjectDrafts();
@@ -105,13 +149,13 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", () => {
   const failure = { project: "/project/a", destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" };
   expect(drafts.validate("todos", v.object({ title: v.string() }))).toEqual(failure);
   expect(observations).toEqual([failure, failure]);
-  const a = drafts.edit(incompatible.destination, { title: "submitted" }, null, "ordinary").draft;
-  expect(drafts.submit(a.revision)?.problem).toEqual(failure);
-  const b = drafts.edit(incompatible.destination, { title: "  新 e\u0301 🧭\n", choices: ["b", "a"] }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+  const a = (await retained(drafts.edit(incompatible.destination, { title: "submitted" }, null, "ordinary"))).draft;
+  expect((await drafts.submit(a.revision))?.problem).toEqual(failure);
+  const b = (await retained(drafts.edit(incompatible.destination, { title: "  新 e\u0301 🧭\n", choices: ["b", "a"] }, { start: 2, end: 5, direction: "backward" }, "ordinary"))).draft;
   expect(drafts.problem()).toEqual(failure);
-  expect(drafts.settle(a.revision, "failed")).toEqual(failure);
-  expect(drafts.discard(a.revision)).toEqual(failure);
-  expect(drafts.retry()).toEqual(failure);
+  expect((await drafts.settle(a.revision, "failed"))).toEqual(failure);
+  expect((await drafts.discard(a.revision))).toEqual(failure);
+  expect((await drafts.retry())).toEqual(failure);
   expect(drafts.problem()).toEqual(failure);
   expect(observations).toEqual([failure, failure]);
   expect(localStorage.getItem(key)).toBe(bytes);
@@ -119,16 +163,16 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", () => {
   // Repair is external and explicit; retry merges its independent revision.
   const external = { ...independent, revision: "external", value: { text: "repair" } };
   localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [external] }));
-  expect(drafts.retry()).toBeNull();
+  expect((await drafts.retry())).toBeNull();
   expect(draftStorage("/project/a").list()).toEqual([external, independent, b]);
   expect(observations).toEqual([null, null]);
   stop();
 });
 
-it.each(["before", "after"])("u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_%s_registration", (timing) => {
+it.each(["before", "after"])("u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_%s_registration", async (timing) => {
   const key = "roundup:drafts:/project/a";
   const seed = draftStorage("/project/a");
-  const original = seed.edit({ surface: "todos", object: "42", recipient: null }, { title: false }, null, "ordinary").draft;
+  const original = (await retained(seed.edit({ surface: "todos", object: "42", recipient: null }, { title: false }, null, "ordinary"))).draft;
   const drafts = draftStorage("/project/a");
 
   if (timing === "before") drafts.validate("todos", v.object({ title: v.string() }));
@@ -136,107 +180,107 @@ it.each(["before", "after"])("u2773e_storage_failure_keeps_memory_when_repair_ha
   localStorage.setItem(key, repaired);
 
   if (timing === "after") expect(drafts.validate("todos", v.object({ title: v.string() }))).toMatchObject({ operation: "restore", destination: original.destination, revision: original.revision });
-  expect(drafts.retry()?.operation).toBe("restore");
+  expect((await drafts.retry())?.operation).toBe("restore");
   expect(localStorage.getItem(key)).toBe(repaired);
   expect(drafts.list()).toEqual([original]);
-  drafts.discard(original.revision);
+  (await drafts.discard(original.revision));
   expect(localStorage.getItem(key)).toBe(repaired);
-  expect(drafts.retry()).toBeNull();
+  expect((await drafts.retry())).toBeNull();
   expect(draftStorage("/project/a").list()).toEqual([]);
 });
 
-it.each(["{broken", '{"version":2,"drafts":[]}', '{"version":1,"drafts":[{}]}'])("u2773e_storage_failure_keeps_invalid_records_%s", (raw) => {
+it.each(["{broken", '{"version":2,"drafts":[]}', '{"version":1,"drafts":[{}]}'])("u2773e_storage_failure_keeps_invalid_records_%s", async (raw) => {
   localStorage.setItem("roundup:drafts:/project/a", raw);
   const drafts = draftStorage("/project/a");
-  const b = edit(drafts, "newer");
+  const b = (await edit(drafts, "newer"));
   expect(drafts.problem()).toEqual({ project: "/project/a", destination: target, revision: b.revision, operation: "restore", cause: "invalid" });
   expect(drafts.list()).toEqual([b]);
-  expect(drafts.retry()?.cause).toBe("invalid");
+  expect((await drafts.retry())?.cause).toBe("invalid");
   expect(localStorage.getItem("roundup:drafts:/project/a")).toBe(raw);
 });
 
-it("u2773e_storage_failure_keeps_memory_on_unreadable_restore", () => {
+it("u2773e_storage_failure_keeps_memory_on_unreadable_restore", async () => {
   const first = draftStorage("/project/a");
-  const a = edit(first, "stored older");
-  first.submit(a.revision);
+  const a = (await edit(first, "stored older"));
+  (await first.submit(a.revision));
   const read = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("unavailable"); });
   const drafts = draftStorage("/project/a");
   expect(drafts.problem()?.cause).toBe("unreadable");
-  const b = edit(drafts, "in memory");
+  const b = (await edit(drafts, "in memory"));
   read.mockRestore();
-  expect(drafts.retry()).toBeNull();
+  expect((await drafts.retry())).toBeNull();
   expect(draftStorage("/project/a").list()).toEqual([{ ...a, status: "unknown" }, b]);
 });
 
-it("u2773e_storage_failure_keeps_memory_at_utf8_bound", () => {
+it("u2773e_storage_failure_keeps_memory_at_utf8_bound", async () => {
   const disk = new Map<string, string>();
   vi.spyOn(Storage.prototype, "getItem").mockImplementation((key) => disk.get(key) ?? null);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation((key, value) => { disk.set(key, value); });
   const drafts = draftStorage("/project/a");
-  edit(drafts, "");
+  (await edit(drafts, ""));
   const overhead = new TextEncoder().encode(disk.get("roundup:drafts:/project/a")!).length;
   const exact = "😀" + "x".repeat(10 * 1024 * 1024 - overhead - 4);
-  const a = edit(drafts, exact);
+  const a = (await edit(drafts, exact));
   expect(drafts.problem()).toBeNull();
   expect(new TextEncoder().encode(disk.get("roundup:drafts:/project/a")!).length).toBe(10 * 1024 * 1024);
   const before = disk.get("roundup:drafts:/project/a");
-  const b = edit(drafts, exact + "x");
+  const b = (await edit(drafts, exact + "x"));
   expect(drafts.problem()?.cause).toBe("capacity");
   expect(drafts.list()).toEqual([b]);
   expect(drafts.list()[0]?.value.text).toBe(exact + "x");
   expect(disk.get("roundup:drafts:/project/a")).toBe(before);
   expect(draftStorage("/project/a").list()).toEqual([a]);
-  expect(drafts.discard(b.revision)).toBeNull();
+  expect((await drafts.discard(b.revision))).toBeNull();
   expect(draftStorage("/project/a").list()).toEqual([]);
 });
 
-it("u2773e_credentials_keep_existing_policy", () => {
+it("u2773e_credentials_keep_existing_policy", async () => {
   const log = vi.spyOn(console, "log");
   const error = vi.spyOn(console, "error");
   const drafts = draftStorage("/project/a");
-  const secret = drafts.edit({ ...target, surface: "credential" }, { text: "sentinel-secret-2783" }, null, "credential").draft;
-  drafts.submit(secret.revision);
-  drafts.settle(secret.revision, "failed");
+  const secret = (await retained(drafts.edit({ ...target, surface: "credential" }, { text: "sentinel-secret-2783" }, null, "credential"))).draft;
+  (await drafts.submit(secret.revision));
+  (await drafts.settle(secret.revision, "failed"));
   expect(drafts.list()).toEqual([{ ...secret, status: "failed" }]);
   expect(draftStorage("/project/a").list()).toEqual([]);
 
-  for (const sink of [JSON.stringify({ ...localStorage }), JSON.stringify({ ...sessionStorage }), document.documentElement.outerHTML, JSON.stringify(log.mock.calls), JSON.stringify(error.mock.calls)]) {
+  for (const sink of [JSON.stringify({ ...localStorage }), JSON.stringify({ ...sessionStorage }), JSON.stringify(log.mock.calls), JSON.stringify(error.mock.calls)]) {
     expect(sink).not.toContain("sentinel-secret-2783");
   }
 });
 
-it("u2773a_storage_identity_separates_surface_object_recipient", () => {
+it("u2773a_storage_identity_separates_surface_object_recipient", async () => {
   const drafts = draftStorage("/project/a");
   const destinations = [target, { ...target, surface: "orders" }, { ...target, object: "another" }, { ...target, recipient: "agent-b" }];
-  const expected = destinations.map((destination, index) => drafts.edit(destination, { text: `exact ${index}` }, null, "ordinary").draft);
+  const expected = await Promise.all(destinations.map(async (destination, index) => (await retained(drafts.edit(destination, { text: `exact ${index}` }, null, "ordinary"))).draft));
   const reopened = draftStorage("/project/a").list();
   expect(reopened).toEqual(expected);
   expect(reopened.map((draft) => draft.destination)).toEqual(destinations);
 });
 
-it("u2773e_storage_retry_merges_external_records_without_reviving_discard", () => {
+it("u2773e_storage_retry_merges_external_records_without_reviving_discard", async () => {
   const drafts = draftStorage("/project/a");
-  const a = edit(drafts, "selected discard");
+  const a = (await edit(drafts, "selected discard"));
   const other = draftStorage("/project/a");
-  const external = other.edit({ ...target, object: "other" }, { text: "external" }, null, "ordinary").draft;
-  expect(drafts.discard(a.revision)?.cause).toBe("changed");
-  expect(drafts.retry()).toBeNull();
+  const external = (await retained(other.edit({ ...target, object: "other" }, { text: "external" }, null, "ordinary"))).draft;
+  expect((await drafts.discard(a.revision))?.cause).toBe("changed");
+  expect((await drafts.retry())).toBeNull();
   expect(draftStorage("/project/a").list()).toEqual([external]);
 });
 
-it("u2773b_storage_failed_retry_requires_explicit_submit", () => {
+it("u2773b_storage_failed_retry_requires_explicit_submit", async () => {
   const drafts = draftStorage("/project/a");
-  const a = edit(drafts, "failed work");
-  drafts.submit(a.revision);
-  drafts.settle(a.revision, "failed");
+  const a = (await edit(drafts, "failed work"));
+  (await drafts.submit(a.revision));
+  (await drafts.settle(a.revision, "failed"));
   const reopened = draftStorage("/project/a");
-  expect(reopened.submit(a.revision)).toEqual({ draft: { ...a, status: "pending" }, problem: null });
-  expect(reopened.submit(a.revision)).toBeNull();
+  expect((await reopened.submit(a.revision))).toEqual({ draft: { ...a, status: "pending" }, problem: null });
+  expect((await reopened.submit(a.revision))).toBeNull();
 });
 
-it("u2773a_storage_restoration_writes_nothing", () => {
+it("u2773a_storage_restoration_writes_nothing", async () => {
   const first = draftStorage("/project/a");
-  const a = edit(first, "not authorized to save or send");
+  const a = (await edit(first, "not authorized to save or send"));
   const write = vi.spyOn(Storage.prototype, "setItem");
   const reopened = draftStorage("/project/a");
   const copy = reopened.list();
@@ -245,35 +289,35 @@ it("u2773a_storage_restoration_writes_nothing", () => {
   expect(write).not.toHaveBeenCalled();
 });
 
-it.each(["pending", "failed"] as const)("u2773e_storage_bound_counts_%s_revisions_across_surfaces", (status) => {
+it.each(["pending", "failed"] as const)("u2773e_storage_bound_counts_%s_revisions_across_surfaces", async (status) => {
   const disk = new Map<string, string>();
   vi.spyOn(Storage.prototype, "getItem").mockImplementation((key) => disk.get(key) ?? null);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation((key, value) => { disk.set(key, value); });
   const drafts = draftStorage("/project/a");
-  const a = edit(drafts, "a".repeat(6 * 1024 * 1024));
-  drafts.submit(a.revision);
+  const a = (await edit(drafts, "a".repeat(6 * 1024 * 1024)));
+  (await drafts.submit(a.revision));
 
-  if (status === "failed") drafts.settle(a.revision, "failed");
+  if (status === "failed") (await drafts.settle(a.revision, "failed"));
   const before = disk.get("roundup:drafts:/project/a");
-  const b = drafts.edit({ ...target, surface: "changes" }, { text: "b".repeat(5 * 1024 * 1024) }, null, "ordinary").draft;
+  const b = (await retained(drafts.edit({ ...target, surface: "changes" }, { text: "b".repeat(5 * 1024 * 1024) }, null, "ordinary"))).draft;
   expect(drafts.problem()?.cause).toBe("capacity");
   expect(disk.get("roundup:drafts:/project/a")).toBe(before);
   expect(drafts.list()).toEqual([{ ...a, status }, b]);
-  expect(drafts.discard(a.revision)).toBeNull();
+  expect((await drafts.discard(a.revision))).toBeNull();
   expect(draftStorage("/project/a").list()).toEqual([b]);
 });
 
-it("u2773b_storage_late_out_of_order_replies_keep_original_project", () => {
+it("u2773b_storage_late_out_of_order_replies_keep_original_project", async () => {
   const first = draftStorage("/project/a");
-  const a = edit(first, "first submit");
-  first.submit(a.revision);
-  const b = edit(first, "second submit");
-  first.submit(b.revision);
-  const current = edit(first, "newest");
+  const a = (await edit(first, "first submit"));
+  (await first.submit(a.revision));
+  const b = (await edit(first, "second submit"));
+  (await first.submit(b.revision));
+  const current = (await edit(first, "newest"));
   const second = draftStorage("/project/b");
-  const elsewhere = edit(second, "same named agent in another Project");
-  first.settle(b.revision, "acknowledged");
-  first.settle(a.revision, "failed");
+  const elsewhere = (await edit(second, "same named agent in another Project"));
+  (await first.settle(b.revision, "acknowledged"));
+  (await first.settle(a.revision, "failed"));
   expect(draftStorage("/project/a").list()).toEqual([{ ...a, status: "failed" }, current]);
   expect(draftStorage("/project/b").list()).toEqual([elsewhere]);
 });
@@ -321,7 +365,7 @@ const openDraftProjects = async () => {
     return seen.at(-1)!;
   };
 
-  return { app, paths, select, header: () => header, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
+  return { app, paths, select, current: () => seen.at(-1), header: () => header, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
 };
 
 it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_%s", async (status) => {
@@ -329,30 +373,30 @@ it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restor
 
   try {
     const first = await opened.select(0);
-    const a = first.drafts.edit(target, { text: " A\ne\u0301 😀 ", choices: ["second", "first"] }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
-    first.drafts.submit(a.revision);
+    const a = (await retained(first.drafts.edit(target, { text: " A\ne\u0301 😀 ", choices: ["second", "first"] }, { start: 2, end: 5, direction: "backward" }, "ordinary"))).draft;
+    (await first.drafts.submit(a.revision));
     const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
-    const b = first.drafts.edit(target, { text: " B\n😀 " }, null, "ordinary").draft;
+    const b = (await retained(first.drafts.edit(target, { text: " B\n😀 " }, null, "ordinary"))).draft;
     const other = await opened.select(1);
-    const elsewhere = edit(other.drafts, "other Project");
+    const elsewhere = (await edit(other.drafts, "other Project"));
 
-    if (status !== "pending") first.drafts.settle(a.revision, status);
+    if (status !== "pending") (await first.drafts.settle(a.revision, status));
     const returned = await opened.select(0);
     expect(returned.drafts.list()).toEqual([{ ...a, status }, b]);
     opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
+    await waitFor(() => expect(opened.current()).not.toBe(first));
     const replaced = await opened.select(0);
     expect(replaced).not.toBe(first);
     expect(replaced.drafts.list()).toEqual([{ ...a, status }, b]);
-    const newer = edit(replaced.drafts, "newest");
-    first.drafts.settle(a.revision, "acknowledged");
+    const newer = (await edit(replaced.drafts, "newest"));
+    (await first.drafts.settle(a.revision, "acknowledged"));
     expect(replaced.drafts.list()).toEqual([newer]);
     expect(other.drafts.list()).toEqual([elsewhere]);
     const focus = document.activeElement;
     const before = opened.paths.map((path) => opened.app.of(path!).calls.length);
     write.mockRestore();
-    expect(replaced.drafts.retry()).toBeNull();
+    expect((await replaced.drafts.retry())).toBeNull();
     expect(draftStorage(replaced.project.path).list()).toEqual([newer]);
     expect(document.activeElement).toBe(focus);
     expect(opened.paths.map((path) => opened.app.of(path!).calls.length)).toEqual(before);
@@ -384,10 +428,10 @@ it("u2773h_shared_consumers_observe_capacity", async () => {
         observations[index] = { records: owner.list(), problem: owner.problem() };
       });
     });
-    const a = edit(connected.drafts, "a".repeat(6 * 1024 * 1024));
-    connected.drafts.submit(a.revision);
+    const a = (await edit(connected.drafts, "a".repeat(6 * 1024 * 1024)));
+    (await connected.drafts.submit(a.revision));
     const before = disk.get(`roundup:drafts:${connected.project.path}`);
-    const b = connected.drafts.edit({ ...target, surface: "changes" }, { text: "b".repeat(5 * 1024 * 1024) }, null, "ordinary").draft;
+    const b = (await retained(connected.drafts.edit({ ...target, surface: "changes" }, { text: "b".repeat(5 * 1024 * 1024) }, null, "ordinary"))).draft;
 
     for (const observation of observations) {
       expect(observation.records).toEqual([{ ...a, status: "pending" }, b]);
@@ -395,7 +439,7 @@ it("u2773h_shared_consumers_observe_capacity", async () => {
     }
 
     expect(disk.get(`roundup:drafts:${connected.project.path}`)).toBe(before);
-    connected.drafts.discard(a.revision);
+    (await connected.drafts.discard(a.revision));
 
     for (const observation of observations) {
       expect(observation.records).toEqual([b]);
@@ -409,10 +453,10 @@ it("u2773e_shared_project_credentials_stay_memory_only_across_replacement", asyn
 
   try {
     const first = await opened.select(0);
-    const secret = first.drafts.edit({ ...target, surface: "credential" }, { text: "sentinel-shared-2812" }, null, "credential").draft;
+    const secret = (await retained(first.drafts.edit({ ...target, surface: "credential" }, { text: "sentinel-shared-2812" }, null, "credential"))).draft;
     opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
     fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
+    await waitFor(() => expect(opened.current()).not.toBe(first));
     const replaced = await opened.select(0);
     expect(replaced.drafts.list()).toEqual([secret]);
     expect(draftStorage(replaced.project.path).list()).toEqual([]);

@@ -1,0 +1,36 @@
+{
+  "exit": 2,
+  "reports": [
+    {
+      "length": 40,
+      "warmups": 20,
+      "measured": 200,
+      "p50Ms": 34.261,
+      "p95Ms": 39.605,
+      "minMs": 29.351,
+      "maxMs": 42.584,
+      "budgetMs": 16,
+      "exit": 1,
+      "EventDispatchP95Ms": 28.677,
+      "UpdateLayoutTreeP95Ms": 19.063,
+      "LayoutP95Ms": 0.84,
+      "PrePaintP95Ms": 0.491,
+      "PaintP95Ms": 1.634,
+      "fullTraceSha256": "0b9552816a8e4a74fee873076fca29e8bec6a3b1912e39955784c7b092ad4621"
+    }
+  ],
+  "failures": [
+    {
+      "length": 400,
+      "condition": "[Errno 2] No such file or directory: '/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/400-samples.json'",
+      "exit": 2
+    },
+    {
+      "length": 4000,
+      "condition": "[Errno 2] No such file or directory: '/tmp/roundup-z3788d/apps/desktop/budgets/evidence/z3788d-list-observer/4000-samples.json'",
+      "exit": 2
+    }
+  ],
+  "nativeClaim": false,
+  "virtualizationAuthorized": false
+}

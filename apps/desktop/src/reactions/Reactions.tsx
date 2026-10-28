@@ -1,4 +1,7 @@
-import { writeText } from "../app/clipboard";
+import { EmptyState } from "../ink/EmptyState";
+import { outcomeOf } from "../app/seam";
+import { captureFocus, queueFocus } from "../keys/focus";
+import { CopyButton } from "../ui/CopyButton";
 import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
 import * as v from "valibot";
@@ -7,12 +10,18 @@ import type { Reaction } from "@contracts/reaction/Reaction";
 import type { Preview } from "@contracts/reaction/Preview";
 import type { Condition } from "@contracts/reaction/Condition";
 import { copy } from "../copy";
-import { RpcError } from "../app/seam";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
+import { Form as Fields } from "../ui/Form";
+import { Combobox } from "../ui/Combobox";
+import { RadioGroup } from "../ui/RadioGroup";
 import { Select } from "../ui/Select";
+import { reactionCopy } from "../copy/reactions";
+import type { createReactions } from "./state";
 import "./styles.css";
+
+export { createReactions } from "./state";
 
 const destination = { surface: "reactions", object: "create", recipient: null };
 
@@ -63,36 +72,9 @@ const conditionText = (condition: Condition, nameOf: (id: string) => string): st
     : condition.kind === "pr-checks" ? copy.reactionPrChecks(condition.repository, condition.number)
       : copy.reactionInstant(condition.at, condition.late);
 
-/** NR9: saved reactions remain readable when their Agents no longer exist. */
-export const createReactions = () => {
-  const { app, drafts, daemonExit } = useConnectedProject();
-
-  // Project-owned submissions outlive the overview; settlement refreshes its current mount.
-  const submissions = createMemo(() => daemonExit() === null ? JSON.stringify(drafts.list()
-    .filter(draft => draft.destination.surface === "reactions" && (draft.status === "pending" || draft.status === "unknown"))
-    .map(draft => draft.revision)) : false);
-
-  const [read, { refetch, mutate }] = createResource(submissions, async (_key, { value }): Promise<{ list: Reaction[]; failure: string | null }> => {
-    try {
-      return { list: await app.rpc("reaction.list", null), failure: null };
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-
-      return { list: value?.list ?? [], failure: error.message };
-    }
-  }, { initialValue: { list: [], failure: null } });
-
-  const refresh = () => { if (daemonExit() === null) void refetch(); };
-
-  window.addEventListener("focus", refresh);
-  onCleanup(() => window.removeEventListener("focus", refresh));
-
-  return { read, refresh, refetch, dismiss: () => mutate(value => ({ ...value, failure: null })) };
-};
-
 /** NR9: the Project overview's named reactions: a list, a create form that previews, and a detail with stop and run. */
 export const Reactions = (props: { state: ReturnType<typeof createReactions> }) => {
-  const { app, drafts, daemonExit } = useConnectedProject();
+  const { app, drafts, daemonExit, hideView } = useConnectedProject();
   const [view, setView] = createSignal<View>({ kind: "list" });
   const [actionFailure, setActionFailure] = createSignal<Record<string, string | null>>({});
   const [pending, setPending] = createSignal(false);
@@ -107,16 +89,21 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
   });
 
   const { read, refetch } = props.state;
+  const nameOf = useNames();
+
+  const listName = (reaction: Reaction) => read().list.some(other => other.id !== reaction.id && other.name === reaction.name && other.home !== reaction.home)
+    ? copy.draftIdentity(reaction.name, reaction.home ? nameOf(reaction.home) : copy.reactionNoHome)
+    : reaction.name;
 
   const back = () => {
     setView({ kind: "list" });
-    queueMicrotask(() => document.querySelector<HTMLElement>(`[data-reaction-opener="${opener}"]`)?.focus());
+    queueFocus(() => document.querySelector<HTMLElement>(`[data-reaction-opener="${opener}"]`)?.focus());
   };
 
   const open = (next: View) => {
     opener = next.kind === "detail" ? next.id : next.kind;
     setView(next);
-    queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
+    queueFocus(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
   };
 
   const selected = () => {
@@ -170,16 +157,15 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
         if (reveal) {
           setView({ kind: "detail", id: created.id });
-          queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
+          queueFocus(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
         }
       }} onCancel={back} />
     </Show>
     <Show when={view().kind === "detail"}>
       <Show when={detail()} fallback={<ReservedLine message={copy.reactionMissing}><ExitButton onClick={back} /></ReservedLine>}>
         {(reaction) => <div class="reaction-detail" role="region" aria-label={copy.reactionDetail(reaction().name)}>
-          <ExitButton class="reaction-back" onClick={back} />
-          <h3 class="reaction-title">{reaction().name}</h3>
-          <ReservedLine message={(inspection()?.id === selected() ? inspection()?.failure : null) ?? actionFailure()[reaction().id]}>
+          <div class="reaction-head"><h3 class="reaction-title">{reaction().name}</h3><button type="button" data-button="quiet" class="reaction-back" aria-label={copy.closeView(reaction().name)} onClick={back}>{copy.closeView(reaction().name)}</button></div>
+          <ReservedLine overlay message={(inspection()?.id === selected() ? inspection()?.failure : null) ?? actionFailure()[reaction().id]}>
             <button type="button" data-button="quiet" onClick={() => {
               if (inspection()?.id === selected() && inspection()?.failure) inspectValue(value => value ? { ...value, failure: null } : value);
               else setActionFailure(value => ({ ...value, [reaction().id]: null }));
@@ -197,20 +183,20 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     <Show when={view().kind === "list"}>
       <div class="reaction-head">
         <h2 class="overview-heading">{copy.reactions}</h2>
-        <button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button>
+        <div class="reaction-actions"><button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button><button type="button" data-button="quiet" onClick={() => { hideView("reactions"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.reactions)}</button></div>
       </div>
       <ReservedLine overlay message={read().failure}>
         <button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button>
         <button type="button" data-button="quiet" onClick={props.state.dismiss}>{copy.clear}</button>
       </ReservedLine>
-      <Show when={read().list.length > 0} fallback={<p class="reaction-empty">{copy.reactionsEmpty}</p>}>
+      <Show when={read().list.length > 0} fallback={<Show when={!read.loading && read().failure === null}><EmptyState art="play" {...{ title: copy.reactionsEmpty }} line={reactionCopy.emptyHelp} /></Show>}>
         <ul class="reaction-list">
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
             const reaction = () => read().list.find(reaction => reaction.id === id)!;
 
             return <li>
             <button type="button" data-button="quiet" class="reaction-row overview-entry" data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
-              <span class="reaction-name">{reaction().name}</span>
+              <span class="reaction-name">{listName(reaction())}</span>
               <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health_code)}</span>
             </button>
           </li>;
@@ -245,7 +231,7 @@ const Facts = (props: { reaction: Reaction }) => {
 
   const closeMessage = () => {
     setMessageId(null);
-    queueMicrotask(() => document.querySelector<HTMLButtonElement>(`[data-firing-message="${returnId}"]`)?.focus());
+    queueFocus(() => document.querySelector<HTMLButtonElement>(`[data-firing-message="${returnId}"]`)?.focus());
   };
 
   const home = () => r().home;
@@ -268,31 +254,24 @@ const Facts = (props: { reaction: Reaction }) => {
       <span>{observation()}</span>
       <ReservedLine message={copy.reactionFeedback(r().observation)} />
     </dd>
-    <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
-      const owner = copyOwner();
-      void writeText(app, JSON.stringify({
+    <dt>{copy.reactionDetails}</dt><dd><CopyButton app={app} text={JSON.stringify({
         name: r().name, authority: authority(),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
         condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
-      }, null, 2)).then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-    }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
+      }, null, 2)} onSuccess={() => failCopy(copyOwner(), null)} onFailure={error => failCopy(copyOwner(), copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
     <dt>{copy.reactionFirings}</dt>
     <dd><Show when={r().firings.length > 0} fallback={copy.reactionNoFirings}>
       <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><button type="button" data-button="quiet" data-firing-message={firing.message} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</button></li>}</For></ol>
     </Show></dd>
   </dl>}>
     <section aria-label={copy.reactionMessage(messageId()!)}>
-      <ExitButton ref={element => queueMicrotask(() => element.focus())} onClick={closeMessage} />
+      <ExitButton ref={element => queueFocus(() => element.focus())} onClick={closeMessage} />
       <ReservedLine message={message()?.id === messageId() ? message()?.failure : null}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => mutate(value => value ? { ...value, failure: null } : value)}>{copy.clear}</button></ReservedLine>
       <Show when={!message.loading && message()?.id === messageId() && message()?.value}>{value => <dl class="reaction-facts">
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
         <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionReason(value().reason!)}` : ""}</dd>
-        <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
-          const owner = copyOwner();
-          void writeText(app, JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
-            .then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-        }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
+        <dt>{copy.reactionDetails}</dt><dd><CopyButton app={app} text={JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2)} onSuccess={() => failCopy(copyOwner(), null)} onFailure={error => failCopy(copyOwner(), copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))}>{copy.copy}</CopyButton><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
       </dl>}</Show>
     </section>
   </Show>;
@@ -384,12 +363,12 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
     const until = resolvedAt(expiry);
     const f = form();
 
-    if (!draft || !cond || !until || unresolved() || !drafts.submit(draft.revision)) return;
+    if (!draft || !cond || !until || unresolved() || !(await drafts.submit(draft.revision))) return;
 
     await send(draft.revision, f, cond, until);
   };
 
-  const send = async (revision: string, f: Form, cond: Condition, until: string) => {
+  const send = async (revision: string, f: Form, cond: Condition, until: string, focus = captureFocus()) => {
     setFailure(null);
     setBusy(true);
 
@@ -400,10 +379,11 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
       });
 
       drafts.settle(revision, "acknowledged");
-      props.onDone(made, !disposed && !current());
+
+      if (!focus(() => props.onDone(made, !disposed && !current()))) props.onDone(made, false);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      const refused = error instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(error.code);
+      const refused = outcomeOf(error) === "failed";
       drafts.settle(revision, refused ? "failed" : "unknown");
       setFailure(refused ? copy.reactionNotCreated(error.message) : copy.reactionCreationUnknown(error.message));
     } finally {
@@ -416,6 +396,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
 
     if (!draft || draft.status !== "unknown" || busy()) return;
 
+    const focus = captureFocus();
     const f = v.parse(formSchema, draft.value);
     setBusy(true);
     setFailure(null);
@@ -427,7 +408,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
         : f.kind === "pr-checks" ? { kind: "pr-checks", repository: f.repository, number: Number(f.number) }
           : { kind: "instant", at: (await app.rpc("reaction.preview", { date: f.atDate, time: f.atTime, offset: f.atOffset })).at, late: "once-before-expiry" };
 
-      await send(draft.revision, f, cond, until.at);
+      await send(draft.revision, f, cond, until.at, focus);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setFailure(copy.reactionCreationUnknown(error.message));
@@ -436,61 +417,52 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
     }
   };
 
-  const text = (label: string, key: keyof Form, options: { area?: boolean; placeholder?: string } = {}) => <label class="reaction-field">
-    <span class="reaction-label">{label}</span>
-    {options.area
-      ? <textarea rows={3} value={String(form()[key])} onInput={(event) => set({ [key]: event.currentTarget.value })} />
-      : <input type="text" value={String(form()[key])} placeholder={options.placeholder} onInput={(event) => set({ [key]: event.currentTarget.value })} />}
-  </label>;
+  const text = (label: string, key: keyof Form, options: { area?: boolean; placeholder?: string } = {}) => <Fields.Text label={label} value={String(form()[key])} {...options} onInput={value => set({ [key]: value })} />;
 
-  const when = (label: string, date: "atDate" | "expDate", time: "atTime" | "expTime", offset: "atOffset" | "expOffset", read: typeof instant) => {
-    const dateField = text(copy.reactionDate, date, { placeholder: copy.reactionDatePlaceholder });
-    const timeField = text(copy.reactionTime, time, { placeholder: copy.reactionTimePlaceholder });
-    const offsetField = text(copy.reactionOffset, offset, { placeholder: copy.reactionOffsetPlaceholder });
+  const zones = reactionCopy.zones;
 
-    return <div class="reaction-when" role="group" aria-label={label}>
+  const when = (label: string, date: "atDate" | "expDate", time: "atTime" | "expTime", offset: "atOffset" | "expOffset", read: typeof instant) => <div class="reaction-when" role="group" aria-label={label}>
     <span class="reaction-label">{label}</span>
-    {dateField}
-    {timeField}
-    {offsetField}
-    <ReservedLine message={read()?.error} status={read()?.preview ? copy.reactionResolved(read()!.preview!) : null} />
+    <div class="reaction-time-fields">
+      <Fields.Date label={copy.reactionDate} value={form()[date]} placeholder={copy.reactionDatePlaceholder} onChange={value => set({ [date]: value })} />
+      {text(copy.reactionTime, time, { placeholder: copy.reactionTimePlaceholder })}
+      <Select label={reactionCopy.zone} value={form()[offset]} choices={zones.some(zone => zone.value === form()[offset]) ? zones : [...zones, { value: form()[offset], label: reactionCopy.offset(form()[offset]) }]} onValueChange={value => set({ [offset]: value })} />
+    </div>
+    <ReservedLine overlay message={read()?.error} status={read()?.preview ? copy.reactionResolved(read()!.preview!) : null} />
   </div>;
-  };
 
   const nameField = text(copy.reactionName, "name");
   const instructionField = text(copy.reactionInstruction, "instruction", { area: true });
   const repositoryField = text(copy.reactionRepository, "repository", { placeholder: copy.reactionRepositoryPlaceholder });
-  const numberField = text(copy.reactionPr, "number");
-  const maxField = text(copy.reactionMax, "maxFirings");
+  const numberField = <Fields.Number label={copy.reactionPr} value={form().number} onChange={number => set({ number })} />;
+  const maxField = <Fields.Number label={copy.reactionMax} value={form().maxFirings} onChange={maxFirings => set({ maxFirings })} />;
   const atFields = when(copy.reactionAt, "atDate", "atTime", "atOffset", instant);
   const expiryFields = when(copy.reactionExpires, "expDate", "expTime", "expOffset", expiry);
 
   return <form class="reaction-form" aria-label={copy.reactionCreate} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-    <ExitButton class="reaction-back" onClick={props.onCancel} />
-    <h3 class="reaction-title">{copy.reactionCreate}</h3>
-    {nameField}
-    <Select label={copy.reactionTarget} value={form().target}
-      choices={[{ value: "", label: copy.reactionPickTarget }, ...agents().map((node) => ({ value: node.id, label: nameOf(node.id) })), ...(form().target && !agents().some(node => node.id === form().target) ? [{ value: form().target, label: nameOf(form().target) }] : [])]}
-      onValueChange={(target) => set({ target })} />
-    {instructionField}
+    <div class="reaction-head"><h3 class="reaction-title">{copy.reactionCreate}</h3><button type="button" data-button="quiet" class="reaction-back" onClick={props.onCancel}>{copy.closeView(copy.reactionCreate)}</button></div>
+    <Fields.Group label={reactionCopy.instructionGroup}>{nameField}
+    <div class="reaction-field reaction-target"><span class="reaction-label">{copy.reactionTarget}</span>
+    <Combobox.Picker label={copy.reactionTarget} value={form().target} savedLabel={copy.reactionPickTarget}
+      items={[...agents().map((node) => ({ value: node.id, label: nameOf(node.id) })), ...(form().target && !agents().some(node => node.id === form().target) ? [{ value: form().target, label: nameOf(form().target) }] : [])]}
+      onSelect={(target) => set({ target })} /></div>
+    {instructionField}</Fields.Group>
+    <Fields.Group label={reactionCopy.conditionGroup}>
     <Select label={copy.reactionCondition} value={form().kind}
       choices={[{ value: "agents", label: copy.reactionKindAgents }, { value: "pr-checks", label: copy.reactionKindPr }, { value: "instant", label: copy.reactionKindInstant }]}
-      onValueChange={(kind) => set({ kind })} />
+      onValueChange={(kind) => { if (kind === "agents") set({ kind }); else set({ kind, maxFirings: "1", rearm: false }); }} />
     <Show when={form().kind === "agents"}>
-      <div class="reaction-agents" role="group" aria-label={copy.reactionWatched}>
-        <span class="reaction-label">{copy.reactionWatched}</span>
-        <For each={agents()}>{(node) => <Checkbox checked={form().ids.includes(node.id)}
-          onCheckedChange={(checked) => set({ ids: checked ? [...form().ids, node.id] : form().ids.filter((id) => id !== node.id) })}>{nameOf(node.id)}</Checkbox>}</For>
-        <Checkbox checked={form().any} onCheckedChange={(any) => set({ any })}>{copy.reactionAny}</Checkbox>
-      </div>
+      <Fields.Checks label={copy.reactionWatched} values={form().ids} items={agents().map(node => ({ value: node.id, label: nameOf(node.id) }))} onChange={ids => set({ ids })} />
+      <RadioGroup label={reactionCopy.sendWhen} value={form().any ? "any" : "all"} choices={[{ value: "all", label: reactionCopy.all }, { value: "any", label: reactionCopy.any }]} onValueChange={value => set({ any: value === "any" })} />
     </Show>
     <Show when={form().kind === "pr-checks"}>{repositoryField}{numberField}</Show>
     <Show when={form().kind === "instant"}>{atFields}</Show>
-    {expiryFields}
-    {maxField}
-    <Checkbox checked={form().rearm} onCheckedChange={(rearm) => set({ rearm })}>{copy.reactionRearm}</Checkbox>
+    </Fields.Group>
+    <Fields.Group label={reactionCopy.limitsGroup}>{expiryFields}
+    <Show when={form().kind === "agents"}>{maxField}
+    <Checkbox checked={form().rearm} onCheckedChange={(rearm) => set({ rearm })}>{copy.reactionRearm}</Checkbox></Show></Fields.Group>
     <section class="reaction-preview" aria-label={copy.reactionPreview}>
-      <span class="reaction-label">{copy.reactionPreview}</span>
+      <h4 class="reaction-legend">{copy.reactionPreview}</h4>
       <dl class="reaction-facts">
         <dt>{copy.reactionAuthority}</dt><dd>{copy.reactionPreviewActor}</dd>
         <dt>{copy.reactionHome}</dt><dd>{home() ? nameOf(home()!) : copy.reactionNoHome}</dd>

@@ -8,7 +8,7 @@ const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const openMenu = async (todos = [todo(1, { title: "alpha" }), todo(2, { title: "beta" }), todo(3, { title: "gamma" })], id = 1) => {
   const mounted = await mountTodos(todos);
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) }));
+  fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) }), { key: "Enter" });
   const button = await within(panel()).findByRole("button", { name: /Blocker/ });
   fireEvent.click(button);
   await screen.findByRole("combobox");

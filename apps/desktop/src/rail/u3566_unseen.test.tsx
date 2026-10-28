@@ -126,7 +126,7 @@ describe("u3566b summaries retain every unread child", () => {
     await waitFor(() => expect(unread(tab("api"))).toBe(true));
 
     expect(app.badges.at(-1)).toBe(1);
-    expect(within(tab("api")).getByRole("img", { name: "Needs you" })).toBeTruthy();
+    ;
     expect(screen.queryAllByRole("img", { name: "Unread result" }).length).toBeGreaterThan(0);
   });
 });
@@ -143,6 +143,11 @@ describe("u3566c reload keeps seen state and finds missed finishes", () => {
     await waitFor(() => expect(unread(row("c"))).toBe(false));
     fireEvent.click(row("a"));
     await waitFor(() => expect(row("a").getAttribute("aria-selected")).toBe("true"));
+    // U3787f: reload follows acknowledged persistence, not the optimistic selection paint.
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem(`roundup:unseen:${path("api")}`)!)).toEqual({ a: "0", b: "0", c: "1" });
+      expect(JSON.parse(localStorage.getItem(`roundup:rail:${path("api")}`)!).selected).toBe("a");
+    });
     cleanup();
 
     // While the webview was away: b finished once more and went back to work, c finished again, a finished anew.

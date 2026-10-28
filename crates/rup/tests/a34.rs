@@ -1,99 +1,13 @@
-//! A34: removing a Workstream deletes its done Todos and the Pads no kept Agent owns, against a
-//! real `rupd`.
-
+//! A34: coordinated Workstream removal against real rupd.
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;
-
+#[path = "e2e/removal.rs"]
+mod removal;
 use contracts::agent::RailNode;
-use contracts::todo::Todo;
-use contracts::{Actor, ActorKind};
-use daemon::{Project, start};
+use daemon::start;
+use removal::{agent_in, pad_in, pads, todo_in, todos, workstream};
 use serde_json::{Value, json};
-
-async fn workstream(client: &rpc::Client, name: &str) -> String {
-    let node = client
-        .request(
-            "rail.createWorkstream",
-            json!({ "name": name, "parent": null }),
-        )
-        .await
-        .unwrap();
-    node["id"].as_str().unwrap().to_owned()
-}
-
-async fn agent_in(project: &Project, client: &rpc::Client, parent: &str) -> String {
-    let node = client
-        .request(
-            "agent.spawn",
-            json!({ "cwd": project.dir.path(), "prompt": null, "parent": parent }),
-        )
-        .await
-        .unwrap();
-    serde_json::from_value::<RailNode>(node).unwrap().id
-}
-
-async fn todo_in(client: &rpc::Client, title: &str, home: Option<&str>, done: bool) -> u32 {
-    let todo = client
-        .request("todo.create", json!({ "title": title }))
-        .await
-        .unwrap();
-    let id = serde_json::from_value::<Todo>(todo).unwrap().id;
-    client
-        .request("todo.move", json!({ "id": id, "home": home }))
-        .await
-        .unwrap();
-    if done {
-        client
-            .request("todo.complete", json!({ "id": id }))
-            .await
-            .unwrap();
-    }
-    id
-}
-
-async fn todos(client: &rpc::Client) -> Vec<Todo> {
-    serde_json::from_value(client.request("todo.list", json!(null)).await.unwrap()).unwrap()
-}
-
-async fn pad_in(client: &rpc::Client, name: &str, home: &str, owner: Option<&str>) {
-    client
-        .request("pad.create", json!({ "name": name }))
-        .await
-        .unwrap();
-    if let Some(owner) = owner {
-        let owner = Actor {
-            kind: ActorKind::Agent,
-            id: owner.to_owned(),
-            parent: None,
-        };
-        client
-            .request("pad.setOwner", json!({ "name": name, "owner": owner }))
-            .await
-            .unwrap();
-    }
-    client
-        .request("pad.move", json!({ "name": name, "home": home }))
-        .await
-        .unwrap();
-}
-
-async fn pads(client: &rpc::Client) -> Vec<(String, Value)> {
-    let listed = client.request("pad.list", json!(null)).await.unwrap();
-    let mut pads: Vec<_> = listed
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|pad| {
-            (
-                pad["name"].as_str().unwrap().to_owned(),
-                pad["home"].clone(),
-            )
-        })
-        .collect();
-    pads.sort_by(|a, b| a.0.cmp(&b.0));
-    pads
-}
 
 #[tokio::test]
 async fn a34_done_todos_are_deleted_and_open_ones_move() {
@@ -874,9 +788,6 @@ async fn n18_removal_commits_all_concerns_once() {
             .await
             .unwrap()
             .unwrap();
-        if matches!(event.data, EventData::MeasurementsChanged { .. }) {
-            continue;
-        }
         assert!(
             !client
                 .request("rail.tree", Value::Null)
@@ -916,13 +827,8 @@ async fn n18_removal_commits_all_concerns_once() {
     );
     assert!(
         tokio::time::timeout(Duration::from_millis(100), async {
-            while let Some(event) = client.next_event().await {
-                assert!(
-                    matches!(event.data, EventData::MeasurementsChanged { .. }),
-                    "unexpected extra removal event: {event:?}"
-                );
-            }
-            panic!("event stream closed during the duplicate-event observation");
+            let event = client.next_event().await;
+            panic!("unexpected extra removal event or closed stream: {event:?}");
         })
         .await
         .is_err()

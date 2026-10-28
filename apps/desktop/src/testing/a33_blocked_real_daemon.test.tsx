@@ -1,9 +1,10 @@
+import { copy } from "../copy";
 // @vitest-environment jsdom
 import { rowStatusLabel } from "./rowTip";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { RequestedApp as App } from "../testing/requestedApp";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp, spawnPrompted } from "./realSeam";
@@ -29,7 +30,7 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    const rail = await screen.findByRole("region", { name: "Rail" });
+    const rail = await screen.findByRole("region", { name: copy.rail });
     const tree = async () => app.rpc("rail.tree", null);
     const agentNode = async () => (await tree()).find((node) => node.kind === "agent");
 
@@ -39,7 +40,7 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     const workstream = (await tree()).find((node) => node.kind === "workstream")!.id;
 
     await waitFor(async () => {
-      const start = within(rail).queryByRole("button", { name: /Start supervisor/i });
+      const start = within(rail).queryByRole("button", { name: copy.startDoor });
 
       if (start && !start.hasAttribute("disabled")) fireEvent.click(start);
 
@@ -54,17 +55,17 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     // The Agent's own Stop makes it idle; its Todo waits on #1.
     const attempt = (await agentNode())!.attempt!;
 
-    await app.rpc("agent.signal", { id, attempt, payload: { hook_event_name: "Stop" } });
+    await app.rpc("agent.signal", { id, attempt, payload: { hook_event_name: copy.stop } });
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("blocked"), { timeout: 60_000 });
 
     const row = (): HTMLElement => rail.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
 
-    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Blocked"));
+    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(copy.blocked));
     expect(await rowStatusLabel(row())).toBe("waits on #1");
 
     await app.rpc("todo.complete", { id: 1 });
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("idle"), { timeout: 30_000 });
-    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Idle"));
+    await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(copy.idle));
     await real.model!.assertMatched();
-  }, 240_000);
+  }, 60_000);
 });

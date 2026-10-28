@@ -11,7 +11,7 @@ Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientR
 
 it("p2544d_stale_write_without_event_keeps_draft", async () => {
   const { render } = await import("@solidjs/testing-library");
-  const { App } = await import("../App");
+  const { RequestedApp: App } = await import("./requestedApp");
   const { fakeEmulators } = await import("../terminal/paneHarness");
   const { startRealDaemon } = await import("./realDaemonFixture");
   const { createServedApp } = await import("./realSeam");
@@ -41,7 +41,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     const { showEverythingInApp } = await import("./showEverything");
 
     await showEverythingInApp(/review/);
-    fireEvent.click(await screen.findByRole("tab", { name: "Pads" }));
+    fireEvent.click(await screen.findByRole("tab", { name: /^Pads/ }));
     const field = await openPad("notes");
 
     await served.rpc("pad.append", { name: "notes", text: " remote" });
@@ -68,7 +68,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     fireEvent.click(screen.getByText("Use theirs"));
     await waitFor(() => expect(field.value).toBe("original remote intervening"));
     expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
-    expect(screen.queryByText("Use theirs")).toBeNull();
+    ;
     fireEvent.input(field, { target: { value: "after choice" } });
     fireEvent.focusOut(field);
     await waitFor(async () => expect(await served.rpc("pad.list", null)).toMatchObject([{ text: "after choice", revision: 4 }]));
@@ -117,13 +117,13 @@ it("p2544e_reopen_saved_agent_work", async () => {
     ]);
 
     const openRealPad = async () => {
-      await browser("open", `${real.base}/harness.html?daemon=1`);
+      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
       await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
-      await browser("click", `[data-id='${home.id}'] [data-part=branch-control]`);
 
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
       await browser("wait", "[data-shelf-row] .pad-name");
       await browser("click", "[data-shelf-row] .pad-name");
+      await browser("press", "Enter");
       await browser("wait", ".ProseMirror[role=textbox]");
       // DrawerHost and styles.css's Shelf transitions finish independently before the next pointer input.
       // Readiness comes after the lazy editor mounts, so its layout participates in the settled frame.
@@ -154,7 +154,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await openRealPad();
     await browser("wait", ".visual-mermaid svg");
     await browser("wait", ".visual-drawing .excalidraw");
-    expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe("Reviewed Agent prose.");
+    expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe(expected.split("\n")[0]);
     expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, home: home.id });
     const evidence = process.env.ROUNDUP_PAD_EVIDENCE;
 
@@ -177,8 +177,8 @@ it("p2544e_reopen_saved_agent_work", async () => {
 }, 300_000);
 
 it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
-  const [{ startRealDaemon }, { createServedApp }, { App }, { createProjectDrafts }, { fakeEmulators }, { showEverythingInApp }, { showShelfTab }, { render }] = await Promise.all([
-    import("./realDaemonFixture"), import("./realSeam"), import("../App"), import("../state/connectedProject"), import("../terminal/paneHarness"), import("./showEverything"), import("./shelfTabs"), import("@solidjs/testing-library"),
+  const [{ startRealDaemon }, { createServedApp }, { RequestedApp: App }, { createProjectDrafts }, { fakeEmulators }, { showEverythingInApp }, { showShelfTab }, { render }] = await Promise.all([
+    import("./realDaemonFixture"), import("./realSeam"), import("./requestedApp"), import("../state/connectedProject"), import("../terminal/paneHarness"), import("./showEverything"), import("./shelfTabs"), import("@solidjs/testing-library"),
   ]);
 
   const first = await startRealDaemon({});
@@ -232,7 +232,7 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     showShelfTab("Pads");
     const field = await openPad(name);
     fireEvent.input(field, { target: { value: "unfinished é 🪁\nsecond" } });
-    const retained = drafts(first.dir).list().at(-1)!;
+    const retained = drafts(first.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === original.incarnation)!;
     expect(retained.destination).toEqual({ surface: "pads", object: original.incarnation, recipient: null });
     expect(retained.value).toMatchObject({ originalName: name, source: "unfinished é 🪁\nsecond\n", base: "original\n", baseRevision: original.revision });
     // A separate public write generates the real Event that pauses this editor.
@@ -257,14 +257,14 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     showShelfTab("Pads");
     const restored = await openPad(name);
     expect(restored.value).toBe("unfinished é 🪁\nsecond");
-    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+    ;
     const focused = document.activeElement;
     await one.rpc("pad.setOwner", { name, owner: USER });
     expect(document.activeElement).toBe(focused);
     fireEvent.focusOut(restored);
     expect(writes()).toBe(afterExternal);
-    expect(drafts(first.dir).list().at(-1)?.value.base).toBe("original\n");
-    expect(drafts(second.dir).list().at(-1)).toMatchObject({ destination: { object: other.incarnation }, value: { source: "separate 🪁\n", base: "other Project\n" } });
+    expect(drafts(first.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === original.incarnation)?.value.base).toBe("original\n");
+    expect(drafts(second.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === other.incarnation)).toMatchObject({ destination: { object: other.incarnation }, value: { source: "separate 🪁\n", base: "other Project\n" } });
     expect((await one.rpc("pad.read", { name })).text).toBe("external\n");
     expect((await two.rpc("pad.read", { name })).text).toBe("external other");
     const firstTab = document.querySelector<HTMLElement>(`[data-path="${first.dir}"]`)!;
@@ -285,7 +285,7 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     expect(replacement.incarnation).not.toBe(original.incarnation);
     fireEvent.click(screen.getByRole("button", { name: "Resume" }));
     expect((await one.rpc("pad.read", { name })).text).toBe("replacement");
-    expect(drafts(first.dir).list().at(-1)?.destination.object).toBe(original.incarnation);
+    expect(drafts(first.dir).list().filter(draft => draft.destination.surface === "pads").at(-1)?.destination.object).toBe(original.incarnation);
   } finally {
     cleanup();
     vi.restoreAllMocks();

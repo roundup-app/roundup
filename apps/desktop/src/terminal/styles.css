@@ -28,7 +28,7 @@
 
 .pane .pane-latest {
   position: absolute;
-  bottom: 8px;
+  bottom: var(--space-2);
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
@@ -38,26 +38,12 @@
   --button-surface: var(--ground);
 }
 
-.pane .pane-empty {
+.pane-body .empty-state {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  white-space: nowrap;
-  transform: translate(-50%, -50%);
-  text-align: center;
+  inset: 0;
 }
 
-/* U524: a Terminal opened from the Project root replaces the placeholder. */
-[data-root-terminal] .pane .pane-empty {
-  display: none;
-}
-
-/* The earlier-run line wraps in a narrow pane instead of leaving it. */
-.pane .pane-empty.light {
-  width: max-content;
-  max-width: calc(100% - var(--space-4) * 2);
-  white-space: normal;
-}
+[data-root-terminal] .empty-state { display: none; }
 
 .pane .pane-action {
   display: inline-flex;
@@ -70,13 +56,16 @@
 
 /* Over a stopped Door's last output, so the state and the way out stay readable. */
 .pane .pane-door {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  max-width: calc(100% - var(--space-4) * 2);
-  white-space: normal;
+  justify-content: center;
+}
+
+.pane-door .empty-state {
+  position: static;
+  flex: 0 1 auto;
   background: var(--ground);
 }
 
@@ -85,21 +74,11 @@
   padding-top: var(--space-2);
 }
 
-/* U3517c: the viewport and the surrounding inset share the canvas ground. */
+/* U3517c: the viewport and the surrounding inset share the canvas ground; the doubled class outranks the lazy xterm.css whatever order the sheets load in. */
 .pane-screen,
-.pane .xterm .xterm-viewport,
-.pane .xterm .xterm-scrollable-element {
+.pane .xterm-viewport.xterm-viewport,
+.pane .xterm-scrollable-element.xterm-scrollable-element {
   background-color: var(--terminal-background);
-}
-
-.pane-body.drop-over::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-width: 2px;
-  border-style: solid;
-  border-color: var(--accent);
-  pointer-events: none;
 }
 
 .pane-screen[hidden] {
@@ -107,14 +86,14 @@
 }
 
 /* D6, D7: the emulator's input is a textarea, so it carries the click target states; it is invisible, so each is a Token read with no transition. */
-.pane .xterm .xterm-helper-textarea {
+.pane .xterm-helper-textarea {
   cursor: pointer;
-  min-height: 24px;
+  min-height: var(--space-5);
   color: var(--text);
   background-color: var(--ground);
 }
 
-.pane .xterm .xterm-helper-textarea:hover {
+.pane .xterm-helper-textarea:hover {
   color: var(--text);
   background-color: var(--ground);
 }
@@ -124,7 +103,7 @@
   position: absolute;
   top: 0;
   left: calc(-1 * var(--space-2));
-  width: 4px;
+  width: var(--space-1);
   height: 100%;
   pointer-events: none;
 }
@@ -133,7 +112,7 @@
   position: absolute;
   left: 0;
   display: block;
-  width: 4px;
+  width: var(--space-1);
   padding: 0;
   border: 0;
   background: var(--hairline);
@@ -152,13 +131,9 @@
   height: 100%;
 }
 
-.centre-stack > .pane {
-  flex: 1;
-  height: auto;
-  min-height: 0;
-}
 
-.pane-empty-keys {
+
+.pane-shortcuts {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -168,7 +143,7 @@
   color: var(--grey);
 }
 
-.pane-empty-keys li {
+.pane-shortcuts li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -179,3 +154,12 @@
 .xterm .xterm-viewport {
   overscroll-behavior: contain;
 }
+
+.pane-origin {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+
