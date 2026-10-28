@@ -95,6 +95,12 @@ fn owner(nodes: &[RailNode], actor: &Actor, value: &mut Value) -> Result<(), Rpc
         let id = select(nodes, actor, value.as_str().unwrap())?;
         *value = json!({"kind":"agent", "id":id, "parent":null});
     } else if value["kind"] == "agent" {
+        // Explicit Actors retain opaque stored identities, including retired owners.
+        if value["id"].as_str().is_some_and(|id| {
+            id != "me" && !id.starts_with("name:") && !nodes.iter().any(|n| n.name == id)
+        }) {
+            return Ok(());
+        }
         string(nodes, actor, &mut value["id"], false)?;
     }
     Ok(())
