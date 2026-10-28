@@ -85,6 +85,7 @@ it.each(["idle", "flood"] as const)("u165_k3_opens_its_terminal_with_cmd_t_after
 
   expect(terminal.target()).toBe(workload === "flood" ? "shell-2" : "shell-1");
   expect(opened).toEqual(workload === "flood" ? ["shell-1"] : []);
+  expect(app.calls.filter(call => call.method === "rail.createWorkstream")).toHaveLength(1);
   expect(input).toBe(document.activeElement);
   expect(app.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual(Array.from({ length: workload === "flood" ? 2 : 1 }, () => ({ workstream: "w", cols: 100, rows: 30 })));
 });
