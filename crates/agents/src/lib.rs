@@ -402,7 +402,6 @@ pub use events::InboxObserver;
 use events::{channel_deadline_from_env, channel_in, interrupt_bound_from_env, watch};
 use rail_view::{agent_lock, valid_explicit_order, valid_order, waiting_on};
 use registration::{hold, save_signal_conversation};
-use steer::SteerError;
 use worktree_wiring::report_undo;
 
 /// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
