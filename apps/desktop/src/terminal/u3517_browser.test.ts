@@ -385,6 +385,14 @@ it("u4590_visible_shell_waits_for_destination_fonts_before_launch", async () => 
   })()`);
   await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.open')")).toEqual([]);
+  const captures = captureDir("U4590");
+
+  if (captures) {
+    mkdirSync(captures, { recursive: true });
+    await browser("screenshot", join(captures, "shell-preparing.png"));
+    writeFileSync(join(captures, "shell-preparing.checks.json"), JSON.stringify(await read("window.__checks()"), null, 2));
+  }
+
   await read("window.__releaseFonts()");
   await wait("window.__fake.app.calls.some(call => call.method === 'terminal.open')");
   const params = await read<{ cols: number; rows: number }>("window.__fake.app.calls.find(call => call.method === 'terminal.open').params");
