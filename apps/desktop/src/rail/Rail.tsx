@@ -452,17 +452,34 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
-    guarded(async () => {
-      const focus = captureFocus(true);
-      const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
+  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) => {
+    const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
 
-      const spawned = await app.rpc("agent.spawn", params);
+    const run = () => {
+      if (!canSpawn()) return;
 
-      setWanted({ id: spawned.id, focus });
+      if (under !== null && !rail.nodes.some(node => node.id === under && node.kind === "workstream")) {
+        failure.show(copy.railDraftUnavailable);
 
-      if (composing()) endCompose();
-    });
+        return;
+      }
+
+      guarded(async () => {
+        const focus = captureFocus(true);
+
+        try {
+          const spawned = await app.rpc("agent.spawn", params);
+          failure.acknowledge(null);
+          setWanted({ id: spawned.id, focus });
+        } catch (error) {
+          if (!(error instanceof Error)) throw error;
+          failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
+        }
+      });
+    };
+
+    run();
+  };
 
   const spawnAgent = () => spawnAgentWith(null);
 
@@ -514,12 +531,10 @@ export const Rail = () => {
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
 
-  const submitPrompt = async (prompt: string | null) => {
-    const snapshot = task() ?? keepDraft(draft());
-
+  const submitPrompt = async (prompt: string | null, snapshot = task() ?? keepDraft(draft())) => {
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
-    const originalParent = taskParent();
-    const action = taskAction();
+    const originalParent = v.is(v.nullable(v.string()), snapshot.value.parent) ? snapshot.value.parent : snapshot.destination.object === "" || snapshot.destination.object === project.path ? null : snapshot.destination.object;
+    const action = snapshot.value.action === "note" || snapshot.value.action === undefined && snapshot.destination.recipient !== null ? "note" : "spawn";
 
     if (originalParent !== null && !rail.nodes.some((node) => node.id === originalParent && node.kind === "workstream")) {
       failure.show(copy.railDraftUnavailable);
@@ -545,14 +560,30 @@ export const Rail = () => {
 
         const latest = task()?.revision === revision.revision;
         retained.settle(revision.revision, "acknowledged");
+        failure.acknowledge(null);
 
         if (latest) {
           if (spawned !== null) setWanted({ id: spawned, focus });
           endCompose();
         }
       } catch (error) {
-        retained.settle(revision.revision, outcomeOf(error));
-        throw error;
+        const outcome = outcomeOf(error);
+        retained.settle(revision.revision, outcome);
+
+        if (!(error instanceof Error)) throw error;
+        failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", () => {
+          const saved = retained.records().find(entry => entry.revision === revision.revision);
+
+          if (!saved || !canSpawn()) return;
+
+          if (saved.status === "unknown") {
+            // Native details expose the exact uncertain revision without issuing a duplicate.
+            const recovered = document.querySelector<HTMLElement>(`[data-revision="${CSS.escape(saved.revision)}"]`);
+            recovered?.closest(".rail-recovery")?.setAttribute("open", "");
+            recovered?.setAttribute("open", "");
+            recovered?.querySelector("textarea")?.focus();
+          } else void submitPrompt(prompt, saved);
+        });
       } finally {
         clearTimeout(slow);
         setAsking(false);
@@ -563,8 +594,11 @@ export const Rail = () => {
   const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
   onMount(() => {
-    const clear = () => {
-      if (!failure.retry()) {
+    const clear = (event: MouseEvent) => {
+      const recoversSpawn = failure.message()?.startsWith(`${copy.newAgent}: `);
+      const usesRecovery = event.target instanceof Element && event.target.closest(".rail-command-notice");
+
+      if (!failure.retry() || recoversSpawn && !usesRecovery) {
         failure.clear();
         rail.clearWorkstreamFailure();
       }
@@ -827,7 +861,7 @@ export const Rail = () => {
               };
 
               return (
-                <details class="rail-recovery-detail">
+                <details class="rail-recovery-detail" data-revision={entry().revision}>
                   <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
                   <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
@@ -867,7 +901,7 @@ export const Rail = () => {
           </Popover.Root>;
         }}
       </Show>
-      <ReservedLine class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+      <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
         <Show when={failure.retry()}>{retry => <>
           <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
