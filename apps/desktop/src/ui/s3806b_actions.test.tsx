@@ -170,23 +170,23 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     switcherKey("Escape", {}, prompt);
   }
 
-  // The surface is dismissed first so Ark's focus trap releases focus to an action that moves it; the captured action still starts once.
+  // Confirmation begins in the originating surface; its affirmative mutation follows the reply.
   if (row.confirms) {
     await questionDialog();
-    expect(trace).toEqual(["question:closed"]);
+    expect(trace).toEqual(["question:open"]);
     expect(ofMethod()).toEqual([]);
     await answerQuestion(outcome !== "cancel");
 
     if (outcome === "cancel") {
       expect(ofMethod()).toEqual([]);
-      expect(trace).toEqual(["question:closed"]);
+      expect(trace).toEqual(["question:open"]);
 
       return;
     }
   }
 
   await waitFor(() => expect(ofMethod()).toHaveLength(1));
-  expect(trace).toEqual(row.confirms ? ["question:closed", `${row.method}:closed`] : [`${row.method}:closed`]);
+  expect(trace).toEqual(row.confirms ? ["question:open", `${row.method}:closed`] : [`${row.method}:${submitted ? "closed" : "open"}`]);
   expect(ofMethod().map((call) => call.params)).toEqual([row.params]);
   await waitFor(() => expect(field()).toBeNull());
 
