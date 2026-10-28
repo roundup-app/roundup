@@ -81,6 +81,7 @@ for (const state of ["agent", "door", "shell"]) {
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
+      await read("localStorage.clear(); sessionStorage.clear()");
       await load(seed, base, "webgl");
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
       let id = state === "agent" ? "t-agent-3" : "t-payments";
@@ -99,7 +100,7 @@ for (const state of ["agent", "door", "shell"]) {
         const samples = Array.from({ length: 16 }, (_, index) => '\\x1b[' + (index < 8 ? 30 + index : 90 + index - 8) + 'm ANSI ' + index + ' \\x1b[0m').join('');
         await new Promise(resolve => emulator.write(new TextEncoder().encode('\\x1b[2J\\x1b[H\\x1b]133;A\\x07Selected Terminal 0123456789\\r\\n\\x1b]133;D;0\\x07Regular 日本語 fallback\\r\\n\\x1b[1mBold sample\\x1b[0m \\x1b[3mItalic sample\\x1b[0m \\x1b[1;3mBold italic\\x1b[0m\\r\\n' + '\\x1b[90m┌────────────┬─────────┐\\r\\n│ Check      │ Result  │\\r\\n├────────────┼─────────┤\\r\\n│ Typography │ Ready   │\\r\\n└────────────┴─────────┘\\x1b[0m\\r\\n\\x1b[2mDim text and borders\\x1b[0m\\r\\n' + samples + '\\r\\n' + 'Long wrapped output '.repeat(40) + '\\r\\nunterminated input'), resolve));
         emulator.selectTurn(0, false);
-        window.__fake.failNext(-32003, 'Output unavailable. Retry.');
+        window.__fake.app.handlers['terminal.write'] = () => { throw new Error('Output unavailable. Retry.'); };
         emulator.paste('retry');
       })()`);
       await wait("document.querySelector('.pane-failure')?.textContent.includes('Output unavailable. Retry.') || document.querySelector('.bubble-failure')?.textContent.includes('Output unavailable. Retry.')");
