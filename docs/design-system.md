@@ -286,8 +286,8 @@ browser-synthesized italic and bold italic; OFL in
 uses it; the rest of the App retains its existing type.
 
 The emulator, App Settings and Project zoom reset share `--text-terminal` (11 CSS
-px). `--line-terminal` is xterm's unitless line-height multiplier (1.5, calibrated to 19 CSS px rows) and
-`--letter-terminal` is extra cell tracking (0.95 CSS px). U4456 uses Solo's
+px). `--line-terminal` is xterm's unitless line-height multiplier (1.7, calibrated to 22 CSS px rows) and
+`--letter-terminal` is extra cell tracking (0 CSS px, U4592 / #4627). U4456 uses Solo's
 0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
 apply. Rendered cell measurements are recorded in `docs/terminal-type.md`.
 
