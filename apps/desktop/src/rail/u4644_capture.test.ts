@@ -26,7 +26,9 @@ it.skipIf(!captureDir("U4644"))("u4644_rendered_starts_and_empty_heading_audit",
   mkdirSync(dir, { recursive: true });
   const snap = async (name: string) => {
     await browser("screenshot", join(dir, `${name}.png`));
-    writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read(`({ checks: window.__checks(), headings: [...document.querySelectorAll('.section-head,.overview-heading,.shelf-group-head')].filter(el => el.getClientRects().length).map(el => el.textContent), empty: [...document.querySelectorAll('.empty-state')].map(el => el.textContent), revision: ${JSON.stringify(execFileSync("git", ["rev-parse", "HEAD"], { cwd: process.env.U4644_ROOT ?? process.cwd(), encoding: "utf8" }).trim())} })`), null, 2));
+    const observation = await read(`({ checks: window.__checks(), headings: [...document.querySelectorAll('.section-head,.overview-heading,.shelf-group-head')].filter(el => el.getClientRects().length).map(el => el.textContent), empty: [...document.querySelectorAll('.empty-state')].map(el => el.textContent), revision: ${JSON.stringify(execFileSync("git", ["rev-parse", "HEAD"], { cwd: process.env.U4644_ROOT ?? process.cwd(), encoding: "utf8" }).trim())} })`);
+    writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(observation.checks, null, 2));
+    writeFileSync(join(dir, `${name}.observation.json`), JSON.stringify(observation, null, 2));
   };
   const load = async (seed: string) => {
     await browser("open", new URL(`/harness.html?seed=${seed}&items=1&view=workstreams`, origin).href);
@@ -78,7 +80,7 @@ it.skipIf(!captureDir("U4644"))("u4644_rendered_starts_and_empty_heading_audit",
         }
         await wait(`window.__fake.app.calls.some(call => call.method === '${shift ? "rail.createWorkstream" : "agent.spawn"}')`);
         expect(await read(`window.__fake.app.calls.filter(call => call.method === '${shift ? "rail.createWorkstream" : "agent.spawn"}').length`)).toBe(1);
-        await snap(`dark-${shift ? "workstream" : "agent"}-${activation}-result`);
+        
       }
     }
   } finally {

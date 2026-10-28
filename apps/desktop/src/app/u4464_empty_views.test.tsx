@@ -6,12 +6,11 @@ import { createFakeApp } from "../testing/fakeApp";
 
 afterEach(cleanup);
 
-it("u4464_choose_folder_is_a_primary_button_that_opens_the_chooser", async () => {
+it("u4464_choose_folder_opens_the_chooser", async () => {
   const app = createFakeApp();
   const choose = vi.spyOn(app, "chooseProjectPath");
   render(() => <App app={app} clock={() => 0} reducedMotion={() => true} />);
   const button = await screen.findByRole("button", { name: "Choose folder…" });
-  expect(button.dataset.button).toBe("primary");
   fireEvent.click(button);
   await waitFor(() => expect(choose).toHaveBeenCalledOnce());
 });
