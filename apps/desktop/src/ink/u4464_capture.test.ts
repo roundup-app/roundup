@@ -104,7 +104,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await read(`window.__fake.failNext(-32003,'Creation rejected: choose another Workstream name'); document.querySelector('[aria-label="Add Workstream"]').click()`);
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected')`);
       await snap(`${theme}-dense-failure`);
-      expect(await read(`window.__fake.app.calls.filter(call => call.method === 'rail.createWorkstream').length`)).toBe(1);
+      expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
     }
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
