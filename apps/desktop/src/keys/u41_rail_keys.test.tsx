@@ -136,7 +136,7 @@ describe("u41 rail by keyboard, the rest", () => {
     expect(document.activeElement).toBe(rowOf("inner"));
   });
 
-  it("u41_left_on_a_top_level_leaf_does_nothing", async () => {
+  it("u41_left_on_a_root_agent_focuses_its_section_without_selecting", async () => {
     const { rail } = await mountKeys([agent("a", "idle", "x")]);
     rowOf("a").focus();
 
@@ -145,7 +145,7 @@ describe("u41 rail by keyboard, the rest", () => {
     await settled();
 
     expect(rail.selected()).toBeNull();
-    expect(document.activeElement).toBe(rowOf("a"));
+    expect(document.activeElement).toBe(rowOf("AGENTS"));
   });
 
   it("u41_right_on_a_collapsed_group_expands_it", async () => {
@@ -238,18 +238,6 @@ describe("u41 rail by keyboard, the rest", () => {
     expect(rail.collapsed().has("m")).toBe(true);
     expect(document.activeElement).toBe(rowOf("m"));
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(2);
-  });
-
-  it("u41_right_on_a_leaf_with_no_children_does_nothing", async () => {
-    const { rail } = await mountKeys([agent("a", "idle", "x")]);
-    rowOf("a").focus();
-
-    press("ArrowRight");
-
-    await settled();
-
-    expect(rail.selected()).toBeNull();
-    expect(document.activeElement).toBe(rowOf("a"));
   });
 
   it("u41_right_on_a_leaf_followed_by_a_sibling_does_not_select_the_sibling", async () => {

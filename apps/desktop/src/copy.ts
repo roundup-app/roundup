@@ -552,6 +552,8 @@ export const copy = {
   ownersFor: (id: CopyValue) => `Owners for #${id}`,
   overview: "Overview",
   overviewLabel: (count: number) => count > 0 ? `Overview, Project root, ${count} ${count === 1 ? "needs" : "need"} you` : "Overview, Project root",
+  modesHead: "MODES",
+  agentsHead: "AGENTS",
   workstreamsHead: "WORKSTREAMS",
   rail: "Rail",
   doneCount: " done",
