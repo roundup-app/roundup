@@ -35,6 +35,8 @@ describe("u4457 the Pads control opens the Shelf", () => {
     await mount([pad, padOf("plan", by("a2"))]);
     await waitFor(() => expect(control("a1")).not.toBeNull());
 
+    fireEvent.click(document.querySelector<HTMLElement>('[role=treeitem][data-id="a1"] .name')!);
+    await waitFor(() => expect(document.querySelector('[role=tree] [data-id="a1"]')?.getAttribute("aria-selected")).toBe("true"));
     fireEvent.click(control("a1")!);
 
     await waitFor(() => expect(screen.getByRole("tab", { name: /Pads/, selected: true })).toBeTruthy());
