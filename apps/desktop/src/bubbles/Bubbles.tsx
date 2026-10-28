@@ -14,6 +14,7 @@ import { Bubble } from "./Bubble";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
+import { HintLine } from "../keys/HintLine";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
@@ -943,6 +944,7 @@ export const Bubbles = (props: {
             <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
           </div>
         </div>
+        <HintLine />
       </Portal>
       <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
