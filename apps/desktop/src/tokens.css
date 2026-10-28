@@ -213,12 +213,12 @@
     --terminal-bright-magenta: #c397d8;
     --terminal-bright-cyan: #70c0b1;
     --terminal-bright-white: #eaeaea;
-    --ground: var(--gray-2);
+    --ground: var(--terminal-background);
     --surface: var(--gray-3);
     --button-neutral: var(--gray-4);
     --button-accent-ink: var(--gray-1);
     --key-chip-fill: var(--gray-3);
-    --sunken: var(--gray-1);
+    --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(255, 255, 255, 0.08);
     --selected-hover: rgba(255, 255, 255, 0.10);
@@ -330,9 +330,9 @@ button, file-tree-container, diffs-container {
     --terminal-bright-magenta: #c397d8;
     --terminal-bright-cyan: #70c0b1;
     --terminal-bright-white: #eaeaea;
-    --ground: var(--gray-2);
+    --ground: var(--terminal-background);
     --key-chip-fill: var(--gray-3);
-    --sunken: var(--gray-1);
+    --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(255, 255, 255, 0.08);
     --selected-hover: rgba(255, 255, 255, 0.10);
