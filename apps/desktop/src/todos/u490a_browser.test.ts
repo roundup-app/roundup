@@ -57,10 +57,10 @@ const shelf: List = {
   },
 };
 
-const centre = (rows: string, n: number) => page.call<Point>(`(rows, n) => {
-  const el = document.querySelectorAll(rows)[n]; el.scrollIntoView({block: 'nearest'}); const b = el.closest('.todo-row').querySelector('.sortable-handle').getBoundingClientRect();
+const centre = (rows: string, n: number, grip = true) => page.call<Point>(`(rows, n, grip) => {
+  const el = document.querySelectorAll(rows)[n]; el.scrollIntoView({block: 'nearest'}); const b = (grip ? el.closest('.todo-row').querySelector('.sortable-handle') : el).getBoundingClientRect();
   return {x: b.left + b.width / 2, y: b.top + b.height / 2};
-}`, rows, n);
+}`, rows, n, grip);
 
 const state = (rows: string) => page.call<State>(`rows => ({
   ids: [...document.querySelectorAll(rows)].map(b => Number(/#(\\d+)/.exec(b.getAttribute('aria-label'))[1])),
@@ -183,7 +183,7 @@ for (const list of [shelf]) {
       await page.pointer("move", last.x + 6, last.y);
       // Sortable keeps the source row in place and draws its drop gap separately (ui/sortable.tsx).
       await page.until(`() => Boolean(document.querySelector('.sortable-slot:not([data-ending])'))`);
-      const gap = await centre('.sortable-slot:not([data-ending])', 0);
+      const gap = await centre('.sortable-slot:not([data-ending])', 0, false);
 
       await page.pointer("move", gap.x, gap.y);
       await page.until(`() => document.querySelector('[data-sortable-index]')?.getAttribute('data-sortable-index') === "${before.ids.length - 1}"`);
@@ -196,9 +196,9 @@ for (const list of [shelf]) {
       await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
 
-      const beforeHover = await centre(rows, 0);
+      const beforeHover = await centre(rows, 0, false);
       await page.pointer("move", beforeHover.x, beforeHover.y);
-      const point = await centre(rows, 0);
+      const point = await centre(rows, 0, false);
 
       await page.pointer("down", point.x, point.y);
       await page.pointer("up", point.x, point.y);

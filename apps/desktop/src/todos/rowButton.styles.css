@@ -503,9 +503,6 @@
 }
 .todo-row .todo-row-button {
   color: inherit;
-  display: flex;
-  align-items: center;
-  padding-block: 0;
   cursor: pointer;
 }
 .todo-row .todo-row-button:focus-visible {
@@ -514,5 +511,3 @@
 .todo-row .todo-row-button[data-pressed="true"] { color: inherit; }
 .todo-row .todo-open { position: relative; z-index: 1; flex: none; }
 .todo-open svg { width: var(--space-4); height: var(--space-4); }
-.shelf-row.todo-inset { grid-template-columns: var(--space-4) minmax(0, 1fr); }
-.todo-inset .shelf-glyph { margin-inline-start: 0; justify-content: center; }
