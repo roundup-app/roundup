@@ -10,7 +10,7 @@ Light (300), regular (400) and bold (700) are bundled. U4592 selects Light for
 normal Terminal text through xterm’s public fontWeight option. Upstream supplies no italic faces;
 the browser synthesizes italic and bold italic from these same local faces.
 No remote or installed font is needed for any of the four styles. The emulator
-loads all four style/weight combinations before its first authoritative fit.
+loads normal and italic at all three bundled weights before its first authoritative fit.
 The retired JetBrains Mono notice remains in the adjacent `jetbrains-mono/`.
 
 SHA-256:
