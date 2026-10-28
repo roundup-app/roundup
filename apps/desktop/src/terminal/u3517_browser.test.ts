@@ -4,10 +4,10 @@ import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
-const load = async (seed: string, base = false) => {
+const load = async (seed: string, base = false, renderer = "dom") => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
-  await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, base));
+  await browser("open", url(`/harness.html?seed=${seed}&renderer=${renderer}`, base));
   await wait("!!window.__fake && !!document.querySelector('.rail-row')");
 };
 
@@ -81,7 +81,7 @@ for (const state of ["agent", "door", "shell"]) {
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
-      await load(seed, base);
+      await load(seed, base, "webgl");
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
       let id = state === "agent" ? "t-agent-3" : "t-payments";
       let surface = ".pane";
@@ -107,7 +107,7 @@ for (const state of ["agent", "door", "shell"]) {
       const metrics = await read<{ fonts: { status: string }[] }>(`(() => {
         const screen = document.querySelector('${surface} .xterm-screen').getBoundingClientRect();
         const size = window.__terminals.get('${id}').fit();
-        return { ...size, cellWidth: screen.width / size.cols, cellHeight: screen.height / size.rows, dpr: devicePixelRatio, fonts: [...document.fonts].map(face => ({ family: face.family, style: face.style, weight: face.weight, status: face.status })), resources: performance.getEntriesByType('resource').filter(r => r.name.includes('.woff2')).map(r => r.name) };
+        return { ...size, cellWidth: screen.width / size.cols, cellHeight: screen.height / size.rows, dpr: devicePixelRatio, renderer: document.querySelector('${surface} .xterm-screen canvas') ? "webgl" : "dom", fonts: [...document.fonts].map(face => ({ family: face.family, style: face.style, weight: face.weight, status: face.status })), resources: performance.getEntriesByType('resource').filter(r => r.name.includes('.woff2')).map(r => r.name) };
       })()`);
 
       const checks = JSON.stringify(await read("window.__checks()"), null, 2);

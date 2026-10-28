@@ -16,7 +16,7 @@ keeps its existing stack. xterm's normal/bold defaults already select 400/700.
 | --- | --- | --- |
 | `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
 | `--text-terminal` | `fontSize` | 11 CSS px |
-| `--line-terminal` | `lineHeight` | 1.7, unitless |
+| `--line-terminal` | `lineHeight` | 1.5, unitless |
 | `--letter-terminal` | `letterSpacing` | 0.95 CSS px |
 
 Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
@@ -25,26 +25,20 @@ cell measurements, grid counts, loaded faces, local resources and device pixel
 ratio are retained in each capture's `*.metrics.json`, beside the PNG and
 Check readings under `artifacts/ux/U4456{a,b,c,d}/{base,head}/`.
 
-The paired Linux DOM observer (Chromium, 1512×950, device pixel ratio 1,
-base `42178f366`, implementation `5fd777a26` plus the capture-fixture repair)
-measures:
+The Linux observer uses the App's normal WebGL renderer at 1512×950 and
+pixel ratio 1. The explicit `customGlyphs: true` option makes xterm draw
+box-drawing characters across the full cell instead of using the shorter font
+glyph. The capture records the renderer alongside each measurement; behavioral
+font/input/resize regressions still exercise the DOM fallback. xterm documents
+that [custom glyphs do not apply to DOM rendering](https://xtermjs.org/docs/api/terminal/interfaces/iterminaloptions/#customglyphs).
 
-| Surface | Base cell width × height | Fira cell width × height | Base grid → Fira grid |
-| --- | --- | --- | --- |
-| Agent | 8.4 × 19 CSS px | 7.772 × 22 CSS px | 105×42 → 114×37 |
-| Door | 8.4 × 19 CSS px | 7.772 × 22 CSS px | 105×42 → 114×37 |
-| Shell Bubble | 8.398 × 19 CSS px | 7.767 × 22 CSS px | 83×33 → 90×29 |
-
-All six screens pass every reported design Check, including D2, D5 and D6.
-This is not full U4456 acceptance: xterm multiplies the measured font bounding
-height by `lineHeight`, rather than multiplying `fontSize`. Consequently 11 px
-and 1.7 do not produce the scenario's predicted 18.7 px pitch. U3517b's retained
-18–20 px range conflicts with the prescribed raw settings. No font-size or
-line-height compensation is silently applied; the PR remains a draft pending
-the requested rendering target's resolution. An isolated browser-only calibration at the same 11 px with xterm lineHeight
-1.5 measures 19 px rows, the same 7.772 px width and a 114×42 Agent grid. It is
-not applied to the defaults because U4456a explicitly prescribes 1.7. The
-original Solo screenshot is not present to settle the competing targets.
+The critic's requested correction uses lineHeight 1.5 at 11 CSS px to retain
+U3517b's 18–20 CSS px row pitch. xterm multiplies the measured font bounding
+height rather than CSS fontSize: 1.7 yielded 22 CSS px rows, while 1.5 yields
+19 CSS px rows. Letter spacing remains 0.95 CSS px. This calibration supersedes
+the earlier 1.7 setting; it does not lower the pitch or continuous-frame bar.
+The original Solo screenshot is still unavailable, so no sampled-image match
+is claimed.
 
 `DEFAULT_FONT_SIZE` reads the same size Token for the emulator, App Settings
 and Project zoom reset. Saved absolute sizes stay unchanged; clearing a custom
