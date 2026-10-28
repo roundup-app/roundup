@@ -335,11 +335,13 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
     for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", headUrl]] as const) {
       await lane.browser("open", `${url}/harness.html?seed=tree-40`);
       await lane.until("!!document.querySelector('.todo-project-root')");
+
       if (phase === "retention") {
         await lane.evaluate(`localStorage.setItem('roundup:drafts:/Users/you/harness', JSON.stringify({version:1,drafts:[{revision:'audit-order',destination:{surface:'orders',object:'tokens',recipient:'tokens'},value:{title:'Orchard release',ask:'Exact retained Order /Users/authored/path',done:'Release checked'},selection:null,status:'failed',policy:'ordinary'}]}))`);
         await lane.browser("reload");
         await lane.until("!!document.querySelector('.todo-project-root')");
       }
+
       await lane.evaluate(`(async () => {
         const app = window.__fake.app;
         const tree = await app.rpc('rail.tree', null);
