@@ -309,8 +309,6 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       slot.setAttribute("data-dnd-placeholder", "");
       slot.setAttribute("aria-hidden", "true");
       slot.style.height = `${box.height}px`;
-      // Until the first swap the slot stands over the row's own cell and its room trails the list, so a nudge that returns to it is no move (U490a).
-      slot.style.marginBlock = `${-box.height}px ${box.height}px`;
       slot.dataset.keyboard = String(keyboardLift);
       sourceRow.insertAdjacentElement("afterend", slot);
 
@@ -318,23 +316,19 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
       ProxiedElements.set(sourceRow, slot);
 
-      if (isSortable(source)) {
-        const target = source.sortable.target;
-        const placeholder = slot;
+      const target = isSortable(source) ? source.sortable.target : undefined;
+      const placeholder = slot;
 
-        source.sortable.target = placeholder;
-        void source.manager?.actions.setDropTarget(source.id);
-        restoreSource = () => {
-          if (source.sortable.target === placeholder) source.sortable.target = target;
-        };
-      }
+      restoreSource = () => {
+        if (isSortable(source) && source.sortable.target === placeholder) source.sortable.target = target;
+      };
 
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
 
+        // Keeping the original hit target at lift prevents the new slot from selecting a neighbour.
+        source.sortable.target = source.index === source.initialIndex ? target : placeholder;
         list?.setAttribute("data-sortable-index", String(source.index));
-
-        if (source.index !== source.initialIndex) slot?.style.removeProperty("margin-block");
 
         track(source, event.operation.position);
       });

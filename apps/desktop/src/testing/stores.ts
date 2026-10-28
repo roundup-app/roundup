@@ -352,6 +352,21 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
     },
     "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
     "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
+    "pad.reorder": ({ name, before, expectedIncarnation }) => {
+      if (actor().kind !== "user") throw new RpcError(-32002, "only the user may reorder pads");
+      const pad = find(store.pads, entry => padKey(entry.name) === padKey(name), `pad ${name}`);
+
+      if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
+      const target = before === null ? null : find(store.pads, entry => padKey(entry.name) === padKey(before), `pad ${before}`);
+
+      if (target && (target === pad || !ownsPad(target, pad.owner))) throw new RpcError(CONFLICT, "reorder needs another pad of the same owner");
+      const order = store.pads.filter(entry => entry !== pad);
+      order.splice(target ? order.indexOf(target) : order.length, 0, pad);
+      store.pads = order;
+      announce({ name: "pad.changed", data: { name } });
+
+      return { ...pad };
+    },
     "pad.setOwner": ({ name, owner }) => {
       if (typeof owner === "string") throw new RpcError(INVALID_PARAMS, "owner selectors require the Daemon");
 
