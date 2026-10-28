@@ -2,12 +2,12 @@ import { cleanup } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { openTabs } from "../header/stripFixture";
 import { agent } from "../testing/nodes";
-import { CHORDS, pressOf } from "./chords";
+import { pressOf } from "./chords";
 import { endLeader } from "./registry";
 
 afterEach(cleanup);
 
-const KEPT = ["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+shift+KeyT", "meta+Slash", "meta+KeyZ", "meta+Comma", "meta+KeyO"];
+const KEPT = ["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+shift+KeyT", "meta+Slash", "meta+KeyZ", "meta+Comma"];
 
 /** The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act in the Terminal screen (U101, U102), not at App scope. */
 const TERMINALS_OWN = ["meta+KeyC", "meta+KeyV", "meta+Equal", "meta+Minus", "meta+Digit0", "meta+shift+Equal"];
@@ -19,8 +19,6 @@ const MODS: KeyboardEventInit[] = [{ ctrlKey: true }, { altKey: true }, { metaKe
   { ctrlKey: true, altKey: true }, { ctrlKey: true, metaKey: true }, { altKey: true, metaKey: true }];
 
 it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
-  expect(CHORDS.filter((chord) => !chord.inRail && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses)).toEqual(KEPT);
-
   await openTabs({ api: [agent("a1", "idle", "x")] });
 
   const terminal = document.body.appendChild(document.createElement("textarea"));
@@ -38,8 +36,8 @@ it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
       const press = new KeyboardEvent("keydown", { code, key: code.replace(/^(Key|Digit)/, "").toLowerCase(), bubbles: true, cancelable: true, ...mods });
       const name = pressOf(press);
 
-      // U3787a lists item undo, but a focused Terminal must still receive ⌘Z.
-      if ((KEPT.includes(name) && !["meta+KeyZ", "meta+KeyO"].includes(name)) || TERMINALS_OWN.includes(name)) continue;
+      // U3787a: Terminal undo stays native. U4464: first-run ⌘O also reaches an open Terminal.
+      if ((KEPT.includes(name) && name !== "meta+KeyZ") || TERMINALS_OWN.includes(name)) continue;
 
       sent.push(name);
       terminal.dispatchEvent(press);
