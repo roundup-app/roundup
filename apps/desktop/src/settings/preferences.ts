@@ -94,7 +94,7 @@ export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number)
       ));
     }
 
-    if (method === "agent.resume" || method === "workstream.clear") {
+    if (method === "agent.resume") {
       return app.rpc(method, Object.assign({}, params, permission));
     }
 

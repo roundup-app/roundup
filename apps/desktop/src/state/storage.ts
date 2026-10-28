@@ -419,6 +419,10 @@ export const draftStorage = (project: string) => {
 
     incompatible = false;
     baseline = JSON.stringify(saved);
+    for (const draft of saved) {
+      if (draft.destination.surface === "rail-clear") removed.add(draft.revision);
+    }
+
     const known = new Set(drafts.map((draft) => draft.revision));
 
     drafts = [...saved.filter((draft) => !known.has(draft.revision) && !removed.has(draft.revision)).map((draft): Draft => ({
@@ -515,6 +519,9 @@ export const draftStorage = (project: string) => {
 
       return retain(drafts.find((draft) => draft.revision === problem?.revision) ?? null);
   };
+
+  // U350 retires these revisions without offering recovery or replay.
+  if (removed.size > 0) void retain(null);
 
   return {
     /** Register the owning surface's form parser before capturing edits. Incompatible

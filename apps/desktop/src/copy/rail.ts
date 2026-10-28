@@ -1,6 +1,6 @@
 const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting…"], ["unknown", "Completion unconfirmed"], ["failed", "Not submitted"]]);
 
-const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
+const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"]]);
 
 export const railDraftCopy = {
   addAgentWord: " Agent",
