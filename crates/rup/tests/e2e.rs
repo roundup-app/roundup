@@ -3533,14 +3533,8 @@ fn d8_listing(dir: &std::path::Path) -> Vec<String> {
 #[tokio::test]
 async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     let scratch = tempfile::tempdir().unwrap();
-    let (launches, input) = (
-        scratch.path().join("launches"),
-        scratch.path().join("typed"),
-    );
-    let project = start(&[
-        ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
-        ("FAKE_CLAUDE_INPUT_LOG", input.to_str().unwrap()),
-    ]);
+    let input = scratch.path().join("typed");
+    let project = start(&[("FAKE_CLAUDE_INPUT_LOG", input.to_str().unwrap())]);
     let mut client = project.subscribed().await;
     let agent: RailNode = serde_json::from_value(
         client
@@ -3552,6 +3546,20 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
             .unwrap(),
     )
     .unwrap();
+    // A4452: the inbox receipt, then idle, bound startup without any typed prompt.
+    h21_poll("startup coordination receipt", async || {
+        let messages = client
+            .request("message.list", json!({"to":agent.id}))
+            .await
+            .unwrap();
+        messages
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["status"] == "delivered")
+            .cloned()
+    })
+    .await;
     wait_until_idle(
         &mut client,
         std::slice::from_ref(&agent.id),
@@ -3559,12 +3567,6 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     )
     .await
     .unwrap_or_else(|report| panic!("{report}"));
-    // A4452: coordination is inbox-only; its receipt bounds startup before sampling.
-    next(&mut client, |event| match event {
-        EventData::MessageDelivered(message) if message.to == agent.id => Some(()),
-        _ => None,
-    })
-    .await;
     let typed_before = std::fs::read_to_string(&input).unwrap_or_default();
     let tree_before = format!("{:?}", rail_tree(&client).await);
     let files_before = d8_listing(project.dir.path());

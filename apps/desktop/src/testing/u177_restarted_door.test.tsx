@@ -43,7 +43,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
       expect((await app.rpc("terminal.screen", { id: door.terminal_id! })).lines.join("\n")).toContain("Ready for your instructions.");
     };
 
-    const messages = async (app: AppSeam) => (await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status]);
+    const messages = async (app: AppSeam) => (await app.rpc("message.list", { to: null, status: null })).filter(message => message.from.kind === "user").map((message) => [message.body, message.status]);
 
     // U467: the user types to the Door in its Terminal; the Message is the same Daemon delivery without the keystrokes.
     const send = async (app: AppSeam, body: string) => {
