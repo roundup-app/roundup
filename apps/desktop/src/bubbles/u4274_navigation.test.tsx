@@ -255,6 +255,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_ro
       await page.until("!!document.querySelector('[role=option]')");
       await page.browser("press", "Enter");
       await page.until("window.__fake.app.calls.filter(c => c.method === 'terminal.open').length === 1 && !document.querySelector('[role=combobox]')");
+
       if (side === "head") await page.until("document.activeElement?.closest('.bubble') !== null");
       await page.evaluate("document.fonts.ready.then(() => true)");
       const output = join(captureDir("U4453c")!, side!);
@@ -263,7 +264,19 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_ro
       writeFileSync(join(output, "root-agent.checks.json"), JSON.stringify(observed.checks, null, 2));
       writeFileSync(join(output, "root-agent.observation.json"), JSON.stringify({ ...observed, checks: undefined }, null, 2));
       await page.browser("screenshot", join(output, "root-agent.png"));
+
       if (side === "head") expect(observed).toMatchObject({ selected: "agent-3", calls: [{ method: "terminal.open", params: { workstream: null } }] });
+      await page.evaluate("localStorage.clear()");
+      await page.browser("open", new URL("/harness.html?seed=tree-40", url).href);
+      await page.until("!!window.__fake && !!document.querySelector('[data-id=migrate]')");
+      await page.browser("click", "[data-id=migrate]");
+      await page.until("document.querySelector('[data-id=migrate]').getAttribute('data-selected') === 'true'");
+      await page.evaluate("window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Cannot open Terminal: the shell could not start. Check the shell configuration and retry New Terminal.'); }; true");
+      await page.until("!!document.querySelector('.terminal-new')");
+      await page.browser("click", ".terminal-new");
+      await page.until("document.querySelector('.bubbles [role=alert]')?.textContent.includes('Check the shell configuration')");
+      writeFileSync(join(output, "root-agent-dense-open-failure.checks.json"), JSON.stringify(await page.evaluate("window.__checks()"), null, 2));
+      await page.browser("screenshot", join(output, "root-agent-dense-open-failure.png"));
     }
   } finally {
     await page.close();
