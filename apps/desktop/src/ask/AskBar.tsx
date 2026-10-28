@@ -360,14 +360,17 @@ const ProjectOverview = () => {
   const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
 
   const heads = new Map<string, HTMLElement>();
+
   const entries = () => hasView("workstreams")
     ? [...workstreams().flatMap(node => [node, ...under(node.id)]), ...attention().filter(node => node.kind !== "workstream" && resolvedWorkstream(rail.nodes, node.id) === null)]
     : attention();
+
   const content = createRowCollection(() => entries().filter(node => {
     const head = heads.get(node.id);
 
     return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
   }).map(node => ({ value: node.id, label: node.name })), { onActivate: id => rail.select(id) });
+
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} status={true} select={() => rail.select(node.id)} selected={content.selection.isSelected(node.id)} head={element => {
     heads.set(node.id, element); content.register(element, node.id);
     onCleanup(() => { if (heads.get(node.id) === element) heads.delete(node.id); });
@@ -491,12 +494,15 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onC
   };
 
   const heads = new Map<string, HTMLElement>();
+
   const content = createRowCollection(() => records().filter(record => {
     const head = heads.get(record.id);
 
     return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
   }).map(record => ({ value: record.id, label: record.title })), {
-    onActivate: id => { const record = records().find(record => record.id === id); if (record) void open(record); },
+    onActivate: id => { const record = records().find(record => record.id === id);
+
+ if (record) void open(record); },
   });
 
   const copied = createCopyLabels(() => records().map(record => record.id));
