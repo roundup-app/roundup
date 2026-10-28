@@ -20,7 +20,8 @@ Candidate builds used identical settings on the base:
 | Import panel + App Settings controls | 230,257 | 402,246 |
 | Above + Pads list | 152,142 | 388,821 |
 | Import panel + Pads list | 163,355 | 399,203 |
-| Selected pair, with Solid pending/error/retry feedback | 163,592 | 399,440 |
+| Pair with Solid pending/error/retry feedback | 163,592 | 399,440 |
+| Selected pair, including Close during unavailable imports | 163,633 | 399,481 |
 
 Select the two requested-only surfaces; discard the App Settings experiment.
 Both production callers of Pads defer it: Shelf and draft recovery. Keeping
@@ -37,6 +38,6 @@ Previously eager modules move into these lazy chunks:
 | Pads-DOmlCFHy.js | 14,128 | 5,551 | 3 |
 
 Motion's incremental bytes are zero; no Motion module moves into a lazy chunk.
-The entry reduction is 104,281 bytes; the eager-closure reduction is 14,902 bytes,
+The entry reduction is 104,240 bytes; the eager-closure reduction is 14,861 bytes,
 because shared modules split into additional eager chunks. The full closure
 decides the budget. The PR records the final immutable head after committing.

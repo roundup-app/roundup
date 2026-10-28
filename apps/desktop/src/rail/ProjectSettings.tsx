@@ -37,7 +37,7 @@ export const ProjectSettingsView = () => {
 
   return <>
     <Show when={settingsView.open() && settingsView.page() === "project-settings"}><ProjectSettingsBody onClose={close} /></Show>
-    <Show when={settingsView.open() && settingsView.page() === "import-work" && importing.open()}><Deferred load={() => import("../importer/ImportPanel")} label={copy.importTitle}>{module => <module.ImportPanel onClose={closeImport} />}</Deferred></Show>
+    <Show when={settingsView.open() && settingsView.page() === "import-work" && importing.open()}><Deferred load={() => import("../importer/ImportPanel")} label={copy.importTitle} onClose={closeImport}>{module => <module.ImportPanel onClose={closeImport} />}</Deferred></Show>
   </>;
 };
 
