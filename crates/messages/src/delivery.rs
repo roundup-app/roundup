@@ -119,7 +119,10 @@ pub(super) async fn on_status(
             }),
         )
     } else {
-        (kind == Kind::Done, kind == Kind::Idle)
+        (
+            kind == Kind::Done,
+            matches!(kind, Kind::Idle | Kind::Blocked),
+        )
     };
     {
         let mut store = lock(&inner.store);
@@ -292,7 +295,7 @@ pub(super) async fn deliver_pending(inner: &Arc<Inner>, agent: &str) {
             && node
                 .status
                 .as_ref()
-                .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Error))
+                .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Blocked | Kind::Error))
     }) {
         on_idle(inner, agent, binding(node), Pick::Fresh).await;
     }

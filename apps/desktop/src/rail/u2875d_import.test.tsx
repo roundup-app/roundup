@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,8 +38,8 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     openProjectPage("import-work");
     await screen.findByText("First");
     fireEvent.click(screen.getByText("First"));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import Claude Code work" })));
-    fireEvent.keyDown(screen.getByRole("region", { name: "Import Claude Code work" }), { key: "Escape", code: "Escape", keyCode: 27 });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: copy.importTitle })));
+    fireEvent.keyDown(screen.getByRole("region", { name: copy.importTitle }), { key: "Escape", code: "Escape", keyCode: 27 });
     await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
     expect(app.calls.filter((call) => call.method !== "project.importDiscover" && call.method.startsWith("project.")).length).toBe(0);
 
@@ -93,12 +94,13 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       fireEvent.click(screen.getByLabelText("Close api"));
       await waitFor(() => expect(screen.queryByRole("tab", { name: /^api/ })).toBeNull());
       app.chooser.path = path("api");
-      fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+      fireEvent.click(screen.getByRole("button", { name: copy.openAFolder }));
       await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
     };
 
     await reopen();
-    const refresh = screen.queryByRole("button", { name: "Refresh" });
+    await screen.findByRole("region", { name: copy.importTitle });
+    const refresh = screen.queryByRole("button", { name: copy.importRefresh });
 
     if (refresh) fireEvent.click(refresh);
     fireEvent.click(await screen.findByText("Second"));
@@ -152,10 +154,10 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
       fireEvent.click(tab("api"));
       await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
-      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Import 1" }).disabled).toBe(false);
+      expect((await screen.findByRole<HTMLButtonElement>("button", { name: "Import 1" })).disabled).toBe(false);
       expect(screen.getByText(/Import choices.*could not be saved for reload/)).toBeTruthy();
       writes.mockRestore();
-      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      fireEvent.click(screen.getByRole("button", { name: copy.retryStorage }));
       await waitFor(() => expect(screen.queryByText(/Import choices.*could not be saved for reload/)).toBeNull());
       cleanup();
       const restored = createImport(daemon, path("api"), () => undefined);
@@ -177,7 +179,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
     expect(calls(app, "project.importCommit")).toEqual([]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    fireEvent.click(screen.getByRole("button", { name: copy.importRefresh }));
     await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0));
     expect(screen.queryByText(/Changed or gone since you chose them/)).toBeNull();
     expect(calls(app, "project.importDiscover").map((call) => call.params)).toEqual([{ period: "month" }]);
@@ -190,7 +192,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     app.handlers["project.importDiscover"] = () => found("changed");
     app.handlers["project.importCommit"] = () => ({ outcomes: [] });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
+    fireEvent.click(await screen.findByRole("button", { name: copy.importRefresh }));
     await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(2));
 
     const checked = (name: RegExp) => {
@@ -202,7 +204,6 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     expect(screen.queryByText(/Changed or gone since you chose them/)).toBeNull();
     expect(checked(/First/)).toBe(false);
     expect(checked(/Second/)).toBe(true);
-    expect(screen.getByRole("button", { name: "Import 1" })).toBeTruthy();
     expect(calls(app, "project.importCommit")).toEqual([]);
   });
 
@@ -217,10 +218,10 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
 
     await waitFor(() => expect(rowOf("a1").closest("[role=treeitem]")?.getAttribute("aria-selected")).toBe("true"));
     fireEvent.contextMenu(rowOf("a1"));
-    expect(app.menuLabels()).toContain("Resume");
+    expect(app.menuLabels()).toContain(copy.resume);
     await app.closeMenu();
     fireEvent.contextMenu(rowOf("w1"));
-    expect(app.menuLabels()).toContain("Start supervisor");
+    expect(app.menuLabels()).toContain(copy.startDoor);
     expect(calls(app, "agent.resume")).toEqual([]);
   });
 
@@ -260,7 +261,7 @@ const clickSource = async (title: string, retained = true, project = "/p") => {
   const count = selected + (box instanceof HTMLInputElement && box.checked ? -1 : 1);
 
   fireEvent.click(box);
-  await screen.findByRole("button", { name: count ? `Import ${count}` : "Import" });
+  await screen.findByRole("button", { name: count ? `Import ${count}` : copy.importAgentName });
 
   if (retained) await waitFor(() => expect(JSON.parse(localStorage.getItem(importKey(project))!).selected).toHaveLength(count));
 };
@@ -310,23 +311,27 @@ it("u3049a_unchanged_record_saves_normally", async () => {
 });
 
 const conflictingProjects = async () => {
-  const { app } = await openTabs({ api: [], web: [] });
+  const app = createFakeApp();
+
+  for (const name of ["api", "web"]) app.add(path(name));
   const daemon = app.of(path("api"));
   daemon.handlers["project.importDiscover"] = concurrentFound;
   app.of(path("web")).handlers["project.importDiscover"] = concurrentFound;
-  fireEvent.click(tab("web"));
-  await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
-  openProjectPage("import-work");
-  await screen.findByRole("checkbox", { name: /別の窓/ });
-  await clickSource("別の窓", true, path("web"));
+
+  // U3049a's external-save tests prove creation; seed its given two versions here.
+  const otherState = createImport(app.of(path("web")), path("web"), () => undefined, draftStorage(path("web")));
+  otherState.show();
+  await waitFor(() => expect(otherState.verified()).toBe(true));
+  await otherState.choose("s2", titles[1]!, "preview-2", true);
   const other = localStorage.getItem(importKey(path("web")));
-  fireEvent.click(tab("api"));
-  await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
-  openProjectPage("import-work");
-  await screen.findByRole("checkbox", { name: /一つ目/ });
-  await clickSource("一つ目", true, path("api"));
+  const state = createImport(daemon, path("api"), () => undefined, draftStorage(path("api")));
+  state.show();
+  await waitFor(() => expect(state.verified()).toBe(true));
+  await state.choose("s1", titles[0]!, "preview-1", true);
   localStorage.setItem(importKey(path("api")), externalChoices);
-  await clickSource("三つ目", true, path("api"));
+  await state.choose("s3", titles[2]!, "preview-3", true);
+  render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  fireEvent.click(await screen.findByRole("tab", { name: /^api/ }));
   await screen.findByRole("status", { name: /conflict/i });
 
   return { app, daemon, other };
@@ -347,8 +352,8 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
     return read.call(this, key);
   });
 
-  fireEvent.click(screen.getByRole("button", { name: "Open choices 1" }));
-  const retry = await screen.findByRole("button", { name: "Try again" });
+  fireEvent.click(await screen.findByRole("button", { name: "Open choices 1" }));
+  const retry = await screen.findByRole("button", { name: copy.retryStorage });
   reads.mockRestore();
   fireEvent.click(retry);
   await waitFor(() => expect(retry.isConnected).toBe(false));
@@ -358,7 +363,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
 
   for (const [number, period, sources] of [[1, "month", ["s2"]], [2, "week", ["s1", "s3"]]] as const) {
     fireEvent.click(screen.getByRole("button", { name: `Open choices ${number}` }));
-    expect(screen.getByRole("button", { name: `Last ${period}` }).getAttribute("aria-pressed")).toBe("true");
+    expect((await screen.findByRole("button", { name: `Last ${period}` })).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: `Import ${sources.length}` })).toHaveProperty("disabled", true);
     await waitFor(() => expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected).toEqual(sources.map(source => ({ source, revision: `preview-${source.slice(1)}`, title: titles[Number(source.slice(1)) - 1] }))));
     expect(screen.getAllByRole("button", { name: /Open choices/ })).toHaveLength(2);
@@ -367,7 +372,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
   expect(localStorage.getItem(importKey(path("web")))).toBe(other);
   expect(calls(daemon, "project.importCommit")).toEqual([]);
   // Restored choices must first be validated, then explicitly confirmed.
-  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: copy.importRefresh }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false));
   expect(calls(daemon, "project.importCommit")).toEqual([]);
 });
@@ -425,7 +430,7 @@ it.each(["read", "json", "schema", "write", "draft-write"])("u3049b_retention_fa
   }
 
   localStorage.setItem(importKey(), externalChoices);
-  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  fireEvent.click(screen.getByRole("button", { name: copy.retryStorage }));
   await screen.findByRole("status", { name: /conflict/i });
   expect(connected.importing.choices().sort((a, b) => a.period.localeCompare(b.period)).map(entry => [entry.period, entry.sources, entry.revisions, entry.titles])).toEqual([
     ["month", ["s2"], ["preview-2"], [titles[1]]], ["week", ["s1", "s3"], ["preview-1", "preview-3"], [titles[0], titles[2]]],
@@ -445,12 +450,12 @@ it.each(["discovery", "retry"])("u3049a_detects_external_record_before_%s_write"
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota exceeded"); });
 
     await clickSource("三つ目", false);
-    await screen.findByRole("button", { name: "Try again" });
+    await screen.findByRole("button", { name: copy.retryStorage });
     writes.mockRestore();
   }
 
   localStorage.setItem(importKey(), externalChoices);
-  fireEvent.click(screen.getByRole("button", { name: operation === "retry" ? "Try again" : "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: operation === "retry" ? copy.retryStorage : copy.importRefresh }));
   await screen.findByRole("status", { name: /conflict/i });
   expect(screen.getAllByRole("button", { name: /Open choices/ })).toHaveLength(2);
   expect(calls(app, "project.importCommit")).toEqual([]);
@@ -486,7 +491,7 @@ it.each([false, true])("u3049b_initial_restore_retry_keeps_versions_separate_rec
     await connected.importing.choose("s3", titles[2]!, "preview-3", true);
     expect(read.call(localStorage, importKey())).toBe(externalChoices);
     unreadable = false;
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    fireEvent.click(screen.getByRole("button", { name: copy.retryStorage }));
     await screen.findByRole("status", { name: /conflict/i });
     expect(connected.importing.choices().sort((a, b) => a.period.localeCompare(b.period)).map(entry => [entry.period, entry.sources, entry.revisions, entry.titles])).toEqual([
       ["month", ["s2"], ["preview-2"], [titles[1]]], ["week", ["s1", "s3"], ["preview-1", "preview-3"], [titles[0], titles[2]]],

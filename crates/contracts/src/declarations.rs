@@ -31,8 +31,6 @@ macro_rules! declarations {
 
 declarations! { $;
     agents_methods["agent"] {
-        "project.measurements": () => contracts::project::Measurements, rpc_project_measurements, all(empty("Read retained Project measurements and collection coverage."));
-        "project.measurementSummary": contracts::project::MeasurementSummaryParams => contracts::project::MeasurementSummary, rpc_project_measurements, all(schema(contracts::project::MeasurementSummaryParams,"Read a Workstream’s consumed tokens and ranked contributors, twenty per page. Later pages require the first page’s revision; reconcile from offset zero after a revision conflict. Unknown coverage is not zero. This does not report money or time."));
         "terminal.open": contracts::terminal::OpenParams => contracts::terminal::Opened, rpc_terminal_open, all(schema(contracts::terminal::OpenParams,concat!(
                 "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; `workstream` is required for Agents. The answer holds its `terminal_id`.",
                 bubble_rule!()
@@ -56,6 +54,7 @@ declarations! { $;
         "rail.tree": () => Vec<contracts::agent::RailNode>, rpc_rail_tree, all(empty("Read the Rail: every Workstream, Agent and Terminal with its Status."));
         "rail.list": () => Vec<contracts::agent::RailNode>, rpc_rail_tree, none();
         "workstream.setAuto": contracts::workstream::AutoParams => (), rpc_workstream_set_auto, none();
+        "workstream.setOpeningPrompt": contracts::workstream::OpeningPromptParams => (), rpc_workstream_set_opening_prompt, none();
         "rail.createWorkstream": contracts::agent::CreateWorkstreamParams => contracts::agent::RailNode, rpc_rail_create_workstream, all(schema(contracts::agent::CreateWorkstreamParams,"Make a Workstream at the Project root, with `parent` null. Start its Door next with `rail_startDoor`. Workstreams never nest."));
         "rail.move": contracts::agent::MoveParams => (), rpc_rail_move, all(schema(contracts::agent::MoveParams,"Move a node in your Reach: an Agent under a Workstream or Agent, a Workstream only to the root."));
         "rail.rename": contracts::agent::RenameParams => contracts::agent::RailNode, rpc_rail_rename, all(schema(contracts::agent::RenameParams,"Rename yourself or a node in your Reach."));
@@ -74,7 +73,7 @@ declarations! { $;
         "models.list": () => contracts::project::ModelList, rpc_models_list, none();
         "project.open": contracts::project::OpenParams => (), rpc_project_open, all(schema(contracts::project::OpenParams,"Ask the App to open the Project at an absolute folder path. The answer means asked, not done."));
         "project.rename": contracts::project::RenameParams => (), rpc_project_rename, all(schema(contracts::project::RenameParams,"Ask the App to give this Project a name of 1 to 40 characters. The answer means asked, not done."));
-        "rail.remove": contracts::agent::RemoveParams => Option<contracts::agent::Removal>, rpc_rail_remove, all(schema(contracts::agent::NodeId,"Remove a node in your Reach, never yourself. Its children move to its parent."));
+        "rail.remove": contracts::agent::RemoveParams => Option<contracts::agent::Removal>, rpc_rail_remove, all(schema(contracts::agent::RemoveParams,"Remove a node in your Reach, never yourself. Workstream scope this (default) keeps unfinished work; all stops and removes its contents. All is only valid for a Workstream and cannot retain an operation."));
         "agent.resume": contracts::agent::ResumeParams => contracts::agent::RailNode, rpc_agent_resume, all(schema(contracts::agent::ResumeParams,"Continue a saved conversation in your Reach. An explicit normal or yolo mode stops a running Agent or Door first; omitted mode requires an exited Agent."));
         "agent.setModel": contracts::agent::SetModelParams => contracts::agent::RailNode, rpc_agent_set_model, none();
     }
@@ -97,7 +96,7 @@ declarations! { $;
         "todo.deletion": contracts::todo::DeletionParams => Option<contracts::todo::Deletion>, rpc_todo_deletion, none();
         "todo.restore": contracts::todo::DeletionParams => contracts::todo::Deletion, rpc_todo_restore, none();
         "todo.comment": contracts::todo::CommentParams => contracts::todo::Comment, rpc_todo_comment, all(schema(contracts::todo::CommentParams,"Leave a comment on a Todo only when the user must read it, such as a question or a blocker. Write one short plain line, at most 280 characters; it shows in the user's Inbox until they open the Todo. Never report progress or results here."));
-        "todo.comments": contracts::todo::TodoId => Vec<contracts::todo::Comment>, rpc_todo_comments, none();
+        "todo.comments": contracts::todo::TodoId => Vec<contracts::todo::Comment>, rpc_todo_comments, all(schema(contracts::todo::TodoId,"Read a Todo comment thread oldest first, including authors and user replies. Reading does not mark comments read."));
         "todo.unread": () => Vec<contracts::todo::UnreadComment>, rpc_todo_unread, none();
         "todo.markCommentsRead": contracts::todo::TodoId => (), rpc_todo_mark_comments_read, none();
         "todo.addRef": contracts::todo::RefParams => contracts::todo::Todo, rpc_todo_add_ref, all(schema(contracts::todo::RefParams,"Point the user to a Pad or one section of it from a Todo, so they open it from the Todo and read it. Pass the link `roundup://pad/<name>?project=<key>`; a section link ends in `#<heading>`, the heading's text percent-encoded. The Pad and heading must exist. Adding the same link twice keeps one."));
@@ -111,6 +110,7 @@ declarations! { $;
         "pad.write": contracts::pad::WriteParams => contracts::pad::Pad, rpc_pad_write, all(schema(contracts::pad::WriteParams,"Rewrite a Pad's whole text. Owner only. Optional expectedRevision refuses a stale write with CONFLICT."));
         "pad.append": contracts::pad::AppendParams => contracts::pad::Pad, rpc_pad_append, all(schema(contracts::pad::AppendParams,"Add text to the end of any Pad."));
         "pad.appendSection": contracts::pad::AppendSectionParams => contracts::pad::Pad, rpc_pad_append_section, all(schema(contracts::pad::AppendSectionParams,"Add text at the end of the section under a Markdown heading of any Pad; the heading ignores case and extra whitespace. Pass expectedRevision (from a read) to refuse if the Pad changed since."));
+        "pad.reorder": contracts::pad::ReorderParams => contracts::pad::Pad, rpc_pad_reorder, none();
         "pad.setOwner": contracts::pad::SetOwnerParams => contracts::pad::Pad, rpc_pad_set_owner, all(schema(contracts::pad::SetOwnerParams,"Give a Pad to another Actor."));
         "pad.move": contracts::pad::MoveParams => contracts::pad::Pad, rpc_pad_move, none();
         "pad.delete": contracts::pad::DeleteParams => contracts::pad::Deletion, rpc_pad_delete, all(schema(contracts::pad::DeleteParams,"Delete a Pad, retaining its original creation for restoration."));
@@ -194,6 +194,7 @@ declarations! { $;
         "message.resolveResult": contracts::message::ResolveResultParams => contracts::message::ResultObservation, rpc_evidence, all(schema(contracts::message::ResolveResultParams,"User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect."));
         "message.reconcileWork": contracts::message::ProgressParams => contracts::message::Reconciliation, resume_call, all(schema(contracts::message::ProgressParams,"Read which retained work is unfinished, confirmed, pending a check or uncertain, without sending or starting anything."));
         "message.resumeWork": contracts::message::ResumeWorkParams => contracts::message::ResumeWork, resume_call, all(schema(contracts::message::ResumeWorkParams,"User only: resume an Agent's eligible unfinished work with one successor Message. Retry with the same request id after an unknown reply; it never repeats an uncertain external effect, restarts a stopped Agent or starts a program."));
+        "workstream.restart": contracts::workstream::RestartParams => contracts::agent::RailNode, rpc_workstream_restart, none();
         "workstream.clear": contracts::workstream::ClearParams => contracts::workstream::ClearResult, rpc_workstream_clear, none();
         "workstream.rewindPlan": contracts::workstream::RewindPlanParams => contracts::workstream::RewindPlan, rpc_rewind, door(custom(workstream_rewind_plan()));
         "workstream.rewind": contracts::workstream::RewindParams => contracts::workstream::Rewind, rpc_rewind, door(custom(workstream_rewind()));

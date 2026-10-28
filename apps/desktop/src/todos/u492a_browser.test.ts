@@ -61,7 +61,8 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
     await lane.until(`!document.querySelector('.shelf [data-todo="${first}"]') && !document.querySelector('.shelf [data-todo="${second}"]')`);
     expect(await lane.order()).toEqual([initial[2]]);
-    await lane.browser("click", '.todo-undo button:first-of-type');
+    await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+    await lane.browser("press", "Meta+z");
     await lane.until(`!!document.querySelector('.shelf [data-todo="${first}"]') && !!document.querySelector('.shelf [data-todo="${second}"]')`);
     await read(lane, "undo");
     await lane.resetCalls();
@@ -98,12 +99,19 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
       window.__fake.actAs({ kind: 'agent', id: 'agent-1', parent: null });
       const made = await window.__fake.app.rpc('todo.create', { title: 'agent todo', body: null, blockers: null });
       window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
-      document.querySelector('.rail [data-id="agent-1"] [data-pads-control]').click();
       return made.id;
     })()`);
 
-    await lane.until(`!!document.querySelector('.rail [data-todo="${made}"]')`);
-    const point = await lane.evaluate<{x: number; y: number}>(`(() => {const box=document.querySelector('.rail [data-todo="${made}"] .todo-row-button').getBoundingClientRect();return {x:Math.round(box.left+box.width/2),y:Math.round(box.top+box.height/2)};})()`);
+    await lane.until(`!!document.querySelector('.shelf [data-todo="${made}"]')`);
+    const owner = await lane.evaluate<string>(`document.querySelector('.shelf [data-todo="${made}"]').closest('[data-shelf-group]').dataset.shelfGroup`);
+
+    if (await lane.evaluate<boolean>(`document.querySelector('[data-shelf-group="${owner}"]').getAttribute('aria-expanded') !== 'true'`)) {
+      await lane.browser("click", `[data-shelf-group="${owner}"] .shelf-group-control`);
+    }
+
+    await lane.until(`document.querySelector('[data-shelf-group="${owner}"]').getAttribute('aria-expanded') === 'true'`);
+    await lane.browser("scrollintoview", `.shelf [data-todo="${made}"] .todo-row-button`);
+    const point = await lane.evaluate<{x: number; y: number}>(`(() => {const box=document.querySelector('.shelf [data-todo="${made}"] .todo-row-button').getBoundingClientRect();return {x:Math.round(box.left+box.width/2),y:Math.round(box.top+box.height/2)};})()`);
 
     await lane.browser("mouse", "move", String(point.x), String(point.y));
     await lane.browser("mouse", "down", "right");

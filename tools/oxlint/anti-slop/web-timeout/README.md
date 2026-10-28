@@ -7,7 +7,7 @@ This PR does not complete T3779a, enable the repository gate, or authorize cuts.
 ```text
 pnpm lint --config tools/oxlint/anti-slop/web-timeout/audit.json
   -> existing rules + bounded-test-timeout
-  -> 149 timeout observations in 46 files require review
+  -> 161 timeout observations in 53 files require review
   -> justify exact exceptions or repair each observation
   -> enable the rule in .oxlintrc.json in a subsequent PR
 ```
@@ -20,8 +20,8 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 ```
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
-file count and each diagnostic. Its App source is base `f7662db2d` with 79 timeouts lowered to 60,000 ms in files whose committed elapsed time is at most 45 s;
-the recorded revision contains the current rule and boundary fixtures. These observations
+file count and each diagnostic. Its App source equals base `f3211d849`;
+the recorded tool hash identifies the rule used for this audit. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /
 test title, never a line number. Parameterized tests use their static title template.
@@ -29,10 +29,13 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 
 `fixtures.jsonl` records every boundary fixture's input, diagnostic and exit code
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
-The 63 retained fixtures include 42 negatives, each with its own diagnostic and
+The 81 retained fixtures include 52 negatives, each with its own diagnostic and
 exit code. The over-limit alias fixture added during development was removed:
 `configuration default` already proves that literal-property rejection; the
 mutated and immutable alias fixtures retain the distinct binding-resolution proof.
+The development-only `destructured config explicit override` fixture was cut:
+`unresolved config overridden` already proves explicit-override precedence, while
+`destructured utility config` proves that alias recognition reaches file defaults.
 Each test verifies that Oxlint analyzed its file and that the expected rule emitted
 its diagnostic. Successful fixtures also reject unexpected timeout diagnostics.
 Normal `pnpm lint` (and therefore `just lint-web` and CI) also runs this suite,
@@ -42,16 +45,21 @@ output file while running the fixture test command. Each fixture removes only it
 own directory.
 
 The rule reads the installed Vitest APIs: numeric third argument, options timeout,
-import aliases, local aliases/constants/arithmetic, namespace imports, chained and
+import aliases, local aliases/constants/arithmetic, namespace imports (including
+constant computed members and direct const destructuring), chained and
 parameterized registrations, suite inheritance, `vi.setConfig`, and configured
 `testTimeout`. `defineConfig` from Vite or Vitest (including imported aliases and namespace
 imports) resolves the effective `test` / `testTimeout` through the same property
 resolver. Unknown configuration spreads and computed keys fail; a later explicit
 safe default overrides an earlier unknown spread. Configuration aliases remain
 valid only while unmodified. Dynamic configuration callbacks remain unresolved
-and fail for review. Plain exported configuration objects still receive the
-literal-property check; spread-only exported objects need further enforcement
-before T3779a is complete.
+and fail for review. Default exports in `vite.config` and `vitest.config` JS/TS files (including
+CJS/ESM extensions) resolve the same effective properties, including aliases,
+computed keys and spreads. Unrelated default exports are not configuration.
+An exported alias of `defineConfig(...)` is checked at its call rather than
+misread as an unresolved object. Configuration-wide defaults still cannot use
+a named-test exception. Configuration namespace destructuring reuses the same
+import resolution as test registrations; unrelated objects remain outside this rule.
 
 Unknown file configuration and computed option keys fail at their
 source location. A later explicit timeout overrides an earlier unknown property,
@@ -62,7 +70,12 @@ Vitest registrations and `vi.setConfig` consume options without mutating them.
 Unresolved values, zero, negative and nonfinite timeouts fail. A configuration-wide over-limit default always fails; file/suite inheritance requires
 an exact exception for every affected test. Multiple file `vi.setConfig` values are
 checked conservatively for every test without an explicit/suite override; dynamic
-runtime ordering is not inferred. Hooks and polling deadlines are separate APIs.
+runtime ordering is not inferred. The `vi.setConfig` utility method also resolves through local aliases, direct
+const destructuring and computed namespace members. These forms share the same
+file defaults, named-test exceptions and explicit override handling as direct
+calls. Vitest 5.0.3's implementation assigns to its runner state without using
+`this`, so extracting the method preserves its runtime effect. Unrelated methods
+named `setConfig` remain outside the rule. Hooks and polling deadlines are separate APIs.
 
 An exception supplies `file`, `test`, `scenario`, `observer`, `reason` and `maximum`.
 `observer` names the required real process or clock. The rule checks metadata completeness and the numeric maximum. Independent review
@@ -87,7 +100,7 @@ its runtime setting terminates tests but does not reject unbounded source declar
 - [Oxlint require-test-timeout](https://oxc.rs/docs/guide/usage/linter/rules/vitest/require-test-timeout):
   requires an explicit timeout, but has no finite maximum, static arithmetic policy or
   justified exact-test exceptions. It would also reject the permitted inherited default.
-  Oxlint is maintained: [1.89.0, 2026-10-19](https://github.com/oxc-project/oxc/releases/tag/oxlint_v1.89.0).
+  Oxlint is maintained: [1.90.0, 2026-10-27](https://github.com/oxc-project/oxc/releases/tag/oxlint_v1.90.0).
 - [eslint-plugin-testing-library rules](https://github.com/testing-library/eslint-plugin-testing-library#supported-rules):
   query and async-observation rules have no per-test timeout cap or exception policy.
   [7.16.2, 2026-03-24](https://github.com/testing-library/eslint-plugin-testing-library/releases/tag/v7.16.2)

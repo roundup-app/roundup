@@ -21,15 +21,15 @@ export const doorStateOf = (workstream: RailNode, exit: ExitState | null, pendin
   return workstream.attempt === null ? { kind: "never-started" } : { kind: "stopped", exit };
 };
 
-export const doorStateText = (state: DoorState): string => {
+export const doorStateText = (state: DoorState, name: string): string => {
   switch (state.kind) {
     case "starting":
-      return copy.startingDoor;
+      return copy.startingDoor(name);
     case "failed":
       return copy.doorDidNotStart;
     case "never-started":
       return copy.doorNotStarted;
     case "stopped":
-      return state.exit.kind === "unknown" ? copy.doorStopped : copy.doorStoppedWithExit(exitText(state.exit));
+      return state.exit.kind === "unknown" ? copy.doorStopped(name) : copy.doorStoppedWithExit(name, exitText(state.exit));
   }
 };

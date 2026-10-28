@@ -16,7 +16,7 @@ const loadTrees = () => (library ??= import("@pierre/trees"));
 /** Whether the library has been asked for yet. */
 export const treesLoaded = (): boolean => library !== undefined;
 
-/** U2539b, U2539d: the changed files as a tree of `@pierre/trees`; `Enter` or a double click on a file opens it in the editor at its line. */
+/** U2539b, U2539d, U3787c: the changed files as a tree of `@pierre/trees`; `Enter` or a double click on a file opens it in the editor at its line. */
 export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFocus>; root: string; files: readonly ChangedFile[]; selected?: string | undefined; onSelect?: (path: string) => void }) => {
   const { app } = useConnectedProject();
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
@@ -61,6 +61,9 @@ export const ChangedTree = (props: { initialFocus?: ReturnType<typeof captureFoc
         initialExpansion: "open",
         itemHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24,
         stickyFolders: false,
+        // U3787c: library name-prefix typeahead, and Shift/⌘⇧ ranges that replace the selection.
+        typeahead: "name-prefix",
+        rangeSelection: "replace",
         icons: { set: "minimal", colored: false },
         // The library defines its palette on :host, inside its shadow root.
         // Keep the overrides there too so inheritance cannot restore its defaults.

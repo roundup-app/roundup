@@ -1,18 +1,18 @@
+import { todoDropTargets } from "./todoDropTargets";
 import { rowTypeahead } from "../ui/RowCollection";
 import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
-import { createOwnerAssignment, createOwnerKeys, createOwnerPicker } from "./ownerAssignment";
+import { createOwnerAssignment, createOwnerKeys, createOwnerPicker, ownersToOffer } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
-import { registerKeys } from "../keys/registry";
-import type { ActivationSource } from "../keys/registry";
+import { registerKeys, type ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { shelfKeyScope, shelfRowKeys } from "../shelf/keys";
-import { createBulkDelete } from "../shelf/BulkDelete";
+import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
 import { createSelection } from "../shelf/selection";
 import { Progress } from "../ui/Progress";
 import { createDependencyGroups } from "./dependencyGroups";
@@ -21,10 +21,8 @@ import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
-import { batch, untrack } from "solid-js";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
-import type { JSX } from "solid-js";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -38,15 +36,13 @@ import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
-import { shelfScope } from "../shelf/scope";
+import { shelfScope, sameOwner, ownerGroups, ownersOnRail } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { NewWorkstream } from "./NewWorkstream";
 import { OwnerCommand, OwnerPicker } from "./OwnerPicker";
-import { sameOwner, ownerGroups, ownersOnRail } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
-import { ShelfActions } from "../shelf/BulkDelete";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
 import type { TodosState } from "./state";
@@ -55,7 +51,6 @@ import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
 import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
-/** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS = ["J K", "A", "X"];
 
@@ -102,10 +97,18 @@ export const Todos = (props: {
 
   const open = shownTodos(connected, todos);
 
-  const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
-    scope.includes(todo.home, todo.creator, todo.owner)));
+  const requested = createMemo(() => {
+    const agent = connected.padsRequest();
 
-  const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner)));
+    return active() && agent ? todos.all().filter(todo => todo.creator.kind === "agent" && todo.creator.id === agent) : [];
+  });
+
+  const includes = (todo: Todo) => scope.includes(todo.home, todo.creator, todo.owner)
+    || (todo.creator.kind === "agent" && todo.creator.id === connected.padsOwner());
+
+  const done = createMemo(() => doneTodos(todos.all()).filter(includes));
+
+  const inScope = createMemo(() => todos.all().filter(includes));
 
   const now = createMemo(() => nowTodos(inScope(), todos.handed() ?? [], new Set(connected.rail.nodes.filter(node => node.kind === "agent").map(node => node.id))));
 
@@ -191,10 +194,11 @@ export const Todos = (props: {
 
   const progressCount = createCountMotion(() => `${done().length}/${inScope().length}`, finishing.bar);
 
-  const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
+  const target = (todo: Todo) => ({ id: todo.id, label: todo.title, owner: todo.owner });
 
   const bulk = createBulkDelete({
     app: connected.app,
+    rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
@@ -235,6 +239,8 @@ export const Todos = (props: {
   let commentAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
   const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null }>();
 
+  const targets = todoDropTargets(connected, todos, board);
+
   const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
@@ -242,56 +248,18 @@ export const Todos = (props: {
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
     home: {
-      target: (id, x, y) => {
-        board.preview(null);
-        const current = todos.byId().get(id)?.home;
-        const rail = document.querySelector(".rail");
-        const clip = rail?.getBoundingClientRect();
-
-        if (!clip || x < clip.left || x >= clip.right || y < clip.top || y >= clip.bottom) return null;
-
-        for (const element of rail!.querySelectorAll<HTMLElement>(".rail-row[data-id], [data-todo-root]")) {
-          const box = element.getBoundingClientRect();
-
-          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
-          const home = element.hasAttribute("data-todo-root") ? null : element.dataset.id!;
-
-          if (home === current || (home !== null && !connected.rail.nodes.some((node) => node.id === home && node.kind === "workstream"))) return null;
-
-          return { element, home };
-        }
-
-        return null;
-      },
+      target: targets.home,
       move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
     },
     owner: {
-      target: (id, x, y) => {
-        const own = todos.byId().get(id);
-
-        for (const element of document.querySelectorAll<HTMLElement>(".todos-tab [data-shelf-group]")) {
-          const box = element.getBoundingClientRect();
-
-          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
-          const group = element.dataset.shelfGroup!;
-          const owner = ownersOnRail(connected).find(each => each.id === group);
-
-          // A drop on the own group reorders (U155), and a group that left the Rail takes nothing.
-          if (!owner || !own || sameOwner(owner.actor, own.owner)) return null;
-
-          board.preview({ id, group });
-
-          return { element, attribute: "data-drop-target", owner: owner.actor };
-        }
-
-        return null;
-      },
+      target: targets.owner,
       assign: (id, owner) => failureOf(() => connected.app.rpc("todo.assign", { id, owner })),
     },
   });
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
+  let nestGrip = false;
   let nestPermission = captureFocus();
 
   createEffect(() => {
@@ -303,7 +271,8 @@ export const Todos = (props: {
       if (nestFocus !== id) return;
       nestFocus = null;
 
-      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => rowButtonOf(id)?.focus());
+      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => (nestGrip ? rowButtonOf(id)?.closest(".todo-row")?.querySelector<HTMLElement>(".sortable-handle")
+        : rowButtonOf(id))?.focus({ preventScroll: true }));
     });
   });
 
@@ -314,6 +283,7 @@ export const Todos = (props: {
       const advance = captureAdvance(todo.id);
       nestPermission = captureFocus();
       nestFocus = advance ? null : todo.id;
+      nestGrip = false;
 
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
 
@@ -335,9 +305,16 @@ export const Todos = (props: {
 
     if (plan.blockers !== undefined) {
       const blockers = plan.blockers;
+      nestPermission = captureFocus();
+      nestFocus = id;
+      nestGrip = true;
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
-      if (message !== null) return sorted.show(id, message);
+      if (message !== null) {
+        nestFocus = null;
+
+        return sorted.show(id, message);
+      }
     }
 
     if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
@@ -346,6 +323,26 @@ export const Todos = (props: {
   let plusButton: HTMLButtonElement | undefined;
 
   const rowButtonOf = triageRowOf;
+  const requestedOpen = createMemo(() => requested().filter(todo => !todo.done));
+
+  createEffect(() => {
+    const items = requested();
+
+    if (!items.length) return;
+
+    if (items.some(todo => todo.done)) setUnfolded(true);
+
+    if (requestedOpen().length) return;
+    const first = items[0]!;
+
+    queueFocus(() => {
+      const target = rowButtonOf(first.id);
+
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "nearest" });
+    });
+    connected.finishPadsRequest();
+  });
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
   let namingNext: number | null = null;
@@ -368,6 +365,8 @@ export const Todos = (props: {
     connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.show(message),
   });
 
+  const requestedGroups = createMemo(() => [...arrivals(), ...requestedOpen().map(groupOf)]);
+
   createOwnerPicker({ todos,
     when: event => (!triage.on() || triageTarget(event)?.done === false) && (triage.on() || !rowTypeahead(event)),
     pick: (id, anchor) => { setPicking({ id, anchor }); pickAdvance = captureAdvance(id); },
@@ -375,11 +374,7 @@ export const Todos = (props: {
 
   createOwnerKeys({ connected, todos, active, assign });
 
-  const offers = () => {
-    const current = todos.byId().get(picking()?.id ?? -1);
-
-    return ownersOnRail(connected).filter(owner => !current || !sameOwner(owner.actor, current.owner));
-  };
+  const offers = () => ownersToOffer(connected, todos.byId().get(picking()?.id ?? -1));
 
   // U138: a completed Todo leaves the open list only once its `todo.updated` Event has refetched it, so the row to focus
   // is saved here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
@@ -571,7 +566,7 @@ export const Todos = (props: {
     })} />;
 
     setShown({ id: todo.id, content });
-    connected.drawer.open(content, source);
+    connected.drawer.open(content, source, { kind: "todo", project: connected.project.path });
   };
 
   const toggle = async (todo: Todo, ids: readonly number[]) => {
@@ -766,6 +761,7 @@ export const Todos = (props: {
     const order = treeRows(ownerGroups(connected, listed(), item => item.owner).find(group => group.items.some(item => item.id === todo.id))?.items ?? []).map(row => row.todo.id);
 
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "open", label: copy.openDraft, run: () => show(todo, "pointer") },
       ...(pickFails.get(todo.id)?.message() ? [{ id: "dismiss", label: copy.dismissFailure, run: () => pickFails.get(todo.id)?.show(null) }] : []),
       { id: "assign", label: copy.assign, run: () => { const anchor = rowButtonOf(todo.id);
 
@@ -787,8 +783,14 @@ export const Todos = (props: {
     <section aria-label={copy.todos} tabIndex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <OwnerCommand active={active} selected={() => selection.focused() ?? (selection.selected().length === 1 ? selection.selected()[0] : undefined)} todos={todos} connected={connected} assign={assign} />
       <Show when={dragging()}><div class="todo-drag-preview"><Show when={board.target()}>{target => <div class="todo-drag-preview-content"><span>{target().name}</span><span data-state="busy">{board.line({ ...target(), items: [] })}</span></div>}</Show></div></Show>
-      <TodoAuto home={selectedWorkstream} />
       <ScopeAction tab="todos">
+        <Show when={inScope().length > 0}>
+          <div class="todo-progress" data-todo-progress>
+            <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()} onMotionEnd={finishing.barEnded}>
+              <span ref={progressCount} class="todo-progress-count" data-state="" data-todo-count>{done().length}/{inScope().length}</span>
+            </Progress>
+          </div>
+        </Show>
         <button
           data-button="add"
           type="button"
@@ -801,20 +803,14 @@ export const Todos = (props: {
           <span>{copy.todo}</span>
         </button>
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+        <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
       <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} />
-      <Show when={isEmpty() && !typing()}>
-        <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
-      </Show>
-      <Show when={inScope().length > 0}>
-        <div class="todo-progress" data-todo-progress>
-          <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()} onMotionEnd={finishing.barEnded}>
-            <span ref={progressCount} class="todo-progress-count" data-state="" data-todo-count>{done().length}/{inScope().length}</span>
-          </Progress>
-        </div>
+      <Show when={isEmpty() && !typing() && !todos.failure() && !createFailure()}>
+        <EmptyState art="check" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
       <Show when={listed().length > 0}>
-        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} arrivals={arrivals} unfold={() => filed() + todos.revealed()}>{group => {
+        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
@@ -825,7 +821,7 @@ export const Todos = (props: {
             let registered: HTMLButtonElement | null = null;
             const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < tree().filter(row => row.parent === parent).length - 1] : []; } };
 
-            return <Sortable.Item id={String(todo.id)} index={at()} pressable>{parts => {
+            return <Sortable.Item id={String(todo.id)} index={at()}>{parts => {
             const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
             <OpenRow
               copyWith={registerCopy(todo.id)}
@@ -900,7 +896,12 @@ export const Todos = (props: {
 
  if (!active) board.preview(null); }} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
-          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
+          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tree-step")) || 24; },
+          inset: (element) => {
+            const styles = getComputedStyle(element);
+
+            return Number.parseFloat(styles.paddingInlineStart) - Number.parseFloat(styles.getPropertyValue("--space-2"));
+          },
           nests: () => true,
           onMove: (move) => void dropOf(tree(), group().items, Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,

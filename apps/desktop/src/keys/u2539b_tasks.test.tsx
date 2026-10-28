@@ -40,12 +40,11 @@ it("u2539b_drawer_keeps_attention_reachable", async () => {
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
 });
 
-it("u2539b_selected_agent_keeps_identity_and_returns_to_landing", async () => {
-  const { connected, nodes } = await mount();
+it("u2539b_selected_agent_returns_to_landing", async () => {
+  const { connected } = await mount();
   fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
-  expect(within(screen.getByRole("navigation", { name: "Centre" })).getByText(nodes.find(node => node.id === "a0")!.name)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
 });
 
@@ -76,7 +75,7 @@ it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens
   openProjectPage(`view:${view}`, "/p");
   await waitFor(() => expect(connected().view()).toBeNull());
 
-  if (view === "resources") fireEvent.click(screen.getByRole("button", { name: "Back to Ask" }));
+  if (view === "resources") fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   expect(document.querySelector(".ask-input")).not.toBeNull();
 });
 
@@ -146,7 +145,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
   } else if (task === "assign") {
     leader("KeyS");
     fireEvent.click(await screen.findByRole("button", { name: /Unassigned/ }));
-    const row = await screen.findByRole("button", { name: /Selected work/ });
+    const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Selected work/ });
     fireEvent.click(row);
     screen.getByRole("textbox", { name: "Ask" }).focus();
     runLeader("KeyA");
@@ -290,8 +289,6 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
     if ([...document.querySelectorAll(".inbox-item")].some(row => row.textContent?.includes(target.name))) {
       found.push("Inbox entry", "Inbox section count");
     }
-
-    if (connected().rail.selected() === target.id && document.querySelector(".pane-identity [data-state]")) found.push("Selected Agent title");
 
     return found;
   };

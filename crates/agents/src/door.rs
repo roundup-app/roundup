@@ -89,6 +89,57 @@ impl Shared {
 }
 
 impl Agents {
+    /// A4452c: type the reserved user text only into the matching fresh, idle Door.
+    /// The coordinator persists its Typing fence before calling; never retry this effect.
+    pub async fn opening_prompt(
+        &self,
+        id: &str,
+        attempt: &str,
+        text: &str,
+    ) -> Result<(), RpcError> {
+        let ready = async {
+            loop {
+                let observed = self.shared.events.observed.notified();
+                {
+                    let runs = self.shared.runs();
+                    match runs.get(id) {
+                        Some(Slot::Running(run))
+                            if run.attempt == attempt && !run.ended && !run.closing =>
+                        {
+                            if run.session_started
+                                && !run.first_pending
+                                && run
+                                    .adapter
+                                    .status()
+                                    .is_some_and(|s| s.kind == contracts::Kind::Idle)
+                            {
+                                break;
+                            }
+                        }
+                        _ => {
+                            return Err(RpcError::conflict("fresh Door Attempt is no longer live"));
+                        }
+                    }
+                }
+                observed.await;
+            }
+            self.shared
+                .prompt(id, text, Some(attempt), true, None)
+                .await
+                .map_err(|error| {
+                    RpcError::unknown_outcome(format!(
+                        "Opening prompt was not acknowledged: {}; do not retype",
+                        PromptError::from(error)
+                    ))
+                })
+        };
+        tokio::time::timeout(Duration::from_secs(15), ready)
+            .await
+            .map_err(|_| {
+                RpcError::unknown_outcome("Opening prompt acknowledgement timed out; do not retype")
+            })?
+    }
+
     /// A32: stop the program of the Door of Workstream `id`.
     pub async fn stop_door(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
         self.shared.stop(actor, id).await
@@ -113,6 +164,8 @@ impl Agents {
             effort: parked.effort,
             permission_mode,
             engine: None,
+            cols: None,
+            rows: None,
         };
         let node = self
             .start_door_with(ctx, params, Some(handoff), true)
@@ -167,10 +220,13 @@ impl Agents {
             effort,
             permission_mode,
             engine,
+            cols,
+            rows,
         }: StartDoorParams,
         first: Option<String>,
         startup_context: bool,
     ) -> Result<RailNode, RpcError> {
+        let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         models::check_engine(engine.as_deref())?;
         models::check_permissions(&ctx.actor, permission_mode)?;
         let _lifecycle = self.shared.door_lifecycle.read().await;
@@ -195,7 +251,13 @@ impl Agents {
                 )?;
             }
             return self
-                .resume_saved(ctx, id, START_DOOR_ACK_BOUND, permission_mode)
+                .resume_saved(
+                    ctx,
+                    id,
+                    START_DOOR_ACK_BOUND,
+                    permission_mode,
+                    (size.cols, size.rows),
+                )
                 .await;
         }
         let attempt = {
@@ -245,6 +307,7 @@ impl Agents {
                 first,
                 startup_context,
                 permission_mode,
+                (size.cols, size.rows),
             )
             .await
         {

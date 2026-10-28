@@ -1,8 +1,9 @@
 use super::*;
 
 impl Shared {
-    /// H12: Steer the first prompt of `id`'s `attempt` on a task of its own, since `agent.spawn`
-    /// has returned by now. A Steer that fails settles the Status to `error`, never silently.
+    /// A4452a: send the coordination text of `id`'s `attempt` to its Claude inbox on a task of its
+    /// own, since `agent.spawn` has returned by now. Nothing is typed; a refused write settles to
+    /// the Message states of B3563c, never to Status `error`.
     pub(super) fn steer_first_prompt(&self, id: &str, attempt: &str, prompt: String) {
         let Some(shared) = self.me.upgrade() else {
             return;
@@ -27,18 +28,16 @@ impl Shared {
                     Err(_) => eprintln!("agents: startup Context for {id} timed out"),
                 }
             }
-            let result = shared
-                .prompt(&id, &prompt, Some(&attempt), !startup_context, None)
-                .await;
+            let result = shared.coordinate(&id, Some(&attempt), prompt).await;
             if let Err(err) = &result {
-                eprintln!("agents: the first prompt of {id} failed: {err}");
-                shared.refuse_prompt(&id, &attempt);
+                eprintln!("agents: the coordination text of {id} failed: {err}");
             }
             if let Some(Slot::Running(run)) = shared.runs().get_mut(&id)
                 && run.attempt == attempt
             {
                 run.first_pending = false;
             }
+            shared.events.observed.notify_waiters();
             if let Some(completion) = completion {
                 completion.send_replace(Some(match result {
                     Ok(()) => FirstSteerCompletion::Submitted,
@@ -49,64 +48,39 @@ impl Shared {
         });
     }
 
-    /// H19: when the star has not arrived `steer_bound` after the first `SessionStart`, drop the
-    /// first prompt unwritten and settle `id` to `error`, as a Steer that failed does.
-    pub(super) fn refuse_unless_gate_opens(&self, id: &str, attempt: &str) {
-        let Some(shared) = self.me.upgrade() else {
-            return;
-        };
-        let (id, attempt) = (id.to_owned(), attempt.to_owned());
-        tokio::spawn(async move {
-            tokio::time::sleep(shared.steer_bound).await;
-            let dropped = match shared.runs().get_mut(&id) {
-                Some(Slot::Running(run)) if run.attempt == attempt => {
-                    if run.prompt.take().is_some() {
-                        run.first_pending = false;
-                        if let Some(completion) = &run.first_completion {
-                            completion.send_replace(Some(FirstSteerCompletion::Refused));
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            };
-            if dropped {
-                eprintln!("agents: the first prompt of {id} was never written: no star title");
-                shared.refuse_prompt(&id, &attempt);
-            }
-        });
-    }
-
-    /// H12: settle `id` to `error` with the label `prompt not accepted`, if `attempt` is still
-    /// its current Attempt.
-    pub(super) fn refuse_prompt(&self, id: &str, attempt: &str) {
-        let mut runs = self.runs();
-        let Some(Slot::Running(run)) = runs.get_mut(id) else {
-            return;
-        };
-        if run.attempt != attempt {
-            return;
-        }
-        run.first_pending = false;
-        self.events.observed.notify_waiters();
-        if let Some(status) = run.adapter.refuse_prompt() {
-            run.status_revision = run
-                .status_revision
-                .checked_add(1)
-                .expect("Status revision exhausted");
-            self.bus.emit(
-                Actor::daemon(),
-                EventData::AgentStatus(Box::new(StatusEvent {
-                    ended: false,
+    /// A4452a, A4452d: roundup's own text reaches `id` as a Message to its Claude inbox and writes
+    /// no byte to its Terminal. `attempt` fences a stale start.
+    pub(super) async fn coordinate(
+        &self,
+        id: &str,
+        attempt: Option<&str>,
+        text: String,
+    ) -> Result<(), SteerError> {
+        let name = self
+            .rail()
+            .name(id)
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        match self.runs().get(id) {
+            Some(Slot::Running(run))
+                if attempt.is_none_or(|attempt| run.attempt == attempt)
+                    && !run.ended
+                    && !run.closing => {}
+            _ => {
+                return Err(SteerError::Refused(PromptError::NotFound {
                     id: id.to_owned(),
-                    attempt: run.attempt.clone(),
-                    status_revision: run.status_revision.to_string(),
-                    status,
-                })),
-            );
+                    name,
+                }));
+            }
         }
+        let Some(send) = &self.coordination else {
+            return Err(SteerError::Refused(PromptError::NotAccepted {
+                id: id.to_owned(),
+                name,
+            }));
+        };
+        send(id.to_owned(), text)
+            .await
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))
     }
 }
 
@@ -145,6 +119,14 @@ impl Agents {
             }
             completion.changed().await.map_err(|_| missing())?;
         }
+    }
+
+    /// A4452d: send roundup's own `text` to `id`'s Claude inbox as a Message; no byte is typed.
+    pub async fn coordinate(&self, id: &str, text: String) -> Result<(), PromptError> {
+        self.shared
+            .coordinate(id, None, text)
+            .await
+            .map_err(PromptError::from)
     }
 
     pub async fn prompt<'a>(

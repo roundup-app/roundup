@@ -22,7 +22,9 @@ const open = async (pads = false) => {
 
   if (pads) {
     fireEvent.click(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: /^Pads/ }));
-    await showEverythingInApp();
+    await waitFor(() => expect(document.querySelector(".shelf .pad-name")).not.toBeNull());
+
+    for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
   }
 
   const rows = [...document.querySelectorAll<HTMLButtonElement>(pads ? ".shelf .pad-name" : ".shelf .todo-row-button[aria-pressed]")];
@@ -119,7 +121,8 @@ it("u3721_maximise_keeps_the_centre_mounted", async () => {
 
 it("u3722_the_chip_comes_from_the_registry_row", async () => {
   await open();
-  const button = screen.getByRole("button", { name: "Maximise" });
+  const shelf = within(document.querySelector<HTMLElement>(".shelf")!);
+  const button = shelf.getByRole("button", { name: "Maximise" });
 
   fireEvent.keyDown(document, { key: "Tab" });
   button.focus();
@@ -128,7 +131,7 @@ it("u3722_the_chip_comes_from_the_registry_row", async () => {
   const row = CHORDS.find(row => row.keys === keys)!;
 
   fireEvent.keyDown(button, { key: keys.toLowerCase(), code: row.presses[0]! });
-  expect(screen.getByRole("button", { name: "Restore" })).toBe(button);
+  expect(shelf.getByRole("button", { name: "Restore" })).toBe(button);
 });
 
 it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async place => {

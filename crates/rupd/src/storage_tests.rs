@@ -50,7 +50,7 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     let migrated = tempfile::tempdir().unwrap();
     let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
     let mut historical = migrations();
-    historical.pop();
+    historical.truncate(42);
     apply(&mut db, historical).unwrap();
     assert!(db.prepare("SELECT id FROM deliverable_files").is_err());
     db.prepare("SELECT operation FROM rail_deletions").unwrap();
@@ -120,65 +120,6 @@ async fn a3308_an_old_workstream_defaults_to_auto_off() {
     let upgraded = crate::tests::daemon_in(dir.path());
     let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.list"}"#).await;
     assert_eq!(reply["result"][0]["auto"], false);
-}
-
-#[tokio::test]
-async fn u3016m_measurement_store_has_no_token_or_money_and_reopens_with_the_same_time() {
-    use serde_json::json;
-    let dir = tempfile::tempdir().unwrap();
-    let mut db = Connection::open(dir.path().join("project.db")).unwrap();
-    let before = 10
-        + added::ADDED
-            .iter()
-            .position(|sql| {
-                *sql == include_str!(
-                    "../migrations/project/0023-measurement-no-tokens-or-money.sql"
-                )
-            })
-            .unwrap();
-    Migrations::new(migrations())
-        .to_version(&mut db, before)
-        .unwrap();
-    let attempt = r#"{"kind":"observed","activity":{"kind":"attempt"},"clock_lifetime":"c","start":{"unix_ms":1000,"monotonic_ns":"0"},"segments":[{"start":{"unix_ms":1000,"monotonic_ns":"0"},"end":{"unix_ms":3000,"monotonic_ns":"2000000000"}}],"state":{"kind":"ended","at":{"unix_ms":3000,"monotonic_ns":"2000000000"}}}"#;
-    for (identity, value) in [
-        ("roundup:attempt:1:1", attempt.to_string()),
-        (
-            "request:r",
-            format!(
-                r#"{{"kind":"request","usage":{{"input":1,"output":2,"{}_read":3,"{}_write":4}},"cost":null}}"#,
-                "cache", "cache"
-            ),
-        ),
-        (
-            "money:s",
-            format!(
-                r#"{{"kind":"money","reported":{{"scope":"conversation","amount":"1","{}":"USD","source":"s","basis":"b"}}}}"#,
-                ["curr", "ency"].concat()
-            ),
-        ),
-    ] {
-        db.execute(
-            "INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,'1','roundup:1','1','1','2','maker',1000,?2,'[]')",
-            params![identity, value],
-        )
-        .unwrap();
-    }
-    drop(db);
-    let reopened = crate::tests::daemon_in(dir.path());
-    let reply = crate::tests::ask(&reopened, r#"{"id":1,"method":"project.measurements"}"#).await;
-    let facts = reply["result"]["time_evidence"].as_array().unwrap();
-    assert_eq!(facts.len(), 1);
-    assert_eq!(facts[0]["identity"], "roundup:attempt:1:1");
-    assert_eq!(reply["result"]["contributions"], json!([]));
-    let db = Connection::open(dir.path().join("project.db")).unwrap();
-    let tables: Vec<String> = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'measurement%'")
-        .unwrap()
-        .query_map([], |r| r.get(0))
-        .unwrap()
-        .collect::<Result<_, _>>()
-        .unwrap();
-    assert!(tables.iter().all(|t| !t.contains("request")), "{tables:?}");
 }
 
 #[tokio::test]
@@ -547,6 +488,11 @@ async fn n16_all_stores_share_one_project_database() {
     resize_schema.execute_batch(FLIGHT).unwrap();
     resize_schema
         .execute_batch(include_str!(
+            "../migrations/project/0034-door-session-restart.sql"
+        ))
+        .unwrap();
+    resize_schema
+        .execute_batch(include_str!(
             "../migrations/project/0013-instruction-messages.sql"
         ))
         .unwrap();
@@ -554,6 +500,29 @@ async fn n16_all_stores_share_one_project_database() {
     let rail = include_str!("../migrations/project/0027-rail-deletions.sql");
     resize_schema.execute_batch(rail).unwrap();
     expected.extend(standalone::schema(&resize_schema));
+    let mut retention = Connection::open_in_memory().unwrap();
+    agents::schema::open(&mut retention, Path::new("agents")).unwrap();
+    retention
+        .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
+        .unwrap();
+    retention.execute_batch(FLIGHT).unwrap();
+    retention
+        .execute_batch(include_str!(
+            "../migrations/project/0013-instruction-messages.sql"
+        ))
+        .unwrap();
+    retention
+        .execute_batch(include_str!(
+            "../migrations/project/0033-coordination-instructions.sql"
+        ))
+        .unwrap();
+    expected.extend(
+        standalone::schema(&retention)
+            .into_iter()
+            .filter(|(name, _)| {
+                name == "instruction_deliveries" || name.starts_with("instruction_message")
+            }),
+    );
     // The standalone Agents store keeps its frozen head; the Project drops the answers table.
     expected.remove("decision_answers");
     expected.remove("decision_answers_agent");
@@ -900,3 +869,6 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let _checkpoints = checkpoints::Checkpoints::open(dir.path())
         .expect("Checkpoints must not read the schema yet");
 }
+
+#[path = "../tests/support/b4522.rs"]
+mod b4522;

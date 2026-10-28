@@ -35,6 +35,8 @@ pub(super) fn agent_lock<T>(mutex: &Mutex<T>) -> std::sync::LockResult<MutexGuar
 }
 
 pub(super) struct State {
+    #[cfg(feature = "test-support")]
+    pub(super) statuses: Mutex<HashMap<String, Status>>,
     /// Since when an Agent without a Terminal has been `done`.
     pub(super) opened: i64,
     pub(super) launcher: Launcher,
@@ -146,6 +148,11 @@ impl Shared {
             since: self.rail_view.opened,
             finished: finished.to_string(),
         }));
+        #[cfg(feature = "test-support")]
+        if let Some(status) = self.rail_view.statuses.lock().unwrap().get(&node.id) {
+            node.status = Some(status.clone());
+            node.status_revision = Some("1".into());
+        }
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.ended,
@@ -218,6 +225,11 @@ impl Agents {
     /// Resolve an Agent's current Rail name for prose, preserving storage failures.
     pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
         self.shared.rail().name(id)
+    }
+
+    /// Preserve canonical Rail identities after their nodes leave the live tree.
+    pub fn rail_last_id(&self) -> Result<i64, RpcError> {
+        self.shared.rail().last_id()
     }
 
     /// B32: run a synchronous input-recording operation against authoritative ownership.
@@ -335,60 +347,31 @@ impl Agents {
                 self.rail_name(&id)?
             )));
         }
-        let (node, revision) = {
-            let mut rail = self.shared.rail();
-            let node = rail.set_order(&id, &order, captured.as_ref())?;
-            let revision = rail.order_revision(&id)?;
-            (node, revision)
-        };
+        let node = self
+            .shared
+            .rail()
+            .set_order(&id, &order, captured.as_ref())?;
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
-        if ctx.actor.kind == ActorKind::Agent && ctx.actor.id != id {
-            self.shared
-                .prompt(
-                    &id,
-                    &order::steer(&order, None),
-                    None,
-                    false,
-                    Some(PromptRecord {
-                        revision,
-                        written: None,
-                    }),
-                )
-                .await
-                .map_err(|err| match err {
-                    SteerError::Refused(reason) => {
-                        let mut error = RpcError::from(reason);
-                        error.message = format!(
-                            "Order stored; Steer refused; no bytes written: {}",
-                            error.message
-                        );
-                        error
-                    }
-                    SteerError::Uncertain(reason) => RpcError::unknown_outcome(format!(
-                        "Order stored; Steer bytes may have been written; do not retry: {reason}"
-                    )),
-                })?;
-        } else if ctx.actor.id != id {
+        if ctx.actor.id != id {
+            // A4452d: a changed Order reaches the target's inbox, never its Terminal.
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
-            tokio::spawn(async move {
-                if let Err(err) = shared
-                    .prompt(
-                        &id,
-                        &text,
-                        None,
-                        false,
-                        Some(PromptRecord {
-                            revision,
-                            written: None,
-                        }),
-                    )
-                    .await
-                {
-                    eprintln!("agents: the new order of {id} was not steered: {err}");
+            if let Some(attempt) = node.attempt.as_deref() {
+                let mut rail = shared.rail();
+                if let Some(revision) = rail.order_revision(&id)? {
+                    rail.prepare_instruction(&revision, attempt, &text, false)?;
                 }
-            });
+            }
+            let sent = shared.coordinate(&id, None, text).await;
+            if let Err(err) = sent {
+                if ctx.actor.kind == ActorKind::Agent {
+                    let mut error = RpcError::from(PromptError::from(err));
+                    error.message = format!("Order stored; not sent: {}", error.message);
+                    return Err(error);
+                }
+                eprintln!("agents: the new order of {id} was not sent: {err}");
+            }
         }
         self.shared.node(&node.id)
     }

@@ -67,7 +67,6 @@ Retire each whole scenario below by id/name, replacing its active text with a re
 | `scenarios/door-terminal.md` | U468a App question answer |
 | `scenarios/messages.md` | B13 hops; B14 hop bound; B15 escalated question; B16 skipped hops; B17 bubble answer; B18 permission bubble exclusion; B31 end-of-bubble terminology; B38 Decision notice wait |
 | `scenarios/daemon.md` | D13 atomic Decision publication |
-| `scenarios/workstream-timeline.md` | U3768d open Decision |
 | `scenarios/unfinished-input.md` | U2773d original custom-answer authority |
 | `scenarios/journey.md` | J9 Decision-button audit |
 

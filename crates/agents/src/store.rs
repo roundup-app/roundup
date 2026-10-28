@@ -97,15 +97,6 @@ impl Agents {
                 eprintln!("agents: {}: {}; kept", node.id, error.message);
             }
         }
-        let timing = Arc::new(Mutex::new(rail::Timing::open(
-            &dir.join(if dir.join("project.db").exists() {
-                "project.db"
-            } else {
-                "agents.db"
-            }),
-            bus.clone(),
-            Arc::new(now_ms),
-        )?));
         Ok(Self {
             shared: Arc::new_cyclic(|me| Shared {
                 worktrunk: crate::worktrunk::Collector::default(),
@@ -120,8 +111,9 @@ impl Agents {
                 },
                 terminals,
                 clock: Arc::new(now_ms),
-                timing,
                 rail_view: rail_view::State {
+                    #[cfg(feature = "test-support")]
+                    statuses: Default::default(),
                     opened: now_ms(),
                     launcher: launcher.clone(),
                 },
@@ -134,7 +126,6 @@ impl Agents {
                 },
                 events: events::State {
                     observed: Default::default(),
-                    gate_observer: None,
                     channel_deadline: channel_deadline_from_env(),
                     inbox: Default::default(),
                     tool_calls: Default::default(),
@@ -143,6 +134,7 @@ impl Agents {
                 scan: Scan::new(scan_interval_from_env()),
                 strays: Mutex::new(HashMap::new()),
                 context: None,
+                coordination: None,
                 waits: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
@@ -207,30 +199,25 @@ impl Agents {
         })
     }
 
+    /// A4452a, A4452d: send `send(agent id, text)` as a Message to the Agent's Claude inbox
+    /// for every text roundup authors; none of it is typed. Call it before the first call is made.
+    #[must_use]
+    pub fn with_coordination<F, Fut>(self, send: F) -> Self
+    where
+        F: Fn(String, String) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<(), RpcError>> + Send + 'static,
+    {
+        self.configure(|shared| {
+            shared.coordination = Some(Arc::new(move |id, text| Box::pin(send(id, text))))
+        })
+    }
+
     /// Stamp Statuses and time Ticks by `clock`, milliseconds since the Unix epoch, instead of
     /// the system's. Call it before the first call is made.
     #[must_use]
     pub fn with_clock(self, clock: impl Fn() -> i64 + Send + Sync + 'static) -> Self {
         self.configure(|shared| {
             shared.clock = Arc::new(clock);
-            shared
-                .timing
-                .lock()
-                .expect("measurement timing lock")
-                .set_clock(shared.clock.clone());
-        })
-    }
-
-    /// Supply local monotonic nanoseconds since this observer's start, before any calls.
-    /// Offsets must not decrease. Wall timestamps still come from `with_clock`.
-    #[must_use]
-    pub fn with_measurement_clock(self, clock: impl Fn() -> u128 + Send + Sync + 'static) -> Self {
-        self.configure(|shared| {
-            shared
-                .timing
-                .lock()
-                .expect("measurement timing lock")
-                .set_monotonic(clock)
         })
     }
 
@@ -239,15 +226,6 @@ impl Agents {
     #[must_use]
     pub fn with_steer_bound(self, bound: Duration) -> Self {
         self.configure(|shared| shared.steer_bound = bound)
-    }
-
-    /// H19: tell `observer`, for each `SessionStart` Signal and star title an Agent's Run folds,
-    /// whether that Observation released the Agent's first prompt to its Steer. It runs under
-    /// the Agents' locks, so it must not call back into them. Call it before the first call is
-    /// made.
-    #[must_use]
-    pub fn with_gate_observer(self, observer: impl Fn(&str, bool) + Send + Sync + 'static) -> Self {
-        self.configure(|shared| shared.events.gate_observer = Some(Arc::new(observer)))
     }
 
     /// B50(c): tell `observer` the Message ids an Agent's transcript records as another
@@ -270,18 +248,6 @@ impl Agents {
         id: &str,
         notes: &[claude_code::inbox::Entry],
     ) -> Result<(), contracts::agent::Inbox> {
-        // Native socket connect/write is synchronous: a Ready routing future can still
-        // have blocked on IO. Only a validated native endpoint earns this evidence;
-        // missing/mismatched inboxes and generic pending Messages earn no coordination time.
-        let waiting: Vec<_> = if self.launcher.inbox_check(id) == contracts::agent::Inbox::Ok {
-            notes
-                .iter()
-                .filter(|note| note.actor.kind == contracts::ActorKind::Agent)
-                .filter_map(|note| self.observe_coordination(&note.actor.id, note.id))
-                .collect()
-        } else {
-            Vec::new()
-        };
         let runs = self.shared.runs();
         let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
         self.launcher
@@ -289,7 +255,6 @@ impl Agents {
             .inspect_err(|state| {
                 self.shared.events.inbox.set(id, *state);
             })?;
-        drop(waiting);
         drop(runs);
         // Claude Code may have taken the entries up before they were in flight.
         self.shared.events.inbox.rescan(id);
@@ -562,10 +527,6 @@ pub(super) mod tests {
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
-            timing: Arc::new(Mutex::new(
-                rail::Timing::open(&dir.path().join("agents.db"), bus.clone(), Arc::new(|| 0))
-                    .unwrap(),
-            )),
             runs: Mutex::new(HashMap::new()),
             door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),
@@ -575,6 +536,8 @@ pub(super) mod tests {
             terminals,
             clock,
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",
@@ -592,7 +555,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),
@@ -601,13 +563,9 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
-        shared
-            .timing
-            .lock()
-            .unwrap()
-            .set_clock(shared.clock.clone());
         (dir, bus, shared)
     }
 
@@ -627,10 +585,6 @@ pub(super) mod tests {
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
-            timing: Arc::new(Mutex::new(
-                rail::Timing::open(&dir.path().join("agents.db"), bus.clone(), Arc::new(|| 0))
-                    .unwrap(),
-            )),
             runs: Mutex::new(HashMap::new()),
             door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),
@@ -640,6 +594,8 @@ pub(super) mod tests {
             },
             clock: Arc::new(|| 0),
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",
@@ -657,7 +613,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),
@@ -666,6 +621,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         })
     }
@@ -678,7 +634,6 @@ pub(super) mod tests {
             .insert(NodeKind::Agent, "a", parent, Some("1"))
             .unwrap()
             .id;
-        shared.timing.lock().unwrap().prepare_attempt(&id, "1");
         shared.runs().insert(
             id.clone(),
             Slot::Running(Run {
@@ -724,10 +679,6 @@ pub(super) mod tests {
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
-            timing: Arc::new(Mutex::new(
-                rail::Timing::open(&dir.path().join("agents.db"), bus.clone(), Arc::new(|| 0))
-                    .unwrap(),
-            )),
             runs: Mutex::new(HashMap::new()),
             door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),
@@ -737,6 +688,8 @@ pub(super) mod tests {
             },
             clock: Arc::new(|| 0),
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",
@@ -754,7 +707,6 @@ pub(super) mod tests {
             },
             events: events::State {
                 observed: Default::default(),
-                gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 inbox: Default::default(),
                 tool_calls: Default::default(),
@@ -763,6 +715,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)

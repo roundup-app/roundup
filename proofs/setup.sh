@@ -2,7 +2,8 @@
 # V1: install pinned Bend and verify the exact Lean toolchain on every setup.
 # The download's sha256 must match proofs/BEND_SHA256 (one `<sha256>  <asset>` line per platform);
 # the installed `bend version` must equal the pin. Usage: proofs/setup.sh
-# Test hooks: PROOFS_DIR (holds the pin files and .tools), BEND_BASE_URL (download directory), BEND_ASSET_PLATFORM.
+# Test hooks: PROOFS_DIR (holds the pin files and .tools), BEND_BASE_URL (download directory), BEND_ASSET_PLATFORM,
+# PROOFS_RETRY_DELAY (seconds between Lean install attempts).
 set -euo pipefail
 
 dir=${PROOFS_DIR:-$(cd "$(dirname "$0")" && pwd)}
@@ -61,7 +62,13 @@ if [ ! -x "$elan" ]; then
   trap - EXIT
 fi
 [ -x "$elan" ] || fail "elan: executable missing after installation"
-"$elan" toolchain install "$lean_toolchain" || fail "Lean: toolchain $lean_toolchain installation failed"
+# releases.lean-lang.org drops some TLS connects; retry before failing the lane.
+for attempt in 1 2 3 4; do
+  "$elan" toolchain install "$lean_toolchain" && break
+  [ "$attempt" -lt 4 ] || fail "Lean: toolchain $lean_toolchain installation failed"
+  echo "proofs setup: Lean download attempt $attempt failed; retrying" >&2
+  sleep "${PROOFS_RETRY_DELAY:-10}"
+done
 lean=$(ELAN_TOOLCHAIN=$lean_toolchain "$elan" which lean) || fail "Lean: executable missing for $lean_toolchain"
 [ -x "$lean" ] || fail "Lean: executable missing at $lean"
 got=$("$lean" --version 2>&1) || fail "Lean: version check failed: $got"

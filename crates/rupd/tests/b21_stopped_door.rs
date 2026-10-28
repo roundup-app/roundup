@@ -300,7 +300,7 @@ fn latest_snapshot(project: &Path) -> Option<Value> {
 }
 
 /// The Door's first prompt, as `tests/fixtures/b21_stopped_door.json` matches it.
-const DOOR_PROMPT: &str = "Follow this instruction: What is this Workstream for?";
+const DOOR_PROMPT: &str = "What is this Workstream for?";
 
 /// Whether Claude Code, configured in `config`, has written a conversation whose user message
 /// holds `prompt`.

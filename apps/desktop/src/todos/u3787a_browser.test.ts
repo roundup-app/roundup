@@ -37,9 +37,10 @@ it("u3787a_success_and_partial_failure_offer_only_acknowledged_undo", async () =
       await lane.until("document.body.textContent.includes('The original Home changed')");
       await lane.capture("U3787a", `${seed}-failure`);
     } else {
-      await lane.until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Undo')");
+      await lane.until("document.body.textContent.includes('Deleted')");
       await lane.capture("U3787a", `${seed}-deleted`);
-      await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
+      await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+      await lane.browser("press", "Meta+z");
       await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"]')`);
       expect(await lane.calls("todo.restore")).toHaveLength(1);
       await lane.capture("U3787a", `${seed}-restored`);
@@ -67,11 +68,12 @@ it("u3787a_shelf_pad_partial_failure_is_visible_and_one_undo_step", async () => 
   await lane.until("[...document.querySelectorAll('.shelf button')].some(b => b.textContent === 'Delete 2')");
   await lane.capture("U3787a", "shelf-pads-before");
   await lane.evaluate("(() => { window.__fake.failNext(-32002, 'The original Home is unavailable. Restore the Home and retry deletion.'); [...document.querySelectorAll('.shelf button')].find(b => b.textContent === 'Delete 2').click(); return true; })()");
-  await lane.until("document.body.textContent.includes('Could not delete') && [...document.querySelectorAll('button')].some(b => b.textContent === 'Undo')");
+  await lane.until("document.body.textContent.includes('Could not delete') && document.body.textContent.includes('Deleted')");
   await lane.capture("U3787a", "shelf-pads-partial-failure");
   // The fake transport refuses failNext before journaling; only the acknowledged member reaches its call journal.
   expect(await lane.calls("pad.delete")).toHaveLength(1);
-  await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
+  await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+      await lane.browser("press", "Meta+z");
   await lane.until("document.querySelectorAll('.shelf .pad-name').length >= 5");
   expect(await lane.calls("pad.restore")).toHaveLength(1);
   await lane.capture("U3787a", "shelf-pads-restored");
@@ -95,10 +97,9 @@ it("u3787a_todo_drawer_explains_an_unconfirmed_pad_deletion", async () => {
   await lane.until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Check deletion')");
   await lane.until("!document.querySelector('[data-deletion-pending=true]')");
   await lane.browser("click", "#shelf-tab-todos");
-  await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"] .todo-row-button')`);
+  await lane.until(`(() => { for (const group of document.querySelectorAll('.todos-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')) group.click(); return document.querySelector('.shelf [data-todo="${id}"] .todo-row-button')?.getBoundingClientRect().width > 0; })()`);
   await lane.browser("click", `.shelf [data-todo="${id}"] .todo-row-button`);
-  await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"] button[aria-label="Open"]')`);
-  await lane.evaluate(`(() => { document.querySelector('.shelf [data-todo="${id}"] button[aria-label="Open"]').click(); return true; })()`);
+  await lane.browser("press", "Enter");
   await lane.until("!!document.querySelector('.todo-delete')");
   await lane.capture("U3787a", "pad-pending-before-refusal");
   await lane.browser("click", ".todo-delete");
@@ -173,7 +174,8 @@ for (const [id, restoring] of [["U3787g", false], ["U3787h", true]] as const) {
       await lane.browser("fill", ".todo-comment-field", "  未送信 é 🧭\n keep trailing spaces  ");
 
       if (restoring) {
-        await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Undo').click(); return true; })()");
+        await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+      await lane.browser("press", "Meta+z");
         await lane.until("window.__restoreWaiting === true");
       }
 

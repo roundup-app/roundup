@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -15,6 +16,8 @@ pub const CALL_BOUND: Duration = Duration::from_secs(30);
 #[derive(Clone, Debug)]
 pub struct Config {
     pub rupd_bin: PathBuf,
+    pub claude_bin: Option<OsString>,
+    pub search_path: OsString,
     pub socket: PathBuf,
     pub ready_bound: Duration,
     pub call_bound: Duration,
@@ -38,6 +41,8 @@ impl Config {
         check_limit(&socket)?;
         Ok(Self {
             rupd_bin,
+            claude_bin: None,
+            search_path: OsString::new(),
             socket,
             ready_bound: READY_BOUND,
             call_bound: CALL_BOUND,
@@ -64,6 +69,23 @@ impl Config {
         Ok(path)
     }
 
+    pub(crate) fn context<R: tauri::Runtime>(&self) -> std::io::Result<tauri::Context<R>> {
+        let mut context = crate::context();
+        if let Some(dir) = &self.data_dir {
+            let dir = std::path::absolute(dir)?;
+            // R20: a directory override alone leaves the macOS single-instance socket
+            // shared with the installed App, which can consume the launch and exit 0.
+            // Keep it bounded for sun_path and repeatable for this build/profile.
+            let mut identity = DefaultHasher::new();
+            dir.hash(&mut identity);
+            let config = context.config_mut();
+            config.identifier = format!("{}.profile-{:016x}", config.identifier, identity.finish());
+            config.app.app_directories_override =
+                Some(tauri::utils::config::AppDirectoriesOverride::Root(dir));
+        }
+        Ok(context)
+    }
+
     pub fn from_env() -> Result<Self, String> {
         let exe = std::env::current_exe()
             .map_err(|err| format!("cannot find the App's own executable: {err}"))?;
@@ -73,6 +95,8 @@ impl Config {
             &std::env::temp_dir(),
             std::process::id(),
         )?;
+        config.claude_bin = std::env::var_os("ROUNDUP_CLAUDE_BIN");
+        config.search_path = std::env::var_os("PATH").unwrap_or_default();
         config.data_dir = std::env::var_os("ROUNDUP_DATA_DIR").map(PathBuf::from);
         Ok(config)
     }
@@ -123,6 +147,27 @@ mod tests {
         store.use_dir(PathBuf::from(std::env::var_os(CHILD).unwrap()));
         assert!(store.open_paths().is_empty());
         store.set_open(vec!["/tmp/bench/project".into()]);
+    }
+
+    #[test]
+    fn r20_perf_profile_does_not_share_the_installed_apps_singleton() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::locate(None, Path::new("/unused/roundup"), dir.path(), 1).unwrap();
+        let installed = config.context::<tauri::test::MockRuntime>().unwrap();
+        let mut identifiers =
+            std::collections::BTreeSet::from([installed.config().identifier.clone()]);
+        for name in ["run-one", "run-two"] {
+            config.data_dir = Some(dir.path().join(name));
+            let first = config.context::<tauri::test::MockRuntime>().unwrap();
+            let reopened = config.context::<tauri::test::MockRuntime>().unwrap();
+            // The plugin keys its macOS singleton socket by this Tauri identifier.
+            // Reopening one profile must find itself, never another run or the installed App.
+            assert_eq!(first.config().identifier, reopened.config().identifier);
+            assert!(
+                identifiers.insert(first.config().identifier.clone()),
+                "isolated profile would forward its Project to another App and exit before setup"
+            );
+        }
     }
 
     /// Mirrors `s1_a_socket_path_of_103_bytes_is_accepted_and_104_is_rejected` (`tests/app.rs`):

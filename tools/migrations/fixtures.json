@@ -1,0 +1,45 @@
+{
+  "layouts": [
+    "crates/pads/migrations/",
+    "new/migrations/",
+    "crates/rupd/migrations/project/"
+  ],
+  "groups": [
+    [
+      "crates/rupd/migrations/project/",
+      [
+        "0015-message-results.sql",
+        "0015-todo-change-actor.sql"
+      ]
+    ],
+    [
+      "crates/rupd/migrations/project/",
+      [
+        "0020-continuations.sql",
+        "0020-todo-refs.sql"
+      ]
+    ],
+    [
+      "crates/rupd/migrations/project/",
+      [
+        "0023-agent-finished.sql",
+        "0023-measurement-no-tokens-or-money.sql",
+        "0023-remove-decisions.sql"
+      ]
+    ],
+    [
+      "crates/rupd/migrations/project/",
+      [
+        "0026-pad-deletions.sql",
+        "0026-todo-deletions.sql"
+      ]
+    ],
+    [
+      "crates/messages/migrations/",
+      [
+        "001/up.sql",
+        "001-digest/up.sql"
+      ]
+    ]
+  ]
+}

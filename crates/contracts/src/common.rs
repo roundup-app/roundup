@@ -18,6 +18,25 @@ pub struct Actor {
     pub parent: Option<String>,
 }
 
+/// An owner input: an explicit Actor, or `me`, an exact Rail name, `name:<Rail name>` or a canonical Agent id.
+/// The Daemon resolves it before dispatch; stored owners are always Actors.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(untagged)]
+pub enum Owner {
+    Actor(Actor),
+    Agent(String),
+}
+
+impl Owner {
+    /// Stores refuse unresolved selectors rather than persisting a name as an identity.
+    pub fn into_actor(self) -> Result<Actor, String> {
+        match self {
+            Self::Actor(actor) => Ok(actor),
+            Self::Agent(_) => Err("an owner selector must be resolved by the Daemon".into()),
+        }
+    }
+}
+
 impl Actor {
     pub fn user() -> Self {
         Self {
@@ -46,41 +65,6 @@ pub enum Kind {
     Working,
     Idle,
     Done,
-}
-
-impl Kind {
-    /// U3768b/U3016c: only an unended Attempt outside idle/done contributes Agent time.
-    pub fn counts_time(self, ended: bool) -> bool {
-        !ended && !matches!(self, Self::Idle | Self::Done)
-    }
-}
-
-/// Generate the shared Agent time rule from its Rust definition.
-pub fn render_agent_time_typescript() -> String {
-    let kinds = [
-        Kind::Error,
-        Kind::NeedsYou,
-        Kind::Blocked,
-        Kind::Working,
-        Kind::Idle,
-        Kind::Done,
-    ];
-    let rows: Vec<_> = kinds
-        .iter()
-        .map(|kind| {
-            format!(
-                "  {}: [{}, {}]",
-                serde_json::to_string(kind).unwrap(),
-                kind.counts_time(false),
-                kind.counts_time(true)
-            )
-        })
-        .collect();
-    let text = format!(
-        "// Generated from contracts::Kind::counts_time; do not edit.\nimport type {{ Kind }} from './Kind';\n\nconst counts = {{\n{}\n}};\n\nexport const countsTime = (kind: Kind, ended: boolean): boolean => counts[kind][ended ? 1 : 0]!;\n",
-        rows.join(",\n")
-    );
-    text
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]

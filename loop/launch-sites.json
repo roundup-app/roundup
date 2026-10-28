@@ -71,11 +71,6 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
-  "apps/desktop/src/terminal/u3016_browser.test.ts": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
   "apps/desktop/src/terminal/u59_real_daemon.test.ts": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -217,13 +212,6 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
-  },
-  "crates/agents/src/claude_code/measurement_observer.py": {
-    "cleanup": "Finally terminates and waits for the Daemon, killing and reaping on timeout; the run-owned evidence folder is retained, never deleted while a Daemon is live.",
-    "data": "Fresh absolute mkdtemp data directory overrides inherited App data; HOME, vendor config and Project are isolated under the same run-owned folder.",
-    "issue": 3026,
-    "kind": "real",
-    "sha256": "90e27bfae4c913fd8831393903f8bedebe238eb04101c6ad57f1575e46b104a8"
   },
   "crates/agents/src/claude_code/mod.rs": {
     "cleanup": "No separate built-Daemon launch site.",

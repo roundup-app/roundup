@@ -14,6 +14,24 @@ const exception = {
 };
 
 const cases = [
+  ["aliased file config", 'const configure = vi.setConfig; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
+  ["destructured utility config", 'const { setConfig: configure } = vi; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
+  ["computed utility config alias", 'import * as v from "vitest"; const method = "setConfig"; const configure = v.vi[method]; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
+  ["aliased file config exception", 'const configure = vi.setConfig; configure({ testTimeout: 90_000 }); test("t3779a_real_clock", () => {});', 0, null, [exception]],
+  ["unrelated config alias", 'const other = { setConfig: options => options }; const configure = other.setConfig; configure(externalOptions); test("t3779a_default", () => {});', 0],
+  ["namespace computed registration", 'import * as v from "vitest"; const method = "test"; v[method]("t3779a_computed_registration", () => {}, 60_001);', 1, "60001"],
+  ["namespace destructured registration", 'import * as v from "vitest"; const { test: named } = v; named("t3779a_destructured", () => {}, 60_001);', 1, "60001"],
+  ["destructured file config", 'import * as v from "vitest"; const { vi: clock } = v; clock.setConfig(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
+  ["destructured configuration helper", 'import * as v from "vitest/config"; const { defineConfig: config } = v; config({ test: { ...externalOptions } });', 1, "unresolved"],
+  ["destructured namespace boundary", 'import * as v from "vitest"; const { test: named } = v; named("t3779a_destructured", () => {}, 60_000);', 0],
+  ["unrelated destructured registration", 'const other = { test: (a, b, c) => {} }; const { test: named } = other; named("unrelated", () => {}, 90_000);', 0],
+  ["exported spread configuration", 'export default { ...externalOptions };', 1, "unresolved", [], "vite.config.ts"],
+  ["exported computed configuration", 'const key = "test"; export default { [key]: { [externalKey]: 90_000 } };', 1, "unresolved", [], "vitest.config.mts"],
+  ["exported configuration alias", 'const options = { test: { ...externalOptions } }; export default options;', 1, "unresolved", [], "vitest.config.ts"],
+  ["exported safe override", 'export default { ...externalOptions, test: { testTimeout: 60_000 } };', 0, null, [], "vite.config.ts"],
+  ["exported defineConfig alias", 'const options = defineConfig({ test: { testTimeout: 60_000 } }); export default options;', 0, null, [], "vitest.config.ts"],
+  ["exported inherited default", 'export default { test: { retry: 0 } };', 0, null, [], "vitest.config.ts"],
+  ["unrelated default export", 'export default { ...externalOptions };', 0],
   ["inherited default", 'test("t3779a_default", () => {});', 0],
   ["numeric boundary", 'test("t3779a_limit", () => {}, 60_000);', 0],
   ["over boundary", 'test("t3779a_limit", () => {}, 60_001);', 1, "60001"],
@@ -79,10 +97,10 @@ const cases = [
   ["hook and polling bounds", 'beforeAll(() => {}, 90_000); expect.poll(() => 1, { timeout: 90_000 }).toBe(1);', 0],
 ];
 
-for (const [name, source, status, diagnostic, exceptions = []] of cases) {
+for (const [name, source, status, diagnostic, exceptions = [], filename = "fixture.test.tsx"] of cases) {
   test(`t3779a_timeout_boundary: ${name}`, () => {
     const dir = mkdtempSync(resolve(repo, ".timeout-fixture-"));
-    const file = resolve(dir, "fixture.test.tsx");
+    const file = resolve(dir, filename);
     const config = resolve(dir, "config.json");
     const entries = exceptions.map(entry => ({ ...entry, file: entry.file === "fixture.test.tsx" ? relative(repo, file) : entry.file }));
     writeFileSync(file, 'import { test, test as check, describe, vi, beforeAll, expect } from "vitest";\n' + source);
@@ -98,7 +116,7 @@ for (const [name, source, status, diagnostic, exceptions = []] of cases) {
       const diagnostics = report.diagnostics.filter(item => item.code === "anti-slop(bounded-test-timeout)");
       assert.equal(diagnostics.length > 0, status === 1, result.stdout);
       if (diagnostic) assert.ok(diagnostics.some(item => item.message.includes(diagnostic)), result.stdout);
-      if (process.env.TIMEOUT_FIXTURE_REPORT) appendFileSync(process.env.TIMEOUT_FIXTURE_REPORT, JSON.stringify({ name, source, exitCode: result.status, diagnostics: diagnostics.map(item => item.message) }) + "\n");
+      if (process.env.TIMEOUT_FIXTURE_REPORT) appendFileSync(process.env.TIMEOUT_FIXTURE_REPORT, JSON.stringify({ name, filename, source, exitCode: result.status, diagnostics: diagnostics.map(item => item.message) }) + "\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
