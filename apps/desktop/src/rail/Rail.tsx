@@ -715,6 +715,11 @@ export const Rail = () => {
         tree={{
           rows: treeRows(),
           indent: railStep(),
+          inset: (element) => {
+            const content = element.querySelector<HTMLElement>(".line");
+
+            return content ? content.getBoundingClientRect().left - element.getBoundingClientRect().left : 0;
+          },
           nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
@@ -771,6 +776,8 @@ export const Rail = () => {
                           }}
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
+                          handleRef={parts.handleRef}
+                          draggable={daemonExit() === null}
                           onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
                         />
                         }</Sortable.Item>

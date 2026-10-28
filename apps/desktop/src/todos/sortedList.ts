@@ -47,6 +47,9 @@ export const createSortedList = (source: {
   let scroll: { element: HTMLElement; top: number; left: number } | null = null;
   onCleanup(() => animations.forEach(animation => animation.cancel()));
   let refocus: number | null = null;
+  let gripFocus = false;
+  const handles = new Map<number, HTMLButtonElement>();
+  const focusTarget = (id: number) => gripFocus ? handles.get(id) ?? buttons.get(id) : buttons.get(id);
   let instantOrder: symbol | null = null;
   const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement; focus: ReturnType<typeof captureFocus> } | null>(null);
 
@@ -116,7 +119,7 @@ export const createSortedList = (source: {
       animations.delete(id);
     }
 
-    if (refocus !== null) requestedFocus(() => buttons.get(refocus!)?.focus({ preventScroll: true }));
+    if (refocus !== null) requestedFocus(() => focusTarget(refocus!)?.focus({ preventScroll: true }));
     else if (savedFocus !== undefined && (document.activeElement === document.body || document.activeElement === null)) savedPermission(() => buttons.get(savedFocus!)?.focus({ preventScroll: true }));
     savedFocus = undefined;
 
@@ -177,7 +180,7 @@ export const createSortedList = (source: {
     if (message !== null) {
       refocus = null;
       instantOrder = null;
-      focus(() => buttons.get(id)?.focus());
+      focus(() => focusTarget(id)?.focus());
     }
   };
 
@@ -196,6 +199,7 @@ export const createSortedList = (source: {
     const key = Symbol();
 
     instantOrder = key;
+    gripFocus = false;
     measure();
     requestedFocus = captureFocus();
     refocus = id;
@@ -208,6 +212,7 @@ export const createSortedList = (source: {
     /** U3710: one `todo.reorder` for a drop that changed place, its failure shown on the row. */
     reorderTo: async (id: number, before: number | null) => {
       instantOrder = null;
+      gripFocus = document.activeElement?.classList.contains("sortable-handle") ?? false;
       measure();
       requestedFocus = captureFocus();
       refocus = id;
@@ -223,13 +228,14 @@ export const createSortedList = (source: {
     /** U3711: shows a refusal on the row. */
     show: (id: number, message: string | null) => fails.get(id)?.(message),
     /** The Sortable's new order of the ids: the row it moved goes to its index. */
-    order: (next: readonly string[]) => {
+    order: (next: readonly string[], dragged?: string) => {
       const before = source.ids().map(String).filter(id => next.includes(id));
       const at = next.findIndex((id, index) => id !== before[index]);
-      const moved = [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
+      const moved = dragged ?? [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
 
       if (moved === undefined) return;
       instantOrder = null;
+      gripFocus = document.activeElement?.classList.contains("sortable-handle") ?? false;
       measure();
       requestedFocus = captureFocus();
       refocus = Number(moved);
@@ -300,7 +306,10 @@ export const createSortedList = (source: {
           buttons.delete(id);
           fails.delete(id);
         }
-
+      },
+      handle: el => {
+        if (el) handles.set(id, el);
+        else handles.delete(id);
         parts.handleRef(el ?? undefined);
       },
       fail: (show) => fails.set(id, show),

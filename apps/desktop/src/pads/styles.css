@@ -407,4 +407,3 @@ li[aria-selected="true"] svg {
   color: var(--text-selection-ink);
 }
 
-.pad-grip { position: relative; z-index: 1; cursor: grab; }
