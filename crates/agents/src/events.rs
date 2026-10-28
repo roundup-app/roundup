@@ -17,7 +17,6 @@ pub(super) struct State {
     /// Wake lifecycle observers even when an acknowledgement leaves Status unchanged.
     pub(super) observed: Arc<tokio::sync::Notify>,
     /// H19: a test's observer of each gate decision; absent in production.
-    pub(super) gate_observer: Option<GateObserver>,
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
     pub(super) channel_deadline: Duration,
     /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
@@ -509,11 +508,6 @@ impl Shared {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
         let prompt = run.prompt.take_if(|_| run.session_started);
-        if (session_start || star)
-            && let Some(observer) = &self.events.gate_observer
-        {
-            observer(id, prompt.is_some());
-        }
         Ok((prompt, run.adapter.tick_at()))
     }
 }

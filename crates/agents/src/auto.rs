@@ -12,10 +12,12 @@ impl Agents {
         if ctx.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user sets the opening prompt"));
         }
-        let text = choice.prompt.as_deref().filter(|text| !text.trim().is_empty());
-        if text.is_some_and(|text| {
-            text.chars().count() > contracts::workstream::OPENING_PROMPT_MAX
-        }) {
+        let text = choice
+            .prompt
+            .as_deref()
+            .filter(|text| !text.trim().is_empty());
+        if text.is_some_and(|text| text.chars().count() > contracts::workstream::OPENING_PROMPT_MAX)
+        {
             return Err(RpcError::new(
                 rpc::code::INVALID_PARAMS,
                 "the opening prompt is too long",
