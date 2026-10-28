@@ -381,3 +381,22 @@ async fn a34_a_stopped_door_remains_resumable_and_announced_after_failed_removal
         "A22 requires a refresh when the stopped Door becomes resumable"
     );
 }
+
+#[tokio::test]
+async fn u4461_remove_all_deletes_a_dirty_agents_worktree_and_branch() {
+    let f = project(AGENT).await;
+    let before = git_state(f.dir.path());
+    let ws = f.workstream("all", None).await;
+    let agent = f.spawn(Some(&ws), None).await.unwrap();
+    let path = path_of(&agent);
+    std::fs::write(path.join("committed"), "ahead").unwrap();
+    git(&path, &["add", "committed"]);
+    git(&path, &["commit", "-qm", "ahead"]);
+    std::fs::write(path.join("scratch"), "dirty").unwrap();
+    let result = f.call("rail.remove", json!({"id":ws,"scope":"all"})).await.unwrap();
+    assert_eq!(result["kept"], json!([]));
+    assert_eq!(result["removed"][0]["id"], agent.id);
+    assert!(f.tree().await.is_empty());
+    assert!(!path.exists());
+    assert_eq!(git_state(f.dir.path()), before);
+}
