@@ -21,7 +21,6 @@ const openWork = async (prepare: (app: FakeApp) => void = () => {}) => {
       agent("b", "working", "editing", { name: "beta", order: 1, work: clarifying("which?") }),
       door("r", "working", "editing", { name: "harbor", order: 2, work: clarifying("why?") }),
     ];
-    app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
     app.handlers["message.progress"] = () => seeded.progress;
     app.handlers["message.reconcileWork"] = () => seeded.plan;
     app.handlers["deliverable.resolve"] = ({ id }) => id === "output-r-gone" ? { kind: "unavailable", cause: "missing-revision" } : { kind: "retained", path: "/p/output.txt", sha256: "0" };

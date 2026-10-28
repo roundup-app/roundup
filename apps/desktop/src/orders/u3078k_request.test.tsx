@@ -24,7 +24,6 @@ const open = async (plans: () => Record<string, Reconciliation>) => {
       agent("b", "working", "editing", { name: "beta", order: 1, work: clarifying("which?") }),
       door("r", "working", "editing", { name: "harbor", order: 2, work: clarifying("why?") }),
     ];
-    app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
     app.handlers["message.progress"] = ({ id }) => id === "b" ? seedB.progress : seedA.progress;
     app.handlers["message.reconcileWork"] = ({ id }) => plans()[id]!;
 
