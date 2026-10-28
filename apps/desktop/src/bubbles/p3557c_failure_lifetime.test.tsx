@@ -1,3 +1,6 @@
+import { openBubbleRecovery } from "./bubblesFixture";
+import { revealBubble } from "./bubblesFixture";
+import { bubbleChord } from "./bubblesFixture";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { copy } from "../copy";
@@ -12,9 +15,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const tab = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
+const tab = (id: string) => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"] .bubble-header`)!;
 
-const close = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${id}"] > button:last-child`)!;
+const close = (id: string) => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"] button[aria-label="Close"]`)!;
 
 const closeAccepted = async (id: string) => {
   fireEvent.click(close(id));
@@ -23,11 +26,12 @@ const closeAccepted = async (id: string) => {
   await questionClosed();
 };
 
-const field = () => document.querySelector<HTMLInputElement>(".terminal-tab-editor input")!;
+const field = () => document.querySelector<HTMLInputElement>(".bubble-title-editor input")!;
 
 const edit = async (id: string) => {
+  revealBubble(id);
   tab(id).focus();
-  fireEvent.dblClick(tab(id).querySelector(".terminal-tab-name")!);
+  fireEvent.dblClick(tab(id).querySelector(".bubble-name")!);
   await waitFor(() => expect(field()).not.toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(field()));
 };
@@ -102,7 +106,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       await waitFor(() => expect(tab("1")).toBeNull());
       await connected.rail.refresh({ terminals: true });
     } else if (transition === "open") {
-      fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+      bubbleChord("t");
       await waitFor(() => expect(tab("9")).not.toBeNull());
       await connected.rail.refresh({ terminals: true });
     } else if (transition === "dismiss") {
@@ -139,7 +143,7 @@ it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbl
     const retained = retainedEdit.draft;
   app.handlers["terminal.open"] = () => { throw new Error("Cannot open Terminal"); };
 
-  fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+  bubbleChord("t");
   await screen.findByRole("alert", { name: "Cannot open Terminal" });
 
   if (transition === "delete") {
@@ -154,7 +158,7 @@ it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbl
     await waitFor(() => expect(document.activeElement).toBe(tab("2")));
   } else if (transition === "recover") {
     app.handlers["terminal.open"] = open;
-    fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+    bubbleChord("t");
     await waitFor(() => expect(tab("9")).not.toBeNull());
   } else fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
@@ -174,7 +178,7 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
   await otherEdit.retained;
   const other = otherEdit.draft;
   app.clipboardFailure = new Error("Clipboard refused");
-  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  await openBubbleRecovery();
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const inspect = (name: string) => fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`Inspect.*${name}`) }));
   inspect("zsh");

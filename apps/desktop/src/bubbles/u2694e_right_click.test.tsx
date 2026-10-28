@@ -1,3 +1,5 @@
+import { revealBubble } from "./bubblesFixture";
+import { bubbleChord } from "./bubblesFixture";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // U2694f/g exercise the mounted App: row-only fixtures miss Ark activation and Bubble restoration.
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -42,7 +44,7 @@ const rightPress = (tab: Element, moveTo: number) => {
   return menu;
 };
 
-it.each([".terminal-tab-pair", ".bubble:not([hidden]) .bubble-header"])("u2694e_a_right_click_opens_the_menu_on_release: %s", async (selector) => {
+it.each([".bubble:not([hidden]) .bubble-header"])("u2694e_a_right_click_opens_the_menu_on_release: %s", async (selector) => {
   const { app } = await mountBubbles();
   const tab = await waitFor(() => document.querySelector(selector) ?? Promise.reject(new Error("No Terminal surface")));
 
@@ -56,7 +58,7 @@ it.each([".terminal-tab-pair", ".bubble:not([hidden]) .bubble-header"])("u2694e_
   expect(app.menuLabels()).toContain("Rename");
 });
 
-it.each([".terminal-tab-pair", ".bubble:not([hidden]) .bubble-header"])("u2694e_a_right_drag_past_the_threshold_pulls_and_opens_no_menu: %s", async (selector) => {
+it.each([".bubble:not([hidden]) .bubble-header"])("u2694e_a_right_drag_past_the_threshold_pulls_and_opens_no_menu: %s", async (selector) => {
   const { app } = await mountBubbles();
   const tab = await waitFor(() => document.querySelector(selector) ?? Promise.reject(new Error("No Terminal surface")));
 
@@ -65,9 +67,9 @@ it.each([".terminal-tab-pair", ".bubble:not([hidden]) .bubble-header"])("u2694e_
   expect(app.shownMenus).toHaveLength(0);
 });
 
-it.each(["Terminal tab", "Terminal Bubble"])("u4409a_each_surface_projects_ordered_nonempty_groups: %s", async (surface) => {
+it.each(["Terminal Bubble"])("u4409a_each_surface_projects_ordered_nonempty_groups: %s", async (surface) => {
   const { app } = await mountBubbles("w", [info("shell", { owner: "w" })], [workstream("w"), agent("a", "idle", "ready", { parent: "w" })]);
-  const selector = surface === "Terminal tab" ? ".terminal-tab-pair" : ".bubble:not([hidden]) .bubble-header";
+  const selector = ".bubble:not([hidden]) .bubble-header";
   const target = await waitFor(() => document.querySelector(selector) ?? Promise.reject(new Error("No Terminal surface")));
   const before = app.calls.length;
 
@@ -104,7 +106,7 @@ it.each(["Send", "Copy link", "Rename", "Close"])("u4322b_bubble_choice_uses_its
     expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([]);
     await answerQuestion(true);
     await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "shell" }]));
-    expect(document.querySelector('.terminal-tab-pair[data-bubble="other"]')).not.toBeNull();
+    expect(document.querySelector('.bubble[data-bubble="other"]')).not.toBeNull();
   }
 });
 
@@ -132,7 +134,7 @@ it.each(["agent", "door", "bubble"] as const)("u3529a_terminal_selection_and_rig
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard });
   const { app, emulators } = await mountApp(placement === "door" ? "door-report" : "bubbles");
 
-  if (placement === "bubble") fireEvent.click(document.querySelector(".terminal-new")!);
+  if (placement === "bubble") bubbleChord("t");
   else fireEvent.click(row(placement === "door" ? "r1" : "runner"));
   const selector = placement === "bubble" ? '.bubble:not([hidden]) [data-terminal]' : '.pane-screen [data-terminal]';
   await waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
@@ -234,9 +236,10 @@ it.each(cases)("u2694g_context_click_requests_only_the_target_rows_menu: $ctrl $
 it("u2694g_dismissal_keeps_the_prior_selection_and_pane", async () => {
   const { app } = await mountApp("bubbles");
   fireEvent.click(row("runner"));
-  const tab = await screen.findByRole("button", { name: "cargo test" });
-  fireEvent.click(tab);
-  fireEvent.click(screen.getByRole("button", { name: "Minimise" }));
+  await waitFor(() => expect(document.querySelector('.bubble[data-bubble="101"]')).not.toBeNull());
+  revealBubble("101");
+  await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("101"));
+  fireEvent.click(document.querySelector('.bubble[data-bubble="101"] [aria-label="Minimise"]')!);
   const before = pane();
   expect(before.some(([, hidden]) => hidden)).toBe(true);
   gesture(row("first-workstream"), true, true);

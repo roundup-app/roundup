@@ -56,9 +56,18 @@ afterAll(async () => {
   try { await browser("close"); } finally { await server?.close(); await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 }, 90_000);
 
+const recovery = async () => {
+  await browser("press", "Meta+k");
+  await browser("press", "k");
+  await until(`!!document.querySelector('.switcher input')`);
+  await browser("fill", '.switcher input', "Unfinished work…");
+  await browser("press", "Enter");
+  await until(`!!document.querySelector('.bubble-recovery')`);
+};
+
 const edit = async () => {
-  await browser("eval", `document.querySelector('.terminal-tab-name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
-  await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
+  await browser("eval", `window.dispatchEvent(new CustomEvent('roundup:reveal-bubble',{detail:document.querySelector('.bubble').dataset.bubble})); document.querySelector('.bubble-name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
+  await until(`document.activeElement?.matches('.bubble-title-editor input')`);
 };
 
 const capture = async (step: string, id = "U3021c") => {
@@ -76,15 +85,15 @@ it("u511a_click_away_commits_without_swallowing_the_click", async () => {
   await browser("open", new URL('/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles', origin).href);
   await until(`!!window.__fake`);
   await browser("click", '.rail-row[data-id="runner"] .name');
-  await until(`!!document.querySelector('.terminal-tab-name')`);
-  await browser("eval", `document.querySelector('.terminal-tab-name').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
-  await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
-  await browser("fill", '.terminal-tab-editor input', 'xy');
-  const pressed = await read<string | null>(`document.querySelector('.terminal-tab-pair:nth-child(2) .terminal-tab').getAttribute('aria-pressed')`);
-
-  await browser("click", '.terminal-tab-pair:nth-child(2) .terminal-tab');
-  await until(`document.querySelector('.terminal-tab-pair:nth-child(1) .terminal-tab')?.getAttribute('aria-label') === 'xy'`);
-  expect(await read<string | null>(`document.querySelector('.terminal-tab-pair:nth-child(2) .terminal-tab').getAttribute('aria-pressed')`)).not.toBe(pressed);
+  await until(`!!document.querySelector('.bubble-name')`);
+  await browser("eval", `window.dispatchEvent(new CustomEvent('roundup:reveal-bubble',{detail:document.querySelector('.bubble').dataset.bubble})); document.querySelector('.bubble-name').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+  await until(`document.activeElement?.matches('.bubble-title-editor input')`);
+  await browser("fill", '.bubble-title-editor input', 'xy');
+  await browser("click", '.rail-row[data-id="first-workstream"] .name');
+  await until(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'first-workstream'`);
+  await browser("click", '.rail-row[data-id="runner"] .name');
+  await until(`document.querySelector('.bubble[data-bubble="101"]')?.getAttribute('aria-label') === 'xy'`);
+  expect(await read<string>(`document.querySelector('.bubble[data-bubble="101"]').getAttribute('aria-label')`)).toBe('xy');
 }, 90_000);
 
 it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", async () => {
@@ -105,34 +114,34 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
     expect(original.id).toBe(replacement.id);
     expect(original.incarnation).not.toBe(replacement.incarnation);
     await browser("open", `${first.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await until(`!!document.querySelector('.terminal-tab-name')`);
+    await until(`!!document.querySelector('.bubble-name')`);
     const before = await read<unknown[]>(`window.__checks()`);
 
     await edit();
-    await browser("fill", '.terminal-tab-editor input', '  exact é 🫧  ');
+    await browser("fill", '.bubble-title-editor input', '  exact é 🫧  ');
     await browser("eval", `(() => { const field = document.activeElement; field.setSelectionRange(2,5,'backward'); field.dispatchEvent(new Event('select',{bubbles:true})); })()`);
     await key("Escape");
-    await until(`!document.querySelector('.terminal-tab-editor input')`);
+    await until(`!document.querySelector('.bubble-title-editor input')`);
     await browser("reload");
-    await until(`!!document.querySelector('.terminal-tab-name')`);
-    expect(await read<boolean>(`!!document.activeElement?.matches('.terminal-tab-editor input')`)).toBe(false);
+    await until(`!!document.querySelector('.bubble-name')`);
+    expect(await read<boolean>(`!!document.activeElement?.matches('.bubble-title-editor input')`)).toBe(false);
     await edit();
     await capture("restored-terminal-name");
     expect(await read<string>(`document.activeElement.value`)).toBe('  exact é 🫧  ');
     expect(await read<unknown[]>(`[document.activeElement.selectionStart,document.activeElement.selectionEnd,document.activeElement.selectionDirection]`)).toEqual([2,5,"backward"]);
     const retainedName = await read<string>(`document.activeElement.value`);
     await key("Escape");
-    await until(`!document.querySelector('.terminal-tab-editor input')`);
+    await until(`!document.querySelector('.bubble-title-editor input')`);
     await browser("open", `${second.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await until(`!!document.querySelector('.terminal-tab-name')`);
+    await until(`!!document.querySelector('.bubble-name')`);
     await edit();
     expect(await read<string>(`document.activeElement.value`)).not.toBe('  exact é 🫧  ');
     await key("Escape");
     await browser("open", `${first.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await until(`!!document.querySelector('.terminal-tab-name')`);
+    await until(`!!document.querySelector('.bubble-name')`);
     await app.rpc("terminal.close", { id: original.id });
-    await until(`!document.querySelector('.terminal-tab-name')`);
-    await browser("click", '[aria-label="Recover unfinished work · Terminal name"]');
+    await until(`!document.querySelector('.bubble-name')`);
+    await recovery();
     await until(`document.querySelector('[role="dialog"]')?.textContent.includes('Original object unavailable')`);
     expect(await read<string>(`document.querySelector('[role="dialog"] .draft-value').textContent`)).toBe(retainedName);
     const after = await read<unknown[]>(`window.__checks()`);
@@ -145,15 +154,15 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
     await until(`document.querySelectorAll('.rail-row').length > 2`);
     const denseBefore = await read<unknown[]>(`window.__checks()`);
 
-    await browser("click", '.terminal-new');
-    await until(`!!document.querySelector('.terminal-tab-name')`);
+    await browser("eval", "window.dispatchEvent(new KeyboardEvent('keydown', {key:'t',code:'KeyT',metaKey:true,bubbles:true}))");
+    await until(`!!document.querySelector('.bubble-name')`);
     await edit();
     await browser("eval", `(() => { const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key,value) { if(key.startsWith('roundup:drafts:')) throw new Error('observer storage failure'); return write.call(this,key,value); }; })()`);
-    await browser("fill", '.terminal-tab-editor input', '  retained failure é 🫧  ');
+    await browser("fill", '.bubble-title-editor input', '  retained failure é 🫧  ');
     await key("Escape");
-    await until(`!document.querySelector('.terminal-tab-editor input')`);
-    await until(`document.activeElement?.matches('button.terminal-tab')`);
-    await browser("click", '[aria-label="Recover unfinished work · Terminal name"]');
+    await until(`!document.querySelector('.bubble-title-editor input')`);
+    await until(`document.activeElement?.matches('.bubble-header')`);
+    await recovery();
     await until(`!!document.querySelector('[role="dialog"] [role="alert"]')`);
     const denseAfter = await read<unknown[]>(`window.__checks()`);
 
@@ -181,9 +190,9 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_terminal_openings_cancel_and_
     }
 
     if (seed === "conflict") await read(`window.__fake.app.rpc('todo.list',null).catch(() => null)`);
-    await browser("click", '.terminal-new');
-    await until(`!!document.querySelector('.terminal-tab-name')`);
-    const target = 'button.terminal-tab';
+    await browser("eval", "window.dispatchEvent(new KeyboardEvent('keydown', {key:'t',code:'KeyT',metaKey:true,bubbles:true}))");
+    await until(`!!document.querySelector('.bubble-name')`);
+    const target = '.bubble .bubble-header';
     const saved = await read<string>(`document.querySelector('${target}').getAttribute('aria-label')`);
     const baseline = await read(`window.__checks()`);
     await capture(`terminal-${seed}-before`, "U3787c");
@@ -191,12 +200,12 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_terminal_openings_cancel_and_
     let edited = "";
 
     for (const opening of ["double-click", "native Rename"]) {
-      if (opening === "double-click") await browser("dblclick", '.terminal-tab-name');
+      if (opening === "double-click") await browser("dblclick", '.bubble-name');
       else await browser("eval", `(() => { window.__fake.app.menuChoice = 'rename'; document.querySelector('${target}').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true})); })()`);
-      await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
+      await until(`document.activeElement?.matches('.bubble-title-editor input')`);
       const exact = `  ${opening} é 🪁 雪\t  `;
       edited = exact;
-      await browser("fill", '.terminal-tab-editor input', exact);
+      await browser("fill", '.bubble-title-editor input', exact);
       await browser("eval", `(() => {
         window.__renameInput = document.activeElement;
         window.__renameInput.setSelectionRange(2,6,'backward');
@@ -211,7 +220,7 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_terminal_openings_cancel_and_
       })()`);
       await browser("press", "Escape");
       await browser("eval", `window.__renameInput.dispatchEvent(new FocusEvent('blur'))`);
-      await until(`document.activeElement?.matches('${target}') && !document.querySelector('.terminal-tab-editor input')`);
+      await until(`document.activeElement?.matches('${target}') && !document.querySelector('.bubble-title-editor input')`);
       expect(await read<string>(`document.activeElement.getAttribute('aria-label')`)).toBe(saved);
       expect(await read<number>(`window.__renameEscapes`)).toBe(0);
       expect(await read<unknown[]>(`window.__renameWrites`)).toEqual([]);
@@ -220,15 +229,15 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_terminal_openings_cancel_and_
       expect(retained).toContainEqual(expect.objectContaining({ value: { name: exact, base: saved }, selection: { start: 2, end: 6, direction: "backward" }, status: "draft" }));
       await browser("eval", `(() => { Storage.prototype.setItem = window.__renameWrite; document.removeEventListener('keydown',window.__renameUnderlying); })()`);
       await capture(`terminal-${seed}-${opening.replaceAll(' ', '-')}-cancelled`, "U3787c");
-      await browser("dblclick", '.terminal-tab-name');
-      await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
+      await browser("dblclick", '.bubble-name');
+      await until(`document.activeElement?.matches('.bubble-title-editor input')`);
       expect(await read<string>(`document.activeElement.value`)).toBe(exact);
       await browser("press", "Escape");
-      await until(`!document.querySelector('.terminal-tab-editor input')`);
+      await until(`!document.querySelector('.bubble-title-editor input')`);
     }
 
     if (seed !== "tree-40") {
-      await browser("click", '[aria-label="Recover unfinished work · Terminal name"]');
+      await recovery();
       await until(`!!document.querySelector('.bubble-recovery .draft-value')`);
       expect(await read<string>(`document.querySelector('.bubble-recovery .draft-value').textContent`)).toBe(edited);
       await capture(`terminal-${seed}-recovery`, "U3787c");
@@ -237,8 +246,8 @@ it.each(["tree-40", "tabs-8", "conflict"])("u3787c_terminal_openings_cancel_and_
     }
 
     if (seed === "tree-40") {
-      await browser("dblclick", '.terminal-tab-name');
-      await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
+      await browser("dblclick", '.bubble-name');
+      await until(`document.activeElement?.matches('.bubble-title-editor input')`);
       await browser("eval", `(() => { const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key,value) { if(key.startsWith('roundup:bubble-places:')) throw new Error('Terminal name could not be saved. Recover the draft and retry.'); return write.call(this,key,value); }; })()`);
       await browser("press", "Enter");
       await until(`document.querySelector('.bubble-recovery')?.textContent.includes('Unfinished work')`);

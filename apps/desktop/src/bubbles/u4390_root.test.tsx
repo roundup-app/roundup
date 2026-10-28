@@ -9,7 +9,7 @@ beforeEach(() => { window.sessionStorage.clear(); window.localStorage.clear(); }
 
 afterEach(cleanup);
 
-const tabs = () => [...document.querySelectorAll(".terminal-tab")].map(tab => tab.getAttribute("data-bubble"));
+const tabs = () => [...document.querySelectorAll(".bubble")].map(tab => tab.getAttribute("data-bubble")).sort();
 
 const openThroughStaleList = async (activation: string) => {
   const project = info("project", { owner: "/p", title: "project shell" });
@@ -34,7 +34,7 @@ const openThroughStaleList = async (activation: string) => {
     return firstListing.promise;
   };
 
-  if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+  if (activation === "plus") bubbleChord("t");
   else bubbleChord("t");
   mounted.app.emit(event({ name: "terminal.changed" }));
   await requested.promise;
@@ -56,7 +56,7 @@ const openThroughStaleList = async (activation: string) => {
 
 it.each(["plus", "chord"])("u4390_root_open_survives_a_stale_list_before_first_listing_%s", async activation => {
   const mounted = await openThroughStaleList(activation);
-  expect(tabs()).toEqual(["project", "9"]);
+  expect(tabs()).toEqual(["9", "project"]);
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "w" }]);
   expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([]);
@@ -65,13 +65,13 @@ it.each(["plus", "chord"])("u4390_root_open_survives_a_stale_list_before_first_l
   mounted.connected.rail.select("w");
   expect(tabs()).toEqual(["9"]);
   mounted.connected.rail.select(null);
-  expect(tabs()).toEqual(["project", "9"]);
+  expect(tabs()).toEqual(["9", "project"]);
 });
 
 it("u4390_close_after_first_listing_removes_only_the_chosen_terminal", async () => {
   const mounted = await openThroughStaleList("plus");
   mounted.app.handlers["terminal.list"] = () => mounted.connected.rail.terminals().filter(terminal => terminal.id !== "9");
-  fireEvent.click(document.querySelector('[aria-label="Close new shell"]')!);
+  fireEvent.click(document.querySelector('.bubble[data-bubble="9"] button[aria-label="Close"]')!);
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "9" }]));
   await mounted.connected.rail.settled();
@@ -88,7 +88,7 @@ it("u524_a_non_root_open_resets_root_visibility_and_keeps_project_terminals", as
   mounted.app.handlers["terminal.open"] = () => ({ terminal_id: "10" });
   mounted.app.handlers["terminal.list"] = () => listed;
   mounted.connected.rail.select("w");
-  fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+  bubbleChord("t");
   await mounted.connected.rail.settled();
   await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("10"));
   await mounted.connected.rail.settled();

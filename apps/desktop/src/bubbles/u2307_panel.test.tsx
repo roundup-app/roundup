@@ -1,3 +1,4 @@
+import { revealBubble } from "./bubblesFixture";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -38,7 +39,7 @@ const shown = async () => {
   return mounted;
 };
 
-it.each([".pane", ".terminal-new", ".rail-row"])("u2307a_an_outside_press_minimises_and_still_reaches_its_target (%s)", async (target) => {
+it.each([".pane", ".rail-row"])("u2307a_an_outside_press_minimises_and_still_reaches_its_target (%s)", async (target) => {
   await shown();
 
   const outside = document.querySelector<HTMLElement>(target)!;
@@ -57,7 +58,7 @@ it.each([".pane", ".terminal-new", ".rail-row"])("u2307a_an_outside_press_minimi
 it("u2307a_a_press_inside_or_on_its_own_tab_does_not_minimise", async () => {
   await shown();
   fireEvent.pointerDown(bubble()!.querySelector(".bubble-body")!, { button: 0, pointerType: "mouse" });
-  fireEvent.pointerDown(document.querySelector(".terminal-tab")!, { button: 0, pointerType: "mouse" });
+  fireEvent.pointerDown(document.querySelector(".bubble")!, { button: 0, pointerType: "mouse" });
   fireEvent.pointerDown(document.body, { button: 2, pointerType: "mouse" });
   await new Promise((done) => setTimeout(done, 50));
   expect(bubble()).not.toBeNull();
@@ -80,7 +81,7 @@ it("u2307a_a_minimised_bubble_keeps_its_place_and_size_and_restores", async () =
 
   fireEvent.pointerDown(document.body, { button: 0, pointerType: "mouse" });
   await waitFor(() => expect(bubble()).toBeNull());
-  fireEvent.click(document.querySelector(".terminal-tab")!);
+  revealBubble("1");
   await waitFor(() => expect(bubble()).not.toBeNull());
   expect(bubble()!.getAttribute("style")).toBe(style);
 });
@@ -107,7 +108,7 @@ it("u2307b_the_portal_keeps_the_place_and_the_pane_size", async () => {
 
   fireEvent.pointerDown(document.body, { button: 0, pointerType: "mouse" });
   await waitFor(() => expect(bubble()).toBeNull());
-  fireEvent.click(document.querySelector(".terminal-tab")!);
+  revealBubble("1");
   await waitFor(() => expect(bubble()).not.toBeNull());
   expect(document.querySelector(".pane")!.outerHTML).toBe(before);
   expect(bubble()!.style.cssText).toBe(place);
@@ -121,7 +122,7 @@ it("u2307c_the_dots_name_and_call_close_and_minimise", async () => {
   expect(dots.every((dot) => dot.tagName === "BUTTON" && dot.textContent === "")).toBe(true);
   fireEvent.click(dots[1]!);
   await waitFor(() => expect(bubble()).toBeNull());
-  fireEvent.click(document.querySelector(".terminal-tab")!);
+  revealBubble("1");
   await waitFor(() => expect(bubble()).not.toBeNull());
   fireEvent.click(bubble()!.querySelector('[aria-label="Close"]')!);
   await answerQuestion(true);

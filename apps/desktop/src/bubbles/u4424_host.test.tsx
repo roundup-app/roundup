@@ -39,7 +39,7 @@ it("u4424b_tab_host_replacement_keeps_the_bubble_and_terminal", async () => {
   await waitFor(() => expect(emulator.written).toHaveLength(1));
   setHostPresent(false);
   // MutationObserver delivery is the host-discovery boundary; the Bubble must survive it.
-  await waitFor(() => expect(document.querySelector(".resource-agent")).toBeNull());
+  await waitFor(() => expect(document.querySelector(".resource-strip")).toBeNull());
   expect(bubble.isConnected).toBe(true);
   expect(bubble.hidden).toBe(false);
   expect(emulator.disposed).toBe(false);
@@ -47,7 +47,7 @@ it("u4424b_tab_host_replacement_keeps_the_bubble_and_terminal", async () => {
   await waitFor(() => expect(emulator.written).toHaveLength(2));
   emulator.type(new TextEncoder().encode("absent\r"));
   setHostPresent(true);
-  await waitFor(() => expect(document.querySelector(".resource-agent .terminal-tabs")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(".resource-strip")).not.toBeNull());
   expect(document.querySelector('.bubble[data-bubble="9"]')).toBe(bubble);
   expect(bubble.isConnected).toBe(true);
   expect(bubble.hidden).toBe(false);
@@ -55,10 +55,10 @@ it("u4424b_tab_host_replacement_keeps_the_bubble_and_terminal", async () => {
   expect(emulator.disposed).toBe(false);
   expect(emulator.written.map(bytes => new TextDecoder().decode(bytes))).toEqual(["before\r\n", "absent\r\n"]);
   emulator.type(new TextEncoder().encode("replaced\r"));
-  expect(bubbleCalls(app, "terminal.write")).toEqual([
+  await waitFor(() => expect(bubbleCalls(app, "terminal.write")).toEqual([
     { id: "9", data: btoa("absent\r") },
     { id: "9", data: btoa("replaced\r") },
-  ]);
+  ]));
   expect(bubbleCalls(app, "terminal.open")).toEqual([{ workstream: "w" }]);
   expect(app.calls.filter(call => /^(terminal.close|agent.spawn|agent.resume|rail.startDoor)$/.test(call.method))).toEqual([]);
 });

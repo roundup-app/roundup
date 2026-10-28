@@ -35,8 +35,8 @@ it("u2224_one_click_on_an_agent_leaves_no_bubble_over_its_output", async () => {
     await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=bubbles", 1280, 800);
     await page.until(`() => Boolean(window.__fake)`);
     await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
-    await page.until(`() => document.querySelector('.terminal-new')`);
-    await page.call(`() => document.querySelector('.terminal-new').click()`);
+    await page.until(`() => document.querySelector('.bubbles')`);
+    await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown', {key:'t',code:'KeyT',metaKey:true,bubbles:true}))`);
     await page.until(`() => document.querySelector('.bubble:not([hidden])')`);
 
     const before = await page.call<Reading>(read);
