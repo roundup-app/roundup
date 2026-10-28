@@ -125,5 +125,6 @@ export const ResourceStrip = (props: { returnFocus?: (() => void) | undefined })
       <WorktreeControl returnFocus={props.returnFocus} />
     </div>
     <HintLine />
+    <span class="resource-agent" />
   </>);
 };

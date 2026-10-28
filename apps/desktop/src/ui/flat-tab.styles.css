@@ -22,6 +22,11 @@
   z-index: 0;
 }
 
+/* Terminal tabs open upward into the pane; their rule aligns with the Rail footer. */
+.terminal-tabs[data-flat-bar]::after {
+  inset: 0 0 auto;
+}
+
 [data-flat-tab] {
   box-sizing: border-box;
   display: flex;
@@ -76,4 +81,15 @@
 /* A tab under a dragged item takes the --text ink, as hover does; a tab never paints a hover ground (#2173). */
 [data-flat-tab][data-drop="hover"] {
   color: var(--text);
+}
+
+/* The pane supplies the first tab's hairline; a spacer preserves selection's footprint. */
+.terminal-tab-pair:first-child[data-selected="true"] {
+  border-left-width: 0;
+}
+
+.terminal-tab-pair:first-child[data-selected="true"]::before {
+  content: "";
+  flex: none;
+  width: var(--flat-tab-edge);
 }

@@ -80,7 +80,7 @@
 }
 
 .todo-undo[data-overlay="true"] {
-  bottom: var(--space-2);
+  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
   padding-inline: var(--space-3);
   z-index: var(--layer-toast);
 }
