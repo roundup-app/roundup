@@ -1,3 +1,6 @@
+import { OrderDrawer } from "../orders/OrderDrawer";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import type { ConnectedProject } from "../state/connectedProject";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect } from "vitest";
 import { createProjectDrafts } from "../state/connectedProject";
@@ -44,7 +47,7 @@ export const mountApp = async (prepare: (app: FakeApp) => void = () => {}, clock
 
   const drafts = createProjectDrafts();
 
-  const view = render(() => <App app={app} drafts={drafts} reducedMotion={() => reducedMotion} clock={clock} createEmulator={emulators.factory} />);
+  const view = render(() => <App app={app} drafts={drafts} reducedMotion={() => reducedMotion} clock={clock} createEmulator={emulators.factory} prepareIdle={open => { inspected = open; }} />);
 
   await waitFor(() => expect(view.container.querySelector(".pane")).not.toBeNull());
   await waitFor(() => expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(3));
@@ -61,3 +64,11 @@ export const select = (name: string) => {
 };
 
 export const rpcCalls = (app: FakeApp, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
+
+let inspected: ConnectedProject | undefined;
+
+/** Render the retained recovery editor directly; U4453a retires the normal goal-line entry point. */
+export const inspectOrder = (id = "a") => {
+  const connected = inspected!;
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id={id} /></ConnectedProjectContext.Provider>, "key");
+};
