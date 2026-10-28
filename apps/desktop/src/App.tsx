@@ -614,7 +614,6 @@ export const App = (props: {
             const status = () => shown() && undo.available() ? undo.feedback() : null;
 
             return <ReservedLine overlay class="todo-undo" aria-live="polite" message={failure()} status={status()}>
-              <Show when={undo.available()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.undo()}>{copy.todoUndo}</button></Show>
               <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
               <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
             </ReservedLine>;

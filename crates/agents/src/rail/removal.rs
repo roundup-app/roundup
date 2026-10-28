@@ -47,9 +47,6 @@ impl Rail {
             for table in [
                 "nodes",
                 "instruction_homes",
-                "measurement_owners",
-                "measurement_revisions",
-                "measurement_erased",
                 "deliverables",
                 "workstream_queue",
             ] {
@@ -224,8 +221,6 @@ impl Rail {
                 "Rail graph changed; resolve the conflict and retry: {e}"
             ))
         })?;
-        db.execute("UPDATE measurement_state SET revision=revision+1", [])
-            .map_err(sql)?;
         db.execute(
             "UPDATE rail_deletions SET restored=1 WHERE operation=?",
             [&p.operation],
