@@ -76,6 +76,27 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(await page.call<number>(`() => Number(document.activeElement.closest('[data-todo]')?.dataset.todo)`)).toBe(order[1]);
   });
 
+  it.each(["pointer", "keyboard"])("u3800c_a_%s_nest_returns_focus_to_the_moved_grip", async (input) => {
+    await setup();
+    const order = await ids();
+    const moved = order[1]!;
+
+    if (input === "pointer") {
+      const second = await centre(1);
+      await drag(second, { x: second.x + 30, y: second.y });
+    } else {
+      await page.call(`id => document.querySelector('[data-todo="' + id + '"] .sortable-handle').focus()`, moved);
+      await page.press(" ", "Space");
+      await page.until(`() => Boolean(document.querySelector('[data-dnd-placeholder]'))`);
+      await page.press("ArrowRight", "ArrowRight");
+      await page.press(" ", "Space");
+    }
+
+    await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
+    await settled();
+    expect(await page.call<number>(`() => document.activeElement.matches('.sortable-handle') ? Number(document.activeElement.closest('[data-todo]').dataset.todo) : null`)).toBe(moved);
+  });
+
   it("u3710_a_sideways_drag_calls_set_blockers_and_a_vertical_one_calls_reorder", async () => {
     await setup();
 
