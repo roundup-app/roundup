@@ -80,10 +80,22 @@ pub struct Removal {
     pub deletion: Option<Deletion>,
 }
 
+/// Which contents the user chose to remove from a Workstream.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RemoveScope {
+    #[default]
+    This,
+    All,
+}
+
 /// A client key requests data-only removal; omission keeps irreversible removal's consent path.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RemoveParams {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub scope: Option<RemoveScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
     pub operation: Option<String>,
