@@ -21,7 +21,6 @@ Inventory: binary names identify the original CI test binaries; seconds are the 
 | `b21_start_releases_each_changed_child_under_b22s_caps` | `rupd::b21_stopped_door` | 16.9 |
 | `b6_later_door_effects_cannot_overtake_a_released_resize` | `rupd::held_resizes` | 14.0 |
 | `b21_a_reopened_door_waits_until_explicit_start` | `rupd::b21_stopped_door` | 11.5 |
-| `b6_an_order_completion_waits_for_its_steer_effect` | `rupd::order_steering` | 10.8 |
 | `b2704a_rename_updates_context_and_queues_one_note` | `rupd::b50_note_inbox` | 10.3 |
 | `resources::tests::d8_a_disk_size_is_cached_for_30_s_and_the_walk_never_holds_the_call_past_1_s` | `rupd` | 10.2 |
 | `b2704a_first_prompt_rename_notifies` | `rupd::b50_note_inbox` | 10.0 |

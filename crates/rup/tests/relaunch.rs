@@ -80,7 +80,14 @@ async fn a3516b_start_context_carries_the_brief() {
         .lines()
         .map(|line| serde_json::from_str::<Value>(line).unwrap()["prompt"].clone())
         .collect();
-    assert_eq!(delivered, [json!("first work")]);
+    assert_eq!(delivered.len(), 1);
+    assert!(
+        delivered[0]
+            .as_str()
+            .unwrap()
+            .starts_with("first work\n\n<roundup-context>"),
+        "{delivered:?}"
+    );
     assert_eq!(
         std::fs::read_to_string(files.join(format!("{}.brief.md", agent.id))).unwrap(),
         brief

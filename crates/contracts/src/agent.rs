@@ -386,6 +386,10 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = bool)]
     pub auto: Option<bool>,
+    /// A4452c: the Workstream's saved opening prompt; absent on an Agent and when none is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub opening_prompt: Option<String>,
     pub id: String,
     pub kind: NodeKind,
     pub name: String,

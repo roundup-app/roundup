@@ -12,6 +12,8 @@ import type * as agent$Worktree from "./Worktree";
 export type RailNode = {
 	/**  A3308: the Workstream's Auto choice; absent on an Agent. */
 	auto?: boolean,
+	/**  A4452c: the Workstream's saved opening prompt; absent on an Agent and when none is set. */
+	opening_prompt?: string,
 	id: string,
 	kind: agent$NodeKind.NodeKind,
 	name: string,

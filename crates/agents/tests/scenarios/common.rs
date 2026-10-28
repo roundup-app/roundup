@@ -26,6 +26,9 @@ pub struct Fixture {
     pub terminals: Arc<Terminals>,
 }
 
+/// A4452a: where the Fixture's coordination sink records each Message sent to a Claude inbox.
+const INBOX_LOG: &str = "inbox.log";
+
 /// An executable `sh` script standing in for `claude`.
 pub fn fake_claude(dir: &Path, body: &str) -> String {
     let path = dir.join("fake-claude");
@@ -45,8 +48,23 @@ pub fn open_in_with_git(dir: &Path, bus: &Bus, bin: &str, git: Git) -> (Agents, 
     let rup = dir.join("rup");
     std::fs::write(&rup, "").unwrap();
     let launcher = Launcher::new(bin, dir.join("claude.json"), rup, None);
-    let agents =
-        Agents::open_with(dir, bus.clone(), Arc::clone(&terminals), launcher, git).unwrap();
+    let log = dir.join(INBOX_LOG);
+    let agents = Agents::open_with(dir, bus.clone(), Arc::clone(&terminals), launcher, git)
+        .unwrap()
+        .with_coordination(move |id, text| {
+            let log = log.clone();
+            async move {
+                use std::io::Write;
+                let line = json!({"to": id, "body": text}).to_string();
+                let mut file = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(log)
+                    .unwrap();
+                writeln!(file, "{line}").unwrap();
+                Ok(())
+            }
+        });
     (agents, terminals)
 }
 
@@ -141,6 +159,42 @@ impl Fixture {
         } else {
             Self::over(dir, bus, &bin)
         }
+    }
+
+    /// A4452a: the `(agent id, text)` of every Message roundup sent to a Claude inbox, in order.
+    pub fn inbox(&self) -> Vec<(String, String)> {
+        let root = if self.dir.path().join(".roundup").is_dir() {
+            self.dir.path().join(".roundup")
+        } else {
+            self.dir.path().to_owned()
+        };
+        let Ok(log) = std::fs::read_to_string(root.join(INBOX_LOG)) else {
+            return Vec::new();
+        };
+        log.lines()
+            .map(|line| {
+                let line: Value = serde_json::from_str(line).unwrap();
+                (
+                    line["to"].as_str().unwrap().to_owned(),
+                    line["body"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect()
+    }
+
+    /// A4452a: wait for `count` Messages in the Claude inbox log and return them.
+    pub async fn until_inbox(&self, count: usize) -> Vec<(String, String)> {
+        tokio::time::timeout(PATIENCE, async {
+            loop {
+                let inbox = self.inbox();
+                if inbox.len() >= count {
+                    return inbox;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("coordination reaches the inbox")
     }
 
     pub async fn call(&self, method: &str, params: Value) -> Result<Value, RpcError> {
