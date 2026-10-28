@@ -159,6 +159,7 @@
 
 /* U2744a: quiet scope and Rail disclosures use the existing type and space scale. */
 .shelf-bar { justify-content: flex-start; gap: var(--space-1); color: var(--text); font-size: var(--text-body); height: auto; min-height: var(--header-height); align-items: center; position: relative; padding-block: var(--space-1); line-height: var(--space-4); }
+.shelf-scope-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* U4463: progress leads; controls stay together at the trailing edge. */
 .shelf-scope-host { display: flex; flex: 1; min-width: 0; }
 .shelf-scope-action:not([hidden]) { display: flex; flex: 1; min-width: 0; justify-content: flex-end; align-items: center; gap: var(--space-1); }
@@ -176,6 +177,7 @@
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: var(--transparent); }
 .shelf-groups [data-part="branch"] { cursor: pointer; }
 .shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
+.pads-tab [data-shelf-group][aria-level="2"] { margin-inline-start: var(--tree-step); }
 .shelf-groups [data-part="branch-indicator"] { display: flex; flex: none; }
 .shelf-group-head { display: flex; align-items: center; }
 .shelf-group-head[hidden] { display: none; }
