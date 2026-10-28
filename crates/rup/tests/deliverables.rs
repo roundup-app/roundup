@@ -685,7 +685,7 @@ async fn r3778d_publication_with_public_reads_and_writes() {
             )
             .await;
             call(&c2, "todo.create", json!({"title":format!("Todo {n}")})).await;
-            for method in ["rail.tree", "pad.list", "project.measurements"] {
+            for method in ["rail.tree", "pad.list"] {
                 call(&c2, method, json!({})).await;
             }
         }

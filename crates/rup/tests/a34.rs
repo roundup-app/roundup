@@ -874,9 +874,6 @@ async fn n18_removal_commits_all_concerns_once() {
             .await
             .unwrap()
             .unwrap();
-        if matches!(event.data, EventData::MeasurementsChanged { .. }) {
-            continue;
-        }
         assert!(
             !client
                 .request("rail.tree", Value::Null)
@@ -916,13 +913,8 @@ async fn n18_removal_commits_all_concerns_once() {
     );
     assert!(
         tokio::time::timeout(Duration::from_millis(100), async {
-            while let Some(event) = client.next_event().await {
-                assert!(
-                    matches!(event.data, EventData::MeasurementsChanged { .. }),
-                    "unexpected extra removal event: {event:?}"
-                );
-            }
-            panic!("event stream closed during the duplicate-event observation");
+            let event = client.next_event().await;
+            panic!("unexpected extra removal event or closed stream: {event:?}");
         })
         .await
         .is_err()
