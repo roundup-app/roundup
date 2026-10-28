@@ -91,3 +91,38 @@ const capture = async (name: string) => {
   writeFileSync(join(destination, `${mode}-${name}.png`), Buffer.from(await page.shot(), "base64"));
   writeFileSync(join(destination, `${mode}-${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`)));
 };
+
+it("u4459_the_bar_stays_clickable_under_the_lowest_bubble", async () => {
+  for (const scheme of ["light", "dark"] as const) {
+    await open();
+    await page.scheme(scheme);
+    await page.resize(1280, 800);
+    const point = (selector: string) => page.call<{ x: number; y: number }>(`selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`, selector);
+    const at = await point('.bubble:not([hidden]) .bubble-header');
+    await page.down(at.x, at.y);
+    await page.pointer("move", at.x, 2000);
+    await page.release(at.x, 2000);
+    const edge = await point('.bubble-zone[data-zone="s"]:not([hidden])');
+    await page.down(edge.x, edge.y);
+    await page.pointer("move", edge.x, 2000);
+    await page.release(edge.x, 2000);
+    // Bubble.drag applies the final pending place synchronously on pointerup.
+    for (const selector of ['button.terminal-tab', 'button.terminal-new']) {
+      const centre = await point(selector);
+      expect(await page.call<boolean>(`(selector, at) => document.querySelector(selector).contains(document.elementFromPoint(at.x, at.y))`, selector, centre)).toBe(true);
+    }
+    const dir = scheme === "dark" ? captureDir("U4459") : null;
+    if (dir) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "lowest-bubble.png"), Buffer.from(await page.shot(), "base64"));
+      writeFileSync(join(dir, "lowest-bubble.checks.json"), JSON.stringify(await page.call(`() => window.__checks()`)));
+    }
+    const tab = await point('button.terminal-tab');
+    await page.click(tab.x, tab.y);
+    await page.until(`() => !document.querySelector('.bubble:not([hidden])')`);
+    const add = await point('button.terminal-new');
+    const count = await page.call<number>(`() => window.__fake.app.calls.filter(call => call.method === 'terminal.open').length`);
+    await page.click(add.x, add.y);
+    await page.until(`() => window.__fake.app.calls.filter(call => call.method === 'terminal.open').length > ${count}`);
+  }
+}, 60_000);

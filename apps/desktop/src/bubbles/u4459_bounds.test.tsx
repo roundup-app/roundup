@@ -1,15 +1,15 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mountBubbles } from "./bubblesFixture";
-import { clamped, placesStorage, resizedAbout, ZONES } from "./places";
+import { clamped, placesStorage, resizedAbout, toggledFill, ZONES } from "./places";
 
 let height = 600;
 let barHeight = 40;
 let layout = true;
-const observers = new Map<ResizeObserverCallback, Set<Element>>();
+const observers = new Map<ResizeObserver, { notify: ResizeObserverCallback; targets: Set<Element> }>();
 
 const resized = (element: Element) => {
-  for (const [notify, targets] of observers) if (targets.has(element)) notify([], {} as ResizeObserver); // Browser callback identity is unused by the observers under test.
+  for (const [observer, { notify, targets }] of observers) if (targets.has(element)) notify([], observer);
 };
 
 beforeEach(() => {
@@ -20,7 +20,7 @@ beforeEach(() => {
   layout = true;
   vi.stubGlobal("ResizeObserver", class {
     readonly targets = new Set<Element>();
-    constructor(notify: ResizeObserverCallback) { observers.set(notify, this.targets); }
+    constructor(notify: ResizeObserverCallback) { observers.set(this, { notify, targets: this.targets }); }
     observe(element: Element) { this.targets.add(element); }
     unobserve(element: Element) { this.targets.delete(element); }
     disconnect() { this.targets.clear(); }
@@ -48,20 +48,25 @@ const saved = { x: 200, y: 300, w: 300, h: 300, min: false };
 
 it.each([40, 56])("u4459_no_move_resize_or_fill_reaches_the_bar_%s", async measuredHeight => {
   barHeight = measuredHeight;
-  await mountBubbles("w");
   for (const route of ["move", "keys", "resize", "fill", "pull"]) {
+    placesStorage("/p").write({ "2": { ...saved, y: 100 } });
+    await mountBubbles("w");
     if (route === "fill") fireEvent.dblClick(header());
     else if (route === "keys") {
       header().focus();
       for (let i = 0; i < 80; i++) fireEvent.keyDown(header(), { key: "ArrowDown", shiftKey: true });
     } else {
       const target = route === "move" ? header() : route === "resize" ? document.querySelector('.bubble-zone[data-zone="se"][data-zone-of="2"]')! : document.body;
-      fireEvent.pointerDown(target, { clientX: 400, clientY: 300, button: route === "pull" ? 2 : 0, buttons: route === "pull" ? 2 : 1, pointerType: "mouse" });
+      const press = new MouseEvent("pointerdown", { bubbles: true, clientX: 400, clientY: 300, button: route === "pull" ? 2 : 0, buttons: route === "pull" ? 2 : 1 });
+      Object.defineProperty(press, "pointerType", { value: "mouse" });
+      fireEvent(target, press);
       fireEvent(window, new MouseEvent("pointermove", { clientX: 400, clientY: 2000, buttons: route === "pull" ? 2 : 1 }));
       await frame(); // Bubble.drag and pulling apply their pending geometry in requestAnimationFrame.
       fireEvent(window, new MouseEvent("pointerup", { button: route === "pull" ? 2 : 0 }));
     }
     expect(bottom(), route).toBeLessThanOrEqual(600 - measuredHeight);
+    expect(stored(), route).not.toMatchObject({ ...saved, y: 100 });
+    cleanup();
   }
 });
 
@@ -84,9 +89,9 @@ it("u4459_a_saved_place_over_the_bar_reclamps_on_load", async () => {
   layout = true;
   resized(document.querySelector(".centre-stack")!);
   expect(stored().y + stored().h).toBe(560);
-  fireEvent.dblClick(header());
-  fireEvent.dblClick(header());
-  expect(stored().y + stored().h).toBeLessThanOrEqual(560);
+  const restored = toggledFill({ x: 16, y: 16, w: 768, h: 528, min: false, restore: { x: 200, y: 400, w: 300, h: 300 } }, { width: 800, height: 560 });
+  expect(restored).toMatchObject({ y: 260, h: 300 });
+  expect(restored.restore).toBeUndefined();
 });
 
 it("u4459_without_a_bar_the_next_sibling_edge_holds", async () => {
