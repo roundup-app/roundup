@@ -287,6 +287,7 @@ it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
 
   for (const [selector, count] of [['.shelf [data-todo] .todo-row-button', 1], [".drawer .close", 2]] as const) {
     await browser("click", selector);
+
     if (count === 1) await browser("press", "Enter");
     await settle();
     expect(await evaluate("window.__drawerResizes.length")).toBe(count);
