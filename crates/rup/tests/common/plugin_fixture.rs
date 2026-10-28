@@ -1,19 +1,14 @@
-//! A Workstream with a Door, its fixture and a Clear, for the A32 and Q11 tests.
+//! Q11: a Workstream with a Door and children for plugin launch/resume probes.
 use crate::daemon::{self, next};
 
 use contracts::{EventData, Kind};
 use serde_json::json;
 
-pub async fn clear_fixture(
+pub async fn plugin_fixture(
     fixture: &str,
     env: &[(&str, &str)],
 ) -> (daemon::Project, rpc::Client, String) {
-    // The new Door waits for the real `claude` to start; a loaded host takes longer than the Daemon's
-    // 8 s default, so a Clear is not failed for it unless the caller sets the bound.
-    let env: Vec<_> = std::iter::once(("ROUNDUP_RESTART_BOUND_MS", "60000"))
-        .chain(env.iter().copied())
-        .collect();
-    let project = daemon::start_real(fixture, &env);
+    let project = daemon::start_real(fixture, env);
     let path = project.dir.path();
     for args in [
         vec!["init", "-q", "-b", "main"],

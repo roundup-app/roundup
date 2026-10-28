@@ -83,10 +83,6 @@ pub enum EventData {
     WorkstreamRewound(workstream::Rewound),
     #[serde(rename = "project.requested")]
     ProjectRequested(project::Requested),
-    #[serde(rename = "workstream.cleared")]
-    WorkstreamCleared(workstream::WorkstreamClearedEvent),
-    #[serde(rename = "workstream.clearFailed")]
-    WorkstreamClearFailed(workstream::WorkstreamClearFailedEvent),
     /// A3195: the Queue or the Project's cap changed; read `workstream.queue`.
     #[serde(rename = "workstream.queueChanged")]
     WorkstreamQueueChanged,

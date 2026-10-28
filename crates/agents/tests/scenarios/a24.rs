@@ -181,14 +181,7 @@ async fn f8_the_door_keeps_f2_on_start_and_resume() {
         let (f, id) = (Arc::clone(&f), id.clone());
         tokio::spawn(async move {
             f.agents
-                .restart_door(
-                    &f.ctx(),
-                    &id,
-                    "Continue the work".into(),
-                    2,
-                    agents::START_DOOR_ACK_BOUND,
-                    None,
-                )
+                .restart_door(&f.ctx(), &id, agents::START_DOOR_ACK_BOUND, None)
                 .await
         })
     };
