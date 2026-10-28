@@ -192,7 +192,9 @@ impl AppState {
             return Err(not_open(&key));
         }
         if self.is_running(&key) {
-            self.store.record_recent(&key);
+            if !keep_on_failure {
+                self.store.record_recent(&key);
+            }
             return Ok(self.project_at(&key));
         }
         let (lifetime, mut cancel, reopening) = {
@@ -241,7 +243,9 @@ impl AppState {
                         Self::await_connection(app.clone(), key.clone(), run, cancel, answer);
                     }
                     self.save_open();
-                    self.store.record_recent(&project.path);
+                    if !keep_on_failure {
+                        self.store.record_recent(&project.path);
+                    }
                     return Ok(project);
                 }
                 Err(err) => {
