@@ -1,9 +1,5 @@
 use rusqlite::Connection;
 
-/// The historical receipt triggers used when rebuilding pre-coordination fixtures.
-pub const INSTRUCTION_MESSAGES: &str =
-    include_str!("../../migrations/project/0013-instruction-messages.sql");
-
 pub fn schema(db: &Connection) -> Vec<(String, String)> {
     db.prepare("SELECT name, sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY name")
         .unwrap()
