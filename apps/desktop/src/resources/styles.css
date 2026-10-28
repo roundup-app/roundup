@@ -1,8 +1,8 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
-/* The reserved hint line sits above the footer without taking height from its tab row. */
+/* Hints share the Terminal bar and reserve no separate row. */
 :root {
-  --hint-row-height: calc(var(--space-4) + var(--space-2));
+  --hint-row-height: var(--length-zero);
 }
 
 /* U444, U2340c: the centre's last line, one line the Terminal's width; it holds its height empty or filled, so the Terminal never moves. */
@@ -93,23 +93,26 @@
   scrollbar-width: none;
 }
 
-/* U2230b: the bar's first line, the width of the bar and above the tabs and resource values: grey labels beside key chips, never in the way of a click. Hints that do not fit whole are hidden from the end. */
+/* Hints use only the room left by the tabs and controls; whole trailing hints hide. */
 .hint[hidden] {
   display: none;
 }
 
+.hint-line .hint {
+  flex: none;
+}
+
 .hint-line {
-  grid-column: 1 / -1;
-  grid-row: 1;
+  position: relative;
   display: flex;
+  align-items: center;
   column-gap: var(--space-4);
   box-sizing: border-box;
-  flex: none;
-  height: var(--hint-row-height);
-  inline-size: 0;
-  min-inline-size: 100%;
+  flex: 1;
+  min-inline-size: 0;
   margin: 0;
-  padding: 0 var(--space-2);
+  padding: 0;
+  margin-inline-start: var(--space-4);
   overflow: hidden;
   color: var(--grey);
   line-height: var(--space-4);
