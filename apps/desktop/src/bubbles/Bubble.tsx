@@ -1,7 +1,7 @@
 import { makeEventListenerStack } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createEffect, For, on, onCleanup } from "solid-js";
+import { createEffect, For, on, onCleanup, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { registerKeys } from "../keys/registry";
 import { Panel } from "../ui/Panel";
@@ -215,10 +215,10 @@ export const Bubble = (props: {
                 // SAFETY: a mouse event on the header always targets an Element.
                 if (!(event.target as Element).closest("button")) props.setPlace(id(), toggledFill(place(), props.extent()));
               }}>
-              <span class="bubble-controls">
+              <Show when={!props.preparing}><span class="bubble-controls">
                 <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void props.close(id())}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
                 <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => props.toggleMinimised(id())}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
-              </span>
+              </span></Show>
               <span class="bubble-name">{props.name}</span>
             </header>
             <div class="bubble-body" tabindex="-1" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} />
