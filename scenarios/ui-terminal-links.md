@@ -14,3 +14,5 @@ Module: `apps/desktop` (the webview). Ids: U365.
 - **Densest seed.** A line holding 20 links and paths, one wrapped across two rows, finds each by its cells, and a wrapped link opens as one target. Asserted in `u365_wrapped_and_dense_lines_find_each_target`.
 
 Observer: `u365_` Vitest cases in `apps/desktop/src/` against the fake App, whose `openTarget` records its calls, and a Rust test of the seam command's scheme and existence checks. WKWebView's own modifier clicks are the one thing the harness cannot show, so the PR that implements this asks the user for a `macOS:` line with a real Cmd+click on a link and a path.
+
+**openTarget**: The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
