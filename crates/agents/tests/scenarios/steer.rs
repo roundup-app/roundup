@@ -263,6 +263,7 @@ async fn a4452c_only_the_user_sets_the_opening_prompt() {
     }
     assert!(f.tree().await.iter().all(|n| n.opening_prompt.is_none()));
     f.call("workstream.setOpeningPrompt", params).await.unwrap();
+    let f = f.reopen();
     let tree = f.tree().await;
     let node = tree.iter().find(|n| n.id == workstream).unwrap();
     assert_eq!(node.opening_prompt.as_deref(), Some("hello"));
