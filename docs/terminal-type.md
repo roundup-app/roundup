@@ -56,7 +56,7 @@ without the earlier gaps. The renderer is disposed before a snapshot resize
 and recreated afterward, retaining the resize safeguard while restoring full-cell
 glyphs. A refused WebGL context still selects DOM and logs its warning.
 All reported design Checks pass on all six captures, including D2, D5 and D6;
-the dense `tree-40` Door and shell show the injected failure text. PNGs,
+the dense `tree-40` Door and shell show the injected failure text. Images,
 Check readings and metrics are under `artifacts/ux/U4456{a,b,c,d}/{base,head}/`.
 No image is committed.
 
