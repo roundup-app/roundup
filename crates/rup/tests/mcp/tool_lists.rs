@@ -117,7 +117,9 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 79] = [
+pub const NO_TOOL: [&str; 80] = [
+    // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
+    "pad.reorder",
     // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
     "ask_removal",
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
