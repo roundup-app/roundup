@@ -288,7 +288,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           return true;
         })()`);
 
-        for (const [tab, row] of [["todos", ".todo-row-button"], ["pads", ".pad-grip"]]) {
+        for (const [tab, row] of [["todos", ".todo-row-button"], ["pads", ".sortable-handle"]]) {
           await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${tab}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
           await lane.until(`!!document.querySelector('.shelf [data-shelf-group=me] ${row}')`);
 
