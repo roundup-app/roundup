@@ -1,3 +1,4 @@
+import { EmptyState } from "../ink/EmptyState";
 import { captureFocus } from "../keys/focus";
 import { clipboardFailure } from "../app/clipboard";
 import { CopyButton } from "../ui/CopyButton";
@@ -135,7 +136,7 @@ export const NoteRecovery = (props: { compact?: boolean | undefined; notes: Note
     <Show when={retained() && !props.open}><Dialog.Trigger>{copy.recoverNotes}</Dialog.Trigger></Show>
     <Dialog.Positioner class="note-recovery-positioner"><Dialog.Content ref={setElement} class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><Dialog.Title class="diff-identity">{copy.recoverNotes}</Dialog.Title><button type="button" onClick={close}>{copy.close}</button></header>
-      <Show when={!retained()}><p>{copy.noNoteDrafts}</p></Show>
+      <Show when={!retained()}><EmptyState art="edit" {...{ title: copy.noNoteDrafts }} line={copy.emptyNotesLine} /></Show>
       <Show when={props.notes.problem()}>{problem => <ReservedLine message={problem()}><button type="button" onClick={props.notes.retry}>{copy.retry}</button></ReservedLine>}</Show>
       <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text}><button type="button" onClick={() => clear(key)}>{copy.dismissFailure}</button></ReservedLine>}</For>
 

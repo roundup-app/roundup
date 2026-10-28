@@ -1,3 +1,4 @@
+import { EmptyRail } from "../app/FirstRun";
 import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
@@ -643,6 +644,7 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
+    <Show when={rail.nodes.length === 0 && rail.failure() === null}><EmptyRail onNew={() => { if (canSpawn()) spawnAgent(); }} /></Show>
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
