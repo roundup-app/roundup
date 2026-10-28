@@ -333,7 +333,7 @@ async fn ask_removal<R: Runtime>(
                 question.all_label,
                 question.cancel_label,
             ))
-            .show(move |result| {
+            .show_with_result(move |result| {
                 let answer = match result {
                     MessageDialogResult::Custom(label) if label == yes => "this",
                     MessageDialogResult::Custom(label) if label == no => "all",

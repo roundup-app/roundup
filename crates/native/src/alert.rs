@@ -35,6 +35,7 @@ pub fn removal_alert<R: Runtime>(
                     _ => "",
                 };
                 let _: () = msg_send![&*button, setKeyEquivalent: &*NSString::from_str(key)];
+                let _: () = msg_send![&*button, setKeyEquivalentModifierMask: 0usize];
                 if index == 1 {
                     let _: () = msg_send![&*button, setHasDestructiveAction: Bool::YES];
                 }
