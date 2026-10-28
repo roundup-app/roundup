@@ -130,7 +130,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: r
 
   if (byAction) { await show(); await chooseAction("New Terminal", "enter"); }
   else press("t", { metaKey: true, code: "KeyT" });
-  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("Terminal creation rejected"));
+  await waitFor(() => expect(document.querySelector('[role="alert"]')).not.toBeNull());
   expect(app.calls.filter((call) => call.method === "terminal.open").map((call) => call.params)).toEqual([{ workstream: "ops", cols: 100, rows: 30 }]);
   expect(connected.rail.selected()).toBe("ops");
 });

@@ -60,7 +60,9 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     const emulator = emulators.factory(id);
     const show = emulator.show;
     const bind = emulator.bind;
+
     emulator.bind = next => { bind?.(next); id = next; };
+
     emulator.show = (host, focus) => {
       const size = show(host, false);
       const input = document.createElement("textarea");
