@@ -87,8 +87,7 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     await browser("press", "Enter");
     await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await capture("home-strip");
-    await browser("click", ".made-trigger");
-    await until("document.querySelectorAll('.made-panel .made-row').length === 10");
+    await until("document.querySelectorAll('.ask-bar .made-row').length === 10");
     expect(await evaluate("!!document.querySelector('.pane')")).toBe(true);
     await capture("home");
   } finally {
