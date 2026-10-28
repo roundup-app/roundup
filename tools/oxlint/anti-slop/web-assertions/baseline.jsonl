@@ -360,7 +360,6 @@
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_a_bad_stored_value_means_todos","identity":"56c8616a8efafac079066bc243dab21c8c5c3c11d59ccf075da4eff12dead7f8"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_add_keeps_its_path","identity":"058ee5b3c74df7930aacd7a0efe7824b7d3b69ac87859a8eb0caf40de2bf94ee"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_add_keeps_its_path","identity":"1274d269781f49d20f40d7cd358acef49343ef4d7ac1b73c46b709c86509d00d"}
-{"file":"apps/desktop/src/shelf/u3730_scope_line.test.tsx","test":"u3730_the_scope_line_holds_the_name_and_one_add_button","identity":"9a63ed031b3830bc6506d6a474ae377a6fd712e4720aa0eff09b27416d01cce8"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_pointer_toggle_and_range_follow_visible_order","identity":"e8efe578a58cc7a39d17846d3f3cf2ba9ae3571644f5e660db142a0ab51fa7db"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_keyboard_toggle_range_and_bounds","identity":"dc35abadecf61163e596d6f4a357224772ccf61d82aea91fe73e1bc0917b7b9b"}
 {"file":"apps/desktop/src/shelf/u458_selection.test.tsx","test":"u458_ranges_skip_folded_rows_and_keep_a_toggled_off_anchor","identity":"64820949d9299d1f8297f0d380272f4e6b4fffaa14b393bf794b283d02e7f925"}
