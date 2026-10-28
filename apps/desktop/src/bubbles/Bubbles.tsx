@@ -272,10 +272,10 @@ export const Bubbles = (props: {
 
       const siblings = boxes.length ? boxes : [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []]
         .flatMap(element => {
-        const box = element.getBoundingClientRect();
+          const box = element.getBoundingClientRect();
 
-        return box.width > 0 && box.height > 0 ? [box] : [];
-      });
+          return box.width > 0 && box.height > 0 ? [box] : [];
+        });
 
       const nextEdges = [...controls, ...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
 
