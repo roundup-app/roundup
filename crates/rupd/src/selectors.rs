@@ -113,6 +113,19 @@ impl Daemon {
         method: &str,
         mut params: Value,
     ) -> Result<Value, RpcError> {
+        // Provenance also filters historical user/Extension Actors and retired Agent identities.
+        if method == "provenance.touched"
+            && let Some(id) = params["actor_id"].as_str()
+            && id != "me"
+            && !id.starts_with("name:")
+            && !self
+                .touches
+                .touched(id)
+                .map_err(RpcError::internal)?
+                .is_empty()
+        {
+            return Ok(params);
+        }
         // Only declared reference fields are interpreted; ids of other objects and prose are untouched.
         let mut fields: Vec<(&str, bool, bool)> = Vec::new();
         if method.starts_with("agent.")
@@ -144,7 +157,7 @@ impl Daemon {
             "provenance.touched" if params["actor_id"] != Actor::daemon().id => {
                 fields.push(("actor_id", false, true))
             }
-            "terminal.read" => fields.push(("reader", false, false)),
+            "terminal.read" if params["after"].is_null() => fields.push(("reader", false, false)),
             "project.importDiscover" | "project.importCommit" => {
                 fields.push(("agent", false, false))
             }
