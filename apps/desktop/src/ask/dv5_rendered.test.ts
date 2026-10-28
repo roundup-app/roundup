@@ -87,7 +87,8 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     await browser("press", "Enter");
     await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.selected === 'true'`);
     await capture("home-strip");
-    await until("document.querySelectorAll('.ask-bar .made-row').length === 10");
+    await browser("click", ".made-trigger");
+    await until("document.querySelectorAll('.made-panel .made-row').length === 10");
     expect(await evaluate("!!document.querySelector('.pane')")).toBe(true);
     await capture("home");
   } finally {
@@ -276,6 +277,8 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
       document.body.replaceChildren(root);
       render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0 }), root);
     })()`);
+    await browser("wait", "--fn", "!!document.querySelector('.todo-project-root')");
+    await browser("eval", "window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'view:made'}}))");
     await browser("wait", "--fn", "document.querySelectorAll('.made-row').length === 13");
     const row = `.made-row[data-deliverable="${record.id}"]`;
     await evaluate(`document.querySelector(${JSON.stringify(row)}).scrollIntoView({ block: 'center' })`);
