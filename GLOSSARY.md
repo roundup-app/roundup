@@ -886,23 +886,6 @@ User-label states, each led by a glyph: "Accepted" (check), "Checked independent
 (check), "Check pending" (circle), "Older version" (circle), "Unknown outcome" (diamond)
 and "Evidence unavailable" (x).
 
-**Measurement summary** (`MeasurementSummary`, `MeasurementSummaryParams`, `project.measurementSummary`):
-One Workstream's time and its contributors, ranked by summed Agent time (exact
-nanoseconds, then stable Agent identity), at one Measurement revision. Later pages name that
-revision; a changed revision requires reconciliation. It carries collection coverage and
-failure independently of known time.
-
-**Measurement contributor** (`MeasurementContributor`):
-An Agent's retained time in one Home, including a stopped or removed maker.
-
-**Measurement time** (`MeasurementTime`):
-Elapsed since first observed start, separate from summed Attempt nanoseconds, whose
-disjoint categories give human wait, tools, coordination and model execution precedence
-in that order; positive startup is other time and unexplained duration is unmeasured.
-Observed idle intervals and time after the Agent stops contribute to neither the sum
-nor any category. An Attempt ends when its Agent stops; an unknown end stays disclosed.
-Incomparable clock lifetimes never authorize continuous execution through a gap.
-
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
 
@@ -911,10 +894,7 @@ The native actions for the selected Project: import, settings, requested views a
 
 **Agent time rule** (`Kind::counts_time`, generated `countsTime`):
 An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
-contributes none while the Attempt remains alive. Timeline samples retain the `ended`
-fact from Status Events or the Rail and use the Status `since` as the observed boundary.
-Measurement reads use the same rule; collection retains raw idle intervals and Attempt ends without deleting evidence.
-A timeline Sample marked `recorded` comes from the Event log and takes precedence over a conflicting Rail seed.
+contributes none while the Attempt remains alive. Measurement reads use the same rule; collection retains raw idle intervals and Attempt ends without deleting evidence.
 
 **Exit button** (`ExitButton`):
 The shared App return icon, labelled Close with an Ark tooltip; callers retain their return action and focus owner.

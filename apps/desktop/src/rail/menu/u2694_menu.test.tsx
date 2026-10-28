@@ -507,7 +507,7 @@ it.each([
   },
   {
     name: "Rail Pad",
-    expected: [["send", "4"], ["copy-link", "4"], ["delete", "7"]],
+    expected: [["open", "0"], ["send", "4"], ["copy-link", "4"], ["delete", "7"]],
     receivers: ["a", "b"],
     mount: async () => {
       const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })], [], undefined, () => true, {}, [padOf("notes", { kind: "agent", id: "a", parent: null })]);
@@ -518,7 +518,7 @@ it.each([
   },
   {
     name: "Work-item Pad",
-    expected: [["send", "4"], ["copy-link", "4"], ["assign", "5"], ["make-yours", "5"], ["delete", "7"]],
+    expected: [["open", "0"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["make-yours", "5"], ["delete", "7"]],
     receivers: ["a", "b"],
     mount: async () => {
       const { app, connected } = await openShelf([padOf("notes", { kind: "agent", id: "a", parent: null })]);
@@ -533,7 +533,7 @@ it.each([
   },
   {
     name: "Rail Todo",
-    expected: [["complete", "3"], ["send", "4"], ["copy-link", "4"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
+    expected: [["open", "0"], ["complete", "3"], ["send", "4"], ["copy-link", "4"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
     receivers: ["a", "b"],
     mount: async () => {
       const owner = { kind: "agent" as const, id: "a", parent: null };
@@ -546,7 +546,7 @@ it.each([
   },
   {
     name: "Work-item Todo",
-    expected: [["complete", "3"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
+    expected: [["open", "0"], ["complete", "3"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
     receivers: ["a", "b"],
     mount: async () => {
       const owner = { kind: "agent" as const, id: "a", parent: null };
@@ -578,7 +578,7 @@ it.each([
   },
   {
     name: "Completed Rail Todo with omitted groups",
-    expected: [["copy-link", "4"], ["delete", "7"]],
+    expected: [["open", "0"], ["copy-link", "4"], ["delete", "7"]],
     receivers: [],
     mount: async () => {
       const owner = { kind: "agent" as const, id: "a", parent: null };

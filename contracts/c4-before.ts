@@ -523,15 +523,11 @@ export type project_Mcp = { on: boolean, };
 
 export type project_Measurement = { identity: string, source: string, source_revision: string, agent: string, attempt: string | null, home: string | null, maker: string, observed: number, value: project_MeasurementValue, coverage: Array<string>, };
 
-export type project_MeasurementContributor = { agent: string, maker: string, removed: boolean, time: project_MeasurementTime, coverage: Array<string>, };
 
 export type project_MeasurementSource = { source: string, agent: string, last_good: number | null, cause: string | null, coverage: Array<string>, };
 
-export type project_MeasurementSummary = { project: string, home: string, revision: string, cause: string | null, last_observed: number | null, time: project_MeasurementTime, coverage: Array<string>, contributors: number, rows: Array<project_MeasurementContributor>, next_offset: number | null, };
 
-export type project_MeasurementSummaryParams = { home: string, offset: number, revision: string | null, };
 
-export type project_MeasurementTime = { elapsed_ns: string | null, summed_ns: string, execution_ns: string, tools_ns: string, coordination_ns: string, other_ns: string, unmeasured_ns: string, active: boolean, coverage: Array<string>, };
 
 export type project_MeasurementValue = { "kind": "observed", activity: project_TimedActivity, clock_lifetime: string, start: project_ClockPoint | null, segments: Array<project_ObservedSegment>, state: project_TimeState, } | { "kind": "interval", category: project_Execution, clock: string, start_unix_ns: string, end_unix_ns: string, };
 
@@ -1074,11 +1070,7 @@ export type Before = {
   "project/ImportSelection": project_ImportSelection;
   "project/Mcp": project_Mcp;
   "project/Measurement": project_Measurement;
-  "project/MeasurementContributor": project_MeasurementContributor;
   "project/MeasurementSource": project_MeasurementSource;
-  "project/MeasurementSummary": project_MeasurementSummary;
-  "project/MeasurementSummaryParams": project_MeasurementSummaryParams;
-  "project/MeasurementTime": project_MeasurementTime;
   "project/MeasurementValue": project_MeasurementValue;
   "project/Measurements": project_Measurements;
   "project/ModelList": project_ModelList;
@@ -1183,7 +1175,6 @@ export type Before = {
 
 export type BeforeRpcMethods = {
   "project.measurements": { params: null; result: project_Measurements };
-  "project.measurementSummary": { params: project_MeasurementSummaryParams; result: project_MeasurementSummary };
   "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };
   "deliverable.list": { params: deliverable_ListParams; result: deliverable_Deliverable[] };
   "deliverable.get": { params: deliverable_DeliverableId; result: deliverable_Deliverable };
