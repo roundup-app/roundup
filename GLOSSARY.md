@@ -9,8 +9,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | same | — |
 | User label | same | — |
 | App copy catalogue (`copy`) | same | — |
-| Start Door | Start supervisor | — |
-| Retry Door | Retry supervisor | — |
+| Start Door | Start | — |
+| Retry Door | Retry | — |
 | Clear without Handoff | Clear without a summary | — |
 | Clear (prompt submit) | Clear and keep a summary | — |
 
@@ -53,7 +53,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`) | same | — |
 | Contract export (`export::generate`, `export::types`, `event_data_declaration`) | same | — |
 | Contract fingerprint | same | — |
-| Door | supervisor | meta-agent, parent agent, lead |
+| Door | none | meta-agent, parent agent, lead |
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
 | Digest | same | — |
 | Wake request (`agent.wake`) | same | — |
