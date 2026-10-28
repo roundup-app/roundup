@@ -309,7 +309,7 @@ export const copy = {
   chooseFolder: "Choose folder…",
   emptyFolderLine: "Choose a project folder to bring your work together.",
   emptyRailTitle: "No Agents yet",
-  emptyRailLine: "Start an Agent to work in this folder.",
+  emptyRailLine: "Start a Workstream or an Agent.",
   addTodoWord: "+ Todo",
   addPadWord: "+ Pad",
   emptyTodosLine: "Keep track of work you and your Agents plan to do.",
