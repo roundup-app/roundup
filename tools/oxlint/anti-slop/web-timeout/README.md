@@ -29,7 +29,7 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 
 `fixtures.jsonl` records every boundary fixture's input, diagnostic and exit code
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
-The 84 retained fixtures include 53 negatives, each with its own diagnostic and
+The 89 retained fixtures include 57 negatives, each with its own diagnostic and
 exit code. The over-limit alias fixture added during development was removed:
 `configuration default` already proves that literal-property rejection; the
 mutated and immutable alias fixtures retain the distinct binding-resolution proof.
@@ -48,7 +48,7 @@ The rule reads the installed Vitest APIs: numeric third argument, options timeou
 import aliases, local aliases/constants/arithmetic, namespace imports (including
 constant computed members and direct const destructuring), chained and
 parameterized registrations, `test.override` fixture builders, suite inheritance, `vi.setConfig`, and configured
-`testTimeout`. `defineConfig` from Vite or Vitest (including imported aliases and namespace
+`testTimeout`. `defineConfig` from Vite or Vitest and `defineProject` from `vitest/config` (including imported aliases and namespace
 imports) resolves the effective `test` / `testTimeout` through the same property
 resolver. Unknown configuration spreads and computed keys fail; a later explicit
 safe default overrides an earlier unknown spread. Configuration aliases remain
@@ -60,6 +60,14 @@ An exported alias of `defineConfig(...)` is checked at its call rather than
 misread as an unresolved object. Configuration-wide defaults still cannot use
 a named-test exception. Configuration namespace destructuring reuses the same
 import resolution as test registrations; unrelated objects remain outside this rule.
+
+Vitest 5.0.3's installed `dist/config.js` returns `defineProject` options unchanged,
+like `defineConfig`. Project helpers use the same effective-property resolver,
+including computed keys, aliases, namespace/destructured imports and unknown
+spreads. The project fixtures reject computed over-limit and unresolved defaults;
+an exported alias with an explicit safe override passes. Existing fixtures remain:
+the project cases exercise recognition of another installed configuration API.
+Project-wide defaults cannot claim an exact-test exception.
 
 Vitest 5.0.3's installed `createTaskCollector` implements `test.override` as a
 fixture builder returning the test API. Its own fixture options are not test

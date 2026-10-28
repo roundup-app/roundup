@@ -14,6 +14,10 @@ const exception = {
 };
 
 const cases = [
+  ["project aliased unresolved default", 'import { defineProject as project } from "vitest/config"; project({ test: { ...externalOptions } });', 1, "unresolved"],
+  ["project namespace default", 'import * as config from "vitest/config"; const method = "defineProject"; config[method]({ test: { ...externalOptions } });', 1, "unresolved"],
+  ["project destructured default", 'import * as config from "vitest/config"; const { defineProject: project } = config; project({ test: { ...externalOptions } });', 1, "unresolved"],
+  ["project exported safe override", 'import { defineProject } from "vitest/config"; const options = defineProject({ test: { ...externalOptions, testTimeout: 60_000 } }); export default options;', 0, null, [], "vitest.config.ts"],
   ["project computed default", 'import { defineProject } from "vitest/config"; const key = "testTimeout"; defineProject({ test: { [key]: 60_001 } });', 1, "60001"],
   ["override registration", 'test.override({ value: 1 })("t3779a_override", () => {}, 60_001);', 1, "60001"],
   ["override builder options are fixtures", 'test.override("value", { timeout: 90_000 }, () => 1)("t3779a_limit", () => {}, 60_000);', 0],
