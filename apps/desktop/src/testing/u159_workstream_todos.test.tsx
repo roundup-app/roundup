@@ -125,7 +125,7 @@ it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
     expect(connected.rail.selected()).toBeNull();
   }
 
-  expect(screen.getByRole("button", { name: /#2 / })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeTruthy();
 });
 
 // The Todo scope clause moved to u3717_scope_still_selects_by_home_and_maker; this keeps the counts.
@@ -260,7 +260,7 @@ it.each([["work shell", "w", [1, 2, 6, 8, 12], 12], ["root shell", null, [1, 2, 
 
 it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () => {
   const { app } = await mount();
-  const row = await screen.findByRole("button", { name: /#2 / });
+  const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / });
   row.focus();
   fireEvent.keyDown(row, { key: "ArrowDown", altKey: true });
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.reorder").map(call => call.params)).toEqual([{ id: 2, before: 6 }]));
@@ -270,9 +270,9 @@ it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () 
 
 it("u458_grouped_ranges_follow_visible_order", async () => {
   await mount();
-  const first = await screen.findByRole("button", { name: /#1 / });
-  const second = await screen.findByRole("button", { name: /#2 / });
-  const fifth = await screen.findByRole("button", { name: /#5 / });
+  const first = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
+  const second = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / });
+  const fifth = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / });
   fireEvent.click(first, { metaKey: true });
   fireEvent.click(fifth, { shiftKey: true });
   expect([...document.querySelectorAll('[data-todo][data-selected=true]')].map(row => Number(row.getAttribute('data-todo')))).toEqual([1, 2, 5]);

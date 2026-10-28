@@ -8,7 +8,7 @@ use rpc::{RpcError, code};
 use serde_json::{Value, json};
 use tokio::sync::broadcast::Receiver;
 
-use crate::common::{Fixture, GATED, hold_starts, release, star, until_file};
+use crate::common::{Fixture, GATED, hold_starts, release, until_file};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -100,10 +100,9 @@ async fn a14_a_parked_user_prompt_submit_still_names_the_agent() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a14_a_parked_session_start_still_steers_the_spawn_prompt() {
+async fn a14_a_parked_session_start_still_sends_the_spawn_prompt() {
     let f = Arc::new(Fixture::running(GATED));
     let config = hold_starts(&f);
-    let typed = f.dir.path().join("typed");
     let spawning = {
         let f = Arc::clone(&f);
         tokio::spawn(async move { f.spawn(None, Some("hello there")).await })
@@ -111,16 +110,15 @@ async fn a14_a_parked_session_start_still_steers_the_spawn_prompt() {
     let tree = f.until(|t| !t.is_empty()).await;
     let id = tree[0].id.clone();
 
-    // The first `SessionStart` releases the spawn prompt as a Steer (A4, H12).
+    // The first `SessionStart` releases the spawn prompt to the inbox (A4452a).
     let parked = signal(&f, &id, "SessionStart").await;
 
     release(config).await;
     spawning.await.unwrap().unwrap();
     until_file(&f.dir.path().join("ready")).await;
-    star(f.dir.path());
 
     assert!(parked.is_ok(), "{parked:?}");
-    assert!(until_file(&typed).await.contains("hello there"));
+    assert!(f.until_inbox(1).await[0].1.contains("hello there"));
 }
 
 #[tokio::test]

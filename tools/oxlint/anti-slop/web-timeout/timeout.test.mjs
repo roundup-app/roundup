@@ -14,6 +14,17 @@ const exception = {
 };
 
 const cases = [
+  ["aliased file config", 'const configure = vi.setConfig; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
+  ["destructured utility config", 'const { setConfig: configure } = vi; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
+  ["computed utility config alias", 'import * as v from "vitest"; const method = "setConfig"; const configure = v.vi[method]; configure(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
+  ["aliased file config exception", 'const configure = vi.setConfig; configure({ testTimeout: 90_000 }); test("t3779a_real_clock", () => {});', 0, null, [exception]],
+  ["unrelated config alias", 'const other = { setConfig: options => options }; const configure = other.setConfig; configure(externalOptions); test("t3779a_default", () => {});', 0],
+  ["namespace computed registration", 'import * as v from "vitest"; const method = "test"; v[method]("t3779a_computed_registration", () => {}, 60_001);', 1, "60001"],
+  ["namespace destructured registration", 'import * as v from "vitest"; const { test: named } = v; named("t3779a_destructured", () => {}, 60_001);', 1, "60001"],
+  ["destructured file config", 'import * as v from "vitest"; const { vi: clock } = v; clock.setConfig(externalOptions); test("t3779a_config", () => {});', 1, "unresolved"],
+  ["destructured configuration helper", 'import * as v from "vitest/config"; const { defineConfig: config } = v; config({ test: { ...externalOptions } });', 1, "unresolved"],
+  ["destructured namespace boundary", 'import * as v from "vitest"; const { test: named } = v; named("t3779a_destructured", () => {}, 60_000);', 0],
+  ["unrelated destructured registration", 'const other = { test: (a, b, c) => {} }; const { test: named } = other; named("unrelated", () => {}, 90_000);', 0],
   ["exported spread configuration", 'export default { ...externalOptions };', 1, "unresolved", [], "vite.config.ts"],
   ["exported computed configuration", 'const key = "test"; export default { [key]: { [externalKey]: 90_000 } };', 1, "unresolved", [], "vitest.config.mts"],
   ["exported configuration alias", 'const options = { test: { ...externalOptions } }; export default options;', 1, "unresolved", [], "vitest.config.ts"],

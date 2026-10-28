@@ -320,8 +320,8 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(0);
       fireEvent.click(screen.getByRole("button", { name: "Send notes to Same name" }));
-      await waitFor(async () => expect(await app.rpc("message.list", { to: target.id, status: null })).toHaveLength(1));
-      const accepted = (await app.rpc("message.list", { to: target.id, status: null }))[0]!;
+      await waitFor(async () => expect((await app.rpc("message.list", { to: target.id, status: null })).filter(message => message.from.kind === "user")).toHaveLength(1));
+      const accepted = ((await app.rpc("message.list", { to: target.id, status: null })).filter(message => message.from.kind === "user"))[0]!;
       expect(accepted).toMatchObject({ to: target.id, kind: "note" });
       expect(JSON.parse(accepted.body)).toMatchObject({ notes: [
         { "File:": { old: "same.ts", new: "same.ts" }, "Selected source:": `source ${index}`, "User comment:": `  Project ${index} e\u0301\n🐝  ` },
@@ -336,7 +336,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       // Lost acceptance is reconciled only by this user action, never by reload or an automatic retry.
       fireEvent.click(await screen.findByRole("button", { name: "Check Message history" }));
       await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
-      expect(await app.rpc("message.list", { to: target.id, status: null })).toHaveLength(1);
+      expect((await app.rpc("message.list", { to: target.id, status: null })).filter(message => message.from.kind === "user")).toHaveLength(1);
       expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(1);
       view.unmount();
     }

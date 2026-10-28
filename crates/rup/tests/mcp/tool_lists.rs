@@ -118,13 +118,16 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 78] = [
+pub const NO_TOOL: [&str; 80] = [
     // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
     "pad.reorder",
     // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
     "ask_removal",
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
+    "workstream.setOpeningPrompt",
+    // A4452c: only the user requests a fresh Door conversation.
+    "workstream.restart",
     "rail.list",
     // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
     "todo.startWorkstream",

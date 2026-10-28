@@ -537,7 +537,7 @@ fn with_tools(role: Role, mcp: bool) -> String {
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
          Your Rail name and where you stand are in the Context you get at start. \
-         Refer to yourself and other Agents by Rail name, never by id. \
+         Refer to yourself and other Agents by Rail name, never by id. Use `me` for yourself and `name:<Rail name>` for collisions. Take a Todo with `todo_assign {{\"id\": <Todo id>, \"owner\": \"me\"}}`; delegate with a peer's Rail name as owner. \
          Your shell sets `ROUNDUP_AGENT_ID` for machine addressing, and `rup` is on your `PATH`: run `rup help` to learn its command line, {help}.\n\n\
          ## {heading}\n\n\
          {tools}{first_turn}\n\n",

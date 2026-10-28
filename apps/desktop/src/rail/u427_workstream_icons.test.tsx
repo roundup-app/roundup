@@ -1,20 +1,10 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
-import { clearingOf } from "../rail/clear";
 import { chooseAction, mountRail, railCallsTo, rowOf } from "./railFixture";
 
-// jsdom has no layout observer; U427's Chromium tests assert prompt placement and resizing.
-beforeEach(() => vi.stubGlobal("ResizeObserver", class {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}));
-
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
-
-
+afterEach(cleanup);
 
 describe("u427 a Workstream row's icons", () => {
   it("u427_there_is_no_inside_add_line", async () => {
@@ -37,16 +27,6 @@ describe("u427 a Workstream row's icons", () => {
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
-  it("u427_the_clear_icon_opens_the_reason_prompt", async () => {
-    const mounted = await mountRail([door("c1", "idle", "i")]);
-
-
-    await chooseAction(mounted.app, "c1", "Clear…");
-
-    expect(clearingOf(mounted.app, mounted.connected.events, "c1", mounted.connected.drafts).phase()).toBe("asking");
-    expect(mounted.rail.selected()).toBeNull();
-    expect(mounted.app.calls.filter((call) => call.method === "workstream.clear")).toEqual([]);
-  });
 
   it("u427_open_folder_opens_the_doors_directory", async () => {
     const mounted = await mountRail([workstream("g"), door("d", "idle", "i", { worktree: { path: "/p/.wt/d", branch: "d", base: "main" } })]);

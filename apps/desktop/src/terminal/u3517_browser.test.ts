@@ -100,10 +100,10 @@ for (const state of ["agent", "door", "shell"]) {
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
-      // Storage belongs to this origin; a fresh headless profile may still be on about:blank.
-      await load(seed, base, "webgl", 1);
+      // Reset preferences on the target origin before mounting its App.
+      await browser("open", url("/src/ui/u498.html", base));
       await read("localStorage.clear(); sessionStorage.clear()");
-      await load(seed, base, "webgl", 1);
+      await load(seed, base, "webgl", 2);
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
       let id = state === "agent" ? "t-agent-3" : "t-payments";
       let surface = ".pane";
@@ -116,9 +116,10 @@ for (const state of ["agent", "door", "shell"]) {
         await read(`window.__terminals.get('${id}').ready`);
       }
 
+      await read(`window.__fake.writeOutput('${id}', ${JSON.stringify(replay)})`);
+      await wait(`window.__terminals.get('${id}').serialize().data.includes('unterminated input')`);
       await read(`(async () => {
         const emulator = window.__terminals.get('${id}');
-        await new Promise(resolve => emulator.write(new TextEncoder().encode(${JSON.stringify(replay)}), resolve));
         // xterm schedules painting after its parser callback; the next animation frame drains that render.
         await new Promise(resolve => requestAnimationFrame(resolve));
         emulator.selectTurn(0, false);
@@ -143,7 +144,7 @@ for (const state of ["agent", "door", "shell"]) {
         smoothing: string;
       }>(`(async () => {
         const host = document.querySelector('${surface}');
-        const canvas = host.querySelector('canvas');
+        const canvas = host.querySelector('.xterm-screen canvas:not(.xterm-link-layer)');
         const {width, height, x, y} = host.getBoundingClientRect();
         const style = getComputedStyle(document.documentElement);
         const { xtermOptions } = await import('/src/terminal/emulator.ts');
@@ -154,7 +155,7 @@ for (const state of ["agent", "door", "shell"]) {
           fontStatus: document.fonts.status, smoothing: style.webkitFontSmoothing };
       })()`);
 
-      const record = { ...metrics, ...metadata, commit: base ? execFileSync('git', ['rev-parse','origin/main'], {encoding:'utf8'}).trim() : execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8'}).trim(),
+      const record = { ...metrics, ...metadata, commit: execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8', cwd: base ? process.env.U500_BASE_ROOT : process.cwd()}).trim(),
         seed, state, candidate: 'selected',
         streamIdentity: createHash('sha256').update(replay).digest('hex'),
         claudeVersion: 'deterministic Claude Code-style replay; no live Claude process', platform: process.platform };

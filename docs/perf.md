@@ -7,7 +7,7 @@ Rule 7's budgets and what measures each. Linux VM numbers are Linux numbers. The
 | Daemon cold start < 300 ms | `just perf` (`cold_start_ms`: spawn `rupd` to its first `daemon.ping` reply) | any machine; the App's cold start to a visible window is manual |
 | Cold plugin materialization < 300 ms | `just perf` (`cold_plugin_materialization_ms`: pinned Q11 plugins into fresh empty storage) | any machine; 10% regression against its recorded Linux baseline |
 | 10 idle Agents < 150 MB extra RSS | `just perf` (`rss_extra_mb`: the Daemon's growth with ten login-shell Terminals) | any machine; the Agents' own processes are manual |
-| Keystroke-to-render < 16 ms p95 | `just perf-keystroke`, only when the user asks (below) | the macOS App only |
+| Keystroke-to-render < 16 ms p95 | `just perf-keystroke`, only when the user asks ([native keystroke runbook](perf-keystroke.md)) | the macOS App only |
 | Regression above 10% fails | `just perf`: stored class baseline, or R16 same-job merge-base/head pair on an uncalibrated supported Builder | same class; paired builds share one host/job |
 | 100-tool-use loop's hook-process cost stays within a fixed limit | `just perf` (`hook_loop_ms`: 200 `rup signal` calls against a fresh Daemon, H15) | any machine; limit-only on the stored path, paired regression on uncalibrated Builders |
 
@@ -116,7 +116,7 @@ method without a measured mapping or non-empty reason fails live coverage.
   "agent.spawnPrompt": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setOrder": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
   "agent.instructions": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.channelUp": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
   "rail.list": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
-  "workstream.setAuto": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
+  "workstream.restart": "User-requested fresh Door launch is outside the steady Rail-read workload.", "workstream.setAuto": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.setOpeningPrompt": "Workstream settings are absent from the steady Rail-read workload.",
   "rail.createWorkstream": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.move": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
   "rail.rename": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.", "rail.startDoor": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
   "agent.run": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
@@ -391,244 +391,6 @@ macOS cold start is stable (1.07) where the Linux VM's was not (3.08), so it is 
 **A latency miss on macOS is rerun on a quiet machine before it is believed; a memory miss is believed at any load.**
 
 **Real regression or noise.** Look at the load printed for each run first. A real regression moves the median above the ceiling in three reruns at the load of the baseline (up to about 0.45 per core) and does not track the load; noise falls back under the ceiling when the machine quiets, and the miss and the load rise together. A memory miss is real whatever the load. A new baseline requires R16 diagnosis/calibration and R26 same-host paired evidence, never copying a single report's medians.
-
-## Keystroke-to-render in WKWebView
-
-> **This opens a window over your screen and types into it.** The window is always on top and on every Space for about 40 s per run (three runs by default), and it never takes the keyboard focus on purpose, but it covers whatever you are doing. `just perf-keystroke` and `perf-keystroke` refuse unless `ROUNDUP_ALLOW_WINDOW=1` is set, and it is set only by someone the user asked to run it (R12). No agent, Reviewer, CI job, boxd VM or `just check` runs it.
-
-What the number proves: keydown to the first xterm render that shows the echo, in the real WKWebView on macOS, with the renderer and mean frame time recorded. What it does not: it is not a CI gate and not a Linux number, it excludes the keyboard, OS event path and display scan-out, `performance.now()` is a 1 ms bound, and p95 in whole milliseconds makes a 10% test move in 1 ms steps, so its budget is the 16 ms limit only. The cheap headless bound is the Daemon-side `write_to_output_p95_ms` limit of 16 ms in `just perf` (R8).
-
-`just perf-keystroke` (macOS only) builds the App with the keystroke probe (`VITE_ROUNDUP_PERF`, K1) into `target/perf-app`, opens its window once per run, lets the webview type 1000 keys into a raw `cat` Terminal and reads the result back (K3, R11). The report carries the renderer (`webgl` or `dom`) and the mean frame time.
-
-R21 judges each run separately: p95 must be strictly below 16 ms, with zero
-dropped keys, including the 100 warm-up keys. Warm-up latency samples remain
-excluded. `target/perf-keystroke.json` retains the complete `reports` array and
-per-run `loads`, including failures, and is updated after each run. A latency
-or drop miss exits 1; an invalid observation exits 2. The runner uses temporary
-App, webview and Daemon data even when the caller has data overrides. Its
-Workstream uses the fake vendor executable, never the user's real `claude`.
-
-What can go wrong:
-- **A covered or napped window stops drawing.** macOS stops rAF and timers for a window other windows cover and naps an App that is not frontmost: measured here, with the window behind a full-screen Chrome, rendering stopped entirely and every key timed out. The perf build's window is therefore always on top and on every Space (a `TAURI_CONFIG` override in the recipe, so normal builds are unchanged), and the runner passes `-NSAppSleepDisabled YES`. The window stays over whatever you are doing for about 40 s per run, three runs. A mean frame time above 25 ms exits 2; its report is retained. Any dropped key fails under R21.
-- **Low Power Mode.** It halves the webview's frame rate, so a run in it measures the power setting, not the App; run on AC power with Low Power Mode off.
-- **Load.** Run it with the laptop idle; the load average is printed per run.
-- **Windows over a headless Chromium number.** Chromium with the same xterm measured p95 under 5 ms; WKWebView on an M4 Max in the earlier spike measured 11 to 15 ms. The difference is the frame wait, so the budget is only meaningful here.
-
-### R20 observations retained from #3550
-
-These are the work order's observations, before the repair, on AC power on a
-16-core Mac. The raw reports, OS/app versions, power-mode confirmation and
-per-hop attribution were not supplied. They cannot establish the dominant hop
-or replace R20's quiet-machine observations. No after-repair performance is
-claimed by the observer-safety changes.
-
-| Method / workload | roundup p50 / p95 (ms) | Solo p50 / p95 (ms) | Samples / load |
-| --- | --- | --- | --- |
-| WKWebView, raw `cat` | 30 / 35 | — | 1000 keys × 3; 13–25 drops/run; load 6–9 |
-| Daemon `write_to_output` | — / 20.8 | — | `just perf`; load 6–9 |
-| Outside key-to-pixel, idle zsh | 36 / 45 | — | 60 samples × 2; load 6–9 |
-| Outside, idle zsh comparison | 40 / 50 | 39 / 48 | one run set; load ~7 |
-| Outside, real `claude`, no Enter | 39–41 / 48 | 39.5 / 49–53 | one run set; load ~7 |
-| Outside, typing beside `yes` | 101–106 / 129–136 | 33 / 38.5 | load 5.5–6.8 |
-| Outside, switch two Terminals | 70–71 / 80–81 | 75 / 81–82 | load 5.5–6.8 |
-| Outside, scroll 10k lines | 20–23 / 26–29 | 26–28 / 37 | load 5.5–6.8 |
-
-The flooding observation had 100–120% CPU each in the webview, Daemon and host
-App, versus about 30% for Solo's flooding Terminal. The proposed hidden-screen
-explanation remains unproven. The native observations below use
-`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json`.
-The [retained reports](perf-keystroke-mac-observations.json) include the owner's
-complete comments, console output, source links and JSON, including the failures.
-
-The recorder repairs in #3694 and #3717 merged before a further native run at
-`01dacd91ce7b1e5ffd874202df4ada323e114d5c`. The command above exited 2: all
-three reports contained `{"probe":"roundup-keystroke-probe","error":"no key was echoed and rendered after the warm-up"}`.
-The machine was an M4 Max MacBook Pro, 16 CPUs, macOS 26.0.1, AC power at
-100% charge, Low Power Mode off, unlocked, with the owner not touching the
-window. Per-run 1-minute loads were 10.69091796875, 2.76953125 and
-2.396484375 (0.67, 0.17 and 0.15 per CPU); the first run was busy after the
-release build. There are no latency, renderer, frame-time or timer-resolution
-measurements from these failed runs. Full console output and the saved report
-remain on [#3550](https://github.com/saadshahd/roundup/issues/3550).
-
-#3748 binds typing to the Terminal that printed `ready`, which already owns
-report delivery. The old document-wide lookup could select an Agent's earlier
-xterm textarea. A no-window regression test demonstrates that case with two
-inputs and asserts that only the ready shell receives the key. The owner's
-repeat at `7ce598e5a` still failed all three runs with the same warm-up error
-(exit 2; [comment](https://github.com/saadshahd/roundup/issues/3550#issuecomment-6387912547)).
-
-### Successful idle observation on #3755 (2026-10-24)
-
-At `853f9440b8269b943dab07c9fa1dae79d060a204`, based on `59cff55ca`, the
-owner ran the command above on an M4 Max MacBook Pro, 16 CPUs, macOS 26.0.1,
-AC power, Low Power Mode off. Exit: 0. Each run reports 1000 measured keys,
-zero drops, WebGL, 1 ms timer resolution and device pixel ratio 2.
-
-| Run | 1-minute load / per CPU | p50 / p95 / p99 (ms) | Mean frame (ms) |
-| --- | --- | --- | --- |
-| 1 | 5.7705 / 0.361 | 6 / 10 / 12 | 8.3220 |
-| 2 | 4.4482 / 0.278 | 6 / 10 / 11 | 8.3559 |
-| 3 | 3.0508 / 0.191 | 6 / 10 / 15 | 8.3390 |
-
-All three are below R20's 0.45 load-per-CPU threshold. The owner identified
-an observer failure: the Workstream's Agent Terminal appeared about 200 ms
-after `ready`, took focus and folded the shell bubble. xterm's
-IntersectionObserver then paused rendering; echoes were parsed but never
-rendered. #3755 waits for that Agent Terminal before opening the shell Terminal.
-This repairs the recorder's visibility, not a measured production latency hop.
-The successful reports came from that open PR; they do not establish results
-for an unmodified `main` build.
-
-The largest reported hop is `parsed_to_frame`, p50 4 ms and p95 7 ms in all
-three runs. `dispatch_to_echo_event` is next, p50 2 / 1 / 2 ms and p95
-3 / 3 / 4 ms. `write_reply` overlaps that chain (p95 4 ms in each run).
-The reported uncertainty is 1 ms timer resolution, not cross-clock calibration.
-These coarse webview spans cannot identify the largest of all R20's required
-hops: base64, Daemon receipt, PTY write and echo read remain unsplit.
-
-#3550 stays open. Missing acceptance includes full R20 attribution and calibrated
-uncertainty, reproducible quiet-Mac Solo comparisons, a measured production
-repair with before/after distributions, the shared Agent/shell input-path test,
-and three passing runs while another Terminal floods output. The three idle
-runs above meet the numerical idle budget only. No further Mac timing is
-requested by this evidence update.
-
-## X14 retained flood observation
-
-`just perf --flood --out target/perf-flood.json` builds the release probe and runs
-only the isolated real-Daemon flood observer. Ordinary `just perf` retains every
-idle metric, budget, load/skip rule and qualification requirement above; flood
-mode is a separate correctness observation, not latency or R16 qualification.
-It opens no native window and supplies no R11/R12 keystroke evidence.
-
-```text
-real temporary Daemon → ten gated shells → exec yes
-                      → independent RPC output drain → chunks per Terminal > Bus capacity
-paused actual Bus receiver → two identified Rail markers → resume after producer shutdown
-report → counters + received markers + payloads + structured lag + cleanup + outcome
-```
-
-The two Rail markers are emitted while the actual receiver is unread, before
-releasing the ten programs; their count is strictly below the Daemon's reported
-Bus capacity. Output is drained through the existing RPC client independently
-of that receiver. Collection stops only after every Terminal exceeds capacity;
-producers then stop before resuming the receiver to obtain a finite observation.
-The report retains partial counters on failure, both marker identity lists,
-Terminal payload count, lag error and missed-event counts, and verified stopped
-Terminal count. Missing or incomplete counters and markers cannot pass.
-`--flood-timeout 60` bounds startup/collection; shutdown and shutdown verification
-have separate ten-second bounds. Only this temporary Project's processes and
-socket/data are touched.
-
-| Executable exit | Meaning |
-| --- | --- |
-| 0 | Complete counters, all markers in order, no payloads or lag, successful cleanup |
-| 1 | Complete observation violates isolation or loses markers (expected on current transport) |
-| 2 | Startup, collection timeout/error, cleanup or report-write failure; no valid acceptance |
-
-A failing command through `just` may return the recipe's exit 1; the executable's
-exit and JSON `flood.error` distinguish an observation error from detected lag.
-Keep the JSON and command/exit with source and probe binary hashes, host,
-toolchain, profile and load when recording an observation. Do not replace or
-relax `budgets.json`. #1930 must migrate this output drain to selected streams
-in its Contract PR, rerun this command and retain zero Rail lag; this observer
-does not complete #1930 or X14's Terminal regression/journey acceptance.
-
-### R20 hop attribution
-
-[Recorder attribution](perf-keystroke-attribution.md) describes the correlated
-Daemon stamps, echo identity, calibration bounds, retained hops and window-free
-proofs. The native observations above are unchanged; #3550 still owns full-chain
-native evidence and the production repair.
-
-The [2026-10-25 full-chain attempt](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6396746360)
-at `477a3ce93f937cb734b4a69d6a0cb710ebfd3293` exited 2: all three quiet-Mac
-runs timed out collecting a complete PERF line. Its complete report and console
-output are retained in [the observations](perf-keystroke-mac-observations.json).
-No hop timings or latency verdict can be derived from it.
-
-Keystroke runs now retain a separate `perf-keystroke-*` diagnostics directory
-beside `--out` for every run, listed in the saved report's `diagnostics` array.
-It holds App stdout/stderr, Daemon stderr, collection phase and raw Terminal
-output, and lifecycle/cleanup results; a failed launch still keeps its logs.
-Temporary App data is still removed. A setup failure before a ready Bubble
-opens a Project-owned diagnostic shell, waits for its raw-tty ready line, and
-prints the original named setup error through it. This shell starts no Agent.
-Failure to open or ready that shell still exits 2 with collector diagnostics.
-Successful measurements continue to report through their measured shell.
-These are recorder repairs; #3550 remains open for full-chain observations,
-the measured production repair, shared Agent/shell input proof and idle/flood acceptance.
-
-The [2026-10-25 unlocked-screen attempt](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6399443183)
-at `e4bfc80bc2bd3437d43f284c0b64aed1c08fbd8d` delivered all three reports, but
-exited 2: each Daemon hop had zero samples. The full owner report and all three
-run diagnostic directories' text are retained in
-[the observations](perf-keystroke-mac-observations.json).
-
-| Run | Load / 16 CPUs | End-to-end p50 / p95 | Dropped | Daemon-hop samples |
-| --- | --- | --- | --- | --- |
-| 1 | 2.677 / 16 | 6 / 10 ms | 0 | 0 |
-| 2 | 2.270 / 16 | 6 / 10 ms | 0 | 0 |
-| 3 | 2.120 / 16 | 6 / 10 ms | 0 | 0 |
-
-These remain invalid full-chain observations. The recorder's keyboard driver
-forced `keypress` after xterm already handled `keydown`, sending each OSC key
-identity twice. The Daemon correctly marks repeated input identities ambiguous.
-The existing no-window `r20_hop_report_accounts_for_the_echo_round_trip` now
-uses the actual driver instead of paste: before the repair its queued write
-contains two identical markers; after it, one key writes one marker and the
-complete calibrated hop distribution still holds. The driver now makes keydown
-cancelable, sends keypress only when keydown was not canceled, then sends keyup.
-The existing Rust duplicate-identity proof remains. No tests were added or cut.
-
-This repairs probe input, not production latency. The invalid reports above
-remain retained; the first valid full-chain observation follows.
-
-### Valid full-chain idle baseline (2026-10-25)
-
-After #4047 merged, the [Mac observation at
-`e2c9e2db8f94f3fc16841ed453cb5c7dfe613024`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6399945881)
-exited 0. The [retained observations](perf-keystroke-mac-observations.json)
-include the complete report, console output and all three diagnostic directories'
-text. All earlier observations remain. The command was
-`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json`
-under `caffeinate -dis`, after a `--runs 0` prebuild (expected exit 2).
-
-The host was an Apple M4 Max, 16 CPUs, 64 GiB, macOS 26.0.1 (25A362), on
-AC power with `powermode 0` (automatic), no Low Power Mode line, unlocked and
-untouched. Each run has 1000 measured keys, zero drops, WebGL, device pixel
-ratio 2 and 1 ms timer resolution. All loads meet R20's quiet-machine threshold.
-
-| Run | Load / CPU | End-to-end p50 / p95 | `parsed_to_frame` p50 / p95 | `dispatch_to_echo_event` p50 / p95 | Calibration uncertainty | Mean frame |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | 5.4346 / 16 = 0.340 | 6 / 10 ms | 4 / 7 ms | 1 / 3 ms | ±1.308 ms | 8.322 ms |
-| 2 | 3.4297 / 16 = 0.214 | 6 / 10 ms | 4 / 8 ms | 1 / 3 ms | ±1.601 ms | 8.339 ms |
-| 3 | 3.3442 / 16 = 0.209 | 6 / 11 ms | 4 / 8 ms | 2 / 4 ms | ±2.000 ms | 8.339 ms |
-
-**Dominant hop: `parsed_to_frame`.** Its p95 is 7/8/8 ms, versus the next
-largest recorded span's 4 ms (`write_reply`, which overlaps the echo round trip).
-This lead exceeds each run's reported calibration uncertainty. The dominant hop
-uses the webview clock alone; its quantization is 1 ms. Cross-clock uncertainty
-is reported separately above. Percentiles of overlapping spans are not additive;
-these figures do not allocate exclusive shares of the end-to-end p95.
-
-The Daemon receipt, physical write, echo read and encoding boundaries each have
-1000 samples per run. Their p50/p95, calibration exchanges, renderer and timing
-metadata are in the retained JSON. The original one-in-flight write queue is
-still present. The largest cross-clock hop p95 is 2.075 ms; the measured queue
-wait p95 is at most 1 ms. These idle results give no evidence for removing reply
-serialization or replacing base64. The dominant wait is consistent with the
-8.3 ms frame cadence; this is an inference, not proof of a production bottleneck.
-
-These are before-repair idle observations. The reported slowdown beside another
-Terminal's `yes` output has no full-chain native attribution yet.
-[#4067](https://github.com/roundup-app/roundup/issues/4067) supplies the missing
-isolated flood observer before another native request. R20's repeatable
-Solo comparisons and R21's measured production repair, shared Agent/shell path
-proof and final idle/flood observations remain open in #3550. Passing idle runs
-do not establish that the flood regression is fixed. This evidence update changes
-no production scheduling and requests no repeat of this idle baseline.
 
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
@@ -998,3 +760,29 @@ Clean paired builds on Linux x86_64 (`runnervmtai0g`), Node v22.23.3/pnpm 10.14.
 Measured moves: ImportPanel alone grew the closure by 1,491 to 439,299 (checker exit 1), so it was discarded. Deferring OrderDrawer at its three production callers saved 15,662 relative to base; a clean committed-head rebuild reproduced 422,146. Solid's existing `lazy` and native dynamic imports defer the Order editor and progress view until shown. Shared chunks remain counted: `index-BIzfQbNs.js`, `copy-CGbSrKPM.js`, `ReservedLine-BMsOCD5R.js`, `floating-ui.dom-vtOd0C_f.js` (all under `assets/`). No budget, observer, compression, dependency or bundler configuration changed; drag remains eager and Terminal remains lazy.
 
 Reproduce in separate base/head worktrees with identical environment: `pnpm install --frozen-lockfile`; remove each `apps/desktop/dist`; `pnpm --filter desktop build`; `pnpm --filter desktop run check:startup`. Each install/build exits 0. Raw reports for every attempt, logs, commands, observer hashes and final revision metadata: [Builder 40319239117](https://github.com/roundup-app/roundup/actions/runs/40319239117), job `build #4229 / build`, artifact `answer-4229`, `r4229-measurements.tar.gz` SHA-256 `d1685adf27de76673d61c3a2ff01e84fdd637333d1f6e0df1d61a2fff82f1eb1` and directory `r4229` (published after this run). Existing affected behavior observers, R3800 startup tests and rendered Order/progress observers cover first opening, editing, recovery, dismissal and focus; no tests are weakened or removed. All 68 Order/progress tests and the six R3800 shell tests pass. Dark 1512×950 first-open/edit/Escape observations call each opening read once; P3557c’s rendered failure/dismissal observer passes D2/D5/D6. The opt-in U3078i earlier-expansion capture times out on both base and head; its failed attempts are retained too.
+
+## R20 recorder startup isolation (2026-10-28)
+
+The Mac flood observation at `5b36bf532dc45e53d818a727e67423acd51ecd3a`
+exited 2 on all three runs: the App exited 0 before opening its Daemon socket,
+with empty stdout/stderr. The machine was an M4 Max, 16 cores, macOS 26.0.1,
+AC power, Low Power Mode off, unlocked, load/CPU ≤ 0.33. The full failed
+reports and commands remain in [#3550](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6477777448).
+
+The native single-instance plugin is an early exit-0 path: it forwards launches
+using a socket derived from the Tauri identifier, before Project setup. The
+perf data-directory override previously kept the installed App's identifier.
+`Config::context` now scopes that identifier to the absolute overridden data
+directory, using a bounded standard-library hash suffix. Different profile paths receive distinct derived identities; reopening the
+same profile in this build retains its identity. The normal App with no data override retains its identity.
+`r20_perf_profile_does_not_share_the_installed_apps_singleton` reproduces the
+shared identity before this repair and checks isolation afterward, without
+starting an App, Daemon, browser or window.
+
+This removes a concrete collision path, not proof of which process answered
+the socket on that Mac. After this repair merges, one invocation of
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood --out target/perf-keystroke-flood.json`
+on the quiet Mac decides whether startup now reaches the flood/hop report.
+Retain all three reports, exit code, logs and machine/power/load evidence.
+No new latency measurement, dominant-hop choice or R21 pass is claimed here;
+the full acceptance remains open on #3550.

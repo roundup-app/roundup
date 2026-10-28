@@ -74,7 +74,7 @@ type CopyValue = string | number | undefined;
 
 const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
-const draftSurfaceLabels = new Map(Object.entries({ "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
+const draftSurfaceLabels = new Map(Object.entries({ "opening-prompt": "Opening prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
 const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"]]);
 
@@ -309,7 +309,7 @@ export const copy = {
   chooseFolder: "Choose folder…",
   emptyFolderLine: "Choose a project folder to bring your work together.",
   emptyRailTitle: "No Agents yet",
-  emptyRailLine: "Start an Agent to work in this folder.",
+  emptyRailLine: "Start a Workstream or an Agent.",
   addTodoWord: "+ Todo",
   addPadWord: "+ Pad",
   emptyTodosLine: "Keep track of work you and your Agents plan to do.",
@@ -513,6 +513,8 @@ export const copy = {
   invalidDiagram: "Invalid diagram",
   mermaid: (value1: CopyValue) => `Mermaid: ${value1}`,
   addAgent: "Add agent",
+  surfaceLoadFailed: (label: string) => `${label} could not load; retry.`,
+  surfaceLoading: (label: string) => `Loading ${label}…`,
   retry: "Retry",
   start: "Start",
   projectRoot: "Project root",
@@ -590,7 +592,6 @@ export const copy = {
   rowActions: "Row actions",
   addAgentLabel: "Add Agent",
   clear: "Clear",
-  clearWorkstream: "Clear Workstream…",
   stop: "Stop",
   openFolder: "Open folder",
   openInEditor: "Open in editor",
@@ -783,13 +784,7 @@ export const copy = {
   pasteFailedTheClipboardHoldsAnImageWhich: "Paste failed: The clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.",
   failed: (value1: CopyValue, value2: CopyValue) => `${value1} failed: ${value2}`,
   doesNotExist: (value1: CopyValue) => `${value1} does not exist`,
-  whyClear: "Why clear?",
-  theDoorIsWritingTheHandoff: "Writing the summary",
-  theDoorWritesAHandoffKeepsWhatYou: (value1: CopyValue) => `Writes a summary, keeps what you asked for, archives the rest, and stops ${value1} ${value1 === 1 ? "Subagent" : "Subagents"}; their files stay`,
-  clearWithHandoff: "Clear and keep a summary",
-  clearWithoutHandoff: "Clear without a summary",
 
-  clearMenu: "Clear…",
   toastLine: (value1: CopyValue, value2: CopyValue) => `${value1}: ${value2}`,
   toastsRegion: "Updates",
   toastOverflow: (value1: CopyValue) => `And ${value1} more`,
@@ -800,6 +795,9 @@ export const copy = {
   body: "Body",
   moveTodo: (value1: CopyValue) => `Move #${value1}`,
   move: "Move",
+  moveItem: (name: string) => `Move ${name}`,
+  openItem: (name: string) => `Open ${name}`,
+  moveTodoRow: (id: number, title: string) => `Move #${id} ${title}`,
   noOtherHomes: "No other homes available",
   homesFor: (value1: CopyValue) => `Homes for #${value1}`,
   reopenTodo: (value1: CopyValue) => `Reopen ${value1}`,
@@ -833,6 +831,12 @@ export const copy = {
   todoNoEstimates: "no estimates",
   todoWithoutEstimates: (count: number) => `+ ${count} without estimate`,
   todoAuto: "Auto",
+  restartSession: "Restart session",
+  openingPrompt: "Opening prompt",
+  openingPromptMenu: "Opening prompt…",
+  openingPromptFor: (name: string) => `Opening prompt · ${name}`,
+  openingPromptPlaceholder: "Your opening words",
+  openingPromptHint: "Typed once when this Workstream starts a fresh session",
   todoAutoHint: "Hand out unassigned Todos",
   todoAutoHandling: "Handing these out",
   todoMoveTo: (id: number, name: string) => `Move #${id} to ${name}`,

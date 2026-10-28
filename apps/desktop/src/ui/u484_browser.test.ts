@@ -174,7 +174,7 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("mouse", "down");
   await browser("mouse", "move", String(handle.x + 2), String(handle.y));
   await browser("mouse", "up");
-  expect(await read<number>(`Number(document.querySelector('[aria-label=Actions]').textContent)`)).toBe(1);
+  expect(await read<number>(`Number(document.querySelector('[aria-label=Actions]').textContent)`)).toBe(0);
   expect(await commits()).toBe(0);
   expect(await read<boolean>(`(() => {
     const row = document.querySelector('[data-id=A]');
@@ -207,7 +207,7 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected=true]')");
   await browser("click", "#shelf-tab-pads");
   await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group] [data-part=branch-control]')");
-  await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .pad-grip').length >= 2");
+  await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .sortable-handle').length >= 2");
   // U2744a: a Pad list is the one a group's own rows form, so Agent subgroups never mix into the order.
   const ownList = "[...document.querySelectorAll('.pads-tab .shelf-list')].find(list => list.querySelectorAll('[data-pad]').length >= 2)";
   const padOrder = `[...${ownList}.querySelectorAll('[data-pad]')].map(row=>row.dataset.pad)`;

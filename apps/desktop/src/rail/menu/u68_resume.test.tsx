@@ -21,7 +21,7 @@ const mountRail = async (...args: Parameters<typeof mountFixture>) => {
 };
 
 /** The enabled items of the last menu that U56 and U68 name. */
-const labels = () => (shown.shownMenus.at(-1)?.items ?? []).filter((item) => item.enabled && ["Stop", "Resume", "Clear…", "Remove"].includes(item.label)).map((item) => item.label);
+const labels = () => (shown.shownMenus.at(-1)?.items ?? []).filter((item) => item.enabled && ["Stop", "Resume", "Remove"].includes(item.label)).map((item) => item.label);
 
 const exited = (id: string) => exitedTerminal(id, 0);
 
@@ -59,9 +59,9 @@ describe("u68 resume from the Rail menu", () => {
     openAt("run");
     expect(labels()).toEqual(["Stop", "Remove"]);
     openAt("g");
-    expect(labels()).toEqual(["Clear…", "Remove"]);
+    expect(labels()).toEqual(["Remove"]);
     openAt("d");
-    expect(labels()).toEqual(["Resume", "Clear…", "Remove"]);
+    expect(labels()).toEqual(["Resume", "Remove"]);
     openAt("t");
     expect(labels()).toEqual(["Stop", "Remove"]);
   });

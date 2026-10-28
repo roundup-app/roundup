@@ -1,14 +1,14 @@
-# Terminal typography (U4592)
+# Terminal typography (U4456)
 
 Terminal output uses Fira Code 6.2, replacing the JetBrains Mono font files.
-The unmodified Light (300), regular (400) and bold (700) WOFF2 files, OFL notice, upstream
+The unmodified regular (400) and bold (700) WOFF2 files, OFL notice, upstream
 release URL and SHA-256 hashes are in
 `apps/desktop/public/fonts/fira-code/`. The original JetBrains Mono licence
 notice remains alongside it. Fira Code supplies no italic files: browser font
 synthesis renders italic and bold italic from the bundled faces. The emulator
-requests normal and italic at all three bundled weights before its first authoritative fit.
+requests all four style/weight combinations before its first authoritative fit.
 Local App URLs have no `local()` or remote font source; other App typography
-keeps its existing stack. `--weight-terminal` selects 300 through xterm’s public `fontWeight`; bold remains 700.
+keeps its existing stack. xterm's normal/bold defaults already select 400/700.
 
 ## Metrics
 
@@ -16,74 +16,29 @@ keeps its existing stack. `--weight-terminal` selects 300 through xterm’s publ
 | --- | --- | --- |
 | `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
 | `--text-terminal` | `fontSize` | 11 CSS px |
-| `--line-terminal` | `lineHeight` | 1.7, unitless |
-| `--letter-terminal` | `letterSpacing` | 0 CSS px |
-| `--weight-terminal` | `fontWeight` | 300 (bold 700) |
+| `--line-terminal` | `lineHeight` | 1.7, unitless (22 CSS px rows) |
+| `--letter-terminal` | `letterSpacing` | 0 CSS px (U4592 / #4627) |
 
 Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
 its 1.23 interface scale does not apply to Terminal text. The real rendered
 cell measurements, grid counts, loaded faces, local resources and device pixel
 ratio are retained in each capture's `*.metrics.json`, beside the PNG and
-Check readings under `artifacts/ux/U4592/{base,head}/`.
+Check readings under `artifacts/ux/U4456{a,b,c,d}/{base,head}/`.
 
 The Linux observer uses the App's normal WebGL renderer at 1512×950 and
-pixel ratio 1 for the current U4592 pair. The earlier DPR-2 readings below are
-historical; the refreshed observer records its actual scale in each metrics file.
-The explicit `customGlyphs: true` option makes xterm draw
+pixel ratio 1. The explicit `customGlyphs: true` option makes xterm draw
 box-drawing characters across the full cell instead of using the shorter font
 glyph. The capture records the renderer alongside each measurement; behavioral
 font/input/resize regressions still exercise the DOM fallback. xterm documents
 that [custom glyphs do not apply to DOM rendering](https://xtermjs.org/docs/api/terminal/interfaces/iterminaloptions/#customglyphs).
 
-U4592 deliberately departs from Solo's weight and tracking. Its controlled Linux
-comparison held 11 CSS px, 400/700, tracking 0.95px, DPR 1 and the replay constant:
-WebGL joined boxes; DOM left visible gaps; host antialiased smoothing left the
-regular-text crop pixel-identical; the upstream Light face produced thinner
-strokes with unchanged bold. Candidate images and metadata live under
-`artifacts/ux/U4592/candidates/`. This is a Builder observation; the independent
-critic judges the paired main/head images. It establishes no WebKit rendering fact.
-
-The selected WebGL path uses the bundled Light face and the official ligature
-addon 0.9.0, whose browser fallback includes `->`, `=>`, `!=` and `===`.
-It registers through xterm’s public character-joiner API after open and before
-WebGL activation. The addon is disposed before the Terminal: deregistration
-requests a refresh and therefore needs a live renderer. This resolves the
-four Agent/Door scale failures from the earlier candidate without changing
-S3806c’s assertions. Version 0.10.0 was also inspected, but its published
-package declares a missing CommonJS entry; the existing Vite test path cannot
-resolve it. The supported 0.9.0 browser package remains compatible with the
-public xterm 6 character-joiner API.
-No custom glyph or shader code is added. xterm’s public weight reaches the atlas
-2D context’s font; host smoothing cannot inherit into its detached canvas.
-See [TextureAtlas](https://github.com/xtermjs/xterm.js/blob/6.0.0/addons/addon-webgl/src/TextureAtlas.ts)
-and [ligature support](https://github.com/xtermjs/xterm.js/blob/6.0.0/addons/addon-ligatures/README.md).
-WebGL refusal and context loss retain DOM fallback and its existing guarantees.
-
-The 1.7 multiplier restores the required 22 CSS px rows at 11px; xterm measures
-font bounding height, so multiplying CSS font size alone would give the wrong pitch.
-Paired observations use the same replay bytes and Dark 1512×950 viewport in
-`artifacts/ux/U4592/{base,head}/`; metadata records commits, font readiness,
-requested weights, display/canvas scale, rectangles, grid counts and stream hash.
-Native appearance and K1–K3 timing remain the owner’s post-merge observations.
-
-The owner’s whole-pixel decision on #4627 replaces the earlier 0.5px request
-with 0px. xterm 6 adds `Math.round(letterSpacing)` device pixels to each cell:
-0.95 and 0.5 both add one; 0 adds none. Thus the same setting removes one
-physical pixel at DPR 1 or 2 (respectively 1 or 0.5 CSS px), without scaling the
-font or canvas. The paired observer records the actual DPR and advance; Linux
-measurements establish no native WKWebView observation.
-
-The refreshed DPR-1 pairs measure 7→6 CSS px cells and 126→148 Agent
-columns; head rows measure 22 CSS px. Joined `->`, `=>`, `!=` and `===` and
-continuous table borders are visible at the unchanged 11 CSS px size. The failure
-message remains visible. D2/D5/D6 pass on each surface and no passing Check
-regresses. DPR-2 attempts on this host produced blank canvases and are invalid
-visual evidence; earlier DPR-2 metric readings establish no painted acceptance.
-The independent critic judges the retained DPR-1 pairs.
-
-## Historical U4456 correction
-
-The following records U4456's earlier 19px calibration, superseded by U4592.
+The critic's requested correction uses lineHeight 1.5 at 11 CSS px to retain
+U3517b's 18–20 CSS px row pitch. xterm multiplies the measured font bounding
+height rather than CSS fontSize: 1.7 yielded 22 CSS px rows, while 1.5 yields
+19 CSS px rows. Letter spacing remains 0.95 CSS px. This calibration supersedes
+the earlier 1.7 setting; it does not lower the pitch or continuous-frame bar.
+The original Solo screenshot is still unavailable, so no sampled-image match
+is claimed.
 
 The corrected paired capture uses base `adbf2eb65` and the renderer repair
 `a01194dc0` with the isolated default-preference capture fixture, Chromium on
@@ -162,14 +117,12 @@ Capture cases clear prior preferences before opening each surface, and hold
 write/resize refusals so an unrelated successful refit cannot erase the intended
 failure feedback before the reading.
 
-## Fractional tracking dependency (U4592, #4633)
+## Historical fractional tracking investigation (U4592, #4633)
 
-No published capability is selected. The following is a failing dependency
-reproduction, not U4592 completion. #4633 stays open until a maintained published
-release/addon preserves fractional tracking through its public API and passes
-its renderer regressions. #4635 owns the upstream source implementation.
-App integration, joined-operator integration, matched
-App captures and performance remain on #4627/#4619.
+The following retains the rejected fractional-spacing reproduction. The owner
+closed #4633 and #4635 and selected whole-pixel tracking in #4627 on 2026-10-28.
+No upstream renderer change or publication is required. The measurements below
+remain evidence that 0.5px does not tighten the installed renderer.
 
 Registry metadata and the exact published tarballs were inspected on 2026-10-28:
 
@@ -310,7 +263,141 @@ measurements and both screenshots exited 0. The distinction required by #4633
 fails. No candidate is integrated. This observation does not establish joined
 operators/boxes, later painting, fitted resize, selection, input, fallback or
 context-loss acceptance, nor App visual/performance or WKWebView results.
-Those remain required when an upstream-supported published candidate exists.
+The whole-pixel integration below owns those observations.
 
 The diagnostic PNG files and metrics are retained, uncommitted, under
 `artifacts/ux/U4592/xterm-dependency/`; these are not matched App captures.
+
+## Whole-pixel tracking and joined operators (#4627)
+
+The owner’s 2026-10-28 decision supersedes the fractional Token request:
+`--letter-terminal: 0px` reaches xterm’s public `letterSpacing` option. Fira Code,
+11px size, normal/bold 400/700 and every colour are unchanged in this prerequisite;
+#4619 / PR #4624 owns the lighter 300 face. `--line-terminal: 1.7` retains the
+required 22px rows. The earlier 19px calibration above is historical.
+
+Reuse: the installed xterm 6.0.0 / WebGL 0.19.0 public whole-pixel option already
+supplies the narrower advance; no custom renderer is needed. For joining, the
+[official ligatures addon 0.10.0](https://registry.npmjs.org/@xterm/addon-ligatures/0.10.0),
+published 2025-12-22 from xterm’s release commit
+`f447274f430fd22513f6adbf9862d19524471c04`, is selected. Its
+[implementation](https://github.com/xtermjs/xterm.js/blob/f447274f430fd22513f6adbf9862d19524471c04/addons/addon-ligatures/src/LigaturesAddon.ts)
+uses the public character-joiner API and documented browser fallback operators.
+Its published ESM `module` exists, but the declared CommonJS `main` is absent;
+Vite’s alias selects that shipped ESM entry for both build and tests. No package
+source or renderer state is patched. The addon is loaded after `open()` and
+explicitly disposed before the terminal: deregistration requests a refresh,
+which fails if the renderer has already been destroyed. All six S3806c scale
+guards remain unchanged, including selection, scrollback and zero input writes.
+
+The [0.9.0 addon](https://registry.npmjs.org/@xterm/addon-ligatures/0.9.0) is
+rejected: its peer contract requires xterm ^5.0.0. The alternative
+[font-ligatures 1.4.1](https://registry.npmjs.org/font-ligatures/1.4.1), last
+released 2022-01-07, parses font ligatures but supplies no xterm lifecycle or
+rendering integration; the maintained official addon already owns that adapter.
+It is an addon dependency, not a reason to write a second joiner. The stable,
+beta and DOM tracking candidates above remain rejected for fractional tracking;
+DOM also lacks the custom glyphs needed for continuous 22px boxes. The installed
+WebGL renderer and its existing fallback/context-loss path remain in use.
+
+The U4592 observer replays identical bytes into Agent, Door and shell surfaces
+at 1512×950, Dark, DPR 2. `*.metrics.json` records full commits, replay SHA-256,
+requested Tokens, loaded faces, renderer, backing size and content/grid metrics;
+Images and Check readings remain under `artifacts/ux/U4592/{base,head}/`.
+This Linux DPR-2 observer represents the owner’s display density, not their Mac
+or WKWebView timing. Native appearance remains a post-merge owner observation.
+
+Run the observer with `AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium` and
+`AGENT_BROWSER_ARGS='--no-sandbox,--disable-gpu,--enable-unsafe-swiftshader,--force-device-scale-factor=2'`.
+The browser itself must start at DPR 2: viewport emulation alone left xterm’s
+ResizeObserver device-pixel measurement at DPR 1, giving a mismatched WebGL
+backing size and blank captures. Those images are rejected observer failures,
+not rendering evidence. The metadata records the WebGL canvas rather than its
+separate link-overlay canvas. Replay enters through `__fake.writeOutput`, so
+snapshot restoration and subsequent output share the same bytes; a bounded
+parse wait precedes the paint frame and selection.
+
+### Matched Linux observation, 2026-10-28
+
+Baseline `c0ab5e0d24beccc11faddd3759fd73ba2657cdce` and head
+`e88f5b85b9cd3a623541f9af7dd48a5f221d1e0c` replay SHA-256
+`5884dab79050166104654bc5077dabfa61991c1eb36d57aee7fa3d046c281449`
+in Dark at 1512×950, DPR 2. Both use loaded Fira Code 400/700 and WebGL;
+canvas backing dimensions are twice their CSS dimensions.
+
+| Surface | Base → head cell width | Base → head row pitch | Base → head grid |
+| --- | --- | --- | --- |
+| Agent | 7 → 6.5 CSS px | 19.512 → 22 CSS px | 126×43 → 136×38 |
+| Door | 7 → 6.5 CSS px | 19.512 → 22 CSS px | 126×43 → 136×38 |
+| Shell | 7 → 6.5 CSS px | 19.515 → 22 CSS px | 100×33 → 108×29 |
+
+The painted pairs show narrower tracking, joined `->`, `=>`, `!=`, `===`,
+continuous table edges/intersections and distinct bold. The dense Door and shell
+retain visible failure feedback. D2/D5/D6 pass on all six screens; the Check
+delta exits 0. D8 and its aggregate D10 already fail on the baseline and remain
+failing; no passing Check regresses. The independent critic judges these images.
+This prerequisite makes no thinner-stroke claim: #4619 / #4624 owns that slice.
+
+The preference reset first opens the target origin's fixture: storage is denied
+on the initial document in this browser setup. The capture then loads the App
+with clean preferences. Its original 60-second per-test bound is retained.
+
+| Command / observer | Exit / result |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | 0 |
+| `pnpm --filter desktop exec vitest run src/terminal/u102_emulator.test.ts src/terminal/u3517_type.test.ts src/terminal/s3806c_scale.test.ts` | 0; 22 tests, all six scale guards unchanged |
+| `pnpm --filter desktop exec vitest run src/terminal/u13_size.test.tsx src/terminal/u103_snapshot.test.tsx src/perf/k1_opt_in.test.ts src/perf/k2_keystrokes.test.ts` | 0; 53 tests |
+| `pnpm --filter desktop exec vitest related --run src/terminal/u3517_browser.test.ts` | 0; three behavior tests |
+| `ROUNDUP_CAPTURES=U4592 U500_BASE_ROOT=/tmp/roundup-4651-base/apps/desktop pnpm --filter desktop exec vitest run src/terminal/u3517_browser.test.ts --retry 0` with the browser environment above | 0; three behavior tests and all three paired capture cases |
+| `loop/rules.sh delta artifacts/ux/U4592/base artifacts/ux/U4592/head` | 0; no new failed Check |
+| `timeout 180 just capture U4592` with the same capture environment | 124; workspace-wide run exceeded the command bound; the focused observer above supplies all six paired screens |
+
+The initial focused capture attempts exited 1 with storage denied before any
+App capture; those attempts supply no visual evidence. The first broad related
+run was stopped after it selected unrelated App/Daemon observers; the changed
+capture file's related run and the focused regression runs above completed.
+Raw logs are retained uncommitted in `artifacts/ux/U4592/validation.tar.gz`.
+
+The latest completed main CI run [40754668320](https://github.com/roundup-app/roundup/actions/runs/40754668320)
+on `fbec3b5e5d1487565b34503353225e5c6b12512d` passed both `mac` and
+`mac-clippy`. No native timing is inferred; the existing K1/K2 tests above retain
+the opt-in build and echoed-character timing boundaries. Native appearance and
+WKWebView timing remain post-merge observations.
+
+### Linux performance pair
+
+`just perf --out artifacts/ux/U4592/validation/perf.json` exits 0 on host
+`runnervm48cm3`, job `40758778090/1/fix-run` (`linux-9v45`). The immutable
+baseline is `c0ab5e0d24beccc11faddd3759fd73ba2657cdce`; implementation head is
+`b5091cb6a0579b134337b03b028b898f1f67384b`. Later commits change only the capture
+observer and evidence. Separate release builds produce identical Daemon, CLI
+and sidecar hashes. One common observer collects eleven samples per side,
+1,000 calls per latency observation. The full report, observer/toolchain identity,
+commands, hashes, samples and exit are committed in
+`artifacts/ux/U4592/perf.json`; command/build/startup logs and the original raw
+report are retained in `artifacts/ux/U4592/validation.tar.gz`.
+
+| Metric | Base | Head |
+| --- | --- | --- |
+| Cold plugin materialization | 10.346 ms | 10.037 ms |
+| Cold start | 10.208 ms | 10.202 ms |
+| Hook loop | 255.323 ms | 247.601 ms |
+| Ping p95 | 0.044126 ms | 0.045829 ms |
+| Rail tree, 10 nodes p95 | 0.130106 ms | 0.130037 ms |
+| Rail tree, 40 nodes p95 | 0.394917 ms | 0.375516 ms |
+| Extra RSS | 2.184 MB | 2.230 MB |
+| Terminal write p95 | 0.071098 ms | 0.067521 ms |
+| Write-to-output p95 | 0.107774 ms | 0.103906 ms |
+
+All nine comparisons pass the unchanged limits and 10% regression policy;
+`passed` and `clean` are true, with no skipped metric or stored miss. This
+Daemon observer supplies no WKWebView key-to-render timing.
+
+Final validation: `just ready` exits 0, including lints, trailer/frozen guards,
+workflow tests, N7 launch-site test and proofs (`ALL PROOFS CHECK`). The first
+attempt exited 143 during proof checks. The next exited 1 because untracked raw
+logs quoted existing spelling diagnostics and were themselves scanned. Moving
+those logs outside the source tree repaired the observation; no rule, baseline
+or source check changed. The final logs are retained in `validation.tar.gz`.
+`loop/rules.sh vocab`, `ci-trailers local`, `frozen local` and `merge-loss` also
+exit 0. No PNG or video is committed.

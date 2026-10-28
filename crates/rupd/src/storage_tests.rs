@@ -488,6 +488,11 @@ async fn n16_all_stores_share_one_project_database() {
     resize_schema.execute_batch(FLIGHT).unwrap();
     resize_schema
         .execute_batch(include_str!(
+            "../migrations/project/0034-door-session-restart.sql"
+        ))
+        .unwrap();
+    resize_schema
+        .execute_batch(include_str!(
             "../migrations/project/0013-instruction-messages.sql"
         ))
         .unwrap();
@@ -495,6 +500,29 @@ async fn n16_all_stores_share_one_project_database() {
     let rail = include_str!("../migrations/project/0027-rail-deletions.sql");
     resize_schema.execute_batch(rail).unwrap();
     expected.extend(standalone::schema(&resize_schema));
+    let mut retention = Connection::open_in_memory().unwrap();
+    agents::schema::open(&mut retention, Path::new("agents")).unwrap();
+    retention
+        .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
+        .unwrap();
+    retention.execute_batch(FLIGHT).unwrap();
+    retention
+        .execute_batch(include_str!(
+            "../migrations/project/0013-instruction-messages.sql"
+        ))
+        .unwrap();
+    retention
+        .execute_batch(include_str!(
+            "../migrations/project/0033-coordination-instructions.sql"
+        ))
+        .unwrap();
+    expected.extend(
+        standalone::schema(&retention)
+            .into_iter()
+            .filter(|(name, _)| {
+                name == "instruction_deliveries" || name.starts_with("instruction_message")
+            }),
+    );
     // The standalone Agents store keeps its frozen head; the Project drops the answers table.
     expected.remove("decision_answers");
     expected.remove("decision_answers_agent");
