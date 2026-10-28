@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -128,4 +129,91 @@ for (const state of ["agent", "door", "shell"]) {
       }
     }
   }, 60_000);
+}
+
+
+const groundOutput = captureDir("U4456c");
+const groundCommit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+
+const groundCapture = async (base: boolean, seed: string, scheme: string, step: string) => {
+  const dir = join(groundOutput!, base ? "base" : "head");
+  const name = `${scheme}-${seed}-${step}`;
+  const readings = await read(`(() => {
+    const roots = [document];
+    const surfaces = [];
+    for (const root of roots) for (const element of root.querySelectorAll('*')) {
+      if (element.shadowRoot) roots.push(element.shadowRoot);
+      if (!element.checkVisibility()) continue;
+      const style = getComputedStyle(element);
+      if (style.backgroundColor !== 'rgba(0, 0, 0, 0)') surfaces.push({
+        tag: element.tagName, class: element.getAttribute('class'),
+        background: style.backgroundColor, colour: style.color,
+      });
+    }
+    const style = getComputedStyle(document.documentElement);
+    return { mode: document.documentElement.dataset.mode,
+      hostDark: matchMedia('(prefers-color-scheme: dark)').matches,
+      contrast: matchMedia('(prefers-contrast: more)').matches,
+      tokens: Object.fromEntries(['--ground','--sunken','--terminal-background','--surface','--selected','--disabled'].map(name => [name, style.getPropertyValue(name).trim()])), surfaces };
+  })()`);
+  mkdirSync(dir, { recursive: true });
+  await browser("screenshot", join(dir, `${name}.png`));
+  writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+  writeFileSync(join(dir, `${name}.colours.json`), JSON.stringify({ commit: base ? process.env.U4456_BASE_SHA : groundCommit, seed, scheme, step, readings }, null, 2));
+};
+
+const groundLoad = async (seed: string, base: boolean, scheme: string) => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", scheme === "explicit" ? "light" : "dark");
+  await browser("open", url(`/harness.html?seed=${seed}`, base));
+  await wait("!!window.__fake && !!document.querySelector('.window')");
+  await read(`(async () => {
+    localStorage.clear(); sessionStorage.clear();
+    const { saveAppSettings } = await import('/src/settings/preferences.ts');
+    await saveAppSettings({ mode: '${scheme === "explicit" ? "dark" : "system"}' });
+  })()`);
+  await wait(`document.documentElement.dataset.mode === '${scheme === "explicit" ? "dark" : "system"}'`);
+};
+
+for (const scheme of ["system", "explicit"]) {
+  for (const seed of ["first-run", "empty-project", "door-stopped", "agents-10", "tree-40"]) {
+    it.skipIf(!groundOutput)(`u4456c_window_ground_${scheme}_${seed}`, async () => {
+      for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+        await groundLoad(seed, base, scheme);
+        await groundCapture(base, seed, scheme, "rest");
+        if (seed === "agents-10" || seed === "tree-40") {
+          await select(seed === "agents-10" ? "agent-3" : "payments", seed === "agents-10" ? "t-agent-3" : "t-payments");
+          await groundCapture(base, seed, scheme, "pane-prompt");
+          await read(`(() => {
+            window.__fake.app.handlers['terminal.write'] = () => { throw new Error('Output unavailable. Retry.'); };
+            window.__terminals.get('${seed === "agents-10" ? "t-agent-3" : "t-payments"}').paste('retry');
+          })()`);
+          await wait("document.querySelector('.pane-failure')?.textContent.includes('Output unavailable. Retry.')");
+          await groundCapture(base, seed, scheme, "failure");
+        }
+      }
+    }, 120_000);
+  }
+}
+
+for (const [surface, seed, command, selector] of [
+  ["settings", "tree-40", "settings", ".settings-view"],
+  ["inbox", "tree-40", "view:inbox", ".inbox"],
+  ["reactions", "tree-40", "view:reactions", ".reactions"],
+  ["resources", "resources", "view:resources", ".resource-inspection"],
+  ["import", "import-candidates", "import-work", ".import-panel"],
+]) {
+  it.skipIf(!groundOutput)(`u4456c_secondary_ground_${surface}`, async () => {
+    for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+      await groundLoad(seed!, base, "system");
+      if (surface === "resources") await read("document.querySelector('.rail-row[data-id=worktree-agent]').click()");
+      await read(command === "settings" ? "window.dispatchEvent(new Event('open-app-settings'))" : `window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'${command}'}}))`);
+      await wait(`!!document.querySelector('${selector}')`);
+      await groundCapture(base, seed!, "system", surface!);
+      if (surface === "settings") {
+        await browser("click", '[role=tab][data-value="Appearance"]');
+        await groundCapture(base, seed!, "system", "appearance");
+      }
+    }
+  }, 120_000);
 }
