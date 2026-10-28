@@ -8,9 +8,10 @@ import { createScreens } from "./screens";
 import { connectFakeProject, callsTo, subscribed } from "./paneHarness";
 import { info, terminal } from "../testing/nodes";
 
-afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); Reflect.deleteProperty(document, "fonts"); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); Reflect.deleteProperty(document, "fonts"); });
 
 it("u3517a_font_readiness_preserves_output_and_fits_once_ready", async () => {
+  vi.stubGlobal("matchMedia", () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }));
   let release!: () => void;
   const loading = new Promise<void>(resolve => { release = resolve; });
   Object.defineProperty(document, "fonts", { configurable: true, value: { load: () => loading } });
@@ -18,7 +19,6 @@ it("u3517a_font_readiness_preserves_output_and_fits_once_ready", async () => {
   const factory = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }));
   const emulator = factory("t-a");
   const real = spy.mock.instances[0]!;
-  vi.spyOn(real, "open").mockImplementation(() => {});
   vi.spyOn(real, "focus").mockImplementation(() => {});
   const fit = vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => real.resize(60, 25));
   const { app, connected } = await connectFakeProject([terminal("a")], [info("t-a")]);

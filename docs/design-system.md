@@ -287,11 +287,12 @@ uses it; the rest of the App retains its existing type.
 
 The emulator, App Settings and Project zoom reset share `--text-terminal` (11 CSS
 px). `--line-terminal` is xterm's unitless line-height multiplier (1.7, calibrated to 22 CSS px rows) and
-`--letter-terminal` is extra cell tracking (0.5 CSS px). U4456 uses Solo's
+`--letter-terminal` is extra cell tracking (0 CSS px). U4456 uses Solo's
 0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
 apply. U4592 uses `--weight-terminal` (300) through xterm’s public `fontWeight` option;
-bold stays 700. WebGL retains full-cell boxes. U4592 tracking and ligature
-acceptance remain incomplete; see #4619 and #4627. Rendered measurements are in `docs/terminal-type.md`.
+bold stays 700. WebGL retains full-cell boxes; the official ligature addon joins
+operators through xterm’s public character-joiner API. The owner’s #4627 decision
+uses whole-pixel tracking to remove one device pixel from each cell. Rendered measurements are in `docs/terminal-type.md`.
 
 `--terminal-background`, `--terminal-foreground`, `--terminal-cursor`,
 `--terminal-cursor-text`, `--terminal-selection`, `--terminal-selection-text`, and
