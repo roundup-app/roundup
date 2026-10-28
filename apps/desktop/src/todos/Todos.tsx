@@ -571,7 +571,7 @@ export const Todos = (props: {
     })} />;
 
     setShown({ id: todo.id, content });
-    connected.drawer.open(content, source);
+    connected.drawer.open(content, source, { kind: "todo", project: connected.project.path });
   };
 
   const toggle = async (todo: Todo, ids: readonly number[]) => {

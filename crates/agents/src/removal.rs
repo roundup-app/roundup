@@ -6,14 +6,15 @@ impl Shared {
             .await
     }
 
-    /// A34: remove Workstream `id`. The Door stops first; every Agent under it is judged before any
-    /// moves; then finished Agents go, the rest move to the Project root, and the Workstream goes last.
+    /// A34/U4461: stop the Door, judge descendants, then remove the chosen contents atomically.
+    /// Scope `this` lifts unfinished work; `all` stops descendants and keeps nothing.
     pub(super) async fn remove_workstream(
         self: &Arc<Self>,
         actor: Actor,
         id: &str,
+        scope: RemoveScope,
     ) -> Result<Removal, RpcError> {
-        self.remove_workstream_with(actor, id, |_, _| Ok(()))
+        self.remove_workstream_with(actor, id, scope, |_, _| Ok(()))
             .await
             .map(|(r, ())| r)
     }
@@ -22,11 +23,14 @@ impl Shared {
         self: &Arc<Self>,
         actor: Actor,
         id: &str,
+        scope: RemoveScope,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         let _lifecycle = self.door_lifecycle.write().await;
         let door = self.rail().node(id)?;
-        if let Some(worktree) = &door.worktree {
+        if scope == RemoveScope::This
+            && let Some(worktree) = &door.worktree
+        {
             let git = self.git.bounded();
             let project = self.project_dir.clone();
             let worktree = worktree::Worktree::from(worktree);
@@ -48,8 +52,15 @@ impl Shared {
             let mut below = Vec::new();
             collect_below(&tree, id, &mut below);
             let mut judged = Vec::new();
-            for node in below.into_iter().filter(|n| n.kind == NodeKind::Agent) {
-                let reason = self.keep_reason(&node).await?;
+            for node in below
+                .into_iter()
+                .filter(|n| scope == RemoveScope::All || n.kind == NodeKind::Agent)
+            {
+                let reason = if scope == RemoveScope::All {
+                    None
+                } else {
+                    self.keep_reason(&node).await?
+                };
                 judged.push((node, reason));
             }
             // D9: overlap finite exit waits so sixteen removable Agents do not exceed
@@ -85,7 +96,7 @@ impl Shared {
             }
             // G5: rejudge after every stop completes, before any file or row changes.
             for (node, reason) in &mut judged {
-                if reason.is_none() {
+                if scope == RemoveScope::This && reason.is_none() {
                     *reason = self.keep_reason(node).await?;
                 }
             }
@@ -115,7 +126,7 @@ impl Shared {
             // storage transaction is open.
             let shared = Arc::clone(self);
             let (removal, out) = tokio::task::spawn_blocking(move || {
-                let mut undo = git.prepare_removal(&project, &worktrees)?;
+                let mut undo = git.prepare_removal(&project, &worktrees, scope)?;
                 let mut rail = shared.rail();
                 // Recheck the judged tree: a spawn or move during the judgement must be retried.
                 let current = rail.tree()?;
@@ -124,7 +135,7 @@ impl Shared {
                 let expected: Vec<_> = judged.iter().map(|(n, _)| &n.id).collect();
                 let actual: Vec<_> = current_below
                     .iter()
-                    .filter(|n| n.kind == NodeKind::Agent)
+                    .filter(|n| scope == RemoveScope::All || n.kind == NodeKind::Agent)
                     .map(|n| &n.id)
                     .collect();
                 if expected != actual {
@@ -260,10 +271,13 @@ impl Agents {
         &self,
         actor: Actor,
         id: &str,
+        scope: RemoveScope,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         self.shared.guard_reach(&actor, id, false)?;
-        self.shared.remove_workstream_with(actor, id, apply).await
+        self.shared
+            .remove_workstream_with(actor, id, scope, apply)
+            .await
     }
 }
 
@@ -404,7 +418,7 @@ mod tests {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use contracts::agent::NodeKind;
+    use contracts::agent::{NodeKind, RemoveScope};
     use contracts::terminal::ExitedEvent;
     use contracts::{Actor, EventData, Kind};
 
@@ -546,7 +560,10 @@ mod tests {
             .unwrap();
         let before = shared.events.tool_calls.lock().unwrap().clone();
 
-        let removal = shared.remove_workstream(Actor::user(), &ws).await.unwrap();
+        let removal = shared
+            .remove_workstream(Actor::user(), &ws, RemoveScope::This)
+            .await
+            .unwrap();
 
         assert!(removal.removed.iter().any(|item| item.id == finished));
         assert!(removal.kept.iter().any(|item| item.id == living));
@@ -657,7 +674,8 @@ mod tests {
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }
-        let removal = shared.remove_workstream_with(Actor::daemon(), &ws, |_, _| Ok(()));
+        let removal =
+            shared.remove_workstream_with(Actor::daemon(), &ws, RemoveScope::This, |_, _| Ok(()));
         tokio::pin!(removal);
         // Entry/release proves overlap without depending on the OS's PTY hangup behavior.
         tokio::time::timeout(Duration::from_secs(5), async {
@@ -727,10 +745,11 @@ mod tests {
             .terminal_id = None;
         let applied = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let applied_by_transaction = applied.clone();
-        let removal = shared.remove_workstream_with(Actor::daemon(), &ws, move |_, _| {
-            applied_by_transaction.store(true, std::sync::atomic::Ordering::SeqCst);
-            Ok(())
-        });
+        let removal =
+            shared.remove_workstream_with(Actor::daemon(), &ws, RemoveScope::This, move |_, _| {
+                applied_by_transaction.store(true, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            });
         tokio::pin!(removal);
         for _ in 0..2 {
             tokio::select! {
@@ -828,7 +847,7 @@ mod tests {
             db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
             let error = if let Some(ws) = &ws {
                 shared
-                    .remove_workstream(Actor::user(), ws)
+                    .remove_workstream(Actor::user(), ws, RemoveScope::This)
                     .await
                     .unwrap_err()
             } else {
@@ -840,7 +859,10 @@ mod tests {
             assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
             db.execute_batch("DROP TRIGGER fail_delete").unwrap();
             if let Some(ws) = &ws {
-                shared.remove_workstream(Actor::user(), ws).await.unwrap();
+                shared
+                    .remove_workstream(Actor::user(), ws, RemoveScope::This)
+                    .await
+                    .unwrap();
             } else {
                 shared.remove(Actor::user(), &id).await.unwrap();
             }
