@@ -159,15 +159,16 @@
 
 /* U2744a: quiet scope and Rail disclosures use the existing type and space scale. */
 .shelf-bar { justify-content: flex-start; gap: var(--space-2); color: var(--text); font-size: var(--text-body); height: auto; min-height: var(--header-height); align-items: baseline; padding-block: var(--space-1); line-height: var(--space-4); }
-/* U3730: the scope's name and the tab's one add control share a line; the control trails in the accent, so it reads as the action. */
-.shelf-scope-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.shelf-bar div, .shelf-scope-action:not([hidden]) { display: contents; }
+/* U4463: scope and actions share the full content width; window controls stay beside the tabs above. */
+.shelf-scope-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shelf-scope-action:not([hidden]) { display: flex; flex: none; align-items: baseline; gap: var(--space-2); }
 .shelf-scope-action[hidden] { display: none; }
-.shelf-bar .shelf-add { flex: none; margin-inline-start: auto; margin-block: 0; padding-block: 0; min-height: var(--space-5); display: inline-flex; flex-wrap: wrap; align-content: center; align-items: baseline; align-self: baseline; padding-inline: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--accent); }
+.shelf-bar .shelf-add { flex: none; margin: 0; padding: 0; min-height: var(--space-5); display: inline-flex; align-items: baseline; gap: var(--space-2); font-size: var(--text-body); line-height: var(--space-4); color: var(--grey); }
 .shelf-add svg { align-self: center; }
-/* The scope name, + Todo and the icon buttons share one centre line; Triage tops the bar's padded row like Maximise and Close and sits 8 px from them, apart from + Todo. */
-.shelf-bar .shelf-triage { align-self: flex-start; margin-inline-start: var(--space-2); }
-.shelf-bar:has(.shelf-triage) { padding-inline-end: 0; }
+.shelf-bar .shelf-triage { align-self: center; }
+.shelf-bar .app-switch { color: var(--grey); font-size: var(--text-body); line-height: var(--space-4); }
+.shelf-bar .app-switch-label { align-self: baseline; }
+.shelf-bar .app-switch-track { align-self: center; }
 .shelf-groups.app-tree { padding: 0; }
 .shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: var(--transparent); }
@@ -193,8 +194,7 @@
   gap: var(--space-2);
   z-index: 1;
 }
-.shelf-bar { max-width: calc(100% - var(--space-6) * 2 - var(--space-4)); box-sizing: border-box; }
-.shelf-bar:has(.shelf-triage) { max-width: calc(100% - var(--space-6) * 2 - var(--space-2)); }
+.shelf-bar { box-sizing: border-box; }
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
 .window[data-shelf-maximised="true"]:not(:has(.drawer[data-open="true"])) .shelf { width: calc(100% - var(--rail-width)); }
 /* Hidden content must also suppress descendants that explicitly restore visibility. */
@@ -243,18 +243,12 @@
 }
 
 .todo-auto {
-  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: var(--space-2);
+  align-items: baseline;
 }
 
-.todo-auto-hint {
-  color: var(--grey);
-  font-size: var(--text-small);
-}
+/* Keep Auto refusal feedback on the Shelf's existing full-width reserved edge. */
+.todo-auto .reserved-line { inset-inline: var(--space-4); inline-size: auto; }
 
 .todos-tab .todo-row-button {
   display: flex;
