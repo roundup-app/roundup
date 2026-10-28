@@ -18,6 +18,7 @@ const cases = [
   ["exported computed configuration", 'const key = "test"; export default { [key]: { [externalKey]: 90_000 } };', 1, "unresolved", [], "vitest.config.mts"],
   ["exported configuration alias", 'const options = { test: { ...externalOptions } }; export default options;', 1, "unresolved", [], "vitest.config.ts"],
   ["exported safe override", 'export default { ...externalOptions, test: { testTimeout: 60_000 } };', 0, null, [], "vite.config.ts"],
+  ["exported defineConfig alias", 'const options = defineConfig({ test: { testTimeout: 60_000 } }); export default options;', 0, null, [], "vitest.config.ts"],
   ["exported inherited default", 'export default { test: { retry: 0 } };', 0, null, [], "vitest.config.ts"],
   ["unrelated default export", 'export default { ...externalOptions };', 0],
   ["inherited default", 'test("t3779a_default", () => {});', 0],
