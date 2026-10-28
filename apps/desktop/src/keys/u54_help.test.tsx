@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
@@ -134,7 +134,7 @@ describe("u54 keyboard help", () => {
     const panel = help();
 
     expect(panel).not.toBeNull();
-    expect(panel?.textContent).not.toContain("Choose folder…");
+    expect(within(panel!).queryByText(/Choose folder/)).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 

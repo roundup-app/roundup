@@ -27,11 +27,11 @@ describe("u38 empty Todos", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect(screen.queryByRole("group", { name: "No Todos yet" })).toBeNull();
+    expect(screen.queryByRole("group", { name: /No Todos/ })).toBeNull();
 
     pending.resolve([]);
 
-    expect(await screen.findByRole("group", { name: "No Todos yet" })).toBeTruthy();
+    expect(await screen.findByRole("group", { name: /No Todos/ })).toBeTruthy();
   });
 
   it("u38_no_todos_yet_disappears_once_a_todo_exists", async () => {

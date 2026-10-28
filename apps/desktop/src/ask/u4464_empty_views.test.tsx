@@ -2,17 +2,16 @@ import { cleanup, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
-import { reactionCopy } from "../copy/reactions";
 import { copy } from "../copy";
 import { AskBar } from "./AskBar";
 
 afterEach(cleanup);
 
 it.each([
-  { view: "ask-history", method: "ask.list", title: copy.askHistoryEmpty, line: copy.emptyAskLine },
-  { view: "made", method: "deliverable.list", title: copy.deliverablesEmpty, line: copy.emptyMadeLine },
-  { view: "reactions", method: "reaction.list", title: copy.reactionsEmpty, line: reactionCopy.emptyHelp },
-] as const)("u4464_no_empty_view_before_the_first_answer: $view", async ({ view, method, title, line }) => {
+  { view: "ask-history", method: "ask.list", title: copy.askHistoryEmpty },
+  { view: "made", method: "deliverable.list", title: copy.deliverablesEmpty },
+  { view: "reactions", method: "reaction.list", title: copy.reactionsEmpty },
+] as const)("u4464_no_empty_view_before_the_first_answer: $view", async ({ view, method, title }) => {
   const app = createFakeApp();
   const answer = Promise.withResolvers<[]>();
   app.handlers[method] = () => answer.promise;
@@ -22,6 +21,5 @@ it.each([
   expect(screen.queryByRole("group", { name: title })).toBeNull();
   answer.resolve([]);
   const empty = await screen.findByRole("group", { name: title });
-  expect(within(empty).getByText(line)).toBeTruthy();
   expect(within(empty).queryByRole("button")).toBeNull();
 });

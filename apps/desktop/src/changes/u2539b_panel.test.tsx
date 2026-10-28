@@ -88,7 +88,6 @@ describe("U2539b", () => {
     expect(document.querySelector("file-tree-container")).toBeNull();
   });
 
-
   it("u4464_no_empty_view_before_the_first_answer_changes", async () => {
     const app = createFakeApp();
     const answer = Promise.withResolvers<ChangedFiles>();
@@ -99,14 +98,15 @@ describe("U2539b", () => {
     connected.rail.select("a");
     render(() => {
       connected.worktrees.watch(() => true);
+
       return <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>;
     });
     await waitFor(() => expect(app.calls.some(call => call.method === "agent.changedFiles")).toBe(true));
     expect(screen.queryByRole("button", { name: /changed files?/ })).toBeNull();
-    expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     answer.resolve({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
     expect(await screen.findByRole("button", { name: /1 changed file/ })).toBeTruthy();
-    expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("u2539b_a_failed_read_is_not_no_changes", async () => {
