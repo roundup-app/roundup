@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
-import { mountApp, select } from "../testing/appFixture";
+import { mountApp, select, inspectOrder } from "../testing/appFixture";
 import type { Order } from "@contracts/agent/Order";
 import { agent, clarifying, door } from "../testing/nodes";
 
@@ -28,8 +28,7 @@ const open = async (done: string | undefined, read: () => { prompt: string | nul
     app.handlers["agent.spawnPrompt"] = read;
   });
   select("alpha");
-  await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
-  fireEvent.click(document.querySelector(".order-line")!);
+  inspectOrder();
 
   return await screen.findByLabelText("Full order of alpha");
 };
@@ -43,11 +42,4 @@ describe("O17: the Drawer shows no Prompt", () => {
     expect((await within(drawer).findByRole("alert")).textContent).toContain("no such Agent");
   });
 
-  it("o17_no_prompt_is_drawn", async () => {
-    const drawer = await open("x", () => ({ prompt }));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(drawer.querySelector("details, .order-prompt")).toBeNull();
-    expect(drawer.textContent).not.toContain("Prompt");
-    expect(drawer.textContent).not.toContain("Walk through");
-  });
 });

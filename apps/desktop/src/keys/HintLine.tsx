@@ -30,9 +30,9 @@ export const HintLine = () => {
       const actions = captureActions(document.activeElement);
 
       return LEADER.filter(key => {
-        const action = actions.find(row => row.value === `action:leader:${key.keys}`);
+        const matches = actions.filter(row => row.value === `action:leader:${key.keys}`);
 
-        return action?.available() ?? true;
+        return matches.length === 0 || matches.some(action => action.available());
       }).map(key => ({ keys: key.keys, label: key.short }));
     }
 

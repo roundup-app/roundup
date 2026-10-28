@@ -57,7 +57,7 @@ export const CHORDS: readonly Chord[] = [
 export type LeaderKey = { keys: string; what: string; short: string; press: string };
 
 export const LEADER: readonly LeaderKey[] = [
-  { keys: "A", what: copy.assignTodo, short: copy.assign, press: "KeyA" },
+  { keys: "A", what: copy.leaderAssignOrAsk, short: copy.leaderShortAssignOrAsk, press: "KeyA" },
   { keys: "P", what: copy.switchProject, short: copy.projects, press: "KeyP" },
   { keys: "C", what: copy.reviewChanges, short: copy.reviewChanges, press: "KeyC" },
   { keys: "J", what: copy.jumpToWhatNeedsYou, short: copy.leaderShortNeedsYou, press: "KeyJ" },
