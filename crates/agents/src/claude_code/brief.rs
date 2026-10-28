@@ -59,6 +59,10 @@ const TOOLS: &[(&str, &str)] = &[
         "todo_assign",
         "assign a Todo to an owner, or leave it unassigned",
     ),
+    (
+        "todo_comments",
+        "read a Todo thread and the user’s replies without marking comments read",
+    ),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
     (

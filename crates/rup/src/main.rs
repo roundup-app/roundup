@@ -301,3 +301,25 @@ fn serve_test_daemon(
     let listener = tokio::net::UnixListener::bind(socket).unwrap();
     tokio::spawn(rupd::serve(listener, daemon))
 }
+
+// Daemon setup belongs to the composition root; MCP tests use its isolated socket.
+#[cfg(test)]
+use rupd::test_support::ReplyState;
+
+#[cfg(test)]
+async fn reply_project(
+    door: bool,
+) -> (
+    tempfile::TempDir,
+    std::path::PathBuf,
+    rpc::Client,
+    std::sync::Arc<ReplyState>,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let (daemon, state) = rupd::test_support::reply_daemon(dir.path(), door);
+    let socket = dir.path().join("rpc.sock");
+    let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+    tokio::spawn(rupd::serve(listener, std::sync::Arc::new(daemon)));
+    let user = rpc::Client::connect(&socket).await.unwrap();
+    (dir, socket, user, state)
+}

@@ -80,34 +80,37 @@ impl Told {
         }
     }
 
-    /// T22: the user's comments the thread of `id` gained since the last read wait for the owner Agent.
-    /// Comments by an Agent, and on a Todo that has no owner Agent, tell nobody.
+    /// T4597: each fresh user reply tells its current owner and earlier Agent authors once.
     pub fn commented(&mut self, id: u32, thread: &[Comment]) {
         let seen = self.comments_seen.get(&id).copied();
-        let fresh: Vec<&Comment> = match seen {
-            Some(seen) => thread.iter().filter(|c| c.id > seen).collect(),
-            None => thread
-                .iter()
-                .filter(|c| c.created_at >= self.started)
-                .collect(),
-        };
+        let owner = self.todos.get(&id).and_then(|todo| agent(&todo.owner));
+        let mut recipients: Vec<String> = owner.map(str::to_owned).into_iter().collect();
+        for comment in thread {
+            if comment.author.kind == ActorKind::Agent {
+                if !recipients.contains(&comment.author.id) {
+                    recipients.push(comment.author.id.clone());
+                }
+                continue;
+            }
+            let fresh = seen.map_or(comment.created_at >= self.started, |seen| comment.id > seen);
+            if fresh && comment.author.kind == ActorKind::User {
+                let line = comment
+                    .body
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                for recipient in &recipients {
+                    self.tell(
+                        recipient,
+                        &comment.author,
+                        id,
+                        Change::Commented(line.clone()),
+                    );
+                }
+            }
+        }
         if let Some(newest) = thread.iter().map(|c| c.id).max() {
             self.comments_seen.insert(id, newest.max(seen.unwrap_or(0)));
-        }
-        let owner = self.todos.get(&id).and_then(|todo| agent(&todo.owner));
-        let Some(owner) = owner.map(str::to_owned) else {
-            return;
-        };
-        for comment in fresh
-            .into_iter()
-            .filter(|c| c.author.kind == ActorKind::User)
-        {
-            let line = comment
-                .body
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ");
-            self.tell(&owner, &comment.author, id, Change::Commented(line));
         }
     }
 
@@ -632,15 +635,70 @@ mod tests {
     }
 
     #[test]
+    fn t4597_user_replies_reach_owner_and_earlier_authors_once() {
+        for owner in [
+            None,
+            Some(Actor::user()),
+            Some(agent_actor("a")),
+            Some(agent_actor("b")),
+        ] {
+            let mut told = told_with(vec![todo(1, "Ship", owner.clone(), vec![])]);
+            let thread = vec![
+                comment(1, agent_actor("a"), "question"),
+                comment(2, agent_actor("a"), "detail"),
+                comment(3, Actor::user(), "answer"),
+            ];
+            told.commented(1, &thread);
+            told.commented(1, &thread);
+            for id in ["a", "b", "c"] {
+                let expected = id == "a" || agent(&owner) == Some(id);
+                assert_eq!(
+                    told.take(id),
+                    expected.then(|| {
+                        "[todos]\n- Ship: new comment from you: answer (rup todo get 1)".into()
+                    }),
+                    "{id}, {owner:?}"
+                );
+                assert!(told.take(id).is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn t4597_only_user_replies_to_existing_participants_are_told() {
+        let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
+        let thread = vec![
+            comment(1, Actor::user(), "before"),
+            comment(2, agent_actor("a"), "question"),
+            comment(3, Actor::daemon(), "system"),
+            comment(4, Actor::user(), "first"),
+            comment(5, agent_actor("b"), "later"),
+            comment(6, Actor::user(), "second"),
+        ];
+        told.commented(1, &thread);
+        assert_eq!(
+            told.take("a").unwrap(),
+            "[todos]\n- Ship: new comment from you: first, new comment from you: second (rup todo get 1)"
+        );
+        assert_eq!(
+            told.take("b").unwrap(),
+            "[todos]\n- Ship: new comment from you: second (rup todo get 1)"
+        );
+        assert!(told.waiting().is_empty());
+    }
+
+    #[test]
     fn t24_two_quick_user_comments_after_a_start_are_both_told() {
-        let a = Some(agent_actor("a"));
-        let mut told = told_with(vec![todo(1, "Ship", a, vec![])]);
-        let mut old = comment(1, Actor::user(), "before the start");
+        let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
+        let mut author = comment(1, agent_actor("a"), "question before start");
+        author.created_at = 0;
+        let mut old = comment(2, Actor::user(), "before the start");
         old.created_at = 0;
         let thread = vec![
+            author,
             old,
-            comment(2, Actor::user(), "first"),
-            comment(3, Actor::user(), "second"),
+            comment(3, Actor::user(), "first"),
+            comment(4, Actor::user(), "second"),
         ];
         told.commented(1, &thread);
         assert_eq!(
@@ -663,6 +721,7 @@ mod tests {
             told.take("a").unwrap(),
             "[todos]\n- Ship: new comment from you: answer (rup todo get 1)"
         );
+        assert!(told.take("b").is_none());
     }
 
     #[test]
@@ -708,9 +767,12 @@ mod tests {
     #[tokio::test]
     async fn t22_a_comment_waits_until_the_agent_is_idle() {
         let (stub, reader) = rig(vec![node("a", "working", true)]);
-        let mut told = told_with(vec![todo(1, "Ship", Some(agent_actor("a")), vec![])]);
-        *stub.thread.lock().unwrap() =
-            serde_json::to_value(vec![comment(1, Actor::user(), "go")]).unwrap();
+        let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
+        *stub.thread.lock().unwrap() = serde_json::to_value(vec![
+            comment(1, agent_actor("a"), "question"),
+            comment(2, Actor::user(), "go"),
+        ])
+        .unwrap();
         let event = Event {
             seq: None,
             actor: Actor::user(),
@@ -728,5 +790,17 @@ mod tests {
                 "body": "[todos]\n- Ship: new comment from you: go (rup todo get 1)",
             })]
         );
+        for nodes in [vec![], vec![node("a", "idle", false)]] {
+            *stub.nodes.lock().unwrap() = nodes;
+            let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
+            told.started = 0;
+            read(&mut told, &reader, &event).await;
+            assert!(!told.waiting().is_empty());
+            flush(&mut told, &reader).await;
+            assert!(told.waiting().is_empty());
+            *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
+            flush(&mut told, &reader).await;
+            assert_eq!(stub.sent.lock().unwrap().len(), 1);
+        }
     }
 }

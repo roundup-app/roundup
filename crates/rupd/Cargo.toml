@@ -5,9 +5,10 @@ license.workspace = true
 version.workspace = true
 
 [features]
-test-support = ["agents/test-support"]
+test-support = ["agents/test-support", "dep:async-trait"]
 
 [dependencies]
+async-trait = { workspace = true, optional = true }
 agents = { path = "../agents" }
 base64.workspace = true
 checkpoints = { path = "../checkpoints" }
