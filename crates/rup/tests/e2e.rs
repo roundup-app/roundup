@@ -4259,7 +4259,7 @@ async fn e2704a_context_digest_and_wake_errors_use_names() {
             .await
             .unwrap_err();
         assert_eq!(missing.code, rpc::code::NOT_FOUND);
-        assert_eq!(missing.message, "not found: an Agent that is gone");
+        assert!(missing.message.contains("reader, writer"));
     }
 
     let repeated = caller
@@ -4273,7 +4273,7 @@ async fn e2704a_context_digest_and_wake_errors_use_names() {
         .await
         .unwrap_err();
     assert_eq!(err.code, rpc::code::NOT_FOUND);
-    assert_eq!(err.message, "not found: an Agent that is gone");
+    assert!(err.message.contains("reader, writer"));
 }
 
 #[tokio::test]

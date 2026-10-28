@@ -6,12 +6,7 @@ fn is_agent(node: &RailNode) -> bool {
     node.kind == NodeKind::Agent || (node.kind == NodeKind::Workstream && node.attempt.is_some())
 }
 
-fn select(
-    nodes: &[RailNode],
-    actor: &Actor,
-    text: &str,
-    other_nodes: bool,
-) -> Result<String, RpcError> {
+fn select(nodes: &[RailNode], actor: &Actor, text: &str) -> Result<String, RpcError> {
     let explicit = text.strip_prefix("name:");
     if explicit.is_none() {
         if text == "me" {
@@ -24,10 +19,10 @@ fn select(
                 ))
             };
         }
-        if nodes
-            .iter()
-            .any(|n| n.id == text && (other_nodes || is_agent(n)))
-        {
+        if actor.kind == ActorKind::Agent && text == actor.id {
+            return Ok(actor.id.clone());
+        }
+        if nodes.iter().any(|n| n.id == text) {
             return Ok(text.to_owned());
         }
     }
@@ -84,24 +79,29 @@ fn string(
     nodes: &[RailNode],
     actor: &Actor,
     value: &mut Value,
-    other_nodes: bool,
     user: bool,
 ) -> Result<(), RpcError> {
     if let Some(text) = value.as_str() {
         if user && text == "you" {
             return Ok(());
         }
-        *value = Value::String(select(nodes, actor, text, other_nodes)?);
+        *value = Value::String(select(nodes, actor, text)?);
     }
     Ok(())
 }
 
 fn owner(nodes: &[RailNode], actor: &Actor, value: &mut Value) -> Result<(), RpcError> {
     if value.is_string() {
-        let id = select(nodes, actor, value.as_str().unwrap(), false)?;
+        let id = select(nodes, actor, value.as_str().unwrap())?;
         *value = json!({"kind":"agent", "id":id, "parent":null});
     } else if value["kind"] == "agent" {
-        string(nodes, actor, &mut value["id"], false, false)?;
+        // Explicit Actors retain opaque stored identities, including retired owners.
+        if value["id"].as_str().is_some_and(|id| {
+            id != "me" && !id.starts_with("name:") && !nodes.iter().any(|n| n.name == id)
+        }) {
+            return Ok(());
+        }
+        string(nodes, actor, &mut value["id"], false)?;
     }
     Ok(())
 }
@@ -127,24 +127,29 @@ impl Daemon {
             return Ok(params);
         }
         // Only declared reference fields are interpreted; ids of other objects and prose are untouched.
-        let mut fields: Vec<(&str, bool, bool)> = Vec::new();
+        let mut fields: Vec<(&str, bool)> = Vec::new();
         if method.starts_with("agent.")
             && !matches!(method, "agent.spawn" | "agent.extras" | "agent.wake")
         {
-            fields.push(("id", false, false));
+            fields.push(("id", false));
         }
         match method {
-            "agent.spawn" => fields.push(("parent", true, false)),
-            "rail.move" => {
-                fields.push(("id", true, false));
-                fields.push(("parent", true, false));
+            "agent.spawn" if actor.kind == ActorKind::Agent => {
+                if let Some(parent) = params.get_mut("parent") {
+                    *parent = json!(actor.id);
+                }
             }
-            "rail.rename" | "rail.remove" => fields.push(("id", true, false)),
-            "todo.hand" => fields.push(("agent", false, false)),
-            "message.send" | "message.list" => fields.push(("to", false, true)),
+            "agent.spawn" => fields.push(("parent", false)),
+            "rail.move" => {
+                fields.push(("id", false));
+                fields.push(("parent", false));
+            }
+            "rail.rename" | "rail.remove" => fields.push(("id", false)),
+            "todo.hand" => fields.push(("agent", false)),
+            "message.send" | "message.list" => fields.push(("to", true)),
             "route.set" => {
-                fields.push(("from", false, true));
-                fields.push(("to", false, true));
+                fields.push(("from", true));
+                fields.push(("to", true));
             }
             "message.progress"
             | "message.reconcileWork"
@@ -152,37 +157,30 @@ impl Daemon {
             | "message.report"
             | "message.acceptResult"
             | "message.verifyResult"
-            | "message.resolveResult" => fields.push(("id", false, false)),
-            "deliverable.list" => fields.push(("maker", false, true)),
+            | "message.resolveResult" => fields.push(("id", false)),
+            "deliverable.list" => fields.push(("maker", true)),
             "provenance.touched" if params["actor_id"] != Actor::daemon().id => {
-                fields.push(("actor_id", false, true))
+                fields.push(("actor_id", true))
             }
-            "terminal.read" if params["after"].is_null() => fields.push(("reader", false, false)),
-            "project.importDiscover" | "project.importCommit" => {
-                fields.push(("agent", false, false))
-            }
-            "workstream.rewind" | "workstream.rewindPlan" => fields.push(("agent", false, false)),
-            "reaction.create" => fields.push(("target", false, false)),
+            "terminal.read" if params["after"].is_null() => fields.push(("reader", false)),
+            "project.importDiscover" | "project.importCommit" => fields.push(("agent", false)),
+            "workstream.rewind" | "workstream.rewindPlan" => fields.push(("agent", false)),
+            "reaction.create" => fields.push(("target", false)),
             _ => {}
         }
         let has_owner = matches!(method, "todo.create" | "todo.assign" | "pad.setOwner");
         let has_list = method == "agent.wake"
             || (method == "reaction.create" && params["condition"]["kind"] == "agents");
-        if !has_owner
-            && !has_list
-            && !fields
-                .iter()
-                .any(|(field, _, _)| params[*field].is_string())
-        {
+        if !has_owner && !has_list && !fields.iter().any(|(field, _)| params[*field].is_string()) {
             return Ok(params);
         }
         let nodes = self.rail().await?;
         if has_owner && let Some(value) = params.get_mut("owner") {
             owner(&nodes, actor, value)?;
         }
-        for (field, other_nodes, user) in fields {
+        for (field, user) in fields {
             if let Some(value) = params.get_mut(field) {
-                string(&nodes, actor, value, other_nodes, user)?;
+                string(&nodes, actor, value, user)?;
             }
         }
         let list = if method == "agent.wake" {
@@ -194,7 +192,7 @@ impl Daemon {
         };
         if let Some(Value::Array(ids)) = list {
             for id in ids {
-                string(&nodes, actor, id, false, false)?;
+                string(&nodes, actor, id, false)?;
             }
         }
         Ok(params)
