@@ -308,6 +308,7 @@ export const copy = {
   selectTodo: "Select",
   moveUp: "Move up",
   moveDown: "Move down",
+  movePad: (name: string) => `Move ${name}`,
   agentsAndTerminals: "Workstreams and Agents",
   appearHereOnePerRow: "appear here, one per row,",
   nestedByIndent: "nested by indent",
