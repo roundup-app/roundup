@@ -335,23 +335,11 @@ impl Shared {
         // The caller holds `runs`: a woken observer reads the completed fold after unlock.
         self.events.observed.notify_waiters();
         let exited = matches!(observation, Observation::Exit { .. });
-        if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
-            self.timing
-                .lock()
-                .expect("measurement timing lock")
-                .end_attempt(id, &run.attempt);
-        }
         // H19: the first Steer waits for the first `SessionStart` and the first star title.
         let session_start = matches!(&observation, Observation::Signal(payload)
             if claude_code::is_session_start(payload));
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
         if session_start {
-            if !run.session_started {
-                self.timing
-                    .lock()
-                    .expect("measurement timing lock")
-                    .acknowledge_attempt(id, &run.attempt);
-            }
             if !run.session_started && run.prompt.is_some() {
                 self.refuse_unless_gate_opens(id, &run.attempt);
             }
@@ -477,12 +465,6 @@ impl Shared {
                 status_revision: run.status_revision.to_string(),
                 status,
             };
-            if !run.ended {
-                self.timing
-                    .lock()
-                    .expect("measurement timing lock")
-                    .observe_status(&event, run.session_started);
-            }
             self.bus
                 .emit(actor.clone(), EventData::AgentStatus(event.into()));
         }

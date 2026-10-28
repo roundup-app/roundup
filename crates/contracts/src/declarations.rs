@@ -31,7 +31,6 @@ macro_rules! declarations {
 
 declarations! { $;
     agents_methods["agent"] {
-        "project.measurements": () => contracts::project::Measurements, rpc_project_measurements, all(empty("Read retained Project measurements and collection coverage."));
         "terminal.open": contracts::terminal::OpenParams => contracts::terminal::Opened, rpc_terminal_open, all(schema(contracts::terminal::OpenParams,concat!(
                 "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; `workstream` is required for Agents. The answer holds its `terminal_id`.",
                 bubble_rule!()
