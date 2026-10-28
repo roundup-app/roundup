@@ -776,7 +776,9 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
         )
         .unwrap();
     }
-    // Version 42 precedes 0028-deliverable-files.sql and the Opening prompt column.
+    // Version 42 precedes 0028-deliverable-files.sql and the Door prompt/restart columns.
+    db.execute_batch("ALTER TABLE message_restarts DROP COLUMN session")
+        .unwrap();
     db.execute_batch("ALTER TABLE nodes DROP COLUMN opening_prompt")
         .unwrap();
     db.execute_batch(
