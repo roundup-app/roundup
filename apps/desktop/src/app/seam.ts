@@ -149,7 +149,11 @@ export type CapturePort = {
 export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
+export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
+
 export type App = {
+  recentProjects(): Promise<string[]>;
+  claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
   /** Initial macOS accent and later preference changes; null selects the Radix fallback. */
   onSystemAccent(listener: (accent: SystemAccent) => void): Promise<Unsubscribe>;
   capture?: CapturePort | undefined;
