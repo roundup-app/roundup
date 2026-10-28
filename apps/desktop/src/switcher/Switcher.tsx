@@ -217,6 +217,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             // Native select follows Ark's focus selection and controlled-value caret update.
             if (restoring && element.isConnected && document.activeElement === element) {
               restoring = false;
+
               if (savedSelection) element.setSelectionRange(savedSelection.start, savedSelection.end, savedSelection.direction);
             } else retain();
           });
