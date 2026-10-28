@@ -164,8 +164,8 @@ def real():
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
     evaluate("[...document.querySelectorAll('button')].find(b=>['New Workstream','Add Workstream'].includes(b.getAttribute('aria-label')??b.textContent.trim())).click()")
-    wait("Boolean(document.querySelector('.pane-screen')) || [...document.querySelectorAll('button')].some(b=>/Start supervisor/i.test(b.textContent))")
-    evaluate("[...document.querySelectorAll('button')].find(b=>/Start supervisor/i.test(b.textContent))?.click()")
+    wait("Boolean(document.querySelector('.pane-screen')) || Boolean(document.querySelector('.pane-door button'))")
+    evaluate("document.querySelector('.pane-door button')?.click()")
     wait('Boolean(document.querySelector(".pane-screen"))')
     evaluate("(async()=>{let nodes;do{nodes=await window.__u462rpc('rail.tree');if(nodes.some(n=>n.status?.label==='starting'))await new Promise(requestAnimationFrame)}while(nodes.some(n=>n.status?.label==='starting'));})()")
     send('u462-create-todo')
@@ -191,7 +191,8 @@ def real():
     evaluate('document.querySelector(".todo-history-line").click()')
     wait('document.querySelectorAll("[data-change]").length===6')
     result = evaluate(reading)
-    assert result['history'] == ['Created Door Todo', 'Wrote the body', 'Renamed to Evolved Todo', 'Wrote the body', 'Now waits on #2', 'Marked done'], result
+    history = evaluate("(async()=> (await window.__u462rpc('todo.getHistory',{id:1})).changes.map(c=>[c.after.title,c.after.done,c.after.blockers]))()")
+    assert history == [['Door Todo', False, []], ['Door Todo', False, []], ['Evolved Todo', False, []], ['Evolved Todo', False, []], ['Evolved Todo', False, [2]], ['Evolved Todo', True, [2]]], history
     save('U462', 'real-daemon-Reopened', result)
 
 
