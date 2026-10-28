@@ -193,7 +193,7 @@ export default defineConfig({
       },
     ],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
-    server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
+    server: { deps: { inline: [/solid-js/, /@excalidraw/, /@xterm\/addon-ligatures/] } },
   },
   resolve: {
     conditions: ["browser", "development|production"],
