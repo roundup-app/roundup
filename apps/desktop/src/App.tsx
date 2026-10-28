@@ -463,7 +463,7 @@ export const App = (props: {
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["⌘O", "⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -476,7 +476,7 @@ export const App = (props: {
       ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => row.keys !== "T" && taskKeys.has(row.keys))].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
 
-        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : row.what, group: "press" in row || row.keys === "⌘/" ? "navigate" as const : "create" as const, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: available && (actions.find(action => action.value === id)?.available() ?? false) };
+        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : row.what, group: "press" in row || row.keys === "⌘/" ? "navigate" as const : "create" as const, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: (available || row.keys === "⌘O") && (actions.find(action => action.value === id)?.available() ?? false) };
       }),
     ].filter(item => item.enabled);
   });
