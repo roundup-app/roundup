@@ -356,6 +356,15 @@ async fn a32_removed_tools_are_unavailable() {
         .request("rail.createWorkstream", serde_json::json!({"name":"team"}))
         .await
         .unwrap();
+    user.request("todo.create", serde_json::json!({"title":"retained task"}))
+        .await
+        .unwrap();
+    user.request(
+        "pad.create",
+        serde_json::json!({"name":"retained pad","text":"exact text"}),
+    )
+    .await
+    .unwrap();
     let mut before = Vec::new();
     for method in ["rail.tree", "todo.list", "pad.list", "message.list"] {
         before.push(user.request(method, ()).await.unwrap());
@@ -367,7 +376,7 @@ async fn a32_removed_tools_are_unavailable() {
             assert!(!tools.iter().any(|tool| tool.name == name), "{id}: {name}");
             let error = shim
                 .client
-                .call_tool(super::CallToolRequestParams::new(name))
+                .call_tool(super::CallToolRequestParams::new(name).with_arguments(serde_json::json!({"id":door["id"],"reason":"retired","without_handoff":true,"summary":"retired","keep_todos":[],"keep_pads":[]}).as_object().unwrap().clone()))
                 .await
                 .unwrap_err();
             let rmcp::service::ServiceError::McpError(error) = error else {
