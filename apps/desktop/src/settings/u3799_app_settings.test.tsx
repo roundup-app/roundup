@@ -123,7 +123,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   await showEverythingInApp();
   await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
   fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
-  fireEvent.click(document.querySelector('.shelf .todo-row-button')!.closest(".shelf-row")!.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(document.querySelector('.shelf .todo-row-button')!, { key: "Enter" });
   await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector(".drawer .close")!);
