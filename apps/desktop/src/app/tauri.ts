@@ -135,6 +135,7 @@ export const createTauriApp = (): App => {
       onState: listener => guarded(() => listen("capture-state", event => listener(v.parse(captureStateSchema, event.payload)))),
     } : undefined,
     writeClipboardText: (text) => guarded(() => writeText(text)),
+    askRemoval: question => parsedCommand(v.picklist(["this", "all", "cancel"]), "ask_removal", { question }),
     ask: ({ message, ...options }) => guarded(() => ask(message, { ...options, kind: "warning" })),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
     openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),

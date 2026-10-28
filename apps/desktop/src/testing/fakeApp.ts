@@ -3,8 +3,8 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
-import { menuProbe, probeQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, NativeOpen, SystemAccent, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
+import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, SystemAccent, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -47,6 +47,8 @@ export type FakeApp = AppSeam & {
   setSystemAccent(accent: SystemAccent): void;
   nativeOpen(request: NativeOpen): void;
   questions: NativeQuestion[];
+  removalQuestions: RemovalQuestion[];
+  answerRemoval: ((answer: RemovalAnswer) => void) | undefined;
   answerQuestion: ((answer: boolean) => void) | undefined;
   questionFailure: Error | null;
   /** Every `rpc` call so far, in call order. */
@@ -288,6 +290,7 @@ export const createFakeApp = (): FakeApp => {
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         ask: app.ask,
+        askRemoval: app.askRemoval,
         setDockBadge: app.setDockBadge,
         setWindowTitle: app.setWindowTitle,
         dragWindow: app.dragWindow,
@@ -309,6 +312,15 @@ export const createFakeApp = (): FakeApp => {
       return other;
     },
     forProject: (path) => app.of(path),
+    removalQuestions: [],
+    answerRemoval: undefined,
+    askRemoval: async question => {
+      app.removalQuestions.push(question);
+      if (app.questionFailure) throw app.questionFailure;
+      const answer = probeRemovalQuestion(question);
+      app.answerRemoval = chosen => questionProbe.answer?.(chosen);
+      return answer;
+    },
     questions: [],
     answerQuestion: undefined,
     questionFailure: null,
