@@ -105,6 +105,11 @@ it("r17_any_working_descendant_or_connected_project_keeps_the_clock_live", async
   expect(clock).toHaveBeenCalledTimes(reads + 1);
   status(app, "child", "done");
   expect(intervals.size).toBe(0);
+  reads = clock.mock.calls.length;
+  app.calls.length = 0;
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(clock).toHaveBeenCalledTimes(reads);
+  expect(app.calls).toEqual([]);
   status(app.of("/other"), "other", "working");
   expect(intervals.size).toBe(1);
   app.exitDaemon({ code: 0 }, "/other");
