@@ -29,13 +29,16 @@ impl Run {
                 format!("00000000-0000-4000-8000-{id:012x}")
             );
             let content = entry["message"]["content"].as_str().unwrap();
-            assert!(content.contains("from-name=\"rupd\""), "{content}");
+            assert!(
+                content.contains(&format!("from-name=\"{}\"", contracts::Actor::daemon().id)),
+                "{content}"
+            );
             assert!(
                 content.contains(&format!("you are now called \"{name}\" on the Rail")),
                 "{content}"
             );
             let message = self.message(*id).await;
-            assert_eq!(message["from"]["id"], "rupd");
+            assert_eq!(message["from"]["id"], contracts::Actor::daemon().id);
             assert_eq!(message["kind"], "note");
             assert_eq!(message["status"], "pending");
         }
