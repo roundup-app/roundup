@@ -9,12 +9,17 @@ cd "$(dirname "$0")/.."
 # grep that treats "no match" as success but a real error as failure.
 g() { grep "$@" || [ $? -eq 1 ]; }
 
-# Avoid words from GLOSSARY.md, lowercased; a two-word term joins with `_`.
+# Avoid words from the `Code term | User label | Avoid` tables of GLOSSARY.md, lowercased; a two-word term joins with `_`.
+# An Avoid cell ends at its first `.` or `;`; `—` marks a row with none.
 avoid_phrases() {
   local phrases
-  phrases=$(sed -n 's/^_Avoid_: \([^.;]*\).*/\1/p' GLOSSARY.md | tr ',' '\n' |
-    awk 'NF { print tolower(($2 != "" && $2 != "in") ? $1 "_" $2 : $1) }')
-  [ -n "$phrases" ] || { echo "rule 6: no _Avoid_ words found in GLOSSARY.md" >&2; return 1; }
+  [ -f GLOSSARY.md ] || { echo "rule 6: GLOSSARY.md is missing" >&2; return 1; }
+  phrases=$(awk -F'|' '
+    /^\| *Code term *\| *User label *\| *Avoid *\|/ { in_table = 1; next }
+    /^\|/ { if (in_table && $4 !~ /^[ -]*$/) print $4; next }
+    { in_table = 0 }' GLOSSARY.md | sed 's/[.;].*//' | tr ',' '\n' |
+    awk 'NF && $1 != "—" { print tolower(($2 != "" && $2 != "in") ? $1 "_" $2 : $1) }')
+  [ -n "$phrases" ] || { echo "rule 6: no Avoid words found in the GLOSSARY.md tables" >&2; return 1; }
   echo "$phrases"
 }
 

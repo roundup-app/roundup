@@ -16,6 +16,8 @@ Module: `apps/desktop` (the webview). Ids: U348, U415 (retired by U467), U420.
 
 Observer: `u348_` Vitest cases in `apps/desktop/src/` against the fake App, whose `onFileDrop` the test drives with fake timers; `agent-browser` in the U26 harness captures the targets during `over` at 1280 by 800 to `artifacts/ux/U348/`. WKWebView's native drag is the one thing the harness cannot show, so the PR that implements this asks the user for a `macOS:` line with a real file dragged over a Rail row, held, and dropped.
 
+**File drop**: The window's native drop of files, which the Tauri shell takes before the webview sees a DOM `drop`; the App seam reports it as `onFileDrop` and a Terminal pane pastes the dropped paths (U162); while one is dragged the Rail's rows and the Project tabs are its drop targets (U348).
+
 **U415 retired by U467.** The Thread's composer is gone, so no drop lands on it and no Thread failure line says `Couldn't place the drop`; a drop on a Terminal pane is U162's.
 
 **U420 a file dropped on a target lands in that target.** Found by the user's report #815 ("if they dropped we drop it into that target they selected like solo", for "an image or any file") and #1129: U348 narrows it twice and the user chose neither limit. Replaces U348's Project tab clause ("the drop opens the tab and delivers nothing") and its non-image refusal on a Workstream; U467 removed the Thread's composer and its Attachments, so a drop on a Workstream is a paste of its paths into the Door's Terminal; changes no contract, no Daemon method and no Token. Given the App with a Rail, two or more Project tabs (U179) and a drop whose `paths` are not empty, then:
