@@ -1,13 +1,17 @@
 [
   "/home/runner/work/roundup/roundup: git [\"rev-parse\", \"--verify\", \"HEAD^{commit}\"]",
-  "/home/runner/work/roundup/roundup: git [\"merge-base\", \"origin/main\", \"5a35b1066d3b3ad6b336bd5d226425459c67d100\"]",
+  "/home/runner/work/roundup/roundup: git [\"merge-base\", \"origin/main\", \"b7ffbbec885f78ef56c43210a8fd14611001e275\"]",
   "/home/runner/work/roundup/roundup: sha256sum [\"/home/runner/work/roundup/roundup/target/release/perf\"]",
   "/home/runner/work/roundup/roundup: rustc [\"-Vv\"]",
   "/home/runner/work/roundup/roundup: rustup [\"show\", \"active-toolchain\"]",
-  "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmp7EoL5m/base\", \"95a4a50d34ade54a6b02b21c99d94544007c44af\"]",
-  "/tmp/.tmp7EoL5m/base: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]",
-  "/tmp/.tmp7EoL5m/base: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]",
-  "/tmp/.tmp7EoL5m/base: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]",
-  "/home/runner/work/roundup/roundup: sha256sum [\"/tmp/.tmp7EoL5m/base/target/release/rupd\", \"/tmp/.tmp7EoL5m/base/target/release/rup\", \"/tmp/.tmp7EoL5m/base/target/release/sidecar/node\"]",
-  "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmp7EoL5m/head\", \"5a35b1066d3b3ad6b336bd5d226425459c67d100\"]"
+  "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmpKglGb0/base\", \"8c08261dcc2369aa3eccb9f5626fe8eb5e58fa0c\"]",
+  "/tmp/.tmpKglGb0/base: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]",
+  "/tmp/.tmpKglGb0/base: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]",
+  "/tmp/.tmpKglGb0/base: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]",
+  "/home/runner/work/roundup/roundup: sha256sum [\"/tmp/.tmpKglGb0/base/target/release/rupd\", \"/tmp/.tmpKglGb0/base/target/release/rup\", \"/tmp/.tmpKglGb0/base/target/release/sidecar/node\"]",
+  "/home/runner/work/roundup/roundup: git [\"worktree\", \"add\", \"--detach\", \"/tmp/.tmpKglGb0/head\", \"b7ffbbec885f78ef56c43210a8fd14611001e275\"]",
+  "/tmp/.tmpKglGb0/head: pnpm [\"install\", \"--frozen-lockfile\", \"--ignore-scripts\"]",
+  "/tmp/.tmpKglGb0/head: cargo [\"build\", \"--locked\", \"--release\", \"-p\", \"rupd\", \"-p\", \"rup\"]",
+  "/tmp/.tmpKglGb0/head: bash [\"tools/sidecar/bundle.sh\", \"target/release/sidecar\"]",
+  "/home/runner/work/roundup/roundup: sha256sum [\"/tmp/.tmpKglGb0/head/target/release/rupd\", \"/tmp/.tmpKglGb0/head/target/release/rup\", \"/tmp/.tmpKglGb0/head/target/release/sidecar/node\"]"
 ]

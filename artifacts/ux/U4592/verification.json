@@ -1,44 +1,44 @@
 {
-  "head": "157661fc776ec3c481be93aed5e81fdf69b092a9",
+  "production_head": "b7ffbbec885f78ef56c43210a8fd14611001e275",
+  "just_ready": {
+    "exit": 0
+  },
   "focused_terminal_tests": {
     "exit": 0,
-    "tests": 87
+    "tests": 88,
+    "command": "pnpm --filter desktop exec vitest run src/terminal/u3517_type.test.ts src/terminal/u102_emulator.test.ts src/terminal/s3806c_scale.test.ts src/terminal/u103_snapshot.test.tsx src/terminal/u102_text_size.test.tsx src/terminal/x14_output.test.tsx src/terminal/u3517_browser.test.ts"
   },
-  "u102_buffer_reflow": {
-    "exit": 0,
-    "tests": 10
-  },
-  "image_output_input": {
-    "exit": 0,
-    "tests": 1
-  },
-  "paired_dpr2_captures": {
+  "paired_dpr1_captures": {
     "exit": 0,
     "tests": 3,
     "observer": "observation.json"
   },
-  "browser_font_fit_input_guards": {
-    "exit": 0,
-    "tests": 6,
-    "includes": "first paired DPR-1 investigation plus three behavioral guards"
+  "related_tests": {
+    "exit": 130,
+    "reason": "Shared Tokens expanded into unrelated App suites; replaced with the complete focused terminal guards, full head remains CI responsibility."
   },
   "just_capture": {
-    "exit": 124,
-    "reason": "whole-workspace command bounded at 60 seconds; targeted existing observer completed all pairs"
-  },
-  "just_ready": {
-    "exit": 143,
-    "completed": "web lint, style, Tokens, type checks, dead code, boundaries, cycles and package type checks",
-    "unfinished": "Rust clippy and remaining ready steps; run budget"
-  },
-  "related_tests": {
-    "status": "interrupted for run budget; no complete suite pass claimed",
-    "command": "pnpm --filter desktop exec vitest related --run src/terminal/emulator.ts src/terminal/u3517_browser.test.ts src/terminal/u3517_type.test.ts"
+    "historical_exit": 124,
+    "current_observer": "Targeted existing U4592 capture path passed all three pairs."
   },
   "performance": {
-    "status": "interrupted while compiling immutable baseline; no new measurement or performance pass",
-    "command": "just perf --out artifacts/ux/U4592/perf.json",
-    "historical": "perf.json and perf.base-0.json/perf.head-0.json retain the earlier failed comparison; they are not results for this head"
+    "exit": 1,
+    "report": "perf.json",
+    "clean": false,
+    "skipped": 8,
+    "misses": [
+      {
+        "metric": "rss_extra_mb",
+        "base": 1.54296875,
+        "head": 2.1484375,
+        "ceiling": 1.7472656250000003,
+        "limit": 150.0,
+        "regressed": true,
+        "over_limit": false
+      }
+    ],
+    "cache_transfer": "Before the paired observer's head build, copied the completed base target directory to the separate head worktree with:\ncp -a --reflink=auto /tmp/.tmpKglGb0/base/target /tmp/.tmpKglGb0/head/target\nCargo still builds the immutable head through the unchanged observer command, validating fingerprints and rebuilding source inputs as needed. No executable is substituted and the report records each executable's hash.\n",
+    "note": "Both immutable source builds completed. No budget or observer was changed. Busy baseline and RSS miss require investigation/repeat; no performance pass is claimed."
   },
-  "continuation": "Finish just ready, related tests and just perf before making PR #4624 ready. No product decision or Mac observation is requested."
+  "continuation": "Repeat the unchanged performance observer at rest; diagnose reproducible RSS regression before making this draft ready. No product decision or Mac observation is requested."
 }

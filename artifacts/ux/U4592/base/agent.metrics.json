@@ -1,0 +1,63 @@
+{
+  "cellHeight": 19,
+  "cellWidth": 7,
+  "cols": 126,
+  "dpr": 1,
+  "fonts": [
+    {
+      "family": "Fira Code",
+      "status": "loaded",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "family": "Fira Code",
+      "status": "loaded",
+      "style": "normal",
+      "weight": "700"
+    }
+  ],
+  "renderer": "webgl",
+  "resources": [],
+  "rows": 44,
+  "canvas": {
+    "cssHeight": 836,
+    "cssWidth": 882,
+    "height": 836,
+    "width": 882
+  },
+  "fontStatus": "loaded",
+  "host": {
+    "height": 872,
+    "width": 904,
+    "x": 288,
+    "y": 38
+  },
+  "requested": {
+    "bold": 700,
+    "family": "\"Fira Code\", ui-monospace, \"SF Mono\", Menlo, monospace",
+    "lineHeight": 1.5,
+    "size": 11,
+    "tracking": 0.95,
+    "weight": 400
+  },
+  "smoothing": "auto",
+  "tokens": {
+    "--font-terminal": "\"Fira Code\", ui-monospace, \"SF Mono\", Menlo, monospace",
+    "--letter-terminal": "0.95px",
+    "--line-terminal": "1.5",
+    "--text-terminal": "11px",
+    "--weight-terminal": ""
+  },
+  "viewport": {
+    "height": 950,
+    "width": 1512
+  },
+  "commit": "8c08261dcc2369aa3eccb9f5626fe8eb5e58fa0c",
+  "seed": "agents-10",
+  "state": "agent",
+  "candidate": "selected",
+  "streamIdentity": "5884dab79050166104654bc5077dabfa61991c1eb36d57aee7fa3d046c281449",
+  "claudeVersion": "deterministic Claude Code-style replay; no live Claude process",
+  "platform": "linux"
+}

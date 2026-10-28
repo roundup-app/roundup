@@ -27,7 +27,9 @@ ratio are retained in each capture's `*.metrics.json`, beside the PNG and
 Check readings under `artifacts/ux/U4592/{base,head}/`.
 
 The Linux observer uses the App's normal WebGL renderer at 1512×950 and
-pixel ratio 1. The explicit `customGlyphs: true` option makes xterm draw
+pixel ratio 1 for the current U4592 pair. The earlier DPR-2 readings below are
+historical; the refreshed observer records its actual scale in each metrics file.
+The explicit `customGlyphs: true` option makes xterm draw
 box-drawing characters across the full cell instead of using the shorter font
 glyph. The capture records the renderer alongside each measurement; behavioral
 font/input/resize regressions still exercise the DOM fallback. xterm documents
@@ -71,14 +73,13 @@ physical pixel at DPR 1 or 2 (respectively 1 or 0.5 CSS px), without scaling the
 font or canvas. The paired observer records the actual DPR and advance; Linux
 measurements establish no native WKWebView observation.
 
-The DPR-1 investigation measured 7→6 CSS px cells and 126→148 Agent
-columns. The final paired DPR-2 Agent observation measures 7→6.5 CSS px cells
-and 126→136 columns at the same host width; head rows measure 22 CSS px. Joined `->`, `=>`,
-`!=` and `===` remain visible in regular and bold output with continuous table
-borders. Font size remains 11 CSS px, and the failure message stays visible.
-At DPR 2, D8 flags the unchanged Rail row baseline (1.109375) and D10
-reports D8, identically on base and head. D2/D5/D6 pass on every surface;
-no passing Check regresses. The independent critic judges all paired surfaces.
+The refreshed DPR-1 pairs measure 7→6 CSS px cells and 126→148 Agent
+columns; head rows measure 22 CSS px. Joined `->`, `=>`, `!=` and `===` and
+continuous table borders are visible at the unchanged 11 CSS px size. The failure
+message remains visible. D2/D5/D6 pass on each surface and no passing Check
+regresses. DPR-2 attempts on this host produced blank canvases and are invalid
+visual evidence; earlier DPR-2 metric readings establish no painted acceptance.
+The independent critic judges the retained DPR-1 pairs.
 
 ## Historical U4456 correction
 
