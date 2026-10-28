@@ -145,3 +145,14 @@ pub struct Deletion {
 pub struct GetDeletionParams {
     pub operation: String,
 }
+
+/// Put this creation before another Pad of the same owner, or last with null `before`.
+/// User only. A replaced creation, self target or other owner is CONFLICT;
+/// a missing name is NOT_FOUND. Text, Revision, Home and owner remain unchanged.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReorderParams {
+    pub name: String,
+    pub before: Option<String>,
+    pub expected_incarnation: String,
+}
