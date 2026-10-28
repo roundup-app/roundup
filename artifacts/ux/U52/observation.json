@@ -11,5 +11,8 @@
   "baseline_u52": "3 tests fail with origin/main FirstRun; pass with implementation",
   "capture_command": "just capture U52 started and stopped after ten seconds to avoid a second full-suite run; dedicated headless agent-browser captures are in head/",
   "native_initial": "5 S6 tests pass; full native run had 130 pass and 6 fail because fixture binaries were not built; binaries built before rerun",
-  "web_initial": "70 pass; U26 tree fixture hook times out under concurrent load; isolated run subsequently passes all 42 selected tests"
+  "web_initial": "70 pass; U26 tree fixture hook times out under concurrent load; isolated run subsequently passes all 42 selected tests",
+  "native_final": "cargo nextest run -p desktop: 137 passed, including all six S6 tests",
+  "u52_final": "five U52 webview and native-adapter tests pass on the final implementation",
+  "related_observer_failure": "The unrestricted related scan reached U166, whose 240-second test budget elapsed while native fixture builds waited on Cargo locks (one build reported 4m53s). The scan was stopped after that failure; U166 is being rerun after fixture builds completed. No test timeout was changed."
 }
