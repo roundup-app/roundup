@@ -34,7 +34,11 @@ fn g9_same_filesystem_backup_moves_the_directory() {
     let registration = std::fs::read(w.path.join(".git")).unwrap();
     let base = git.run(dir.path(), &["rev-parse", "HEAD"]).unwrap();
     let removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     let saved = removal.entries[0]
         .2
@@ -61,7 +65,11 @@ fn g9_same_filesystem_backup_moves_the_directory() {
 fn g9_success_removes_worktrees_branches_and_backups() {
     let (dir, git, w) = repository();
     let mut removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     let backup = removal.entries[0].2.as_ref().unwrap().path().to_owned();
     removal.remove(&git, dir.path()).unwrap();
@@ -213,7 +221,11 @@ fn g9_failed_copy_keeps_the_original() {
 fn g9_restore_preserves_external_writes() {
     let (dir, git, w) = repository();
     let mut removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     let backup = removal.entries[0].2.as_ref().unwrap().path().to_owned();
     removal.remove(&git, dir.path()).unwrap();
@@ -252,7 +264,11 @@ fn g9_restore_preserves_external_writes() {
 fn g9_failed_restore_keeps_recoverable_backup() {
     let (dir, git, w) = repository();
     let mut removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     let backup = removal.entries[0].2.as_ref().unwrap().path().to_owned();
     removal.remove(&git, dir.path()).unwrap();
@@ -274,7 +290,11 @@ fn g9_drop_before_git_removal_restores_prepared_moves() {
     let (dir, git, w) = repository();
     let original = identity(&w.path.join("ignored"));
     let removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     assert!(!w.path.exists());
     drop(removal);
@@ -297,8 +317,12 @@ fn g9_later_preparation_failure_restores_earlier_moves() {
         .run(dir.path(), &["worktree", "list", "--porcelain"])
         .unwrap();
     assert!(
-        git.prepare_removal(dir.path(), &[w.clone(), second.clone()])
-            .is_err()
+        git.prepare_removal(
+            dir.path(),
+            &[w.clone(), second.clone()],
+            contracts::agent::RemoveScope::This
+        )
+        .is_err()
     );
     assert_eq!(identity(&w.path.join("ignored")), before);
     assert_eq!(
@@ -312,7 +336,11 @@ fn g9_later_preparation_failure_restores_earlier_moves() {
     );
     std::fs::remove_file(second.path.join("dirty")).unwrap();
     let mut removal = git
-        .prepare_removal(dir.path(), &[w.clone(), second.clone()])
+        .prepare_removal(
+            dir.path(),
+            &[w.clone(), second.clone()],
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     removal.remove(&git, dir.path()).unwrap();
     drop(removal);
@@ -341,7 +369,11 @@ fn g9_restore_rename_never_replaces_even_an_empty_external_directory() {
 fn g9_git_repair_failure_keeps_the_ignored_backup_after_guard_drop() {
     let (dir, git, w) = repository();
     let mut removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     let backup = removal.entries[0].2.as_ref().unwrap().path().to_owned();
     let original = identity(&backup.join("worktree/ignored"));
@@ -376,7 +408,11 @@ fn g9_git_repair_failure_keeps_the_ignored_backup_after_guard_drop() {
 fn g9_removal_preserves_a_branch_advanced_after_preparation() {
     let (dir, git, w) = repository();
     let mut removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     let advanced = git
         .run(
@@ -417,7 +453,11 @@ fn g9_registration_restore_never_writes_through_an_external_symlink() {
     std::fs::remove_file(w.path.join(".git")).unwrap();
     symlink(&external, w.path.join(".git")).unwrap();
     let mut removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     removal.remove(&git, dir.path()).unwrap();
     removal.restore(&git, dir.path()).unwrap();
@@ -456,7 +496,11 @@ fn g9_preparation_timeout_restores_earlier_moves() {
         std::env::var("PATH").unwrap()
     ))
     .bounded();
-    let err = match bounded.prepare_removal(dir.path(), &[first.clone(), second.clone()]) {
+    let err = match bounded.prepare_removal(
+        dir.path(),
+        &[first.clone(), second.clone()],
+        contracts::agent::RemoveScope::This,
+    ) {
         Ok(_) => panic!("the second Worktree's status must time out"),
         Err(err) => err,
     };
@@ -473,7 +517,11 @@ fn g9_preparation_timeout_restores_earlier_moves() {
             .is_empty()
     );
     let mut retry = git
-        .prepare_removal(dir.path(), &[first.clone(), second.clone()])
+        .prepare_removal(
+            dir.path(),
+            &[first.clone(), second.clone()],
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     retry.remove(&git, dir.path()).unwrap();
     drop(retry);
@@ -492,7 +540,11 @@ fn g2542d_enrolled_removal_and_rollback_retain_the_directory() {
 
     // Rolled back: nothing moved, nothing deleted.
     let removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     assert_eq!(identity(&w.path), directory);
     removal.restore(&git, dir.path()).unwrap();
@@ -504,7 +556,11 @@ fn g2542d_enrolled_removal_and_rollback_retain_the_directory() {
 
     // Removed: the branch goes, the directory parks on its tip with the ignored file.
     let mut removal = git
-        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .prepare_removal(
+            dir.path(),
+            std::slice::from_ref(&w),
+            contracts::agent::RemoveScope::This,
+        )
         .unwrap();
     removal.remove(&git, dir.path()).unwrap();
     assert_eq!(identity(&w.path), directory);

@@ -454,7 +454,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
 
   const open = (source: "key" | "pointer") => {
     const name = pad.name;
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message)} onFailureCleared={() => props.onItemFailure(pad, null)} />, source);
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message)} onFailureCleared={() => props.onItemFailure(pad, null)} />, source, { kind: "pad", project: connected.project.path });
   };
 
   const rename = () => { if (pad.owner.kind === "user") setEditing(true); else props.onItemFailure(pad, copy.renamePadOwnership); };

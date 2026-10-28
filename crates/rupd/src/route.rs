@@ -266,7 +266,9 @@ impl Daemon {
                 .iter()
                 .any(|n| n.id == id && n.kind == contracts::agent::NodeKind::Workstream)
             {
-                return self.remove_workstream(&conn.actor, &id).await;
+                return self
+                    .remove_workstream(&conn.actor, &id, removal.scope.unwrap_or_default())
+                    .await;
             }
         }
         let outcome = if method == "agent.spawn" && params["specialist"].is_string() {

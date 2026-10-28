@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 
 export type SlideLifetime = {
@@ -54,6 +54,43 @@ export const createSlideLifetime = (elements: Accessor<readonly (HTMLElement | u
         if (animations.length === 0) complete();
         else void Promise.allSettled(animations.map(animation => animation.finished)).then(complete);
       });
+    },
+  };
+};
+
+/** U4458: Shelf and Drawer retarget the same Token-timed horizontal slide. */
+export const createMaximiseSlide = (element: Accessor<HTMLElement | undefined>, active: Accessor<boolean>) => {
+  let slide: Animation | undefined;
+  const cancel = () => { slide?.cancel(); slide = undefined; };
+
+  createEffect(() => { if (!active()) cancel(); });
+  onCleanup(cancel);
+
+  return {
+    cancel,
+    offset: () => {
+      const host = element();
+
+      return host && slide && (slide.playState === "running" || slide.playState === "paused")
+        ? new DOMMatrixReadOnly(getComputedStyle(host).transform).m41 : 0;
+    },
+    start: (displacement: number, settled: () => void = () => {}) => {
+      cancel();
+      const host = element();
+
+      if (!active() || !host?.animate) return;
+      const style = getComputedStyle(host);
+      const duration = style.getPropertyValue("--duration-drawer").trim();
+
+      const current = host.animate([
+        { transform: `translateX(${displacement}px)` },
+        { transform: "translateX(0)" },
+      ], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
+
+      slide = current;
+      const complete = () => { if (slide === current) settled(); };
+
+      void current.finished.then(complete, complete);
     },
   };
 };
