@@ -22,6 +22,7 @@ export const buildModules = (): Plugin => ({
         file: v.string(), name: v.optional(v.string()),
         imports: v.optional(v.array(v.string())), dynamicImports: v.optional(v.array(v.string())),
       })), JSON.parse(readFileSync(manifest, "utf8")));
+
       const emitted = Object.fromEntries(Object.entries(graph).map(([key, chunk]) => [key, chunk.file]));
 
       if (new Set(Object.values(emitted)).size !== Object.keys(graph).length) throw new Error("manifest filenames are not unique");
