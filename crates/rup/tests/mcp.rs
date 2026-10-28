@@ -842,7 +842,7 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
     let shim = spawn_shim(&socket, "a1").await;
     let tools = shim.client.list_all_tools().await.unwrap();
     assert!(
-        tools.iter().any(|tool| tool.name == "workstream_handoff"),
+        tools.iter().any(|tool| tool.name == "checkpoint_write"),
         "the fixture must be a Door to cover its unit methods"
     );
     for method in contracts::methods::METHODS
@@ -885,10 +885,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             "terminal.kill" => (json!({"id":"t1"}), "accepted terminal kill"),
             "terminal.resize" => (json!({"id":"t1"}), "accepted terminal resize"),
             "terminal.write" => (json!({"id":"t1"}), "accepted terminal write"),
-            "workstream.handoff" => (
-                json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
-                "handed off Workstream Door",
-            ),
             other => panic!("add an acknowledgement fixture for offered unit method {other}"),
         };
         let result = shim.call(&name, args).await;

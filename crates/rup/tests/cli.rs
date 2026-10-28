@@ -556,19 +556,6 @@ async fn i5_a_door_gets_the_door_only_commands() {
         request_of(&mut seen, "agent.digest").await,
         json!({"id": "a1"})
     );
-    let handoff = run
-        .rup(&[
-            "workstream",
-            "handoff",
-            "done",
-            "--keep-todos",
-            "1",
-            "--keep-pads",
-            "notes",
-        ])
-        .await;
-    assert_eq!(code(&handoff), 0, "{}", err(&handoff));
-    assert_eq!(out(&handoff), "handed off Workstream Door\n");
 }
 
 #[tokio::test]
@@ -1156,51 +1143,6 @@ async fn i2706a_plain_output_uses_current_rail_names() {
     assert_eq!(code(&discarded), 0, "{}", err(&discarded));
     assert_eq!(out(&discarded), "discarded Worktree of Agent Author\n");
     assert!(!Path::new(path).exists());
-    let todo = fx
-        .user
-        .request("todo.create", json!({"title":"Keep notes","home":fx.door}))
-        .await
-        .unwrap()["id"]
-        .to_string();
-    fx.user
-        .request("pad.create", json!({"name":"notes","home":fx.door}))
-        .await
-        .unwrap();
-    fx.user
-        .request(
-            "todo.move",
-            json!({"id":todo.parse::<u32>().unwrap(),"home":fx.door}),
-        )
-        .await
-        .unwrap();
-    fx.user
-        .request("pad.move", json!({"name":"notes","home":fx.door}))
-        .await
-        .unwrap();
-    for (index, name) in ["Research", "Planning"].iter().enumerate() {
-        fx.user
-            .request("rail.rename", json!({"id":fx.door,"name":name}))
-            .await
-            .unwrap();
-        let mut events = fx.begin_clear().await;
-        let handoff = run
-            .rup(&[
-                "workstream",
-                "handoff",
-                "Reviewed the work",
-                "--keep-todos",
-                &todo,
-                "--keep-pads",
-                "notes",
-            ])
-            .await;
-        assert_eq!(code(&handoff), 0, "{}", err(&handoff));
-        assert_eq!(out(&handoff), format!("handed off Workstream {name}\n"));
-        assert_eq!(
-            fx.cleared(&mut events).await,
-            u32::try_from(index).unwrap() + 2
-        );
-    }
 }
 
 #[tokio::test]
@@ -1244,49 +1186,6 @@ async fn i2706a_json_keeps_machine_results() {
     let discarded = run.rup(&["agent", "discard", &fx.child, "--json"]).await;
     assert_eq!(code(&discarded), 0, "{}", err(&discarded));
     assert_eq!(out(&discarded), "null\n");
-    let todo = fx
-        .user
-        .request("todo.create", json!({"title":"Keep notes","home":fx.door}))
-        .await
-        .unwrap()["id"]
-        .to_string();
-    fx.user
-        .request("pad.create", json!({"name":"notes","home":fx.door}))
-        .await
-        .unwrap();
-    fx.user
-        .request(
-            "todo.move",
-            json!({"id":todo.parse::<u32>().unwrap(),"home":fx.door}),
-        )
-        .await
-        .unwrap();
-    fx.user
-        .request("pad.move", json!({"name":"notes","home":fx.door}))
-        .await
-        .unwrap();
-    for name in ["Research", "Planning"] {
-        fx.user
-            .request("rail.rename", json!({"id":fx.door,"name":name}))
-            .await
-            .unwrap();
-        let mut events = fx.begin_clear().await;
-        let handoff = run
-            .rup(&[
-                "workstream",
-                "handoff",
-                "Reviewed the work",
-                "--keep-todos",
-                &todo,
-                "--keep-pads",
-                "notes",
-                "--json",
-            ])
-            .await;
-        assert_eq!(code(&handoff), 0, "{}", err(&handoff));
-        assert_eq!(out(&handoff), "null\n");
-        fx.cleared(&mut events).await;
-    }
 }
 
 fn strip_status(value: &mut Value) {

@@ -51,15 +51,6 @@ pub(super) fn agent_set_order() -> Offered {
     )
 }
 
-/// A32: a Door's answer to the clear of its Workstream.
-pub(super) fn workstream_handoff() -> Offered {
-    with_own_id::<workstream::HandoffParams>(
-        "workstream.handoff",
-        "workstream_handoff",
-        "Hand off your Workstream when the user clears it: what happened and why, and the Todos and Pads to keep. Keep only what the user's own words clearly asked for from the start.",
-    )
-}
-
 /// A35: a Door's rewind of its children, in two steps: read the plan, then rewind. The shim fills
 /// `id` with the Door's own id.
 pub(super) fn workstream_rewind_plan() -> Offered {

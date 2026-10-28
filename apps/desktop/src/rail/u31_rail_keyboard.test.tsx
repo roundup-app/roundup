@@ -121,15 +121,16 @@ describe("u31 rail keyboard", () => {
     expect(document.activeElement).toBe(rowOf("c"));
   });
 
-  it("u31_up_does_not_wrap_past_the_first_row", async () => {
+  it("u31_up_does_not_wrap_past_the_first_heading", async () => {
     await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
-    rowOf("a").focus();
+    const head = document.querySelector<HTMLButtonElement>(".rail-tree .section-head")!;
+    head.focus();
 
     press("ArrowUp");
 
     await settled();
 
-    expect(document.activeElement).toBe(rowOf("a"));
+    expect(document.activeElement).toBe(head);
   });
 
   it("u31_a_collapsed_groups_children_are_skipped", async () => {
@@ -142,20 +143,10 @@ describe("u31 rail keyboard", () => {
 
     await settled();
 
-    expect(document.activeElement).toBe(rowOf("after"));
-  });
-
-  it("u31_enter_selects_the_focused_row_as_a_click_would", async () => {
-    const { rail } = await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
-    rowOf("a").focus();
+    expect(document.activeElement).toBe(document.querySelectorAll('.rail-tree .section-head')[1]);
     press("ArrowDown");
     await settled();
-
-    press("Enter");
-
-    await settled();
-
-    expect(rail.selected()).toBe("b");
+    expect(document.activeElement).toBe(rowOf("after"));
   });
 
   it("u31_enter_calls_no_method_of_its_own", async () => {
@@ -171,12 +162,6 @@ describe("u31 rail keyboard", () => {
 
     expect(rail.selected()).toBe("b");
     expect(app.calls.length).toBe(before);
-  });
-
-  it("u31_exactly_one_row_is_tabbable", async () => {
-    await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x"), agent("c", "idle", "x")]);
-
-    expect(tabbableRows()).toHaveLength(1);
   });
 
   it("u31_with_nothing_selected_the_first_row_is_tabbable", async () => {

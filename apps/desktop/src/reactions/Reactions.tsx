@@ -1,3 +1,4 @@
+import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { EmptyState } from "../ink/EmptyState";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -106,6 +107,16 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     queueFocus(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
   };
 
+  const heads = new Map<string, HTMLElement>();
+
+  const content = createRowCollection(() => read().list.filter(reaction => {
+    const head = heads.get(reaction.id);
+
+    return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
+  }).map(reaction => ({ value: reaction.id, label: listName(reaction) })), {
+    onActivate: id => open({ kind: "detail", id }),
+  });
+
   const selected = () => {
     const current = view();
 
@@ -190,12 +201,15 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
         <button type="button" data-button="quiet" onClick={props.state.dismiss}>{copy.clear}</button>
       </ReservedLine>
       <Show when={read().list.length > 0} fallback={<Show when={!read.loading && read().failure === null}><EmptyState art="loving" {...{ title: copy.reactionsEmpty }} line={reactionCopy.emptyHelp} /></Show>}>
-        <ul class="reaction-list">
+        <ul class="reaction-list" on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
             const reaction = () => read().list.find(reaction => reaction.id === id)!;
 
             return <li>
-            <button type="button" data-button="quiet" class="reaction-row overview-entry" data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
+            <button type="button" data-button="quiet" class="reaction-row overview-entry" data-row-selected={content.selection.isSelected(id)} ref={element => {
+              heads.set(id, element); content.register(element, id);
+              onCleanup(() => { if (heads.get(id) === element) heads.delete(id); });
+            }} data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
               <span class="reaction-name">{listName(reaction())}</span>
               <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health_code)}</span>
             </button>

@@ -51,8 +51,8 @@ run("u520 the Rail is a tree", () => {
     await page.call(`() => document.querySelector('#shelf-tab-todos').click()`);
     await page.until(`() => document.querySelector('.shelf')?.hidden === true`);
 
-    // Tab enters the Rail on its first row.
-    for (let tabs = 0; tabs < 12 && !(await page.call<boolean>(`() => document.activeElement?.closest('[role=tree]') !== null`)); tabs += 1) await page.press("Tab", "Tab");
+    // U4547a adds heading Tab stops; enter the first data row after its heading.
+    for (let tabs = 0; tabs < 12 && !(await page.call<boolean>(`() => document.activeElement?.matches('[role=tree] [data-part=item], [role=tree] [data-part=branch-control]:not(.section-head)') === true`)); tabs += 1) await page.press("Tab", "Tab");
 
     await at("backend");
     await press("ArrowDown");
@@ -77,11 +77,13 @@ run("u520 the Rail is a tree", () => {
     await press("ArrowRight");
     await at("tokens");
     await press("Home");
-    await at("backend");
+    await page.until(`() => document.activeElement?.matches('.section-head') === true`);
+    expect(await page.call<boolean>(`() => document.activeElement === document.querySelector('.rail-tree .section-head')`)).toBe(true);
     await press("End");
     expect(await page.call<boolean>(`() => { const rows = [...document.querySelectorAll('[role=tree] [data-part=item], [role=tree] [data-part=branch-control]')].filter((row) => row.checkVisibility()); return rows.at(-1) === document.activeElement; }`)).toBe(true);
     await press("Home");
-    await at("backend");
+    await page.until(`() => document.activeElement?.matches('.section-head') === true`);
+    expect(await page.call<boolean>(`() => document.activeElement === document.querySelector('.rail-tree .section-head')`)).toBe(true);
     // A letter jumps to the row whose name begins with it.
     await press("m");
     await at("migrate");
