@@ -41,7 +41,7 @@ Policy: these retirements authorize deletion of the tests that prove only the re
 | A32, U350 | All former reason, request, Handoff, archive, fallback, failure/retry, fresh-Clear restart and Iteration clauses are replaced above. |
 | U427, U2694b, U3812, U422, U4322a/b, U4409a, U4461, U4275b | Clear icon/menu clauses retire; other row actions and menu-state rules stay. |
 | U2773a, Z3799d, U3530a–c, U3517d | Clear draft/panel, focus and overflow clauses retire; other editable surfaces and library ownership stay. |
-| U416, U471, U472, U2570a | Clear copy/catalogue/journey/tooltip requirements retire; start/retry, authored text and surviving failure feedback stay. |
+| U416, U471, U472, U2570a, U3512a | Clear copy/catalogue/journey/tooltip requirements retire; start/retry, authored text and surviving failure feedback stay. |
 | B55 | Entire Clear-only fresh-session isolation probe retires; B50–B52 ordinary inbox acknowledgement/deduplication stay. |
 | D9 | Only Clear completion/failure and App-bound-Clear probes retire; independent requests, connection state ordering, event delivery, cancellation and removal bounds stay. |
 | A35, N14 | Earlier-Iteration invalidation/round-trip fields retire; old Marks, selected children, original files, conversation copies and later-Rewind invalidation stay. |
@@ -64,3 +64,12 @@ Checks on main (numbered references identify existing acceptance, not a claim it
 5. `scenarios/agents.md`, **A33 the Daemon decides Kind `blocked` from an Agent's Todos**: blocked display and normal Message delivery remain independent.
 
 Specification acceptance (policy): A32/U350 define removal and named behavioral observers; the entry-path and retirement audits cover every Clear path; implementation is split into App #4653, RPC/Handoff #4654 and Iteration storage #4655, each checked with `python3 loop/orders.py check`, App first, natively blocked by this specification and then by their predecessor. This specification PR closes #4542 only; implementation Issues stay open. No library/parser/store/protocol or App seam is added by the specification.
+
+Specification validation (policy): report a failed command on #4542 with its exit code; no failed observer demonstrates acceptance.
+
+| Command | Failure | Exit |
+|---|---|---|
+| `loop/rules.sh vocab` | Public vocabulary violates rule 6 | 1 |
+| `loop/rules.sh scenario-ids` | A scenario heading breaks the id inventory | 1 |
+| `python3 loop/orders.py check <body-file>` | A dependent work order is malformed; do not file it | 1 |
+| `just ready` | A required lint, trailer or frozen-boundary check fails | 1 |
