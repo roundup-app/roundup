@@ -4,6 +4,7 @@ import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
 import { Tip } from "../ui/Tip";
 import { copy } from "../copy";
+import { queueFocus } from "../keys/focus";
 import type { OwnerGroup } from "./scope";
 
 type Entry = { id: string; name: string; children: Entry[] };
@@ -23,6 +24,9 @@ export const OwnerGroups = <T,>(props: {
   arrivals?: Accessor<readonly string[]>;
   /** A Todo filed before groups first mount starts its new group expanded. */
   unfold?: Accessor<number>;
+  /** U4457: the group a Rail Agent's Pads control asks for; it unfolds, scrolls into view and takes focus, then `onFocused` ends the request. */
+  focus?: Accessor<string | null>;
+  onFocused?: () => void;
   /** U3730: the group named like the scope (a selected Agent's own) shows no header, so the scope's name appears once. */
   bare?: Accessor<string | null>;
   /** U3770: completion effects only play in expanded groups. */
@@ -53,6 +57,20 @@ export const OwnerGroups = <T,>(props: {
   createEffect(on([props.reveal, () => props.arrivals?.() ?? []], ([reveal, arrivals]) => setClosed(kept => kept.filter(each => each !== reveal && !arrivals.includes(each)))));
 
 
+  createEffect(() => {
+    const id = props.focus?.();
+
+    if (id === null || id === undefined || !shown().some(group => group.id === id)) return;
+    setClosed(kept => kept.filter(each => each !== id));
+    queueFocus(() => {
+      const branch = document.querySelector<HTMLElement>(`[data-shelf-group="${CSS.escape(id)}"]`);
+      const target = branch?.querySelector<HTMLElement>(".shelf-group-head:not([hidden]) .shelf-group-control") ?? branch?.querySelector<HTMLElement>("[role=treeitem] button, button");
+
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "nearest" });
+    });
+    props.onFocused?.();
+  });
 
   return <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
     onExpandedChange={details => {
