@@ -338,3 +338,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |
 | Native open (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`) | same | — |
 | Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | — (not a name: same-name recreation) |
+
+### First-run facts
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Recent Projects (`recent_projects`, `recentProjects`) | Recent folders | — |
+| Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`, `claudeBinarySchema`) | claude | — |

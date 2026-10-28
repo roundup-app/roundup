@@ -1,5 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { nativeOpenSchema, systemAccentSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
+import { claudeBinarySchema, nativeOpenSchema, systemAccentSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -136,6 +136,8 @@ export const createTauriApp = (): App => {
     } : undefined,
     writeClipboardText: (text) => guarded(() => writeText(text)),
     ask: ({ message, ...options }) => guarded(() => ask(message, { ...options, kind: "warning" })),
+    recentProjects: () => parsedCommand(v.array(v.string()), "recent_projects", {}),
+    claudeBinary: () => parsedCommand(v.nullable(claudeBinarySchema), "claude_binary", {}),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
     openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
     closeProject: async (path) => {

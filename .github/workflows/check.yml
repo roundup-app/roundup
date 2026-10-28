@@ -49,6 +49,21 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: B4522 migration filename boundaries
+        run: |
+          guard=tools/migrations/guard.py
+          if [ -n "$BASE" ]; then
+            base=$(git rev-parse --verify "$BASE^{commit}")
+            # Once installed, a PR cannot expand its own duplicate exceptions.
+            if git cat-file -e "$base:tools/migrations/guard.py" 2>/dev/null; then
+              trusted=$(mktemp -d)
+              git show "$base:tools/migrations/guard.py" > "$trusted/guard.py"
+              git show "$base:tools/migrations/recorded.json" > "$trusted/recorded.json"
+              guard="$trusted/guard.py"
+            fi
+          fi
+          python3 "$guard" "$BASE"
+          python3 tools/migrations/guard.test.py
       - name: C9 artifact checker boundaries
         run: python3 tools/release/check.test.py
       # N7: every launch reference has an entry; the `mac` lane, which runs the rest of N7, skips App-only PRs.
