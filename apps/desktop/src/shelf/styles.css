@@ -188,12 +188,12 @@
 .shelf-controls,
 .drawer-controls {
   position: absolute;
-  top: var(--space-1);
   right: var(--space-4);
   display: flex;
   gap: var(--space-2);
   z-index: 1;
 }
+.shelf-controls { top: var(--space-1); }
 .shelf-bar { max-width: calc(100% - var(--space-6) * 2 - var(--space-4)); box-sizing: border-box; }
 .shelf-bar:has(.shelf-triage) { max-width: calc(100% - var(--space-6) * 2 - var(--space-2)); }
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }

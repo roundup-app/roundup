@@ -11,7 +11,7 @@ import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { DRAWER_EASING } from "./drawer";
-import { createSlideLifetime } from "../ui/slideLifetime";
+import { createMaximiseSlide, createSlideLifetime } from "../ui/slideLifetime";
 import { setDrawerSliding } from "./sliding";
 import type { ActivationSource } from "../keys/registry";
 import type { DrawerContent, DrawerState } from "./drawer";
@@ -23,23 +23,18 @@ import type { DrawerContent, DrawerState } from "./drawer";
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
   const [panel, setPanel] = createSignal<HTMLElement>();
-  const frame = createShelfFrame(() => props.drawer.surface()?.project ?? null, props.reducedMotion, () => {}, false, () => props.drawer.surface()?.kind ?? "drawer");
-  let maximiseSlide: Animation | undefined;
+  const frame = createShelfFrame(() => props.drawer.surface()?.project ?? null, props.reducedMotion, undefined, undefined, () => props.drawer.surface()?.kind ?? "drawer");
+  const maximiseSlide = createMaximiseSlide(panel, () => props.drawer.content() !== null && !props.reducedMotion());
 
   const toggleMaximise = (source: ActivationSource) => {
     const host = panel();
     const left = host?.getBoundingClientRect().left;
-    maximiseSlide?.cancel();
+    maximiseSlide.cancel();
     frame.toggleMaximise(source);
 
-    if (!host || left === undefined || source === "key" || props.reducedMotion() || !host.animate) return;
-    const style = getComputedStyle(host);
-    const duration = style.getPropertyValue("--duration-drawer").trim();
-    maximiseSlide = host.animate([{ transform: `translateX(${left - host.getBoundingClientRect().left}px)` }, { transform: "translateX(0)" }], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
+    if (host && left !== undefined && source !== "key") maximiseSlide.start(left - host.getBoundingClientRect().left);
   };
 
-  createEffect(() => { if (!isOpen() || props.reducedMotion()) maximiseSlide?.cancel(); });
-  onCleanup(() => maximiseSlide?.cancel());
   const [edgeHovered, setEdgeHovered] = createSignal(false);
   const isOpen = () => props.drawer.content() !== null;
   const instant = () => props.reducedMotion() || props.drawer.source() === "key";
