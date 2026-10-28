@@ -46,3 +46,7 @@ The header, DV5, DV6 and requested rendered project-pages observer passed on fir
 `repair-4712-ready.log.gz` is the concurrent required-check output snapshot. `just ready` had not finished at that snapshot; it is not a green-check record. Keep #4712 and #4451 open. Continue #4716, complete the requested-path repairs, rerun related tests and `just ready`, then obtain the successful complete 46-file log under normal load. The isolated header success remains valid only for its recorded execution SHA.
 
 Final interruption: Vitest exit 130; pnpm/App-data wrapper exit 1; no final JSON reporter output. The concurrent `just ready` was terminated unfinished with SIGTERM at the same Builder budget. These logs preserve failures and progress, never an inferred pass. The PR remains draft for a fix run; required checks and remaining requested observers still need completion. No native Mac observation or unresolved product decision blocks the continuation.
+
+## Integrated fix-run handoff
+
+PR #4716 is now ready with auto-merge armed. Merge `0414c853e` preserves this source/evidence set; additional observations are in `repair-4712-run-407875.md`. #4712 remains open for remaining repairs and complete workload evidence. Earlier draft statements describe the earlier handoff.
