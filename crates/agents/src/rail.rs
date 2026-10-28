@@ -6,9 +6,9 @@ mod closed;
 mod owner_reads;
 mod settings;
 use owner_reads::OwnerReads;
+mod placement;
 mod queue;
 mod removal;
-mod placement;
 mod view;
 use view::load_nodes;
 
@@ -328,7 +328,6 @@ impl Rail {
         self.node(id)
     }
 
-    /// Put `id` at `index` among the children of `parent`, closing the gap it leaves behind.
     pub fn allocate_attempt(&mut self, id: &str) -> Result<String, RpcError> {
         let node = self.node(id)?;
         let previous = node

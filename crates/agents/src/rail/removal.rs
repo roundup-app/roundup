@@ -280,9 +280,7 @@ impl Rail {
         let reset = db.set_db_config(config, enabled);
         reset.map_err(sql)?;
         applied.map_err(|_| {
-            RpcError::conflict(format!(
-                "Can't undo this removal because retained work is unavailable. The deletion is retained; undo the later removal first."
-            ))
+            RpcError::conflict("Can't undo this removal because retained work is unavailable. The deletion is retained; undo the later removal first.")
         })?;
         let mut affected = Vec::new();
         if let Some(placement) = placement {
