@@ -1,7 +1,7 @@
 import { copy } from "../../copy";
 import { useConnectedProject } from "../../state/connectedProject";
 import type { RailMenuModel } from "./model";
-import { goesLine, goingNames, staysLine, removeAllLine } from "./removal";
+import { removalQuestion } from "./removal";
 import { NativeAlert } from "../../ui/NativeAlert";
 
 /** Consequences are read before the native question is shown. */
@@ -13,14 +13,14 @@ export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: strin
     const kept = current();
     const removal = kept?.removal;
 
-    const summary = {
-      title: kept ? kept.action === "stop" ? copy.stopQuestion(kept.node.name) : (kept.node.kind === "workstream" || kept.exit !== null) ? copy.removeQuestion(kept.node.name) : copy.stopAndRemoveQuestion(kept.node.name) : "",
-      message: removal ? [...(kept?.losses ?? []), goesLine(removal), ...goingNames(removal), staysLine(removal), ...removal.stays.agents.map(stay => copy.toastLine(stay.name, stay.reason)), removeAllLine(removal), ...(removeAllLine(removal) ? removal.stays.agents.map(stay => copy.toastLine(stay.name, stay.reason)) : []), ...(kept?.allLosses ?? [])].filter(Boolean).join("\n") : (kept?.losses ?? []).join("\n"),
-    };
+    if (kept?.action === "remove" && removal) return removalQuestion(removal, kept.node.name);
 
-    return kept?.action === "remove" && kept.node.kind === "workstream"
-      ? { ...summary, thisLabel: copy.removeThis, allLabel: copy.removeAll, cancelLabel: copy.cancel }
-      : { ...summary, okLabel: kept?.action === "stop" ? copy.stop : copy.remove, cancelLabel: copy.keep };
+    return {
+      title: kept ? kept.action === "stop" ? copy.stopQuestion(kept.node.name) : (kept.node.kind === "workstream" || kept.exit !== null) ? copy.removeQuestion(kept.node.name) : copy.stopAndRemoveQuestion(kept.node.name) : "",
+      message: (kept?.losses ?? []).join("\n"),
+      okLabel: kept?.action === "stop" ? copy.stop : copy.remove,
+      cancelLabel: copy.keep,
+    };
   };
 
   let target: HTMLElement | null = null;
