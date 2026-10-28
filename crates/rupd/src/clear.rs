@@ -142,7 +142,7 @@ impl Clears {
 /// A failed clear and, once the Handoff existed, where a retry goes on.
 struct Failure {
     err: Box<RpcError>,
-    saved: Option<Saved>,
+    saved: Option<Box<Saved>>,
 }
 
 impl From<RpcError> for Failure {
@@ -252,7 +252,7 @@ impl Daemon {
             }
             Err(Failure { err, saved }) => {
                 match saved {
-                    Some(saved) => stages.insert(p.id.clone(), Stage::Interrupted(Box::new(saved))),
+                    Some(saved) => stages.insert(p.id.clone(), Stage::Interrupted(saved)),
                     None => stages.remove(&p.id),
                 };
                 drop(stages);
@@ -308,7 +308,7 @@ impl Daemon {
             Ok(()) => Ok(()),
             Err(err) => Err(Failure {
                 err: Box::new(err),
-                saved: Some(saved),
+                saved: Some(Box::new(saved)),
             }),
         }
     }
