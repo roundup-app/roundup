@@ -161,19 +161,22 @@ it.each(["v", "a2"])("u4457_reveals_first_home_group_through_folded_ancestors %s
 });
 
 it("u2744a_pads_stay_in_their_project", async () => {
-  const { app } = renderTabs({ p: TREE, q: TREE });
+  const { app } = renderTabs({ p: TREE, q: [agent("q1", "working", "x")] });
 
   for (const name of ["p", "q"]) {
     const daemon = app.of(path(name));
-    Object.assign(daemon.handlers, padHandlers({ pads: [padOf(`${name}-notes`, by("a1"))], history: [] }, data => daemon.emit(event(data))));
+    Object.assign(daemon.handlers, padHandlers({ pads: [padOf(`${name}-notes`, by(name === "p" ? "a1" : "q1"))], history: [] }, data => daemon.emit(event(data))));
   }
 
+  await screen.findByRole("tablist", { name: "Projects" });
+  fireEvent.click(tab("p"));
+  await waitFor(() => expect(tab("p").getAttribute("aria-selected")).toBe("true"));
   await waitFor(() => expect(control("a1")).not.toBeNull());
   fireEvent.click(control("a1")!);
   await waitFor(() => expect(document.querySelector('.pads-tab [data-pad="p-notes"]')).toBeTruthy());
   fireEvent.click(tab("q"));
-  await waitFor(() => expect(control("a1")).not.toBeNull());
-  fireEvent.click(control("a1")!);
+  await waitFor(() => expect(control("q1")).not.toBeNull());
+  fireEvent.click(control("q1")!);
   await waitFor(() => expect([...document.querySelectorAll('.pads-tab [data-pad]')].map(row => row.getAttribute("data-pad"))).toEqual(["q-notes"]));
   fireEvent.click(tab("p"));
   await waitFor(() => expect([...document.querySelectorAll('.pads-tab [data-pad]')].map(row => row.getAttribute("data-pad"))).toEqual(["p-notes"]));

@@ -27,7 +27,7 @@ it("u3732_drag_to_a_group_calls_set_owner_once", async () => {
   await move(lane, from);
   await lane.browser("mouse", "down");
   await move(lane, { x: from.x, y: from.y - 6 });
-  await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="agent-3"]')`);
+  await lane.until(`!!document.querySelector('[data-dnd-placeholder]')`);
   await move(lane, await centre(lane, '.pads-tab [data-shelf-group="agent-3"] .shelf-group-head'));
   await lane.until(`!!document.querySelector('.pads-tab [data-shelf-group="agent-3"][data-drop-target]')`);
   await lane.browser("mouse", "up");
