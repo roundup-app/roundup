@@ -70,17 +70,27 @@ async fn a32_message_list_spans_iterations() {
         // SessionStart also emits Idle (claude_code::hook_status), before the first prompt
         // finishes. Observe that prompt at the model before accepting Idle as its completion.
         until("the Door's startup turn reached the model", || {
-            model.journal().iter().any(|entry| {
-                entry["body"]["tools"]
-                    .as_array()
-                    .is_some_and(|tools| !tools.is_empty())
-                    && entry["body"]["messages"]
+            model
+                .journal()
+                .iter()
+                .any(|entry| {
+                    entry["body"]["tools"]
                         .as_array()
-                        .is_some_and(|messages| messages.iter().any(|m| m["role"] == "user"
-                            && m["content"].as_str().is_some_and(|text|
-                                text.contains("Follow this instruction: What is this Workstream for?"))))
-            }).then_some(())
-        }).await;
+                        .is_some_and(|tools| !tools.is_empty())
+                        && entry["body"]["messages"]
+                            .as_array()
+                            .is_some_and(|messages| {
+                                messages.iter().any(|m| {
+                                    m["role"] == "user"
+                                        && m["content"].as_str().is_some_and(|text| {
+                                            text.contains("What is this Workstream for?")
+                                        })
+                                })
+                            })
+                })
+                .then_some(())
+        })
+        .await;
         idle(&client, &door).await;
         client
             .request(
@@ -145,7 +155,7 @@ async fn a32_message_list_spans_iterations() {
             .as_array()
             .unwrap()
             .iter()
-            .filter(|m| !m["body"].as_str().unwrap().starts_with("[digest]"))
+            .filter(|m| m["from"]["kind"] == "user")
             .map(|m| {
                 (
                     m["body"].as_str().unwrap().to_owned(),
@@ -414,7 +424,7 @@ async fn a32_the_door_restarts_fresh_from_the_handoff_and_the_iteration_advances
             && entry["body"]["messages"].as_array().is_some_and(|messages|
                 messages.iter().any(|message| message["role"] == "user"
                     && message["content"].as_str().is_some_and(|text|
-                        text.contains("Follow this instruction: Build the login page.")
+                        text.contains("Build the login page.")
                         && text.contains("archived in the Pad archive-1")))))
             .unwrap_or_else(|| panic!("real Door receives the Handoff and archive pointer: {journal:#?}"));
         // A resumed conversation would retain the earlier Clear and child-spawn turns.

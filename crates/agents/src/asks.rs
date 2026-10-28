@@ -284,6 +284,29 @@ impl Intake {
         });
     }
 
+    /// A42, A4452d: type the part's words byte for byte into the new Door once it takes input.
+    async fn type_part(&self, workstream: &str, text: &str) -> Result<(), RpcError> {
+        let deadline = tokio::time::Instant::now() + START_DOOR_ACK_BOUND;
+        loop {
+            let observed = self.agents.shared.events.observed.notified();
+            match self
+                .agents
+                .shared
+                .prompt(workstream, text, None, true, None)
+                .await
+                .map_err(PromptError::from)
+            {
+                Ok(()) => return Ok(()),
+                Err(PromptError::Busy { .. }) if tokio::time::Instant::now() < deadline => {
+                    tokio::time::timeout_at(deadline, observed)
+                        .await
+                        .map_err(|_| RpcError::not_accepted("prompt not accepted"))?;
+                }
+                Err(_) => return Err(RpcError::not_accepted("prompt not accepted")),
+            }
+        }
+    }
+
     async fn new_part(&self, ctx: &Ctx, id: &str, ord: usize) -> Result<(), RpcError> {
         let mut part = self.store().get(id)?.parts[ord].clone();
         let Place::New { title, .. } = &part.placement else {
@@ -335,7 +358,10 @@ impl Intake {
                             .first_steer_completion(&workstream, &attempt)
                             .await
                         {
-                            Ok(FirstSteerCompletion::Submitted) => Ok(()),
+                            Ok(FirstSteerCompletion::Submitted) => {
+                                // A4452d: the Order went to the inbox; the user's words are typed.
+                                self.type_part(&workstream, &part.text).await
+                            }
                             _ => Err(RpcError::not_accepted("prompt not accepted")),
                         }
                     }
