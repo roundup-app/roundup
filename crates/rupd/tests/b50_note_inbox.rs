@@ -968,11 +968,27 @@ impl Run {
 
     async fn assert_rename_delivery(&mut self, ids: &[u32], names: &[&str]) {
         let expected: Vec<_> = ids.iter().map(|id| format!("rup-{id}")).collect();
+        // A Door's start Context (A4452a) is an entry ahead of the rename notes.
+        let renames = |run: &Self| -> Vec<String> {
+            run.entries()
+                .into_iter()
+                .filter(|entry| expected.contains(entry))
+                .collect()
+        };
         until("ordered rename entries", async || {
-            (self.entries() == expected).then_some(())
+            (renames(self) == expected).then_some(())
         })
         .await;
-        for ((entry, id), name) in self.received().iter().zip(ids).zip(names) {
+        let received: Vec<_> = self
+            .received()
+            .into_iter()
+            .filter(|entry| {
+                ids.iter().any(|id| {
+                    entry["msg_id"] == format!("00000000-0000-4000-8000-{id:012x}")
+                })
+            })
+            .collect();
+        for ((entry, id), name) in received.iter().zip(ids).zip(names) {
             assert_eq!(
                 entry["msg_id"],
                 format!("00000000-0000-4000-8000-{id:012x}")
@@ -1003,7 +1019,7 @@ impl Run {
         for id in ids {
             assert_eq!(delivered.iter().filter(|seen| *seen == id).count(), 1);
         }
-        assert_eq!(self.entries(), expected);
+        assert_eq!(renames(self), expected);
         assert_eq!(self.typed().await, 0);
     }
 }
