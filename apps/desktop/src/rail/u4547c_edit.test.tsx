@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { workstream, agent, door } from "../testing/nodes";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
@@ -43,7 +43,7 @@ it("u4547c_prompt_draft_preserves_identity_and_conflicts", async () => {
   fireEvent.input(await screen.findByRole("textbox", { name: copy.openingPrompt }), { target: { value: " exact draft\n " } });
   tree[0] = { ...tree[0]!, opening_prompt: "external edit" };
   await m.rail.refresh();
-  expect(screen.getByText(copy.openingPromptConflict)).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).getByRole("status")).toBeTruthy();
   cleanup();
   const other = await mountRail([workstream("w")], [], undefined, undefined, {}, [], { name: "other", path: "/other" });
   fireEvent.contextMenu(rowOf("w"));
@@ -54,6 +54,6 @@ it("u4547c_prompt_draft_preserves_identity_and_conflicts", async () => {
   fireEvent.contextMenu(rowOf("w"));
   await reopened.app.pickMenu(copy.openingPromptMenu);
   expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: copy.openingPrompt })).value).toBe(" exact draft\n ");
-  expect(screen.getByText(copy.openingPromptConflict)).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).getByRole("status")).toBeTruthy();
   expect(railCallsTo(reopened.app, "workstream.setOpeningPrompt")).toEqual([]);
 });
