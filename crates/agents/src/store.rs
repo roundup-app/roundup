@@ -112,6 +112,8 @@ impl Agents {
                 terminals,
                 clock: Arc::new(now_ms),
                 rail_view: rail_view::State {
+                    #[cfg(feature = "test-support")]
+                    statuses: Default::default(),
                     opened: now_ms(),
                     launcher: launcher.clone(),
                 },
@@ -530,6 +532,8 @@ pub(super) mod tests {
             terminals,
             clock,
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",
@@ -586,6 +590,8 @@ pub(super) mod tests {
             },
             clock: Arc::new(|| 0),
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",
@@ -678,6 +684,8 @@ pub(super) mod tests {
             },
             clock: Arc::new(|| 0),
             rail_view: rail_view::State {
+                #[cfg(feature = "test-support")]
+                statuses: Default::default(),
                 opened: 0,
                 launcher: crate::Launcher::new(
                     "claude",

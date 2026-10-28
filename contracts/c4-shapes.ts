@@ -280,19 +280,28 @@ type After = {
   "workstream/WorkstreamClearedEvent": import("./generated/workstream/WorkstreamClearedEvent").WorkstreamClearedEvent;
 };
 
+// U4593 widens only owner inputs; stored Actors and every other baseline field stay exact.
+type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string : T[K] };
+type SelectorInputs = "todo/AssignParams" | "todo/CreateParams" | "pad/SetOwnerParams";
+type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]> : Before[K] };
+type SelectorMethods = "todo.assign" | "todo.create" | "pad.setOwner";
+type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
+  ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
+  : BeforeRpcMethods[K] };
+
 // Both directions retain optionality, nulls, numeric types, tags and flattened fields.
 type Assert<T extends true> = T;
 
 export type C4ExportedContractsMatchExistingContracts = Assert<
-  [After] extends [Before] ? ([Before] extends [After] ? true : false) : false
+  [After] extends [BeforeSelectors] ? ([BeforeSelectors] extends [After] ? true : false) : false
 >;
 
 
 type ExistingMethods = Pick<import("./generated/methods").RpcMethods, keyof BeforeRpcMethods>;
 
 export type C4MethodContracts = Assert<
-  [ExistingMethods] extends [BeforeRpcMethods]
-    ? ([BeforeRpcMethods] extends [ExistingMethods] ? true : false) : false
+  [ExistingMethods] extends [BeforeMethodSelectors]
+    ? ([BeforeMethodSelectors] extends [ExistingMethods] ? true : false) : false
 >;
 
 // Invalid callers must stay invalid, independently of the bidirectional comparison.

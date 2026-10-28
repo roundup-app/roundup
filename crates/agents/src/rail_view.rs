@@ -35,6 +35,8 @@ pub(super) fn agent_lock<T>(mutex: &Mutex<T>) -> std::sync::LockResult<MutexGuar
 }
 
 pub(super) struct State {
+    #[cfg(feature = "test-support")]
+    pub(super) statuses: Mutex<HashMap<String, Status>>,
     /// Since when an Agent without a Terminal has been `done`.
     pub(super) opened: i64,
     pub(super) launcher: Launcher,
@@ -146,6 +148,11 @@ impl Shared {
             since: self.rail_view.opened,
             finished: finished.to_string(),
         }));
+        #[cfg(feature = "test-support")]
+        if let Some(status) = self.rail_view.statuses.lock().unwrap().get(&node.id) {
+            node.status = Some(status.clone());
+            node.status_revision = Some("1".into());
+        }
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.ended,

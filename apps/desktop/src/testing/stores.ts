@@ -122,6 +122,7 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
     return null;
   },
   "todo.create": ({ title, body, blockers, owner }) => {
+    if (typeof owner === "string") throw new RpcError(INVALID_PARAMS, "owner selectors require the Daemon");
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
     const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: owner ?? null, refs: [], estimate_minutes: null };
     store.todos = withBlocked([...store.todos, created]);
@@ -146,8 +147,11 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
   },
   "todo.setBlockers": ({ id, blockers }) =>
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, blockers } : todo)), actor()),
-  "todo.assign": ({ id, owner }) =>
-    changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, owner } : todo)), actor()),
+  "todo.assign": ({ id, owner }) => {
+    if (typeof owner === "string") throw new RpcError(INVALID_PARAMS, "owner selectors require the Daemon");
+
+    return changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, owner } : todo)), actor());
+  },
   "todo.move": ({ id, home }) =>
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, home } : todo)), actor()),
   "todo.reorder": ({ id, before }) => {
@@ -348,7 +352,11 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
     },
     "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
     "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
-    "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
+    "pad.setOwner": ({ name, owner }) => {
+      if (typeof owner === "string") throw new RpcError(INVALID_PARAMS, "owner selectors require the Daemon");
+
+      return changePad(store, announce, name, (pad) => ({ ...pad, owner }));
+    },
     "pad.delete": (p: DeleteParams) => {
       if (p.operation != null && (p.operation.length === 0 || p.operation.length > 256)) throw new RpcError(INVALID_PARAMS, "invalid deletion operation");
 

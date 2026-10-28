@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::common::Actor;
+use crate::common::{Actor, Owner};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Todo {
@@ -45,8 +45,8 @@ pub struct CreateParams {
     pub body: Option<String>,
     pub blockers: Option<Vec<u32>>,
     /// Omitted or `None` is Unassigned.
-    #[specta(optional, type = Actor)]
-    pub owner: Option<Actor>,
+    #[specta(optional, type = Owner)]
+    pub owner: Option<Owner>,
     /// T29: whole minutes, 1 to 1440; omitted or `None` is no estimate.
     #[specta(optional, type = u32)]
     pub estimate_minutes: Option<u32>,
@@ -57,7 +57,7 @@ pub struct CreateParams {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct AssignParams {
     pub id: u32,
-    pub owner: Option<Actor>,
+    pub owner: Option<Owner>,
     #[specta(optional, type = u32)]
     pub expected_change: Option<u32>,
 }
