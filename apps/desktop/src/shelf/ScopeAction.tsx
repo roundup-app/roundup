@@ -13,6 +13,6 @@ export const ScopeAction = (props: { tab: string; children: JSX.Element }) => {
   const tabs = useTabsContext();
 
   return <Show when={host.scope()}>
-    {(mount) => <Portal mount={mount()}><span class="shelf-scope-action" hidden={tabs().value !== props.tab}>{props.children}</span></Portal>}
+    {(mount) => <Portal mount={mount()} ref={(element) => element.classList.add("shelf-scope-host")}><span class="shelf-scope-action" hidden={tabs().value !== props.tab}>{props.children}</span></Portal>}
   </Show>;
 };
