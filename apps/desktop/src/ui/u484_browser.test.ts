@@ -207,7 +207,7 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("wait", "--fn", "!document.querySelector('.rail-row[data-selected=true]')");
   await browser("click", "#shelf-tab-pads");
   await browser("wait", "--fn", "!!document.querySelector('.pads-tab [data-shelf-group=me] [data-part=branch-control]')");
-  await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .pad-grip').length >= 2");
+  await browser("wait", "--fn", "document.querySelectorAll('.pads-tab .sortable-handle').length >= 2");
   const names = await read<string[]>("[...document.querySelectorAll('.pads-tab [data-shelf-group=me] [data-pad]')].map(row=>row.dataset.pad)");
   const first = names[0]!;
   const second = names[1]!;
