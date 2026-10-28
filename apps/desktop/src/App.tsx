@@ -530,8 +530,6 @@ export const App = (props: {
   const [projectPicker, setProjectPicker] = createSignal(false);
   const [projectQuery, setProjectQuery] = createSignal("");
   const [projectHighlight, setProjectHighlight] = createSignal<string | null>(null);
-  const [navigationHost, setNavigationHost] = createSignal<HTMLDivElement>();
-  let closeAppSettings: (() => void) | undefined;
   let projectPanel: HTMLElement | undefined;
   const projectMatches = () => projects.tabs().filter(tab => tab.project.name.toLowerCase().includes(projectQuery().toLowerCase())).map(tab => ({ value: tab.project.path, label: tab.project.name }));
   createEffect(() => { if (!projectMatches().some(item => item.value === projectHighlight())) setProjectHighlight(projectMatches()[0]?.value ?? null); });
@@ -629,7 +627,6 @@ export const App = (props: {
             }}</For>
           </div></Show>
           <div class="centre-frame">
-          <div class="centre-navigation-host" ref={setNavigationHost} />
           <div class="settings-center">
           <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} onRetry={projects.readFailure() ? () => void projects.reload() : undefined} />}>
@@ -642,14 +639,14 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane viewLabel={id => views.find(([view]) => view === id)?.[1]} navigationHost={navigationHost()} requested={settingsOpen() ? copy.settings : open.settingsView.open() ? (open.settingsView.page() === "import-work" ? copy.importTitle : copy.projectSettings) : null} backDisabled={!settingsOpen() && open.settingsView.open() && open.settingsView.page() === "import-work" && open.importing.pending()} backRequested={() => { closeAppSettings?.(); open.importing.cancel(); open.settingsView.close(false); }} observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
+                    <Pane observeTerminal={props.observeTerminal ? id => props.observeTerminal?.(open.project.path, id) : undefined} notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} retryNotice={open.rail.failure() !== null ? () => void open.rail.refresh({ terminals: true }) : undefined} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar viewLabel={id => views.find(([view]) => view === id)?.[1]} />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
-                    <ProjectSettingsView compact />
+                    <ProjectSettingsView />
                     </div>
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <ResourceStrip compact returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
+                    <ResourceStrip returnFocus={() => { const id = open.rail.nodes.find(node => node.id === open.rail.selected())?.terminal_id;
 
                       if (id) screens()?.emulatorFor(id).focus();
                       else captureActions(document.activeElement).find(action => action.value === "action:chord:⌘/")?.run(); }} />
@@ -659,7 +656,7 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <AppSettings closeRef={close => { closeAppSettings = close; }} app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
           </div>
           </div>
           </div>
