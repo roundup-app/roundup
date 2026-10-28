@@ -189,13 +189,13 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     ], x, y));
   };
 
-  const openTodo = (todo: Todo, source: ActivationSource) => connected.drawer.open(() => <TodoDrawer id={todo.id} todos={props.pads.todos} />, source);
+  const openTodo = (todo: Todo, source: ActivationSource) => connected.drawer.open(() => <TodoDrawer id={todo.id} todos={props.pads.todos} />, source, { kind: "todo", project: connected.project.path });
 
   const openPad = (name: string, source: ActivationSource) => {
     const item = `pad:${props.pads.owned().find((pad) => pad.name === name)?.incarnation}`;
 
     props.pads.failure.acknowledge(item);
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={(message) => props.pads.failure.show(message, item)} onAcknowledged={(incarnation) => props.pads.failure.acknowledge(`pad:${incarnation}`)} />, source);
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={(message) => props.pads.failure.show(message, item)} onAcknowledged={(incarnation) => props.pads.failure.acknowledge(`pad:${incarnation}`)} />, source, { kind: "pad", project: connected.project.path });
   };
 
   const padMenu = (name: string, event: MouseEvent) => {
@@ -321,7 +321,7 @@ const OwnedPad = (props: {
 
   const open = () => {
     const name = props.pad.name;
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.fail(message)} />, "key");
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.fail(message)} />, "key", { kind: "pad", project: connected.project.path });
   };
 
   const rename = () => { if (props.pad.owner.kind === "user") setEditing(true); else props.fail(copy.renamePadOwnership); };

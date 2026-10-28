@@ -1,3 +1,7 @@
+import { CHORDS } from "../keys/chords";
+import Maximize from "lucide-solid/icons/maximize";
+import Minimize from "lucide-solid/icons/minimize";
+import { createShelfFrame } from "../shelf/frame";
 import { captureFocus } from "../keys/focus";
 import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
@@ -9,6 +13,7 @@ import { Icon } from "../ink/Icon";
 import { DRAWER_EASING } from "./drawer";
 import { createSlideLifetime } from "../ui/slideLifetime";
 import { setDrawerSliding } from "./sliding";
+import type { ActivationSource } from "../keys/registry";
 import type { DrawerContent, DrawerState } from "./drawer";
 
 /**
@@ -18,6 +23,23 @@ import type { DrawerContent, DrawerState } from "./drawer";
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
   const [panel, setPanel] = createSignal<HTMLElement>();
+  const frame = createShelfFrame(() => props.drawer.surface()?.project ?? null, props.reducedMotion, () => {}, false, () => props.drawer.surface()?.kind ?? "drawer");
+  let maximiseSlide: Animation | undefined;
+
+  const toggleMaximise = (source: ActivationSource) => {
+    const host = panel();
+    const left = host?.getBoundingClientRect().left;
+    maximiseSlide?.cancel();
+    frame.toggleMaximise(source);
+
+    if (!host || left === undefined || source === "key" || props.reducedMotion() || !host.animate) return;
+    const style = getComputedStyle(host);
+    const duration = style.getPropertyValue("--duration-drawer").trim();
+    maximiseSlide = host.animate([{ transform: `translateX(${left - host.getBoundingClientRect().left}px)` }, { transform: "translateX(0)" }], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
+  };
+
+  createEffect(() => { if (!isOpen() || props.reducedMotion()) maximiseSlide?.cancel(); });
+  onCleanup(() => maximiseSlide?.cancel());
   const [edgeHovered, setEdgeHovered] = createSignal(false);
   const isOpen = () => props.drawer.content() !== null;
   const instant = () => props.reducedMotion() || props.drawer.source() === "key";
@@ -86,6 +108,12 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
     chords: ["Escape"],
     when: (press) => !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen')),
     run: () => { captureFocus(true); props.drawer.close("key"); },
+  }, {
+    action: CHORDS.find(row => row.keys === "M")!,
+    capture: focus => ({
+      available: () => isOpen() && !!focus && !!panel()?.contains(focus) && !focus.closest('input, textarea, select, [contenteditable], .xterm, .pane-screen, [role=dialog], [role=menu]'),
+      invoke: () => toggleMaximise("key"),
+    }),
   }]);
 
   return (
@@ -94,6 +122,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       aria-label={copy.drawer}
       inert={!isOpen()}
       data-open={isOpen()}
+      data-maximised={frame.maximised()}
       data-mounted={mounted() !== null}
       data-motion={instant() ? "none" : "slide"}
       data-settling={settling()}
@@ -125,9 +154,14 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       }}
 
     >
-      <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
-        <Icon name="x" />
-      </IconButton>
+      <div class="drawer-controls">
+        <IconButton chord={CHORDS.find(row => row.keys === "M")} aria-label={frame.maximised() ? copy.restore : copy.maximise} onClick={event => toggleMaximise(activationSource(event))}>
+          <Show when={frame.maximised()} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>
+        </IconButton>
+        <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
+          <Icon name="x" />
+        </IconButton>
+      </div>
       <Show when={mounted()} keyed>
         {(content) => content()}
       </Show>

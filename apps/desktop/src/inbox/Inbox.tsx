@@ -29,7 +29,7 @@ const sectionTitle = (title: string, count: () => number, live = false, ref?: (e
  * Todo marks it read (the Todo Drawer), and the row leaves.
  */
 export const Inbox = () => {
-  const { app, events, drawer, rail, reducedMotion } = useConnectedProject();
+  const { app, events, drawer, rail, reducedMotion, project } = useConnectedProject();
   const [rows, setRows] = createSignal<readonly UnreadComment[]>([]);
   const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -101,7 +101,7 @@ export const Inbox = () => {
       const comment = rows().find(row => `c:${row.comment.id}` === key);
 
       if (agent) toggle(key);
-      else if (comment) drawer.open(() => <TodoHost id={comment.todo} />, "key");
+      else if (comment) drawer.open(() => <TodoHost id={comment.todo} />, "key", { kind: "todo", project: project.path });
     },
   });
 
@@ -196,7 +196,7 @@ export const Inbox = () => {
           <For each={needsKeys()}>{agentRow}</For>
           <For each={rows()}>{(row) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id}
             ref={element => head(`c:${row.comment.id}`, element)} data-selected={content.selection.isSelected(`c:${row.comment.id}`)}
-            onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event))}>
+            onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event), { kind: "todo", project: project.path })}>
             <KindGlyph kind="needs-you" />
             <span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
             <span class="inbox-row-line">{row.comment.body}</span>
