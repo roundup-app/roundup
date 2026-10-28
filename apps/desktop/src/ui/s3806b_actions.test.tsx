@@ -159,7 +159,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   expect(ofMethod().map((call) => call.params)).toEqual([row.params]);
   await waitFor(() => expect(field()).toBeNull());
 
-  // The originating owner leaves and the selection moves while the reply is pending.
+  // Changing the tree and selection must not retarget the pending action.
   const tree = app.handlers["rail.tree"]!;
   // SAFETY: the fake Daemon's rail.tree handler answers a RailNode[].
   app.handlers["rail.tree"] = (params) => [...(tree(params) as RailNode[]).filter((node) => node.id !== (outcome === "missing" ? row.selected : row.removes)), agent("keep", "idle", "idle", { order: 9 })];
