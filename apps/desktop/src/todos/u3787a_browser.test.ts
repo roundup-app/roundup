@@ -95,7 +95,7 @@ it("u3787a_todo_drawer_explains_an_unconfirmed_pad_deletion", async () => {
   await lane.until("[...document.querySelectorAll('button')].some(b => b.textContent === 'Check deletion')");
   await lane.until("!document.querySelector('[data-deletion-pending=true]')");
   await lane.browser("click", "#shelf-tab-todos");
-  await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"] .todo-row-button')`);
+  await lane.until(`(() => { for (const group of document.querySelectorAll('.todos-tab [data-shelf-group][data-state=closed] [data-part=branch-control]')) group.click(); return document.querySelector('.shelf [data-todo="${id}"] .todo-row-button')?.getBoundingClientRect().width > 0; })()`);
   await lane.browser("click", `.shelf [data-todo="${id}"] .todo-row-button`);
   await lane.browser("press", "Enter");
   await lane.until("!!document.querySelector('.todo-delete')");
