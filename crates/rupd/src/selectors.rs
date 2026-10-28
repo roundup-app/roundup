@@ -24,6 +24,9 @@ fn select(
                 ))
             };
         }
+        if actor.kind == ActorKind::Agent && text == actor.id {
+            return Ok(actor.id.clone());
+        }
         if nodes
             .iter()
             .any(|n| n.id == text && (other_nodes || is_agent(n)))
