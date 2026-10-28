@@ -255,18 +255,32 @@ export const Bubbles = (props: {
     // U4459: controls can extend outside the strip; the bar and its portalled tabs own the edge.
     const watched = new ResizeObserver(() => sync());
     let edges: Element[] = [];
+
     const sync = (): void => {
       const parent = host.parentElement;
       setBar(parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
       const stack = parent?.getBoundingClientRect();
+
       const controls = [...parent?.querySelectorAll(".resource-agent, .terminal-tabs") ?? []]
         .filter(element => element.querySelector("button, input, [role=tab]"));
-      const boxes = controls.map(element => element.getBoundingClientRect()).filter(box => box.width > 0 && box.height > 0);
+
+      const boxes = controls.flatMap(element => {
+        const box = element.getBoundingClientRect();
+
+        return box.width > 0 && box.height > 0 ? [box] : [];
+      });
+
       const siblings = boxes.length ? boxes : [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []]
-        .map(element => element.getBoundingClientRect()).filter(box => box.width > 0 && box.height > 0);
+        .flatMap(element => {
+        const box = element.getBoundingClientRect();
+
+        return box.width > 0 && box.height > 0 ? [box] : [];
+      });
+
       const nextEdges = [...controls, ...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
 
       for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
+
       for (const edge of nextEdges) if (!edges.includes(edge)) watched.observe(edge);
       edges = nextEdges;
       const tops = siblings.map(box => box.top);
@@ -274,26 +288,31 @@ export const Bubbles = (props: {
 
       const corner = host.getBoundingClientRect();
       setOrigin((prior) => (prior.left === corner.left && prior.top === corner.top && prior.width === corner.width && prior.height === corner.height ? prior : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
+
       // Do not replace a saved rectangle with fallback geometry before layout exists.
       if (corner.width <= 0 || corner.height <= 0) return;
       const prior = untrack(places);
       const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, extent())]));
+
       if (JSON.stringify(next) !== JSON.stringify(prior)) {
         setPlaces(next);
         persistPlaces(next);
       }
+
       setMeasured(true);
     };
 
     watched.observe(host);
     window.addEventListener("resize", sync);
     onCleanup(() => window.removeEventListener("resize", sync));
+
     if (host.parentElement) watched.observe(host.parentElement);
 
     // Portal hosts and sibling controls may mount without changing the stack's size.
     const arrivals = new MutationObserver((records) => {
       if (records.some((record) => !host.contains(record.target))) sync();
     });
+
     if (host.parentElement) arrivals.observe(host.parentElement, { childList: true, subtree: true });
     sync();
     onCleanup(() => {
