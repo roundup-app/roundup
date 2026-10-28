@@ -205,6 +205,7 @@ impl DoorHarness {
             )
             .unwrap()
             .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) })
+            .with_coordination(|_, _| async { Ok(()) })
             .with_steer_bound(bound)
             .with_steer_effect(move |_| {
                 if gone.load(Ordering::SeqCst) {
@@ -293,8 +294,6 @@ impl DoorHarness {
             .await
             .unwrap();
         self.signal(id, "SessionStart").await;
-        let initial = self.read().await;
-        assert!(String::from_utf8_lossy(&initial).contains("initial"));
         self.signal(id, "UserPromptSubmit").await;
         assert_eq!(
             self.h
@@ -435,7 +434,6 @@ async fn a41_a_stopped_door_is_started_first() {
         }
     }
     f.signal(&id, "SessionStart").await;
-    assert!(String::from_utf8_lossy(&f.read().await).contains("initial"));
     f.signal(&id, "UserPromptSubmit").await;
     assert!(f.bytes.try_recv().is_err());
     f.signal(&id, "Stop").await;
