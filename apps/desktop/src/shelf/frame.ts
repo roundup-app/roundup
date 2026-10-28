@@ -71,7 +71,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   createComputed(
     on(() => [path(), surface()] as const, ([at, side]) => {
       const stored = at === null ? null : memory.get(JSON.stringify([at, side])) ?? storageOf(at, side).read();
-      const restored = stored?.open ?? initialOpen;
+      const restored = stored === null || stored === undefined ? initialOpen : stored.open ?? true;
 
       setMaximised(stored?.maximised ?? false);
       setAnimated(false);

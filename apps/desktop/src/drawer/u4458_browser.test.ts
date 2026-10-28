@@ -24,6 +24,9 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
     await browser("wait", ".shelf-tabs");
   }
 
+  // Recording starts a fresh page; apply the capture scheme to that page too.
+  await browser("set", "media", "dark");
+
   for (const kind of ["pad", "todo"]) {
     await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${kind === "pad" ? "pads" : "todos"}'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
 
