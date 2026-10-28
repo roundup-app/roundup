@@ -128,6 +128,9 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 });
 
 export const copy = {
+  claudeBinary: (version: string, path: string) => `claude ${version}  ${path}`,
+  recentFolders: "Recent folders",
+  claudeNotFound: "CLAUDE NOT FOUND, install Claude Code",
   askHistory: "Ask history",
   resources: "Resources", resourcesLoading: "Loading resources…", resourcesEmpty: "No resource measurements for this Agent",
   terminalTabs: "Terminal tabs",

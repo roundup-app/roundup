@@ -933,3 +933,9 @@ The main window's AppKit Sidebar effect, revealed only through the Rail and rese
 
 **Native open** (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`):
 One native invocation's explicit Project path resolved against its working directory, or an opaque Link delivered by the deep-link plugin. The shell queues it until the main webview subscribes. Existing Project and selection holders consume it; only the Daemon's `link.read` resolves Link identity and authority. It starts no Agent and submits no draft.
+### First-run facts
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Recent Projects (`recent_projects`, `recentProjects`) | Recent folders | — |
+| Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`) | claude | — |

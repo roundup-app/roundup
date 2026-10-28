@@ -123,6 +123,14 @@ impl AppState {
         self.store.use_dir(dir);
     }
 
+    pub fn recent_projects(&self) -> Vec<String> {
+        self.store.recent_projects()
+    }
+
+    pub async fn claude_binary(&self) -> Option<crate::facts::ClaudeBinary> {
+        crate::facts::claude_binary(&self.config).await
+    }
+
     pub fn projects(&self) -> Vec<Listed> {
         self.entries()
             .iter()
@@ -184,6 +192,7 @@ impl AppState {
             return Err(not_open(&key));
         }
         if self.is_running(&key) {
+            self.store.record_recent(&key);
             return Ok(self.project_at(&key));
         }
         let (lifetime, mut cancel, reopening) = {
@@ -232,6 +241,7 @@ impl AppState {
                         Self::await_connection(app.clone(), key.clone(), run, cancel, answer);
                     }
                     self.save_open();
+                    self.store.record_recent(&project.path);
                     return Ok(project);
                 }
                 Err(err) => {
