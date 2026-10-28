@@ -414,6 +414,8 @@ export const copy = {
   leaderShortNeedsYou: "Needs you",
   leaderShortAnotherProject: "Other Project",
   leaderShortRow: "Row",
+  leaderAssignOrAsk: "Assign a Todo or Pad to an owner, or go back to Ask",
+  leaderShortAssignOrAsk: "Assign / Ask",
   leaderShortMinimise: "Minimise",
   leaderShortClose: "Close",
   leaderShortShelf: "Work items",
