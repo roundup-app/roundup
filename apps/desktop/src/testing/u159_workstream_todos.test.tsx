@@ -86,6 +86,13 @@ it("u2744a_pads_remain_project_wide_across_rail_selections", async () => {
     expect(Number(count("Pads"))).toBe(12);
     expect(document.querySelector(".shelf-scope-name")?.textContent).toBe(connected.project.name);
   }
+
+  for (const terminal of ["work shell", "root shell"]) {
+    await chooseTerminal(terminal);
+    await waitFor(() => expect(names().toSorted()).toEqual(expected));
+    expect(Number(count("Pads"))).toBe(12);
+    expect(document.querySelector(".shelf-scope-name")?.textContent).toBe(connected.project.name);
+  }
 });
 
 // The Todo placement clauses moved to U3717: u3717_todos_group_by_owner_once_each and u3717_group_order_is_me_agents_unassigned.
@@ -248,7 +255,7 @@ it.each([["work shell", "w", [1, 2, 6, 8, 12], 12], ["root shell", null, [1, 2, 
   await waitFor(() => expect(connected.rail.selected()).toBe(owner));
   await waitFor(() => expect(ids()).toEqual(expected));
   await tab("Pads");
-  await waitFor(() => expect(names()).toHaveLength(padCount));
+  await waitFor(() => expect(Number(count("Pads"))).toBe(padCount));
 });
 
 it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () => {

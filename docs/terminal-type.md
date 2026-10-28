@@ -160,3 +160,156 @@ preservation. The U4456 rendered observer records the actual renderer and frame.
 Capture cases clear prior preferences before opening each surface, and hold
 write/resize refusals so an unrelated successful refit cannot erase the intended
 failure feedback before the reading.
+
+## Fractional tracking dependency (U4592, #4633)
+
+No published capability is selected. The following is a failing dependency
+reproduction, not U4592 completion. #4633 stays open until a maintained published
+release/addon preserves fractional tracking through its public API and passes
+its renderer regressions. #4635 owns the upstream source implementation.
+App integration, joined-operator integration, matched
+App captures and performance remain on #4627/#4619.
+
+Registry metadata and the exact published tarballs were inspected on 2026-10-28:
+
+| Package | Stable (2025-12-22) | Beta (2026-10-28) |
+| --- | --- | --- |
+| `@xterm/xterm` | [6.0.0](https://registry.npmjs.org/@xterm/xterm/6.0.0) | [6.1.0-beta.317](https://registry.npmjs.org/@xterm/xterm/6.1.0-beta.317) |
+| `@xterm/addon-webgl` | [0.19.0](https://registry.npmjs.org/@xterm/addon-webgl/0.19.0) | [0.20.0-beta.311](https://registry.npmjs.org/@xterm/addon-webgl/0.20.0-beta.311) |
+
+Stable source is commit `f447274f430fd22513f6adbf9862d19524471c04`;
+beta source is `66d176327e3b4b92cabe73150406fa6ab36ebb37`.
+Both [stable WebGL](https://github.com/xtermjs/xterm.js/blob/f447274f430fd22513f6adbf9862d19524471c04/addons/addon-webgl/src/WebglRenderer.ts)
+and [beta WebGL](https://github.com/xtermjs/xterm.js/blob/66d176327e3b4b92cabe73150406fa6ab36ebb37/addons/addon-webgl/src/WebglRenderer.ts),
+`_updateDimensions`, add `Math.round(letterSpacing)` to the device character
+width. [Stable DOM](https://github.com/xtermjs/xterm.js/blob/f447274f430fd22513f6adbf9862d19524471c04/src/browser/renderer/dom/DomRenderer.ts)
+and [beta DOM](https://github.com/xtermjs/xterm.js/blob/66d176327e3b4b92cabe73150406fa6ab36ebb37/src/browser/renderer/dom/DomRenderer.ts)
+do the same. The [public option](https://github.com/xtermjs/xterm.js/blob/66d176327e3b4b92cabe73150406fa6ab36ebb37/typings/xterm.d.ts)
+explicitly specifies whole pixels. Neither pair supplies the requested capability;
+changing only the dependency version is insufficient.
+
+### Isolated renderer reproduction
+
+From a roundup checkout, prepare an external scratch directory with the exact
+published packages and the bundled unmodified Fira Code 6.2 regular face:
+
+```sh
+python3 - <<'PYTHON'
+import io, json, pathlib, shutil, tarfile, urllib.request
+root = pathlib.Path('/tmp/xterm-spacing-audit')
+root.mkdir(exist_ok=True)
+for name, version in [('@xterm/xterm', '6.0.0'),
+                      ('@xterm/xterm', '6.1.0-beta.317'),
+                      ('@xterm/addon-webgl', '0.19.0'),
+                      ('@xterm/addon-webgl', '0.20.0-beta.311')]:
+    metadata = json.load(urllib.request.urlopen(
+        'https://registry.npmjs.org/' + name + '/' + version))
+    target = root / (name.replace('/', '-') + '-' + version)
+    target.mkdir(exist_ok=True)
+    archive = urllib.request.urlopen(metadata['dist']['tarball']).read()
+    with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
+        package.extractall(target, filter='data')
+shutil.copy('apps/desktop/public/fonts/fira-code/FiraCode-Regular.woff2', root)
+PYTHON
+```
+
+Save this as `/tmp/xterm-spacing-audit/repro.html`. It reads public options,
+the rendered screen rectangle and canvas backing dimensions; it never reads or
+mutates private renderer state. Each terminal receives the same UTF-8 bytes.
+The two frames follow the write callback to allow the renderer to paint;
+this diagnostic is not a continued-paint or visual acceptance test.
+
+```html
+<!doctype html>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: "Fira Code"; src: url("FiraCode-Regular.woff2"); }
+body { background: #1a1b1d; color: #d4d4d4; }
+.host { width: 900px; height: 220px; margin-bottom: 8px; }
+</style>
+<script>
+const beta = new URLSearchParams(location.search).has('beta');
+const terminalPath = beta ? '@xterm-xterm-6.1.0-beta.317' : '@xterm-xterm-6.0.0';
+const webglPath = beta ? '@xterm-addon-webgl-0.20.0-beta.311' : '@xterm-addon-webgl-0.19.0';
+document.write(`<link rel="stylesheet" href="${terminalPath}/package/css/xterm.css">`);
+document.write(`<script src="${terminalPath}/package/lib/xterm.js"><\/script>`);
+document.write(`<script src="${webglPath}/package/lib/addon-webgl.js"><\/script>`);
+</script>
+<script type="module">
+const replay = new TextEncoder().encode('┌────────────────────┐\r\n│ Example answer     │\r\n├────────────────────┤\r\n│ -> => != ===       │\r\n└────────────────────┘\r\nregular \x1b[1mbold\x1b[0m\r\n');
+await document.fonts.load('11px "Fira Code"');
+await document.fonts.ready;
+window.results = [];
+for (const mode of ['webgl', 'dom']) for (const letterSpacing of [0.5, 0.95]) {
+  const host = document.createElement('div');
+  host.className = 'host';
+  document.body.append(host);
+  const term = new Terminal({ cols: 80, rows: 10, fontFamily: 'Fira Code',
+    fontSize: 11, lineHeight: 1.7, letterSpacing, customGlyphs: true });
+  term.open(host);
+  if (mode === 'webgl') term.loadAddon(new WebglAddon.WebglAddon());
+  await new Promise(resolve => term.write(replay, resolve));
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const screen = host.querySelector('.xterm-screen').getBoundingClientRect();
+  const canvas = host.querySelector('canvas');
+  const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', replay))]
+    .map(x => x.toString(16).padStart(2, '0')).join('');
+  results.push({ beta, mode, letterSpacing, dpr: devicePixelRatio,
+    scale: visualViewport.scale, host: host.getBoundingClientRect().toJSON(),
+    width: screen.width, height: screen.height, advance: screen.width / term.cols,
+    rowPitch: screen.height / term.rows, cols: term.cols, rows: term.rows,
+    backingWidth: canvas?.width, backingHeight: canvas?.height,
+    replayBytes: replay.length, replaySha256: hash, userAgent: navigator.userAgent });
+}
+window.done = true;
+</script>
+```
+
+Serve with `python3 -m http.server 8933 --bind 127.0.0.1 --directory
+/tmp/xterm-spacing-audit` (keep it running). In another shell, use a new session
+and an unused profile path; never attach to an existing browser:
+
+```sh
+browser=apps/desktop/node_modules/.bin/agent-browser
+"$browser" --session builder-40734816244-xterm \
+  --profile /tmp/builder-40734816244-xterm-profile \
+  --executable-path /usr/bin/chromium \
+  --args '--use-gl=angle,--use-angle=swiftshader,--enable-unsafe-swiftshader,--force-device-scale-factor=1' \
+  open http://127.0.0.1:8933/repro.html
+"$browser" --session builder-40734816244-xterm set viewport 1512 950
+"$browser" --session builder-40734816244-xterm wait --fn 'window.done === true'
+"$browser" --session builder-40734816244-xterm eval 'window.results' > /tmp/xterm-spacing-audit/stable.metrics.json
+"$browser" --session builder-40734816244-xterm screenshot /tmp/xterm-spacing-audit/stable.png
+"$browser" --session builder-40734816244-xterm open 'http://127.0.0.1:8933/repro.html?beta'
+"$browser" --session builder-40734816244-xterm wait --fn 'window.done === true'
+"$browser" --session builder-40734816244-xterm eval 'window.results' > /tmp/xterm-spacing-audit/beta.metrics.json
+"$browser" --session builder-40734816244-xterm screenshot /tmp/xterm-spacing-audit/beta.png
+"$browser" --session builder-40734816244-xterm close
+```
+
+Observed 2026-10-28 on Linux x86_64, HeadlessChrome/156.0.0.0, software WebGL2
+(SwiftShader), 1512×950 viewport, DPR 1, `visualViewport.scale` 1. Hosts are
+900×220 CSS px; font is Fira Code regular at 11 CSS px, `lineHeight: 1.7`.
+Regular WOFF2 SHA-256:
+`a6ce59520b90e15d7062ffef214f94c8add5a4085c0bbb1683602ef227a4d1fe`.
+Replay: 282 bytes, SHA-256
+`9b98ab4a5973df9f540eff4c8e6ce5cfdcae99dd638b602b742a8b1f930d14f6`.
+
+| Published pair | Renderer | Advance at 0.5 | Advance at 0.95 | Screen / backing | Rows |
+| --- | --- | --- | --- | --- | --- |
+| Stable | WebGL | 7px | 7px | 560×220 / 560×220 | 10 × 22px |
+| Beta | WebGL | 7px | 7px | 560×220 / 560×220 | 10 × 22px |
+| Stable | DOM | 7.775px | 7.775px | 622×220 / none | 10 × 22px |
+| Beta | DOM | 7.775px | 7.775px | 622×220 / none | 10 × 22px |
+
+Advances are rendered screen width divided by 80 columns; pitch is rendered
+height divided by 10 rows. They demonstrate no spacing distinction within
+either renderer. Setup, browser open, viewport, both readiness waits, both
+measurements and both screenshots exited 0. The distinction required by #4633
+fails. No candidate is integrated. This observation does not establish joined
+operators/boxes, later painting, fitted resize, selection, input, fallback or
+context-loss acceptance, nor App visual/performance or WKWebView results.
+Those remain required when an upstream-supported published candidate exists.
+
+The diagnostic PNG files and metrics are retained, uncommitted, under
+`artifacts/ux/U4592/xterm-dependency/`; these are not matched App captures.
