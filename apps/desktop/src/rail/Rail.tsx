@@ -591,8 +591,11 @@ export const Rail = () => {
   const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
   onMount(() => {
-    const clear = () => {
-      if (!failure.retry()) {
+    const clear = (event: MouseEvent) => {
+      const recoversSpawn = failure.message()?.startsWith(`${copy.newAgent}: `);
+      const usesRecovery = event.target instanceof Element && event.target.closest(".rail-command-notice");
+
+      if (!failure.retry() || recoversSpawn && !usesRecovery) {
         failure.clear();
         rail.clearWorkstreamFailure();
       }
@@ -887,7 +890,7 @@ export const Rail = () => {
           </Popover.Root>;
         }}
       </Show>
-      <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <><span>{copy.newAgent}: </span><span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+      <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{copy.newAgent}: <span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
         <Show when={failure.retry()}>{retry => <>
           <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
