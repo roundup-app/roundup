@@ -335,12 +335,10 @@ impl Agents {
                 self.rail_name(&id)?
             )));
         }
-        let (node, revision) = {
-            let mut rail = self.shared.rail();
-            let node = rail.set_order(&id, &order, captured.as_ref())?;
-            let revision = rail.order_revision(&id)?;
-            (node, revision)
-        };
+        let node = self
+            .shared
+            .rail()
+            .set_order(&id, &order, captured.as_ref())?;
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
         if ctx.actor.id != id {
