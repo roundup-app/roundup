@@ -56,6 +56,9 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`document.querySelectorAll('.choose-project li').length === 5`);
       await snap(`${theme}-first-run-five`);
       await load("empty-project", "workstreams");
+      await wait(`!!document.querySelector('.window[data-shelf="open"]')`);
+      if (await read(`document.querySelector('[role="tab"][data-value="todos"]').getAttribute('aria-selected') !== 'true'`)) await browser("click", '[role="tab"][data-value="todos"]');
+      await wait(`!!document.querySelector('.todos-tab .empty-state')`);
       await snap(`${theme}-rail-centre-todos`);
       await browser("click", '[role="tab"][data-value="pads"]');
       await wait(`!!document.querySelector('.pads-tab .empty-state')`);
