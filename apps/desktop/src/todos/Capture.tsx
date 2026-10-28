@@ -1,3 +1,4 @@
+import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
@@ -107,7 +108,11 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     return capturedTarget ?? selectedTarget();
   };
 
-  const ownerLine = () => target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!);
+  const ownerLine = () => {
+    const owner = currentOwner(connected.rail, target().owner);
+
+    return owner ? copy.captureFor(owner.name) : copy.unassigned;
+  };
   const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
   const ownerCut = createCutTitle(ownerLine);
   const homeCut = createCutTitle(homeLine);
