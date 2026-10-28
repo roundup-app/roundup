@@ -44,7 +44,7 @@ Policy audit on main `7409446f7acf4d5e56cacd6873ab1ab86bc52aba`: all stylesheet 
 | `terminal/styles.css` | `.pane-screen`, xterm viewport and scrollable element | Already Terminal base |
 | `terminal/theme.ts`, `terminal/emulator.ts`, `terminal/scheme.ts` | Emulator canvas/theme and `terminal.scheme` | Already Terminal Tokens; preserve X17 |
 | `bubbles/styles.css` | `.bubble-failure` on ground; body/viewport/scrollable element on Terminal background | Failures inherit base; output already compliant |
-| `rail/styles.css` | `.spawn-prompt-field`, `.rail-menu`, `.clear-reason`, `.rail-recovery textarea` on ground; `.rail-actions`, command-notice Ink/overlay, `.rail-row .row-icons` on sunken | Inherit shared base |
+| `rail/styles.css` | `.spawn-prompt-field`, `.rail-menu`, `.rail-recovery textarea` on ground; `.rail-actions`, command-notice Ink/overlay, `.rail-row .row-icons` on sunken | Inherit shared base |
 | `buttons.css` | Project-root button normal/selected base | Inherit sunken/ground; preserve selected wash |
 | `header/strip.styles.css`, `ui/flat-tab.styles.css` | Tab tips/native-alert failure, tab bar, selected tab | Inherit sunken/ground; retain tab state cues |
 | `shelf/styles.css` | `.triage-hints`, `.todo-drag-preview-content` | Inherit sunken |
