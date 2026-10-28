@@ -377,7 +377,7 @@ async fn t4597_an_unowned_reply_is_readable_and_waits_for_idle() {
             .unwrap();
         assert_eq!(thread, again, "tool reads preserve read state");
         // owner_told::SETTLE is 40 ms. This window also proves working Agents get none.
-        tokio::time::sleep(Duration::from_millis(80)).await;
+        tokio::time::advance(Duration::from_millis(80)).await;
         assert!(state.entries.lock().unwrap().is_empty());
         assert!(
             user.request("message.list", json!({}))
@@ -387,8 +387,12 @@ async fn t4597_an_unowned_reply_is_readable_and_waits_for_idle() {
                 .unwrap()
                 .is_empty()
         );
+        let delivered = state.written.notified();
         state.status("1", contracts::Kind::Idle);
-        tokio::time::sleep(Duration::from_millis(80)).await;
+        tokio::time::advance(Duration::from_millis(80)).await;
+        tokio::time::timeout(Duration::from_secs(1), delivered)
+            .await
+            .unwrap();
         let note_id = {
             let entries = state.entries.lock().unwrap();
             assert_eq!(entries.len(), 1, "{entries:?}");

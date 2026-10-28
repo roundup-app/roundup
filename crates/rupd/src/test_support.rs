@@ -10,6 +10,7 @@ pub struct ReplyState {
     bus: Bus,
     pub nodes: Mutex<Vec<RailNode>>,
     pub entries: Mutex<Vec<(String, u32, String, String)>>,
+    pub written: tokio::sync::Notify,
     pub terminal_writes: Mutex<usize>,
 }
 
@@ -60,6 +61,7 @@ impl messages::NoteInbox for ReplyState {
                 .iter()
                 .map(|n| (id.into(), n.id, n.from.clone(), n.text.clone())),
         );
+        self.written.notify_one();
         Ok(())
     }
 }

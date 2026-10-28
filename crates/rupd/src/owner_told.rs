@@ -793,7 +793,9 @@ mod tests {
         for nodes in [vec![], vec![node("a", "idle", false)]] {
             *stub.nodes.lock().unwrap() = nodes;
             let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
+            told.started = 0;
             read(&mut told, &reader, &event).await;
+            assert!(!told.waiting().is_empty());
             flush(&mut told, &reader).await;
             assert!(told.waiting().is_empty());
             *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
