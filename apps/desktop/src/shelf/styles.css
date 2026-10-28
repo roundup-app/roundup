@@ -247,7 +247,8 @@
   align-items: center;
 }
 
-/* Auto refusal stays beside its control; the reserved line retains full-text focus/hover disclosure. */
+/* Reserve the refusal line below the head so its overlay cannot cover Todo progress. */
+.shelf-bar:has(.shelf-scope-action:not([hidden]) .reserved-line:not([data-empty="true"])) { margin-block-end: var(--line); }
 .todo-auto .reserved-line { inset-inline: var(--space-4); inline-size: auto; top: 100%; bottom: auto; }
 
 .todos-tab .todo-row-button {
