@@ -835,7 +835,7 @@ export const copy = {
   openingPromptMenu: "Opening prompt…",
   openingPromptFor: (name: string) => `Opening prompt · ${name}`,
   openingPromptPlaceholder: "Your opening words",
-  openingPromptHint: "Typed once when this Workstream’s Door starts a fresh session",
+  openingPromptHint: "Typed once when this Workstream’s supervisor starts a fresh session",
   todoAutoHint: "Supervisor hands out unassigned Todos",
   todoAutoHandling: "The supervisor is handing these out",
   todoMoveTo: (id: number, name: string) => `Move #${id} to ${name}`,
