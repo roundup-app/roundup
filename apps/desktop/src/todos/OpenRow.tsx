@@ -168,7 +168,7 @@ export const OpenRow = (props: {
           <Show when={props.groupComplete === undefined}><TickBox motion={props.motion === true} todo={props.todo} onToggle={toggle} /></Show>
         </span>
         <IconButton class="todo-open" aria-label={copy.openItem(props.todo.title)} onClick={event => { event.stopPropagation(); props.onOpen(props.todo, "pointer"); }}><ArrowUpRight aria-hidden="true" /></IconButton>
-        <Show when={sorted}>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} ref={el => order().handle(el ?? null)} />}</Show>
+        <Show when={sorted}>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} tooltip={copy.moveItem(props.todo.title)} ref={el => order().handle(el ?? null)} />}</Show>
       </div>
   );
 
