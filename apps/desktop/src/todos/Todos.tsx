@@ -4,16 +4,15 @@ import type { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
-import { createOwnerAssignment, createOwnerKeys, createOwnerPicker } from "./ownerAssignment";
+import { createOwnerAssignment, createOwnerKeys, createOwnerPicker, ownersToOffer } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
-import { registerKeys } from "../keys/registry";
-import type { ActivationSource } from "../keys/registry";
+import { registerKeys, type ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { shelfKeyScope, shelfRowKeys } from "../shelf/keys";
-import { createBulkDelete } from "../shelf/BulkDelete";
+import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
 import { createSelection } from "../shelf/selection";
 import { Progress } from "../ui/Progress";
 import { createDependencyGroups } from "./dependencyGroups";
@@ -22,10 +21,8 @@ import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
-import { batch, untrack } from "solid-js";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
-import type { JSX } from "solid-js";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -39,15 +36,13 @@ import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
 import { TreeView, Trunks } from "../ui/TreeView";
-import { shelfScope } from "../shelf/scope";
+import { shelfScope, sameOwner, ownerGroups, ownersOnRail } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { NewWorkstream } from "./NewWorkstream";
 import { OwnerCommand, OwnerPicker } from "./OwnerPicker";
-import { sameOwner, ownerGroups, ownersOnRail } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
-import { ShelfActions } from "../shelf/BulkDelete";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
 import type { TodosState } from "./state";
@@ -56,7 +51,6 @@ import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
 import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
-/** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
 /** U3513a: the keys the quiet footer shows; Help lists the rest. */
 const QUIET_KEYS = ["J K", "A", "X"];
 
@@ -265,6 +259,7 @@ export const Todos = (props: {
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
+  let nestGrip = false;
   let nestPermission = captureFocus();
 
   createEffect(() => {
@@ -276,7 +271,8 @@ export const Todos = (props: {
       if (nestFocus !== id) return;
       nestFocus = null;
 
-      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => rowButtonOf(id)?.focus());
+      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => (nestGrip ? rowButtonOf(id)?.closest(".todo-row")?.querySelector<HTMLElement>(".sortable-handle")
+        : rowButtonOf(id))?.focus({ preventScroll: true }));
     });
   });
 
@@ -287,6 +283,7 @@ export const Todos = (props: {
       const advance = captureAdvance(todo.id);
       nestPermission = captureFocus();
       nestFocus = advance ? null : todo.id;
+      nestGrip = false;
 
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
 
@@ -308,9 +305,16 @@ export const Todos = (props: {
 
     if (plan.blockers !== undefined) {
       const blockers = plan.blockers;
+      nestPermission = captureFocus();
+      nestFocus = id;
+      nestGrip = true;
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
-      if (message !== null) return sorted.show(id, message);
+      if (message !== null) {
+        nestFocus = null;
+
+        return sorted.show(id, message);
+      }
     }
 
     if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
@@ -370,11 +374,7 @@ export const Todos = (props: {
 
   createOwnerKeys({ connected, todos, active, assign });
 
-  const offers = () => {
-    const current = todos.byId().get(picking()?.id ?? -1);
-
-    return ownersOnRail(connected).filter(owner => !current || !sameOwner(owner.actor, current.owner));
-  };
+  const offers = () => ownersToOffer(connected, todos.byId().get(picking()?.id ?? -1));
 
   // U138: a completed Todo leaves the open list only once its `todo.updated` Event has refetched it, so the row to focus
   // is saved here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
@@ -821,7 +821,7 @@ export const Todos = (props: {
             let registered: HTMLButtonElement | null = null;
             const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; }, get trail() { return this.level > 1 ? [...trail(), sibling() < tree().filter(row => row.parent === parent).length - 1] : []; } };
 
-            return <Sortable.Item id={String(todo.id)} index={at()} pressable>{parts => {
+            return <Sortable.Item id={String(todo.id)} index={at()}>{parts => {
             const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
             <OpenRow
               copyWith={registerCopy(todo.id)}
@@ -896,7 +896,12 @@ export const Todos = (props: {
 
  if (!active) board.preview(null); }} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
-          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
+          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tree-step")) || 24; },
+          inset: (element) => {
+            const styles = getComputedStyle(element);
+
+            return Number.parseFloat(styles.paddingInlineStart) - Number.parseFloat(styles.getPropertyValue("--space-2"));
+          },
           nests: () => true,
           onMove: (move) => void dropOf(tree(), group().items, Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,

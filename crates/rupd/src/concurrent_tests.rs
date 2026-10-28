@@ -40,6 +40,20 @@ async fn fixture() -> (
 ) {
     let dir = tempfile::tempdir().unwrap();
     let mut daemon = Daemon::open(dir.path()).unwrap();
+    daemon
+        .agents
+        .call(
+            &daemon.ctx(Actor::user()),
+            "rail.createWorkstream",
+            json!({"name":"fixture"}),
+        )
+        .await
+        .unwrap();
+    daemon
+        .agents
+        .call(&daemon.ctx(Actor::user()), "rail.remove", json!({"id":"1"}))
+        .await
+        .unwrap();
     let (entered, entries) = mpsc::unbounded_channel();
     let release = Arc::new(Semaphore::new(0));
     daemon.register(Arc::new(Parked {
@@ -58,7 +72,7 @@ async fn fixture() -> (
 async fn send(write: &mut tokio::net::unix::OwnedWriteHalf, id: Value, method: &str) {
     // Stop's router exclusion needs its target even when the recording Module holds it.
     let params = if method == "agent.stop" {
-        json!({"id":"fixture"})
+        json!({"id":"1"})
     } else {
         Value::Null
     };
