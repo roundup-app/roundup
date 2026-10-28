@@ -199,7 +199,7 @@ Module: `.config/nextest.toml` and the Rust observers named below. Source: #3778
 | `rup::deliverables`, `dv2_publish_failures` | Cut with equivalent surviving DV2 boundary assertions, or replace/cheapen to under 5 s elapsed per test. Retain every DV2 refusal, exact-size/quota success boundary and absence of partial publication/eviction. |
 | `rup::x14`, `x14_ten_busy_terminals_do_not_lag_rail_events` | Cut; keep `perf::flood`, `x14_flood_leaves_rail_events_unlagged_and_cleans_up`, proving flood isolation, ordered Rail markers and cleanup. |
 | `rup::d2_agent_status`, `h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle` | Cut with mapped surviving H15 assertions, or observe the same hook-call success, ordering and final idle behavior without launching Claude. Explicitly replace the real-Claude retention requirement in the H15/real-Claude specifications when doing so. |
-| `rup::a32_clear_failures`, `rup::a32_clear_survivors`, `rup::a32_handoff_refusals`, `rup::a32_iterations`, `rup::a35`; `agents::scenarios`' a35 setup | Apply T4b; preserve A32 clear/retry/archive behavior and A35 rewind/acknowledgement behavior. |
+| `rup::a35`; `agents::scenarios`' a35 setup | Apply T4b; preserve A35 rewind/acknowledgement behavior. |
 | `rup::yolo_modes` (A2693a/B2693b), `rup::u516_working_agent`, `rup::b55_new_session` | Measure and decide each test first under policy 1. U516 selection delivery is already retired; preserve any independent general Message proof before deleting its observer. B55's fresh-input and YOLO authority assertions remain required. |
 
 Policy: report equivalent before/after full-run evidence and the successful implementation head's `check` URL/SHA, per-test elapsed seconds and totals for retained and replacement observers, fixture construction counts, retries and timeout exceptions. Count each executed replacement once; a cut without replacement contributes zero. Separate local and CI observations, OSes and first attempts/retries; include setup cost so sharing or renaming cannot hide it. Missing evidence leaves acceptance incomplete. No fixed speedup, product behavior change, raised performance budget, new dependency, or workflow/loop change is authorized. Progress and engineering questions stay on the work Issues.
@@ -208,7 +208,7 @@ Checks (existing acceptance on `origin/main`; all remain in force):
 
 1. `AGENTS.md`, Rules, rule 10: a test detects its scenario break without a redundant or needlessly expensive proof.
 2. `.config/nextest.toml`, `profile.default`, its timed-test overrides and `test-groups.real-claude`: retain complete failure reporting, retry policy, timed-test isolation and bounded real-Claude concurrency.
-3. `scenarios/workstream-clear.md`, A32; `scenarios/workstream-rewind.md`, A35: retain clear and rewind outcomes when their fixtures change.
+3. `scenarios/workstream-rewind.md`, A35: retain rewind outcomes when their fixtures change.
 4. `scenarios/deliverables.md`, DV2: retain publication refusal, exact limits, atomicity and revision identity.
 5. `crates/perf/tests/flood.rs`, `x14_flood_leaves_rail_events_unlagged_and_cleans_up`: preserve the surviving real flood proof.
 6. `scenarios/test-project-data.md`, N7; `crates/rupd/tests/n7_data.rs`, `n7_launch_sites_use_owned_data` and `n7_launch_sites_clean_on_success_and_failure`: retain owned data and exit-before-cleanup across all launch families.
