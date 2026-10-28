@@ -23,25 +23,14 @@ impl Agents {
     async fn rpc_project_measurements(
         &self,
         _ctx: &Ctx,
-        method: &str,
-        value: Value,
+        _method: &str,
+        _value: Value,
     ) -> Result<Value, RpcError> {
         let shared = &self.shared;
         {
-            let summary = if method == "project.measurementSummary" {
-                Some(params::<contracts::project::MeasurementSummaryParams>(
-                    value,
-                )?)
-            } else {
-                None
-            };
             let mut rail = shared.rail();
             // Lock order is rail, runs, timing: `observe_coordination` takes timing while it
             // holds runs, so the live Status is read before timing is locked, never under it.
-            let tree = summary
-                .as_ref()
-                .map(|_| shared.presented_tree(&rail))
-                .transpose()?;
             let mut timing = shared.timing.lock().expect("measurement timing lock");
             timing.sample();
             let cause = timing.failure();
@@ -49,12 +38,7 @@ impl Agents {
             if cause.is_some() {
                 measurements.cause = cause;
             }
-            if let Some((params, tree)) = summary.zip(tree) {
-                // U3016i: the live Status says whether an Agent still runs.
-                reply(&measurement::summarize(measurements, tree, params)?)
-            } else {
-                reply(&measurements)
-            }
+            reply(&measurements)
         }
     }
 
