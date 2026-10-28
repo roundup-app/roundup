@@ -184,15 +184,16 @@ mod tests {
                 paths[2].clone()
             ]
         );
-        std::fs::remove_dir(&paths[5]).unwrap();
-        assert_eq!(
-            restored.recent_projects(),
-            vec![
-                paths[3].clone(),
-                paths[6].clone(),
-                paths[4].clone(),
-                paths[2].clone()
-            ]
-        );
+    }
+
+    #[test]
+    fn s6_recent_paths_omit_folders_that_no_longer_exist() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("project");
+        std::fs::create_dir(&folder).unwrap();
+        let store = Store::new(Some(dir.path().join("data")));
+        store.record_recent(&folder.display().to_string());
+        std::fs::remove_dir(folder).unwrap();
+        assert!(store.recent_projects().is_empty());
     }
 }
