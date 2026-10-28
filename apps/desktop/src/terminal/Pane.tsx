@@ -1,13 +1,6 @@
-import { Portal } from "solid-js/web";
-import { Tabs } from "../ui/Tabs";
-import { FlatTab } from "../ui/FlatTab";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
-import { KindGlyph } from "../ink/KindGlyph";
-import { queueFocus } from "../keys/focus";
 import { appSettings } from "../settings/preferences";
-import { MeasurementDashboard } from "./MeasurementDashboard";
-import { TimelineView } from "../timeline/TimelineView";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
@@ -34,7 +27,7 @@ const OrderDrawer = lazy(() => import("../orders/OrderDrawer").then(module => ({
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { viewLabel?: (id: string) => string | undefined; navigationHost?: HTMLElement | undefined; requested?: string | null; backDisabled?: boolean; backRequested?: () => void; notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
+export const Pane = (props: { notice?: string | null; retryNotice?: (() => void) | undefined; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; observeTerminal?: ((id: string | null) => void) | undefined }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
@@ -60,19 +53,6 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
 
   props.screensRef?.(screens);
 
-  const [view, setView] = createSignal<"dashboard" | "timeline" | null>(null);
-  const dashboard = () => view() !== null;
-  let dashboardAction: HTMLButtonElement | undefined;
-  let timelineAction: HTMLButtonElement | undefined;
-
-  const backFromView = () => {
-    const action = view() === "timeline" ? timelineAction : dashboardAction;
-
-    setView(null);
-    queueFocus(() => action?.focus());
-  };
-
-  createEffect(on(rail.selected, () => setView(null), { defer: true }));
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
 
   /** Why the selected Workstream's Door is not running, so a stopped, failed or still-starting Door each read differently. */
@@ -91,7 +71,7 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
 
-  createEffect(() => props.observeTerminal?.(dashboard() ? null : terminalId()));
+  createEffect(() => props.observeTerminal?.(terminalId()));
   onCleanup(() => props.observeTerminal?.(null));
 
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
@@ -281,36 +261,9 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
     screens.dispose();
   });
 
-  const requested = createMemo(() => {
-    const current = connected.view();
-
-    return current !== null && ["ask-history", "reactions", "made", "notes", "resources"].includes(current) ? current : null;
-  });
-
-  const navigation = () => <nav class="pane-navigation" aria-label={copy.centreRegion}>
-    <div class="pane-identity">
-      <Show when={selected()?.kind === "agent"}><span class="pane-name">{selected()?.name}</span><Show when={connected.drawer.content() === null ? selected()?.status?.kind : undefined}>{kind => <KindGlyph kind={kind()} />}</Show></Show>
-      <Show when={!props.requested && !requested() && selected()?.kind === "workstream"} fallback={
-        <Show when={props.requested ?? requested()}>{name => <span class="pane-name">{props.viewLabel?.(name()) ?? name()}</span>}</Show>
-      }>
-
-          <Tabs.List class="measurement-action" aria-label={selected()?.name}>
-            <FlatTab selected={view() === "dashboard"}><Tabs.Trigger ref={dashboardAction} value="dashboard" tabIndex={view() === null ? 0 : undefined}>{copy.measurementTime}</Tabs.Trigger></FlatTab>
-            <FlatTab selected={view() === "timeline"}><Tabs.Trigger ref={timelineAction} value="timeline">{copy.timeline}</Tabs.Trigger></FlatTab>
-          </Tabs.List>
-      </Show>
-    </div>
-    {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- The design system requires a focusable disabled button to expose its reason as title. */}
-    <Show when={selected() || requested() || props.requested}><button type="button" data-button="quiet" aria-disabled={props.backDisabled} title={props.backDisabled ? copy.importPendingBack : undefined} onClick={() => { if (props.backDisabled) return; props.backRequested?.(); connected.showView(null); rail.select(null); setView(null); }}><Icon name="left" />{copy.backToAsk}</button></Show>
-  </nav>;
-
   return (
-    <Tabs.Root value={view()} onKeyDown={event => { if (event.key === "Escape" && dashboard() && !event.defaultPrevented) { event.preventDefault(); backFromView(); } }} onValueChange={details => { if (details.value === "dashboard" || details.value === "timeline") setView(details.value); }} style={{ display: "contents" }}>
     <div class="pane">
-      <Show when={props.navigationHost} fallback={navigation()}>{host => <Portal mount={host()}>{navigation()}</Portal>}</Show>
-      <Show when={view() === "dashboard" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <Tabs.Content value="dashboard" class="pane-view"><MeasurementDashboard focusOnMount={false} home={home} name={selected()?.name ?? ""} back={backFromView} /></Tabs.Content>}</Show>
-      <Show when={view() === "timeline" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <Tabs.Content value="timeline" class="pane-view"><TimelineView focusOnMount={false} home={home} name={selected()?.name ?? ""} back={backFromView} /></Tabs.Content>}</Show>
-      <div class="pane-origin" classList={{ "pane-origin-hidden": dashboard() }}>
+      <div class="pane-origin">
 
       <Show when={selected()?.kind !== "workstream" && !closedAgent() ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <div
@@ -355,6 +308,5 @@ export const Pane = (props: { viewLabel?: (id: string) => string | undefined; na
         </ReservedLine>
       </div>
     </div>
-    </Tabs.Root>
   );
 };
