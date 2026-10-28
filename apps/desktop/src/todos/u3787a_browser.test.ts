@@ -97,8 +97,7 @@ it("u3787a_todo_drawer_explains_an_unconfirmed_pad_deletion", async () => {
   await lane.browser("click", "#shelf-tab-todos");
   await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"] .todo-row-button')`);
   await lane.browser("click", `.shelf [data-todo="${id}"] .todo-row-button`);
-  await lane.until(`!!document.querySelector('.shelf [data-todo="${id}"] button[aria-label="Open"]')`);
-  await lane.evaluate(`(() => { document.querySelector('.shelf [data-todo="${id}"] button[aria-label="Open"]').click(); return true; })()`);
+  await lane.browser("press", "Enter");
   await lane.until("!!document.querySelector('.todo-delete')");
   await lane.capture("U3787a", "pad-pending-before-refusal");
   await lane.browser("click", ".todo-delete");
