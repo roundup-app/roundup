@@ -155,7 +155,7 @@ async fn a32_message_list_spans_iterations() {
             .as_array()
             .unwrap()
             .iter()
-            .filter(|m| !m["body"].as_str().unwrap().starts_with("[digest]"))
+            .filter(|m| m["from"]["kind"] == "user")
             .map(|m| {
                 (
                     m["body"].as_str().unwrap().to_owned(),
