@@ -154,10 +154,10 @@
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
   --mono: var(--font-mono);
-  --font-terminal: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --text-terminal: 14px;
-  --line-terminal: 1.06;
-  --letter-terminal: 0px;
+  --font-terminal: "Fira Code", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-terminal: 11px;
+  --line-terminal: 1.7;
+  --letter-terminal: 0.95px;
   --text-caption: 11px;
   --text-small: 12px;
   --text-body: 13px;
@@ -191,12 +191,12 @@
 
 @media (prefers-color-scheme: dark) {
  :root {
-    --terminal-background: #282c34;
-    --terminal-foreground: #ffffff;
-    --terminal-cursor: #ffffff;
-    --terminal-cursor-text: #282c34;
-    --terminal-selection: #ffffff;
-    --terminal-selection-text: #282c34;
+    --terminal-background: #1a1b1d;
+    --terminal-foreground: #d4d4d4;
+    --terminal-cursor: #d4d4d4;
+    --terminal-cursor-text: #1a1b1d;
+    --terminal-selection: #d4d4d4;
+    --terminal-selection-text: #1a1b1d;
     --terminal-black: #1d1f21;
     --terminal-red: #cc6666;
     --terminal-green: #b5bd68;
@@ -308,12 +308,12 @@ button, file-tree-container, diffs-container {
 
 :root[data-mode="dark"] {
     --surface: var(--gray-3);
-    --terminal-background: #282c34;
-    --terminal-foreground: #ffffff;
-    --terminal-cursor: #ffffff;
-    --terminal-cursor-text: #282c34;
-    --terminal-selection: #ffffff;
-    --terminal-selection-text: #282c34;
+    --terminal-background: #1a1b1d;
+    --terminal-foreground: #d4d4d4;
+    --terminal-cursor: #d4d4d4;
+    --terminal-cursor-text: #1a1b1d;
+    --terminal-selection: #d4d4d4;
+    --terminal-selection-text: #1a1b1d;
     --terminal-black: #1d1f21;
     --terminal-red: #cc6666;
     --terminal-green: #b5bd68;
@@ -395,36 +395,22 @@ button, file-tree-container, diffs-container {
 }
 
 @font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2") format("woff2");
+  font-family: "Fira Code";
+  src: url("/fonts/fira-code/FiraCode-Regular.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: block;
 }
 
 @font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono/JetBrainsMono-Bold.woff2") format("woff2");
+  font-family: "Fira Code";
+  src: url("/fonts/fira-code/FiraCode-Bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: block;
 }
 
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono/JetBrainsMono-Italic.woff2") format("woff2");
-  font-style: italic;
-  font-weight: 400;
-  font-display: block;
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/jetbrains-mono/JetBrainsMono-BoldItalic.woff2") format("woff2");
-  font-style: italic;
-  font-weight: 700;
-  font-display: block;
-}
+/* Fira Code ships upright faces; xterm/browser synthesize italic at both weights. */
 
 /* U3512e: Drawer/Shelf depth, scroll cues and non-elevation resets retain their roles. */
 .worktree-tree::before,

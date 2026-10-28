@@ -1,128 +1,74 @@
-# Terminal typography (U3517)
+# Terminal typography (U4456)
 
-The Terminal uses JetBrains Mono v2.304 regular, bold, italic and bold italic from
-`apps/desktop/public/fonts/jetbrains-mono/`. Its README pins upstream and SHA-256s;
-OFL.txt ships beside the four unmodified WOFF2 files. The production web build
-copies all four files and the notice into `dist/fonts/jetbrains-mono/`. This Linux
-host has no installed JetBrains Mono face (`fc-list`); all four browser FontFaces
-report loaded. The font-face rules use local App URLs, with no `local()` or remote
-font source. Other App typography retains its existing stack.
+Terminal output uses Fira Code 6.2, replacing the JetBrains Mono font files.
+The unmodified regular (400) and bold (700) WOFF2 files, OFL notice, upstream
+release URL and SHA-256 hashes are in
+`apps/desktop/public/fonts/fira-code/`. The original JetBrains Mono licence
+notice remains alongside it. Fira Code supplies no italic files: browser font
+synthesis renders italic and bold italic from the bundled faces. The emulator
+requests all four style/weight combinations before its first authoritative fit.
+Local App URLs have no `local()` or remote font source; other App typography
+keeps its existing stack. xterm's normal/bold defaults already select 400/700.
 
-## Calibration
+## Metrics
 
-Start: Ghostty's documented macOS 13 pt default, JetBrains Mono, unadjusted cell
-metrics. Native points do not establish xterm CSS pixels. On the isolated Linux
-Chromium DOM observer at 1512×950, 14 CSS px with lineHeight 1 measured an 18 px
-cell. Raising lineHeight to 1.06 measured the 19 px target. Letter spacing remains
-0 CSS px. The DOM grid's measured cell width is about 8.404 CSS px (integer screen
-width divided by columns); device pixel ratio is 1. This is web calibration, not
-a native Soloterm row/column match.
-
-| Source | xterm option | Chosen value |
+| Token | xterm option | Value |
 | --- | --- | --- |
-| `--text-terminal` | `fontSize` | 14 CSS px |
-| `--line-terminal` | `lineHeight` | 1.06, unitless |
-| `--letter-terminal` | `letterSpacing` | 0 CSS px |
+| `--font-terminal` | `fontFamily` | `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace` |
+| `--text-terminal` | `fontSize` | 11 CSS px |
+| `--line-terminal` | `lineHeight` | 1.7, unitless |
+| `--letter-terminal` | `letterSpacing` | 0.95 CSS px |
 
-`DEFAULT_FONT_SIZE` reads `--text-terminal`; App Settings and Project zoom reset
-already consume that holder. Existing saved Project sizes, including 13 px,
-remain absolute sizes. U3529c's Terminal-only blue-highlight requirement is narrowed by this work order's
-explicit Ghostty/Tomorrow selection requirement; App/editor selections keep their
-platform Token. U102's former fixed 13 px reset is retired by U3517d;
-the same chord, bounds, focus, resize, persistence and scrollback tests remain.
-Font-change tests now move relative to the default so they still exercise a
-change after the upgrade.
+Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
+its 1.23 interface scale does not apply to Terminal text. The real rendered
+cell measurements, grid counts, loaded faces, local resources and device pixel
+ratio are retained in each capture's `*.metrics.json`, beside the PNG and
+Check readings under `artifacts/ux/U4456{a,b,c,d}/{base,head}/`.
+
+`DEFAULT_FONT_SIZE` reads the same size Token for the emulator, App Settings
+and Project zoom reset. Saved absolute sizes stay unchanged; clearing a custom
+family restores Fira Code. Font readiness, settings and zoom retain the existing
+input, scrollback and authoritative resize paths.
 
 ## Colours and Checks
 
-Dark uses the [pinned Ghostty Config](https://github.com/ghostty-org/ghostty/blob/22f100c6367045bb5fc86172f837047dee2f7670/src/config/Config.zig)
-and [Name.default](https://github.com/ghostty-org/ghostty/blob/22f100c6367045bb5fc86172f837047dee2f7670/src/terminal/color.zig)
-values: #282c34 background, #ffffff foreground, inverse selection, foreground
-cursor with background cursor text, and its sixteen ANSI slots. Light uses
-[pinned Tomorrow](https://github.com/mbadolato/iTerm2-Color-Schemes/blob/74e6e762b83c9ede7bb5ec9dce855cc8aed54f3b/ghostty/Tomorrow),
-including cursor and selection. `tokens.css` owns every value. The viewport,
-canvas and X17 Daemon scheme replies consume those columns, including explicit
-Light/Dark on the opposite host scheme. Production CSS may shorten hex and
-unquote selectors; the Token reader handles both and keeps X17's six-digit hex
-contract.
+Dark uses neutral near-black `#1a1b1d`, soft off-white `#d4d4d4`, cursor and
+selection foreground/background inversion, and dim grey `#666666` for ANSI
+bright-black table borders. xterm's dim attribute softens ordinary foreground
+text. Default text contrast is approximately 11.6:1. The Ghostty dark reference
+is retired. The other ANSI slots retain the Tomorrow-family colours; Light
+retains the [pinned Tomorrow theme](https://github.com/mbadolato/iTerm2-Color-Schemes/blob/74e6e762b83c9ede7bb5ec9dce855cc8aed54f3b/ghostty/Tomorrow).
+Every emulator colour remains a Terminal Token, shared by the viewport, canvas,
+empty panes, Bubble and X17's Daemon colour-query replies.
 
-Moves D2, D5 and D6. Paired main/head captures and Check readings under
-`artifacts/ux/U3517{b,c,f}/{base,head}/` show an Agent, a Door and a shell Bubble,
-wrapped output, an unterminated line, four styles, selection, ANSI swatches and a
-visible injected failure. The first calibration captures exposed the wrong Dark
-Token column; those obsolete captures are discarded. Reference ANSI colours
-retain U3517c's contrast exception; App controls do not gain one.
+The work order supplies an approximate background and qualitative text/border
+reference. Neither #4456 nor #4480 includes the owner's original Solo image,
+so these choices are not claimed as sampled Solo pixels. The Linux captures
+record the chosen colours for independent critic inspection. Native comparison
+remains the owner's observation after merge, never a per-PR Mac gate.
 
-P11 gate: can rendering changes lose, alter or deliver unfinished input? The
-real-emulator observers retain output and unterminated text, and no
-`terminal.write` occurs from readiness, font or size changes. Font readiness
-precedes fitting and the authoritative Daemon resize; live output is parsed in
-order while the faces load. Existing input, scrollback and snapshot holders are
-reused.
+Moves D2, D5 and D6. The rendered fixture shows an Agent, Door and shell Bubble,
+a table, normal/dim/bold/italic text, ANSI swatches, selected text, cursor,
+wrapped output, an unterminated line and visible injected failure feedback.
+Reference ANSI and program-authored cells retain U3517c's contrast exemption;
+default text and App controls retain D5.
 
-## Acceptance and native observation
+## Regression observers
 
-Owner direction on #3517 makes the existing CI performance result and Linux
-rendered observer the merge conditions for U3517e/f. #1990 stays closed and is
-no prerequisite. Native keystroke timing and the same-folder/version/width/scale
-Soloterm comparison belong to the owner's observation after merge; no per-PR
-Mac check is required. Linux evidence establishes no native timing or Soloterm
-match. No baseline, budget, workload or probe is changed.
+- `u3517a_font_readiness_preserves_output_and_fits_once_ready` retains ordered
+  output and forbids resize before fonts load.
+- `u3517a_font_loading_keeps_live_terminal_input_available` retains one intended
+  keystroke while loading, with no additional write when loading completes.
+- `u3517b_loaded_metrics_drive_terminal_resize` checks the Daemon resize contract.
+- `u3517d_settings_and_project_zoom_share_the_default` retains settings/zoom.
+- `u3517d_rendering_changes_keep_input_and_scrollback` retains exact output and
+  unterminated text, with zero writes from rendering changes (P11).
+- `u3517c_scheme_changes_reach_open_new_and_unattached_terminals` checks all
+  scheme consumers; X17's query-ownership and connection-lifetime tests remain.
 
-
-## Validation
-
-`pnpm install`, production web build, focused emulator/settings/zoom/scheme
-observers and Rust lints/proofs pass on the implementation. Final merged-head
-web and rendered checks are recorded on #3517. Merging current main brings
-#3598's Combobox Stylelint repair; #3601 is completed.
-The broad capture/related attempts were superseded by merging main and repairing
-input readiness; they are not reported as passing full-suite runs. CI remains
-the judge of every test on the pushed head.
-
-`just perf` exits 1 twice. The retained `artifacts/ux/U3517e/` reports include every
-sample, load, host, Rust source tree and binary hashes. The first run has five
-explicit timing skips under load, plus Rail-10 absolute and RSS misses. The
-lower-load run makes all comparisons and fails these existing ceilings:
-
-| Command | Exit | Failure | Median | Ceiling |
-| --- | --- | --- | --- | --- |
-| `just perf` (busy) | 1 | Rail-10 absolute p95, ms | 3.257 | 2 |
-| `just perf` (busy) | 1 | extra RSS, MB | 2.109 | 1.810 |
-| `just perf` (busy) | 1 | cold plugin comparison missing | skipped for load | required |
-| `just perf` (busy) | 1 | ping comparison missing | skipped for load | required |
-| `just perf` (busy) | 1 | Rail-40 comparison missing | skipped for load | required |
-| `just perf` (busy) | 1 | Terminal write comparison missing | skipped for load | required |
-| `just perf` (busy) | 1 | write-to-output comparison missing | skipped for load | required |
-| `just perf` (lower load) | 1 | cold plugin materialization, ms | 31.869 | 13.136 |
-| `just perf` (lower load) | 1 | ping p95, ms | 0.384 | 0.029 |
-| `just perf` (lower load) | 1 | Rail-40 p95, ms | 3.862 | 0.293 |
-| `just perf` (lower load) | 1 | extra RSS, MB | 2.172 | 1.810 |
-| `just perf` (lower load) | 1 | Terminal write p95, ms | 2.644 | 0.062 |
-| `just perf` (lower load) | 1 | write-to-output p95, ms | 2.992 | 0.074 |
-
-Cold start, hook-loop cost and the lower-load Rail-10 absolute limit pass. No
-baseline, budget, workload or probe is changed by this PR. No Daemon source
-changes appear against main; these reports do not measure the bundled font or
-establish native keystroke latency.
-
-The two local failed runs remain diagnostic evidence. They do not restore
-cancelled #1990 or add a new CI lane. The PR head's existing CI checks judge the
-push under the owner's revised U3517e acceptance.
-
-
-The final merged-source focused run passes 55 retained tests. Four isolated rendered/
-behavior observers pass without retry: loaded-face resize, rendering-change
-scrollback/input retention, the six-state main/head capture, and the existing
-hint-line guard that exposed the input-readiness regression. All six captures
-have no failing Check; their 19 px head pitch replaces main's 15 px. A separate
-held-font live-input guard verifies one intended keystroke is delivered while
-font readiness is held, and no second write occurs on release.
-
-
-The duplicate `u3805_open_terminals_take_the_new_theme` test is cut:
-`u3517c_scheme_changes_reach_open_new_and_unattached_terminals` retains its open-
-emulator proof and adds future emulators and the unattached Daemon scheme seam.
-The other five settings tests remain. Light was inspected in an isolated fresh
-browser profile: the viewport is white and foreground, cursor, selection and all
-ANSI slots resolve the pinned Tomorrow values. No Light image is retained.
+Rule 10 retirement: X17's copied Ghostty colour expectations now read Terminal
+Tokens while retaining its scheme-change assertions. The capture's fixed
+four-font-face count is removed: it asserted asset layout rather than behaviour;
+loaded-face readings and the font-readiness observers remain. No geometry or
+copied-palette test is added. The four obsolete JetBrains font files are removed;
+their notice stays. Performance budgets and CI observers are unchanged.

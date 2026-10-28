@@ -104,7 +104,7 @@ it.skipIf(captureIds.length === 0)("u3517f_rendered_terminal_reference", async (
         await new Promise(resolve => emulator.write(new TextEncoder().encode('\\x1b[2J\\x1b[H\\x1b]133;A\\x07Selected Terminal 0123456789\\r\\n\\x1b]133;D;0\\x07Regular 日本語 fallback\\r\\n\\x1b[1mBold sample\\x1b[0m \\x1b[3mItalic sample\\x1b[0m \\x1b[1;3mBold italic\\x1b[0m\\r\\n' + '\\x1b[90m┌────────────┬─────────┐\\r\\n│ Check      │ Result  │\\r\\n├────────────┼─────────┤\\r\\n│ Typography │ Ready   │\\r\\n└────────────┴─────────┘\\x1b[0m\\r\\n\\x1b[2mDim text and borders\\x1b[0m\\r\\n' + samples + '\\r\\n' + 'Long wrapped output '.repeat(40) + '\\r\\nunterminated input'), resolve));
         emulator.selectTurn(0, false);
         window.__fake.failNext(-32003, 'Output unavailable. Retry.');
-        window.dispatchEvent(new Event('resize'));
+        emulator.paste('retry');
       })()`);
       await wait("document.querySelector('.pane-failure')?.textContent.includes('Output unavailable. Retry.') || document.querySelector('.bubble-failure')?.textContent.includes('Output unavailable. Retry.')");
 
