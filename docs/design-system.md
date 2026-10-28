@@ -23,7 +23,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections resolve this Token in both schemes and increased contrast. U3517c's Terminal cells instead use their pinned Ghostty/Tomorrow selection Tokens. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
+`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections resolve this Token in both schemes and increased contrast. U3517c's Terminal cells instead use their Solo/Tomorrow selection Tokens. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
 
 All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 
@@ -279,24 +279,25 @@ The existing primary kind uses `--accent` and `--button-accent-ink`; the existin
 
 ### Terminal Tokens (U3517)
 
-Terminal defaults use bundled JetBrains Mono 2.304 (regular, bold, italic and bold
-italic, OFL in `apps/desktop/public/fonts/jetbrains-mono/`). `--font-terminal` is
-`"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
+Terminal defaults use bundled Fira Code 6.2 (regular 400 and bold 700, with
+browser-synthesized italic and bold italic; OFL in
+`apps/desktop/public/fonts/fira-code/`). `--font-terminal` is
+`"Fira Code", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
 uses it; the rest of the App retains its existing type.
 
-The emulator, App Settings and Project zoom reset share `--text-terminal` (14 CSS
-px). `--line-terminal` is xterm's unitless line-height multiplier (1.06) and
-`--letter-terminal` is extra cell tracking (0 CSS px). These are initial calibrated
-web values, starting from Ghostty's documented macOS 13 pt default, not a conversion
-of native points to CSS pixels. Rendered cell measurements and remaining native
-comparison are recorded in `docs/terminal-type.md`.
+The emulator, App Settings and Project zoom reset share `--text-terminal` (11 CSS
+px). `--line-terminal` is xterm's unitless line-height multiplier (1.7) and
+`--letter-terminal` is extra cell tracking (0.95 CSS px). U4456 uses Solo's
+0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
+apply. Rendered cell measurements are recorded in `docs/terminal-type.md`.
 
 `--terminal-background`, `--terminal-foreground`, `--terminal-cursor`,
 `--terminal-cursor-text`, `--terminal-selection`, `--terminal-selection-text`, and
 `--terminal-{black,red,green,yellow,blue,magenta,cyan,white}` with their
 `bright-` variants hold every emulator colour. CSS viewport/inset and X17 colour
-replies consume the same columns. Dark uses Ghostty's pinned unconfigured palette;
-Light uses its shipped Tomorrow companion (sources in `scenarios/ui-terminal-type.md`).
+replies consume the same columns. Dark uses U4456's neutral near-black ground, soft off-white text and dim grey
+borders; the Ghostty dark reference is retired. Light retains the Tomorrow
+companion (source in `scenarios/ui-terminal-type.md`).
 Default text and App controls retain D5; reference ANSI cells and program-authored
 colours have U3517c's explicit exception. No colour is brightened to meet a Check.
 
