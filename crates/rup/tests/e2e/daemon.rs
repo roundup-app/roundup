@@ -17,6 +17,10 @@ pub(crate) mod rupd_harness;
 #[path = "../../../rupd/tests/support/store_migrations.rs"]
 pub mod storage;
 
+/// Historical receipt triggers for fixtures that replay the Project migrations.
+pub const INSTRUCTION_MESSAGES: &str =
+    include_str!("../../../rupd/migrations/project/0013-instruction-messages.sql");
+
 /// How long the Daemon, its Agents' hooks and their tools have to answer.
 const BOUND: Duration = Duration::from_secs(30);
 
@@ -138,6 +142,8 @@ impl Project {
 
     pub async fn spawn_agent(&self, client: &Client) -> RailNode {
         let params = SpawnParams {
+            cols: None,
+            rows: None,
             permission_mode: None,
             engine: None,
             cwd: self.dir.path().to_string_lossy().into_owned(),

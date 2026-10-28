@@ -30,7 +30,7 @@ Audit starting points on main (policy; not an exhaustive substitute for inspecti
 | --- | --- |
 | Agent Terminal and Terminal Bubble emulator | `terminal/emulator.ts`, `createXtermEmulators`; xterm 6's `.xterm-scrollable-element`; shared `scrollbar.css` |
 | Bubble tab strip and recovery; Project tab strip and recovery | `bubbles/styles.css`, `.terminal-tabs`, `.bubble-recovery`; `header/strip.styles.css`, `.tablist`, `.header-recovery` |
-| Rail tree, start prompt, clear and recovery | `styles.css`, `.rail-scroll`; `rail/styles.css`, `.spawn-prompt-field`, `.rail-clear`, `.rail-recovery` |
+| Rail tree, start prompt and recovery | `styles.css`, `.rail-scroll`; `rail/styles.css`, `.spawn-prompt-field`, `.rail-recovery` |
 | Pads, editor and code blocks | `pads/styles.css`, `.pad-editor`, `.visual-block pre` |
 | Changes tree, diff and worktree controls | `changes/tree.styles.css`, shadow-root tree; `changes/diff.styles.css`, shadow-root diff; `changes/styles.css`, `.diff-content`, `.worktree-panel` |
 | Shelf lists and question; Drawer and Help | `shelf/styles.css`, `.shelf-area`, `.shelf-question`; `styles.css`, `.drawer`, `.help` |

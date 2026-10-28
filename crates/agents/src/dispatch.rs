@@ -69,7 +69,15 @@ impl Agents {
             } else {
                 Steer::Instruction(&text)
             };
-            self.prompt(&id, steer).await?;
+            // A4452d: only the user's words are typed; an Agent's text goes to the inbox.
+            if ctx.actor.kind == ActorKind::Agent {
+                self.shared
+                    .coordinate(&id, None, text)
+                    .await
+                    .map_err(PromptError::from)?;
+            } else {
+                self.prompt(&id, steer).await?;
+            }
             Self::touch_rail(ctx, &id)?;
             reply(&())
         }
@@ -307,6 +315,16 @@ impl Agents {
             self.set_auto(ctx, choice)?;
             reply(&())
         }
+    }
+
+    async fn rpc_workstream_set_opening_prompt(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        self.set_opening_prompt(ctx, params(value)?)?;
+        reply(&())
     }
 
     async fn rpc_agent_instructions(
