@@ -1,17 +1,17 @@
 import { createUniqueId, For, Show, type JSX } from "solid-js";
 import strolling from "./doodles/strolling.svg?no-inline";
 import running from "./doodles/running.svg?no-inline";
-import reading_side from "./doodles/reading-side.svg?no-inline";
+import readingSide from "./doodles/reading-side.svg?no-inline";
 import laying from "./doodles/laying.svg?no-inline";
 import unboxing from "./doodles/unboxing.svg?no-inline";
 import meditating from "./doodles/meditating.svg?no-inline";
-import sitting_reading from "./doodles/sitting-reading.svg?no-inline";
+import sittingReading from "./doodles/sitting-reading.svg?no-inline";
 import loving from "./doodles/loving.svg?no-inline";
 import reading from "./doodles/reading.svg?no-inline";
 import clumsy from "./doodles/clumsy.svg?no-inline";
 import plant from "./doodles/plant.svg?no-inline";
 
-const scenes = { strolling, running, "reading-side": reading_side, laying, unboxing, meditating, "sitting-reading": sitting_reading, loving, reading, clumsy, plant };
+const scenes = { strolling, running, "reading-side": readingSide, laying, unboxing, meditating, "sitting-reading": sittingReading, loving, reading, clumsy, plant };
 
 /** U4464: one named empty view; the owning surface supplies its next action. */
 export const EmptyState = (props: { art: keyof typeof scenes; title: string; line: string; action?: JSX.Element; chip?: string | undefined; actions?: readonly { label: string; chip: string; run: () => void }[] | undefined; available?: boolean | undefined }) => {
