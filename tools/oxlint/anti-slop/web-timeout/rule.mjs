@@ -205,6 +205,41 @@ export const boundedTestTimeoutRule = defineRule({
     const configs = [];
     const defaults = new Set();
 
+    // Inline projects have their own inherited default, including computed keys and spreads.
+    function configuration(node) {
+      node = resolved(source, node);
+      if (node?.type === "CallExpression" && isConfigDefinition(source, node.callee)) node = node.arguments[0];
+      const options = objectProperty(source, node, "test");
+      const configured = objectProperty(source, options, "testTimeout");
+      if (configured) defaults.add(configured);
+      return options;
+    }
+
+    function rootConfiguration(node) {
+      const options = resolved(source, configuration(node));
+      if (options?.type !== "ObjectExpression") return;
+      for (const property of options.properties) {
+        if (property.type !== "Property") continue;
+        const key = property.computed ? value(source, property.key) : property.key.name ?? property.key.value;
+        if (key === "projects") projectList(property.value);
+      }
+    }
+
+    function projectList(node, seen = new Set()) {
+      node = resolved(source, node);
+      if (node?.type !== "ArrayExpression" || seen.has(node)) {
+        if (node) defaults.add(node);
+        return;
+      }
+      seen = new Set(seen).add(node);
+      for (const project of node.elements) {
+        if (!project) continue;
+        if (project.type === "SpreadElement") projectList(project.argument, seen);
+        // Inline projects cannot contain projects; string paths are linted at their declarations.
+        else if (typeof value(source, project) !== "string") configuration(project);
+      }
+    }
+
     function check(node, title, maximum) {
       const actual = value(source, node);
       if (typeof actual !== "number" || !Number.isFinite(actual) || actual <= 0 || actual > maximum) {
@@ -217,15 +252,11 @@ export const boundedTestTimeoutRule = defineRule({
         if (!/(?:^|[/\\])(?:vite|vitest)\.config\.[cm]?[jt]s$/.test(context.filename)) return;
         const declaration = resolved(source, node.declaration);
         if (declaration.type === "CallExpression" && isConfigDefinition(source, declaration.callee)) return;
-        const options = objectProperty(source, declaration, "test");
-        const configured = objectProperty(source, options, "testTimeout");
-        if (configured) defaults.add(configured);
+        rootConfiguration(declaration);
       },
       CallExpression(node) {
         if (isConfigDefinition(source, node.callee)) {
-          const options = objectProperty(source, node.arguments[0], "test");
-          const configured = objectProperty(source, options, "testTimeout");
-          if (configured) defaults.add(configured);
+          rootConfiguration(node.arguments[0]);
         }
         const kind = registration(source, node.callee);
         const method = member(source, node.callee);
