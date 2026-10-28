@@ -22,6 +22,7 @@ import { railCollection } from "./collection";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
+import { CreateMode } from "./CreateMode";
 import { OpeningPrompt } from "./OpeningPrompt";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
@@ -57,6 +58,7 @@ export const Rail = () => {
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
+  const [creatingMode, setCreatingMode] = createSignal(false);
   const [openingPrompt, setOpeningPrompt] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
@@ -903,6 +905,7 @@ export const Rail = () => {
         </details>
       </Show>
       <Show when={openingPrompt()} keyed>{id => <OpeningPrompt id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
+      <Show when={creatingMode()}><CreateMode onClose={() => setCreatingMode(false)} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
@@ -922,6 +925,7 @@ export const Rail = () => {
           }}
         >
           <Icon name="messages" />{copy.addWorkstreamWord}</button>
+        <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name="diamond" />{copy.modeWord}</button>
         <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
       </div>
     </>
