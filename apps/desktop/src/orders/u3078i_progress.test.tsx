@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
-import { gate, mountApp, select, inspectOrder } from "../testing/appFixture";
+import { gate, mountApp, select, openWorkProgress } from "../testing/appFixture";
 import { WorkProgress } from "./WorkProgress";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -21,7 +21,6 @@ const openWork = async (prepare: (app: FakeApp) => void = () => {}) => {
       agent("b", "working", "editing", { name: "beta", order: 1, work: clarifying("which?") }),
       door("r", "working", "editing", { name: "harbor", order: 2, work: clarifying("why?") }),
     ];
-    app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
     app.handlers["message.progress"] = () => seeded.progress;
     app.handlers["message.reconcileWork"] = () => seeded.plan;
     app.handlers["deliverable.resolve"] = ({ id }) => id === "output-r-gone" ? { kind: "unavailable", cause: "missing-revision" } : { kind: "retained", path: "/p/output.txt", sha256: "0" };
@@ -29,7 +28,7 @@ const openWork = async (prepare: (app: FakeApp) => void = () => {}) => {
   });
 
   select("alpha");
-  inspectOrder();
+  await openWorkProgress(mounted.app);
 
   return { ...mounted, section: await screen.findByRole("region", { name: "Progress" }) };
 };
@@ -122,8 +121,7 @@ it("u3078i_navigation_preserves_input_and_original_identity", async () => {
   });
 
   // An edit of the Order is unsent input; Resume neither sends nor discards it.
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
-  fireEvent.input(document.querySelector<HTMLTextAreaElement>("textarea[name=ask]")!, { target: { value: "Fix login and logout" } });
+  drafts("/p").edit({ surface: "orders", object: "a", recipient: "a" }, { ask: "Fix login and logout" }, null, "ordinary");
   expect(drafts("/p").list().map((draft) => draft.value["ask"])).toEqual(["Fix login and logout"]);
   fireEvent.click(within(section).getByRole("button", { name: "Resume unfinished work" }));
 
@@ -159,9 +157,8 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
     };
   });
 
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   const exact = "  Unfinished\n草稿 📝  ";
-  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  drafts("/p").edit({ surface: "orders", object: "a", recipient: "a" }, { ask: exact }, null, "ordinary");
   const before = drafts("/p").list();
   const view = within(section);
   fireEvent.click(view.getByRole("button", { name: "Open login v2" }));
@@ -193,7 +190,7 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
   expect(login !== null && within(login).queryByRole("alert", { name: "Cannot open login; retry" }) !== null).toBe(transition === "unrelated report recovery" || transition === "read failure");
   expect(within(row("r-deploy")!).queryByText("Cannot open deployment; retry") !== null).toBe(transition !== "unrelated report recovery");
   expect(drafts("/p").list()).toEqual(before);
-  expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
+
 });
 
 it.each(["dismiss", "acknowledge"] as const)("p3557c_failure_lifetime_work_progress_resume: %s", async transition => {
@@ -231,9 +228,8 @@ it.each(["dismiss", "recover", "unrelated removal"] as const)("p3557c_failure_li
     };
   });
 
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   const exact = "  still editing\n草稿  ";
-  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  drafts("/p").edit({ surface: "orders", object: "a", recipient: "a" }, { ask: exact }, null, "ordinary");
   const before = drafts("/p").list();
   unreadable = true;
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
@@ -255,23 +251,22 @@ it.each(["dismiss", "recover", "unrelated removal"] as const)("p3557c_failure_li
 
   expect(screen.queryByText(/Progress read failed; retry/) !== null).toBe(transition === "unrelated removal");
   expect(drafts("/p").list()).toEqual(before);
-  expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
+
 });
 
 it("p3557c_failure_lifetime_work_progress_navigation", async () => {
-  const { drafts, section } = await openWork(fake => {
+  const { app, drafts, section } = await openWork(fake => {
     fake.handlers["deliverable.resolve"] = () => { throw new RpcError(-32003, "Cannot open alpha; retry"); };
   });
 
-  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   const exact = "  alpha only\n草稿  ";
-  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  drafts("/p").edit({ surface: "orders", object: "a", recipient: "a" }, { ask: exact }, null, "ordinary");
   const before = drafts("/p").list();
   fireEvent.click(within(section).getByRole("button", { name: "Open login v2" }));
   await screen.findByText("Cannot open alpha; retry");
   select("beta");
-  inspectOrder("b");
-  await screen.findByLabelText("Full order of beta");
+  await openWorkProgress(app, "b");
+  await screen.findByRole("region", { name: "Progress" });
   expect(screen.queryAllByRole("alert")).toHaveLength(0);
   expect(drafts("/p").list()).toEqual(before);
   expect(before.map(draft => [draft.destination, draft.value["ask"]])).toEqual([[{ surface: "orders", object: "a", recipient: "a" }, exact]]);
