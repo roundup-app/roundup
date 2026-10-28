@@ -546,7 +546,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             </Show>
             <Show when={!editing()}>
               <button type="button" data-button="quiet" class="pad-grip" data-reorderable aria-label={copy.movePad(pad.name)} ref={props.parts.handleRef}
-                onPointerDown={() => props.onLift(pad)} onKeyDown={() => props.onLift(pad)}><GripVertical class="icon" aria-hidden="true" /></button>
+                onPointerDown={() => props.onLift(pad)} onKeyDown={event => { if (event.key === " " || event.key === "Enter") props.onLift(pad); }}><GripVertical class="icon" aria-hidden="true" /></button>
             </Show>
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
