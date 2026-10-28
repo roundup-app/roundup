@@ -16,10 +16,13 @@
 .ask-bar[data-mode="home"] {
   position: absolute;
   inset: 0;
-  /* The Pane's reserved failure line sits under the home Ask and keeps its Retry reachable. */
-  bottom: var(--line);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* A current Pane failure keeps its recovery action reachable below Ask. */
+.project-center-content:has(.pane-failure) .ask-bar[data-mode="home"] {
+  bottom: var(--line);
 }
 
 .ask-bar[data-mode="over"] {
