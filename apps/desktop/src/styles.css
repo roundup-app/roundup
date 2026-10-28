@@ -335,10 +335,17 @@ p {
   transition: none;
 }
 
-.drawer .close {
-  position: absolute;
+.drawer-controls {
   top: var(--space-2);
-  right: var(--space-4);
+}
+
+.drawer[data-maximised="true"] :is(.pad-editor, .todo-detail) {
+  width: min(100%, var(--measure));
+  align-self: center;
+}
+
+.drawer[data-maximised="true"] .todo-comments-send {
+  justify-content: flex-start;
 }
 
 .header .ink:not(.tab-mark):not(.strip-edge) {
@@ -506,3 +513,7 @@ li:has([aria-pressed="true"]) .draft-name,
   align-items: center;
   gap: var(--space-2);
 }
+
+/* U4458: keep the columns and Rail at their normal positions behind the expanded Drawer. */
+.window:has(.drawer[data-open="true"][data-maximised="true"]) .shelf { content-visibility: hidden; }
+.window:has(.drawer[data-open="true"][data-maximised="true"]) .shelf-edge-slot { visibility: hidden; }
