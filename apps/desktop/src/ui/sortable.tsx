@@ -490,7 +490,11 @@ const Item = (props: ItemProps) => {
 const Handle = (props: { label: string; tooltip?: string; onLift?: () => void; ref: (element: HTMLButtonElement | undefined) => void }) => {
   onCleanup(() => props.ref(undefined));
 
-  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} tooltip={props.tooltip} ref={props.ref} onPointerDown={() => props.onLift?.()} onClick={event => event.stopPropagation()} onKeyDown={event => { event.stopPropagation(); if (event.key === " " || event.key === "Enter") props.onLift?.(); }}><GripVertical aria-hidden="true" /></IconButton>;
+  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} tooltip={props.tooltip} ref={props.ref} onPointerDown={() => props.onLift?.()} onClick={event => event.stopPropagation()} onKeyDown={event => {
+    event.stopPropagation();
+
+    if (event.key === " " || event.key === "Enter") props.onLift?.();
+  }}><GripVertical aria-hidden="true" /></IconButton>;
 };
 
 export const Sortable = { Root, Item, Handle };
