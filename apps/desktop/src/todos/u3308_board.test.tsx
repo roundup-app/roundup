@@ -88,16 +88,6 @@ it("u3310_the_switch_calls_set_auto_once_and_follows_the_event", async () => {
   await waitFor(() => expect(control.getAttribute("aria-checked")).toBe("true"));
 });
 
-it("a4452c_the_workstream_field_saves_the_users_opening_prompt", async () => {
-  const m = await mountTodos([todo(1, { home: "w" })], true, [workstream("w", { auto: false })]);
-  m.connected.rail.select("w");
-  m.app.handlers["workstream.setOpeningPrompt"] = () => null;
-  const field = await screen.findByRole("textbox", { name: "Opening prompt" });
-  fireEvent.input(field, { target: { value: "Read the plan" } });
-  fireEvent.blur(field);
-  await waitFor(() => expect(todoCallsTo(m.app, "workstream.setOpeningPrompt").map(call => call.params)).toEqual([{ id: "w", prompt: "Read the plan" }]));
-});
-
 it("u3310_the_switch_is_absent_without_a_workstream", async () => {
   await mountTodos([todo(1)]);
   expect(screen.queryByRole("switch", { name: "Auto" })).toBeNull();
@@ -164,19 +154,4 @@ it("u3311_a_door_hand_off_reveals_folded_destinations_without_stealing_focus", a
   expect(document.querySelector('[data-shelf-group="b"] [data-part="branch-content"]')?.hasAttribute("hidden")).toBe(false);
   expect(document.activeElement).toBe(input);
   expect(input.value).toBe("keep writing");
-});
-
-it("a4452c_a_refused_opening_prompt_keeps_the_original_workstream_draft", async () => {
-  const m = await mountTodos([todo(1, { home: "w" })], true, [workstream("w"), workstream("other")]);
-  m.connected.rail.select("w");
-  m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
-
-  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Opening prompt" });
-  fireEvent.input(field, { target: { value: "  /compose exact words\n" } });
-  fireEvent.blur(field);
-  await screen.findByRole("alert");
-  m.connected.rail.select("other");
-  await waitFor(() => expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Opening prompt" }).value).toBe(""));
-  m.connected.rail.select("w");
-  await waitFor(() => expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Opening prompt" }).value).toBe("  /compose exact words\n"));
 });

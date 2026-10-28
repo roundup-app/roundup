@@ -844,3 +844,10 @@
 .rail-row,
 .rail-fold,
 .rail-leaf { --tree-mid: var(--elbow-y); }
+
+.opening-prompt-field [data-part="textarea"] {
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow: auto;
+  resize: vertical;
+}
