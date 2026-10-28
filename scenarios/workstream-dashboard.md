@@ -10,8 +10,6 @@ Policy: this specification PR changes scenarios and `PRINCIPLES.md` only; the im
 
 **U3016b retired.** Consumption and money (token totals, reported cost, reference estimates, rate bases, partial-coverage subtotals) are retired by #3574 and P14. Its tests `u3016b_token_totals_reconcile_by_source` and `u3016b_cost_basis_and_missing_coverage_are_explicit` are deleted with the machinery they proved; the once-only counting of a source contribution stays proved for intervals by `u3016a_sources_are_scoped_and_counted_once` and `u3016d_reconnect_reconciles_without_double_counting`.
 
-**U3016c retired.** Measurement collection and storage are removed by #4454 (`scenarios/remove-time-timeline.md`, U4454d); its tests go with the code.
-
 **U3016d retired.** Measurement collection and storage are removed by #4454 (`scenarios/remove-time-timeline.md`, U4454d); its tests go with the code.
 
 **U3016e retired.** The Time view is removed by #4454 (`scenarios/remove-time-timeline.md`, U4454a and U4454b); its tests go with it.
@@ -21,10 +19,6 @@ Policy: this specification PR changes scenarios and `PRINCIPLES.md` only; the im
 **U3016g retired.** The Time view is removed by #4454 (`scenarios/remove-time-timeline.md`, U4454a and U4454b); its tests go with it.
 
 **U3016h retired.** The weekly limit line is gone with the Time view.
-
-**U3016i retired.** The Time view is removed by #4454 (`scenarios/remove-time-timeline.md`, U4454a and U4454b); its tests go with it.
-
-**U3016j retired.** The Time view is removed by #4454 (`scenarios/remove-time-timeline.md`, U4454a and U4454b); its tests go with it.
 
 **U3016k retired.** The Time view is removed by #4454 (`scenarios/remove-time-timeline.md`, U4454a and U4454b); its tests go with it.
 
