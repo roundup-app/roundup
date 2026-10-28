@@ -4,10 +4,8 @@ import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
-import { IconButton } from "../ui/IconButton";
 import { NameField, Editable } from "../ui/Editable";
 import { createCutTitle } from "../ui/cutTitle";
-import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
@@ -527,7 +525,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : pad.name}</span>
             </button>
             </Show>
-            <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={event => open(activationSource(event))}><Icon name="right" /></IconButton></span>
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
           </ShelfRow>

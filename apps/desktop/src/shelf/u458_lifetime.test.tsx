@@ -28,7 +28,7 @@ it("u458_hidden_rows_and_context_changes_clear_selection", async () => {
 it("u458_tick_blocker_and_drag_keep_their_actions", async () => {
   const { app, connected } = await mountTodos([todo(1), todo(2), todo(3, { blockers: [1, 2], blocked: true })]);
   fireEvent.click(await screen.findByRole("button", { name: /#3 / }), { metaKey: true });
-  fireEvent.click(within(screen.getByRole("button", { name: /#2 / }).closest(".shelf-row")!).getByRole("button", { name: "Open" }), { metaKey: true });
+  fireEvent.keyDown(screen.getByRole("button", { name: /#2 / }), { key: "Enter" });
   expect(connected.drawer.content()).not.toBeNull();
   expect(screen.getByRole("button", { name: /#3 / }).getAttribute("aria-pressed")).toBe("true");
   fireEvent.click(screen.getByRole("checkbox", { name: "Complete todo 3" }), { metaKey: true });

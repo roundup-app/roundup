@@ -189,9 +189,7 @@ export const RailRowView = (props: {
       </span></Show>
       <span class="row-tail">
         <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
-        <span class="row-controls">
-          <Show when={!workstream()}><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></Show>
-        </span>
+        <Show when={!workstream()}><span class="row-controls"><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></span></Show>
       </span>
     </p>
     <ReservedLine overlay message={pads.failure.message()}><button type="button" data-button="quiet" onClick={pads.failure.clear}>{copy.close}</button></ReservedLine>

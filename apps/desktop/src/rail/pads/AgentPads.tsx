@@ -344,6 +344,5 @@ const OwnedPad = (props: {
           if (event.key === "F2") { event.preventDefault(); rename(); }
         }}><span style={cutName}>{props.copied ? copy.copied : props.pad.name}</span></button>
     </Show>
-    <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={props.open}><Icon name="right" /></IconButton></span>
   </div>;
 };
