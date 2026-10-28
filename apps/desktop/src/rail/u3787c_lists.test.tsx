@@ -1,8 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { agent, event, terminal, workstream } from "../testing/nodes";
-import { todo } from "../todos/testHarness";
-import { mountRail, railCallsTo, rowOf } from "./railFixture";
+import { agent, terminal, workstream } from "../testing/nodes";
+import { mountRail, railCallsTo, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -58,6 +57,7 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
   const { rail } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
 
   fireEvent.click(rowOf("Beta"));
+  await settled();
 
   const press = async (name: string, key: string, expected: string) => {
     rowOf(name).focus();
@@ -65,8 +65,15 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
     await waitFor(() => expect(document.activeElement).toBe(rowOf(expected)));
   };
 
-  await press("Gamma", "Home", "Alpha");
-  await press("Alpha", "ArrowUp", "Alpha");
+  const heading = screen.getByRole("tree", { name: "Rail" }).querySelector<HTMLElement>(".section-head")!;
+  rowOf("Gamma").focus();
+  fireEvent.keyDown(rowOf("Gamma"), { key: "Home" });
+  await settled();
+  expect(document.activeElement).toBe(heading);
+  rowOf("Alpha").focus();
+  fireEvent.keyDown(rowOf("Alpha"), { key: "ArrowUp" });
+  await settled();
+  expect(document.activeElement).toBe(heading);
   await press("Alpha", "End", "終 e\u0301 😀");
   await press("終 e\u0301 😀", "ArrowDown", "終 e\u0301 😀");
   await press("終 e\u0301 😀", "ArrowUp", "Delta");
