@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { message } from "../testing/centreFixture";
@@ -12,7 +13,7 @@ const fresh = agent("fresh", "idle", "starting");
 
 const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
-const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+const field = () => screen.getByLabelText<HTMLTextAreaElement>(copy.task);
 
 const submit = (text: string) => {
   fireEvent.input(field(), { target: { value: text } });
@@ -34,17 +35,17 @@ describe("o11 the Door writes the order for a prompt the user types", () => {
 
     await waitFor(() => expect(railCallsTo(mounted.app, "message.send")).toEqual([{ to: "g", kind: "note", body: "fix the build", replyTo: null }]));
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-    expect(screen.queryByText("Asking the supervisor…")).toBeNull();
+    expect(screen.queryByText(copy.askingTheDoor)).toBeNull();
 
 
-    await waitFor(() => expect(screen.getByText("Asking the supervisor…")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(copy.askingTheDoor)).toBeTruthy());
 
 
     const rows = screen.getAllByRole("treeitem").length;
 
     settle();
-    await waitFor(() => expect(screen.queryByLabelText("Task")).toBeNull());
-    expect(screen.queryByText("Asking the supervisor…")).toBeNull();
+    await waitFor(() => expect(screen.queryByLabelText(copy.task)).toBeNull());
+    expect(screen.queryByText(copy.askingTheDoor)).toBeNull();
     expect(screen.getAllByRole("treeitem").length).toBe(rows);
     expect(mounted.rail.selected()).toBe("g");
   });
