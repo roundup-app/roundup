@@ -97,12 +97,14 @@ pub fn restore(
     let pad = &receipt.pad;
     let incarnation = pad.incarnation.parse::<i64>().map_err(RpcError::internal)?;
     let state = source_state(db, incarnation).map_err(RpcError::internal)?;
-    if !matches!(state, PadSourceState::Deleted(_))
-        || source(db, &pad.name).map_err(RpcError::internal)?.is_some()
-    {
-        return Err(RpcError::conflict(
-            "original Pad is unavailable or its name is in use; retry after resolving the conflict",
-        ));
+    if source(db, &pad.name).map_err(RpcError::internal)?.is_some() {
+        return Err(RpcError::undo_pad_name(&pad.name));
+    }
+    if !matches!(state, PadSourceState::Deleted(_)) {
+        return Err(RpcError::conflict(format!(
+            "Can't undo: the original Pad \"{}\" is unavailable. This Undo cannot currently be completed; the deletion is retained.",
+            pad.name
+        )));
     }
     let original_key: String = db
         .query_row(
@@ -299,20 +301,26 @@ impl Pads {
                 let exists:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=? AND (kind=? OR ?='agent'))",rusqlite::params![identity,kind,kind],|r|r.get(0)).map_err(RpcError::internal)?;
                 if !exists {
                     return Err(RpcError::conflict(
-                        "original Pad Home or owner is unavailable",
+                        "Can't undo this Pad because its original Home or owner was removed too. Undo that removal first.",
                     ));
                 }
             }
             if kind == "pad-home" {
                 let current = source(db, &name)
                     .map_err(RpcError::internal)?
-                    .ok_or_else(|| RpcError::conflict("kept Pad no longer exists"))?
+                    .ok_or_else(|| {
+                        RpcError::conflict(
+                            "Can't undo: a retained Pad was removed too. Undo that removal first.",
+                        )
+                    })?
                     .pad;
-                if current.incarnation != incarnation
-                    || current.home.is_some()
+                if current.incarnation != incarnation {
+                    return Err(RpcError::undo_identity(&current.incarnation, &current.name));
+                }
+                if current.home.is_some()
                     || serde_json::to_string(&current.owner).map_err(RpcError::internal)? != owner
                 {
-                    return Err(RpcError::conflict("kept Pad changed Home or owner"));
+                    continue;
                 }
                 db.execute(
                     "UPDATE pads SET home=? WHERE key=?",

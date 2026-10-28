@@ -349,3 +349,5 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 |---|---|---|
 | Recent Projects (`recent_projects`, `recentProjects`) | Recent folders | — |
 | Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`, `claudeBinarySchema`) | claude | — |
+
+| Undo refusal (`RpcErrorData::UndoParent`, `UndoIdentity`, `UndoPadName`, `RpcError::undo_parent`, `undo_identity`, `undo_pad_name`) | same | — |

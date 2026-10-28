@@ -148,15 +148,21 @@ impl Todos {
         }
         coordinate(&tx)?;
         let before = store.list()?;
+        let occupied: Option<(String,String)> = tx.query_row("SELECT CAST(t.id AS TEXT),t.title FROM todos t JOIN deleted_todos d ON d.id=t.id WHERE d.operation=? LIMIT 1", [operation], |r| Ok((r.get(0)?,r.get(1)?))).optional().map_err(RpcError::internal)?;
+        if let Some((id, title)) = occupied {
+            return Err(RpcError::undo_identity(id, title));
+        }
         // Plain INSERT refuses collisions; the transaction rolls every insertion back.
         for (live, retained, columns) in TABLES {
             tx.execute(&format!("INSERT INTO {live} ({columns}) SELECT {columns} FROM {retained} WHERE operation = ?"), [operation])
-                .map_err(|e| RpcError::conflict(format!("cannot restore {live}: {e}")))?;
+                .map_err(|_| RpcError::conflict("Can't undo these Todos because retained relationships are unavailable. Undo the later deletion first; this deletion is retained."))?;
         }
         let edges = store.edges()?;
         for (id, blockers) in &edges {
             if crate::cycle::creates_cycle(&edges, *id, blockers) {
-                return Err(RpcError::conflict("restored blockers would make a cycle"));
+                return Err(RpcError::conflict(
+                    "Can't undo: the Todo dependencies would form a cycle. Remove the later dependency, then try Undo again.",
+                ));
             }
         }
         let mut restored = result
@@ -424,8 +430,18 @@ impl Todos {
                 .map_err(RpcError::internal)?
                 != 1
             {
+                let exists: bool = db
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM todos WHERE id=?)",
+                        [&id],
+                        |r| r.get(0),
+                    )
+                    .map_err(RpcError::internal)?;
+                if exists {
+                    continue;
+                }
                 return Err(RpcError::conflict(
-                    "kept Todo changed Home or no longer exists",
+                    "Can't undo: a retained Todo was removed too. Undo that removal first.",
                 ));
             }
             ids.push(id.parse().map_err(RpcError::internal)?);
@@ -484,8 +500,16 @@ impl Todos {
                 )
                 .map_err(RpcError::internal)?;
             if !vacant {
+                let exists: bool = db
+                    .query_row("SELECT EXISTS(SELECT 1 FROM todos WHERE id=?)", [id], |r| {
+                        r.get(0)
+                    })
+                    .map_err(RpcError::internal)?;
+                if exists {
+                    continue;
+                }
                 return Err(RpcError::conflict(
-                    "Todo no longer exists or its owner changed",
+                    "Can't undo: a retained Todo was removed too. Undo that removal first.",
                 ));
             }
             change_owner_in(db, actor, id, Some(&owner))?;
@@ -533,7 +557,7 @@ impl Todos {
         let missing:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM deleted_todos t WHERE operation=? AND ((home IS NOT NULL AND NOT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=t.home AND kind='workstream')) OR (json_extract(owner,'$.kind')='agent' AND NOT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=json_extract(t.owner,'$.id')))))",[operation],|r|r.get(0)).map_err(RpcError::internal)?;
         if missing {
             return Err(RpcError::conflict(
-                "original Todo Home or owner is unavailable",
+                "Can't undo these Todos because their original Home or owner was removed too. Undo that removal first.",
             ));
         }
         Ok(())
