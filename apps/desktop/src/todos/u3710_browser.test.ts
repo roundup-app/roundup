@@ -164,6 +164,21 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(made[0]!.params.blockers?.[0]).toBe(order[0]);
   }, 60_000);
 
+  it("u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
+    await setup();
+    const order = await ids();
+    await page.call(`async order => {
+      await window.__fake.app.rpc('todo.setBlockers', {id: order[1], blockers: [order[0]]});
+      window.__mark = window.__fake.app.calls.length;
+    }`, order);
+    await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
+    const third = await centre(2);
+    await drag(third, { x: third.x + 48, y: third.y });
+    await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
+    await settled();
+    expect(await calls()).toEqual([{ method: "todo.setBlockers", params: { id: order[2], blockers: [order[1]] } }]);
+  });
+
   it("u3711_a_refused_drop_shows_the_cause_and_changes_nothing", async () => {
     await setup();
 

@@ -194,11 +194,18 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const depth = drop?.depth ?? rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === sourceRow))?.depth ?? 0;
     const target = landingRows.find(entry => rows.find(row => row.id === entry.id)?.depth === depth)?.element ?? sourceRow;
     const box = target.getBoundingClientRect();
+    const styles = getComputedStyle(target);
+    const targetDepth = rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === target))?.depth ?? 0;
+    const step = Number.parseFloat(styles.getPropertyValue("--tree-step")) || local.tree?.indent || 0;
+    const content = target.querySelector<HTMLElement>(".line");
+    const inset = content ? content.getBoundingClientRect().left - box.left
+      : styles.getPropertyValue("--todo-depth").trim() ? Number.parseFloat(styles.paddingInlineStart) - Number.parseFloat(styles.getPropertyValue("--space-2")) : 0;
+    const indent = inset + (depth - targetDepth) * step;
     const parent = slot.parentElement;
 
     if (!parent) return;
-    slot.style.marginInlineStart = `${box.left - parent.getBoundingClientRect().left}px`;
-    slot.style.width = `${box.width}px`;
+    slot.style.marginInlineStart = `${box.left + indent - parent.getBoundingClientRect().left}px`;
+    slot.style.width = `${box.width - indent}px`;
   };
 
   let stopListening: (() => void) | undefined;
@@ -487,10 +494,10 @@ const Item = (props: ItemProps) => {
 };
 
 /** The library binds both pointer and keyboard activation to this independent control. */
-const Handle = (props: { label: string; ref: (element: HTMLButtonElement | undefined) => void }) => {
+const Handle = (props: { label: string; tooltip?: string; ref: (element: HTMLButtonElement | undefined) => void }) => {
   onCleanup(() => props.ref(undefined));
 
-  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} ref={props.ref} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}><GripVertical aria-hidden="true" /></IconButton>;
+  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} tooltip={props.tooltip} ref={props.ref} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}><GripVertical aria-hidden="true" /></IconButton>;
 };
 
 export const Sortable = { Root, Item, Handle };

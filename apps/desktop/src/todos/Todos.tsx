@@ -264,6 +264,7 @@ export const Todos = (props: {
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
+  let nestGrip = false;
   let nestPermission = captureFocus();
 
   createEffect(() => {
@@ -275,7 +276,10 @@ export const Todos = (props: {
       if (nestFocus !== id) return;
       nestFocus = null;
 
-      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => rowButtonOf(id)?.focus());
+      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => {
+        const target = nestGrip ? rowButtonOf(id)?.closest(".todo-row")?.querySelector<HTMLElement>(".sortable-handle") : rowButtonOf(id);
+        target?.focus({ preventScroll: true });
+      });
     });
   });
 
@@ -286,6 +290,7 @@ export const Todos = (props: {
       const advance = captureAdvance(todo.id);
       nestPermission = captureFocus();
       nestFocus = advance ? null : todo.id;
+      nestGrip = false;
 
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
 
@@ -307,9 +312,12 @@ export const Todos = (props: {
 
     if (plan.blockers !== undefined) {
       const blockers = plan.blockers;
+      nestPermission = captureFocus();
+      nestFocus = id;
+      nestGrip = true;
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
-      if (message !== null) return sorted.show(id, message);
+      if (message !== null) { nestFocus = null; return sorted.show(id, message); }
     }
 
     if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
@@ -895,7 +903,7 @@ export const Todos = (props: {
 
  if (!active) board.preview(null); }} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
-          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
+          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tree-step")) || 24; },
           nests: () => true,
           onMove: (move) => void dropOf(tree(), group().items, Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,
