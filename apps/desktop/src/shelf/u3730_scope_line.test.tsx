@@ -19,22 +19,26 @@ const line = () => document.querySelector<HTMLElement>("[data-shelf-scope]")!;
 
 const select = async (name: string) => {
   fireEvent.click([...document.querySelectorAll<HTMLElement>(".rail-row")].find(row => row.textContent!.trim().startsWith(name))!);
-  await waitFor(() => expect(line().querySelector(".shelf-scope-name")!.textContent).toBe(name));
+  await waitFor(() => expect(within(line()).getByRole("button", { name: `add todo to ${name}` })).toBeTruthy());
 };
 
 it("u3730_the_scope_line_holds_the_name_and_one_add_button", async () => {
-  await open();
+  // Rule 10: visible label/order checks retire to the critic; this test retains accessible scope and unique creation.
+  const { app } = await open();
+  const expectScope = async (name: string) => {
+    await waitFor(() => expect(within(line()).getAllByRole("button", { name: /^add todo to / })).toHaveLength(1));
+    expect(within(line()).getByRole("button", { name: `add todo to ${name}` })).toBeTruthy();
+  };
 
-  expect(line().querySelector(".shelf-scope-name")!.textContent).toBe("Overview");
-  const buttons = within(line()).getAllByRole("button");
-  expect(buttons.map(button => button.getAttribute("aria-label"))).toEqual(["add todo to Overview", "Triage"]);
-  expect(line().querySelector(".shelf-scope-name")!.compareDocumentPosition(buttons[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  const group = document.querySelector("[data-shelf-group]");
-
-  if (group) expect(buttons[0]!.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
+  await expectScope("Overview");
   await select("backend");
-  expect(within(line()).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["add todo to backend", "Triage"]);
+  await expectScope("backend");
+  await app.rpc("rail.rename", { id: "backend", name: "Renamed work" });
+  await waitFor(() => expect(within(line()).getByRole("button", { name: "add todo to Renamed work" })).toBeTruthy());
+  await expectScope("Renamed work");
+  await select("migrate-db");
+  await expectScope("migrate-db");
+
 });
 
 it("u3730_add_files_into_the_scope_and_returns_focus", async () => {
