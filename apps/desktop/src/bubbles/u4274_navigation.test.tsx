@@ -33,6 +33,9 @@ it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   const portal = document.querySelector(".resource-agent");
   const initial = screen.getByRole("group", { name: "Terminals" });
   expect(within(initial).getAllByRole("button")).toEqual([within(initial).getByRole("button", { name: "New Terminal" })]);
+  fireEvent.keyDown(document, { key: "Tab" });
+  within(initial).getByRole("button", { name: "New Terminal" }).focus();
+  expect(await screen.findByRole("tooltip")).toBeDefined();
   expect(daemon.calls.filter(call => ["terminal.open", "agent.spawn", "rail.createWorkstream", "rail.startDoor"].includes(call.method))).toHaveLength(0);
   shells.push(info("shell", { owner: "/p" }));
   await connected().rail.refresh({ terminals: true });
@@ -137,4 +140,38 @@ it("u4277c_hidden_project_terminals_never_report_empty", async () => {
   await connected().rail.refresh({ terminals: true });
   const bar = await screen.findByRole("group", { name: "Terminals" });
   expect(within(bar).queryByRole("status")).toBeNull();
+});
+
+it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
+  const { connected, shells, daemon } = await mountNavigation();
+  shells.push(info("saved", { owner: "home", title: "zsh" }));
+  await connected().rail.refresh({ terminals: true });
+  connected().rail.select("home");
+  const tab = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="saved"]')!;
+  fireEvent.dblClick(tab);
+  const field = await screen.findByRole("textbox", { name: "Terminal name" });
+  const text = "  saved e\u0301 🫧  ";
+  fireEvent.input(field, { target: { value: text } });
+  fireEvent.keyDown(field, { key: "Escape" });
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-bubble")).toBe("saved"));
+  shells[0] = { ...shells[0]!, running: false, exit_code: 0 };
+  await connected().rail.refresh({ terminals: true });
+  const retained = connected().drafts.list();
+  daemon.handlers["terminal.open"] = () => {
+    shells.push(info("new", { owner: "home" }));
+
+    return { terminal_id: "new" };
+  };
+
+  fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("new"));
+  expect(connected().drafts.list()).toEqual(retained);
+  const recovery = document.querySelector<HTMLButtonElement>(".terminal-recover")!;
+  recovery.focus();
+  expect(document.activeElement).toBe(recovery);
+  fireEvent.click(recovery);
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(dialog.querySelector(".draft-value")?.textContent).toBe(text);
+  expect(connected().drafts.list()).toEqual([expect.objectContaining({ destination: { surface: "bubbles", object: shells[0]!.incarnation, recipient: "saved" }, value: { name: text, base: "zsh" } })]);
+  expect(daemon.calls.filter(call => ["terminal.open", "terminal.close", "terminal.write"].includes(call.method))).toEqual([{ method: "terminal.open", params: { workstream: "home" } }]);
 });
