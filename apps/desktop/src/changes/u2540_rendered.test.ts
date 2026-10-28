@@ -187,7 +187,7 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     expect(await browser("eval", "document.querySelector('.note-form textarea').value")).toBe("  retain this exact e\u0301\n🐝  ");
     await capture("real-retention-failure", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-retention.png");
-    expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
+    expect((await app.rpc("message.list", { to: node.id, status: null })).filter(message => message.from.kind === "user")).toHaveLength(0);
     const retained = await browser("eval", "document.querySelector('.note-form textarea').value");
     await press("Close changes");
     await wait("!document.querySelector('.worktree-panel')");

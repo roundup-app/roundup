@@ -56,25 +56,25 @@ it.each(["menu", "key", "unknown", "exited", "pending"])("u3787a_rail_%s_deletes
 
   if (entry === "pending") {
     fireEvent.keyDown(rowOf("chosen"), { key: "Backspace", code: "Backspace", metaKey: true });
-    expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]);
+    expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
     finish!(receipt!);
   }
 
   if (!readable) {
     const check = await screen.findByRole("button", { name: "Check deletion" });
-    expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]);
+    expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
     readable = true;
     fireEvent.click(check);
   }
 
-  const undo = await screen.findByRole("button", { name: "Undo" });
+  await screen.findByText("Deleted chosen");
   daemon.handlers["rail.restore"] = () => { throw new Error("Original Home changed. Restore the Home and retry."); };
 
-  fireEvent.click(undo);
+  fireEvent.keyDown(document.body, { key: "z", code: "KeyZ", metaKey: true });
   await screen.findByText("Original Home changed. Restore the Home and retry.");
   daemon.handlers["rail.restore"] = () => ({ ...receipt!, deletion: { ...receipt!.deletion!, restored: true } });
-  fireEvent.click(undo);
-  await waitFor(() => expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]));
+  fireEvent.keyDown(document.body, { key: "z", code: "KeyZ", metaKey: true });
+  await waitFor(() => expect([screen.queryByText("Deleted chosen")]).toEqual([null]));
   expect(daemon.calls.filter(c => c.method === "rail.restore").map(c => c.params)).toEqual([receipt!.deletion, receipt!.deletion].map(d => ({ project: d!.project, operation: d!.operation })));
   expect(daemon.calls.filter(c => c.method === "rail.remove")).toHaveLength(1);
   expect(daemon.calls.filter(c => ["agent.resume", "terminal.create"].includes(c.method))).toEqual([]);
@@ -94,5 +94,5 @@ it.each(["process", "worktree", "cascade"])("u3787a_rail_%s_requires_native_cons
   await waitFor(() => expect(daemon.questions).toHaveLength(1));
   await answerQuestion(false);
   expect(daemon.calls.filter(c => c.method === "rail.remove")).toEqual([]);
-  expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]);
+  expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
 });
