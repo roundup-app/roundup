@@ -47,36 +47,6 @@ impl Shared {
         });
     }
 
-    /// H19: when the star has not arrived `steer_bound` after the first `SessionStart`, drop the
-    /// first prompt unwritten and settle `id` to `error`, as a Steer that failed does.
-    pub(super) fn refuse_unless_gate_opens(&self, id: &str, attempt: &str) {
-        let Some(shared) = self.me.upgrade() else {
-            return;
-        };
-        let (id, attempt) = (id.to_owned(), attempt.to_owned());
-        tokio::spawn(async move {
-            tokio::time::sleep(shared.steer_bound).await;
-            let dropped = match shared.runs().get_mut(&id) {
-                Some(Slot::Running(run)) if run.attempt == attempt => {
-                    if run.prompt.take().is_some() {
-                        run.first_pending = false;
-                        if let Some(completion) = &run.first_completion {
-                            completion.send_replace(Some(FirstSteerCompletion::Refused));
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            };
-            if dropped {
-                eprintln!("agents: the first prompt of {id} was never written: no star title");
-                shared.refuse_prompt(&id, &attempt);
-            }
-        });
-    }
-
     /// A4452a, A4452d: roundup's own text reaches `id` as a Message to its Claude inbox and writes
     /// no byte to its Terminal. `attempt` fences a stale start.
     pub(super) async fn coordinate(
@@ -110,36 +80,6 @@ impl Shared {
         send(id.to_owned(), text)
             .await
             .map_err(|error| SteerError::Refused(PromptError::Rail(error)))
-    }
-
-    /// H12: settle `id` to `error` with the label `prompt not accepted`, if `attempt` is still
-    /// its current Attempt.
-    pub(super) fn refuse_prompt(&self, id: &str, attempt: &str) {
-        let mut runs = self.runs();
-        let Some(Slot::Running(run)) = runs.get_mut(id) else {
-            return;
-        };
-        if run.attempt != attempt {
-            return;
-        }
-        run.first_pending = false;
-        self.events.observed.notify_waiters();
-        if let Some(status) = run.adapter.refuse_prompt() {
-            run.status_revision = run
-                .status_revision
-                .checked_add(1)
-                .expect("Status revision exhausted");
-            self.bus.emit(
-                Actor::daemon(),
-                EventData::AgentStatus(Box::new(StatusEvent {
-                    ended: false,
-                    id: id.to_owned(),
-                    attempt: run.attempt.clone(),
-                    status_revision: run.status_revision.to_string(),
-                    status,
-                })),
-            );
-        }
     }
 }
 

@@ -341,7 +341,7 @@ impl Shared {
                 .expect("measurement timing lock")
                 .end_attempt(id, &run.attempt);
         }
-        // H19: the first Steer waits for the first `SessionStart` and the first star title.
+        // A4452a: the coordination text waits for the first `SessionStart`; A4452b: no star gates it.
         let session_start = matches!(&observation, Observation::Signal(payload)
             if claude_code::is_session_start(payload));
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
@@ -351,9 +351,6 @@ impl Shared {
                     .lock()
                     .expect("measurement timing lock")
                     .acknowledge_attempt(id, &run.attempt);
-            }
-            if !run.session_started && run.prompt.is_some() {
-                self.refuse_unless_gate_opens(id, &run.attempt);
             }
             run.session_started = true;
         }
@@ -511,7 +508,7 @@ impl Shared {
             }
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        let prompt = run.prompt.take_if(|_| run.session_started && run.starred);
+        let prompt = run.prompt.take_if(|_| run.session_started);
         if (session_start || star)
             && let Some(observer) = &self.events.gate_observer
         {
