@@ -99,6 +99,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     };
 
     await reopen();
+    await screen.findByRole("region", { name: copy.importTitle });
     const refresh = screen.queryByRole("button", { name: copy.importRefresh });
 
     if (refresh) fireEvent.click(refresh);
@@ -153,7 +154,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
       fireEvent.click(tab("api"));
       await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
-      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Import 1" }).disabled).toBe(false);
+      expect((await screen.findByRole<HTMLButtonElement>("button", { name: "Import 1" })).disabled).toBe(false);
       expect(screen.getByText(/Import choices.*could not be saved for reload/)).toBeTruthy();
       writes.mockRestore();
       fireEvent.click(screen.getByRole("button", { name: copy.retryStorage }));
@@ -347,7 +348,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
     return read.call(this, key);
   });
 
-  fireEvent.click(screen.getByRole("button", { name: "Open choices 1" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open choices 1" }));
   const retry = await screen.findByRole("button", { name: copy.retryStorage });
   reads.mockRestore();
   fireEvent.click(retry);
@@ -358,7 +359,7 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
 
   for (const [number, period, sources] of [[1, "month", ["s2"]], [2, "week", ["s1", "s3"]]] as const) {
     fireEvent.click(screen.getByRole("button", { name: `Open choices ${number}` }));
-    expect(screen.getByRole("button", { name: `Last ${period}` }).getAttribute("aria-pressed")).toBe("true");
+    expect((await screen.findByRole("button", { name: `Last ${period}` })).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: `Import ${sources.length}` })).toHaveProperty("disabled", true);
     await waitFor(() => expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected).toEqual(sources.map(source => ({ source, revision: `preview-${source.slice(1)}`, title: titles[Number(source.slice(1)) - 1] }))));
     expect(screen.getAllByRole("button", { name: /Open choices/ })).toHaveLength(2);
