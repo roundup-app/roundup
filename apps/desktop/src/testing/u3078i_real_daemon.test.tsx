@@ -1,5 +1,4 @@
-import { OrderDrawer } from "../orders/OrderDrawer";
-import { ConnectedProjectContext } from "../state/connectedProject";
+import { menuProbe } from "./menuProbe";
 import type { ConnectedProject } from "../state/connectedProject";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -53,8 +52,10 @@ const interrupted = async (mode: "replace" | "document") => {
 
     await waitFor(() => expect(connected).toBeDefined());
     fireEvent.click(row);
-    // U4453a removes the ordinary goal entry point; retained recovery still renders this component.
-    connected!.drawer.open(() => <ConnectedProjectContext.Provider value={connected!}><OrderDrawer id={worker.id} /></ConnectedProjectContext.Provider>, "key");
+    fireEvent.contextMenu(row.closest<HTMLElement>(".rail-row")!);
+    const action = menuProbe.shown?.find(item => item.label === "Work progress");
+    expect(action?.enabled).toBe(true);
+    menuProbe.answer?.(action!.id);
 
     return { view, section: await screen.findByRole("region", { name: "Progress" }, { timeout: 30_000 }) };
   };

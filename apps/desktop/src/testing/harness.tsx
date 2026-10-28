@@ -6,8 +6,6 @@ import { render } from "solid-js/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
 import { captureActions } from "../keys/registry";
 import { App } from "../App";
-import { OrderDrawer } from "../orders/OrderDrawer";
-import { ConnectedProjectContext } from "../state/connectedProject";
 import { createXtermEmulators } from "../terminal/emulator";
 import type { Emulator } from "../terminal/emulator";
 import { railStorage } from "../rail/persist/storage";
@@ -33,8 +31,6 @@ declare global {
     __terminals: Map<string, Emulator>;
     /** U463: cancel only the next isolated choice; no caller-supplied path. */
     __firstRun?: { cancelNextChoice: () => void };
-    /** The retained Order drawer U4453a left without a goal line; opens it for one Agent. */
-    __openOrder: (id: string) => void;
     __checks: () => Checks;
     __axe: () => Promise<AxeResult>;
   }
@@ -105,7 +101,6 @@ const mount = (app: AppSeam) => {
     if (requested.has(open.project.path)) return;
     requested.add(open.project.path);
     inspection(open);
-    window.__openOrder = id => open.drawer.open(() => <ConnectedProjectContext.Provider value={open}><OrderDrawer id={id} /></ConnectedProjectContext.Provider>, "key");
 
     for (const view of query.getAll("view")) open.showView(view);
 

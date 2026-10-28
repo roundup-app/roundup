@@ -1,3 +1,4 @@
+import { WorkProgress } from "../orders/WorkProgress";
 import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
@@ -64,6 +65,12 @@ export const Rail = () => {
     const actions = actionsOf(node);
 
     return [
+      ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
+        id: "progress", label: copy.workProgress, run: () => {
+          rowElement(node.id)?.focus({ preventScroll: true });
+          connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
+        },
+      }] : []),
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addMenu, children: [

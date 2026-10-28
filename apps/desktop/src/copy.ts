@@ -121,7 +121,6 @@ const importRefusals = new Map<number, string>([
   [-32010, "The conversation inbox is unavailable."],
 ]);
 
-const compactTokens = (value: number) => new Intl.NumberFormat("en", { notation: "compact" }).format(value);
 
 export const clockTime = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit", minute: "2-digit", hourCycle: "h23", numberingSystem: "latn",
@@ -214,21 +213,10 @@ export const copy = {
   copyField: (field: string) => `Copy ${field}`,
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
 
-  context: "Context",
-  contextUsed: "Used",
-  contextOf: (used: number, limit: number) => `${compactTokens(used)} of ${compactTokens(limit)}`,
-  contextValueText: (used: number, limit: number, percent: number) => `${compactTokens(used)} of ${compactTokens(limit)}, ${percent}%`,
-  contextNear: "near the limit",
-  contextFull: "full",
-  contextPart: { system: "System prompt", tools: "Tools", files: "Files", conversation: "Conversation", other: "Other" },
-  contextExact: (label: string, tokens: number, share: number) => `${label}: ${new Intl.NumberFormat("en").format(tokens)} tokens, ${share}% of the limit`,
-  cardIntent: "Intent",
   // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- ConversationCard.shape is a domain term (A2681c; row in GLOSSARY.md).
-  cardShape: "Shape",
-  cardFacts: "Facts",
-  cardOutcome: "Outcome",
-  orderLimits: "Limits",
   progress: "Progress",
+  workProgress: "Work progress",
+  progressEmpty: "No reported work yet",
   progressUnreadable: (value1: CopyValue) => `Progress could not be read: ${value1}`,
   progressRetry: "Read again",
   progressAccepted: "Accepted",
@@ -441,20 +429,10 @@ export const copy = {
   doorsMayUse: "Supervisors may use",
   roundupToolsOverMcp: "Roundup tools over MCP",
   aRunningAgentIsNotChanged: "A running Agent is not changed.",
-  thePromptCouldNotBeRead: "The prompt could not be read",
-  theOrderCouldNotBeSaved: "The order could not be saved",
-  orderRestoreFailed: "This saved order form could not be restored. Recover unfinished work to copy or discard its original fields.",
-  orderChanged: "Order changed; copy or discard your retained edit.",
   title: "Title",
   ask: "Ask",
-  doneWhen: "Done when",
   save: "Save",
-  editOrder: "Edit order",
-  notDone: "Not done",
-  fullOrderOf: (value1: CopyValue) => `Full order of ${value1}`,
-  copySessionId: "Copy session id",
   copied: "Copied",
-  copyFailed: "Copy failed",
   task: "Task",
   taskHint: "What should the Agent do?",
   hasExitedAndCannotBeResumed: (value1: CopyValue) => `${value1} has exited and cannot be resumed`,

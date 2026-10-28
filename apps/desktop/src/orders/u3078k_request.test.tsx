@@ -1,6 +1,6 @@
 import { fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
-import { mountApp, select, inspectOrder } from "../testing/appFixture";
+import { mountApp, select, openWorkProgress } from "../testing/appFixture";
 import { screen } from "@solidjs/testing-library";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import type { Reconciliation } from "@contracts/message/Reconciliation";
@@ -37,7 +37,7 @@ const open = async (plans: () => Record<string, Reconciliation>) => {
   });
 
   select("alpha");
-  inspectOrder();
+  await openWorkProgress(mounted.app);
 
   return { sent, ...mounted };
 };
@@ -55,7 +55,7 @@ it("u3078k_a_new_agent_starts_without_the_old_request", async () => {
   const { sent, app } = await open(() => ({ a: seedA.plan, b: seedB.plan }));
   await retry();
   select("beta");
-  inspectOrder("b");
+  await openWorkProgress(app, "b");
   await waitFor(() => expect(app.calls.some((call) => call.method === "message.reconcileWork" && paramOf(call) === "b")).toBe(true));
   await retry();
 
