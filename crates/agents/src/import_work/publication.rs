@@ -170,6 +170,7 @@ impl Agents {
                 RailPublication::Immediate,
                 None,
                 None,
+                (80, 24),
             )
             .await?;
         }
