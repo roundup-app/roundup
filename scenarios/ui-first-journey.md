@@ -131,7 +131,7 @@ Observer retired (CI speed, rule 10): `u364_` measured the label at two widths, 
 
 **U417 retired by U467.** The Thread's composer is gone.
 
-**U422 retired by U467.** The Workstream view, its goal and its `⋯` menu are gone; `Clear…` is the Rail row's menu item (U350).
+**U422 retired by U467.** The Workstream view, its goal and its `⋯` menu are gone; Clear is retired by A32/U350 (#4542).
 
 **U423 retired by U467.** The Thread's question and its relay are gone; a question is answered in its Terminal (U468).
 

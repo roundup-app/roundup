@@ -1,5 +1,7 @@
 # Cheaper rewind and Door tests
 
+Policy: A32/U350 (#4542) retire Clear-only inventory entries and their process requirements; all surviving behavior retains its original observer and cost boundary. Historical baseline counts precede that retirement.
+
 Source: #2961. Scope: the fixed inventory below from `crates/rup/tests/a35.rs`, its existing helpers and any process-free replacements in the owning crates. Product behaviour and public contracts do not change (policy).
 
 ## Existing checks on main
@@ -39,7 +41,6 @@ The baseline is `main`'s green `check` run 39378452452, 779 s in total as record
 | `a35_messages_todos_pads_and_checkpoints_stay` | 24.5 |
 | `a35_no_slash_command_is_typed` | 24.0 |
 | `a35_rewound_is_emitted_once_after_the_last_session_start` | 22.8 |
-| `a35_a_clear_makes_earlier_marks_unusable` | 21.8 |
 | `a35_keep_changes_no_file` | 19.4 |
 | `a35_only_a_door_is_offered_and_can_call_rewind` | 19.3 |
 | `a35_the_door_is_told_what_was_rewound` | 18.9 |

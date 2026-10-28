@@ -1,5 +1,7 @@
 # Real Claude Code with a fake model
 
+Policy: A32/U350 (#4542) retire Clear-only inventory entries and their process requirements; the mixed `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear` observer keeps launch/resume and retires only its Clear branch; all surviving behavior retains its original observer and cost boundary. Historical baseline counts precede that retirement.
+
 Ownership: `crates/rup/tests/` (the five files below, shared helper, `e2e/fake_claude.py` and fixtures), `crates/rupd/tests/b21_stopped_door.rs`, the twenty listed web test files, `.config/nextest.toml`, `.github/workflows/check.yml` install/cache steps, `package.json` and `pnpm-lock.yaml`. No production behaviour change, contract change or spike files belongs to this work (policy). Land the shared helper and `crates/rup` first, then `crates/rupd`, then `apps/desktop`, one module directory per PR (policy). Progress, exceptions and engineering questions belong on the work Issue, never in a scenario Work table (policy).
 
 ## Library selection
@@ -13,7 +15,7 @@ Use [aimock](https://github.com/CopilotKit/aimock), whose [v1.45.1 release](http
 3. Launch configuration: `crates/agents/tests/launch.rs`, `a4_the_argv_runs_claude_with_a_per_agent_settings_file`.
 4. Test value: `scenarios/loop-rules.md`, heading L119 (policy).
 
-**E10 real Claude executes the selected behaviour tests.** Given the fixed inventory below, each Rust test and each web file's selected fake-driven behaviour tests run pinned Claude Code against `@copilotkit/aimock`, with one fixture file for each test's turns. The inventory counts 81 entries, including two memory exceptions and twenty web files; it is not a claim that there are exactly 81 individual test functions (policy).
+**E10 real Claude executes the selected behaviour tests.** Given the fixed inventory below, each Rust test and each web file's selected fake-driven behaviour tests run pinned Claude Code against `@copilotkit/aimock`, with one fixture file for each test's turns. The pre-retirement inventory counted 81 entries, including two memory exceptions and twenty web files; A32/U350 remove the Clear-only entries below. That baseline count is not a required retained test count (policy).
 - Every retained behaviour test asserts its original scenario's outcome using real Claude, real hooks and the real MCP shim; the original named tests below remain the acceptance tests, with renamed tests mapped in the implementation PR (policy).
 - Each cut test names the surviving test whose assertions prove its then-clause, or its retired scenario, under check 4; the implementation PR holds this mapping (policy).
 - The two tests in check 2 remain on the stub and pass under their existing names. If aimock cannot pause between permission events for the two GATE-dependent tests, those tests alone may remain on the stub: the PR names both tests and the missing aimock capability with library evidence (policy). No other behaviour-test exemption is allowed (policy).
@@ -41,34 +43,9 @@ Cost observer (TC1): `e11_a_tool_result_matches_the_next_turn` also asserts D3�
 
 ## Inventory for E10
 
-<details><summary><code>crates/rup/tests/a32.rs</code>: 20</summary>
-
-- `a32_a_bad_id_in_the_handoff_keeps_the_clear_pending`
-- `a32_a_failed_restart_keeps_the_workstream`
-- `a32_a_failed_stop_retries_without_double_archive`
-- `a32_a_valid_clear_only_asks_the_door`
-- `a32_an_empty_reason_changes_nothing`
-- `a32_iteration_advances_once`
-- `a32_kept_items_keep_their_ids_and_owners`
-- `a32_message_list_spans_iterations`
-- `a32_no_handoff_times_out_and_changes_nothing`
-- `a32_no_slash_command_is_typed`
-- `a32_only_the_door_may_hand_off`
-- `a32_resume_is_held_until_session_start`
-- `a32_subagents_stop_deepest_first_and_leave_the_rail`
-- `a32_the_door_restarts_fresh_from_the_handoff`
-- `a32_the_handoff_read_waits_for_a_delayed_prompt_write`
-- `a32_the_workstream_and_its_terminals_survive`
-- `a32_unkept_todos_and_pads_are_archived_not_lost`
-- `a32_without_handoff_archives_everything`
-- `a32_worktrees_and_branches_survive_even_dirty`
-- `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear`
-
-</details>
 
 <details><summary><code>crates/rup/tests/a35.rs</code>: 8</summary>
 
-- `a35_a_clear_makes_earlier_marks_unusable`
 - `a35_a_missing_saved_conversation_is_a_recording_failure`
 - `a35_an_old_checkpoint_is_not_rewindable`
 - `a35_marks_do_not_follow_a_replaced_directory_symlink`
@@ -81,8 +58,6 @@ Cost observer (TC1): `e11_a_tool_result_matches_the_next_turn` also asserts D3�
 
 <details><summary><code>crates/rup/tests/d9.rs</code>: 2</summary>
 
-- `d9_clear_failure_is_evented_without_an_app_timeout`
-- `d9_clear_with_a_sixty_second_handoff_keeps_the_connection_available`
 
 </details>
 
@@ -179,20 +154,13 @@ Baseline: `rup::real_claude` on successful [check run 39378452452](https://githu
 | test | binary | seconds |
 |---|---|---|
 | `h15_every_hook_call_of_a_ten_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle` | `rup::real_claude` | 32.5 |
-| `a32_a_failed_restart_keeps_the_workstream` | `rup::real_claude` | 27.7 |
-| `a32_no_handoff_times_out_and_changes_nothing` | `rup::real_claude` | 23.4 |
-| `a32_without_handoff_archives_everything` | `rup::real_claude` | 22.6 |
-| `a32_a_failed_stop_retries_without_double_archive` | `rup::real_claude` | 20.6 |
-| `a32_subagents_stop_deepest_first_and_leave_the_rail` | `rup::real_claude` | 19.7 |
 | `e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing` | `rup::real_claude` | 17.4 |
 | `a2693a_real_claude_resumes_yolo_and_restarts_normal` | `rup::real_claude` | 15.9 |
 | `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear` | `rup::real_claude` | 13.5 |
 | `a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp` | `rup::real_claude` | 12.8 |
 | `e14_roundup_launches_and_resumes_real_claude` | `rup::real_claude` | 12.1 |
-| `a32_resume_is_held_until_session_start` | `rup::real_claude` | 11.9 |
 | `e12_a_complete_turn_has_only_loopback_traffic` | `rup::real_claude` | 11.9 |
 | `b2693b_real_yolo_receiver_takes_a_note_without_approval` | `rup::real_claude` | 11.8 |
-| `a32_message_list_spans_iterations` | `rup::real_claude` | 11.6 |
 | `lc9_the_profile_holds_in_the_real_tui` | `rup::real_claude` | 11.2 |
 | `m16_real_claude_runs_tests_with_bash_without_a_run` | `rup::real_claude` | 10.5 |
 | `f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own` | `rup::real_claude` | 9.4 |
@@ -201,11 +169,7 @@ Baseline: `rup::real_claude` on successful [check run 39378452452](https://githu
 | `e12_a_fresh_configuration_accepts_the_first_prompt` | `rup::real_claude` | 8.7 |
 | `a2693a_real_claude_skips_only_yolo_tool_permissions` | `rup::real_claude` | 8.2 |
 | `e6_a_late_shim_goes_missing_then_up` | `rup::real_claude` | 7.7 |
-| `b55_thirty_idle_edges_and_a_restart_of_the_new_session_type_none_of_it` | `rup::real_claude` | 7.7 |
-| `b55_the_next_session_holds_no_word_of_the_old_ask` | `rup::real_claude` | 7.2 |
 | `x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch` | `rup::real_claude` | 7.2 |
-| `b55_pending_messages_of_the_old_iteration_are_not_replayed` | `rup::real_claude` | 7.0 |
-| `b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it` | `rup::real_claude` | 6.9 |
 | `b37_real_claude_receives_a_note_after_a_scripted_server_error` | `rup::real_claude` | 6.7 |
 | `f3_a_door_spawns_into_a_worktree_when_the_setting_is_on` | `rup::real_claude` | 6.0 |
 
@@ -216,43 +180,21 @@ The following requirements narrow the existing named clauses for this inventory 
 | Original test | Action | Observer / existing clause | Required boundary or surviving assertions |
 |---|---|---|---|
 | `h15_every_hook_call_of_a_ten_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle` | Keep | `h15_every_hook_call_of_a_ten_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle`; H15 | real Claude executes 10 tools and 20 rup signal child processes; exit statuses, hook ordering and final live Agent Status catch dropped or blocked hook I/O. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_a_failed_restart_keeps_the_workstream` | Keep | `a32_a_failed_restart_keeps_the_workstream`; A32 Failure | gated real Claude replacement misses the rupd restart deadline; unchanged Iteration/stopped Door followed by a real start recovery. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_no_handoff_times_out_and_changes_nothing` | Cut | `a32_without_handoff_archives_everything`; A32 No handoff | Move unchanged Rail/Todo/Pad snapshots and stopped-Door refusal into the existing timeout-and-fallback case. |
-| `a32_without_handoff_archives_everything` | Keep | `a32_without_handoff_archives_everything`; A32 No handoff | real rupd handoff deadline and actual Claude input followed by process replacement; observe NOT_ACKED before fallback, unchanged state on timeout and fallback archive of every item. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_a_failed_stop_retries_without_double_archive` | Keep | `a32_a_failed_stop_retries_without_double_archive`; A32 Failure / Then (2–3) | gated real Claude resume makes a child un-stoppable; observe partial deepest-first removal, retry, one archive and branch ordering in actual restarted input. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_unkept_todos_and_pads_are_archived_not_lost` | Cut | `a32_a_clear_archives_the_unkept_and_keeps_the_rest_where_it_was`; A32 Then (1) | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
-| `a32_the_workstream_and_its_terminals_survive` | Cut | `a32_a_clear_archives_the_unkept_and_keeps_the_rest_where_it_was`; A32 Nothing else | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
-| `a32_subagents_stop_deepest_first_and_leave_the_rail` | Cut | `a32_a_failed_stop_retries_without_double_archive`; A32 Then (2–3), Failure | The failed-stop case already proves grandchild removal before child and final child removal; move the Handoff branch-order assertion there. |
-| `a32_the_door_restarts_fresh_from_the_handoff` | Cut | `a32_the_door_restarts_fresh_from_the_handoff_and_the_iteration_advances_once`; A32 Then (3–4) | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
-| `a32_iteration_advances_once` | Cut | `a32_the_door_restarts_fresh_from_the_handoff_and_the_iteration_advances_once`; A32 Then (4) | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
-| `a32_a_bad_id_in_the_handoff_keeps_the_clear_pending` | Cut | `a32_a_clear_is_refused_or_asked_and_a_handoff_is_refused_until_valid`; A32 Handoff | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
-| `a32_kept_items_keep_their_ids_and_owners` | Cut | `a32_a_clear_archives_the_unkept_and_keeps_the_rest_where_it_was`; A32 Then (1), Nothing else | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
 | `e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing` | Keep | `e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing`; E6 | real Claude launches rup mcp and hooks; observe Pending→Up and absence of Missing throughout agents::CHANNEL_DEADLINE, catching startup/deadline races. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `a2693a_real_claude_resumes_yolo_and_restarts_normal` | Keep | `a2693a_real_claude_resumes_yolo_and_restarts_normal`; A2693a | real Claude --resume and fresh normal Restart with saved transcript; request/session identity and actual permission mode must follow selected launch. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_no_slash_command_is_typed` | Cut | `a32_a_clear_is_refused_or_asked_and_a_handoff_is_refused_until_valid`; A32 Then (4), P9 | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
-| `a32_an_empty_reason_changes_nothing` | Cut | `a32_a_clear_is_refused_or_asked_and_a_handoff_is_refused_until_valid`; A32 Reason | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
-| `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear` | Keep | `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear`; Q11 | real Claude plugin load on initial launch, resume and clear; inspect actual plugin/tool requests across all three launch paths. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_a_valid_clear_only_asks_the_door` | Cut | `a32_a_clear_is_refused_or_asked_and_a_handoff_is_refused_until_valid`; A32 Ask | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
-| `a32_worktrees_and_branches_survive_even_dirty` | Cut | `a32_a_clear_archives_the_unkept_and_keeps_the_rest_where_it_was`; A32 Then (2), Nothing else | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
+| `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear` | Keep | `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear`; Q11 | real Claude plugin load on initial launch and resume; inspect actual plugin/tool requests across both surviving launch paths. The Clear branch is retired by A32 (#4542). A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp` | Keep | `a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp`; A26 / F3 | real Claude calls rup mcp agent_spawn twice; verify caller-derived parent in both MCP results and Rail plus live child hooks, including a forged parent. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e14_roundup_launches_and_resumes_real_claude` | Keep | `e14_roundup_launches_and_resumes_real_claude`; E14 | real Claude Agent/Door launch and --resume; model/effort and previous conversation in actual HTTP requests detect ignored or overridden argv. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_resume_is_held_until_session_start` | Keep | `a32_resume_is_held_until_session_start`; A32 Failure / Then (4) | gated real Claude launch and real SessionStart; resume must stay pending while no hook can acknowledge it. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e12_a_complete_turn_has_only_loopback_traffic` | Keep | `e12_a_complete_turn_has_only_loopback_traffic`; E12 | real Claude complete MCP turn inside an observed loopback-only network namespace; strace destinations detect vendor nonessential/external traffic. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `b2693b_real_yolo_receiver_takes_a_note_without_approval` | Keep | `b2693b_real_yolo_receiver_takes_a_note_without_approval`; B2693b | real Claude resumes YOLO then restarts normal; inbox transcript acknowledgement, model request, Delivered count and no roundup permission record prove receiver-mode transport. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_message_list_spans_iterations` | Keep | `a32_message_list_spans_iterations`; A32 Old Thread | real rupd and Claude replacement; prior and new Iteration Messages stay readable after the live restart. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `lc9_the_profile_holds_in_the_real_tui` | Cut | `retired recurring LC9 observer`; LC9 | LC9 explicitly requests a one-time implementing-PR measurement and no ongoing budget test; retire its recurring tool/relative-size assertions. LC1–LC6 launch tests remain unchanged. |
 | `m16_real_claude_runs_tests_with_bash_without_a_run` | Keep | `m16_real_claude_runs_tests_with_bash_without_a_run`; M16 | real Claude worker executes Bash tests after Door MCP spawn; actual test output without a Terminal run catches vendor tool restrictions. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `a32_only_the_door_may_hand_off` | Cut | `a32_a_clear_is_refused_or_asked_and_a_handoff_is_refused_until_valid`; A32 Handoff | Merged into the surviving test, which still asserts the same then-clause against the same real process. |
 | `f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own` | Cut | `a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp`; F3 / A26 | The three-deep case already asserts Door/child ownership and live child hooks; add the forged parent and absent Worktree assertions. |
 | `e12_model_routing_keeps_credentials_out_of_hooks_and_mcp` | Keep | `e12_model_routing_keeps_credentials_out_of_hooks_and_mcp`; E12 | real Claude consumes isolated routing/dummy credentials; wrappers inspect environments of actual hook/MCP children and aimock authenticates the model request. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count` | Keep | `e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count`; E6 | fail the real Claude-launched MCP subprocess while real SessionStart/Submit/Stop hooks succeed; Missing must remain independent of Agent Status. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e12_a_fresh_configuration_accepts_the_first_prompt` | Keep | `e12_a_fresh_configuration_accepts_the_first_prompt`; E12 | real interactive Claude TUI accepts bracketed-paste first input from a fresh isolated profile; seed-only assertions cannot catch new onboarding dialogs. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `a2693a_real_claude_skips_only_yolo_tool_permissions` | Keep | `a2693a_real_claude_skips_only_yolo_tool_permissions`; A2693a | real Claude tool permission machinery executes YOLO tools without PermissionRequest but retains other hooks; argv-only proof cannot detect vendor interpretation. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e6_a_late_shim_goes_missing_then_up` | Keep | `e6_a_late_shim_goes_missing_then_up`; E6 | gate the real rup mcp subprocess across the Daemon channel deadline; observe Pending→Missing→Up after releasing the shim. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `b55_thirty_idle_edges_and_a_restart_of_the_new_session_type_none_of_it` | Keep | `b55_thirty_idle_edges_and_a_restart_of_the_new_session_type_none_of_it`; B55 (a–b, d) | real Claude new session after clear then 30 idle signals; whole request/launch record proves fresh argv and no old-Iteration retyping, including delayed delivery. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `b55_the_next_session_holds_no_word_of_the_old_ask` | Cut | `b55_thirty_idle_edges_and_a_restart_of_the_new_session_type_none_of_it`; B55 (a–b, d) | The idle-edge case already checks the whole second-session input for the same word; assert fresh argv before its idle probes. |
 | `x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch` | Keep | `x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch`; X17 | real Claude TUI OSC colour queries at start and live scheme switch; Terminal snapshots expose actual vendor palette response. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `b55_pending_messages_of_the_old_iteration_are_not_replayed` | Keep | `b55_pending_messages_of_the_old_iteration_are_not_replayed`; B55 (d) | real Claude new session after clear with pending delivery; whole request/launch record must exclude queued old-Iteration text. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it` | Keep | `b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it`; B55 (c) | real Claude new-session request and launch files; remove only the Handoff substring and verify no other occurrence of the old ask. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `b37_real_claude_receives_a_note_after_a_scripted_server_error` | Keep | `b37_real_claude_receives_a_note_after_a_scripted_server_error`; B37 | real Claude HTTP 500 produces StopFailure while its PTY stays live; next request in the same vendor session must carry the note. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `f3_a_door_spawns_into_a_worktree_when_the_setting_is_on` | Keep | `f3_a_door_spawns_into_a_worktree_when_the_setting_is_on`; F3 | real Claude MCP agent_spawn with Worktrees enabled; real git Worktree location and branch in the returned child verify provisioning through vendor transport. A process-free test cannot observe this vendor/process lifecycle boundary. |

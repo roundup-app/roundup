@@ -22,7 +22,9 @@ These numbered checks cite existing main holders, not claims that reload retenti
 4. `apps/desktop/src/changes/notes.ts`, `notesFor`: App-run notes preserve comparison revisions and remove submitted objects only; extend retention rather than replace reconciliation.
 5. `scenarios/messages.md`, B32, B39 and B40; `scenarios/ui-persist.md`, U100; `scenarios/ui-diff-notes.md`, U2540a; `scenarios/door-terminal.md`, U467/U468: regression contracts remain in force.
 
-Audit coverage is exhaustive by category, not limited to multiline composers: Ask; Pad source/visual/drawing edits and Pad creation; Todo creation/title/body/blocker edits; Order title/ask/done; Rail Agent/Workstream spawn task/options, rename and Clear prompt; Project-tab rename; Terminal-tab rename; diff-note form/batch. Include editable search/filter/command queries (Switcher and list filters) as local drafts; restoring one does not execute its highlighted command. Tick boxes and immediate action buttons have no unsubmitted draft; they still must not mutate on restoration. Library editor internals belong to their owning surface. Credential exemption is by declared secret policy, never by guessing text contents. Future editable surfaces inherit this policy.
+Policy: Clear and its `rail-clear` drafts are retired by U350 (#4542); their stored state may be dropped outright. Every other surface retains this acceptance.
+
+Audit coverage is exhaustive by category, not limited to multiline composers: Ask; Pad source/visual/drawing edits and Pad creation; Todo creation/title/body/blocker edits; Order title/ask/done; Rail Agent/Workstream spawn task/options and rename; Project-tab rename; Terminal-tab rename; diff-note form/batch. Include editable search/filter/command queries (Switcher and list filters) as local drafts; restoring one does not execute its highlighted command. Tick boxes and immediate action buttons have no unsubmitted draft; they still must not mutate on restoration. Library editor internals belong to their owning surface. Credential exemption is by declared secret policy, never by guessing text contents. Future editable surfaces inherit this policy.
 
 ## Acceptance
 

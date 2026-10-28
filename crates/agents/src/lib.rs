@@ -420,3 +420,26 @@ struct SteerSettings {
 
 #[cfg(test)]
 use store::tests;
+
+#[cfg(feature = "test-support")]
+impl Agents {
+    /// U4593 controls observed Status without a vendor, Terminal or wall clock.
+    pub fn set_status_for_test(&self, id: &str, status: Status) {
+        self.shared
+            .rail_view
+            .statuses
+            .lock()
+            .unwrap()
+            .insert(id.to_owned(), status.clone());
+        self.shared.bus.emit(
+            Actor::daemon(),
+            EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
+                ended: false,
+                id: id.to_owned(),
+                attempt: "1".into(),
+                status_revision: "1".into(),
+                status,
+            })),
+        );
+    }
+}
