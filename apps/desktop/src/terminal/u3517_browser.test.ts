@@ -133,11 +133,13 @@ for (const state of ["agent", "door", "shell"]) {
 
 
 const groundOutput = captureDir("U4456c");
+
 const groundCommit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
 const groundCapture = async (base: boolean, seed: string, scheme: string, step: string) => {
   const dir = join(groundOutput!, base ? "base" : "head");
   const name = `${scheme}${process.env.U4456_CONTRAST ? "-contrast" : ""}-${seed}-${step}`;
+
   const readings = await read(`(() => {
     const roots = [document];
     const surfaces = [];
@@ -154,8 +156,10 @@ const groundCapture = async (base: boolean, seed: string, scheme: string, step: 
     return { mode: document.documentElement.dataset.mode,
       hostDark: matchMedia('(prefers-color-scheme: dark)').matches,
       contrast: matchMedia('(prefers-contrast: more)').matches,
+      forcedColours: matchMedia('(forced-colors: active)').matches,
       tokens: Object.fromEntries(['--ground','--sunken','--terminal-background','--surface','--selected','--disabled'].map(name => [name, style.getPropertyValue(name).trim()])), surfaces };
   })()`);
+
   mkdirSync(dir, { recursive: true });
   await browser("screenshot", join(dir, `${name}.png`));
   writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
@@ -173,6 +177,8 @@ const groundLoad = async (seed: string, base: boolean, scheme: string) => {
     await saveAppSettings({ mode: '${scheme === "explicit" ? "dark" : "system"}' });
   })()`);
   await wait(`document.documentElement.dataset.mode === '${scheme === "explicit" ? "dark" : "system"}'`);
+
+  if (process.env.U4456_CONTRAST && !await read("matchMedia('(prefers-contrast: more)').matches")) throw new Error('Increased contrast observer did not activate');
 };
 
 for (const scheme of ["system", "explicit"]) {
@@ -181,16 +187,19 @@ for (const scheme of ["system", "explicit"]) {
       for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
         await groundLoad(seed, base, scheme);
         await groundCapture(base, seed, scheme, "rest");
+
         if (seed === "empty-project") {
           const id = await read<string>("window.__fake.app.rpc('rail.createWorkstream', {name:'Empty work',parent:null}).then(node => node.id)");
           await wait(`!!document.querySelector('.rail-row[data-id="${id}"]')`);
           await browser("click", `.rail-row[data-id="${id}"]`);
           await groundCapture(base, seed, scheme, "empty-workstream");
         }
+
         if (seed === "door-stopped") {
           await browser("click", '.rail-row[data-id="first-workstream"]');
           await groundCapture(base, seed, scheme, "stopped-door");
         }
+
         if (seed === "agents-10" || seed === "tree-40") {
           await select(seed === "agents-10" ? "agent-4" : "payments", seed === "agents-10" ? "t-agent-4" : "t-payments");
           await groundCapture(base, seed, scheme, "pane-prompt");
@@ -218,13 +227,16 @@ for (const [surface, seed, command, selector] of [
   it.skipIf(!groundOutput)(`u4456c_secondary_ground_${surface}`, async () => {
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       await groundLoad(seed!, base, "system");
+
       if (surface === "resources") await read("document.querySelector('.rail-row[data-id=worktree-agent]').click()");
+
       if (surface === "inbox") {
         await browser("press", "Meta+k");
         await browser("press", "i");
       } else await read(command === "settings" ? "window.dispatchEvent(new Event('open-app-settings'))" : `window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:'/Users/you/harness',command:'${command}'}}))`);
       await wait(`!!document.querySelector('${selector}')`);
       await groundCapture(base, seed!, "system", surface!);
+
       if (surface === "settings") {
         await browser("click", '[role=tab][data-value="Appearance"]');
         await groundCapture(base, seed!, "system", "appearance");
