@@ -46,7 +46,14 @@ run("u373 the tabs", () => {
     await page.press("Tab", "Tab");
     expect(await page.call<boolean>(`() => document.activeElement.closest('.shelf [role="tabpanel"], [data-shelf-scope]') !== null`)).toBe(true);
 
-    for (let step = 0; step < 3; step++) await page.press("Tab", "Tab", 8);
+    // Return across the Shelf's controls, regardless of its rows or tooltip tab stops.
+    // Stop on the tab row or outside the Shelf so a window cycle cannot hide a wrong order.
+    for (let step = 0; step < 64; step++) {
+      await page.press("Tab", "Tab", 8);
+
+      if (await page.call<boolean>(`() => document.activeElement.closest('.shelf-tabs') !== null || document.activeElement.closest('.shelf') === null`)) break;
+    }
+
     expect(await page.call<string>(`() => document.activeElement.id`)).toBe("shelf-tab-todos");
   });
 });
