@@ -34,6 +34,15 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
     await browser("press", "Enter");
     await browser("wait", kind === "pad" ? ".drawer .ProseMirror" : ".drawer .todo-detail-title");
     await settle();
+
+    if (kind === "pad") {
+      const before = await evaluate<string>("document.querySelector('.drawer .ProseMirror').textContent");
+      await browser("focus", ".drawer .ProseMirror");
+      await browser("press", "Control+End");
+      await browser("press", "m");
+      expect(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(before + "m");
+    }
+
     await capture(`${kind}-normal`);
     await evaluate("(() => { window.__u4458 = { centre: document.querySelector('.centre'), shelf: document.querySelector('.shelf'), field: document.querySelector('.drawer input, .drawer textarea, .drawer [contenteditable=true]') }; return true; })()");
 
@@ -63,8 +72,10 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
   }
 
   if (output) {
-    await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); window.__fake.failNext(-32003, 'disk is full. Free space and try again.'); return true; })()`);
+    await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
+    await browser("wait", ".shelf .pad-name");
     await browser("focus", ".shelf .pad-name");
+    await evaluate("window.__fake.failNext(-32003, 'disk is full. Free space and try again.')");
     await browser("press", "Enter");
     await browser("wait", ".drawer [role=alert]");
     await settle();

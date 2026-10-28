@@ -104,14 +104,17 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
   onCleanup(() => { revision++; cancelAnimationFrame(settleFrame ?? 0); });
 
+  const canMaximise = (focus: Element | null) => isOpen() && !!focus && !!panel()?.contains(focus) && !focus.closest('input, textarea, select, [contenteditable], .xterm, .pane-screen, [role=dialog], [role=menu]');
+
   registerKeys({ kind: "layer", element: panel, active: isOpen, modal: false }, [{
     chords: ["Escape"],
     when: (press) => !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen')),
     run: () => { captureFocus(true); props.drawer.close("key"); },
   }, {
     action: CHORDS.find(row => row.keys === "M")!,
+    when: press => canMaximise(press.target instanceof Element ? press.target : null),
     capture: focus => ({
-      available: () => isOpen() && !!focus && !!panel()?.contains(focus) && !focus.closest('input, textarea, select, [contenteditable], .xterm, .pane-screen, [role=dialog], [role=menu]'),
+      available: () => canMaximise(focus),
       invoke: () => toggleMaximise("key"),
     }),
   }]);
