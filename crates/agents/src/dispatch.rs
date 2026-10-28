@@ -20,28 +20,6 @@ impl Module for Agents {
 }
 
 impl Agents {
-    async fn rpc_project_measurements(
-        &self,
-        _ctx: &Ctx,
-        _method: &str,
-        _value: Value,
-    ) -> Result<Value, RpcError> {
-        let shared = &self.shared;
-        {
-            let mut rail = shared.rail();
-            // Lock order is rail, runs, timing: `observe_coordination` takes timing while it
-            // holds runs, so the live Status is read before timing is locked, never under it.
-            let mut timing = shared.timing.lock().expect("measurement timing lock");
-            timing.sample();
-            let cause = timing.failure();
-            let mut measurements = rail.measurements(self.project_dir())?;
-            if cause.is_some() {
-                measurements.cause = cause;
-            }
-            reply(&measurements)
-        }
-    }
-
     async fn rpc_agent_spawn(
         &self,
         ctx: &Ctx,
