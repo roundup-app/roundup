@@ -60,7 +60,7 @@ it("u3720_real_daemon_owner_assign", async () => {
   };
 
   const lift = async (id: number) => {
-    const from = await point(row(id));
+    const from = await point(`.shelf [data-todo="${id}"] .sortable-handle`);
     await browser("mouse", "move", String(from.x), String(from.y));
     await browser("mouse", "down");
     await browser("mouse", "move", String(from.x), String(from.y - 6));
