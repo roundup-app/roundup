@@ -14,6 +14,18 @@ pub struct AutoParams {
     pub auto: bool,
 }
 
+/// A4452c: the longest opening prompt a Workstream holds, in characters.
+pub const OPENING_PROMPT_MAX: usize = 4000;
+
+/// A4452c: the user's saved opening prompt for one Workstream; `None` or blank clears it.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct OpeningPromptParams {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub prompt: Option<String>,
+}
+
 /// A3194: when a new Workstream's Door starts (the Start choice).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "camelCase")]

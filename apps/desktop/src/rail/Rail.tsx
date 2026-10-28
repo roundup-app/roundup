@@ -22,6 +22,7 @@ import { Popover } from "../ui/Popover";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
+import { OpeningPrompt } from "./OpeningPrompt";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
@@ -58,6 +59,7 @@ export const Rail = () => {
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
+  const [openingPrompt, setOpeningPrompt] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
   const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.events, connected.drafts, (id) => {
@@ -72,6 +74,7 @@ export const Rail = () => {
           connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
         },
       }] : []),
+      ...(node.kind === "workstream" ? [{ id: "opening-prompt", label: copy.openingPromptMenu, run: () => { setOpeningPrompt(node.id); } }] : []),
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
       ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addMenu, children: [
@@ -841,6 +844,7 @@ export const Rail = () => {
           )}</For>
         </details>
       </Show>
+      <Show when={openingPrompt()} keyed>{id => <OpeningPrompt id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <Show when={clearAnchor()} keyed>
         {(node) => {

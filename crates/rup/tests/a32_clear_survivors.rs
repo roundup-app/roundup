@@ -193,7 +193,7 @@ async fn a32_a_clear_archives_the_unkept_and_keeps_the_rest_where_it_was() {
         .flat_map(|entry| entry["body"]["messages"].as_array().into_iter().flatten())
         .filter(|message| message["role"] == "user")
         .filter_map(|message| message["content"].as_str())
-        .find(|text| text.contains("Follow this instruction: Kept items survived"))
+        .find(|text| text.contains("Kept items survived"))
         .map(str::to_owned)
         .expect("the real Door receives the Handoff");
     for tree in &trees {

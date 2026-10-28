@@ -641,7 +641,14 @@ async fn b44_a_note_in_flight_at_the_kill_is_written_again_not_made_again() {
     let id = notes(&user0, &door, "[wake]", 1).await[0]["id"]
         .as_u64()
         .unwrap();
-    let first = typed(&prompts, 1).await;
+    let first = h21_poll("the wake inbox entry", async || {
+        let entries = typed(&prompts, 1).await;
+        entries
+            .into_iter()
+            .find(|entry| entry["inbox"] == format!("rup-{id}"))
+            .map(|entry| vec![entry])
+    })
+    .await;
     assert_eq!(status_of(&user0, id).await, "pending");
 
     project.restart(&[("FAKE_CLAUDE_PROMPT_LOG", log)]);
@@ -656,7 +663,15 @@ async fn b44_a_note_in_flight_at_the_kill_is_written_again_not_made_again() {
         (status_of(&user, id).await == "delivered").then_some(())
     })
     .await;
-    let again = typed(&prompts, 2).await;
+    let again = h21_poll("the wake inbox retry", async || {
+        let entries: Vec<_> = typed(&prompts, 2)
+            .await
+            .into_iter()
+            .filter(|entry| entry["inbox"] == format!("rup-{id}"))
+            .collect();
+        (entries.len() == 2).then_some(entries)
+    })
+    .await;
     assert_eq!(again[1]["prompt"], first[0]["prompt"]);
     still(&user, &door, "[wake]", 1).await;
 }

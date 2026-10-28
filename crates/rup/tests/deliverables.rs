@@ -776,7 +776,15 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
         )
         .unwrap();
     }
-    // Version 42 precedes 0028-deliverable-files.sql; later additions must not skip it.
+    // Version 42 precedes 0028-deliverable-files.sql and the Opening prompt column.
+    db.execute_batch("ALTER TABLE nodes DROP COLUMN opening_prompt")
+        .unwrap();
+    db.execute_batch(
+        "DROP TRIGGER instruction_message; DROP TRIGGER instruction_message_outcome;
+         ALTER TABLE instruction_deliveries DROP COLUMN message;",
+    )
+    .unwrap();
+    db.execute_batch(daemon::INSTRUCTION_MESSAGES).unwrap();
     db.pragma_update(None, "user_version", 42).unwrap();
     std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
     p.restart(&[]);

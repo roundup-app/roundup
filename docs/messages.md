@@ -14,7 +14,7 @@ those seams rather than adding a queue or another Adapter seam.
 
 | Status | Meaning | Leaves it by |
 |---|---|---|
-| `pending` | awaits transport and receipt when the current Attempt is delivery-ready (`idle` or B37's live `error`), or while its inbox check fails | acknowledged (`delivered`), `message.drop`, or the receiver exits (`dropped`) |
+| `pending` | awaits transport and receipt when the current Attempt is delivery-ready (`idle`, A33's Todo-blocked idle, or B37's live `error`), or while its inbox check fails | acknowledged (`delivered`), `message.drop`, or the receiver exits (`dropped`) |
 | `delivered` | receipt acknowledged by the Agent on the selected transport, or stored for the user (B10) | final |
 | `dropped` | ended without delivery, with a reason | final |
 
@@ -54,7 +54,9 @@ Gates and observers: P1/P11 require zero Message writes to Terminal input, so na
 ## B37 lifecycle-to-model mapping
 
 The model's `Idle` event and `World.idle` mean delivery readiness, not a literal
-Kind. For the current Attempt, a running Terminal at `idle` or at `error` after
+Kind. A33 presents an idle Terminal waiting on a Todo as `blocked`; it remains
+inbox-ready, so a Clear can request its Handoff without Terminal input.
+For the current Attempt, a running Terminal at `idle` or at `error` after
 `StopFailure` is delivery-ready. Kind `error` alone is not evidence of ending.
 The Attempt identity and authoritative ending facts must be checked before
 projecting Status into model events; a Status observation cannot revive an ended
