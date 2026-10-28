@@ -270,7 +270,7 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
       const app = createServedApp(location.origin);
       window.__dv6 = { choice: 'copy-link', copied: [], menus: [] };
       app.showContextMenu = async entries => { window.__dv6.menus.push(entries); return window.__dv6.choice; };
-      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__dv6.copied.push(text); } } });
+      app.writeClipboardText = async text => { window.__dv6.copied.push(text); };
       const root = document.createElement('div');
       root.id = 'root';
       document.body.replaceChildren(root);
