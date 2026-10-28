@@ -20,9 +20,7 @@ import type { WorkstreamClearFailedEvent } from "./workstream/WorkstreamClearFai
 import type { WorkstreamClearedEvent } from "./workstream/WorkstreamClearedEvent";
 
 /**  Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`. */
-export type EventData = { "name": "workstream.updated", "data": AutoParams } | { "name": "project.measurementsChanged", "data": {
-	revision: string,
-} } | { "name": "ask.changed", "data": {
+export type EventData = { "name": "workstream.updated", "data": AutoParams } | { "name": "ask.changed", "data": {
 	ask: Ask,
 } } | { "name": "terminal.title", "data": TitleEvent } | { "name": "terminal.exited", "data": ExitedEvent } | 
 /**  A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`. */

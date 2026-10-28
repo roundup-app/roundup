@@ -7,6 +7,7 @@ import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
 import { Dialog } from "../ui/Dialog";
 import { Editable } from "../ui/Editable";
+import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Bubble } from "./Bubble";
@@ -36,6 +37,7 @@ const focusPane = (): void => {
 
   target?.focus();
 
+  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
 };
 
 const ESCAPE = "Escape".split(" ");
@@ -112,10 +114,13 @@ export const Bubbles = (props: {
   const [openingSelection, setOpeningSelection] = createSignal<string | null>();
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
+  const [bar, setBar] = createSignal<HTMLElement>();
+  const parkedTabs = document.createElement("div");
   const [measured, setMeasured] = createSignal(false);
   const [origin, setOrigin] = createSignal({ left: 0, top: 0, width: 0, height: 0 });
   const [editing, setEditing] = createSignal<{ id: string } | null>(null);
   createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
+  onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined));
   let before: Element | null = null;
 
   const extent = (): Extent => {
@@ -247,29 +252,55 @@ export const Bubbles = (props: {
 
     if (!host || typeof ResizeObserver === "undefined") return;
 
-    // U469: the layer ends above the strip.
+    // U4459: controls can extend outside the strip; the bar and its portalled tabs own the edge.
+    const watched = new ResizeObserver(() => sync());
+    let edges: Element[] = [];
+
     const sync = (): void => {
-      const stack = host.parentElement?.getBoundingClientRect();
-      const composer = host.parentElement?.querySelector(".resource-strip")?.getBoundingClientRect();
-      host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
+      const parent = host.parentElement;
+      setBar(parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
+      const stack = parent?.getBoundingClientRect();
+
+      const controls = [...parent?.querySelectorAll(".resource-agent, .terminal-tabs") ?? []]
+        .filter(element => element.querySelector("button, input, [role=tab]"));
+
+      const boxes = controls.flatMap(element => {
+        const box = element.getBoundingClientRect();
+
+        return box.width > 0 && box.height > 0 ? [box] : [];
+      });
+
+      const siblings = boxes.length ? boxes : [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []]
+        .flatMap(element => {
+          const box = element.getBoundingClientRect();
+
+          return box.width > 0 && box.height > 0 ? [box] : [];
+        });
+
+      const nextEdges = [...controls, ...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
+
+      for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
+
+      for (const edge of nextEdges) if (!edges.includes(edge)) watched.observe(edge);
+      edges = nextEdges;
+      const tops = siblings.map(box => box.top);
+      host.style.bottom = stack ? `${Math.max(0, stack.bottom - Math.min(stack.bottom, ...tops))}px` : "";
 
       const corner = host.getBoundingClientRect();
-
       setOrigin((prior) => (prior.left === corner.left && prior.top === corner.top && prior.width === corner.width && prior.height === corner.height ? prior : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
-      setMeasured(true);
-    };
 
-    const watched = new ResizeObserver(() => {
-      sync();
-
+      // Do not replace a saved rectangle with fallback geometry before layout exists.
+      if (corner.width <= 0 || corner.height <= 0) return;
       const prior = untrack(places);
       const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, extent())]));
 
-      if (JSON.stringify(next) === JSON.stringify(prior)) return;
+      if (JSON.stringify(next) !== JSON.stringify(prior)) {
+        setPlaces(next);
+        persistPlaces(next);
+      }
 
-      setPlaces(next);
-      persistPlaces(next);
-    });
+      setMeasured(true);
+    };
 
     watched.observe(host);
     window.addEventListener("resize", sync);
@@ -277,7 +308,7 @@ export const Bubbles = (props: {
 
     if (host.parentElement) watched.observe(host.parentElement);
 
-    // The composer comes and goes with the selection, which moves no size the observer sees.
+    // Portal hosts and sibling controls may mount without changing the stack's size.
     const arrivals = new MutationObserver((records) => {
       if (records.some((record) => !host.contains(record.target))) sync();
     });
@@ -299,7 +330,7 @@ export const Bubbles = (props: {
   const focusItem = (id: string): void => {
     const place = places()[id];
 
-    if (place?.min) focusPane();
+    if (place?.min) document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)?.focus();
     else props.screens.emulatorFor(id).focus();
   };
 
@@ -328,9 +359,10 @@ export const Bubbles = (props: {
 
     const focusReturn = captureFocus();
     const back = before;
+    const fromTab = focus?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
-      if (failure() !== null || shown().some(terminal => terminal.id === id)) return;
+      if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
 
       focusReturn(() => {
         if (back instanceof HTMLElement && back.isConnected) back.focus();
@@ -383,7 +415,7 @@ export const Bubbles = (props: {
     } finally {
       setOpening(false);
 
-      if (focus && failure() !== null && shown().length === 0) focusReturn(focusPane);
+      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
 
@@ -609,7 +641,7 @@ export const Bubbles = (props: {
   });
 
   // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a pressed key repeats nothing.
-  const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".bubble-title-editor"));
+  const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
 
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find((row) => row.keys === "⌘T")!,
@@ -797,7 +829,7 @@ export const Bubbles = (props: {
       if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(prior => prior?.id === id ? null : prior);
     });
 
-    const tab = () => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"] .bubble-header`);
+    const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
 
     /** U2694b: the tab and Bubble share actions and the same rename editor. */
     const copied = createCopyFeedback();
@@ -817,9 +849,22 @@ export const Bubbles = (props: {
     const menu = (event: MouseEvent) => openOnRelease(event, (x, y) => void tabMenu(x, y));
 
     return <>
-      <Bubble id={id} screens={props.screens} name={name()} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} menu={menu} toggleMinimised={toggleMinimised}
-        heading={editing()?.id === id ? <Show when={editing()} keyed>{_edit =>
-          <div class="bubble-title-editor" data-bubble={id}>
+      <Bubble id={id} screens={props.screens} name={name()} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} menu={menu} toggleMinimised={toggleMinimised} />
+      <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
+        <Show when={editing()?.id === id ? editing() : null} keyed fallback={
+          <Tip content={name()} cut={nameCut}>
+            {(trigger) => (
+              <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
+                aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
+                onClick={() => toggleMinimised(id)}
+                onDblClick={() => start()}>
+                <span class="terminal-tab-name" ref={nameRef}>{copied.copied() ? copy.copied : name()}</span>
+                <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
+              </button>
+            )}
+          </Tip>
+        }>{_edit =>
+          <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
             <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both"} finalFocusEl={tab}
               onValueCommit={async ({ value }) => {
                 const submitted = revision;
@@ -875,7 +920,11 @@ export const Bubbles = (props: {
               }} /></Editable.Area>;
               }}</Editable.Context>
             </Editable.Root>
-          </div>}</Show> : undefined} />
+            <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
+          </div>}
+        </Show>
+        <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
+      </FlatTab>
     </>;
   };
 
@@ -883,7 +932,18 @@ export const Bubbles = (props: {
 
   return (
     <div class="bubbles" ref={setLayer}>
-      <For each={shownIds()}>{id => <Tab id={id} />}</For>
+      {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
+      <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
+        <div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
+          if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }}>
+          <For each={shownIds()}>{id => <Tab id={id} />}</For>
+          <div class="terminal-tabs-actions">
+            <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
+            <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
+          </div>
+        </div>
+      </Portal>
       <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />

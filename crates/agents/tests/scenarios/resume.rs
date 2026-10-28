@@ -210,8 +210,6 @@ async fn a21_a_failed_save_while_parked_fails_the_whole_spawn() {
 async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
     let f = Fixture::running("echo \"$@\" > argv.txt; sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
-    let old_facts =
-        f.call("project.measurements", Value::Null).await.unwrap()["time_evidence"].clone();
     let f = Arc::new(f);
     let old_attempt = node.attempt.clone().unwrap();
 
@@ -225,11 +223,6 @@ async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
         !f.can_resume(&pending, &node.id),
         "pending while unacknowledged"
     );
-    assert_eq!(
-        f.call("project.measurements", Value::Null).await.unwrap()["time_evidence"],
-        old_facts,
-        "unacknowledged resume supplies no lifetime or execution"
-    );
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
         .unwrap();
@@ -242,31 +235,6 @@ async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
     assert_eq!(resumed.id, node.id);
     assert_eq!(resumed.name, node.name);
     assert_eq!(resumed.parent, node.parent);
-    let read = f.call("project.measurements", Value::Null).await.unwrap();
-    let attempts: Vec<_> = read["time_evidence"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|fact| fact["value"]["activity"]["kind"] == "attempt")
-        .collect();
-    assert_eq!(attempts.len(), 2);
-    assert!(
-        read["time_evidence"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|fact| fact == &old_facts[0])
-    );
-    assert!(
-        read["time_evidence"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(
-                |fact| fact["attempt"].as_str() == resumed.attempt.as_deref()
-                    && fact["value"]["state"]["kind"] == "active"
-            )
-    );
     let argv = until_resumed(&f).await;
     assert!(argv.contains(&format!("--resume {CONVERSATION}")));
 }
@@ -363,7 +331,6 @@ async fn a22_a_failed_launch_rolls_back_to_the_old_node() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    let facts_before = f.call("project.measurements", Value::Null).await.unwrap();
     // `claude` itself cannot run at all, so the Terminal spawn fails, same seam
     // `a4_a_missing_claude_leaves_no_agent_and_no_settings_file` uses.
     std::fs::remove_file(f.dir.path().join("fake-claude")).unwrap();
@@ -376,9 +343,6 @@ async fn a22_a_failed_launch_rolls_back_to_the_old_node() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
-    let facts_after = f.call("project.measurements", Value::Null).await.unwrap();
-    assert_eq!(facts_after["time_evidence"], facts_before["time_evidence"]);
-    assert_eq!(facts_after["contributions"], facts_before["contributions"]);
     assert_ne!(err.code, code::NOT_FOUND);
     assert!(after.can_resume, "the old node must stay resumable");
     assert_eq!(after.terminal_id, before.terminal_id);
@@ -867,6 +831,3 @@ mod modes;
 
 #[path = "resume/history.rs"]
 mod history;
-
-#[path = "resume/measurements.rs"]
-mod measurements;

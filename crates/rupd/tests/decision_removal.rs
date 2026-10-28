@@ -34,19 +34,6 @@ async fn a3564d_existing_project_opens_without_custom_question_authority() {
         )
         .unwrap();
     }
-    for (identity, activity) in [
-        ("held", json!({"kind": "decision", "decision": "d1"})),
-        ("kept", json!({"kind": "attempt"})),
-    ] {
-        let value = json!({"kind": "observed", "activity": activity, "clock_lifetime": "c",
-            "start": null, "segments": [], "state": {"kind": "active"}});
-        db.execute(
-            "INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage)
-             VALUES(?1,'1','fixture','1','1',NULL,'Maker',1000,?2,'[]')",
-            [identity, &value.to_string()],
-        )
-        .unwrap();
-    }
     db.execute_batch(
         r#"INSERT INTO nodes(id,kind,name,parent,ord) VALUES(2,'agent','Kept Agent',1,0);
            INSERT INTO todos(id,title,body,created_at,home) VALUES(1,'Kept Todo','todo body',42,'1');
@@ -85,14 +72,6 @@ async fn a3564d_existing_project_opens_without_custom_question_authority() {
         )
         .ok();
     assert_eq!(table, None);
-    let kept: Vec<String> = db
-        .prepare("SELECT DISTINCT identity FROM measurement_revisions")
-        .unwrap()
-        .query_map([], |row| row.get(0))
-        .unwrap()
-        .collect::<Result<_, _>>()
-        .unwrap();
-    assert_eq!(kept, ["kept"]);
 
     let tree = client.request("rail.tree", Value::Null).await.unwrap();
     assert!(
