@@ -33,3 +33,31 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
         ))))
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a4452c_existing_standalone_stores_gain_opening_prompts() {
+        let mut db = Connection::open_in_memory().unwrap();
+        // Main's fifteen migrations model a store opened before Opening prompts existed.
+        for version in 1..=15 {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("migrations/{version:03}/up.sql"));
+            db.execute_batch(&std::fs::read_to_string(path).unwrap())
+                .unwrap();
+        }
+        db.pragma_update(None, "user_version", 15).unwrap();
+        open(&mut db, Path::new("agents.db")).unwrap();
+        db.execute("INSERT INTO nodes (kind, name, opening_prompt) VALUES ('workstream', 'team', 'Read the plan')", []).unwrap();
+        let prompt: String = db
+            .query_row(
+                "SELECT opening_prompt FROM nodes WHERE name='team'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(prompt, "Read the plan");
+    }
+}
