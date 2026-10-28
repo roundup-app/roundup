@@ -344,9 +344,11 @@ describe("u2773 Rail persisted edits", () => {
 
     await mount();
     open();
-    fireEvent.input(task(), { target: { value: " B\n😀 " } });
+    const submitted = task();
+
+    fireEvent.input(submitted, { target: { value: " B\n😀 " } });
     fireEvent.keyDown(task(), { key: "Enter" });
-    await waitFor(() => expect(screen.queryByLabelText("Task")).toBeNull());
+    await waitFor(() => expect(submitted.isConnected).toBe(false));
     expect((await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(before + 1);
     expect(starts).toEqual([JSON.stringify({ cwd: second.dir, prompt: "B\n😀", parent: null, model: null, effort: null })]);
     cleanup();
