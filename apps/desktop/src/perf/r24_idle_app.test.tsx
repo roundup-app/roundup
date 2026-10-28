@@ -29,7 +29,7 @@ it("r24_the_app_keeps_its_selected_terminal_from_ten_agents_to_one_without_spawn
 
   nodes = nodes.slice(0, 1);
   app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(document.querySelectorAll('[role="treeitem"]').length).toBe(1));
+  await waitFor(() => expect(document.querySelectorAll('[role="treeitem"][data-id]').length).toBe(1));
 
   await idle.flush();
   expect(records.at(-1)).toMatchObject({ project: "/r24", terminal: "t-idle-0" });

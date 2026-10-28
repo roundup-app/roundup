@@ -97,7 +97,7 @@ export const rowNames = (): string[] =>
   screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent ?? "");
 
 export const tabbableRows = (): HTMLElement[] =>
-  [...document.querySelectorAll<HTMLElement>('[role="tree"] [data-part="item"], [role="tree"] [data-part="branch-control"]')].filter((row) => row.tabIndex === 0);
+  [...document.querySelectorAll<HTMLElement>('[role="tree"] [data-part="item"], [role="tree"] [data-part="branch-control"]:not(.section-head)')].filter((row) => row.tabIndex === 0);
 
 export const railCallsTo = (app: ReturnType<typeof createFakeApp>, method: string) =>
   app.calls.filter((call) => call.method === method).map((call) => call.params);
