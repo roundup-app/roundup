@@ -45,7 +45,7 @@ async fn door(prompt: Option<&str>) -> Run {
 }
 
 async fn clear(run: &mut Run) {
-    let watcher = rpc::Client::connect(&run.daemon.socket).await.unwrap();
+    let mut watcher = rpc::Client::connect(&run.daemon.socket).await.unwrap();
     watcher.request("events.subscribe", ()).await.unwrap();
     run.user
         .request(
@@ -123,7 +123,7 @@ async fn a4452c_retry_records_the_prompt_without_typing_it_again() {
     let mut run = door(Some("exact saved words")).await;
     let fault = run.dir.path().join("messages-fault");
     std::fs::write(&fault, "record_restart_prompt").unwrap();
-    let watcher = rpc::Client::connect(&run.daemon.socket).await.unwrap();
+    let mut watcher = rpc::Client::connect(&run.daemon.socket).await.unwrap();
     watcher.request("events.subscribe", ()).await.unwrap();
     run.user
         .request(

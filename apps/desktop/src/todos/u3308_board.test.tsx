@@ -165,3 +165,17 @@ it("u3311_a_door_hand_off_reveals_folded_destinations_without_stealing_focus", a
   expect(document.activeElement).toBe(input);
   expect(input.value).toBe("keep writing");
 });
+
+it("a4452c_a_refused_opening_prompt_keeps_the_original_workstream_draft", async () => {
+  const m = await mountTodos([todo(1, { home: "w" })], true, [workstream("w"), workstream("other")]);
+  m.connected.rail.select("w");
+  m.app.handlers["workstream.setOpeningPrompt"] = () => { throw new RpcError(-32003, "Save failed; retry"); };
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Opening prompt" });
+  fireEvent.input(field, { target: { value: "  /compose exact words\n" } });
+  fireEvent.blur(field);
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Save failed"));
+  m.connected.rail.select("other");
+  await waitFor(() => expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Opening prompt" }).value).toBe(""));
+  m.connected.rail.select("w");
+  await waitFor(() => expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Opening prompt" }).value).toBe("  /compose exact words\n"));
+});
