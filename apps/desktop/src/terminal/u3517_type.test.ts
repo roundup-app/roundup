@@ -2,7 +2,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import * as xterm from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { createRoot } from "solid-js";
-import { createXtermEmulators } from "./emulator";
+import tokens from "../tokens.css?inline";
+import { xtermOptions, createXtermEmulators } from "./emulator";
 import { createScreens } from "./screens";
 import { connectFakeProject, callsTo, subscribed } from "./paneHarness";
 import { info, terminal } from "../testing/nodes";
@@ -56,4 +57,9 @@ it("u3517c_scheme_changes_reach_open_new_and_unattached_terminals", async () => 
   }
 
   first.dispose();
+});
+
+it("u4592_terminal_tracking_token", () => {
+  expect(/--letter-terminal:\s*([^;]+);/.exec(tokens)?.[1]?.trim()).toBe("0.5px");
+  expect(xtermOptions.letterSpacing).toBe(0.5);
 });
