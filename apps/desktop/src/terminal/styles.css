@@ -166,10 +166,6 @@
   overscroll-behavior: contain;
 }
 
-.pane-navigation { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); padding-inline: var(--space-4); height: var(--space-6); flex: none; box-sizing: border-box; white-space: nowrap; }
-.pane-identity { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.pane-name { font: inherit; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 .pane-origin {
   display: flex;
   flex: 1;
@@ -177,9 +173,4 @@
   flex-direction: column;
 }
 
-.pane-origin-hidden {
-  display: none;
-}
 
-
-.pane .pane-view { display: flex; flex: 1; min-height: 0; padding: 0; }
