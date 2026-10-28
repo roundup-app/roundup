@@ -12,6 +12,7 @@ impl Agents {
         ctx: &Ctx,
         mut params: SpawnParams,
     ) -> Result<RailNode, RpcError> {
+        let size = terminal::window(params.cols.unwrap_or(80), params.rows.unwrap_or(24))?;
         models::check_engine(params.engine.as_deref())?;
         models::check_permissions(&ctx.actor, params.permission_mode)?;
         // F3, A26: any Agent may start a child, which sits under it; a `parent` it passes is ignored.
@@ -136,7 +137,15 @@ impl Agents {
             (node.id, attempt)
         };
         match self
-            .run_agent(&id, &attempt, cwd, None, true, params.permission_mode)
+            .run_agent(
+                &id,
+                &attempt,
+                cwd,
+                None,
+                true,
+                params.permission_mode,
+                (size.cols, size.rows),
+            )
             .await
             .map(drop)
         {
@@ -160,7 +169,14 @@ impl Agents {
 
     /// X11: start `command` in a Terminal owned by Agent `params.id`; it adds no Rail node.
     pub(super) async fn run(&self, ctx: &Ctx, params: RunParams) -> Result<Opened, RpcError> {
-        let RunParams { id, command, cwd } = params;
+        let RunParams {
+            id,
+            command,
+            cwd,
+            cols,
+            rows,
+        } = params;
+        let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         if command.is_empty() {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -195,8 +211,8 @@ impl Agents {
                     cwd,
                     command: Some(command),
                     env: BTreeMap::new(),
-                    cols: 80,
-                    rows: 24,
+                    cols: size.cols,
+                    rows: size.rows,
                 },
                 &id,
             )
@@ -209,7 +225,12 @@ impl Agents {
 
     /// X12: start the user's login shell in the Project folder, owned by its Workstream or Project.
     pub(super) async fn open_terminal(&self, params: OpenParams) -> Result<Opened, RpcError> {
-        let OpenParams { workstream } = params;
+        let OpenParams {
+            workstream,
+            cols,
+            rows,
+        } = params;
+        let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         let owner = match workstream {
             Some(workstream) => {
                 let node = self.shared.rail().node(&workstream)?;
@@ -235,6 +256,7 @@ impl Agents {
                 &shell,
                 &owner,
                 BTreeMap::new(),
+                (size.cols, size.rows),
             )
             .await?;
         Ok(Opened {
@@ -245,6 +267,8 @@ impl Agents {
     /// Start Claude Code for node `id`, marked as starting, in a Terminal recorded in the Rail,
     /// then register and watch it; returns the Terminal's id. Failed cleanup keeps its Worktree
     /// ownership record so reopening can recover it without deleting unrelated work.
+    // Each argument carries an existing launch constraint; size must reach PTY creation.
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn run_agent(
         &self,
         id: &str,
@@ -253,6 +277,7 @@ impl Agents {
         first: Option<String>,
         startup_context: bool,
         permission_mode: Option<contracts::agent::PermissionMode>,
+        size: (u16, u16),
     ) -> Result<String, RpcError> {
         let (node, prompt) = {
             let mut rail = self.shared.rail();
@@ -298,6 +323,7 @@ impl Agents {
                 true,
                 false,
                 permission_mode,
+                size,
             )
             .await
         {
@@ -371,6 +397,7 @@ impl Agents {
         attach: bool,
         yolo: bool,
         permission_mode: Option<contracts::agent::PermissionMode>,
+        size: (u16, u16),
     ) -> Result<terminal::Spawned, RpcError> {
         let node = self.shared.rail().node(id)?;
         let role = match node.kind {
@@ -405,7 +432,10 @@ impl Agents {
             )
             .await?;
         self.retain_worktree(id).await?;
-        let spawned = match self.spawn_behind(id, cwd, Some(argv), env, attach).await {
+        let spawned = match self
+            .spawn_behind(id, cwd, Some(argv), env, attach, size)
+            .await
+        {
             Ok(spawned) => spawned,
             Err(error) => return Err(error),
         };
@@ -428,6 +458,7 @@ impl Agents {
         command: Option<Vec<String>>,
         env: BTreeMap<String, String>,
         attach: bool,
+        size: (u16, u16),
     ) -> Result<terminal::Spawned, RpcError> {
         let spawned = self
             .shared
@@ -436,8 +467,8 @@ impl Agents {
                 cwd: cwd.to_string_lossy().into_owned(),
                 command,
                 env,
-                cols: 80,
-                rows: 24,
+                cols: size.0,
+                rows: size.1,
             })
             .await?;
         if attach {
