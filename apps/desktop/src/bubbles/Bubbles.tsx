@@ -366,7 +366,6 @@ export const Bubbles = (props: {
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
   const openTerminal = async (current = () => true, focus = true, home = terminalOwner()): Promise<string | null> => {
-    // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
     const workstream = home;
     const selection = rail.selected();
 
@@ -386,8 +385,9 @@ export const Bubbles = (props: {
 
     try {
       const { host, settled } = await destination.promise;
-      // U2580a: the mounted destination takes keyboard focus while its program waits for a fitted grid.
+
       if (focus && focusReturn(() => host.focus({ preventScroll: true }))) focusReturn = captureFocus();
+
       prepared = await props.screens.prepare(host, settled, controller.signal);
 
       if (!current() || rail.selected() !== selection) return null;
