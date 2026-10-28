@@ -19,7 +19,7 @@ const padsControlFor = (row: HTMLElement, key: string): HTMLElement | null => {
   return !shown && row.closest("[role=treeitem]")?.getAttribute("aria-expanded") === null ? control : null;
 };
 
-/** `F2`, the Rail key U31 leaves to U41, and `←`, `→` on a leaf Agent's Pads (GLOSSARY.md, Rail); the tree's own `←`, `→` come from Ark (U520). No UI of its own. */
+/** `F2`, the Rail key U31 leaves to U41, and `←`, `→` on a leaf Agent's Pads (A6); the tree's own `←`, `→` come from Ark (U520). No UI of its own. */
 export const Keys = () => {
   const onRename = (row: HTMLElement): void => {
     row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
