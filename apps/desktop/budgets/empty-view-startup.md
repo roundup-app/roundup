@@ -59,4 +59,4 @@ implementation at 1512×950, dark, `tree-40` and dense import candidates.
 Pads and import pass D1–D14 on both. Failed Pad creation preserves its exact
 draft and visible cause; only the identical pre-existing D12 reading of 1240
 fails on both. `loop/rules.sh delta` exits 0; no passing Check regresses.
-PNGs and readings stay under `artifacts/ux/U3010d/{base,head}/`.
+Screenshots and readings stay under `artifacts/ux/U3010d/{base,head}/`.
