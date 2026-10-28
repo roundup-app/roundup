@@ -14,7 +14,7 @@ const pick = async (radio: HTMLElement) => {
 const mount = () => mountTodos([todo(1, { title: "Ship the login fix", owner: { kind: "user", id: "you", parent: null } }), todo(2, { title: "Write docs" }), todo(3, { title: "Done thing", done: true })], true, [agent("a", "idle", "A", { name: "alpha" })]);
 
 const openPicker = async () => {
-  const row = await screen.findByRole("button", { name: /#1 Ship the login fix/ });
+  const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 Ship the login fix/ });
 
   row.focus();
   fireEvent.keyDown(row, { key: "o", code: "KeyO" });

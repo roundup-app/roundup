@@ -13,22 +13,20 @@ const connect = async (path = "/p", resume = false) => {
   app.handlers["agent.spawn"] = () => agent("new", "working", "starting");
   app.handlers["rail.startDoor"] = () => workstream("door");
   app.handlers["agent.resume"] = () => agent("agent", "working", "starting");
-  app.handlers["workstream.clear"] = () => ({ pending: true });
   const connected = await connectProject(app, { name: "p", path }, () => true, Date.now);
 
   return { app, connected };
 };
 
-it("u3801_a_chosen_mode_rides_start_resume_and_clear", async () => {
+it("u3801_a_chosen_mode_rides_start_and_resume", async () => {
   const { app, connected } = await connect();
   await saveAppSettings({ permissionMode: "plan" });
   await connected.app.rpc("agent.spawn", { cwd: "/p", prompt: null, parent: null });
   await connected.app.rpc("rail.startDoor", { id: "door" });
   await connected.app.rpc("agent.resume", { id: "agent" });
-  await connected.app.rpc("workstream.clear", { id: "door", reason: "fresh" });
-  expect(app.calls.slice(-4).map(call => call.params)).toEqual([
+  expect(app.calls.slice(-3).map(call => call.params)).toEqual([
     { cwd: "/p", prompt: null, parent: null, permissionMode: "plan" }, { id: "door", permissionMode: "plan" },
-    { id: "agent", permissionMode: "plan" }, { id: "door", reason: "fresh", permissionMode: "plan" },
+    { id: "agent", permissionMode: "plan" },
   ]);
   connected.stopTerminalScheme();
 });
@@ -40,9 +38,8 @@ it("u3801_the_default_choice_sends_no_mode", async () => {
   await connected.app.rpc("agent.spawn", { cwd: "/p", prompt: null, parent: null });
   await connected.app.rpc("rail.startDoor", { id: "door" });
   await connected.app.rpc("agent.resume", { id: "agent" });
-  await connected.app.rpc("workstream.clear", { id: "door", reason: "fresh" });
-  expect(app.calls.slice(-4).map(call => call.params)).toEqual([
-    { cwd: "/p", prompt: null, parent: null }, { id: "door" }, { id: "agent" }, { id: "door", reason: "fresh" },
+  expect(app.calls.slice(-3).map(call => call.params)).toEqual([
+    { cwd: "/p", prompt: null, parent: null }, { id: "door" }, { id: "agent" },
   ]);
   connected.stopTerminalScheme();
 });

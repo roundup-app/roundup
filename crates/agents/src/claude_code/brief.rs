@@ -59,6 +59,10 @@ const TOOLS: &[(&str, &str)] = &[
         "todo_assign",
         "assign a Todo to an owner, or leave it unassigned",
     ),
+    (
+        "todo_comments",
+        "read a Todo thread and the user’s replies without marking comments read",
+    ),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
     (
@@ -260,14 +264,6 @@ const TOOLS: &[(&str, &str)] = &[
         "see the Routes: whom each Agent's questions go to",
     ),
     ("project_get", "read the Project's settings"),
-    (
-        "project_measurements",
-        "read retained measurements and collection coverage",
-    ),
-    (
-        "project_measurementSummary",
-        "read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision",
-    ),
     (
         "project_setWorktrees",
         "turn Worktrees on or off for the Project and set the command Landing runs",
@@ -541,7 +537,7 @@ fn with_tools(role: Role, mcp: bool) -> String {
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
          Your Rail name and where you stand are in the Context you get at start. \
-         Refer to yourself and other Agents by Rail name, never by id. \
+         Refer to yourself and other Agents by Rail name, never by id. Use `me` for yourself and `name:<Rail name>` for collisions. Take a Todo with `todo_assign {{\"id\": <Todo id>, \"owner\": \"me\"}}`; delegate with a peer's Rail name as owner. \
          Your shell sets `ROUNDUP_AGENT_ID` for machine addressing, and `rup` is on your `PATH`: run `rup help` to learn its command line, {help}.\n\n\
          ## {heading}\n\n\
          {tools}{first_turn}\n\n",

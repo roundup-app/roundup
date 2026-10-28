@@ -84,6 +84,7 @@ import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
 import type { Pad as pad_Pad } from "./pad/Pad";
 import type { PadName as pad_PadName } from "./pad/PadName";
 import type { RenameParams as pad_RenameParams } from "./pad/RenameParams";
+import type { ReorderParams as pad_ReorderParams } from "./pad/ReorderParams";
 import type { SetOwnerParams as pad_SetOwnerParams } from "./pad/SetOwnerParams";
 import type { SetStorageParams as pad_SetStorageParams } from "./pad/SetStorageParams";
 import type { WriteParams as pad_WriteParams } from "./pad/WriteParams";
@@ -94,9 +95,6 @@ import type { ImportList as project_ImportList } from "./project/ImportList";
 import type { ImportListParams as project_ImportListParams } from "./project/ImportListParams";
 import type { ImportResult as project_ImportResult } from "./project/ImportResult";
 import type { Mcp as project_Mcp } from "./project/Mcp";
-import type { MeasurementSummary as project_MeasurementSummary } from "./project/MeasurementSummary";
-import type { MeasurementSummaryParams as project_MeasurementSummaryParams } from "./project/MeasurementSummaryParams";
-import type { Measurements as project_Measurements } from "./project/Measurements";
 import type { ModelList as project_ModelList } from "./project/ModelList";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
 import type { PrepareParams as project_PrepareParams } from "./project/PrepareParams";
@@ -156,9 +154,11 @@ import type { CapParams as workstream_CapParams } from "./workstream/CapParams";
 import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
 import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
 import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
+import type { OpeningPromptParams as workstream_OpeningPromptParams } from "./workstream/OpeningPromptParams";
 import type { QueueMoveParams as workstream_QueueMoveParams } from "./workstream/QueueMoveParams";
 import type { QueueState as workstream_QueueState } from "./workstream/QueueState";
 import type { QueuedWorkstream as workstream_QueuedWorkstream } from "./workstream/QueuedWorkstream";
+import type { RestartParams as workstream_RestartParams } from "./workstream/RestartParams";
 import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
 import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
 import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPlan";
@@ -166,8 +166,6 @@ import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstre
 import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "./workstream/StartWorkstreamParams";
 
 export type RpcMethods = {
-  "project.measurements": { params: null; result: project_Measurements };
-  "project.measurementSummary": { params: project_MeasurementSummaryParams; result: project_MeasurementSummary };
   "terminal.open": { params: terminal_OpenParams; result: terminal_Opened };
   "agent.spawn": { params: agent_SpawnParams; result: agent_RailNode };
   "agent.extras": { params: null; result: agent_Extras };
@@ -188,6 +186,7 @@ export type RpcMethods = {
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.list": { params: null; result: agent_RailNode[] };
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
+  "workstream.setOpeningPrompt": { params: workstream_OpeningPromptParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
   "rail.rename": { params: agent_RenameParams; result: agent_RailNode };
@@ -239,6 +238,7 @@ export type RpcMethods = {
   "pad.write": { params: pad_WriteParams; result: pad_Pad };
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
   "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };
+  "pad.reorder": { params: pad_ReorderParams; result: pad_Pad };
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_DeleteParams; result: pad_Deletion };
@@ -309,6 +309,7 @@ export type RpcMethods = {
   "message.resolveResult": { params: message_ResolveResultParams; result: message_ResultObservation };
   "message.reconcileWork": { params: message_ProgressParams; result: message_Reconciliation };
   "message.resumeWork": { params: message_ResumeWorkParams; result: message_ResumeWork };
+  "workstream.restart": { params: workstream_RestartParams; result: agent_RailNode };
   "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
   "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };

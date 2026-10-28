@@ -6,7 +6,7 @@ import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
 import { Field } from "../ui/Field";
-import { NumberInput } from "../ui/NumberInput";
+import { Deferred } from "../ui/Deferred";
 import { Select } from "../ui/Select";
 import * as v from "valibot";
 import { draftStorage } from "../state/storage";
@@ -17,9 +17,8 @@ import { SettingsGroup, SettingsShell } from "./SettingsShell";
 import { ShortcutSetting } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; closeRef?: (close: () => void) => void; onOpenChange?: (open: boolean) => void }) => {
+export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
   const view = createSettingsView();
-  props.closeRef?.(() => { props.onOpenChange?.(false); view.close(false); });
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
@@ -93,7 +92,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; clo
   const defaults = [{ value: "", label: copy.modelDefault }];
 
   return <Show when={view.open()}>
-    <SettingsShell compact={props.project() !== null} heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
+    <SettingsShell heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
       <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
         <Tabs.List aria-label={copy.settings}>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
@@ -121,11 +120,11 @@ export const AppSettings = (props: { app: App; project: () => string | null; clo
         <Field.Root class="settings-field settings-font"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
           onInput={event => edit("fontFamily", event.currentTarget)} onBlur={() => { commit("fontFamily", field("fontFamily")); }}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></Field.Root>
-        <Field.Root class="settings-field" invalid={!!sizeFailure()}><Field.Label>{copy.fontSize}</Field.Label><NumberInput.Root value={field("fontSize")} min={MIN_FONT_SIZE} max={MAX_FONT_SIZE} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
+        <Field.Root class="settings-field" invalid={!!sizeFailure()}><Field.Label>{copy.fontSize}</Field.Label><Deferred load={() => import("../ui/NumberInput")} label={copy.fontSize}>{module => <module.NumberInput.Root value={field("fontSize")} min={MIN_FONT_SIZE} max={MAX_FONT_SIZE} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
           if (Number.isFinite(valueAsNumber) && valueAsNumber >= MIN_FONT_SIZE && valueAsNumber <= MAX_FONT_SIZE) drafts.edit(destination("fontSize"), { text: value }, null, "ordinary");
-        }}><NumberInput.Input aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
+        }}><module.NumberInput.Input aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
           onInput={event => edit("fontSize", event.currentTarget)} onBlur={commitSize}
-          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitSize(); } }} /></NumberInput.Root>
+          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitSize(); } }} /></module.NumberInput.Root>}</Deferred>
           <ReservedLine message={sizeFailure()} />
         </Field.Root>
       </SettingsGroup></Tabs.Content>

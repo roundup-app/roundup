@@ -1,8 +1,9 @@
+import { copy } from "../copy";
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { showShelfTab } from "../testing/shelfTabs";
 import { settled } from "../rail/railFixture";
 import type { CreateParams } from "@contracts/todo/CreateParams";
-import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -30,25 +31,18 @@ const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["back
   return { ...controls, view, drafts, emulators };
 };
 
-const cases = ["todo-shelf", "pad-shelf", "todo-owned", "pad-owned", "workstream", "agent"] as const;
+const cases = ["todo-shelf", "pad-shelf", "workstream", "agent"] as const;
 
 type RowCase = typeof cases[number];
 
 const target = async (kind: RowCase) => {
   const controls = await open();
 
-  if (kind === "pad-shelf") showShelfTab("Pads");
-
-  if (kind === "todo-owned" || kind === "pad-owned") {
-    const id = kind === "todo-owned" ? "tokens" : "agent-1";
-    fireEvent.click(document.querySelector(`.rail-row[data-id="${id}"] [data-pads-control]`)!);
-  }
+  if (kind === "pad-shelf") showShelfTab(copy.pads);
 
   const selector = {
     "todo-shelf": '.todos-tab [data-todo="1"] .todo-row-button',
     "pad-shelf": '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .pad-name',
-    "todo-owned": '.rail-leaf [data-todo="1"] .todo-row-button',
-    "pad-owned": '.rail-leaf [data-incarnation="fixture-0"] .rail-pad',
     workstream: '.rail-row[data-id="payments"]',
     agent: '.rail-row[data-id="tokens"]',
   }[kind];
@@ -69,11 +63,21 @@ it.each(cases)("u3789a_click_selects_without_opening_%s", async kind => {
   expect(app.calls.slice(start).filter(call => ["pad.read", "todo.getHistory", "todo.readHistory", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
 });
 
-it.each(cases.flatMap(kind => ["return", "open"].map(input => ({ kind, input, name: `${kind}-${input}` }))))("u3789a_return_and_open_activate_once_$name", async ({ kind, input }) => {
+it("u3789a_return_and_open_activate_once_todo_shelf", async () => {
+  const { app, row } = await target("todo-shelf");
+  const arrow = row.closest('.shelf-row')!.querySelector<HTMLButtonElement>('.todo-open')!;
+  expect(arrow).not.toBeNull();
+  fireEvent.click(arrow);
+  await waitFor(() => expect(rpcCalls(app, "todo.getHistory")).toEqual([{ id: 1 }]));
+  expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull();
+  expect(rpcCalls(app, "todo.complete")).toEqual([]);
+  expect(rpcCalls(app, "todo.update")).toEqual([]);
+});
+
+it.each(cases)("u3789a_return_activates_once_%s", async kind => {
   const { app, row } = await target(kind);
 
-  if (input === "return") { row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
-  else fireEvent.click(row.closest('.shelf-row, .rail-row, .pad-row-head')!.querySelector<HTMLButtonElement>('[aria-label="Open"]')!);
+  row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
 
   if (kind === "workstream" || kind === "agent") {
     await waitFor(() => expect(document.activeElement?.closest('.pane-screen')).not.toBeNull());
@@ -88,7 +92,7 @@ it.each(cases.flatMap(kind => ["return", "open"].map(input => ({ kind, input, na
   expect(rpcCalls(app, "agent.resume")).toEqual([]);
 });
 
-it.each(["todo-shelf", "pad-shelf", "todo-owned", "workstream", "agent"] as const)("u3789a_rename_never_opens_%s", async kind => {
+it.each(["todo-shelf", "pad-shelf", "workstream", "agent"] as const)("u3789a_rename_never_opens_%s", async kind => {
   const { app, row } = await target(kind);
   const start = app.calls.length;
   fireEvent.click(row);
@@ -96,7 +100,7 @@ it.each(["todo-shelf", "pad-shelf", "todo-owned", "workstream", "agent"] as cons
   fireEvent.click(row);
   await settled();
   fireEvent.dblClick(row);
-  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
   await waitFor(() => expect(document.activeElement).toBe(field));
   expect(field.selectionStart).toBe(0);
   expect(field.selectionEnd).toBe(field.value.length);
@@ -110,16 +114,6 @@ it.each(["todo-shelf", "pad-shelf", "todo-owned", "workstream", "agent"] as cons
   expect(app.calls.slice(start).filter(call => ["pad.read", "todo.readHistory", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
   expect(rpcCalls(app, "pad.delete")).toEqual([]);
-});
-
-it("u3789a_readonly_pad_keeps_ownership_before_rename", async () => {
-  const { app, row } = await target("pad-owned");
-  row.focus();
-  fireEvent.keyDown(row, { key: "F2" });
-  await screen.findByText("Make this Pad yours before renaming.");
-  expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
-  expect(rpcCalls(app, "pad.rename")).toEqual([]);
-  expect(rpcCalls(app, "pad.setOwner")).toEqual([]);
 });
 
 it.each(["key", "scope"])("u3789b_one_action_focuses_add_%s", async input => {
@@ -166,16 +160,17 @@ it("u3789a_open_never_starts_a_stopped_door", async () => {
   const row = document.querySelector<HTMLElement>(".rail-row")!;
   fireEvent.click(row);
   await settled();
-  fireEvent.click(row.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  await settled();
   expect(app.calls.filter(call => ["rail.startDoor", "agent.spawn", "agent.resume", "todo.move", "pad.move", "todo.assign", "pad.setOwner"].includes(call.method))).toEqual([]);
 });
 
-it.each(["Todos", "Pads"])("u3789c_empty_groups_are_absent_%s", async tab => {
+it.each([copy.todos, copy.pads])("u3789c_empty_groups_are_absent_%s", async tab => {
   await open("empty-project");
 
-  if (tab === "Pads") fireEvent.click(document.querySelector('#shelf-tab-pads')!);
+  if (tab === copy.pads) fireEvent.click(document.querySelector('#shelf-tab-pads')!);
 
-  const panel = await waitFor(() => { const panel = document.querySelector<HTMLElement>(tab === "Todos" ? ".todos-tab" : ".pads-tab");
+  const panel = await waitFor(() => { const panel = document.querySelector<HTMLElement>(tab === copy.todos ? ".todos-tab" : ".pads-tab");
 
  if (!panel) throw new Error("tab not mounted");
 
@@ -217,14 +212,14 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_escape_
   const { app, row } = await target(kind);
   row.focus();
   fireEvent.keyDown(row, { key: "F2" });
-  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
   const identity = row.closest("[data-todo], [data-incarnation]");
   const text = "  unfinished 日本語 🌱  ";
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Escape" });
   await waitFor(() => expect(document.activeElement?.closest("[data-todo], [data-incarnation]")).toBe(identity));
   fireEvent.keyDown(document.activeElement!, { key: "F2" });
-  expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" })).value).toBe(text);
+  expect((await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name })).value).toBe(text);
   expect(app.calls.filter(call => ["todo.update", "pad.rename", "pad.read", "todo.readHistory"].includes(call.method))).toEqual([]);
 });
 
@@ -238,11 +233,11 @@ it.each(["pointer", "key"])("u3789d_controls_keep_all_actions_%s", async input =
   };
 
   menu();
-  await app.pickMenu("Open folder");
+  await app.pickMenu(copy.openFolder);
   expect(app.openedTargets).toHaveLength(1);
   expect(document.querySelector('.rail-row[data-selected="true"]')?.getAttribute('data-id')).toBe(selected);
   menu();
-  expect(app.menuLabels()).toEqual(expect.arrayContaining(["Stop", "Rename", "Open in editor", "Remove"]));
+  expect(app.menuLabels()).toEqual(expect.arrayContaining([copy.stop, copy.rename, copy.openInEditor, copy.remove]));
   expect(rpcCalls(app, "agent.stop")).toEqual([]);
   expect(rpcCalls(app, "rail.remove")).toEqual([]);
 });
@@ -291,7 +286,7 @@ it.each(["overview", "workstream", "agent", "terminal"].flatMap(scope => ["key",
 it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_keeps_original_identity_%s", async kind => {
   const controls = await target(kind);
   fireEvent.keyDown(controls.row, {key:"F2"});
-  const field = await screen.findByRole<HTMLInputElement>("textbox", {name:"Name"});
+  const field = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
   const text = "  composed 日本語 🌱  ";
   fireEvent.input(field, {target:{value:text}});
@@ -304,7 +299,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
   render(() => <App app={controls.app} drafts={createProjectDrafts()} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
 
-  if (kind === "pad-shelf") showShelfTab("Pads");
+  if (kind === "pad-shelf") showShelfTab(copy.pads);
 
   const selector = kind === "todo-shelf" ? '.todos-tab [data-todo="1"] .todo-row-button' : '.pads-tab [data-incarnation="fixture-1"] .pad-name';
 
@@ -316,7 +311,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
 
   fireEvent.keyDown(row, {key:"F2"});
 
-  const restored = await screen.findByRole<HTMLInputElement>("textbox", {name:"Name"});
+  const restored = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(document.activeElement).toBe(restored));
   expect(restored.value).toBe(text);
   expect([restored.selectionStart, restored.selectionEnd]).toEqual([2,5]);
@@ -329,7 +324,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_older_f
   const reply = gate<never>();
   app.handlers[method] = () => reply.promise;
   fireEvent.keyDown(row, {key:"F2"});
-  const field = await screen.findByRole<HTMLInputElement>("textbox", {name:"Name"});
+  const field = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
   fireEvent.input(field, {target:{value:"first revision"}});
   fireEvent.keyDown(field, {key:"Enter"});
@@ -345,7 +340,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_older_f
   fireEvent.keyDown(field, {key:"Escape"});
   await waitFor(() => expect(document.activeElement?.matches("button")).toBe(true));
   fireEvent.keyDown(document.activeElement!, {key:"F2"});
-  expect((await screen.findByRole<HTMLInputElement>("textbox", {name:"Name"})).value).toBe(next);
+  expect((await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name})).value).toBe(next);
   expect(rpcCalls(app, method)).toHaveLength(1);
 });
 
@@ -386,7 +381,8 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
 
   if (kind === "pad") fireEvent.click(document.querySelector('#shelf-tab-pads')!);
   const panel = () => document.querySelector(kind === "todo" ? '.todos-tab' : '.pads-tab')!;
-  await waitFor(() => expect(panel().querySelectorAll('[data-shelf-group]')).toHaveLength(1));
+  const group = kind === "pad" ? '[data-shelf-group="auth"]' : '[data-shelf-group]';
+  await waitFor(() => expect(panel().querySelectorAll(group)).toHaveLength(1));
 
   if ("id" in item) {
     if (action === "delete") await app.rpc("todo.delete", {operation: crypto.randomUUID(), ids:[item.id]});
@@ -396,19 +392,23 @@ it.each(["todo", "pad"].flatMap(kind => ["delete", "move"].map(action => ({kind,
     else await app.rpc("pad.move", {name:item.name, home:null});
   }
 
-  await waitFor(() => expect(panel().querySelectorAll('[data-shelf-group]')).toHaveLength(0));
-  expect(panel().querySelectorAll('.empty-state')).toHaveLength(1);
+  await waitFor(() => expect(panel().querySelectorAll(group)).toHaveLength(0));
+
+  if (kind === "todo") expect(panel().querySelectorAll('.empty-state')).toHaveLength(1);
+  else {
+    expect(panel().querySelector('[data-pad="pad-0"]')).not.toBeNull();
+    expect(panel().querySelector('[data-pad="only item"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group')).toBe(action === "move" ? "unassigned" : undefined);
+  }
 });
 
 
-it.each(["return", "open"])("u3789d_controls_keep_native_attention_destination_%s", async input => {
+it("u3789d_controls_keep_native_attention_destination_return", async () => {
   const {app, emulators} = await open();
   const row = document.querySelector<HTMLElement>('.rail-row[data-id="backend"]')!;
   fireEvent.click(row);
   await settled();
 
-  if (input === "return") fireEvent.keyDown(row, {key:"Enter"});
-  else fireEvent.click(row.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(row, {key:"Enter"});
   await waitFor(() => expect(emulators.made.get("t-migrate")?.host?.contains(document.activeElement)).toBe(true));
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe("migrate");
   expect(app.calls.filter(call => ["agent.spawn","agent.resume","rail.startDoor"].includes(call.method))).toEqual([]);
@@ -418,7 +418,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_navigation_keeps_dr
   const { row, drafts, app } = await target(kind);
   row.focus();
   fireEvent.keyDown(row, { key: "F2" });
-  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
   const text = "  leave e\u0301 日本語 🌱  ";
   fireEvent.input(field, { target: { value: text } });
   const next = document.querySelector<HTMLElement>('.rail-row[data-id="tokens"]')!;
@@ -440,7 +440,7 @@ it("u3789d_controls_keep_all_actions_dismisses_failure_from_menu", async () => {
   await screen.findByText("completion refused");
   expect(tick.checked).toBe(false);
   fireEvent.contextMenu(row);
-  await app.pickMenu("Dismiss");
+  await app.pickMenu(copy.dismissFailure);
   expect(frame.querySelector('[role=alert]')).toBeNull();
   expect(rpcCalls(app, "todo.complete")).toEqual([{ id: 1 }]);
 });
@@ -451,7 +451,7 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
   app.handlers["rail.rename"] = () => { throw refused; };
 
   fireEvent.keyDown(row, { key: "F2" });
-  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
   const text = "  exact 日本語 🌱  ";
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Enter" });
@@ -461,12 +461,12 @@ it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => 
   fireEvent.click(elsewhere);
   await waitFor(() => expect(document.activeElement).toBe(elsewhere));
   expect(screen.getByRole("alert", { name: new RegExp(refused.message) })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  const recovered = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
+  fireEvent.click(screen.getByRole("button", { name: copy.retry }));
+  const recovered = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
   await waitFor(() => expect(document.activeElement).toBe(recovered));
   expect(recovered.value).toBe(text);
   expect(rpcCalls(app, "rail.rename")).toEqual([{ id: "tokens", name: "exact 日本語 🌱" }]);
-  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  fireEvent.click(screen.getByRole("button", { name: copy.dismissFailure }));
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
@@ -492,20 +492,20 @@ it("u4275a_state_updates_without_row_activation", async () => {
 
   for (const kind of ["idle", "working", "needs-you", "blocked", "done", "error"] as const) {
     setStatus("tokens", kind, kind);
-    await waitFor(() => expect(row.querySelector('.row-state [role=img]')?.getAttribute("aria-label")).toBe(kind === "needs-you" ? "Needs-you" : kind[0]!.toUpperCase() + kind.slice(1)));
+    await waitFor(() => expect(row.querySelector('.row-state [role=img]')?.getAttribute("aria-label")).toBe(kind === "needs-you" ? copy.needsYouGlyph : kind[0]!.toUpperCase() + kind.slice(1)));
   }
 
   fireEvent.click(document.querySelector('.shelf-done-line .todo-row-button')!);
   await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="7"]')).not.toBeNull());
   await app.rpc("todo.setBlockers", {id: 1, blockers: [2]});
-  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="1"] [role=img]')?.getAttribute("aria-label")).toBe("Blocked"));
+  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="1"] [role=img]')?.getAttribute("aria-label")).toBe(copy.blocked));
   await app.rpc("todo.setBlockers", {id: 1, blockers: []});
   await app.rpc("todo.complete", { id: 1 });
-  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="1"] [role=img]')?.getAttribute("aria-label")).toBe("Done"));
+  await waitFor(() => expect(document.querySelector('.todos-tab [data-todo="1"] [role=img]')?.getAttribute("aria-label")).toBe(copy.done));
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id")).toBe(selected);
 });
 
-it.each(["return", "open"])("u4275c_rows_keep_details_in_the_opened_todo_%s", async input => {
+it("u4275c_rows_keep_details_in_the_opened_todo_return", async () => {
   const { app, row } = await target("todo-shelf");
   const authored = await app.rpc("todo.update", { id: 1, title: "Name only", body: "Private multiline body\nSecond detail" });
   await waitFor(() => expect(row.textContent).toContain(authored.title));
@@ -513,8 +513,7 @@ it.each(["return", "open"])("u4275c_rows_keep_details_in_the_opened_todo_%s", as
   fireEvent.click(row);
   expect(row.closest('.shelf-row')!.textContent).not.toContain(authored.body!.split("\n")[0]!);
 
-  if (input === "return") fireEvent.keyDown(row, { key: "Enter" });
-  else fireEvent.click(row.closest('.shelf-row')!.querySelector('[aria-label="Open"]')!);
+  fireEvent.keyDown(row, { key: "Enter" });
   await waitFor(() => expect(document.querySelector('.drawer[data-open=true]')?.textContent).toContain(authored.body!.split("\n")[0]!));
   expect(app.calls.slice(before).filter(call => ["todo.update", "todo.complete", "todo.move"].includes(call.method))).toEqual([]);
 });
@@ -524,11 +523,7 @@ it("u4275b_row_actions_keep_menu_semantics", async () => {
   const row = document.querySelector('.rail-row[data-id="auth"]')!;
   fireEvent.click(row.querySelector('[aria-label="Add Agent"]')!);
   await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{cwd:"/Users/you/harness",prompt:null,parent:"auth",model:null,effort:null}]));
-  fireEvent.click(row.querySelector('[aria-label="Clear…"]')!);
-  await screen.findByRole("textbox", { name: "Why clear?" });
-  expect(rpcCalls(app, "workstream.clear")).toEqual([]);
-  fireEvent.click(screen.getByRole("button", { name: /^Keep$/ }));
-  expect(rpcCalls(app, "workstream.clear")).toEqual([]);
+
 });
 
 
@@ -548,9 +543,9 @@ it("u4275b_row_actions_keep_menu_semantics_stop_cancellation", async () => {
 
 it("u4275b_row_actions_keep_menu_semantics_stopped_door", async () => {
   const { app } = await open("door-stopped");
-  const row = document.querySelector('.rail-row')!;
+  const row = document.querySelector<HTMLElement>('.rail-row')!;
   const id = row.getAttribute("data-id")!;
-  fireEvent.click(row.querySelector('[aria-label="Start supervisor"]')!);
+  fireEvent.click(within(row).getByRole("button", { name: copy.startDoor }));
   await waitFor(() => expect(rpcCalls(app, "rail.startDoor")).toEqual([{id}]));
 });
 

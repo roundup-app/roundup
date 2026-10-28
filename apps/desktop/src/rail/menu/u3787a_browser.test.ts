@@ -24,7 +24,9 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
     await lane.browser("set", "media", "dark");
     await lane.evaluate(`(async () => {
       const app = window.__fake.app;
-      const made = await app.rpc('rail.createWorkstream', {name:'Chosen retained group',parent:null});
+      const made = await app.rpc('agent.spawn', {cwd:'/p',parent:null});
+      await app.rpc('agent.stop', {id:made.id});
+      await app.rpc('rail.rename', {id:made.id,name:'Chosen retained Agent'});
       const originalTree = app.handlers['rail.tree'];
       const before = await originalTree();
       const remove = app.handlers['rail.remove'];
@@ -47,9 +49,10 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
     await lane.capture("U3787a", `rail-${seed}-before`);
     await lane.evaluate("(() => { const row=document.querySelector('[data-id=\"'+window.__railChosen+'\"] [data-part=branch-control]') ?? document.querySelector('[data-id=\"'+window.__railChosen+'\"]'); row.click(); row.focus(); return true; })()");
     await lane.browser("press", "Meta+Backspace");
-    await lane.until("[...document.querySelectorAll('button')].some(b=>b.textContent==='Undo')");
+    await lane.until("document.body.textContent.includes('Deleted')");
     await lane.capture("U3787a", `rail-${seed}-deleted`);
-    await lane.evaluate("(() => { [...document.querySelectorAll('button')].find(b=>b.textContent==='Undo').click(); return true; })()");
+    await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+      await lane.browser("press", "Meta+z");
     await lane.until((seed === "conflict" || seed === "dense-failure") ? "document.body.textContent.includes('The original Home changed')" : "!!document.querySelector('[data-id=\"'+window.__railChosen+'\"]')");
     expect(await lane.calls("rail.restore")).toHaveLength(1);
     await lane.capture("U3787a", `rail-${seed}-${(seed === "conflict" || seed === "dense-failure") ? "conflict" : "restored"}`);

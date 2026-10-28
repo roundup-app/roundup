@@ -44,24 +44,27 @@ it.each(["unknown"])("u2773b_rail_settlement_preserves_other_revisions_%s", asyn
 
 it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const { vi } = await import("vitest");
-  const mounted = await mountRail([]);
+  const mounted = await mountRail([workstream("w")]);
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
-  open();
-  fireEvent.input(field(), { target: { value: " memory\n😀 " } });
-  await screen.findByRole("button", { name: "Retry storage" });
-  expect(field().value).toBe(" memory\n😀 ");
-  fireEvent.keyDown(field(), { key: "Escape" });
-  expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered rail draft").value).toBe(" memory\n😀 ");
-  open();
-  writes.mockRestore();
-  fireEvent.click(screen.getByRole("button", { name: "Retry storage" }));
-  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-  expect(field().value).toBe(" memory\n😀 ");
-  expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-  cleanup();
-  await mountRail([]);
-  open();
-  expect(field().value).toBe(" memory\n😀 ");
+
+  try {
+    open();
+    fireEvent.input(field(), { target: { value: " memory\n😀 " } });
+    await screen.findByRole("button", { name: "Retry storage" });
+    expect(field().value).toBe(" memory\n😀 ");
+    fireEvent.keyDown(field(), { key: "Escape" });
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered rail draft").value).toBe(" memory\n😀 ");
+    open();
+    writes.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Retry storage" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(field().value).toBe(" memory\n😀 ");
+    expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
+    cleanup();
+    await mountRail([workstream("w")]);
+    open();
+    expect(field().value).toBe(" memory\n😀 ");
+  } finally { writes.mockRestore(); }
 });
 
 it("u2773a_rail_task_keeps_original_recipient_after_selection_changes", async () => {
@@ -79,37 +82,6 @@ it("u2773a_rail_task_keeps_original_recipient_after_selection_changes", async ()
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
 });
 
-it("u2773a_rail_clear_restores_exact_reason_and_selection", async () => {
-  const { vi } = await import("vitest");
-  const { door } = await import("../testing/nodes");
-  const { rowOf } = await import("./railFixture");
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
-
-  const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
-    fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    await app.pickMenu("Clear…");
-  };
-
-  const reason = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
-
-  try {
-    const first = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    await reopen(first.app);
-    fireEvent.input(reason(), { target: { value: " exact\ne\u0301 😀 " } });
-    reason().setSelectionRange(2, 5, "backward");
-    fireEvent.select(reason());
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${first.connected.project.path}`)!).drafts).toContainEqual(expect.objectContaining({ selection: { start: 2, end: 5, direction: "backward" } })));
-    fireEvent.keyDown(reason(), { key: "Escape" });
-    cleanup();
-    const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    await reopen(mounted.app);
-    await Promise.resolve();
-    expect(reason().value).toBe(" exact\ne\u0301 😀 ");
-    expect([reason().selectionStart, reason().selectionEnd, reason().selectionDirection]).toEqual([2, 5, "backward"]);
-    expect(railCallsTo(mounted.app, "workstream.clear")).toEqual([]);
-    expect(document.activeElement).toBe(reason());
-  } finally { vi.unstubAllGlobals(); }
-});
 
 it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   const { render } = await import("@solidjs/testing-library");
@@ -117,7 +89,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   const { createFakeApp } = await import("../testing/fakeApp");
   const { connectProject, ConnectedProjectContext } = await import("../state/connectedProject");
   const { Rail } = await import("./Rail");
-  const original = await mountRail([]);
+  const original = await mountRail([workstream("w")]);
   let refuse!: (error: Error) => void;
   original.app.handlers["agent.spawn"] = () => new Promise((_, reject) => { refuse = reject; });
   open();
@@ -125,6 +97,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   fireEvent.keyDown(field(), { key: "Enter" });
   cleanup();
   const other = createFakeApp();
+  other.handlers["rail.tree"] = () => [workstream("other")];
   const connection = await connectProject(other, { name: "Other", path: "/other" }, () => true, Date.now);
   render(() => <ConnectedProjectContext.Provider value={connection}><Rail /></ConnectedProjectContext.Provider>);
   open();
@@ -134,7 +107,7 @@ it("u2773b_rail_late_failure_stays_in_original_project", async () => {
   expect(field().value).toBe(" B\ne\u0301 ");
   expect(railCallsTo(other, "agent.spawn")).toEqual([]);
   cleanup();
-  await mountRail([]);
+  await mountRail([workstream("w")]);
   open();
   expect(field().value).toBe(" A\n😀 ");
   fireEvent.keyDown(field(), { key: "Escape" });
@@ -169,60 +142,7 @@ it.each(["failed", "acknowledged", "unknown", "transport"])("u2773b_rail_name_se
   expect(railCallsTo(reopened.app, "rail.rename")).toEqual([]);
 });
 
-it("u2773a_rail_clear_failure_does_not_take_focus", async () => {
-  const { vi } = await import("vitest");
-  const { door, event } = await import("../testing/nodes");
-  const { rowOf, pinnedAdd } = await import("./railFixture");
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
-  try {
-    const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    mounted.app.handlers["workstream.clear"] = () => ({ pending: true });
-    fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    await mounted.app.pickMenu("Clear…");
-    const reason = screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
-    await Promise.resolve();
-    fireEvent.input(reason, { target: { value: " exact 😀 " } });
-    fireEvent.submit(reason.closest("form")!);
-    await waitFor(() => expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1));
-    const elsewhere = pinnedAdd();
-    elsewhere.focus();
-    mounted.app.emit(event({ name: "workstream.clearFailed", data: { id: "w", code: -32008, message: "not acknowledged" } }));
-    await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
-    expect(document.activeElement).toBe(elsewhere);
-    expect(reason.value).toBe(" exact 😀 ");
-    expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
-  } finally { vi.unstubAllGlobals(); }
-});
-
-it("u2773a_rail_clear_reopens_on_same_project_connection", async () => {
-  const { render } = await import("@solidjs/testing-library");
-  const { vi } = await import("vitest");
-  const { door } = await import("../testing/nodes");
-  const { rowOf } = await import("./railFixture");
-  const { ConnectedProjectContext } = await import("../state/connectedProject");
-  const { Rail } = await import("./Rail");
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
-
-  const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
-    fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    await app.pickMenu("Clear…");
-  };
-
-  try {
-    const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    await reopen(mounted.app);
-    fireEvent.input(screen.getByRole("textbox", { name: /Why clear/ }), { target: { value: " exact\n😀 " } });
-    cleanup();
-    render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Rail /></ConnectedProjectContext.Provider>);
-    await reopen(mounted.app);
-    await Promise.resolve();
-    const reason = screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
-    expect(reason.value).toBe(" exact\n😀 ");
-    expect(document.activeElement).toBe(reason);
-    expect(railCallsTo(mounted.app, "workstream.clear")).toEqual([]);
-  } finally { vi.unstubAllGlobals(); }
-});
 
 it("u2773b_rail_out_of_order_name_replies_keep_new_work", async () => {
   const { agent } = await import("../testing/nodes");
@@ -259,7 +179,7 @@ it("u2773a_rail_recovery_keeps_selection_when_submission_settles", async () => {
   const { RpcError } = await import("../app/seam");
   const { copy } = await import("../copy");
   const { waitFor } = await import("@solidjs/testing-library");
-  const mounted = await mountRail([]);
+  const mounted = await mountRail([workstream("w")]);
   let refuse!: (error: Error) => void;
   mounted.app.handlers["agent.spawn"] = () => new Promise((_, reject) => { refuse = reject; });
   open();
@@ -282,87 +202,20 @@ it("u2773a_rail_recovery_keeps_selection_when_submission_settles", async () => {
   expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
 });
 
-it("u2773b_rail_unknown_clear_reopens_without_retry", async () => {
-  const { vi } = await import("vitest");
-  const { RpcError } = await import("../app/seam");
-  const { door } = await import("../testing/nodes");
-  const { rowOf } = await import("./railFixture");
-  const { waitFor } = await import("@solidjs/testing-library");
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
-  const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
-    fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    await app.pickMenu("Clear…");
-  };
-
-  const reason = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
-  const submit = () => screen.getByRole<HTMLButtonElement>("button", { name: "Clear and keep a summary" });
-
-  try {
-    const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    mounted.app.handlers["workstream.clear"] = () => { throw new RpcError(-32603, "connection lost"); };
-
-    await reopen(mounted.app);
-    fireEvent.input(reason(), { target: { value: " A\n😀 " } });
-    fireEvent.submit(reason().closest("form")!);
-    await screen.findByText("connection lost");
-    await waitFor(() => expect(submit().disabled).toBe(true));
-    fireEvent.keyDown(reason(), { key: "Escape" });
-    await reopen(mounted.app);
-    await waitFor(() => expect(document.activeElement).toBe(reason()));
-    expect(reason().value).toBe(" A\n😀 ");
-    expect(submit().disabled).toBe(true);
-    fireEvent.submit(reason().closest("form")!);
-    expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
-    fireEvent.input(reason(), { target: { value: " B\ne\u0301 " } });
-    expect(submit().disabled).toBe(false);
-    expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((entry) => entry.value)).toEqual([" A\n😀 "]);
-    expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
-  } finally { vi.unstubAllGlobals(); }
-});
-
-it("u2773a_rail_pending_clear_hides_without_discard_or_retry", async () => {
-  const { vi } = await import("vitest");
-  const { door, event } = await import("../testing/nodes");
-  const { rowOf } = await import("./railFixture");
-  const { waitFor } = await import("@solidjs/testing-library");
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
-
-  const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
-    fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    await app.pickMenu("Clear…");
-  };
-
-  try {
-    const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    mounted.app.handlers["workstream.clear"] = () => ({ pending: true });
-    await reopen(mounted.app);
-    const reason = screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
-    await waitFor(() => expect(document.activeElement).toBe(reason));
-    fireEvent.input(reason, { target: { value: " exact\ne\u0301 😀 " } });
-    fireEvent.submit(reason.closest("form")!);
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered rail draft").value).toBe(" exact\ne\u0301 😀 ");
-    mounted.app.emit(event({ name: "workstream.clearFailed", data: { id: "w", code: -32008, message: "not acknowledged" } }));
-    await reopen(mounted.app);
-    expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ }).value).toBe(" exact\ne\u0301 😀 ");
-    expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
-  } finally { vi.unstubAllGlobals(); }
-});
 
 
 it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", async () => {
-  const { connected, app } = await mountRail([]);
+  const { connected, app } = await mountRail([workstream("w")]);
   render(() => <ConnectedProjectContext.Provider value={connected}><span /></ConnectedProjectContext.Provider>);
   open();
   fireEvent.input(field(), { target: { value: " exact\n😀 " } });
   fireEvent.keyDown(field(), { key: "Escape" });
   const revision = connected.drafts.list()[0]!;
   expect(revision.value.text).toBe(" exact\n😀 ");
-  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  expect(connected.drafts.list()).toHaveLength(1);
   connected.drafts.discard(revision.revision);
-  expect(screen.queryByLabelText("Recovered rail draft")).toBeNull();
+  expect(screen.queryAllByRole("textbox", { hidden: true })).toEqual([]);
   open();
   fireEvent.input(field(), { target: { value: "new work" } });
   fireEvent.keyDown(field(), { key: "Escape" });
@@ -371,7 +224,7 @@ it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", asyn
   expect(connected.drafts.problem()).toBeNull();
   expect(railCallsTo(app, "agent.spawn")).toEqual([]);
   cleanup();
-  await mountRail([]);
+  await mountRail([workstream("w")]);
   open();
   expect(field().value).toBe("");
 });
@@ -415,4 +268,31 @@ it.each([null, "a"])("u3299c_retention_preserves_original_work_rail_%s", async p
     expect(call.params).toMatchObject(parent ? { to: "a", body: "exact draft e\u0301\n🧭" } : { cwd: path("Orchard"), parent: null, prompt: "exact draft e\u0301\n🧭" });
     expect(app.of(path("Other")).calls.filter(call => call.method === "agent.spawn" || call.method === "message.send")).toEqual([]);
   } finally { writes.mockRestore(); }
+});
+
+it("u350_retired_clear_drafts_do_not_reopen_or_send", async () => {
+  const { door } = await import("../testing/nodes");
+  const key = "roundup:drafts:/p";
+  const text = " exact\ne\u0301 😀 ";
+  const selection = { start: 2, end: 5, direction: "backward" };
+
+  const task = { revision: "task", destination: { surface: "rail-task", object: "a", recipient: "a" },
+    value: { text, parent: "a", action: "note", model: null, effort: null }, selection, status: "draft", policy: "ordinary" };
+
+  localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [
+    { ...task, revision: "clear", destination: { surface: "rail-clear", object: "a", recipient: "a" }, value: { text: "retired reason", withoutHandoff: true } }, task,
+  ] }));
+  const first = await mountRail([door("a", "idle", "ready"), door("b", "idle", "ready")]);
+  expect(first.connected.drafts.list()).toEqual([task]);
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!).drafts).toEqual([task]));
+  cleanup();
+  const reopened = await mountRail([door("a", "idle", "ready"), door("b", "idle", "ready")]);
+  reopened.rail.select("b");
+  open();
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect(field().value).toBe(text);
+  expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 5, "backward"]);
+  expect(reopened.connected.drafts.list()).toEqual([task]);
+  expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull();
+  expect(reopened.app.calls.filter(call => ["workstream.clear", "message.send", "agent.spawn"].includes(call.method))).toEqual([]);
 });

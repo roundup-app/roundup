@@ -10,7 +10,7 @@ const NODES: &str = "WITH visible AS (
  WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))
 ) SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
-                conversation_id, conversation_cwd, auto, finished FROM visible";
+                conversation_id, conversation_cwd, auto, finished, opening_prompt FROM visible";
 
 pub(super) fn load_nodes(
     db: &Connection,
@@ -49,6 +49,11 @@ fn load_with<T>(
                 NodeKind::Agent => stored,
             };
             let node = RailNode {
+                opening_prompt: if kind == NodeKind::Workstream {
+                    row.get(18)?
+                } else {
+                    None
+                },
                 auto: (kind == NodeKind::Workstream)
                     .then(|| row.get(16))
                     .transpose()?,
@@ -188,6 +193,20 @@ impl Rail {
                 params![finished.cast_signed(), id],
             )
             .map(drop)
+            .map_err(sql)
+    }
+
+    pub(crate) fn set_opening_prompt(
+        &mut self,
+        id: &str,
+        prompt: Option<&str>,
+    ) -> Result<bool, RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET opening_prompt=?1 WHERE CAST(id AS TEXT)=?2 AND opening_prompt IS NOT ?1",
+                params![prompt, id],
+            )
+            .map(|changed| changed != 0)
             .map_err(sql)
     }
 

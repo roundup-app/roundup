@@ -37,54 +37,66 @@ it("u426_menu_actions_run_without_selecting", async () => {
   expect(await read("document.querySelector('.rail-row[data-selected=true]')?.dataset.id ?? null")).toBe(selected);
 }, 60_000);
 
-it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async () => {
-  await load("tree-40", 1512, "dark");
-  await browser("click", '.rail-row[data-id="payments"] .row-state');
-  await wait(`document.querySelector('.rail-row[data-id="payments"]').dataset.selected === 'true'`);
-  await read(`window.__fake.app.handlers['workstream.clear'] = () => ({ pending: true })`);
-  const before = await read(`window.__fake.app.calls.length`);
-
-  await rightClick('.rail-row[data-id="auth"]');
-  await browser("eval", "window.__fake.app.pickMenu('Clear…')");
-  await wait(`document.activeElement === document.querySelector('.rail-clear textarea')`);
-  expect(await read(`document.querySelector('.rail-row[data-selected="true"]').dataset.id`)).toBe("payments");
-  expect(await read(`window.__fake.app.calls.slice(${before}).filter(c => c.method === 'workstream.clear')`)).toEqual([]);
-  await browser("find", "role", "button", "click", "--name", "Keep", "--exact");
-  await wait(`!document.querySelector('.rail-clear')`);
-  await rightClick('.rail-row[data-id="payments"]');
-  await browser("eval", "window.__fake.app.pickMenu('Clear…')");
-  await wait(`document.activeElement === document.querySelector('.rail-clear textarea')`);
-  const reason = "  Keep payments  ";
-
-  await browser("fill", ".rail-clear textarea", reason);
-  await wait(`!document.querySelector('.rail-clear button[type=submit]').disabled`);
+it.each(["tree-40", "agents-10", "door-stopped", "conflict"])("u350_rendered_workstream_actions_have_no_clear_%s", async seed => {
+  const directory = captureDir("U350");
 
   const capture = async (step: string) => {
-    const directory = captureDir("U427");
-
     if (!directory) return;
-
     mkdirSync(directory, { recursive: true });
     await browser("screenshot", join(directory, `${step}.png`));
     writeFileSync(join(directory, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`)) + "\n");
-    writeFileSync(join(directory, `${step}-bounds.json`), JSON.stringify(await read(`(() => {
-      const bounds = selector => [...document.querySelectorAll(selector)].map(e => ({ text: e instanceof HTMLTextAreaElement ? e.value : e.textContent, bounds: e.getBoundingClientRect().toJSON(), position: getComputedStyle(e).position }));
-      return { innerWidth, innerHeight, scrollY, prompt: bounds('.rail-clear'), contents: bounds('.rail-clear textarea, .rail-clear [role=alert], .rail-clear button') };
-    })()`)) + "\n");
   };
 
-  await capture("prompt");
-  await browser("click", ".rail-clear button[type=submit]");
-  await wait(`document.querySelector('.rail-clear textarea').disabled`);
-  await capture("pending");
-  await read(`window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'workstream.clearFailed', data: { id: 'payments', code: -32008, message: 'Summary timed out.' } })`);
-  await wait(`!document.querySelector('.rail-clear textarea').disabled && document.querySelector('.rail-clear [role=alert]')`);
-  expect(await read(`document.querySelector('.rail-clear textarea').value`)).toBe(reason);
-  await capture("failure");
-  await browser("find", "role", "button", "click", "--name", "Clear without a summary", "--exact");
-  await wait(`document.querySelector('.rail-clear textarea').disabled`);
-  await read(`window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'workstream.clearFailed', data: { id: 'payments', code: -32008, message: 'Summary timed out.' } })`);
-  await wait(`!document.querySelector('.rail-clear textarea').disabled`);
-  await browser("find", "role", "button", "click", "--name", "Keep", "--exact");
-  await wait(`!document.querySelector('.rail-clear')`);
+  if (directory) {
+    mkdirSync(directory, { recursive: true });
+    await browser("record", "start", join(directory, `${seed}-intervene.webm`));
+  }
+
+  try {
+    await browser("set", "media", "dark");
+    await browser("set", "viewport", "1512", "950");
+    await browser("open", url(`/harness.html?seed=${seed}`));
+    await wait(`document.querySelector('.rail-row')`);
+    const id = await read<string>(`document.querySelector('.rail-row:has(.rail-chevron)')?.dataset.id ?? document.querySelector('.rail-row').dataset.id`);
+    const selector = `.rail-row[data-id="${id}"]`;
+    await browser("click", selector + " .row-state");
+    await wait(`document.querySelector('${selector}').dataset.selected === 'true'`);
+    await browser("focus", selector);
+    await wait(`document.activeElement.matches('${selector}')`);
+    await browser("press", "Shift+F10");
+    await wait(`window.__fake.app.shownMenus.length > 0`);
+    expect(await read(`window.__fake.app.menuLabels().some(label => /clear/i.test(label))`)).toBe(false);
+    await read(`window.__fake.app.closeMenu()`);
+
+    if (seed === "tree-40" || seed === "door-stopped") {
+      await rightClick(selector);
+      await wait(`window.__fake.app.menuLabels().includes('Opening prompt…')`);
+      await read(`window.__fake.app.pickMenu('Opening prompt…')`);
+      await wait(`document.querySelector('.opening-prompt-dialog')`);
+      await capture(`${seed}-opening-prompt`);
+      await browser("press", "Escape");
+      await wait(`!document.querySelector('.opening-prompt-dialog')`);
+    }
+
+    if (seed === "tree-40") {
+      await read(`window.__fake.app.openFailure = new Error('Folder unavailable; try again')`);
+      await rightClick(selector);
+      await read(`window.__fake.app.pickMenu('Open folder')`);
+      await wait(`document.body.textContent.includes('Folder unavailable; try again')`);
+      await capture("tree-40-failure");
+    }
+
+    const agent = await read<string | null>(`document.querySelector('.rail-row:not(:has(.rail-chevron))')?.dataset.id ?? null`);
+
+    if (agent) {
+      await browser("click", `.rail-row[data-id="${agent}"] .row-state`);
+      await wait(`document.querySelector('.rail-row[data-id="${agent}"]').dataset.selected === 'true'`);
+      await wait(`window.__fake.app.calls.some(call => call.method === 'terminal.snapshot')`);
+    }
+
+    await capture(`${seed}-terminal`);
+    expect(await read(`window.__fake.app.calls.filter(call => call.method === 'workstream.clear')`)).toEqual([]);
+  } finally {
+    if (directory) await browser("record", "stop");
+  }
 }, 60_000);

@@ -1,3 +1,4 @@
+import "./styles.css";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
@@ -253,7 +254,6 @@ const ProgressContent = (props: { id: string }) => {
       </ReservedLine>
       <Show when={loaded()}>
         {(data) => (
-          <Show when={data().progress.results.length > 0}>
             <section class="progress-section" aria-label={copy.progress}>
               <div class="progress-head">
                 <h3>{copy.progress}</h3>
@@ -264,6 +264,7 @@ const ProgressContent = (props: { id: string }) => {
               </div>
               <ReservedLine ref={status} class="progress-status" tabindex="-1" message={resumeFailure() ? `${resumeMessage()}\n${diagnostic()}` : null} content={resumeMessage()}
                 status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null}><Show when={resumeFailure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => setResumeFailure(null)}><Icon name="x" /></IconButton></Show></ReservedLine>
+              <Show when={data().progress.results.length === 0}><p>{copy.progressEmpty}</p></Show>
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>
                 <Disclosure class="progress-earlier" label={copy.progressEarlier(data().progress.results.filter((result) => !result.current).length)}>
@@ -271,7 +272,6 @@ const ProgressContent = (props: { id: string }) => {
                 </Disclosure>
               </Show>
             </section>
-          </Show>
         )}
       </Show>
     </>

@@ -32,13 +32,13 @@ const mount = async (entry: typeof inventory[number], titles = names) => {
   showShelfTab(entry.tab);
 
   const group = await waitFor(() => {
-    const row = document.querySelector<HTMLElement>('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]');
+    const row = document.querySelector<HTMLElement>(`${entry.tab === "Todos" ? ".todos-tab" : ".pads-tab"} [data-shelf-group="unassigned"] [data-part="branch-control"]`);
     expect(row).not.toBeNull();
 
     return row!;
   });
 
-  if (group.closest('[data-state="closed"]')) fireEvent.click(group);
+  if (group.closest('[data-shelf-group]')?.getAttribute('aria-expanded') === 'false') fireEvent.click(group);
 
   const rows = await waitFor(() => {
     const rows = [...document.querySelectorAll<HTMLButtonElement>(`.shelf ${entry.selector}`)];

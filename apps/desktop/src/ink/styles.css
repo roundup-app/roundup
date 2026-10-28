@@ -191,16 +191,31 @@ p.ink[role="alert"] {
   color: var(--grey);
   text-align: center;
   text-wrap: balance;
+  padding: var(--space-5) var(--space-3);
+  box-sizing: border-box;
+  min-height: 0;
 }
 
-.empty-state .icon {
-  width: var(--space-5);
-  height: var(--space-5);
+.empty-state-art {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-6) * 3);
+  height: calc(var(--space-6) * 3);
+  border-radius: var(--radius-round);
+  background: var(--key-chip-fill);
+  flex: 0 0 auto;
 }
 
-.empty-state-hint {
-  font-size: var(--text-caption);
+.empty-state-art .icon {
+  width: calc(var(--space-5) * 2);
+  height: calc(var(--space-5) * 2);
 }
+
+.empty-state-title { color: var(--text); font-size: var(--text-title); font-weight: 500; }
+.empty-state-line { font-size: var(--text-caption); max-width: var(--measure); }
+.empty-state-chip { font-size: var(--text-caption); }
+.empty-state :is(h3, p) { margin: 0; }
+
 
 /* U16, U19: the entry row's field is the title's own text: no box, border, fill or ring, the caret alone shows focus. */
 .entry-field {
@@ -311,3 +326,6 @@ p.ink[role="alert"] {
 .kind-mark-leaving { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
 .kind-mark-leaving[data-tone="accent"] { color: var(--accent); }
 .kind-mark-leaving[data-tone="grey"] { color: var(--grey); }
+
+.empty-state-actions { display: grid; gap: var(--space-2); }
+.empty-state-start { display: flex; align-items: center; gap: var(--space-2); }

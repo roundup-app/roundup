@@ -1,3 +1,5 @@
+import type { Actor } from "@contracts/Actor";
+import { currentOwner, type RailState } from "../state/rail";
 import { captureFocus } from "../keys/focus";
 import type { App } from "../app/seam";
 import { shelfKeyScope } from "./keys";
@@ -12,13 +14,14 @@ import { Icon } from "../ink/Icon";
 
 export const ShelfActions = createContext<{ mount: Accessor<HTMLDivElement | undefined>; open: Accessor<boolean>; /** U3730: the scope line, where the tab's one add control sits. */ scope: Accessor<HTMLElement | undefined> }>();
 
-type Target<Id> = { id: Id; label: string; owner?: string | undefined };
+type Target<Id> = { id: Id; label: string; owner?: Actor | null | undefined };
 
 type Question<Id> = { kind: "question" | "pending"; targets: readonly Target<Id>[]; done: boolean };
 
 /** U3787a: dispatch the frozen set immediately; retain failed rows after readback. */
 export const createBulkDelete = <Id,>(props: {
   app: Pick<App, "ask">;
+  rail?: Pick<RailState, "nodes" | "exitOf">;
   selected: Accessor<readonly Id[]>;
   targets: Accessor<readonly Target<Id>[]>;
   done?: Accessor<readonly Target<Id>[]>;
@@ -157,7 +160,13 @@ export const createBulkDelete = <Id,>(props: {
     const targets = kept?.kind === "pending" ? kept.targets : props.targets().filter((target) =>
       kept ? kept.targets.some((row) => row.id === target.id) : props.selected().includes(target.id));
 
-    return [...new Set(targets.flatMap((target) => target.owner ? [target.owner] : []))];
+    const resolved = targets.flatMap(target => {
+      const owner = props.rail ? currentOwner(props.rail, target.owner) : undefined;
+
+      return owner ? [owner] : [];
+    });
+
+    return [...new Map(resolved.map(owner => [owner.id, owner])).values()];
   });
 
   const labelOf = (target: Target<Id>) => `${target.label}${props.noun === "Todos" ? ` #${String(target.id)}` : ""}`;
@@ -180,7 +189,10 @@ export const createBulkDelete = <Id,>(props: {
           </div>
         </Show>
         <Show when={owners().length > 0}>
-          <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
+          <p>{copy.ownedBy}{owners().map(owner => owner.name).join(copy.comma)}</p>
+        </Show>
+        <Show when={owners().some(owner => owner.live)}>
+          <p>{copy.agentsMayStillBeWritingDeletingDoesNot(owners().filter(owner => owner.live).map(owner => owner.name).join(copy.comma))}</p>
         </Show>
         <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}>
           <Show when={readFailure() !== null} fallback={shown().length > 0 ? clearButton(shown()[0]!) : null}>

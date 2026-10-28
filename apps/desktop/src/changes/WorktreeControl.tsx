@@ -92,6 +92,8 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
     if (before !== undefined && next !== before && (kind === "done" || kind === "error" || kind === "idle")) void refresh();
   }));
+  // A re-read that returns the same files keeps the mounted tree, so its selection and focus survive (U3787c).
+  const sameFiles = createMemo(() => read()?.changed, undefined, { equals: (a, b) => JSON.stringify(a) === JSON.stringify(b) });
   const count = () => read()?.changed?.files.length ?? 0;
 
   const branchCut = createCutTitle(() => props.worktree.branch);
@@ -138,14 +140,11 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
               )}
             </Show>
           </dl>
-          <Show when={read()} keyed>
+          <Show when={sameFiles()} keyed>
             {(value) => {
+              if (value.files.length === 0) return null;
 
-              if (!value.changed) return null;
-
-              if (value.changed.files.length === 0) return null;
-
-              return <><ChangedTree initialFocus={treeFocus} root={props.worktree.path} files={value.changed.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" ref={element => { viewButton = element; }} disabled={!path()} onClick={() => setDiff(true)}>{copy.viewDiff}</button></>;
+              return <><ChangedTree initialFocus={treeFocus} root={props.worktree.path} files={value.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" ref={element => { viewButton = element; }} disabled={!path()} onClick={() => setDiff(true)}>{copy.viewDiff}</button></>;
             }}
           </Show>
         <NoteBatch fallback={() => viewButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} edit={note => { setPath(note.comparison.newPath); setEditing(note); setDiff(true); }} />

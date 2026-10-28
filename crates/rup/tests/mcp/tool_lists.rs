@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 90] = [
+pub const TOOL_METHODS: [&str; 89] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -20,6 +20,7 @@ pub const TOOL_METHODS: [&str; 90] = [
     "todo.create",
     "todo.assign",
     "todo.comment",
+    "todo.comments",
     "todo.addRef",
     "todo.removeRef",
     "todo.get",
@@ -82,8 +83,6 @@ pub const TOOL_METHODS: [&str; 90] = [
     "agent.land",
     "agent.worktreeState",
     "project.get",
-    "project.measurements",
-    "project.measurementSummary",
     "project.setWorktrees",
     "provenance.history",
     "provenance.touched",
@@ -119,9 +118,16 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 75] = [
+pub const NO_TOOL: [&str; 80] = [
+    // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
+    "pad.reorder",
+    // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
+    "ask_removal",
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
+    "workstream.setOpeningPrompt",
+    // A4452c: only the user requests a fresh Door conversation.
+    "workstream.restart",
     "rail.list",
     // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
     "todo.startWorkstream",
@@ -137,10 +143,9 @@ pub const NO_TOOL: [&str; 75] = [
     "ask.send",
     "ask.list",
     "ask.pick",
-    // U462, T21, T23: the open Drawer fetches and acknowledges History; an Agent only leaves a comment.
+    // U462, T23: only the open Drawer acknowledges History and comments; Agents read without acknowledging.
     "todo.getHistory",
     "todo.readHistory",
-    "todo.comments",
     "todo.unread",
     "todo.markCommentsRead",
     // U3808: the App reads recorded Hand-offs for the plan marker; only the Daemon hands a Todo (T25).
@@ -198,6 +203,9 @@ pub const NO_TOOL: [&str; 75] = [
     "workstream.clear",
     "close_project",
     "projects",
+    // S6, U52: first-run facts belong to the App; Agents reach only their own Project's Daemon.
+    "recent_projects",
+    "claude_binary",
     "open_target",
     "open_in_editor",
     "save_pasted_image",

@@ -9,12 +9,17 @@ cd "$(dirname "$0")/.."
 # grep that treats "no match" as success but a real error as failure.
 g() { grep "$@" || [ $? -eq 1 ]; }
 
-# Avoid words from GLOSSARY.md, lowercased; a two-word term joins with `_`.
+# Avoid words from the `Code term | User label | Avoid` tables of GLOSSARY.md, lowercased; a two-word term joins with `_`.
+# An Avoid cell ends at its first `.` or `;`; `—` marks a row with none.
 avoid_phrases() {
   local phrases
-  phrases=$(sed -n 's/^_Avoid_: \([^.;]*\).*/\1/p' GLOSSARY.md | tr ',' '\n' |
-    awk 'NF { print tolower(($2 != "" && $2 != "in") ? $1 "_" $2 : $1) }')
-  [ -n "$phrases" ] || { echo "rule 6: no _Avoid_ words found in GLOSSARY.md" >&2; return 1; }
+  [ -f GLOSSARY.md ] || { echo "rule 6: GLOSSARY.md is missing" >&2; return 1; }
+  phrases=$(awk -F'|' '
+    /^\| *Code term *\| *User label *\| *Avoid *\|/ { in_table = 1; next }
+    /^\|/ { if (in_table && $4 !~ /^[ -]*$/) print $4; next }
+    { in_table = 0 }' GLOSSARY.md | sed 's/[.;].*//' | tr ',' '\n' |
+    awk 'NF && $1 != "—" { print tolower(($2 != "" && $2 != "in") ? $1 "_" $2 : $1) }')
+  [ -n "$phrases" ] || { echo "rule 6: no Avoid words found in the GLOSSARY.md tables" >&2; return 1; }
   echo "$phrases"
 }
 
@@ -541,15 +546,21 @@ def frozen_gate(pr, base, head):
         *(f'  {path}' for path in paths[:5]), *([f'  and {len(paths) - 5} more'] if len(paths) > 5 else []),
         "Restore main's side of those paths; loop changes come from the user's own PRs."]))
 
-# A PR whose changed files all sit under scenarios/ lands no code, so closing a work Issue from it closes the Issue early.
-CLOSES = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?[ \t]+#\d+', re.I)
+# A PR whose changed files all sit under scenarios/ lands no code, so closing an implementation Issue from it closes the
+# Issue early. A `Mode: specify` Issue is done by that very PR, so it may close it.
+CLOSES = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?[ \t]+#(\d+)', re.I)
+SPECIFY = re.compile(r'^Mode: specify[ \t]*$', re.M)
 
 def scenario_closes_gate(pr, base, head):
     paths = git('diff', '--name-only', base+'...'+head).splitlines()
+    if not (paths and all(path.startswith('scenarios/') for path in paths)):
+        return
     text = '\n'.join([pr.get('body') or '', git('log', '--format=%B', base+'..'+head)])
-    found = CLOSES.search(text)
-    require(not (paths and all(path.startswith('scenarios/') for path in paths) and found),
-            f'scenario-closes: a scenario-only PR holds "{found and found.group(0)}"; use Refs: #N')
+    for found in CLOSES.finditer(text):
+        issue = one(f'{repo}/issues/{found.group(1)}')
+        require(SPECIFY.search(issue.get('body') or ''),
+                f'scenario-closes: a scenario-only PR holds "{found.group(0)}", but #{found.group(1)} is not a '
+                'Mode: specify Issue; use Refs: #N (a scenario-only PR may close only a Mode: specify Issue)')
 
 # L46: a PR whose head has no net change against its base merges nothing; only one that closes its Issue (work other PRs
 # already landed, `.agents/data/pr.md`) may be empty.

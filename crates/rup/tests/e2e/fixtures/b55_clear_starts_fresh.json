@@ -19,7 +19,7 @@
     },
     {
       "match": {
-        "userMessage": "Follow this instruction: Build the",
+        "userMessage": "Build the",
         "hasToolResult": false
       },
       "response": {
@@ -45,7 +45,7 @@
     },
     {
       "match": {
-        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "userMessage": "What is this Workstream for?",
         "hasToolResult": false
       },
       "response": {

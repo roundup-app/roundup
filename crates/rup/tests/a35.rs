@@ -336,7 +336,7 @@ async fn a35_write_records_a_mark_per_agent_and_a_plan_changes_nothing() {
             std::fs::read(root.join("README")).unwrap(),
             format!("working {}", mark.agent).as_bytes()
         );
-        assert!(String::from_utf8_lossy(&mark.conversation).contains("Follow this instruction"));
+        assert!(String::from_utf8_lossy(&mark.conversation).contains("from-name"));
     }
     let linked = marks.agents.iter().find(|mark| mark.agent == fx.b).unwrap();
     assert!(!linked.files.iter().any(|file| file.path == b"folder/file"));
@@ -821,10 +821,7 @@ async fn a35_rewind_applies_the_selection_and_files_it_is_given() {
     assert_eq!(asked.len(), 2);
     for entry in asked {
         let body = entry["body"].to_string();
-        assert!(
-            body.contains("Follow this instruction"),
-            "earlier turns stay"
-        );
+        assert!(body.contains("from-name"), "earlier turns stay");
         assert!(!body.contains("after mark"), "later turns left the context");
     }
     let projects = fx.project.dir.path().join("claude-config/projects");
