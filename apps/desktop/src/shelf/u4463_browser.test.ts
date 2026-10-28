@@ -27,6 +27,14 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
     await settle();
   }
 
+  // Keep the dense seed's Todos in scope so refusal captures include its progress line.
+  if (seed === "tree-40") {
+    await evaluate(`(async () => {
+      const todos = await window.__fake.app.rpc('todo.list', null);
+      for (const todo of todos) await window.__fake.app.rpc('todo.move', {id:todo.id, home:'backend'});
+    })()`);
+  }
+
   const target = seed === "tree-40" ? '.rail-row[data-id="backend"]' : '.rail-row[data-id="n1"]';
   await browser("wait", target);
   await browser("click", `${target} .row-state`);
@@ -42,21 +50,22 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
     };
   })()`);
   await settle();
+
+  if (seed === "tree-40") await browser("wait", "[data-todo-count]");
+
   await capture(`${seed}-${width}-todos`);
   await evaluate(`document.querySelector('.shelf-bar [role=switch]').focus()`);
   await browser("press", "Space");
   await browser("wait", "--fn", `document.querySelector('.shelf-bar [role=switch]').getAttribute('aria-checked') === 'true'`);
   expect(await evaluate(`window.__fake.app.calls.filter(c => c.method === 'workstream.setAuto').map(c => c.params.auto)`)).toEqual([true]);
 
-  if (width === 240) {
-    await evaluate(`window.__fake.failNext(-32003, 'Supervisor unavailable; start it and retry')`);
-    await browser("click", ".shelf-bar [role=switch]");
-    await browser("wait", ".shelf-bar [role=alert]");
-    await capture(`${seed}-${width}-refused`);
-    await browser("hover", ".shelf-bar [role=alert]");
-    await browser("wait", "[role=tooltip]");
-    await capture(`${seed}-${width}-refused-detail`);
-  }
+  await evaluate(`window.__fake.failNext(-32003, 'Supervisor unavailable; start it and retry')`);
+  await browser("click", ".shelf-bar [role=switch]");
+  await browser("wait", ".shelf-bar [role=alert]");
+  await capture(`${seed}-${width}-refused`);
+  await browser("hover", ".shelf-bar [role=alert]");
+  await browser("wait", "[role=tooltip]");
+  await capture(`${seed}-${width}-refused-detail`);
 
   await browser("click", "#shelf-tab-pads");
   await browser("wait", ".pads-tab");
