@@ -54,6 +54,7 @@ declarations! { $;
         "rail.tree": () => Vec<contracts::agent::RailNode>, rpc_rail_tree, all(empty("Read the Rail: every Workstream, Agent and Terminal with its Status."));
         "rail.list": () => Vec<contracts::agent::RailNode>, rpc_rail_tree, none();
         "workstream.setAuto": contracts::workstream::AutoParams => (), rpc_workstream_set_auto, none();
+        "workstream.setOpeningPrompt": contracts::workstream::OpeningPromptParams => (), rpc_workstream_set_opening_prompt, none();
         "rail.createWorkstream": contracts::agent::CreateWorkstreamParams => contracts::agent::RailNode, rpc_rail_create_workstream, all(schema(contracts::agent::CreateWorkstreamParams,"Make a Workstream at the Project root, with `parent` null. Start its Door next with `rail_startDoor`. Workstreams never nest."));
         "rail.move": contracts::agent::MoveParams => (), rpc_rail_move, all(schema(contracts::agent::MoveParams,"Move a node in your Reach: an Agent under a Workstream or Agent, a Workstream only to the root."));
         "rail.rename": contracts::agent::RenameParams => contracts::agent::RailNode, rpc_rail_rename, all(schema(contracts::agent::RenameParams,"Rename yourself or a node in your Reach."));
