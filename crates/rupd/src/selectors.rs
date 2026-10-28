@@ -141,7 +141,9 @@ impl Daemon {
             | "message.verifyResult"
             | "message.resolveResult" => fields.push(("id", false, false)),
             "deliverable.list" => fields.push(("maker", false, true)),
-            "provenance.touched" => fields.push(("actor_id", false, true)),
+            "provenance.touched" if params["actor_id"] != Actor::daemon().id => {
+                fields.push(("actor_id", false, true))
+            }
             "terminal.read" => fields.push(("reader", false, false)),
             "project.importDiscover" | "project.importCommit" => {
                 fields.push(("agent", false, false))
@@ -162,10 +164,8 @@ impl Daemon {
             return Ok(params);
         }
         let nodes = self.rail().await?;
-        if has_owner {
-            if let Some(value) = params.get_mut("owner") {
-                owner(&nodes, actor, value)?;
-            }
+        if has_owner && let Some(value) = params.get_mut("owner") {
+            owner(&nodes, actor, value)?;
         }
         for (field, other_nodes, user) in fields {
             if let Some(value) = params.get_mut(field) {

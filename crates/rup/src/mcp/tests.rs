@@ -300,15 +300,20 @@ async fn x11_agent_run_over_mcp_runs_under_the_caller() {
 // observations are controlled: this fixture creates no program, PTY or vendor.
 #[tokio::test(start_paused = true)]
 async fn u4593_mcp_assignment_connects_context_owner_and_comment() {
-    for (kind, parent, door) in [
-        ("agent", None, false),
+    for (kind, parent_kind, door) in [
+        ("agent", Some("workstream"), false),
         ("workstream", None, true),
-        ("agent", Some(3), false),
+        ("agent", Some("agent"), false),
     ] {
         let dir = tempfile::tempdir().unwrap();
-        let daemon = std::sync::Arc::new(rupd::Daemon::open(dir.path()).unwrap());
+        let daemon = crate::test_daemon(dir.path());
         let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
         db.execute_batch("INSERT INTO nodes(id,kind,name,ord,attempt,terminal_id) VALUES(3,'workstream','Home',0,0,null),(2,'agent','Peer',1,1,'peer-terminal');").unwrap();
+        let parent = parent_kind.map(|_| 3);
+        if let Some(parent_kind) = parent_kind {
+            db.execute("UPDATE nodes SET kind=?1 WHERE id=3", [parent_kind])
+                .unwrap();
+        }
         db.execute("INSERT INTO nodes(id,kind,name,parent,ord,attempt,terminal_id) VALUES(1,?1,'Caller',?2,0,1,'caller-terminal')", rusqlite::params![kind, parent]).unwrap();
         db.execute(
             "UPDATE nodes SET parent=?1 WHERE id=2",
@@ -317,8 +322,7 @@ async fn u4593_mcp_assignment_connects_context_owner_and_comment() {
         .unwrap();
         daemon.set_agent_status_for_test("1", contracts::Kind::Working);
         let socket = dir.path().join("daemon.sock");
-        let listener = UnixListener::bind(&socket).unwrap();
-        let serving = tokio::spawn(rupd::serve(listener, daemon.clone()));
+        let serving = crate::serve_test_daemon(&socket, daemon.clone());
         let shim = TestShim {
             client: ().serve(transport_as(&socket, "1", door)).await.unwrap(),
         };
@@ -421,15 +425,12 @@ fn tool_value(reply: CallToolResult) -> Value {
 #[tokio::test(start_paused = true)]
 async fn u4593_auto_prompt_supplies_the_self_assignment_call() {
     let dir = tempfile::tempdir().unwrap();
-    let daemon = std::sync::Arc::new(rupd::Daemon::open(dir.path()).unwrap());
+    let daemon = crate::test_daemon(dir.path());
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute_batch("INSERT INTO nodes(id,kind,name,ord,attempt,terminal_id) VALUES(1,'workstream','Door',0,1,'terminal');").unwrap();
     daemon.set_agent_status_for_test("1", contracts::Kind::Working);
     let socket = dir.path().join("daemon.sock");
-    let serving = tokio::spawn(rupd::serve(
-        UnixListener::bind(&socket).unwrap(),
-        daemon.clone(),
-    ));
+    let serving = crate::serve_test_daemon(&socket, daemon.clone());
     let user = rpc::Client::connect(&socket).await.unwrap();
     user.request("workstream.setAuto", json!({"id":"1","auto":true}))
         .await
