@@ -298,13 +298,9 @@ async fn reply_fixture(
     tempfile::TempDir,
     TestShim,
     rpc::Client,
-    std::sync::Arc<rupd::test_support::ReplyState>,
+    std::sync::Arc<crate::ReplyState>,
 ) {
-    let dir = tempfile::tempdir().unwrap();
-    let (daemon, state) = rupd::test_support::reply_daemon(dir.path(), door);
-    let socket = dir.path().join("rpc.sock");
-    let listener = UnixListener::bind(&socket).unwrap();
-    tokio::spawn(rupd::serve(listener, std::sync::Arc::new(daemon)));
+    let (dir, socket, user, state) = crate::reply_project(door).await;
     let (client, server) = tokio::io::duplex(65536);
     let (gone, _) = mpsc::channel(1);
     let shim = Shim {
@@ -321,7 +317,6 @@ async fn reply_fixture(
     let shim = TestShim {
         client: ().serve(client).await.unwrap(),
     };
-    let user = rpc::Client::connect(&socket).await.unwrap();
     (dir, shim, user, state)
 }
 
@@ -397,7 +392,7 @@ async fn t4597_an_unowned_reply_is_readable_and_waits_for_idle() {
             let entries = state.entries.lock().unwrap();
             assert_eq!(entries.len(), 1, "{entries:?}");
             assert_eq!(entries[0].0, "1");
-            assert_eq!(entries[0].2, "rupd");
+            assert_eq!(entries[0].2, Actor::daemon().id);
             assert_eq!(
                 entries[0].3,
                 "[todos]\n- Question: new comment from you: Use main exactly. (rup todo get 1)"
