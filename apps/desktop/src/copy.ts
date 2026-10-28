@@ -513,6 +513,8 @@ export const copy = {
   invalidDiagram: "Invalid diagram",
   mermaid: (value1: CopyValue) => `Mermaid: ${value1}`,
   addAgent: "Add agent",
+  surfaceLoadFailed: (label: string) => `${label} could not load; retry.`,
+  surfaceLoading: (label: string) => `Loading ${label}…`,
   retry: "Retry",
   start: "Start",
   projectRoot: "Project root",

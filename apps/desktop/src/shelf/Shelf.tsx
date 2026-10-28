@@ -8,7 +8,8 @@ import { Tabs } from "../ui/Tabs";
 
 import { ShelfActions } from "./BulkDelete";
 import { SectionHead } from "../ink/SectionHead";
-import { Pads } from "../pads/Pads";
+import { Deferred } from "../ui/Deferred";
+
 import { shownPads } from "../pads/shownPads";
 import { useConnectedProject } from "../state/connectedProject";
 import { shownTodos } from "../todos/shownTodos";
@@ -17,6 +18,8 @@ import { usePadList } from "../rail/pads/padList";
 import { SHELF_TABS } from "./frame";
 import type { ShelfTab, ShelfFrame } from "./frame";
 import "./styles.css";
+
+const Pads = (props: Parameters<typeof import("../pads/Pads").Pads>[0]) => <Deferred load={() => import("../pads/Pads")} label={copy.pads}>{module => <module.Pads {...props} />}</Deferred>;
 
 const Todos = lazy(() => import("../todos/Todos").then(module => ({ default: module.Todos })));
 
