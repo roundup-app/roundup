@@ -82,12 +82,19 @@ export const OwnerCommand = (props: {
   createEffect(() => { if (!ownerMatches().some(owner => owner.id === ownerHighlight())) setOwnerHighlight(ownerMatches()[0]?.id ?? null); });
   const assignable = (id: number | undefined) => props.active() && id !== undefined && props.todos.byId().get(id)?.done === false && eligible(id).length > 0;
 
-  // U4453b: `A` also leads back to Ask (Rail), so this binding yields while no Todo can be assigned.
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, when: () => assignable(props.selected()), capture: () => {
+  // U4453b: one registered action keeps the native menu and leader on the same context-sensitive path.
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => {
     const id = props.selected();
 
-    return { available: () => assignable(id),
-      invoke: () => { if (id !== undefined) { ownerFocus = captureFocus(true); setOwnerQuery(""); setAssigning(id); } } };
+    const { rail, view, importing, settingsView, showView } = props.connected;
+    const pending = () => settingsView.open() && settingsView.page() === "import-work" && importing.pending();
+
+    return { available: () => !pending() && (assignable(id) || rail.selected() !== null || view() !== null || settingsView.open()),
+      invoke: () => {
+        if (assignable(id) && id !== undefined) { ownerFocus = captureFocus(true); setOwnerQuery(""); setAssigning(id); }
+        else if (!pending()) { importing.cancel(); settingsView.close(false); showView(null); rail.select(null); }
+      } };
+
   } }]);
   registerKeys({ kind: "layer", element: () => ownerPanel, active: () => assigning() !== null, modal: true }, [
     { chords: ["Escape"], run: () => { const id = assigning(); setAssigning(null);
