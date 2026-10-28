@@ -491,3 +491,34 @@
 .shelf-row.todo-row {
   padding-inline-start: calc(var(--space-2) + var(--todo-depth) * var(--tree-step));
 }
+
+/* U361: one quiet cue for combined interaction states, without a row wash. */
+.shelf-row.todo-row {
+  background-image: none;
+  color: var(--grey);
+}
+.shelf-row.todo-row:is(:focus-within, [data-pressed="true"]):not([data-selected="true"]) {
+  color: var(--text);
+  background-image: none;
+}
+.todo-row .todo-row-button {
+  color: inherit;
+  cursor: pointer;
+}
+.todo-row .todo-row-button:focus-visible {
+  outline: none;
+}
+.todo-row .todo-row-button[data-pressed="true"] { color: inherit; }
+.todo-row .todo-open { position: relative; z-index: 1; flex: none; }
+.todo-open svg { width: var(--space-4); height: var(--space-4); }
+
+/* Selection remains visible while the pointer visits another row. */
+.shelf-row.todo-row[data-selected="true"] {
+  background-image: linear-gradient(var(--selected), var(--selected));
+}
+.todo-open:focus-visible { color: var(--text); }
+/* The circle follows the optical centre of the title, retaining its reserved slot. */
+.todo-row .shelf-glyph { --glyph-optical-transform: translateY(calc(var(--space-1) * -0.5)); }
+
+/* Leave room beyond the trailing grip for sideways pointer nesting. */
+.todo-list { padding-inline-end: var(--space-6); }

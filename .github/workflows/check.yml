@@ -48,7 +48,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          # Depth 2 holds HEAD and HEAD^1, all that BASE, affected.py and the migration guard read; a full fetch of
+          # every branch took 1 to 47 min on 2026-10-28.
+          fetch-depth: 2
       - name: B4522 migration filename boundaries
         run: |
           guard=tools/migrations/guard.py
@@ -287,7 +289,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
       - name: E14 whole-runner memory observer
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
