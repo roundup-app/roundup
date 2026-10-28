@@ -47,11 +47,12 @@ it.each(["empty-project", "bubbles"].flatMap(seed => [["Enter", "Enter"], [" ", 
 
   const names = await page.call<string[]>(`() => [...document.querySelectorAll('.terminal-tabs button')].map(e=>e.getAttribute('aria-label') ?? e.textContent)`);
   expect(names.every(Boolean)).toBe(true);
-  expect(names.at(-1)).toBe("New Terminal");
+  expect(await page.call(`() => document.querySelectorAll('.terminal-tabs button[aria-label="New Terminal"]').length`)).toBe(1);
   await page.call(`() => document.querySelector('.terminal-tabs button').focus()`);
 
   for (const name of names) {
     expect(await page.call(`() => document.activeElement.getAttribute('aria-label') ?? document.activeElement.textContent`)).toBe(name);
+
     if (name !== "New Terminal") await page.press('Tab','Tab');
   }
 

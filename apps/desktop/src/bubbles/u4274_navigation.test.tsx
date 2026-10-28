@@ -157,7 +157,12 @@ it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
   shells[0] = { ...shells[0]!, running: false, exit_code: 0 };
   await connected().rail.refresh({ terminals: true });
   const retained = connected().drafts.list();
-  daemon.handlers["terminal.open"] = () => { shells.push(info("new", { owner: "home" })); return { terminal_id: "new" }; };
+  daemon.handlers["terminal.open"] = () => {
+    shells.push(info("new", { owner: "home" }));
+
+    return { terminal_id: "new" };
+  };
+
   fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("new"));
   expect(connected().drafts.list()).toEqual(retained);
