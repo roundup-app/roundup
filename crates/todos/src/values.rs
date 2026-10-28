@@ -11,12 +11,17 @@ use super::{Todos, cycle, item};
 impl Todos {
     /// The creator is the calling Actor; a `creator` field sent in the params is ignored.
     pub(super) fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, RpcError> {
+        let owner = p
+            .owner
+            .map(contracts::common::Owner::into_actor)
+            .transpose()
+            .map_err(|e| RpcError::new(rpc::code::INVALID_PARAMS, e))?;
         let todo = self.store()?.insert(
             &p.title,
             &p.body.unwrap_or_default(),
             &p.blockers.unwrap_or_default(),
             &ctx.actor,
-            p.owner.as_ref(),
+            owner.as_ref(),
             valid_estimate(p.estimate_minutes)?,
             ctx.touches.sequence().map_err(RpcError::internal)?,
         )?;

@@ -35,3 +35,15 @@
 .sortable-slot[data-ending="true"] {
   opacity: 0;
 }
+
+.sortable-handle {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  cursor: grab;
+  touch-action: none;
+}
+.sortable-handle:active { cursor: grabbing; }
+.sortable-handle svg { width: var(--space-4); height: var(--space-4); }
+
+.sortable-handle:focus-visible { color: var(--text); }
