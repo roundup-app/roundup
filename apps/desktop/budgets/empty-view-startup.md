@@ -41,3 +41,15 @@ Motion's incremental bytes are zero; no Motion module moves into a lazy chunk.
 The entry reduction is 104,240 bytes; the eager-closure reduction is 14,861 bytes,
 because shared modules split into additional eager chunks. The full closure
 decides the budget. The PR records the final immutable head after committing.
+
+After merging `origin/main` (`95dff3cba`), clean production build of immutable
+`66e598a244afbdc1877bc1c46500a3267e2263ae` passes both observers: `checkStartup`
+with the temporary 400,000-byte ceiling exits 0 at **399,474 gzip bytes**
+(19 eager JS files; 1,232,248 raw bytes); the unchanged configured guard also
+exits 0. Node and pnpm versions, installation and compression settings match
+the base above. The three existing startup-budget tests pass.
+Entry-only: `assets/index-CKFmYgeB.js`, 528,034 raw / 163,629 gzip bytes.
+The moved JS chunks on that revision are `Disclosure-D02pOFbA.js` (299),
+`ImportPanel-DlK4rp1R.js` (2,939), `OwnerPicker-C2RhnXqe.js` (12,573) and
+`Pads-D_2Ajwa9.js` (5,548): 21,359 gzip bytes total. Motion's incremental
+bytes remain zero.
