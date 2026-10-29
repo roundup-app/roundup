@@ -252,7 +252,7 @@ const pendingPull = async (trigger: string) => {
   target.focus();
   pointer("pointerdown", target, 2, 400, 300);
   pointer("pointermove", window, 2);
-  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "other" }]);
+  await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "other", cols: 100, rows: 30 }]));
 
   if (trigger === "release") pointer("pointerup", window, 2);
   else if (trigger === "selection" || trigger === "replacement") mounted.connected.rail.select("w");

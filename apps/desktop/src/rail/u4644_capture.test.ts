@@ -88,7 +88,7 @@ it.skipIf(!captureDir("U4644"))("u4644_rendered_starts_and_empty_heading_audit",
 
         if (activation === "chord") await browser("press", shift ? "Meta+Shift+n" : "Meta+n");
         else {
-          const selector = `.empty-state-start:nth-child(${shift ? 1 : 2}) button`;
+          const selector = `.empty-state-actions button[aria-label="${shift ? "New Workstream" : "New Agent"}"]`;
 
           if (activation === "pointer") await browser("click", selector);
           else { await browser("focus", selector); await wait(`document.activeElement.matches(${JSON.stringify(selector)})`); await browser("press", "Enter"); }

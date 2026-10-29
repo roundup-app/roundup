@@ -45,7 +45,7 @@ describe("u143 empty Project", () => {
 
     fireEvent.click(startWorkstream());
 
-    await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "made" }]));
+    await waitFor(() => expect(calls(app, "rail.startDoor")).toMatchObject([{ id: "made" }]));
     expect([calls(app, "rail.createWorkstream"), connected.rail.selected()]).toEqual([[{ name: "workstream", parent: null }], "made"]);
   });
 
@@ -89,7 +89,7 @@ describe("u143 empty Project", () => {
     await waitFor(() => expect(startWorkstream().matches('[aria-disabled="true"]')).toBe(false));
     fireEvent.click(startWorkstream());
 
-    await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "made" }]));
+    await waitFor(() => expect(calls(app, "rail.startDoor")).toMatchObject([{ id: "made" }]));
     expect(calls(app, "rail.createWorkstream").length).toBe(2);
   });
 
@@ -104,7 +104,7 @@ describe("u143 empty Project", () => {
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
     fireEvent.click(paneStart());
 
-    await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "made" }, { id: "made" }]));
+    await waitFor(() => expect(calls(app, "rail.startDoor")).toMatchObject([{ id: "made" }, { id: "made" }]));
     expect(calls(app, "rail.createWorkstream").length).toBe(1);
   });
 });
@@ -127,7 +127,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     await screen.findByText(copy.doorStoppedWithExit("r", "exited 137"));
     fireEvent.click(paneStart());
 
-    await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
+    await waitFor(() => expect(calls(app, "rail.startDoor")).toMatchObject([{ id: "r" }]));
   });
 
   it("u143_a_signalled_door_retains_its_exit_and_can_restart", async () => {
@@ -136,7 +136,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: null } }));
     await screen.findByText(copy.doorStoppedWithExit("r", "exited by signal"));
     fireEvent.click(paneStart());
-    await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
+    await waitFor(() => expect(calls(app, "rail.startDoor")).toMatchObject([{ id: "r" }]));
   });
 
   it("u143_a_failed_first_launch_reloads_as_stopped", async () => {
@@ -163,6 +163,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     await screen.findByText(copy.doorNotStarted);
     fireEvent.click(paneStart());
     await screen.findByText(copy.startingDoor("r"));
+    await waitFor(() => expect(calls(app, "rail.startDoor")).toHaveLength(1));
     fireEvent.click(paneStart());
 
     expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText(copy.doorNotStarted)]).toEqual([1, true, null]);
@@ -195,7 +196,7 @@ describe("u143 direct Agent access beside a stopped Door", () => {
     daemon.handlers["terminal.resize"] = () => null;
     fireEvent.click(screen.getByRole("treeitem", { name: "r" }));
     fireEvent.keyDown(document, { code: "KeyT", key: "t", metaKey: true });
-    await waitFor(() => expect(calls(daemon, "terminal.open")).toEqual([{ workstream: "r" }]));
+    await waitFor(() => expect(calls(daemon, "terminal.open")).toMatchObject([{ workstream: "r" }]));
   });
 
   it("u143_agent_still_spawns_inside_the_selected_stopped_workstream", async () => {
@@ -204,7 +205,7 @@ describe("u143 direct Agent access beside a stopped Door", () => {
     connected.rail.select("r");
     await chooseAction(app, "r", copy.addAgentMenu);
 
-    await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
+    await waitFor(() => expect(calls(app, "agent.spawn")).toMatchObject([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
   });
 });
 
@@ -230,7 +231,7 @@ it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.n
       expect(calls(daemon, "agent.spawn")[0]).toMatchObject({ parent: null });
     } else if (row.what === copy.newTerminal) {
       await waitFor(() => expect(document.activeElement?.closest(".bubble")).not.toBeNull());
-      expect(calls(daemon, "terminal.open")).toEqual([{ workstream: null }]);
+      await waitFor(() => expect(calls(daemon, "terminal.open")).toMatchObject([{ workstream: null }]));
     } else {
       const input = await screen.findByRole("textbox", { name: copy.askBarLabel });
 
