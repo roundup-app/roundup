@@ -44,7 +44,7 @@ describe("x14 the App's output subscription", () => {
 
     for (const chunk of chunks) app.emitBytes("t-a", chunk);
 
-    expect(write.mock.calls.map(([data]) => data)).toEqual(chunks);
+    await vi.waitFor(() => expect(write.mock.calls.map(([data]) => data)).toEqual(chunks));
     expect(write.mock.calls.every(([data]) => ArrayBuffer.isView(data))).toBe(true);
     screens.dispose();
   });

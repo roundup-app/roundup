@@ -14,6 +14,8 @@ const exception = {
 };
 
 const cases = [
+  ["destructured suite exact child exception", 'const configured = test.extend({}); const { suite: group } = configured; group("group", { timeout: 90_000 }, () => { test("t3779a_real_clock", () => {}); });', 0, null, [{ ...exception, test: "group > t3779a_real_clock" }]],
+  ["destructured suite collector", 'const { describe: group } = test; group("group", { timeout: 90_000 }, () => { test("t3779a_child", () => {}); });', 1, "group > t3779a_child", [{ ...exception, test: "group" }]],
   ["safe default cannot hide unresolved projects", 'defineConfig({ test: { ...externalOptions, testTimeout: 60_000 } });', 1, "unresolved"],
   ["spread overrides safe project list", 'const key = "testTimeout"; const options = { projects: [{ test: { [key]: 60_001 } }] }; defineConfig({ test: { projects: [], ...options } });', 1, "60001"],
   ["safe project list overrides spread", 'const key = "testTimeout"; const options = { projects: [{ test: { [key]: 60_001 } }] }; defineConfig({ test: { ...options, projects: [] } });', 0],
