@@ -13,7 +13,7 @@ Data for Builder runs: a build or fix run writing a PR.
 
 ## Commits and branches
 
-- Every authored commit carries `Author-Agent: <id>` (`human-saad` for the user's own) in its final trailer block, with no blank line before `Co-Authored-By` or another trailer; a clean merge of `main` needs none (L54), and a Copilot Autofix accepted on GitHub is authored by `copilot` (L37).
+- Every authored commit carries `Author-Agent: <id>` (`human-saad` for the user's own) in its final trailer block, with no blank line before `Co-Authored-By` or another trailer. No check requires it.
 - A Builder's branch is `build/<key>`, named by its Issue; fix runs push to it. Historical spec-only PRs do not mark implementation done (L23).
 - Issues merge in their native blocked-by dependency order. A stacked PR (its scenario says "after X" or "may stack") branches from its base, touches no file the base touches, and merges after it.
 - Behind `main`: merge `origin/main` in (a stacked branch merges its base first), the lints and your files' tests as `.agents/builder.md` says, push; never rebase a branch with a review in flight.
