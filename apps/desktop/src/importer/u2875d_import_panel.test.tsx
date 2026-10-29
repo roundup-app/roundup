@@ -478,8 +478,9 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         await legacy.retained;
         window.__auditLegacy = legacy.draft.revision;
         window.__fake.app.menuChoice = 'recover';
-        document.querySelector('.todo-project-root').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true}));
       })()`);
+      await lane.browser("focus", ".todo-project-root");
+      await lane.browser("press", "Shift+F10");
       await lane.until("!!document.querySelector('[aria-label=\"Unfinished work\"] [data-revision=\"' + window.__auditLegacy + '\"]')");
       await capture("U3299c", side!, "retained-order");
       await lane.evaluate("[...document.querySelectorAll('[data-revision=\"' + window.__auditLegacy + '\"] button')].find(button => button.textContent === 'Copy').click()");
