@@ -114,6 +114,9 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
     await browser("press", "Enter");
     await wait(`!!document.querySelector('.drawer[data-open="true"]')`);
     await tabTo(".drawer");
+    // U4698a opens items across the centre; restore the narrow Drawer before moving back to the Terminal.
+    await browser("click", '.drawer button[aria-label="Restore"]');
+    await wait(`!!document.querySelector('.drawer[data-maximised="false"]') && [...document.querySelector('.drawer').getAnimations(), ...document.querySelector('.columns').getAnimations()].every(animation => animation.playState !== 'running')`);
     await snap("09-keyboard-drawer");
     const drawerCounts = await read(`({fits:window.__focusFits,resizes:window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length})`);
     await browser("press", "Tab");
