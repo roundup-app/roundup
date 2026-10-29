@@ -151,10 +151,26 @@ it("u3806_unsubmitted_fields_survive_close_and_reload_without_applying", async (
   await commit("Font size", "17");
   fireEvent.input(screen.getByRole("spinbutton", { name: "Font size" }), { target: { value: "too big" } });
   await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts).toContainEqual(expect.objectContaining({ value: { text: "too big" } })));
-  fireEvent.keyDown(screen.getByRole("spinbutton", { name: "Font size" }), { key: "Escape", code: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "← Back" }));
   cleanup();
   await mount();
   await section("Terminal");
   expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("too big");
   expect(appSettings().fontSize).toBe(17);
+});
+
+
+it("u4686d_controls_have_labels_and_descriptions", async () => {
+  await mount();
+
+  for (const [page, controls] of [
+    ["Agents", [["combobox", "Permission mode"], ["button", /^Engine /], ["button", /^Model /]]],
+    ["Terminal", [["textbox", "Font family"], ["spinbutton", "Font size"]]],
+    ["Shortcuts", [["button", /^Quick add a Todo /]]],
+    ["Appearance", [["combobox", "Appearance"]]],
+  ] as const) {
+    await section(page);
+
+    for (const [role, name] of controls) expect(await screen.findByRole(role, { name, description: /\S/ })).toBeTruthy();
+  }
 });

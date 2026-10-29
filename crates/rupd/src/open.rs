@@ -26,6 +26,10 @@ impl Daemon {
     ) -> Result<Self, OpenError> {
         let begun = std::time::Instant::now();
         std::fs::create_dir_all(dir)?;
+        let naming = Arc::new(std::sync::Mutex::new(data::open_naming(
+            &data::naming_path(dir),
+        )?));
+        let naming_reader = Arc::clone(&naming);
         let db = storage::open(dir)?;
         let storage_at = begun.elapsed();
         let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
@@ -48,6 +52,11 @@ impl Daemon {
                 bus.clone(),
                 Arc::clone(&terminals),
             )?)
+            .with_automatic_renaming(move || {
+                data::read_naming(&naming_reader.lock().expect("naming preferences poisoned"))
+                    .map(|settings| settings.automatic_renaming)
+                    .map_err(RpcError::internal)
+            })
             .with_context(move |nodes, id| {
                 let todos = Arc::clone(&context_todos);
                 let ctx = Ctx {
@@ -97,6 +106,7 @@ impl Daemon {
         let checkpoints = Arc::new(checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()));
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
+            naming,
             modules: HashMap::new(),
             todos: Arc::clone(&todos),
             pads: Arc::clone(&pads),

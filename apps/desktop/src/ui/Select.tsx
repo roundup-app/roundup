@@ -20,6 +20,7 @@ export type SelectChoice = { value: string; label: string };
 /** A labelled single-choice list over Ark's Select; Escape in an open list closes only that list. */
 export const Select = (props: {
   label: string;
+  description?: string;
   choices: SelectChoice[];
   value: string;
   onValueChange: (value: string) => void;
@@ -82,6 +83,7 @@ export const Select = (props: {
   return <div class="app-select" ref={setRoot} onKeyDown={(event) => { if (closing.has(event)) event.stopPropagation(); }}>
     <ArkSelect.RootProvider value={api} lazyMount unmountOnExit>
       <ArkSelect.Label class="app-select-label">{props.label}</ArkSelect.Label>
+      {props.description && <span id={`${id}-hint`} class="app-select-hint">{props.description}</span>}
       <ArkSelect.Control>
         <ArkSelect.Trigger ref={element => {
           trigger = element;
@@ -90,7 +92,7 @@ export const Select = (props: {
           element.addEventListener("click", requestFocus, true);
           element.addEventListener("keydown", key, true);
           onCleanup(() => { element.removeEventListener("click", requestFocus, true); element.removeEventListener("keydown", key, true); });
-        }} class="app-select-trigger" aria-label={props.label}>
+        }} class="app-select-trigger" aria-label={props.label} aria-describedby={props.description ? `${id}-hint` : undefined}>
           <ArkSelect.ValueText />
           <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
         </ArkSelect.Trigger>

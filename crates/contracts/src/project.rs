@@ -302,3 +302,22 @@ pub struct ImportOutcome {
 pub struct ImportResult {
     pub outcomes: Vec<ImportOutcome>,
 }
+
+/// Global naming preferences shared by every Project Daemon.
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, schemars::JsonSchema,
+)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct NamingSettings {
+    pub automatic_renaming: bool,
+    pub naming_guide: String,
+}
+
+impl Default for NamingSettings {
+    fn default() -> Self {
+        Self {
+            automatic_renaming: true,
+            naming_guide: "Use three hyphen-separated words in role-verb-object order, for example reviewer-checks-tests; at most 32 characters.".into(),
+        }
+    }
+}
