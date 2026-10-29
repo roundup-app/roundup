@@ -247,7 +247,7 @@ async fn a34_the_workstreams_terminals_close() {
 
     remove(&f, &ws).await;
 
-    assert!(f.terminals.list().iter().all(|t| t.id != id));
+    assert!(f.terminals.list().await.iter().all(|t| t.id != id));
 }
 
 #[tokio::test]
