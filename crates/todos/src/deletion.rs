@@ -525,7 +525,7 @@ fn change_owner_in(
         "UPDATE todos SET owner=?, updated_at=? WHERE id=?",
         params![owner, crate::store::now_ms(), id],
     )
-        .map_err(RpcError::internal)?;
+    .map_err(RpcError::internal)?;
     Ok(())
 }
 

@@ -127,7 +127,7 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
   "todo.create": ({ title, body, blockers, owner }) => {
     const selected = v.parse(ownerActor, owner ?? null);
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: selected, refs: [], estimate_minutes: null };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), updated_at: Date.now(), creator: actor(), home: null, owner: selected, refs: [], estimate_minutes: null };
     store.todos = withBlocked([...store.todos, created]);
     recordChanges(store, [], actor());
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
