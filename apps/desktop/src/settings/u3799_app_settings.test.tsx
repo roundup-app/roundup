@@ -317,10 +317,10 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   await waitFor(() => expect(document.activeElement).toBe(appearance));
   await waitFor(() => expect(appearance.getAttribute("aria-selected")).toBe("true"));
   const panel = await within(view).findByRole("tabpanel", { name: "Appearance" });
-  const mode = within(panel).getByRole("combobox", { name: "Mode" });
-  mode.focus();
-  await waitFor(() => expect(within(view).getByRole("tabpanel").contains(mode)).toBe(true));
-  expect(document.activeElement).toBe(mode);
+  const appearanceChoice = within(panel).getByRole("combobox", { name: "Appearance" });
+  appearanceChoice.focus();
+  await waitFor(() => expect(within(view).getByRole("tabpanel").contains(appearanceChoice)).toBe(true));
+  expect(document.activeElement).toBe(appearanceChoice);
 });
 
 it("u4277a_section_navigation_keeps_unsubmitted_font_text", async () => {
