@@ -30,8 +30,10 @@ const focusableEmulator = (): EmulatorFactory => () => {
     onInput: () => {},
     turns: () => [],
     selectTurn: () => {},
-    show: (host) => {
+    show: (host, focus = true) => {
       host.replaceChildren(field);
+
+      if (focus) field.focus();
 
       return { cols: 80, rows: 24 };
     },
@@ -85,6 +87,7 @@ const toRail = async () => {
 
 const toPane = async () => {
   fireEvent.click(rowOf("b"));
+  await settled();
   await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
   document.querySelector<HTMLElement>(".pane-screen textarea")!.focus();
   await waitFor(() => expect(line()).toEqual(label("agent")));
