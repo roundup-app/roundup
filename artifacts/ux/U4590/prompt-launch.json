@@ -1,0 +1,52 @@
+{
+  "trace": {
+    "fitted": {
+      "cols": 131,
+      "rows": 39
+    },
+    "method": "agent.spawn",
+    "outcome": {
+      "result": {
+        "attempt": "1",
+        "can_resume": false,
+        "channel": "pending",
+        "effort": null,
+        "id": "3",
+        "kind": "agent",
+        "model": null,
+        "name": "new-agent",
+        "order": 1,
+        "parent": null,
+        "status": {
+          "finished": "0",
+          "kind": "working",
+          "label": "starting",
+          "since": 1793274586401
+        },
+        "status_revision": "1",
+        "stray": [],
+        "terminal_id": "3",
+        "work": {
+          "ask": "sizing-fixture",
+          "kind": "work",
+          "limits": []
+        },
+        "worktree": null,
+        "yolo": false
+      }
+    },
+    "params": {
+      "cols": 131,
+      "cwd": "/tmp/roundup-real-jdT1ir",
+      "effort": null,
+      "model": null,
+      "parent": null,
+      "prompt": "sizing-fixture",
+      "rows": 39
+    }
+  },
+  "before": "\u001b[2J\u001b[Hfirst 131 39 pid=75509\r\n",
+  "later": "\u001b[?6l\u001b[r\u001b[m\u001b[?6l\u001b[H\u001b7\u001b[?6l\u001b[?25h\u001b[m\u001b[H\u001b[Jlater 116 34 pid=75509\r\n\u001b[1;34r\u001b[?6l\u001b[2;1H\u001b>\u001b[?1l\u001b[?2004l",
+  "pid": "75509",
+  "incarnation": "f4f6d00fce9835860b5dd2a6ae75abf72372d679abd51f8567b1d51e38713994"
+}
