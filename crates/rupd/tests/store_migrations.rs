@@ -175,7 +175,16 @@ async fn n20_current_store_opens() {
         home: Some("door".into()),
     }];
     let sources = messages::digest::Sources {
-        touches: Vec::new(),
+        touches: vec![contracts::Touch {
+            actor: Actor {
+                kind: ActorKind::Agent,
+                id: "child".into(),
+                parent: None,
+            },
+            verb: contracts::Verb::Wrote,
+            item: "pad:kept".into(),
+            at: 42,
+        }],
         nodes: &nodes,
         todos: &[],
         pads: &pads,

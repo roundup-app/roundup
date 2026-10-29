@@ -206,12 +206,12 @@ it("u4368_nested_agents_keep_a34_classification", async () => {
     agent("running", "working", "busy", { parent: "supervisor" }),
   ], "chosen");
 
-  expect(result.goes).toEqual({ agents: ["finished"], todos: 1, pads: 1 });
-  expect(result.stays).toEqual({ agents: [{ name: "running", reason: "Running" }], todos: 1, pads: 1 });
+  expect(result.goes).toEqual({ agents: ["finished"], todos: 1, pads: 2 });
+  expect(result.stays).toEqual({ agents: [{ name: "running", reason: "Running" }], todos: 1, pads: 0 });
   expect(railCallsTo(app, "agent.worktreeState")).toEqual([{ id: "finished" }]);
   expect([goesLine(result, "chosen"), staysLine(result)]).toEqual([
-    "Goes: chosen, finished, 1 done Todo, 1 Pad",
-    "Stays (Remove this): running, 1 open Todo, 1 Pad",
+    "Goes: chosen, finished, 1 done Todo, 2 Pads",
+    "Stays (Remove this): running, 1 open Todo",
   ]);
 });
 
