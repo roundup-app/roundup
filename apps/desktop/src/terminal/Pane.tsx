@@ -293,10 +293,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         classList={{ "drop-over": dropOver() }}
         ref={(element) => {
           body = element;
-          resizeObserver?.observe(element);
         }}
       >
-        <div class="pane-screen" ref={setScreen} />
+        <div class="pane-screen" ref={element => { setScreen(element); resizeObserver?.observe(element); }} />
         <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
