@@ -97,17 +97,7 @@ impl Pads {
         _method: &str,
         value: Value,
     ) -> Result<Value, RpcError> {
-        self.delete(
-            ctx,
-            params(value)?,
-            if ctx.actor.kind == ActorKind::User {
-                PadDeletion::User
-            } else if ctx.actor == Actor::daemon() {
-                PadDeletion::Cleanup
-            } else {
-                PadDeletion::Owner
-            },
-        )
+        self.delete(ctx, params(value)?, deletion::cause(&ctx.actor))
     }
 
     pub(super) async fn rpc_pad_redo_delete(
