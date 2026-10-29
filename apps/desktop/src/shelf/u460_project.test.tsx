@@ -6,21 +6,20 @@ import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
 import { deferred } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
-import { askToDelete, stubDialogLayout } from "./bulkQuestionHarness";
+import { askToDelete } from "./bulkQuestionHarness";
+import { todo } from "../todos/testHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-stubDialogLayout();
-
 it("u460_pending_delete_stays_with_its_project", async () => {
-  const { app } = seedApp("tree-40", 0);
+  const { app } = seedApp("empty-project", 0);
+  app.handlers["todo.list"] = () => [todo(1), todo(2)];
   app.of("/Users/you/harness");
   app.add("/other", "other");
   const other = app.of("/other");
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   fireEvent.click(await screen.findByRole("tab", { name: "harness" }));
   await showEverythingInApp();
-  fireEvent.click(await waitFor(() => document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]') ?? Promise.reject(new Error("no group"))));
   const list = screen.getByRole("region", { name: "Todos" });
   const rows = within(list).getAllByRole("button").filter((row) => row.classList.contains("todo-row-button") && row.hasAttribute("aria-pressed"));
   fireEvent.click(rows[0]!, { metaKey: true });
@@ -39,7 +38,8 @@ it("u460_pending_delete_stays_with_its_project", async () => {
 }, 20_000);
 
 it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", async () => {
-  const { app } = seedApp("tree-40", 0);
+  const { app } = seedApp("empty-project", 0);
+  app.handlers["todo.list"] = () => [todo(1)];
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
   const row = document.querySelector<HTMLButtonElement>(".todo-row-button[aria-pressed]")!;
