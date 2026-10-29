@@ -158,7 +158,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
             const reaction = () => read().list.find(reaction => reaction.id === id)!;
 
-            return <li data-overview-item={id}>
+            return <li class="reaction-list-item" data-overview-item={id}>
             <button type="button" data-button="quiet" class="reaction-row overview-entry" data-row-selected={content.selection.isSelected(id)} ref={element => {
               heads.set(id, element); content.register(element, id);
               onCleanup(() => { if (heads.get(id) === element) heads.delete(id); });
