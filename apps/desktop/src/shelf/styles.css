@@ -334,4 +334,4 @@
 }
 
 /* U4457: pointer focus on the requested group shares the row selection. */
-.shelf-group-control:focus { --row-wash: var(--selected); color: var(--text); }
+.shelf-group-control:focus { color: var(--text); }
