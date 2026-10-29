@@ -665,20 +665,16 @@ fn advertised(brief: &str) -> Vec<String> {
 
 /// Q11: style text belongs to the plugin, never the Brief.
 const HOLD_PLAIN: &str = include_str!("../../agents/assets/hold-plain.md");
-
 /// Q6: the two pinned skills every Brief carries.
 const REDUCE: &str = include_str!("../../agents/assets/reduce.md");
 const SHOW_ME: &str = include_str!("../../agents/assets/show-me.md");
-
 #[tokio::test]
 async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
     let report = tempfile::tempdir().unwrap().keep().join("seen.json");
     let project = start(&[("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap())]);
     let client = project.client().await;
     let agent = project.spawn_agent(&client).await;
-
     let seen = seen_at(&report).await;
-
     let mut listed = seen.tools.clone();
     listed.sort();
     assert_eq!(advertised(&seen.brief), listed);
