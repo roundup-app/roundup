@@ -174,6 +174,9 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
     openProjectPage("import-work", path("p"));
     field = await screen.findByRole("textbox", { name: "Import instructions" });
   } else if (opening === "Font family") {
+    // U4687a replaces ordinary family text entry; only pre-existing drafts retain this editor.
+    const { draftStorage } = await import("../state/storage");
+    draftStorage("app-settings").edit({ surface: "settings", object: "fontFamily", recipient: null }, { text: "recovered family", saved: "" }, null, "ordinary");
     window.dispatchEvent(new Event("open-app-settings"));
     fireEvent.click(await screen.findByRole("tab", { name: "Terminal" }));
     field = await screen.findByRole("textbox", { name: "Font family" });
