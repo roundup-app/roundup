@@ -340,7 +340,7 @@ export const AskBar = (props: {
         </Show>
         </ReservedLine>
         </div>
-        <Show when={treeReady() && !over()}><ProjectOverview /></Show>
+        <Show when={treeReady() && !over() && !optionalViews.some(connected.hasView)}><ProjectOverview /></Show>
         <Show when={connected.hasView("reactions")}><Reactions state={reactions} /></Show>
         <Show when={connected.hasView("made")}><Deliverables state={deliverables} onClose={() => { connected.hideView("made"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }} /></Show>
         <Show when={!over()}><AskRows keys={scope} onOpened={() => close(false)} /></Show>
