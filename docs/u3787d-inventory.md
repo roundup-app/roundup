@@ -75,5 +75,12 @@ P14: no usage data. D2/D5/D6/D9: existing Tokens, layout and instant feedback.
 Dark 1512×950 tree-40/tabs-8/conflict captures and video remain uncommitted under
 `artifacts/ux/U3787d/`; the observer uses the isolated production harness and adds
 five Todo rows including duplicate and long Unicode names. The tree-40 and conflict
-observers open New Workstream from a Todo and retain the full failed-create cause
-and retry instruction beside its literal name field.
+observers open Capture with its leader command and retain the full failed-create
+cause and retry instruction beside its literal prompt field.
+
+Paired readings in `artifacts/ux/U3787d/base/` and `head/` cover eleven states
+at 1512×950 in dark mode. Every recorded Check passes on both revisions, and
+`loop/rules.sh delta` reports no regression. `observation.json` records the source
+revisions, observer hash and command results. These are Chromium observations;
+previous macOS CI evidence remains on #4307, and the user reports what they meet
+on the Mac.

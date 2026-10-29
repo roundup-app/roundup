@@ -30,13 +30,13 @@ it.skipIf(!captureDir("U3787d")).each(["tree-40", "tabs-8", "conflict"])("u3787d
       await lane.until("!document.querySelector('.row-name-editor input')");
 
       if (seed !== "tabs-8") {
-        await lane.browser("focus", `.shelf [data-todo="${id}"] .todo-row-button`);
-        await lane.browser("press", "o");
-        await lane.until("!!document.querySelector('[role=menu]')");
-        await lane.browser("click", "[role=menuitem][data-value=new-workstream]");
-        await lane.until("!!document.querySelector('.new-workstream textarea')");
+        await lane.browser("press", "Meta+k");
+        await lane.until("!!document.querySelector('.leader')");
+        await lane.browser("press", "t");
+        await lane.until("document.activeElement === document.querySelector('.capture-field:not([readonly])')");
+        await lane.browser("fill", ".capture-field:not([readonly])", "  é 🧭 日本語 /a_b --x='yes';  ");
         await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Storage unavailable. Retry.'); return true; })()");
-        await lane.browser("click", ".new-workstream button[type=submit]");
+        await lane.browser("press", "Enter");
         await lane.until("document.body.textContent.includes('Storage unavailable. Retry.')");
         await lane.capture("U3787d", `${seed}-failed-create-full`);
         await lane.browser("press", "Escape");
