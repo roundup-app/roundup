@@ -1,7 +1,6 @@
 import { nextTick } from "@zag-js/dom-query";
 import { copy } from "../copy";
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
-import { showShelfTab } from "../testing/shelfTabs";
 import { settled } from "../rail/railFixture";
 import type { CreateParams } from "@contracts/todo/CreateParams";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -36,7 +35,7 @@ const cases = ["todo-shelf", "pad-shelf", "workstream", "agent"] as const;
 
 type RowCase = typeof cases[number];
 
-const target = async (kind: RowCase, rows?: readonly string[]) => {
+const target = async (kind: RowCase, rows: readonly string[] = ["backend", "auth", "tokens", "payments", "agent-4"]) => {
   const controls = await open("tree-40", rows);
 
   if (kind === "pad-shelf") await showEverythingInApp(undefined, copy.pads);
@@ -94,7 +93,8 @@ it.each(cases)("u3789a_return_activates_once_%s", async kind => {
 });
 
 it.each(["todo-shelf", "pad-shelf", "workstream", "agent"] as const)("u3789a_rename_never_opens_%s", async kind => {
-  const { app, row } = await target(kind);
+  // The rename and its cleanup need only the target row and its ancestors.
+  const { app, row } = await target(kind, kind === "agent" ? ["backend", "auth", "tokens"] : ["payments"]);
   const start = app.calls.length;
   fireEvent.click(row);
   await settled();
