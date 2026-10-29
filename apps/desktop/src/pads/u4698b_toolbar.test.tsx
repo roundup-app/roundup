@@ -25,7 +25,7 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
     ["Inline code", "`word`", "p code"],
     ["Bullet list", "- word", "ul li"],
     ["Numbered list", "1. word", "ol li"],
-    ["Checklist", "- [ ] word", "li[data-item-type=task]"],
+    ["Checklist", "- [ ] word", ".list-item .unchecked"],
     ["Quote", "> word", "blockquote"],
     ["Code block", "```\nword\n```", "pre code"],
     ["Link", "[word](https://example.com/)", "a[href=\"https://example.com/\"]"],
@@ -53,7 +53,7 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
     const source = (writes(app.calls)[0]!.params as { text: string }).text.trim();
 
     if (saved) expect(source).toBe(saved);
-    else expect(source).toContain("| --- | --- | --- |");
+    else expect(source).toContain("| :- | :- | :- |");
 
     await waitFor(() => expect(state.pads[0]?.text.trim()).toBe(source));
     connected.drawer.close();

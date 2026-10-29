@@ -1,7 +1,8 @@
+import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
-import { createEffect, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -70,6 +71,7 @@ export default function PadRichEditor(props: {
   onReady: (editor: PadEditorHandle) => void;
   onSelection?: () => void;
 }) {
+  const mountExpand = useContext(DrawerExpandContext);
   const menuId = createUniqueId();
   let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
@@ -98,6 +100,7 @@ export default function PadRichEditor(props: {
     const blockConfig = {
       blockHandle: { getOffset: () => 0 },
       slashMenu: { root: menuHost },
+      textGroup: { divider: null },
     } as BlockEditFeatureConfig;
 
     crepe = new CrepeBuilder({
@@ -183,6 +186,8 @@ export default function PadRichEditor(props: {
       const field = host.querySelector<HTMLElement>(".ProseMirror");
 
       if (!field) throw new Error(copy.padEditorDidNotOpen);
+
+      mountExpand?.(host.querySelector<HTMLElement>(".milkdown-top-bar") ?? undefined);
 
       const buttons = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item");
 
@@ -389,6 +394,7 @@ export default function PadRichEditor(props: {
 
   onCleanup(() => {
     closed = true;
+    mountExpand?.(undefined);
     menuObserver?.disconnect();
 
     // Destroying during create schedules a retry that can outlive the host's DOM environment.

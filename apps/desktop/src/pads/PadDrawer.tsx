@@ -22,7 +22,7 @@ import { outcomeOf, RpcError } from "../app/seam";
 import { usePadList } from "../rail/pads/padList";
 import type { PadList } from "../rail/pads/padList";
 import { USER } from "./owner";
-import { cutName, wholeWord } from "./nameLine";
+import { wholeWord } from "./nameLine";
 
 import type { PadEditorHandle } from "./PadRichEditor";
 import "./styles.css";
@@ -464,7 +464,7 @@ const PadBody = (props: {
     <div class="pad-body">
       <div class="pad-head">
         <span class="pad-head-title">
-          <span {...nameCut.attrs()} class="pad-head-name" style={cutName}>{name}</span>
+          <span {...nameCut.attrs()} class="pad-head-name">{name}</span>
           <Show when={currentOwner(connected.rail, pad().owner)}>{owner =>
             <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{owner().name}</span>
           }
