@@ -154,6 +154,8 @@ it("u3787a_editor_and_terminal_keep_undo", async () => {
     const editor = root.querySelector<HTMLElement>("textarea,input,[tabindex]")!;
     editor.focus();
     expect(undoKey()).toBe(true);
+    await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘Z")).toBe(false));
+    openProjectPage("action:chord:⌘Z", "/a");
     expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(0);
     root.remove();
   }
