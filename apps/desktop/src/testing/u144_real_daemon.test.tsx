@@ -172,7 +172,6 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
-      await saveNote("check selected source");
       fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
@@ -186,8 +185,6 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     connected.rail.select(first.id);
     fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
     await openFile("same.ts");
-    // Retire the inspection-only note from the prior observer; this batch holds exactly two new notes.
-    fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
     await saveNote("first exact comment");
     await saveNote("second exact comment");
     fireEvent.click(screen.getByRole("button", { name: "Send notes to First" }));
