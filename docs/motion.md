@@ -351,3 +351,8 @@ owners, with instant projection, focus and acknowledgement. Existing Bubble
 minimise/close and Agent/Bubble switching keep their established behavior; menu
 construction moves no focus. No motion, geometry or Token is added. D2/D5/D6/D9
 remain unchanged; native menu rendering is system-owned.
+
+U3787b Terminal font menu actions reuse the pane's instant font update and existing
+frame-coalesced refit. Menu projection and target capture move no focus or Terminal
+input. Logical aliases and held-key sizing keep their control-owned behavior.
+D2/D5/D6 retain the same layout and Tokens; native menu rendering stays system-owned.

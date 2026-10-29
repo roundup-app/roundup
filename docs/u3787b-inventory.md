@@ -28,7 +28,7 @@ than adding a duplicate. No existing behavioral test is removed or retired.
 The fixed Project task subset is not the complete real-registration inventory.
 Remaining production coverage includes scoped Shelf/list/triage commands, Rail
 rename, Help, settings,
-and Terminal clipboard/font actions in `terminal/Pane.tsx` and `terminal/screens.ts`.
+and Terminal clipboard actions in `terminal/screens.ts`.
 Library-owned editor/list navigation must retain its control ownership. Each named
 command still needs its current binding, scoped capture and menu equivalence.
 The complete inventory/configuration observers remain required.
@@ -71,3 +71,37 @@ It is compilation/CI evidence only. Preserve earlier native evidence on #4278;
 this continuation claims no AppKit displayed-key, responder or combined-dispatch
 observation. Remaining native observations follow the complete implementation,
 not this partial catalogue slice.
+
+
+## Terminal font continuation
+
+The production pane's Larger Terminal text (`⌘=`), Smaller Terminal text (`⌘-`)
+and Reset Terminal text size (`⌘0`) now register captured actions. The existing
+Project projection discovers them without another command list or dispatch path.
+Each capture retains the Project's font holder and selected Terminal identity;
+changing that selection or removing the owner makes the capture unavailable.
+The same screen/editor/Daemon guard owns both menu availability and key handling.
+
+`u3787b_menu_and_key_share_one_action` exercises all three production commands by
+key and the App's native-menu event seam, asserting exactly one font update,
+unchanged focus and no Terminal writes. Its unavailable-owner observer refuses a
+capture after changing the selected Terminal. The existing Tauri
+`u2539b_native_menu_projects_the_task_chords` forwards these menu events for two
+Projects, and `u4278b_one_step_items_carry_native_accelerators` checks their native
+accelerator construction. These extend existing proofs; none is retired or removed.
+
+The unmodified U102 file retains the logical `=`/`+` and optional Shift aliases,
+held-key resizing, bounds, saved Project size, configured reset, frame-coalesced
+refitting, scrollback preservation, storage failures and editor/Daemon exclusion.
+The unmodified U2241 ordinary Terminal modifier sweep remains required. The
+registry accepts these existing logical aliases and repeat policy directly,
+using tinykeys rather than another keyboard listener.
+
+macOS CI [40843663089](https://github.com/roundup-app/roundup/actions/runs/40843663089)
+at `626a412ebc62c185c754885872ffdc744d34a673` passed `mac` and `mac-clippy`.
+Installed Tauri 2.12.1 `menu::Menu::default` includes predefined Close Window;
+muda 0.20.0 sends its `performClose:` responder action. Neither is replaced here.
+Neither CI nor Chromium observes native font key equivalents or combined
+AppKit/webview dispatch. Existing #4278 native evidence is retained; the remaining
+complete inventory, clipboard, scoped lists/triage/Help/settings/Rail rename,
+responder Find and final native observations keep #4308 open.
