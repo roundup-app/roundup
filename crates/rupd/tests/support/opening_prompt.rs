@@ -54,7 +54,7 @@ async fn restart(run: &mut Run, request: &str) -> Result<Value, rpc::RpcError> {
 }
 
 #[tokio::test]
-async fn a4452c_restart_sends_exactly_the_saved_prompt_once() {
+async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
     let prompt = "  /compose exact words\nKeep spacing  ";
     let mut run = door(Some(prompt)).await;
     let child = run
@@ -95,6 +95,8 @@ async fn a4452c_restart_sends_exactly_the_saved_prompt_once() {
     let node = restart(&mut run, "fresh-1").await.unwrap();
     assert_ne!(node["attempt"], before);
     assert_eq!(node["opening_prompt"], prompt);
+    assert_eq!(node["id"], run.child);
+    assert_eq!(node["name"], "Fresh team");
     tokio::time::timeout(BOUND, async {
         let inbox = run.dir.path().join(format!("received-{}.jsonl", run.child));
         loop {
@@ -135,6 +137,17 @@ async fn a4452c_restart_sends_exactly_the_saved_prompt_once() {
     );
     let retried = restart(&mut run, "fresh-1").await.unwrap();
     assert_eq!(retried["attempt"], node["attempt"]);
+    assert_eq!(recorded_bytes(&run).await, expected);
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let stopped = run.attempt.clone();
+    let node = restart(&mut run, "stopped-1").await.unwrap();
+    assert_ne!(node["attempt"], stopped);
+    assert_eq!(node["id"], run.child);
+    assert_eq!(node["name"], "Fresh team");
+    assert_eq!(node["opening_prompt"], prompt);
     assert_eq!(recorded_bytes(&run).await, expected);
     run.finish().await;
 }
