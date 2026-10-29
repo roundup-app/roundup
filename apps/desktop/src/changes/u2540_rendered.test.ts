@@ -90,7 +90,7 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
   await browser("find", "label", "Note", "fill", "pointer note");
   await click("Save");
   await wait("!!document.querySelector('[aria-label=\"Notes\"]')");
-  expect(await browser("eval", "document.querySelector('[aria-label=\"Notes\"]').textContent")).toContain("pointer note");
+  expect(await browser("eval", "(async () => { const { notesFor } = await import('/src/changes/notes.ts'); return notesFor(window.__fake.app, window.__fake.app.opened.project.path).list('agent-1').map(({ side, start, end, text }) => ({ side, start, end, text })); })()")).toEqual([{ side: "new", start: 1, end: 2, text: "pointer note" }]);
   await browser("eval", `(() => {
     [...document.querySelectorAll('button')].find(button => button.textContent === 'Add note').focus();
   })()`);
@@ -103,7 +103,10 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
   await browser("find", "label", "Note", "fill", "keyboard range");
   await click("Save");
   await wait("document.querySelector('[aria-label=\"Notes\"]').textContent.includes('keyboard range')");
-  expect(await browser("eval", "[...document.querySelectorAll('[aria-label=\"Notes\"] > li')].at(-1).textContent")).toContain("Old file, lines 1–2");
+  expect(await browser("eval", "(async () => { const { notesFor } = await import('/src/changes/notes.ts'); return notesFor(window.__fake.app, window.__fake.app.opened.project.path).list('agent-1').map(({ side, start, end, text }) => ({ side, start, end, text })); })()")).toEqual([
+    { side: "new", start: 1, end: 2, text: "pointer note" },
+    { side: "old", start: 1, end: 2, text: "keyboard range" },
+  ]);
   await capture("pointer-and-keyboard-notes");
 
   const recoveryCapture = captureDir("U2773e");
