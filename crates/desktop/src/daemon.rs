@@ -1,4 +1,4 @@
-//! Starting `rupd` for one Project and learning when it is ready or gone.
+//! App access to Daemon launches and global naming preferences.
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use rpc::{Client, RpcError};
+pub(crate) use rupd::data::naming_settings;
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
