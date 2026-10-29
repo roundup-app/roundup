@@ -24,9 +24,9 @@ it("u4274b_secondary_surfaces_keep_the_rail_available", async () => {
   connected().rail.select("a1");
   fireEvent.click(document.querySelector<HTMLElement>(".todo-project-root")!);
   await screen.findByRole("textbox", { name: "Ask" });
-  openProjectPage("view:ask-history", "/p");
-  await waitFor(() => expect(connected().hasView("ask-history")).toBe(true));
-  openProjectPage("view:ask-history", "/p");
-  await waitFor(() => expect(connected().hasView("ask-history")).toBe(false));
+  openProjectPage("view:made", "/p");
+  await waitFor(() => expect(connected().hasView("made")).toBe(true));
+  openProjectPage("view:made", "/p");
+  await waitFor(() => expect(connected().hasView("made")).toBe(false));
   expect(document.querySelector(".rail-tree")).toBe(rail);
 });
