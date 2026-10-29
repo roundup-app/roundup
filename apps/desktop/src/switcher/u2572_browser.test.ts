@@ -11,6 +11,7 @@ const exec = promisify(execFile);
 
 it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Terminal", async () => {
   const captures = captureDir("U2572d");
+  const spacingCaptures = captureDir("U4681");
   const server = await appServer();
   const origin = server.resolvedUrls.local[0]!;
 
@@ -19,7 +20,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
 
     if (!ready.ok) throw new Error(await ready.text());
 
-    for (const theme of captures ? ["light", "dark", "contrast"] : ["light"]) {
+    for (const theme of spacingCaptures ? ["dark"] : captures ? ["light", "dark", "contrast"] : ["light"]) {
       const session = `u2572-${process.pid}-${theme}`;
       const profile = mkdtempSync(join(tmpdir(), "u2572-"));
       const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
@@ -55,6 +56,43 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
         await browser("press", "k");
         await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
 
+        if (spacingCaptures) {
+          const directory = join(spacingCaptures, process.env.ROUNDUP_CAPTURE_PHASE ?? "head");
+          mkdirSync(directory, { recursive: true });
+          writeFileSync(join(directory, "revision.json"), JSON.stringify({ revision: process.env.ROUNDUP_CAPTURE_REVISION, seed: "tree-40", theme, renderer: await read("navigator.userAgent"), scale: await read("devicePixelRatio") }, null, 2));
+          await browser("record", "start", join(directory, "switcher.webm"));
+          await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
+          await browser("set", "media", "dark");
+          // Recording starts a fresh page. Keep the same long destination in both revisions.
+          await read("(() => { const app=window.__fake.app; const nodes=app.handlers['rail.tree'](); app.handlers['rail.tree']=()=>nodes.map((n,i)=>i===0?{...n,name:'new destination with a long name 調査 🧭 repeated for truncation'}:n); window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'}); })()");
+          await browser("press", "Meta+k");
+          await browser("press", "k");
+          await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
+
+          for (const [width, height] of [[1280, 800], [1512, 950]]) {
+            await browser("set", "viewport", String(width), String(height));
+
+            for (const [name, query] of [["empty", ""], ["mixed", "new"], ["action-only", "New Agent with a prompt"], ["no-match", "zzzz-no-match"]]) {
+              await browser("fill", ".switcher input", query!);
+              await browser("screenshot", join(directory, `${width}-${name}.png`));
+              writeFileSync(join(directory, `${width}-${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+            }
+
+            await browser("fill", ".switcher input", "");
+            await browser("press", "Tab");
+            await browser("press", "End");
+            await browser("screenshot", join(directory, `${width}-last-destination.png`));
+            writeFileSync(join(directory, `${width}-last-destination.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+            await browser("press", "Shift+Tab");
+            await browser("fill", ".switcher input", "new");
+            await browser("press", "ArrowDown");
+            await browser("screenshot", join(directory, `${width}-actions-boundary.png`));
+            writeFileSync(join(directory, `${width}-actions-boundary.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+          }
+
+          await browser("record", "stop");
+        }
+
         for (const [name, query] of [["empty", ""], ["new", "new"], ["action-only", "New Agent with a prompt"], ["no-match", "zzzz-no-match"]]) {
           await read(`(() => { const f=document.querySelector('.switcher input'); f.value=${JSON.stringify(query)}; f.dispatchEvent(new Event('input',{bubbles:true})); })()`);
           await capture(name!);
@@ -68,6 +106,16 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
         // The harness rejects the next call before recording it; another creation attempt or a Terminal write would be recorded.
         expect(calls).toEqual([]);
         await capture("failure");
+
+        if (spacingCaptures) {
+          const directory = join(spacingCaptures, process.env.ROUNDUP_CAPTURE_PHASE ?? "head");
+
+          for (const [width, height] of [[1280, 800], [1512, 950]]) {
+            await browser("set", "viewport", String(width), String(height));
+            await browser("screenshot", join(directory, `${width}-failure.png`));
+            writeFileSync(join(directory, `${width}-failure.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+          }
+        }
 
         const failureCaptures = captureDir("P3557c");
 
