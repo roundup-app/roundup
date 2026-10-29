@@ -217,3 +217,35 @@ for (const list of [shelf]) {
 
   });
 }
+
+it("u4275b_tab_reaches_quick_actions", async () => {
+  await shelf.setup();
+  await page.call(`() => document.querySelector('.rail-row[data-id="tokens"]').focus()`);
+
+  for (const name of ["Stop", "Open folder", "Open in editor"]) {
+    await page.press("Tab", "Tab");
+    await page.until(`() => document.activeElement?.getAttribute('aria-label') === ${JSON.stringify(name)}`);
+  }
+
+  await page.press("Tab", "Tab", 8);
+  await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Open folder'`);
+  await page.press("Enter", "Enter");
+  await page.until(`() => window.__fake.app.openedTargets.length === 1`);
+  await page.press(" ", "Space");
+  await page.until(`() => window.__fake.app.openedTargets.length === 2`);
+  expect(await page.call(`() => window.__fake.app.openedTargets[0]`)).toEqual(await page.call(`() => window.__fake.app.openedTargets[1]`));
+}, 60_000);
+
+it("u3789d_focus_reaches_open_and_secondary_actions", async () => {
+  await shelf.setup();
+  await page.call(`() => document.querySelector('.todos-tab [data-todo="1"] .todo-row-button').focus()`);
+  await page.press("Tab", "Tab");
+  await page.until(`() => document.activeElement?.matches('.todo-tick')`);
+  await page.press("Tab", "Tab", 8);
+  await page.until(`() => document.activeElement?.matches('.todos-tab [data-todo="1"] .todo-row-button')`);
+  await page.press("Enter", "Enter");
+  await page.until(`() => !!document.querySelector('.drawer[data-open=true]')`);
+  expect(await page.call(`() => window.__fake.app.calls.filter(call => call.method === 'todo.getHistory').length`)).toBe(1);
+  await page.press("Escape", "Escape");
+  await page.until(`() => !document.querySelector('.drawer[data-open=true]')`);
+}, 60_000);

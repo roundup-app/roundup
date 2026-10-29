@@ -56,6 +56,21 @@ describe("u3718 a Todo dragged to another owner's group", () => {
     expect(await lane.calls("todo.reorder")).toEqual([]);
   }, 120_000);
 
+  it("u3718_a_rail_drop_moves_home_and_keeps_the_owner", async () => {
+    await lane.seedTodos(["first", "second", "third"]);
+
+    const [one] = await lane.order();
+    const from = await lift(lane, one!);
+    const to = await centre(lane, `[data-part="branch"][aria-expanded] > .rail-row`);
+
+    await move(lane, from.x, from.y - 40);
+    await move(lane, to.x, to.y);
+    await lane.browser("mouse", "up");
+    await lane.until(`window.__fake.app.calls.some(call => call.method === 'todo.move')`);
+
+    expect(await lane.calls("todo.assign")).toEqual([]);
+  }, 120_000);
+
   it("u3718_the_row_moves_only_after_the_refetch", async () => {
     await lane.seedTodos(["first", "second", "third"]);
 
