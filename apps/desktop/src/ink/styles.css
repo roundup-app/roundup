@@ -220,7 +220,7 @@ p.ink[role="alert"] {
 .empty-state-title { color: var(--text); font-size: var(--text-title); font-weight: 500; }
 .empty-state-line { font-size: var(--text-caption); max-width: var(--measure); }
 .empty-state-chip { font-size: var(--text-caption); }
-.empty-state :is(h3, p) { margin: 0; }
+.empty-state :is(.empty-state-title, .empty-state-line) { margin: 0; }
 
 
 /* U16, U19: the entry row's field is the title's own text: no box, border, fill or ring, the caret alone shows focus. */
