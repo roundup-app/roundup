@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import * as registry from "../keys/registry";
+import { createSignal } from "solid-js";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { RpcError } from "../app/seam";
 import { questionProbe } from "../testing/menuProbe";
@@ -19,7 +21,7 @@ import { useBrowserStorage } from "../state/storage";
 import { agent, event, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
-afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); localStorage.clear(); sessionStorage.clear(); });
+afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); vi.restoreAllMocks(); localStorage.clear(); sessionStorage.clear(); });
 
 type Pending = { resolve: () => void; reject: (error: Error) => void };
 
@@ -141,7 +143,7 @@ const CAPTURE_ROW: Row = {
 };
 
 const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS, CAPTURE_ROW].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
-  (row === CAPTURE_ROW ? ["dismiss", "resolve", "reject"] as const : row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
+  (row === CAPTURE_ROW ? ["dismiss", "resolve", "reject"] as const : row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing", "stale-selection", "removed-target", "unavailable"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
   const trace: string[] = [];
@@ -155,7 +157,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
   } : undefined;
 
-  const mounted = row.owner !== "Rail" ? await mountApp(native) : await mountSwitcher(row.selected);
+  const [daemonExit, setDaemonExit] = createSignal<{ code: number | null } | null>(null);
+  const mounted = row.owner !== "Rail" ? await mountApp(native) : await mountSwitcher(row.selected, undefined, undefined, daemonExit);
   const { app, connected } = mounted;
 
   if (native) {
@@ -186,6 +189,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     },
   });
 
+  const captures = vi.spyOn(registry, "captureActions");
   document.querySelector<HTMLElement>(row.origin)!.focus();
   openSwitcher();
   await waitFor(() => expect(field()).not.toBeNull());
@@ -209,6 +213,32 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     return;
   }
 
+  if (outcome === "stale-selection" || outcome === "removed-target" || outcome === "unavailable") {
+    if (outcome === "stale-selection") connected.rail.select("ann");
+    else if (outcome === "removed-target") {
+      app.handlers["rail.tree"] = () => [agent("ann", "idle", "idle")];
+      await connected.rail.refresh();
+    } else setDaemonExit({ code: 1 });
+
+    await waitFor(() => expect(options().some(candidate => candidate.dataset.value === option.dataset.value)).toBe(false));
+    const afterChange = app.calls.length;
+    const draft = connected.drafts.list();
+    activate(option, how);
+    expect(app.calls.slice(afterChange)).toEqual([]);
+    expect(trace).toEqual([]);
+    expect(field()?.value).toBe(query);
+    expect(connected.drafts.list()).toEqual(draft);
+
+    return;
+  }
+
+  // Observe the real captured action without substituting its registration/caller.
+  const action = captures.mock.results.flatMap(result => result.type === "return" ? result.value : []).findLast(action => action.value === option.dataset.value)!;
+  const run = action.run;
+  vi.spyOn(action, "run").mockImplementation(() => {
+    trace.push(`invoke:${field() === null ? "closed" : "open"}`);
+    run();
+  });
   activate(option, how);
   let submitted: ReturnType<typeof connected.drafts.list>[number] | undefined;
   let newer: ReturnType<typeof connected.drafts.list>[number] | undefined;
@@ -224,10 +254,10 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     switcherKey("Escape", {}, prompt);
   }
 
-  // Current dispatch follows dismissal; #4439 owns initiating requests before Switcher dismissal. This guard proves the captured Bubble confirmation survives Project removal.
+  // Confirmation starts while the Switcher is mounted; its later answer survives owner removal.
   if (row.confirms) {
     await questionDialog();
-    expect(trace).toEqual(["question:closed"]);
+    expect(trace).toEqual(["invoke:open", "question:open"]);
     expect(ofMethod()).toEqual([]);
 
     if (outcome === "confirmation-accept" || outcome === "confirmation-cancel") {
@@ -239,14 +269,14 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
     if (outcome === "cancel" || outcome === "confirmation-cancel") {
       expect(ofMethod()).toEqual([]);
-      expect(trace).toEqual(["question:closed"]);
+      expect(trace).toEqual(["invoke:open", "question:open"]);
 
       return;
     }
   }
 
   await waitFor(() => expect(ofMethod()).toHaveLength(1));
-  expect(trace).toEqual(row.confirms ? ["question:closed", `${row.method}:closed`] : [`${row.method}:closed`]);
+  expect(trace).toEqual(row.confirms ? ["invoke:open", "question:open", `${row.method}:closed`] : ["invoke:open", `${row.method}:${native ? "open" : "closed"}`]);
   const visibleParams = row.method === "agent.spawn" || row.method === "terminal.open" ? { ...row.params, cols: 100, rows: 30 } : row.params;
   expect(ofMethod().map((call) => call.params)).toEqual([visibleParams]);
   await waitFor(() => expect(field()).toBeNull());

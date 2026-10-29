@@ -332,3 +332,10 @@ U3787c Shelf name restoration keeps the exact saved caret range after Ark focuse
 the input. NameField already owns initial and restored selection, so it disables
 Ark’s deferred select-all through `selectOnFocus`. Focus and selection remain
 instant, with no motion, layout or Token changes; D2/D5/D6/D9 remain unchanged.
+
+U3787d literal prompt/path/name attributes change no motion or timing. Mentions,
+Combobox and editable names pass native writing-assistance props to their actual
+editing element; directly owned fields use the same attributes. Typing, selection,
+blur, submission and cancellation keep their existing owners and instant feedback.
+D2/D5/D6/D9 use the existing Tokens and layout; ordinary Pad prose and Terminal
+input retain their editor policy. `docs/u3787d-inventory.md` records the openings.
