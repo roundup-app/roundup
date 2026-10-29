@@ -7,7 +7,7 @@ How the App looks. `docs/wireframes.md` says what each screen holds and where; t
 
 The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
 
-Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
+Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137). D18 is the critic-only visual exception: its contact sheet and approval are required for U401’s Blocked-mark implementation, with no automated visual assertion or owner Mac observation.
 
 ## Six rules
 
@@ -102,12 +102,12 @@ Kind has two carriers, a Glyph shape and a tone. The shape is enough on its own:
 
 | Kind | Glyph | Tone | Ink |
 |---|---|---|---|
-| `error` | `✕` | `--red` | yes |
-| `needs-you` | `●` | `--amber` | yes |
-| `working` | `○` | `--accent` | no |
-| `blocked` | `⏸` | `--grey` | no |
-| `idle` | `·` | `--grey` | no |
-| `done` | `✓` | `--grey` | no |
+| `error` | `⊗` (cross in a disc; U401) | `--red` | yes |
+| `needs-you` | `◉` (disc in a ring; U401) | `--amber` | yes |
+| `working` | `◔` (turning quarter; U401, U446) | `--accent` | no |
+| `blocked` | `⊖` (ring with horizontal centre bar; U401) | `--grey` | no |
+| `idle` | `○` (empty ring; U401) | `--grey` | no |
+| `done` | `✓` (check in a disc; U401) | `--grey` | no |
 
 Outside U4464’s decorative scene and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
 
@@ -165,7 +165,7 @@ Three user settings change the look. Each has a rule in `tokens.css`:
 
 ## The checks
 
-Each check is measured from computed style and the DOM of the running App, never from pixels, on every visible element of the screen, in light and in dark. A check that cannot measure fails; it never passes by default.
+Except D18, each check is measured from computed style and the DOM of the running App, never from pixels, on every visible element of the screen, in light and in dark. A check that cannot measure fails; it never passes by default.
 
 | Id | Passes when | Scenario |
 |---|---|---|
@@ -180,12 +180,21 @@ Each check is measured from computed style and the DOM of the running App, never
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0; duration membership alone proves neither movement nor smoothness (U3010a, `scenarios/ui-motion.md`) | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 1280 by 800 | U197 |
-| D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px | U360, U3726 |
+| D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px; across the App, every icon beside text meets U86's x-height centring policy below | U360, U3726, U86 |
 | D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 | D15 | all App-authored text and accessible names come from the App copy catalogue; its entries and formatter branches use sentence case and `GLOSSARY.md` user labels, with explicit section-head, acronym and authored-value exemptions | U471, U472 |
 | D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
 | D17 | A tooltip sits against the element under the pointer that owns it. | U2749 |
+| D18 | The design critic approves a greyscale contact sheet of all six production Kind Glyphs side by side at 16 px in both light and dark: idle/open ring, Blocked ring with a horizontal centre bar (⊖) in the same stroke and colour as the ring, working quarter, needs-you disc in a ring, error cross in a disc, done check in a disc. Every pair is distinguishable by shape without labels or colour; include three working-arc angles (U446). This is a critic-only visual Check, not a DOM or pixel-difference test. | U401 |
+
+## Icon and text centring (U86)
+
+D12's vertical clause is specification policy until implemented. The design critic rejects any icon/text pair whose visible mark centre is more than 1 CSS px above or below the first line's x-height centre. Measure the mark between its topmost and bottommost painted strokes, excluding its hit area; measure the text between its baseline and the top of a lowercase `x` in the label's resolved font, size and weight, including for headings, digits and wrapped labels. In the Todo done summary, the check centres on the count/`done`; `Clear done` shares the text baseline within 1 CSS px.
+
+One shared rule using Token-defined icon boxes and line heights covers status/name pairs, Rail rows and section heads, icon-labelled buttons, Todo and Ask rows, and menus throughout `apps/desktop/src`. No per-row, per-surface or per-icon vertical compensation is allowed. Row heights, horizontal columns, selection alignment, vector shapes, accessible names and D6 hit areas remain. This replaces only the optical-baseline clause of D8 under “Design-system pass requirements (U130–U137)” below; its inset requirement remains.
+
+The critic uses U86's call-site inventory and paired main/head dark 1512×950 captures, including Todo done summary, Rail, Ask, every Kind, opened menus and visible failure feedback. Rest, hover, keyboard focus and selection all meet the same tolerance. This optical clause is judged on rendering, an exception to the computed-style-only measurement above; no unit or browser layout assertion is added. Existing automated Check readings supplement the capture comparison; no Check passing on main may regress, including D2, D5 and D6.
 
 ### Rail section edges and spacing (U4896)
 
@@ -336,7 +345,7 @@ U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales.
 
 U4382a supersedes the no-box and no-focus-ring rules above only for shared form controls: Field input/textarea, NumberInput, civil-date input, Select/Combobox picker, Checkbox, Switch and RadioGroup. Ark owns their behavior. Screens arrange fields; `ui/Field.css` and each control stylesheet own their paint. Frames use `--hairline-width` and `--form-border` (Radix gray 8); fields use `--form-ground`, Token padding and `--radius-control`. Checkbox marks use `--radius-chip`; radio and switch marks are round. Switch off uses `--form-off`, on uses `--accent`, and the thumb uses `--form-thumb` and checkbox checks use `--form-on-ink`.
 
-Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons are the sole exception to dark-only evidence.
+Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons and U401’s D18 contact sheet are the exceptions to dark-only evidence.
 
 U4464: empty-view actions reuse shared primary/quiet buttons in one centred horizontal row, with shortcuts inside. Rail order is New Agent ⌘N, New Workstream ⇧⌘N. Single-action and actionless views retain their behavior. Open Doodles use `--doodle-line` (#5a4a3e light, #e6cfbb dark), `--doodle-patch` (#2f8f80), `--doodle-offset` (+14/+10 scene units) and `--doodle-blend` (multiply light, screen dark), with unchanged geometry. These decorative inks and the fixed primary fill/key ink are named D3 exceptions.
 

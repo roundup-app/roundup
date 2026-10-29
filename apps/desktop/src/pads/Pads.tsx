@@ -13,6 +13,7 @@ import { createBulkDelete } from "../shelf/BulkDelete";
 import { failureOf } from "../todos/failureOf";
 import { OwnerMark } from "../ink/OwnerMark";
 import { Icon } from "../ink/Icon";
+import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
@@ -85,7 +86,7 @@ export const Pads = (props: {
   const failure = createFailure();
   const [itemFailure, setItemFailure] = createSignal<{ incarnation: string; message: string; action: string } | null>(null);
 
-  const reportItemFailure = (pad: Pad, message: string | null, action: string = copy.openDraft) => {
+  const reportItemFailure = (pad: Pad, message: string | null, action: string) => {
     if (message !== null) {
       // A late reply for a deleted source must not resurrect its error on the list.
       if (pads().some(current => current.incarnation === pad.incarnation)) setItemFailure({ incarnation: pad.incarnation, message, action });
@@ -162,7 +163,7 @@ export const Pads = (props: {
     reportItemFailure(pad, await failureOf(async () => {
       await connected.app.rpc("pad.setOwner", { name, owner: USER });
       await list.reload();
-    }));
+    }), copy.makeYours);
   };
 
   const shown = shownPads(connected, list);
@@ -203,7 +204,7 @@ export const Pads = (props: {
         if (path !== null) await connected.app.rpc("pad.export", { name, path });
       });
 
-      if (message !== null) reportItemFailure(pad, message);
+      if (message !== null) reportItemFailure(pad, message, copy.exportMd);
     },
     remove: name => bulk.ask(false, name),
   });
@@ -444,7 +445,7 @@ const PadRows = (props: {
   pads: Accessor<readonly Pad[]>;
   shown: Accessor<readonly Pad[]>;
   onMakeYours: (name: string) => void;
-  onItemFailure: (pad: Pad, message: string | null, action?: string) => void;
+  onItemFailure: (pad: Pad, message: string | null, action: string) => void;
   onAssign: (name: string, anchor: HTMLElement) => void;
   failWith: (incarnation: string, show: (message: string | null) => void) => void;
   clearFailure: (incarnation: string) => void;
@@ -479,10 +480,10 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
 
   const open = (source: "key" | "pointer") => {
     const name = pad.name;
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message)} onFailureCleared={() => props.onItemFailure(pad, null)} />, source, { kind: "pad", project: connected.project.path });
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message, copy.openDraft)} onFailureCleared={() => props.onItemFailure(pad, null, copy.openDraft)} />, source, { kind: "pad", project: connected.project.path });
   };
 
-  const rename = () => { if (pad.owner.kind === "user") setEditing(true); else props.onItemFailure(pad, copy.renamePadOwnership); };
+  const rename = () => { setEditing(true); };
 
   const nameCut = createCutTitle(() => pad.name);
   const [failed, setFailed] = createSignal<string | null>(null);
@@ -497,20 +498,21 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               if (!editing() && !props.bulk.pending() && event.target instanceof Element && !event.target.closest("button, input")) { props.selection.click(pad.incarnation, event); row?.focus(); }
             }}
             onDblClick={event => {
-              if (!editing() && event.target instanceof Element && !event.target.closest("button, input")) rename();
+              if (!editing() && event.target instanceof Element && !event.target.closest("button, input")) open("pointer");
             }}
             data-incarnation={pad.incarnation}
             data-selected={props.selection.selected().includes(pad.incarnation) ? "true" : undefined}
             data-shelf-row
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
               { id: "open", label: copy.openDraft, run: () => open("pointer") },
+              { id: "rename", label: copy.rename, run: rename },
               { id: "assign", label: copy.assign, enabled: ownersToOffer(connected, pad.owner).length > 0, run: () => { if (row) props.onAssign(pad.name, row); } },
               ...(pad.owner.kind === "user" ? [] : [{ id: "make-yours", label: copy.makeYours, run: () => props.onMakeYours(pad.name) }]),
-              ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message), () => props.onItemFailure(pad, null), copied),
+              ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message, copy.link), () => props.onItemFailure(pad, null, copy.link), copied),
               { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(); } },
             ], x, y))}
             class="pad-inset"
-            glyph={null}
+            glyph={<Icon name={PAD_ICON} />}
           >
             <div class="pad-row-head">
             <Show when={!editing()} fallback={<NameField object={`pad:${pad.incarnation}`} name={pad.name}
@@ -543,7 +545,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
 
                 if (event.key === "F2") { event.preventDefault(); rename(); }
               }}
-              onDblClick={rename}
+              onDblClick={() => open("pointer")}
               onClick={(event) => { if (!props.bulk.pending()) props.selection.click(pad.incarnation, event); row?.focus(); }}
 
             >
