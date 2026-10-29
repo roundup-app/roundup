@@ -245,16 +245,14 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
         .await
         .unwrap();
     drive(&user, &child, WORK).await;
-    // One child keeps setup below B22's cap. Its own last line makes both replayed
-    // kinds equivalent without waiting for a suppressed Kind-only Digest.
-    h21_poll("the Digest with the child's last line", async || {
-        made(&user, &door)
-            .await
-            .iter()
-            .any(|body| body.contains("  last: found it\n"))
-            .then_some(())
-    })
-    .await;
+    // Ask as the Door to establish its seen entry even when a Kind-only push
+    // is suppressed. Waiting for such a push would make setup depend on timing.
+    let as_door = client_as(&project, actor(ActorKind::Agent, &door)).await;
+    let digest = as_door
+        .request("agent.digest", json!({"id": door}))
+        .await
+        .unwrap();
+    assert_eq!(digest["children"][0]["last"], "found it");
     h21_poll("all setup notes to be delivered", async || {
         let listed = user
             .request("message.list", json!({ "to": door }))
