@@ -97,6 +97,7 @@ describe("x14 the App's output subscription", () => {
 
       write(bytes, parsed);
     };
+
     app.emitOutput("t-a", "ab");
     await vi.waitFor(() => expect(release).toBeDefined());
     app.emitGap("t-a", 2, 10);
