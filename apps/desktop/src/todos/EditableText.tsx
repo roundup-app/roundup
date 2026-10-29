@@ -131,7 +131,7 @@ export const EditableText = (props: {
     const focus = savedFocus;
     savedFocus = undefined;
 
-    if (document.activeElement === document.body && connected.drawer.content() === content) focus?.(() => queueFocus(() => shown?.focus()));
+    if ((document.activeElement === document.body || document.activeElement === shown) && connected.drawer.content() === content) focus?.(() => queueFocus(() => shown?.focus()));
   }, { defer: true }));
 
   const startWith = (width = shown?.getBoundingClientRect().width ?? 0) => {
