@@ -1,10 +1,9 @@
 //! X8's real ownership observer crosses client process boundaries.
-use base64::Engine;
 use contracts::terminal::SpawnParams;
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::process::{Command, Stdio};
-use terminal::TerminalOwner;
+use terminal::{TerminalOwner, Terminals};
 
 #[test]
 fn x8_reconnecting_keeps_the_original_program() {
@@ -15,18 +14,34 @@ fn x8_reconnecting_keeps_the_original_program() {
             "echo launch >> launches; sleep 60 & child=$!; echo \"$$ $child\" > original; trap 'wait \"$child\"; exit' HUP; while read line; do stty size; printf 'reply:%s:%s\\n' \"$line\" \"$$\"; done".into()]),
         env: BTreeMap::new(), cols: 80, rows: 24,
     };
-    let (owner, helper) = TerminalOwner::start(
-        std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner")),
-        dir.path(),
-        params,
-    )
-    .unwrap();
-    let mut owned = Owned {
-        owner: owner.clone(),
-        child: Some(helper),
-    };
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let (records, _owned) = runtime.block_on(async {
+        let terminals = Terminals::open(dir.path(), rpc::Bus::new())
+            .unwrap()
+            .with_terminal_owner(std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner")));
+        assert!(terminals.list().is_empty());
+        assert!(terminals.terminal_owners().is_empty());
+        let first = terminals.spawn(params.clone()).await.unwrap();
+        let mut cleanup = vec![Owned {
+            owner: terminals.terminal_owners()[0].clone(),
+            child: None,
+        }];
+        let second_dir = dir.path().join("second");
+        std::fs::create_dir(&second_dir).unwrap();
+        let mut second_params = params;
+        second_params.cwd = second_dir.to_string_lossy().into_owned();
+        let second = terminals.spawn(second_params).await.unwrap();
+        cleanup.push(Owned {
+            owner: terminals.terminal_owners()[1].clone(),
+            child: None,
+        });
+        assert_ne!(first.id, second.id);
+        let owners = terminals.terminal_owners();
+        assert_eq!(owners[0].info.id, owners[1].info.id);
+        (owners, cleanup)
+    });
     let record = dir.path().join("record");
-    std::fs::write(&record, serde_json::to_vec(&owner).unwrap()).unwrap();
+    std::fs::write(&record, serde_json::to_vec(&records).unwrap()).unwrap();
     for stage in ["first", "second"] {
         let status = Command::new(std::env::current_exe().unwrap())
             .args(["--exact", "x8_client", "--ignored", "--nocapture"])
@@ -37,96 +52,94 @@ fn x8_reconnecting_keeps_the_original_program() {
             .unwrap();
         assert!(status.success());
     }
-    assert!(owned.child.as_mut().unwrap().wait().unwrap().success());
-    owned.child.take();
-    let pids = std::fs::read_to_string(dir.path().join("original")).unwrap();
-    for pid in pids
-        .split_whitespace()
-        .map(|pid| pid.parse::<i32>().unwrap())
-    {
-        // Linux's owner reaps adopted descendants; on macOS launchd reaps them.
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
-        while nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), None).is_ok() {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "owned PID {pid} survived kill"
-            );
-            std::thread::yield_now();
+    for folder in [dir.path().to_owned(), dir.path().join("second")] {
+        let pids = std::fs::read_to_string(folder.join("original")).unwrap();
+        for pid in pids
+            .split_whitespace()
+            .map(|pid| pid.parse::<i32>().unwrap())
+        {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            while nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), None).is_ok() {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "owned PID {pid} survived kill"
+                );
+                std::thread::yield_now();
+            }
         }
+        assert_eq!(
+            std::fs::read_to_string(folder.join("launches")).unwrap(),
+            "launch\n"
+        );
     }
-    assert_eq!(
-        std::fs::read_to_string(dir.path().join("launches")).unwrap(),
-        "launch\n"
-    );
 }
 
 #[test]
 #[ignore = "invoked in fresh client processes by the ownership observer"]
 fn x8_client() {
     let record = std::env::var_os("OWNER_RECORD").expect("observer record");
-    let owner: TerminalOwner = serde_json::from_slice(&std::fs::read(&record).unwrap()).unwrap();
+    let owners: Vec<TerminalOwner> =
+        serde_json::from_slice(&std::fs::read(&record).unwrap()).unwrap();
     let project = std::path::Path::new(&record).parent().unwrap();
     tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let mut connection = owner.connect(project).await.unwrap();
-        let id = &owner.info.id;
+        let terminals = Terminals::open(project, rpc::Bus::new()).unwrap();
         let first = std::env::var("OWNER_STAGE").unwrap() == "first";
-        let mut output = connection.take_output().unwrap();
-        connection.request("terminal.output", json!({"id":id})).await.unwrap();
-        connection
-            .request(
-                "terminal.resize",
-                serde_json::json!({"id":id,"cols":if first {90} else {100},"rows":if first {25} else {30}}),
-            )
-            .await
-            .unwrap();
-        connection
-            .request(
-                "terminal.write",
-                serde_json::json!({"id":id,"data":base64::engine::general_purpose::STANDARD.encode(if first {&b"first\n"[..]} else {&b"second\n"[..]})}),
-            )
-            .await
-            .unwrap();
-        let observed = tokio::time::timeout(std::time::Duration::from_secs(3), async {
-            loop {
-                let reply = connection
-                    .request("terminal.read", serde_json::json!({"id":id,"after":0}))
-                    .await
-                    .unwrap();
-                let text = reply["text"].as_str().unwrap().to_owned();
-                if text.contains(if first {"reply:first:"} else {"reply:second:"}) {
-                    break text;
+        let mut attached = Vec::new();
+        for owner in &owners { attached.push(terminals.attach_owner(project, owner).await.unwrap()); }
+        assert_ne!(attached[0].id, attached[1].id);
+        for (index, (owner, spawned)) in owners.iter().zip(attached.iter_mut()).enumerate() {
+            let id = &spawned.id;
+            let folder = if index == 0 { project.to_owned() } else { project.join("second") };
+            let marker = format!("{}-{index}", if first { "first" } else { "second" });
+            let mut output = terminals.subscribe_output(id).unwrap();
+            let mut events = terminals.subscribe(id).unwrap();
+            terminals.resize(id, if first {90} else {100}, if first {25} else {30}).await.unwrap();
+            let refused = terminals.write_with(id, |_| Err(rpc::RpcError::conflict("guard refused"))).await.unwrap_err();
+            assert_eq!(refused.code, rpc::code::CONFLICT);
+            terminals.write_completed(id, format!("{marker}\n").into_bytes()).await.unwrap();
+            let observed = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                loop {
+                    let reply = terminals.read(&contracts::terminal::ReadParams {
+                        id: id.clone(), after: Some(0), reader: None, max: None,
+                    }).unwrap();
+                    if reply.text.contains(&format!("reply:{marker}:")) { break reply.text; }
+                    tokio::task::yield_now().await;
                 }
-                tokio::task::yield_now().await;
+            }).await.unwrap();
+            assert!(observed.contains(if first {"25 90"} else {"30 100"}), "{observed}");
+            let frame = tokio::time::timeout(std::time::Duration::from_secs(3), output.next()).await.unwrap().unwrap();
+            assert!(matches!(frame, terminal::Output::Bytes { .. }));
+            assert!(terminals.snapshot(id).unwrap().after > 0);
+            let info = terminals.list().into_iter().find(|info| &info.id == id).unwrap();
+            assert_eq!(info.incarnation, owner.info.incarnation);
+            assert_eq!(info.program, "sh");
+            let pids = std::fs::read_to_string(folder.join("original")).unwrap();
+            let pid: u32 = pids.split_whitespace().next().unwrap().parse().unwrap();
+            assert_eq!(terminals.program_pid(id), Some(pid));
+            assert!(observed.contains(&format!("reply:{marker}:{pid}")), "{observed}");
+            let catch_up = terminals.catch_up(&contracts::terminal::CatchUpParams { id: id.clone(), incarnation: info.incarnation.clone(), after: 0 }).unwrap();
+            assert!(matches!(catch_up, contracts::terminal::CatchUp::Contiguous { id: ref caught, incarnation: ref inc, .. } if caught == id && inc == &info.incarnation));
+            // The other owner's output never contains this Terminal's chosen input.
+            let other = terminals.read(&contracts::terminal::ReadParams {
+                id: attached_id(index), after: Some(0), reader: None, max: None,
+            }).unwrap();
+            assert!(!other.text.contains(&marker));
+            if first { std::fs::write(folder.join("observed-pid"), &pids).unwrap(); }
+            else {
+                assert_eq!(pids, std::fs::read_to_string(folder.join("observed-pid")).unwrap());
+                terminals.kill(id).await.unwrap();
+                if index == 0 { assert!(terminals.list().iter().any(|info| info.id == "2" && info.running)); }
+                let exited = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                    loop { let event = events.recv().await.unwrap(); if matches!(&*event, contracts::EventData::TerminalExited(event) if &event.id == id) { break; } }
+                }).await;
+                assert!(exited.is_ok());
             }
-        })
-        .await
-        .unwrap();
-        assert!(observed.contains(if first {"25 90"} else {"30 100"}), "{observed}");
-        let frame = tokio::time::timeout(std::time::Duration::from_secs(3), output.recv()).await.unwrap().unwrap();
-        assert!(matches!(frame, rpc::OutputFrame::Bytes(_)));
-        let snapshot = connection.request("terminal.snapshot", json!({"id":id})).await.unwrap();
-        assert!(snapshot["after"].as_u64().unwrap() > 0);
-        let incarnation = connection.request("terminal.list", json!({})).await.unwrap();
-        assert_eq!(incarnation[0]["incarnation"], owner.info.incarnation);
-
-        let pid = std::fs::read_to_string(project.join("original")).unwrap();
-        assert!(observed.contains(&format!("reply:{}:{}", if first {"first"} else {"second"}, pid.split_whitespace().next().unwrap())), "{observed}");
-        let catch_up = connection.request("terminal.catchUp", json!({"id":id,"incarnation":owner.info.incarnation,"after":0})).await.unwrap();
-        assert_eq!(catch_up["kind"], "contiguous");
-        assert_eq!(catch_up["incarnation"], owner.info.incarnation);
-        if first {
-            std::fs::write(project.join("observed-pid"), pid).unwrap();
-        } else {
-            assert_eq!(
-                pid,
-                std::fs::read_to_string(project.join("observed-pid")).unwrap()
-            );
-            connection
-                .request("terminal.kill", serde_json::json!({"id":id}))
-                .await
-                .unwrap();
         }
     });
+}
+
+fn attached_id(index: usize) -> String {
+    if index == 0 { "2" } else { "1" }.into()
 }
 
 // Cleanup is independent of test success: stop through the verified owner, then reap the helper.
@@ -136,7 +149,8 @@ struct Owned {
 }
 impl Drop for Owned {
     fn drop(&mut self) {
-        if let Some(mut child) = self.child.take() {
+        {
+            let child = self.child.take();
             let owner = self.owner.clone();
             std::thread::spawn(move || {
                 tokio::runtime::Runtime::new().unwrap().block_on(async {
@@ -148,7 +162,9 @@ impl Drop for Owned {
                             .await;
                     }
                 });
-                child.wait().unwrap();
+                if let Some(mut child) = child {
+                    child.wait().unwrap();
+                }
             })
             .join()
             .unwrap();
@@ -185,7 +201,13 @@ async fn x8_attachment_never_creates_or_substitutes_a_program() {
     let replacement = start();
     let client = original.owner.connect(dir.path()).await.unwrap();
     let wrong_project = tempfile::tempdir().unwrap();
-    assert!(original.owner.connect(wrong_project.path()).await.is_err());
+    let terminals = Terminals::open(dir.path(), rpc::Bus::new()).unwrap();
+    assert!(
+        terminals
+            .attach_owner(wrong_project.path(), &original.owner)
+            .await
+            .is_err()
+    );
     let original_record = serde_json::to_value(&original.owner).unwrap();
     let replacement_record = serde_json::to_value(&replacement.owner).unwrap();
     for (key, value) in [
@@ -205,7 +227,7 @@ async fn x8_attachment_never_creates_or_substitutes_a_program() {
         let mut record = original_record.clone();
         record[key] = value;
         let wrong: TerminalOwner = serde_json::from_value(record).unwrap();
-        assert!(wrong.connect(dir.path()).await.is_err());
+        assert!(terminals.attach_owner(dir.path(), &wrong).await.is_err());
     }
     assert!(
         client
@@ -235,7 +257,12 @@ async fn x8_attachment_never_creates_or_substitutes_a_program() {
     })
     .await
     .unwrap();
-    assert!(original.owner.connect(dir.path()).await.is_err());
+    assert!(
+        terminals
+            .attach_owner(dir.path(), &original.owner)
+            .await
+            .is_err()
+    );
     assert!(client.request("terminal.spawn", json!({})).await.is_err());
     let other = replacement.owner.connect(dir.path()).await.unwrap();
     let screen = other
@@ -259,9 +286,164 @@ async fn x8_attachment_never_creates_or_substitutes_a_program() {
     drop(replacement);
     let stale = original.owner.clone();
     drop(original);
-    assert!(stale.connect(dir.path()).await.is_err());
+    assert!(terminals.attach_owner(dir.path(), &stale).await.is_err());
     assert_eq!(
         std::fs::read_to_string(dir.path().join("launches")).unwrap(),
         "launch\nlaunch\n"
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn x8_owned_input_keeps_guards_cancellation_and_queue_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let terminals = std::sync::Arc::new(
+        Terminals::open(dir.path(), rpc::Bus::new())
+            .unwrap()
+            .with_terminal_owner(std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner"))),
+    );
+    let spawned = terminals
+        .spawn(SpawnParams {
+            cwd: dir.path().to_string_lossy().into_owned(),
+            command: Some(vec![
+                "/bin/sh".into(),
+                "-c".into(),
+                "stty -echo; while read line; do printf 'got:%s\\n' \"$line\"; done".into(),
+            ]),
+            env: BTreeMap::new(),
+            cols: 80,
+            rows: 24,
+        })
+        .await
+        .unwrap();
+    let _cleanup = Owned {
+        owner: terminals.terminal_owners()[0].clone(),
+        child: None,
+    };
+    let (entered, ready) = tokio::sync::oneshot::channel();
+    let (release, hold) = std::sync::mpsc::sync_channel(1);
+    let first = {
+        let terminals = terminals.clone();
+        let id = spawned.id.clone();
+        tokio::spawn(async move {
+            terminals
+                .write_with(&id, move |writer| {
+                    let _ = entered.send(());
+                    hold.recv().unwrap();
+                    writer
+                        .write_all(b"A\n")
+                        .and_then(|()| writer.flush())
+                        .map_err(rpc::RpcError::internal)
+                })
+                .await
+        })
+    };
+    ready.await.unwrap();
+    {
+        let cancelled = terminals.write_with(&spawned.id, |writer| {
+            writer.write_all(b"BAD\n").map_err(rpc::RpcError::internal)
+        });
+        tokio::pin!(cancelled);
+        // Poll once to enqueue, then drop while the earlier effect still holds the input thread.
+        std::future::poll_fn(|cx| {
+            assert!(std::future::Future::poll(cancelled.as_mut(), cx).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+    }
+    terminals.write(&spawned.id, b"B\n").await.unwrap();
+    release.send(()).unwrap();
+    first.await.unwrap().unwrap();
+    terminals
+        .write_completed(&spawned.id, b"C\n".to_vec())
+        .await
+        .unwrap();
+    let text = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        loop {
+            let read = terminals
+                .read(&contracts::terminal::ReadParams {
+                    id: spawned.id.clone(),
+                    after: Some(0),
+                    reader: None,
+                    max: None,
+                })
+                .unwrap();
+            if read.text.contains("got:C") {
+                break read.text;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(text.contains("got:A\ngot:B\ngot:C"), "{text}");
+    assert!(!text.contains("BAD"), "{text}");
+    terminals.kill(&spawned.id).await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn x8_lost_physical_write_result_is_unknown_and_kill_remains_available() {
+    let dir = tempfile::tempdir().unwrap();
+    let terminals = std::sync::Arc::new(
+        Terminals::open(dir.path(), rpc::Bus::new())
+            .unwrap()
+            .with_terminal_owner(std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner"))),
+    );
+    let mut spawned = terminals
+        .spawn(SpawnParams {
+            cwd: dir.path().to_string_lossy().into_owned(),
+            command: Some(vec![
+                "/bin/sh".into(),
+                "-c".into(),
+                "stty raw -echo; printf ready; exec sleep 60".into(),
+            ]),
+            env: BTreeMap::new(),
+            cols: 80,
+            rows: 24,
+        })
+        .await
+        .unwrap();
+    let _cleanup = Owned {
+        owner: terminals.terminal_owners()[0].clone(),
+        child: None,
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while let Some(item) = spawned.output.next().await {
+            if matches!(item, terminal::Output::Bytes { .. }) {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let (entered, ready) = tokio::sync::oneshot::channel();
+    let write = {
+        let terminals = terminals.clone();
+        let id = spawned.id.clone();
+        tokio::spawn(async move {
+            terminals
+                .write_with(&id, move |writer| {
+                    writer.write_all(b"x").map_err(rpc::RpcError::internal)?;
+                    let _ = entered.send(());
+                    writer
+                        .write_all(&vec![b'x'; 1_048_576])
+                        .and_then(|()| writer.flush())
+                        .map_err(|error| rpc::RpcError::unknown_outcome(error.to_string()))
+                })
+                .await
+        })
+    };
+    ready.await.unwrap();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        terminals.kill(&spawned.id),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let error = tokio::time::timeout(std::time::Duration::from_secs(3), write)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME);
 }

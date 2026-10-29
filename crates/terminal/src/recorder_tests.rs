@@ -100,6 +100,7 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
         1,
         Entry {
             info: TerminalInfo {
+                program_pid: None,
                 id: "1".into(),
                 incarnation: "fixture".into(),
                 cwd: dir.path().display().to_string(),
