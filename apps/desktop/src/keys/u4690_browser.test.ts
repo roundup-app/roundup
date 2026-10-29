@@ -186,7 +186,7 @@ it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_actio
     await wait(`!!document.querySelector('.shelf .pad-name')`);
     await browser("click", ".shelf .pad-name");
     await read(`document.querySelector('.shelf .pad-name').focus()`);
-    await browser("press", "Enter");
+    await read(`document.querySelector('.shelf .pad-name').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}))`);
     await wait(`!!document.querySelector('.pad-body button')`);
     await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
   } else {

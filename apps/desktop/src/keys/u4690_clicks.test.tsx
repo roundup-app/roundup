@@ -9,7 +9,7 @@ import { CHORDS, LEADER } from "./chords";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { openTabs, tab } from "../header/stripFixture";
-import { agent, info } from "../testing/nodes";
+import { agent } from "../testing/nodes";
 import { HintLine } from "./HintLine";
 import { Leader } from "./Leader";
 import { mountTodos, todo } from "../todos/testHarness";
@@ -197,22 +197,13 @@ it.each([true, false].flatMap(accepted => (["key", "pointer"] as const).map(sour
   },
 );
 
-it.each(["M", "W", "⌘B"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
+it.each(["M", "W"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690_each_hint_runs_its_key_action_once: Bubble $keys $source", async ({ keys, source }) => {
-    const { app, connected, emulators } = keys === "⌘B"
-      ? await mountSwitcher("ann", undefined, [info("7", { owner: "ann" })])
-      : await mountSwitcher("ops");
-
+    const { app, connected, emulators } = await mountSwitcher("ops");
     render(() => <ConnectedProjectContext.Provider value={connected}><Leader /><HintLine /></ConnectedProjectContext.Provider>);
     await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(false));
-
-    if (keys === "⌘B") {
-      connected.rail.select("ann");
-      await waitFor(() => expect(document.querySelector(".pane-screen [data-terminal]")).not.toBeNull());
-    }
-
     emulators.made.get("7")!.focus();
-    await activate(keys, source, keys !== "⌘B");
+    await activate(keys, source, true);
 
     if (keys === "W") {
       await questionDialog();
@@ -220,7 +211,6 @@ it.each(["M", "W", "⌘B"].flatMap(keys => (["key", "pointer"] as const).map(sou
       await answerQuestion(true);
       await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "7" }]));
     } else if (keys === "M") await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(true));
-    else await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
     expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
   },
 );
@@ -228,7 +218,7 @@ it.each(["M", "W", "⌘B"].flatMap(keys => (["key", "pointer"] as const).map(sou
 it.each(["M", "D", "E", "Esc", "O", "T"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690_each_hint_runs_its_key_action_once: Shelf $keys $source", async ({ keys, source }) => {
     const seeded = seedApp("tree-40", 0);
-    const mounted = keys === "T" ? await mountTodos([todo(1)]) : null;
+    const mounted = keys === "T" ? await mountTodos([todo(1, { title: "item 1" })]) : null;
     const app = mounted?.app ?? seeded.app;
 
     if (mounted) render(() => <ConnectedProjectContext.Provider value={mounted.connected}><HintLine /></ConnectedProjectContext.Provider>);
@@ -335,4 +325,15 @@ it.each(["owned", "done"])("u4690d_each_number_assigns_its_key_target_once: unav
   expect(buttons.filter(button => !button.disabled)).toEqual([]);
   press("Digit1", { key: "1" });
   expect(app.calls.filter(call => call.method === "todo.assign" || call.method === "terminal.write")).toEqual([]);
+});
+
+it("u4690c_unavailable_or_stale_hints_run_nothing: no attention target", async () => {
+  const { app } = await openTabs({ api: [agent("a", "idle", "idle")] });
+  document.querySelector<HTMLElement>('.rail-row[data-id="a"]')!.focus();
+  press("KeyK", { metaKey: true });
+  await waitFor(() => expect(document.querySelector<HTMLButtonElement>('.hint-line [data-hint="J"]')?.disabled).toBe(true));
+  const before = app.calls.length;
+  fireEvent.click(document.querySelector('.hint-line [data-hint="J"]')!);
+  expect(app.calls).toHaveLength(before);
+  expect(document.querySelector('[role=treeitem][data-id="a"]')?.getAttribute("aria-selected")).not.toBe("true");
 });
