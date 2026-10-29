@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AGENT, CONFLICT, openShelf, RpcError } from "./padsFixture";
+import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
 
@@ -47,11 +48,12 @@ it("u3731_a_refused_step_keeps_the_name_and_shows_its_cause", async () => {
   const create = app.handlers["pad.create"]!;
 
   connected.rail.select(AGENT.id);
-  app.handlers["pad.create"] = () => { throw new RpcError(CONFLICT, "pad notes exists"); };
+  const refusal = new RpcError(CONFLICT, "pad notes exists");
+  app.handlers["pad.create"] = () => { throw refusal; };
 
   const field = await name("notes");
 
-  expect(await screen.findByText("pad notes exists")).toBeTruthy();
+  expect(await screen.findByText(refusal.message)).toBeTruthy();
   expect(field.value).toBe("notes");
 
   app.handlers["pad.create"] = create;
