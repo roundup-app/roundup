@@ -264,6 +264,7 @@ async fn g5_removing_unlanded_work_refuses_before_stopping_the_door() {
         assert!(
             f.terminals
                 .list()
+                .await
                 .iter()
                 .any(|t| Some(&t.id) == node.terminal_id.as_ref() && t.running)
         );
@@ -381,7 +382,7 @@ async fn g6_reopened_door_reuses_commits_and_dirty_files_without_launching_on_op
     let head = git_output(path, &["rev-parse", "HEAD"]);
     f.call("agent.stop", json!({"id":id})).await.unwrap();
     let f = f.reopen();
-    assert!(f.terminals.list().is_empty());
+    assert!(f.terminals.list().await.is_empty());
     set_worktrees(&f, false, None).await;
     let next = start_door(&f, &id).await.unwrap();
     assert_eq!(next.worktree, Some(worktree.clone()));

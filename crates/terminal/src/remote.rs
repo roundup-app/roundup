@@ -302,6 +302,17 @@ impl Remote {
         Ok(info)
     }
 
+    /// `info` off the calling thread and bounded by `DEADLINE`: an owner that does not answer is an error.
+    pub(super) async fn info_within_deadline(self: &Arc<Self>) -> Result<TerminalInfo, RpcError> {
+        let remote = Arc::clone(self);
+        match tokio::time::timeout(DEADLINE, tokio::task::spawn_blocking(move || remote.info()))
+            .await
+        {
+            Ok(Ok(info)) => info,
+            _ => Err(RpcError::unknown_outcome("owner did not answer")),
+        }
+    }
+
     pub(super) fn enqueue(&self, input: Input) -> Result<(), RpcError> {
         self.input.try_send(input).map_err(|error| match error {
             TrySendError::Full(_) => RpcError::conflict("Terminal input queue full"),
