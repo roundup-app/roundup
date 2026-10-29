@@ -148,7 +148,7 @@ impl Daemon {
         id: &str,
         checkpoint: u32,
     ) -> Result<(String, checkpoints::Marks), RpcError> {
-        let door = nodes
+        nodes
             .iter()
             .find(|n| n.id == id && n.kind == NodeKind::Workstream)
             .ok_or_else(|| RpcError::not_found(id))?;
@@ -166,9 +166,7 @@ impl Daemon {
             .iter()
             .find(|c| c.id == checkpoint)
             .ok_or_else(|| RpcError::not_found("Checkpoint"))?;
-        let marks = self
-            .checkpoints
-            .marks(id, checkpoint, door.iteration.unwrap_or(1))?;
+        let marks = self.checkpoints.marks(id, checkpoint)?;
         Ok((card.title.clone(), marks))
     }
 
@@ -445,18 +443,15 @@ mod tests {
         .unwrap();
         if let Some(marks) = marks {
             db.execute(
-                "INSERT INTO marks(workstream,checkpoint,iteration,content) VALUES ('1',?1,?2,?3)",
-                rusqlite::params![id, marks.iteration, serde_json::to_string(&marks).unwrap()],
+                "INSERT INTO marks(workstream,checkpoint,content) VALUES ('1',?1,?2)",
+                rusqlite::params![id, serde_json::to_string(&marks).unwrap()],
             )
             .unwrap();
         }
     }
 
     fn marks() -> checkpoints::Marks {
-        checkpoints::Marks {
-            iteration: 1,
-            agents: vec![],
-        }
+        checkpoints::Marks { agents: vec![] }
     }
 
     async fn listed(daemon: &Daemon) -> Value {
@@ -574,13 +569,9 @@ mod tests {
         assert_eq!(cards[0]["rewindable"], false);
         assert_eq!(cards[1]["rewindable"], true);
         assert_eq!(cards[2]["rewindable"], false);
-        for (id, iteration) in [(1, 1), (3, 1), (2, 2)] {
+        for id in [1, 3] {
             assert_eq!(
-                daemon
-                    .checkpoints
-                    .marks("1", id, iteration)
-                    .unwrap_err()
-                    .code,
+                daemon.checkpoints.marks("1", id).unwrap_err().code,
                 code::CONFLICT
             );
         }
@@ -604,7 +595,7 @@ mod tests {
         assert!(error.message.contains("cannot record Mark"), "{error:?}");
         assert_eq!(listed(&daemon).await[0]["rewindable"], false);
         assert_eq!(
-            daemon.checkpoints.marks("1", 1, 1).unwrap_err().code,
+            daemon.checkpoints.marks("1", 1).unwrap_err().code,
             code::CONFLICT
         );
     }
