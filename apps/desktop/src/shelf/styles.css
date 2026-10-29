@@ -270,6 +270,13 @@
   margin-inline-end: var(--space-2);
 }
 
+/* Assignment failures keep their complete cause and recovery visible in the row. */
+.todo-row-notice p.ink[role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
 [data-shelf-group][data-drop-target] .shelf-group-control {
   color: var(--accent);
 }

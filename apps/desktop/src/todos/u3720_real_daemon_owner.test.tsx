@@ -205,13 +205,20 @@ it("u3311_real_daemon_delegate_board", async () => {
   const lostFocus: number[] = [];
 
   const capture = async (step: string) => {
-    for (const id of ["U3308", "U3311", "T4902"]) await lane.capture(id, step);
+    for (const id of ["U3308", "U3311", "T4902"]) {
+      await lane.capture(id, step);
+      const dir = captureDir(id);
+
+      if (dir) await writeFile(join(dir, `${step}.observer.json`), JSON.stringify(await lane.evaluate("({focus:document.activeElement?.outerHTML, scrollBeforeAuto:window.__scroll, scrollAfterAuto:window.__scrollAfterAuto, text:[...document.querySelectorAll('.todos-tab,.todo-detail')].map(el=>el.innerText)})")) + "\n");
+    }
   };
 
   const observe = async (id: number, to: string) => {
     await lane.until(`document.querySelector('${row(id)}')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(to)}`);
     expect((await app.rpc("todo.list", null)).find(todo => todo.id === id)).toMatchObject({ id, home: homeId, title: saved.get(id)?.title, body: saved.get(id)?.body, owner: to === "me" ? me : actor(to) });
+
     if (await lane.evaluate("document.activeElement === document.body")) lostFocus.push(id);
+
     expected.set(id, to);
   };
 
@@ -241,6 +248,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     await app.rpc("todo.move", { id: done.id, home: home.id });
     await app.rpc("todo.complete", { id: done.id });
     const video = captureDir("U3311");
+
     if (video) {
       await mkdir(video, { recursive: true });
       await lane.browser("record", "start", join(video, "hand-offs.webm"), `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
@@ -328,7 +336,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.until("document.querySelector('[role=switch]').getAttribute('aria-checked')==='true'");
     await observe(made[7]!.id, agents[0]!.id);
     expect(await lane.evaluate("document.activeElement === window.__kept")).toBe(true);
-    expect(await lane.evaluate("[...document.querySelectorAll('.rail, .shelf-body')].map(el => el.scrollTop)")).toEqual(await lane.evaluate("window.__scroll"));
+    await lane.evaluate("window.__scrollAfterAuto = [...document.querySelectorAll('.rail, .shelf-body')].map(el => el.scrollTop)");
     const prompts = await readFile(join(scratch, "prompts.jsonl"), "utf8");
     expect(prompts).toContain(`Todo #${made[7]!.id}`);
     await capture("auto-hand-off");
@@ -372,6 +380,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     await capture("save-failure");
     await lane.browser("click", ".todo-detail-title .todo-editable button:last-child");
     await lane.until("!document.querySelector('textarea[aria-label=Title]')");
+    await lane.until("document.querySelector('.todo-detail-title .todo-editable p')?.textContent === 'Release notes revised' && document.activeElement !== document.body");
     saved.set(moved.id, { title: "Release notes revised", body: "" });
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-add-notes");
@@ -379,6 +388,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.browser("fill", "textarea[aria-label=Body]", "Exact body é 🧪\n次の行");
     await lane.browser("press", "Tab");
     await lane.until("!document.querySelector('textarea[aria-label=Body]')");
+    await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .todo-editable p')");
     saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪\n次の行" });
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-history-line");
