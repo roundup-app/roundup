@@ -7,7 +7,7 @@ Module: `apps/desktop` (webview). Acceptance for Issue #4707, Decision 1 of the 
 - **Token.** `--row-text-inset` in `apps/desktop/src/tokens.css` is 32px in both schemes. No stylesheet or component keeps a copy of the old 56px value or a literal derived from it; each consumer (`rail/`, `shelf/`, `todos/`, `pads/`, the Terminal tab bar) reads the Token. Add no literal.
 - **Elbows.** `--tree-origin` still derives from the Token. At every depth, each child's dashed elbow connects to its actual parent's glyph centre, as U4335a requires.
 - **Shared x.** At each depth, in the Rail, Terminal tabs and both Drawer lists, glyphs and group chevrons share one x, and titles and group names share one x, each within 1 CSS px. Sibling rows share these columns; hover, focus and selection move none of them.
-- **Depth-0 title.** A depth-0 Todo or Pad title starts 48 CSS px from the panel edge within 1 px (16 panel padding + 8 row padding + 16 glyph column + 8 gap). Pad rows pass `glyph={null}` and leave no empty column before the name.
+- **Depth-0 title.** A depth-0 Todo or Pad title starts 48 CSS px from the panel edge within 1 px (16 panel padding + 8 row padding + 16 glyph column + 8 gap). Pad rows draw the Pad icon in the glyph slot (U4708).
 - **Rows.** Row border-box heights differ by at most 1 CSS px. Each row is one line; a long title or name is cut with `…`. The tick stays after the title in `.row-controls`; the persistent grip, open arrow, dependency elbows, live updates and 32px rows on a 24px line are unchanged.
 
 Policy: priority and other meta chips stay in the opened Todo's meta row, not the list row; Solo's header, body excerpts and tags are out of scope. No contract, App command or Daemon change.
