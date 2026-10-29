@@ -211,8 +211,17 @@ impl Sidecar {
             .into_iter()
             .find(|p| p.components().count() > 1 && !p.is_file())
         {
+            let repair = if cfg!(debug_assertions) {
+                // Shell quoting keeps the repair usable for checkout paths containing spaces.
+                let dir = self.dir.to_string_lossy().replace('\'', "'\"'\"'");
+                format!(
+                    "from the checkout root run `pnpm install` then `tools/sidecar/bundle.sh '{dir}' --local-node`"
+                )
+            } else {
+                "reinstall roundup".to_owned()
+            };
             return Err(RpcError::not_found(format!(
-                "roundup's bundled Node runtime is incomplete: {} is missing; reinstall roundup (or point ROUNDUP_SIDECAR_DIR at a complete sidecar folder)",
+                "roundup's bundled Node runtime is incomplete: {} is missing; {repair} (or point ROUNDUP_SIDECAR_DIR at a complete sidecar folder)",
                 missing.display()
             )));
         }
