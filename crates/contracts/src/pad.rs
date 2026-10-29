@@ -1,4 +1,4 @@
-//! Pads: markdown notes owned by an Agent or the user. The owner may rewrite; everyone else may only append.
+//! Pads: markdown notes owned by an Agent or the user. The owner or the user may rewrite; everyone else may only append.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ pub struct PadName {
     pub name: String,
 }
 
-/// Rewrite the whole text. Owner only. Supplied guards are checked in the same write transaction.
+/// Rewrite the whole text. The owner or the user. Supplied guards are checked in the same write transaction.
 /// `expectedRevision` mismatch is CONFLICT naming the current Revision.
 /// `expectedIncarnation` mismatch is CONFLICT; a missing Pad is NOT_FOUND.
 /// Omitted guards keep name-based current-content semantics.
@@ -96,7 +96,7 @@ pub struct MoveParams {
     pub home: Option<String>,
 }
 
-/// Rename this exact creation under its captured, exact spelling. Owner only.
+/// Rename this exact creation under its captured, exact spelling. The owner or the user.
 /// Incarnations are Project-scoped: submit on the originally captured Project connection.
 /// Missing name is NOT_FOUND; a changed spelling/incarnation or occupied destination is
 /// CONFLICT. Refusal changes no text, mirror, Touch or Event. Content Revision is unchanged.

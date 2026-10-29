@@ -327,7 +327,7 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
       return { ...created };
     },
     "pad.write": ({ name, text, expectedIncarnation, expectedRevision }) => changePad(store, announce, name, (pad) => {
-      if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rewrite a pad");
+      if (!ownsPad(pad, actor()) && actor().kind !== "user") throw new RpcError(-32002, "only the owner may rewrite a pad");
 
       if (expectedIncarnation != null && expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "the original pad creation changed");
 
@@ -338,7 +338,7 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
     "pad.rename": ({ name, newName, expectedIncarnation }) => {
       const pad = find(store.pads, (entry) => padKey(entry.name) === padKey(name), `pad ${name}`);
 
-      if (!ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may rename a pad; Make yours first");
+      if (!ownsPad(pad, actor()) && actor().kind !== "user") throw new RpcError(-32002, "only the owner or the user may rename a pad");
 
       if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
 
