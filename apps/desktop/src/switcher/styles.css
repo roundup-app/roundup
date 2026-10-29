@@ -7,7 +7,7 @@
   width: min(var(--switcher-width), calc(100% - var(--space-5)));
   transform: translateX(-50%);
   padding: var(--space-2);
-  background-color: var(--ground);
+  background-color: var(--surface);
   border-radius: var(--radius-row);
   border: var(--hairline-width) solid var(--hairline);
 }
