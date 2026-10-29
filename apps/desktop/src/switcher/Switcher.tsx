@@ -244,6 +244,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             // Zag can retain its trap until the selecting Combobox batch ends.
             // Keep only the focus destination requested by this synchronous action.
             if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel?.contains(event.relatedTarget)) actionFocus = event.relatedTarget;
+
             // A recovery action must run before blur can retry storage and remove its target.
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
             retain();
