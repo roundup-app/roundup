@@ -339,3 +339,9 @@ editing element; directly owned fields use the same attributes. Typing, selectio
 blur, submission and cancellation keep their existing owners and instant feedback.
 D2/D5/D6/D9 use the existing Tokens and layout; ordinary Pad prose and Terminal
 input retain their editor policy. `docs/u3787d-inventory.md` records the openings.
+
+U3787b Terminal Find menu projection and captured-owner invocation are instant.
+Registering, disabling or removing the focused Terminal owner changes menu
+availability without moving focus or writing Terminal input. Other editors retain
+their own Cmd+F handling. The Find control itself belongs to Z3788a; no motion is added.
+D2/D5/D6/D9 keep their existing Tokens and layout.
