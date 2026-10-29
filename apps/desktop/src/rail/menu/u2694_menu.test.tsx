@@ -546,7 +546,7 @@ it.each([copy.addAgentMenu, copy.todo, copy.pad, copy.addTerminalMenu])("u4322a_
     fireEvent.keyDown(field, { key: "Enter" });
     await waitFor(() => expect(rpcCalls(app, "pad.move")).toEqual([{ name: "created", home: "clicked" }]));
   } else if (child === copy.addAgentMenu) {
-    await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{ cwd: "/p", parent: "clicked", prompt: null, model: null, effort: null }]));
-  } else await waitFor(() => expect(rpcCalls(app, "terminal.open")).toEqual([{ workstream: "clicked" }]));
+    await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{ cwd: "/p", parent: "clicked", prompt: null, model: null, effort: null, cols: 100, rows: 30 }]));
+  } else await waitFor(() => expect(rpcCalls(app, "terminal.open")).toEqual([{ workstream: "clicked", cols: 100, rows: 30 }]));
   expect(rpcCalls(app, "rail.startDoor")).toEqual([]);
 });

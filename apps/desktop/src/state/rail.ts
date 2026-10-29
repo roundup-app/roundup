@@ -1,3 +1,4 @@
+import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "../copy";
@@ -17,6 +18,7 @@ import type { AppSeam } from "../app/seam";
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
 export type RailState = {
+  prepareTerminal?: (() => Promise<TerminalPreparation | undefined>) | undefined;
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
@@ -222,11 +224,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   };
 
   /** A24: the call's answer, or a rejection once `DOOR_START_BOUND_MS` passes without one. */
-  const boundedStart = (id: string): Promise<RailNode> => {
+  const boundedStart = (id: string, size?: Size): Promise<RailNode> => {
     const { promise: expiry, reject } = Promise.withResolvers<never>();
     const timer = setTimeout(() => reject(new Error(copy.theDoorDidNotStartInTimeRetry)), DOOR_START_BOUND_MS);
 
-    return Promise.race([app.rpc("rail.startDoor", { id }), expiry]).finally(() => clearTimeout(timer));
+    return Promise.race([app.rpc("rail.startDoor", { id, ...size }), expiry]).finally(() => clearTimeout(timer));
   };
 
   const startDoor = async (id: string, focus = true): Promise<void> => {
@@ -238,8 +240,13 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     });
     setDoors(id, { pending: true, observedLive: false, failure: null });
 
+    let prepared: TerminalPreparation | undefined;
+
     try {
-      await boundedStart(id);
+      if (selected() === id) prepared = await state.prepareTerminal?.();
+      const node = await boundedStart(id, prepared?.size);
+
+      if (node.terminal_id) prepared?.bind(node.terminal_id);
       commandFailure.acknowledge(id);
       fetching(fetchTree);
       await latest;
@@ -254,6 +261,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         commandFailure.show(error.message, id, "pane");
       }
     } finally {
+      prepared?.dispose();
       setDoors(id, "pending", false);
     }
   };
@@ -284,7 +292,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     await Promise.all([fetchTree(), fetchTerminals()]);
   });
 
-  return {
+  const state: RailState = {
     commandFailure,
     terminals,
     terminalExit: (id) => {
@@ -350,6 +358,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       } while (latest !== seen);
     },
   };
+
+  return state;
 };
 
 
