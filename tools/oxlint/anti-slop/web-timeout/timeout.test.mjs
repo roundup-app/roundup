@@ -14,6 +14,13 @@ const exception = {
 };
 
 const cases = [
+  ["destructured suite exact child exception", 'const configured = test.extend({}); const { suite: group } = configured; group("group", { timeout: 90_000 }, () => { test("t3779a_real_clock", () => {}); });', 0, null, [{ ...exception, test: "group > t3779a_real_clock" }]],
+  ["destructured suite collector", 'const { describe: group } = test; group("group", { timeout: 90_000 }, () => { test("t3779a_child", () => {}); });', 1, "group > t3779a_child", [{ ...exception, test: "group" }]],
+  ["safe default cannot hide unresolved projects", 'defineConfig({ test: { ...externalOptions, testTimeout: 60_000 } });', 1, "unresolved"],
+  ["spread overrides safe project list", 'const key = "testTimeout"; const options = { projects: [{ test: { [key]: 60_001 } }] }; defineConfig({ test: { projects: [], ...options } });', 1, "60001"],
+  ["safe project list overrides spread", 'const key = "testTimeout"; const options = { projects: [{ test: { [key]: 60_001 } }] }; defineConfig({ test: { ...options, projects: [] } });', 0],
+  ["spread unresolved project list", 'const options = { projects: externalProjects }; defineConfig({ test: { ...options } });', 1, "unresolved"],
+  ["spread project list timeout", 'const key = "testTimeout"; const options = { projects: [{ test: { [key]: 60_001 } }] }; defineConfig({ test: { ...options } });', 1, "60001"],
   ["test describe cannot grant suite exception", 'test.describe("group", { timeout: 90_000 }, () => { test("t3779a_child", () => {}); });', 1, "group > t3779a_child", [{ ...exception, test: "group" }]],
   ["test suite exact child exception", 'test.suite("group", { timeout: 90_000 }, () => { test("t3779a_real_clock", () => {}); });', 0, null, [{ ...exception, test: "group > t3779a_real_clock" }]],
   ["mutated project list", 'const projects = []; projects.push(externalProject); defineConfig({ test: { projects } });', 1, "unresolved"],
@@ -25,7 +32,7 @@ const cases = [
   ["project aliased unresolved default", 'import { defineProject as project } from "vitest/config"; project({ test: { ...externalOptions } });', 1, "unresolved"],
   ["project namespace default", 'import * as config from "vitest/config"; const method = "defineProject"; config[method]({ test: { ...externalOptions } });', 1, "unresolved"],
   ["project destructured default", 'import * as config from "vitest/config"; const { defineProject: project } = config; project({ test: { ...externalOptions } });', 1, "unresolved"],
-  ["project exported safe override", 'import { defineProject } from "vitest/config"; const options = defineProject({ test: { ...externalOptions, testTimeout: 60_000 } }); export default options;', 0, null, [], "vitest.config.ts"],
+  ["project exported safe override", 'import { defineProject } from "vitest/config"; const options = defineProject({ test: { ...externalOptions, testTimeout: 60_000, projects: [] } }); export default options;', 0, null, [], "vitest.config.ts"],
   ["project computed default", 'import { defineProject } from "vitest/config"; const key = "testTimeout"; defineProject({ test: { [key]: 60_001 } });', 1, "60001"],
   ["override registration", 'test.override({ value: 1 })("t3779a_override", () => {}, 60_001);', 1, "60001"],
   ["override builder options are fixtures", 'test.override("value", { timeout: 90_000 }, () => 1)("t3779a_limit", () => {}, 60_000);', 0],
@@ -74,7 +81,7 @@ const cases = [
   ["root configuration spread", 'defineConfig({ ...externalOptions });', 1, "unresolved"],
   ["mutated configuration alias", 'const options = { testTimeout: 60_000 }; options.testTimeout++; defineConfig({ test: options });', 1, "unresolved"],
   ["configuration spread overrides default", 'defineConfig({ test: { testTimeout: 60_000, ...externalOptions } });', 1, "unresolved"],
-  ["configuration default overrides spread", 'defineConfig({ test: { ...externalOptions, testTimeout: 60_000 } });', 0],
+  ["configuration default overrides spread", 'defineConfig({ test: { ...externalOptions, testTimeout: 60_000, projects: [] } });', 0],
   ["root test overrides spread", 'defineConfig({ ...externalOptions, test: { testTimeout: 60_000 } });', 0],
   ["configuration without timeout", 'defineConfig({ test: { retry: 0 } });', 0],
   ["immutable configuration alias", 'const options = { test: { testTimeout: 60_000 } }; defineConfig(options);', 0],

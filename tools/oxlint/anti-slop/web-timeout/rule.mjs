@@ -120,7 +120,16 @@ function registration(source, node, seen = new Set()) {
   const name = imported(source, node);
   if (["it", "test"].includes(name)) return "test";
   if (["describe", "suite"].includes(name)) return "suite";
-  if (node.type === "Identifier") return registration(source, initializer(source, node), seen);
+  if (node.type === "Identifier") {
+    const binding = resolveVariable(source, node);
+    for (const def of binding?.defs ?? []) {
+      if (def.type !== "Variable" || def.node.id.type !== "ObjectPattern") continue;
+      const property = def.node.id.properties.find(property => property.type === "Property" && property.value.type === "Identifier" && property.value.name === node.name);
+      const name = property && (property.computed ? value(source, property.key) : property.key.name ?? property.key.value);
+      if (["describe", "suite"].includes(name) && registration(source, initializer(source, node), seen) === "test") return "suite";
+    }
+    return registration(source, initializer(source, node), seen);
+  }
   if (node.type === "MemberExpression") {
     const kind = registration(source, node.object, seen);
     const property = member(source, node);
@@ -222,13 +231,9 @@ export const boundedTestTimeoutRule = defineRule({
     }
 
     function rootConfiguration(node) {
-      const options = resolved(source, configuration(node));
-      if (options?.type !== "ObjectExpression") return;
-      for (const property of options.properties) {
-        if (property.type !== "Property") continue;
-        const key = property.computed ? value(source, property.key) : property.key.name ?? property.key.value;
-        if (key === "projects") projectList(property.value);
-      }
+      const options = configuration(node);
+      const projects = objectProperty(source, options, "projects");
+      if (projects) projectList(projects);
     }
 
     function projectList(node, seen = new Set()) {
