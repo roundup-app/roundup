@@ -8,16 +8,19 @@ it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_i
   const { app, connected } = await connectFakeProject([item, node("flood")], [info("t-a"), info("t-flood")]);
   const { factory, made } = fakeEmulators();
   const parsed: (() => void)[] = [];
+
   const screens = createScreens(connected, (id) => {
     const emulator = factory(id);
     const write = emulator.write;
 
     return { ...emulator, write: (bytes, done) => {
       write(bytes);
+
       if (bytes.length && id === "t-flood") parsed.push(() => done?.());
       else done?.();
     } };
   });
+
   const host = () => document.body.appendChild(document.createElement("div"));
 
   try {
@@ -36,6 +39,7 @@ it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_i
 
       return new Promise<null>(resolve => replies.push(() => resolve(null)));
     };
+
     app.emitOutput("t-flood", "first");
     app.emitOutput("t-flood", "second");
     app.emitOutput("t-flood", "third");

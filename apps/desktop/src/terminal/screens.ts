@@ -294,16 +294,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       const bytes = chunk.bytes.subarray(stream.after - chunk.offset, stream.after - chunk.offset + 8192);
 
       stream.after += bytes.length;
+
       if (stream.after === end) takeFirst(stream);
       stream.parsing = true;
 
       try {
         holder.emulator.write(bytes, () => {
           holder.retain();
+
           // R21: xterm's default write loop can parse for 12 ms. Keep its backlog
           // in our bounded stream and yield between chunks for input and drawing.
           if (stream.queue.length > 0) setTimeout(() => {
             stream.parsing = false;
+
             if (stream.open && holder.stream === stream) settle(id, holder, stream);
           }, 0);
           else stream.parsing = false;
