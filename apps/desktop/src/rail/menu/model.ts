@@ -2,6 +2,7 @@ import type { createCopyFeedback } from "../../ui/CopyButton";
 import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../../copy";
 import { createSignal } from "solid-js";
+import { createStore } from "solid-js/store";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
@@ -36,6 +37,29 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
 export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
+  const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
+
+  const restartSession = async (id: string): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
+    if (restarts[id]?.pending) return { kind: "pending" };
+    const request = restarts[id]?.request ?? crypto.randomUUID();
+    setRestarts(id, { request, pending: true });
+
+    try {
+      await app.rpc("workstream.restart", { id, request });
+      await rail.refresh({ terminals: true });
+      setRestarts(id, undefined);
+      acknowledge(id);
+
+      return { kind: "acknowledged" };
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      rail.commandFailure.show(error.message, id, "rail", () => { void restartSession(id); });
+
+      return { kind: outcomeOf(error), message: error.message };
+    } finally {
+      if (restarts[id]) setRestarts(id, { request, pending: false });
+    }
+  };
 
   const close = () => {
     setState(null);
@@ -220,7 +244,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
     ];
 
-    if (node.yolo && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
+    if (node.yolo && !(node.kind === "workstream" && node.opening_prompt?.trim()) && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
 
     if (!node.yolo) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });
 
@@ -248,6 +272,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseStop,
     chooseRemove,
     requestRemove,
+    restartSession,
+    restartPending: (id: string) => restarts[id]?.pending ?? false,
     requestStop,
     isRunning,
     requestResume: (node: RailNode) => void resume(node.id),
