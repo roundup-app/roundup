@@ -97,7 +97,7 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
 it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survive_work_elsewhere_%s", async command => {
   const { seedApp } = await import("../testing/seeds");
   const { app } = seedApp("tree-40", Date.now());
-  const tree = await app.handlers["rail.tree"]!({});
+  const tree = await app.handlers["rail.tree"]!(null);
   app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend" || node.id === "payments" || node.id === "agent-1");
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await screen.findAllByRole("treeitem");
