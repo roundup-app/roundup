@@ -349,6 +349,7 @@ export const Bubbles = (props: {
   const openTerminal = async (current = () => true, focus = true, home = terminalOwner()): Promise<string | null> => {
     const workstream = home;
     const selection = rail.selected();
+
     if (opening() || readOnly()) return null;
     const opener = document.activeElement;
     let focusReturn = captureFocus(true);
@@ -361,48 +362,64 @@ export const Bubbles = (props: {
     destinations.set(key, destination.resolve);
     setReserved(prior => ({ ...prior, [key]: null }));
     let prepared: Awaited<ReturnType<Screens["prepare"]>> | undefined;
+
     const cancelled = () => {
       const host = bubbleElement(key);
       const restore = focus && rail.selected() === selection && host?.contains(document.activeElement);
       setPlace(key, { ...placeOf(key), min: true });
+
       if (restore) captureFocus(true)(() => {
         if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) opener.focus();
         else document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
       });
     };
+
     controller.signal.addEventListener("abort", cancelled, { once: true });
+
     try {
       const { host, settled } = await destination.promise;
+
       if (focus && focusReturn(() => host.closest(".bubble")?.querySelector<HTMLElement>(".bubble-controls button")?.focus({ preventScroll: true }))) focusReturn = captureFocus();
       prepared = await props.screens.prepare(host, settled, controller.signal);
+
       if (!current() || rail.selected() !== selection) return null;
       const opened = await app.rpc("terminal.open", { workstream, ...prepared.size });
+
       if (controller.signal.aborted) {
         await app.rpc("terminal.close", { id: opened.terminal_id });
         await rail.refresh({ terminals: true });
+
         return null;
       }
+
       prepared.bind(opened.terminal_id);
       setPlaces(prior => ({ ...prior, [opened.terminal_id]: placeOf(key) }));
       const available = () => !controller.signal.aborted && current() && rail.selected() === selection;
+
       if (available()) {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
+
         if (selection !== null && (workstream === null || resolvedWorkstream(rail.nodes, selection) !== workstream)) setOpenedHere(prior => [...prior, opened.terminal_id]);
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
       setReserved(prior => ({ ...prior, [key]: opened.terminal_id }));
+
       if (available() && focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
+
       if (available()) {
         if (!focus) show(opened.terminal_id);
       } else {
         setWanted(prior => prior?.id === opened.terminal_id ? null : prior);
         setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       }
+
       return opened.terminal_id;
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
+
       if (!controller.signal.aborted) setFailure({ message: thrown.message, terminal: null });
+
       return null;
     } finally {
       if (openingController === controller) openingController = undefined;
@@ -410,12 +427,15 @@ export const Bubbles = (props: {
       controller.abort();
       prepared?.dispose();
       destinations.delete(key);
+
       if (reserved()[key] === null) setReserved(prior => {
         const next = { ...prior };
         delete next[key];
+
         return next;
       });
       setOpening(false);
+
       if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
@@ -935,8 +955,7 @@ export const Bubbles = (props: {
 
   const recoveryNotice = createMemo(() => shownDraft() ? !original(shownDraft()!) || readOnly() ? copy.originalUnavailable : shownDraft()!.value.base !== nameFor(original(shownDraft()!)!) ? copy.railDraftConflict : null : null);
 
-  return (
-    <div class="bubbles" ref={setLayer}>
+  return <div class="bubbles" ref={setLayer}>
       <For each={[...Object.keys(reserved()).filter(key => reserved()[key] === null), ...shownIds().map(id => Object.keys(reserved()).find(key => reserved()[key] === id) ?? id)]}>{key => {
         const id = () => reserved()[key] ?? key;
 
@@ -947,9 +966,7 @@ export const Bubbles = (props: {
         <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
-          <div class="terminal-tab-list">
-            <For each={shownIds()}>{id => <Tab id={id} />}</For>
-          </div>
+          <div class="terminal-tab-list"><For each={shownIds()}>{id => <Tab id={id} />}</For></div>
           <div class="terminal-tabs-actions">
             <Tip text={copy.newTerminal}>{trigger => <FlatAdd {...trigger()} data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}><Icon name="plus" /></FlatAdd>}</Tip>
             <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
@@ -977,6 +994,5 @@ export const Bubbles = (props: {
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
       <CloseFailure message={failure()?.message ?? null}><Show when={failure()?.terminal === null}><button data-button="quiet" class="word" type="button" onClick={() => { setFailure(null); void open(); }}>{copy.retry}</button></Show><button data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></CloseFailure>
-    </div>
-  );
+    </div>;
 };
