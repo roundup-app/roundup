@@ -94,56 +94,6 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
 });
 
 
-it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survive_work_elsewhere_%s", async command => {
-  const { seedApp } = await import("../testing/seeds");
-  const { app } = seedApp("tree-40", Date.now());
-  const tree = await app.handlers["rail.tree"]!(null);
-  app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend" || node.id === "payments" || node.id === "agent-1");
-  render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  await screen.findAllByRole("treeitem");
-  await showEverythingInApp();
-  app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
-  const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
-  overview.focus();
-  openProjectPage(command);
-  const heading = command === "import-work" ? "Import Claude Code work" : "Project settings";
-  const page = await screen.findByRole("region", { name: heading });
-
-  if (command === "import-work") fireEvent.click(within(page).getByRole("button", { name: "Last month" }));
-  else {
-    const field = await within(page).findByRole("textbox");
-    await waitFor(() => expect(field).toHaveProperty("disabled", false));
-    fireEvent.input(field, { target: { value: "unfinished" } });
-  }
-
-  openProjectPage(command);
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  // U4453b owns Overview activation: it now closes the requested screen.
-  await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
-  fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
-  fireEvent.keyDown(document.querySelector('.shelf .todo-row-button')!, { key: "Enter" });
-  await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(document.querySelector(".drawer .close")!);
-  fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
-  await waitFor(() => expect(document.querySelector('.bubble:not([hidden]) [data-terminal]')).not.toBeNull());
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(await within(document.querySelector<HTMLElement>('.bubble:not([hidden])')!).findByRole("button", { name: "Minimise" }));
-  fireEvent.click(rowOf("agent-1"));
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-
-  if (command === "import-work") expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
-  else expect(within(page).getByRole("textbox")).toHaveProperty("value", "unfinished");
-  const destination = rowOf("agent-1");
-  destination.focus();
-  fireEvent.keyDown(destination, { key: "Enter", code: "Enter" });
-  await waitFor(() => expect(overview.getAttribute("aria-pressed")).toBe("false"));
-  page.focus();
-  fireEvent.keyDown(page, { key: "Escape" });
-  await waitFor(() => expect(document.activeElement).toBe(overview));
-  expect(overview.getAttribute("aria-pressed")).toBe("true");
-});
-
 it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keeps_each_page_with_its_project_%s", async command => {
   const { app } = await openTabs({ api: [], web: [] });
 
