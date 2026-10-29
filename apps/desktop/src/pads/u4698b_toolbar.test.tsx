@@ -32,7 +32,7 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
     ["Heading", "# word", "h1"],
     ["Table", null, "table"],
   ])("u4698b_toolbar_edits_and_reopens_each_format: Pad %s", async (name, saved, semantic) => {
-    const { app, connected, state } = await openShelf([padOf("note", USER, "word")]);
+    const { app, connected, state } = await openShelf([padOf("note", AGENT, "word")]);
     const field = await openPad("note");
 
     field.setSelectionRange(1, 5, "forward");
@@ -65,19 +65,7 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
     expect(reopened.value.trim()).toBe(source);
   });
 
-  it("u4698b_read_only_toolbar_cannot_write", async () => {
-    const { app } = await openShelf([padOf("note", AGENT, "word")]);
-    const field = await openPad("note");
-
-    expect(field.readOnly).toBe(true);
-    expect(document.querySelector(".pad-readonly .milkdown-top-bar")).not.toBeNull();
-
-    for (const button of document.querySelectorAll<HTMLElement>(".milkdown-top-bar .top-bar-item")) fireEvent.click(button);
-
-    fireEvent.focusOut(field);
-
-    await new Promise((done) => setTimeout(done, 50));
-    expect(writes(app.calls)).toHaveLength(0);
-    expect(field.value).toBe("word");
-  });
+  // U3789f retires Agent ownership as a read-only condition. The format cases above
+  // exercise Agent-owned Pads; u3789f_the_user_edits_an_agent_owned_pad_and_todo
+  // retains the general user-write proof.
 });
