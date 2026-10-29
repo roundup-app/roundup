@@ -48,6 +48,13 @@ const load = async (seed: string, base = false) => {
 
 const overview = async () => {
   await browser("click", "[data-todo-root]");
+
+  if (!await read("!!document.querySelector('#shelf-tab-todos')")) {
+    await browser("press", "Meta+k");
+    await browser("press", "s");
+    await wait("document.querySelector('#shelf-tab-todos')");
+  }
+
   await browser("eval", "(() => {const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
   await wait("document.querySelector('.todos-tab')");
 };

@@ -333,13 +333,5 @@
   pointer-events: none;
 }
 
-/* U4457: pointer-driven focus still identifies the destination; it clears when focus leaves the header. */
-.shelf-group-head .shelf-group-control:focus {
-  background-image: linear-gradient(var(--selected), var(--selected));
-  color: var(--text);
-}
-
-/* U4457: show every Todo counted by the requested Agent without adding it to the bulk selection. */
-.todos-tab .shelf-row[data-requested="true"] {
-  background-image: linear-gradient(var(--selected), var(--selected));
-}
+/* U4457: pointer focus on the requested group shares the row selection. */
+.shelf-group-control:focus { color: var(--text); }
