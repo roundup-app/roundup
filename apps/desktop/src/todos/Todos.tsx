@@ -684,7 +684,7 @@ export const Todos = (props: {
     },
   } : {
     action: CHORDS.find(row => row.inTriage && row.keys === keys)!, searchable: false as const,
-    when: canTriage,
+    when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
     capture: (focus: Element | null) => {
       const id = idOfRow(focus);
       const todo = id === undefined ? undefined : todos.byId().get(id);
