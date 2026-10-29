@@ -31,6 +31,10 @@
   cursor: text;
 }
 
+.app-listbox-note:not([aria-disabled="true"]):hover {
+  background-color: var(--hover);
+}
+
 .app-listbox-item [data-part="item-text"] {
   font-weight: 600;
   overflow-wrap: anywhere;

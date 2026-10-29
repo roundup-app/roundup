@@ -726,7 +726,8 @@
   flex: none;
   position: absolute;
   inset-inline-end: calc(100% + var(--rail-gap));
-  background: var(--sunken);
+  background-color: var(--sunken);
+  background-image: linear-gradient(var(--row-wash), var(--row-wash));
   opacity: 0;
   pointer-events: none;
 }

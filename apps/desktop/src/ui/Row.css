@@ -8,14 +8,14 @@
 .row-wash:not(.sortable-source)::after {
   content: "";
   position: absolute;
-  inset: 0 var(--space-1);
+  inset: 0 var(--row-inset);
   z-index: -1;
   border-radius: var(--radius-control);
   background-color: var(--row-wash);
   pointer-events: none;
 }
 
-.row-wash:not([data-disabled], [aria-disabled="true"]):hover {
+.app-listbox-item:not([data-disabled]):hover {
   --row-wash: var(--hover);
 }
 
@@ -34,11 +34,6 @@
 .row-wash[data-row-selected="true"]:hover,
 .row-wash[data-editing="true"]:hover {
   --row-wash: var(--selected-hover);
-}
-
-/* Action masks cover long names without cutting a hole in the selected paint. */
-.row-wash .row-icons {
-  background-image: linear-gradient(var(--row-wash), var(--row-wash));
 }
 
 .row-wash[data-todo-drop] { --row-wash: var(--hover); }
