@@ -2,7 +2,7 @@ import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "../app/FirstRun";
 import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
-import { captureFocus, queueFocus } from "../keys/focus";
+import { captureFocus } from "../keys/focus";
 import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
@@ -949,9 +949,11 @@ export const Rail = () => {
         </details>
       </Show>
       <Show when={openingPrompt()} keyed>{id => <OpeningPrompt restart={() => menu.restartSession(id)} id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
-      <Show when={creatingMode()}><CreateMode onClose={() => setCreatingMode(false)} onCreated={(id, request) => {
+      <Show when={creatingMode()}><CreateMode finalFocus={id => rowElement(id) ?? null} onClose={() => setCreatingMode(false)} onCreated={(id, request) => {
         setCreatingMode(false);
-        queueFocus(() => rowElement(id)?.focus({ preventScroll: true }));
+        // The arriving Door must not reuse the selection permission to take focus from this row.
+        const focus = rail.terminalFocus();
+        queueMicrotask(() => focus(() => rowElement(id)?.focus({ preventScroll: true })));
         void menu.restartSession(id, request);
       }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
