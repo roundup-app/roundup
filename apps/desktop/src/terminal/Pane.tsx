@@ -260,11 +260,11 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       >
         <div class="pane-screen" ref={setScreen} />
         <Show when={selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
-          <EmptyState art="editor" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
+          <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
         <Show when={doorState()}>
           {(state) => (
-            <div class="pane-door"><EmptyState art="play" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
+            <div class="pane-door"><EmptyState art="meditating" {...{ title: doorStateText(state(), selected()!.name) }} line={copy.emptyOutputLine} action={<button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
                 <Icon name="play" />
                 {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
               </button>} />

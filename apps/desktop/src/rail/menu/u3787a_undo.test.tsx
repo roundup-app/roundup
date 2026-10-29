@@ -1,3 +1,4 @@
+import { copy } from "../../copy";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../../App";
@@ -14,12 +15,12 @@ stubDialogLayout();
 
 afterEach(cleanup);
 
-it.each(["menu", "key", "unknown", "pending"])("u3787a_rail_%s_deletes_without_question_and_restores_retained_identity", async entry => {
+it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workstream"].map(kind => [entry, kind])))("u3787a_rail_%s_deletes_without_question_and_restores_retained_identity_%s", async (entry, kind) => {
   localStorage.clear();
   useBrowserStorage(localStorage);
   const app = createFakeApp();
   let connected: ConnectedProject | undefined;
-  const nodes = [agent("chosen", "idle", "idle", { terminal_id: null }), agent("other", "idle", "idle", { terminal_id: null })];
+  const nodes = [kind === "workstream" ? workstream("chosen", { terminal_id: null }) : agent("chosen", "idle", "idle", { terminal_id: null }), agent("other", "idle", "idle", { terminal_id: null })];
   app.add("/p");
   const daemon = app.of("/p");
   daemon.handlers["rail.tree"] = () => nodes;
@@ -68,6 +69,20 @@ it.each(["menu", "key", "unknown", "pending"])("u3787a_rail_%s_deletes_without_q
   }
 
   await screen.findByText("Deleted chosen");
+  // Settle the event-driven refresh before either Undo entry point.
+  daemon.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+  await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.tree").length).toBeGreaterThan(1));
+
+  if (entry === "menu" || entry === "key") {
+    if (entry === "menu") fireEvent.click(screen.getByRole("button", { name: copy.todoUndo }));
+    else fireEvent.keyDown(document.body, { key: "z", code: "KeyZ", metaKey: true });
+    await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.restore")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole("button", { name: copy.todoUndo })).toBeNull());
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    return;
+  }
+
   daemon.handlers["rail.restore"] = () => { throw new Error("Original Home changed. Restore the Home and retry."); };
 
   fireEvent.keyDown(document.body, { key: "z", code: "KeyZ", metaKey: true });

@@ -41,7 +41,7 @@ fn observe() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let save_ms = start.elapsed().as_secs_f64() * 1000.0;
             let bytes = physical_bytes(dir.path())?;
             let start = Instant::now();
-            let read = store.marks("door", id, input.iteration)?;
+            let read = store.marks("door", id)?;
             let read_ms = start.elapsed().as_secs_f64() * 1000.0;
             if read != *marks {
                 return Err(
