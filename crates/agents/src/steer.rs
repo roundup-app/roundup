@@ -265,6 +265,28 @@ impl Shared {
                     .adapter
                     .status()
                     .map_or(Kind::Working, |status| status.kind);
+                if let Some(attempt) = record.as_ref().and_then(|record| record.attempt.as_deref())
+                {
+                    if run.attempt != attempt {
+                        return Err(SteerError::Refused(not_found(&name)));
+                    }
+                    let started = run.session_started;
+                    if started.is_some_and(|started| {
+                        tokio::time::Instant::now() >= started + START_DOOR_ACK_BOUND
+                    }) {
+                        return Err(SteerError::Refused(PromptError::NotAccepted {
+                            id: id.to_owned(),
+                            name: name.clone(),
+                        }));
+                    }
+                    if started.is_none() || !run.starred || kind != Kind::Idle {
+                        return Err(SteerError::Refused(PromptError::Busy {
+                            id: id.to_owned(),
+                            name: name.clone(),
+                            kind,
+                        }));
+                    }
+                }
                 let ahead = run.first_pending && first.is_none();
                 // An idle Signal can precede the first Steer's task resuming from its ack.
                 // Subscribe under the admission lock so Busy cannot miss the final wake-up.
