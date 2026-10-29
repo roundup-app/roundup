@@ -117,7 +117,10 @@ pub const DOOR_METHODS: [&str; 7] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 78] = [
+pub const NO_TOOL: [&str; 80] = [
+    // A4688a: only the user controls global naming preferences; Agents cannot override them.
+    "daemon.getNaming",
+    "daemon.setNaming",
     // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
     "pad.reorder",
     // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.

@@ -138,7 +138,9 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         }) || matches!(
             method.as_deref(),
             Some(
-                "rail.rename"
+                "daemon.getNaming"
+                    | "daemon.setNaming"
+                    | "rail.rename"
                     | "workstream.setAuto"
                     | "agent.spawn"
                     | "agent.stop"
