@@ -940,7 +940,6 @@ export const copy = {
 
   nothing: "Nothing",
   makeYours: "Make yours",
-  renamePadOwnership: "Make this Pad yours before renaming.",
   makePadYours: (value1: CopyValue) => `Make ${value1} yours`,
   needYou: (value1: CopyValue) => `${value1} need you`,
   centreRegion: "Centre",

@@ -56,6 +56,13 @@ const MAX_BUFFERED_BYTES = 1_048_576;
 /** The longest a backlogged stream rests between chunks: one 120 Hz frame. */
 const MAX_PARSE_REST_MS = 8;
 
+/** A parse cannot be interrupted, so a chunk is sized to take about this long: a typed echo waits behind at most one. */
+const TARGET_PARSE_MS = 3;
+
+const MIN_CHUNK_BYTES = 512;
+
+const MAX_CHUNK_BYTES = 8192;
+
 /** One output subscription of a displayed Terminal, and the stream state that belongs to it alone. */
 type Stream = {
   open: boolean;
@@ -72,6 +79,8 @@ type Stream = {
   after: number | null;
   restoring: boolean;
   parsing: boolean;
+  /** Bytes the next chunk may hold, from how fast the last one parsed. */
+  chunk: number;
   lost: boolean;
 };
 
@@ -295,7 +304,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         return;
       }
 
-      const bytes = chunk.bytes.subarray(stream.after - chunk.offset, stream.after - chunk.offset + 8192);
+      const bytes = chunk.bytes.subarray(stream.after - chunk.offset, stream.after - chunk.offset + stream.chunk);
 
       stream.after += bytes.length;
 
@@ -308,6 +317,10 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         holder.emulator.write(bytes, () => {
           holder.retain();
 
+          const took = performance.now() - started;
+
+          if (took > 0) stream.chunk = Math.round(Math.min(MAX_CHUNK_BYTES, Math.max(MIN_CHUNK_BYTES, bytes.length * TARGET_PARSE_MS / took)));
+
           // R21: xterm's default write loop can parse for 12 ms. Keep its backlog
           // in our bounded stream and idle as long as each chunk took (at most a
           // frame), so a flooding Terminal holds half the thread at most and the
@@ -316,7 +329,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
             stream.parsing = false;
 
             if (stream.open && holder.stream === stream) settle(id, holder, stream);
-          }, Math.min(performance.now() - started, MAX_PARSE_REST_MS));
+          }, Math.min(took, MAX_PARSE_REST_MS));
           else {
             stream.parsing = false;
 
@@ -733,7 +746,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (!holder.stream) {
       const stream: Stream = {
         open: true, subscription: null, early: [], placed: false, start: null, position: 0,
-        queue: [], queued: 0, after: null, restoring: false, parsing: false, lost: false,
+        queue: [], queued: 0, after: null, restoring: false, parsing: false, chunk: MAX_CHUNK_BYTES, lost: false,
       };
 
       holder.stream = stream;
