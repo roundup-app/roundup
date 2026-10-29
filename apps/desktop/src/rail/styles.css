@@ -43,7 +43,7 @@
   grid-template-columns: var(--indent) minmax(0, 1fr);
   gap: 0;
   padding-left: var(--length-zero);
-  padding-right: var(--space-4);
+  padding-right: var(--rail-edge, var(--space-4));
 }
 
 .rail-row :is(.line, .reserved-line),
@@ -106,7 +106,7 @@
 
 /* U131, U4707: the fold's glyph reserves the same leading column as a row's, derived from the Token. */
 .rail-fold .glyph {
-  margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
+  margin-inline-start: 0;
 }
 
 /* Keep disclosure clear of the reserved Kind column and its title. */
@@ -214,7 +214,11 @@
   /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
   --rail-step: var(--tree-step);
   /* The leading gap keeps every glyph clear of the tree's connecting lines. */
-  --rail-inset: var(--space-1);
+  --rail-edge: var(--space-4);
+  --rail-inset: var(--rail-edge);
+  --rail-slot: var(--space-5);
+  --rail-section-gap: var(--space-4);
+  --tree-origin: calc(var(--rail-edge) + var(--space-4) / 2);
 }
 
 /* U391: the failure line sits directly above the footer, outside the list. */
@@ -447,8 +451,8 @@
 .rail-leaf,
 .rail .section-head {
   box-sizing: border-box;
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
+  padding-left: 0;
+  padding-right: var(--rail-edge, var(--space-4));
 }
 
 .rail .kind-mark {
@@ -730,10 +734,10 @@
 
 /* U4335a: the state and name follow the same depth as the incoming elbow. */
 
-.rail-row .line::before { content: ""; width: var(--length-zero); margin-inline-end: calc(-1 * var(--rail-inset)); flex: none; }
+.rail-row .line::before { content: none; }
 .rail-row .row-state { position: static; margin-inline-start: 0; }
 /* U4707: the 32px Token leaves no column left of the glyph, so the chevron takes the glyph's place only while the pointer or keyboard is on it; selection and focus keep the glyph. */
-.rail-row .rail-chevron { left: calc(var(--rail-inset) * 2 + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
+.rail-row .rail-chevron { left: calc(var(--rail-inset) + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
 .rail-row:has(.row-state:hover, .rail-chevron:is(:hover, :focus-visible)) .row-state { opacity: 0; }
 .rail-row .row-icons {
   display: inline-flex;
@@ -755,7 +759,8 @@
   mask-image: linear-gradient(to right, var(--transparent), var(--text));
   pointer-events: none;
 }
-.rail-row:is(:hover, :focus-within, [data-selected="true"]:not([data-multiple="true"])) .row-icons {
+.rail-row .row-controls { opacity: 0; pointer-events: none; }
+.rail-row:is(:hover, :focus-within) :is(.row-icons, .row-controls) {
   opacity: 1;
   pointer-events: auto;
 }
@@ -763,10 +768,10 @@
 .rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.row-controls, .rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
 .rail-row .row-state { flex: none; }
 
-.rail-leaf[data-leaf="todo"] { padding-inline: 0; grid-template-columns: calc(var(--indent) - var(--rail-inset)) minmax(0, 1fr); }
+.rail-leaf[data-leaf="todo"] { padding-inline-start: 0; grid-template-columns: var(--indent) minmax(0, 1fr); }
 .rail-leaf[data-leaf="todo"] .shelf-row {
-  padding-inline-start: var(--space-6);
-  padding-inline-end: var(--space-4);
+  padding-inline-start: 0;
+  padding-inline-end: 0;
   grid-template-columns: var(--space-4) minmax(0, 1fr);
   column-gap: var(--space-2);
 }
@@ -805,7 +810,7 @@
   text-overflow: clip;
 }
 
-.rail-section + .rail-section { margin-top: var(--space-2); }
+.rail-section + .rail-section { margin-top: var(--rail-section-gap); }
 .rail-section [data-part="branch-content"] { padding-inline-start: 0; }
 .rail .section-head[data-part="branch-control"] { color: var(--grey); }
 .rail .section-head:is(:hover, :focus-visible) { color: var(--text); }
@@ -840,4 +845,25 @@
 
 .rail-row:has(.mode-mark) .row-tail {
   margin-left: var(--space-4);
+}
+
+/* U4896: the section icon and depth-zero mark share an edge; depth never moves the trailing slot. */
+.rail .section-head {
+  padding-inline: var(--rail-edge);
+}
+.rail .section-head [data-part="branch-indicator"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--rail-slot);
+  flex: none;
+}
+.rail-row .sortable-handle {
+  width: var(--rail-slot);
+  min-width: var(--rail-slot);
+  padding-inline: 0;
+}
+.rail-row .row-tail {
+  min-width: var(--rail-slot);
+  margin-inline-start: auto;
 }

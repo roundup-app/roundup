@@ -58,7 +58,7 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
       const load = async (width: number) => {
         await browser("open", new URL('/harness.html?seed=tree-40&view=workstreams', origin).href);
         await wait("!!window.__fake && !!document.querySelector('.rail-row')");
-        await read(`document.querySelector('.app').style.setProperty('--rail-width','${width}px')`);
+        await read(`document.querySelector('.window').style.setProperty('--rail-width','${width}px')`);
       };
 
       try {
