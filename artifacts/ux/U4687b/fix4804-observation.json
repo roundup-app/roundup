@@ -1,0 +1,15 @@
+{
+  "base": "b71ae8938e239631fbf43ee6baaa38e6ab3ecfb8",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "renderer": "isolated headless Chromium",
+  "seed": "tree-40",
+  "observations": {
+    "max_and_return": "five complete sample rows at 21/2 and after return to 11/1.7; xterm owns sample height",
+    "scheme_return": "Light then Dark through Appearance; dark preview on return to Terminal",
+    "read_only": "helper textarea tabIndex -1 and aria-hidden true"
+  },
+  "checks": "all recorded Checks pass",
+  "recorder_failure": "just capture was interrupted when it launched the whole repository suite. The targeted scenario capture run failed its recorder stop: No frames captured. Static first-run/agents and family/weight captures passed; a separate preview observer passed. No video pass is claimed.",
+  "rendered_code": "aad0158dc2d80dca4c48f7fba679b56ed71d178b"
+}
