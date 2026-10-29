@@ -404,7 +404,7 @@ attempt exited 143 during proof checks. The next exited 1 because untracked raw
 logs quoted existing spelling diagnostics and were themselves scanned. Moving
 those logs outside the source tree repaired the observation; no rule, baseline
 or source check changed. The final logs are retained in `validation.tar.gz`.
-`loop/rules.sh vocab`, `ci-trailers local`, `frozen local` and `merge-loss` also
+`loop/rules.sh vocab` and `merge-loss` also
 exit 0. No PNG or video is committed.
 
 ## Lighter regular strokes (U4592, #4619)
