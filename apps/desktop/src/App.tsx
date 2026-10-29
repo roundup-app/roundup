@@ -462,7 +462,7 @@ export const App = (props: {
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["M", "R", "⌘O", "⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -474,8 +474,9 @@ export const App = (props: {
       ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "ask-history" || id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
       ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => row.keys !== "T" && taskKeys.has(row.keys))].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
+        const action = actions.find(action => action.value === id && action.available());
 
-        const item: MenuItem = { id, label: row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : actions.find(action => action.value === id)?.label ?? row.what, group: "press" in row || row.keys === "⌘/" ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && (actions.find(action => action.value === id)?.available() ?? false) };
+        const item: MenuItem = { id, label: row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
 
         if (!("inRail" in row && row.inRail && (row.keys === "R" || row.keys === "M"))) item.shortcut = "press" in row ? `⌘K ${row.keys}` : row.keys;
 
@@ -515,7 +516,7 @@ export const App = (props: {
       const view = command.slice(5);
 
       if (views.some(([id]) => id === view) && (view !== "resources" || open.rail.nodes.some(node => node.id === open.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null)))) { if (open.hasView(view)) open.hideView(view); else open.showView(view); }
-    } else captureActions(menuFocus()).find(action => action.value === command)?.run();
+    } else captureActions(menuFocus()).find(action => action.value === command && action.available())?.run();
   }).then(stop => { if (menuEnded) stop(); else stopMenu = stop; });
   onCleanup(() => { menuEnded = true; stopMenu?.(); });
 
