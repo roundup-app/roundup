@@ -883,7 +883,7 @@ export const Rail = () => {
                         <div class="rail-fold" role="none" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}>
                           <Trunks depth={view().depth} trail={[...view().trail, false]} stem={false} />
                           <button data-button="quiet"
-                            class="word"
+                            class="word row-wash"
                             role="treeitem"
                             aria-level={view().depth + 2}
                             onClick={() => setUnfolded((open) => toggled(open, view().parent))}

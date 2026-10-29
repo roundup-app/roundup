@@ -1,3 +1,4 @@
+import "../ui/Row.css";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { EmptyState } from "../ink/EmptyState";
 import { useDialog } from "@ark-ui/solid/dialog";
@@ -417,7 +418,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
   return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
     const tip = trigger();
 
-    return <button {...focus} ref={props.head} data-row-selected={props.selected} onClick={props.select} type="button" class="overview-entry"
+    return <button {...focus} ref={props.head} data-row-selected={props.selected} onClick={props.select} type="button" class="overview-entry row-wash"
       aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
       <Tip text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>
@@ -554,7 +555,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onC
       </div>
       <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} />
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><EmptyState art="unboxing" {...{ title: copy.deliverablesEmpty }} line={copy.emptyMadeLine} /></Show>
-      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
+      <ul class="made-list"><For each={records()}>{record => <li class="made-row row-wash" data-deliverable={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
         <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
             heads.set(record.id, element); content.register(element, record.id);

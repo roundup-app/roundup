@@ -1,6 +1,5 @@
 .app-tree {
   padding: var(--space-1);
-  --tree-row-cue: linear-gradient(var(--selected), var(--selected));
 }
 
 .app-tree [data-part="branch-control"],
@@ -30,11 +29,6 @@
 [data-scope="tree-view"][data-part="label"] {
   margin: 0;
   font: inherit;
-}
-
-/* U133: pointer focus on a disclosure must not paint a second selected row. */
-.app-tree :is([data-part="branch-control"], [data-part="item"]):is([data-selected], :focus-visible, :has(:focus-visible)) {
-  background-image: var(--tree-row-cue);
 }
 
 .app-tree [data-part="branch"]:hover {

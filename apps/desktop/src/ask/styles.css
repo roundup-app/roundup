@@ -228,7 +228,6 @@
   --button-radius: 0;
 }
 
-.overview-entry[data-row-selected="true"] { background: var(--selected); }
 
 .overview-name {
   min-width: 0;
@@ -270,7 +269,6 @@
 .made-heading .overview-heading { padding: 0; }
 .made-list { margin: 0; padding: 0; list-style: none; }
 .made-row { padding-block: var(--space-2); }
-.made-row[data-selected="true"] { background: var(--selected); }
 .made-content { display: block; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .made-title { display: block; color: var(--text); }
 .made-status { display: block; color: var(--text); font-size: var(--text-small); }

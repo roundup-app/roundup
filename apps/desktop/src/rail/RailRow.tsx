@@ -153,7 +153,7 @@ export const RailRowView = (props: {
   };
 
   const rowProps = () => ({
-    class: "rail-row", classList: { "rail-root-divider": props.rootDivider ?? false }, "data-id": props.row.node.id,
+    class: "rail-row row-wash", classList: { "rail-root-divider": props.rootDivider ?? false }, "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
     "data-selected": props.selected ? "true" : undefined,
     "data-multiple": props.multiple ? "true" : undefined,

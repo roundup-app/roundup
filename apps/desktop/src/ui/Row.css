@@ -1,0 +1,34 @@
+/* The paint layer preserves the row's hit area, columns and tree connections. */
+.row-wash {
+  position: relative;
+  isolation: isolate;
+  --row-wash: var(--transparent);
+}
+
+.row-wash:not(.sortable-source)::after {
+  content: "";
+  position: absolute;
+  inset: 0 var(--space-1);
+  z-index: -1;
+  border-radius: var(--radius-control);
+  background-color: var(--row-wash);
+  pointer-events: none;
+}
+
+.row-wash:not([data-disabled], [aria-disabled="true"]):hover {
+  --row-wash: var(--hover);
+}
+
+.row-wash:is([data-selected]:not([data-selected="false"]), [data-row-selected="true"], [data-requested="true"], [data-editing="true"], :focus-visible, :has(:focus-visible)) {
+  --row-wash: var(--selected);
+}
+
+.row-wash:is([data-selected]:not([data-selected="false"]), [data-row-selected="true"], [data-editing="true"]):hover {
+  --row-wash: var(--selected-hover);
+}
+
+/* Action masks cover long names without cutting a hole in the selected paint. */
+.row-wash .row-icons {
+  background-image: linear-gradient(var(--row-wash), var(--row-wash));
+}
+
