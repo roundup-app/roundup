@@ -304,6 +304,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ask submission (`AskSubmission`, `submission`) | same | — |
 | Ask outcome (`AskOutcome`) | same | — |
 | Ask part (`AskPart`, `ask::State`) | same | — |
+| Ask acknowledgement (`AsksState.acknowledged`) | none | — |
 | Placement (`Placement`, `Destination`, `Target`) | same | — |
 | Placement request (`placement::Request`, `EarlierAsk`) | same | — |
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
