@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { workstream, agent } from "../testing/nodes";
 import { RpcError } from "../app/seam";
-import { mountRail, railCallsTo } from "./railFixture";
+import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -18,16 +18,22 @@ it("u4547b_create_selects_one_mode_after_saving_its_prompt", async () => {
 
  return null; };
 
-  m.app.handlers["workstream.restart"] = () => { order.push("restart");
+  let finishStart!: () => void;
+  m.app.handlers["workstream.restart"] = async () => {
+    order.push("restart");
+    await new Promise<void>(resolve => { finishStart = resolve; });
 
- return tree[1]!; };
+    return tree[1]!;
+  };
 
   fireEvent.click(screen.getByRole("button", { name: "New Mode" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: "  Review  " } });
   fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: "  Review e\u0301 🧭\n " } });
   fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("made")));
   expect(order).toEqual(["create", "save", "restart"]);
+  finishStart();
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([{ name: "Review", parent: null }]);
   expect(railCallsTo(m.app, "workstream.setOpeningPrompt")).toEqual([{ id: "made", prompt: "  Review e\u0301 🧭\n " }]);
   expect(m.rail.selected()).toBe("made");
