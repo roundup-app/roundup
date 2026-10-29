@@ -1,7 +1,7 @@
 import { makeEventListenerStack } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { ReservedLine } from "../ink/ReservedLine";
-import { createEffect, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, For, on, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 import { registerKeys } from "../keys/registry";
 import { Panel } from "../ui/Panel";
@@ -198,15 +198,21 @@ export const Bubble = (props: {
 
     if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
 
-    if (!place().min) props.setPlace(id(), { ...place(), min: true });
+    if (props.preparing) props.toggleMinimised(id());
+    else if (!place().min) props.setPlace(id(), { ...place(), min: true });
   };
 
   return (
-    <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
+    <Panel.Root open={!place().min} onPointerDownOutside={dismissed} onEscapeKeyDown={event => {
+      if (props.preparing) {
+        event.preventDefault();
+        void props.close(id());
+      } else event.preventDefault = () => undefined;
+    }}>
       <Portal>
         <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
           style={{ display: place().min ? "none" : "block", left: `${props.origin.left}px`, top: `${props.origin.top}px` }}>
-          <section class="bubble" data-bubble={id()} role="group" aria-label={props.name} hidden={place().min}
+          <section class="bubble" data-bubble={id()} role="group" aria-label={props.name || copy.newTerminal} hidden={place().min}
             style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
             <header class="bubble-header" tabindex="0" ref={header} onContextMenu={props.menu} onPointerDown={(event) => {
                 // SAFETY: a pointer event on the header always targets an Element.
@@ -215,10 +221,10 @@ export const Bubble = (props: {
                 // SAFETY: a mouse event on the header always targets an Element.
                 if (!(event.target as Element).closest("button")) props.setPlace(id(), toggledFill(place(), props.extent()));
               }}>
-              <Show when={!props.preparing}><span class="bubble-controls">
+              <span class="bubble-controls">
                 <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void props.close(id())}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
                 <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => props.toggleMinimised(id())}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
-              </span></Show>
+              </span>
               <span class="bubble-name">{props.name}</span>
             </header>
             <div class="bubble-body" tabindex="-1" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} />

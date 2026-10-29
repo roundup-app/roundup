@@ -449,3 +449,25 @@ it("u4590_preparing_an_agent_keeps_the_selected_terminal_usable", async () => {
   await read("window.__releaseFonts()");
   await wait("window.__fake.app.calls.some(call => call.method === 'agent.spawn')");
 }, 60_000);
+
+
+it.each(["close", "minimise", "Escape"])("u4590_preparing_shell_cancels_with_%s", async action => {
+  await load("tree-40");
+  await read(`(() => {
+    const load = document.fonts.load.bind(document.fonts);
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    document.fonts.load = async (...args) => { await gate; return load(...args); };
+    window.__releaseFonts = () => { document.fonts.load = load; release(); };
+    window.__fake.app.calls.length = 0;
+    document.querySelector('.terminal-new').click();
+  })()`);
+  await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
+
+  if (action === "Escape") await browser("press", "Escape");
+  else await read(`document.querySelector('.bubble:not([hidden]) [aria-label="${action === "close" ? "Close" : "Minimise"}"]').click()`);
+  await wait("!document.querySelector('.bubble:not([hidden])')");
+  await read("window.__releaseFonts()");
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.open')")).toEqual([]);
+  expect(await read("!!document.querySelector('[role=alert]')")).toBe(false);
+}, 60_000);

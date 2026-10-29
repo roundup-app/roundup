@@ -380,7 +380,7 @@ export const Bubbles = (props: {
     try {
       const { host, settled } = await destination.promise;
 
-      if (focus && focusReturn(() => host.focus({ preventScroll: true }))) focusReturn = captureFocus();
+      if (focus && focusReturn(() => host.closest(".bubble")?.querySelector<HTMLElement>(".bubble-controls button")?.focus({ preventScroll: true }))) focusReturn = captureFocus();
 
       prepared = await props.screens.prepare(host, settled, controller.signal);
 
@@ -389,7 +389,7 @@ export const Bubbles = (props: {
       prepared.bind(opened.terminal_id);
       setPlaces(prior => ({ ...prior, [opened.terminal_id]: placeOf(key) }));
 
-      const available = () => current() && rail.selected() === selection;
+      const available = () => !controller.signal.aborted && current() && rail.selected() === selection;
 
       if (available()) {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
@@ -423,9 +423,12 @@ export const Bubbles = (props: {
       prepared?.dispose();
       destinations.delete(key);
 
-      if (reserved()[key] === null) setReserved(prior => { const next = { ...prior }; delete next[key];
+      if (reserved()[key] === null) setReserved(prior => {
+        const next = { ...prior };
+        delete next[key];
 
- return next; });
+        return next;
+      });
       setOpening(false);
 
       if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
@@ -952,7 +955,7 @@ export const Bubbles = (props: {
       <For each={[...Object.keys(reserved()).filter(key => reserved()[key] === null), ...shownIds().map(id => Object.keys(reserved()).find(key => reserved()[key] === id) ?? id)]}>{key => {
         const id = () => reserved()[key] ?? key;
 
-        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => destinations.get(key)?.({ host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : copy.terminals} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={async terminal => { if (reserved()[key] === null) openingController?.abort(); else await close(terminal); }} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) openingController?.abort(); else toggleMinimised(terminal); }} />;
+        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => destinations.get(key)?.({ host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : ""} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={async terminal => { if (reserved()[key] === null) openingController?.abort(); else await close(terminal); }} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) openingController?.abort(); else toggleMinimised(terminal); }} />;
       }}</For>
       {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
       <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); element.setAttribute("data-flat-bar", ""); }}>
@@ -988,7 +991,7 @@ export const Bubbles = (props: {
           </div>
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
-      <CloseFailure message={failure()?.message ?? null}><button data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></CloseFailure>
+      <CloseFailure message={failure()?.message ?? null}><Show when={failure()?.terminal === null}><button data-button="quiet" class="word" type="button" onClick={() => { setFailure(null); void open(); }}>{copy.retry}</button></Show><button data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></CloseFailure>
     </div>
   );
 };
