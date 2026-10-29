@@ -164,6 +164,7 @@ async fn a7_stopping_a_door_keeps_its_children_in_the_workstream_and_running() {
         let alive = f
             .terminals
             .list()
+            .await
             .into_iter()
             .any(|t| Some(t.id) == terminal && t.running);
         assert!(alive, "the kill reached a child's Terminal");

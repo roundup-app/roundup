@@ -39,7 +39,7 @@ it.each(cases)("u4463_space_requests_auto_once_from_the_head_%s_%s", async (seed
 
   const target = seed === "tree-40" ? '.rail-row[data-id="backend"]' : '.rail-row[data-id="n1"]';
   await browser("wait", target);
-  await browser("click", `${target} .row-state`);
+  await browser("click", `${target} .name`);
   await browser("wait", ".shelf-bar [role=switch]");
   // Like u3310's App-seam observer, acknowledge Auto through the Workstream event.
   await evaluate(`(async () => {

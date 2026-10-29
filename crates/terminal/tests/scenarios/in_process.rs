@@ -79,7 +79,7 @@ async fn x8_a_slow_subscriber_never_blocks_the_reader() {
             Ok(Some(_)) => {}
         }
     }
-    assert!(terminals.list().iter().all(|t| !t.running));
+    assert!(terminals.list().await.iter().all(|t| !t.running));
     assert!(matches!(slow.output.next().await, Some(Output::Gap { .. })));
     let (_, code) = until_exit(&mut slow).await;
     assert_eq!(code, Some(0));

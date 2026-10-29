@@ -15,6 +15,9 @@ export type DrawerState = {
   source: Accessor<ActivationSource>;
 };
 
+/** U4698a: Todo and Pad open filling the centre pane unless their Project shrank them. */
+export const fillsCentre = (kind: string | undefined) => kind === "todo" || kind === "pad";
+
 export const DRAWER_EASING = "var(--easing-out)";
 
 export const createDrawer = (): DrawerState => {

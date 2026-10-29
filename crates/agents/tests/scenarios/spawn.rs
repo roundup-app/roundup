@@ -195,7 +195,7 @@ async fn u4590_agent_and_door_start_at_supplied_size_before_the_first_draw() {
         };
         let node = f.call(method, params).await.unwrap();
         let id = node["terminal_id"].as_str().unwrap();
-        let original = f.terminals.list();
+        let original = f.terminals.list().await;
         let first = size_report(&f, id, "first").await;
         assert!(first.contains("first 113 37"), "{method}: {first}");
         let pid = first.split("pid=").nth(1).unwrap().trim();
@@ -206,8 +206,11 @@ async fn u4590_agent_and_door_start_at_supplied_size_before_the_first_draw() {
                 .contains(&format!("later 97 31 pid={pid}")),
             "{method}"
         );
-        assert_eq!(f.terminals.list()[0].incarnation, original[0].incarnation);
-        assert_eq!(f.terminals.list().len(), 1);
+        assert_eq!(
+            f.terminals.list().await[0].incarnation,
+            original[0].incarnation
+        );
+        assert_eq!(f.terminals.list().await.len(), 1);
     }
 }
 
@@ -229,7 +232,7 @@ async fn u4590_invalid_launch_size_leaves_no_agent_or_terminal() {
             _ => json!({}),
         };
         let before = f.tree().await;
-        let terminals = f.terminals.list().len();
+        let terminals = f.terminals.list().await.len();
         for (cols, rows) in [(0, 37), (113, 0), (-1, 37), (113, 65_536)] {
             params["cols"] = json!(cols);
             params["rows"] = json!(rows);
@@ -239,7 +242,7 @@ async fn u4590_invalid_launch_size_leaves_no_agent_or_terminal() {
                 "{method}: {cols}x{rows}"
             );
             assert_eq!(f.tree().await, before);
-            assert_eq!(f.terminals.list().len(), terminals);
+            assert_eq!(f.terminals.list().await.len(), terminals);
         }
     }
 }

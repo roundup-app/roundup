@@ -310,7 +310,7 @@ async fn x13_reading_writes_nothing_and_changes_no_screen_state_or_event() {
     until_printed(&mut spawned.output, "shown\r\n").await;
     while seen.try_recv().is_ok() {}
     let before = terminals.snapshot(&spawned.id).unwrap();
-    let info = terminals.list();
+    let info = terminals.list().await;
     let context = ctx(&dir, &bus);
     for (method, params) in [
         ("terminal.screen", json!({"id": spawned.id})),
@@ -324,7 +324,7 @@ async fn x13_reading_writes_nothing_and_changes_no_screen_state_or_event() {
     }
     let after = terminals.snapshot(&spawned.id).unwrap();
     assert_eq!((before.after, &before.data), (after.after, &after.data));
-    assert_eq!(terminals.list()[0].running, info[0].running);
+    assert_eq!(terminals.list().await[0].running, info[0].running);
     let late = seen.try_recv();
     assert!(late.is_err(), "a read emitted an event: {late:?}");
     // Nothing was typed: the program still waits and prints only what is typed next.
