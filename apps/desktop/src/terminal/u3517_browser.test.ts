@@ -399,7 +399,11 @@ for (const state of ["agent", "door", "shell"]) for (const renderer of ["webgl",
     const name = `${state}-${renderer}-${prompt === "$ " ? "shell" : "claude"}`;
 
     const output = async (text: string) => {
-      await read(`new Promise(resolve => window.__terminals.get('${id}').write(new TextEncoder().encode(${JSON.stringify(text)}), resolve))`);
+      await read(`(() => {
+        window.__fake.writeOutput('${id}', ${JSON.stringify(text)});
+        // screens.ts drains this short chunk synchronously into xterm; its empty write acknowledges parsing.
+        return new Promise(resolve => window.__terminals.get('${id}').write(new Uint8Array(), resolve));
+      })()`);
       // emulator.ts onRender follows xterm's queued parser callback; the queued animation frame drains its paint.
       await read("new Promise(resolve => requestAnimationFrame(resolve))");
     };
