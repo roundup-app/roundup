@@ -79,6 +79,4 @@ describe("u506 an unclear row asks back", () => {
   });
 });
 
-const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => { const mounted = await mountQuietAskBar(...args); mounted.connected.showView("ask-history");
-
- return mounted; };
+const mountAskBar = mountQuietAskBar;
