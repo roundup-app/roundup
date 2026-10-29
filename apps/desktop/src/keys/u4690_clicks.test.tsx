@@ -256,8 +256,10 @@ it.each(["M", "D", "E", "Esc", "O"].flatMap(keys => (["key", "pointer"] as const
 
 it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wait: competing A owners %s", async source => {
   const { app } = seedApp("tree-40", 0);
-  const listed = await app.handlers["todo.list"]!(null);
-  app.handlers["todo.list"] = () => listed.map(todo => ({ ...todo, home: "backend" }));
+  const tree = app.handlers["rail.tree"]!;
+  // Keep both command owners without mounting unrelated Rail branches during teardown.
+  app.handlers["rail.tree"] = async params => (await tree(params)).filter(node => node.id === "backend" || node.id === "migrate");
+  app.handlers["todo.list"] = () => [todo(1, { home: "backend" })];
   render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
   fireEvent.click(document.querySelector('.rail-row[data-id="backend"]')!);
