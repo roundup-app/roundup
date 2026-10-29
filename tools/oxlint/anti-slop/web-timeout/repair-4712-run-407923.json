@@ -1,0 +1,248 @@
+{
+  "source_sha": "dcc02bff448313c9337a274d18b46fd716643b33",
+  "run_url": "https://github.com/roundup-app/roundup/actions/runs/40792366171",
+  "capture_flags": "DV6,U3021c,U3049a,U3299a,U3813,U3814,U3799,U4277c,U3741,U3760,P3557c,U3774,U3776,U461,U462,U461a,U461b,U3728,U3295a,U3295b,U3517f",
+  "isolated_settings": {
+    "command": [
+      "python3",
+      "loop/app-data.py",
+      "pnpm",
+      "--filter",
+      "desktop",
+      "exec",
+      "vitest",
+      "run",
+      "src/settings/u3799_app_settings.test.tsx"
+    ],
+    "exit_code": 0,
+    "log": "repair-4712-run-407923-settings-isolated.log.gz",
+    "concurrent_work": "No lint, Cargo build or other tests; runner ffmpeg installation completed during setup.",
+    "report": {
+      "numTotalTestSuites": 1,
+      "numPassedTestSuites": 1,
+      "numFailedTestSuites": 0,
+      "numPendingTestSuites": 0,
+      "numTotalTests": 17,
+      "numPassedTests": 17,
+      "numFailedTests": 0,
+      "numPendingTests": 0,
+      "numTodoTests": 0,
+      "snapshot": {
+        "added": 0,
+        "failure": false,
+        "filesAdded": 0,
+        "filesRemoved": 0,
+        "filesRemovedList": [],
+        "filesUnmatched": 0,
+        "filesUpdated": 0,
+        "matched": 0,
+        "total": 0,
+        "unchecked": 0,
+        "uncheckedKeysByFile": [],
+        "unmatched": 0,
+        "updated": 0,
+        "didUpdate": false
+      },
+      "startTime": 1793233008050,
+      "success": true,
+      "testResults": [
+        {
+          "assertionResults": [
+            {
+              "ancestorTitles": [],
+              "fullName": "u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups",
+              "status": "passed",
+              "title": "u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups",
+              "duration": 510.30691900000056,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3800_close_returns_the_center_and_focus",
+              "status": "passed",
+              "title": "u3800_close_returns_the_center_and_focus",
+              "duration": 370.5549090000004,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3804_a_new_chord_opens_the_field_and_help_lists_it_KeyY",
+              "status": "passed",
+              "title": "u3804_a_new_chord_opens_the_field_and_help_lists_it_KeyY",
+              "duration": 2868.6550749999997,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3804_a_new_chord_opens_the_field_and_help_lists_it_Numpad1",
+              "status": "passed",
+              "title": "u3804_a_new_chord_opens_the_field_and_help_lists_it_Numpad1",
+              "duration": 2395.8051079999987,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3804_a_new_chord_opens_the_field_and_help_lists_it_F13",
+              "status": "passed",
+              "title": "u3804_a_new_chord_opens_the_field_and_help_lists_it_F13",
+              "duration": 2244.937419,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages",
+              "status": "passed",
+              "title": "u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages",
+              "duration": 1232.2630659999995,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3814_project_pages_survive_work_elsewhere_import-work",
+              "status": "passed",
+              "title": "u3814_project_pages_survive_work_elsewhere_import-work",
+              "duration": 7884.771696999998,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3814_project_pages_survive_work_elsewhere_project-settings",
+              "status": "passed",
+              "title": "u3814_project_pages_survive_work_elsewhere_project-settings",
+              "duration": 7021.136467,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3814_project_switch_keeps_each_page_with_its_project_import-work",
+              "status": "passed",
+              "title": "u3814_project_switch_keeps_each_page_with_its_project_import-work",
+              "duration": 1208.7747470000031,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3814_project_switch_keeps_each_page_with_its_project_project-settings",
+              "status": "passed",
+              "title": "u3814_project_switch_keeps_each_page_with_its_project_project-settings",
+              "duration": 894.0082399999992,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3814_escape_restores_the_previous_center_and_focus_missing_element_import-work",
+              "status": "passed",
+              "title": "u3814_escape_restores_the_previous_center_and_focus_missing_element_import-work",
+              "duration": 441.42076200000156,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3814_escape_restores_the_previous_center_and_focus_missing_element_project-settings",
+              "status": "passed",
+              "title": "u3814_escape_restores_the_previous_center_and_focus_missing_element_project-settings",
+              "duration": 449.75849799999924,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3814_switching_settings_pages_keeps_the_original_return_destination",
+              "status": "passed",
+              "title": "u3814_switching_settings_pages_keeps_the_original_return_destination",
+              "duration": 696.9542500000025,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3813_u3814_u3815_rendered_project_pages",
+              "status": "passed",
+              "title": "u3813_u3814_u3815_rendered_project_pages",
+              "duration": 27679.159268000003,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u4277a_sections_work_by_pointer_and_keyboard_project_false",
+              "status": "passed",
+              "title": "u4277a_sections_work_by_pointer_and_keyboard_project_false",
+              "duration": 1106.0885590000034,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u4277a_sections_work_by_pointer_and_keyboard_project_true",
+              "status": "passed",
+              "title": "u4277a_sections_work_by_pointer_and_keyboard_project_true",
+              "duration": 3562.4209830000036,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u4277a_section_navigation_keeps_unsubmitted_font_text",
+              "status": "passed",
+              "title": "u4277a_section_navigation_keeps_unsubmitted_font_text",
+              "duration": 269.53537500000675,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            }
+          ],
+          "startTime": 1793233029147,
+          "endTime": 1793233089985.5354,
+          "status": "passed",
+          "message": "",
+          "name": "/tmp/roundup-timeout-repair/apps/desktop/src/settings/u3799_app_settings.test.tsx"
+        }
+      ]
+    }
+  }
+}
