@@ -250,7 +250,7 @@ async fn start_workstream_door(selector: Option<&str>) {
     let terminals = terminals.as_array().unwrap();
     assert_eq!(terminals.len(), 1);
     assert_eq!(terminals[0]["id"], started["terminal_id"]);
-    assert_eq!(terminals[0]["owner"], id);
+    assert_eq!(nodes[0]["terminal_id"], started["terminal_id"]);
     assert_eq!(terminals[0]["running"], true);
     user.request("agent.stop", json!({"id":id})).await.unwrap();
 }
