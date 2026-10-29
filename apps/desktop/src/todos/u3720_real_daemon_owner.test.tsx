@@ -15,7 +15,7 @@ import { openLane } from "./laneBrowser";
 const execute = promisify(execFile);
 
 // U3720 requires real pointer and keyboard input; jsdom cannot observe group drop targets.
-it("u3720_real_daemon_owner_assign", async () => {
+it.skipIf(process.env.ROUNDUP_CAPTURES !== undefined)("u3720_real_daemon_owner_assign", async () => {
   const executable = chromePath();
 
   if (!executable) throw new Error("U3720 needs a Chrome binary");
@@ -202,11 +202,16 @@ it("u3311_real_daemon_delegate_board", async () => {
   const expected = new Map<number, string>();
   const saved = new Map<number, { title: string; body: string }>();
   let homeId: string;
+  const lostFocus: number[] = [];
+
+  const capture = async (step: string) => {
+    for (const id of ["U3308", "U3311", "T4902"]) await lane.capture(id, step);
+  };
 
   const observe = async (id: number, to: string) => {
     await lane.until(`document.querySelector('${row(id)}')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(to)}`);
     expect((await app.rpc("todo.list", null)).find(todo => todo.id === id)).toMatchObject({ id, home: homeId, title: saved.get(id)?.title, body: saved.get(id)?.body, owner: to === "me" ? me : actor(to) });
-    expect(await lane.evaluate("document.activeElement === document.body")).toBe(false);
+    if (await lane.evaluate("document.activeElement === document.body")) lostFocus.push(id);
     expected.set(id, to);
   };
 
@@ -215,7 +220,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     homeId = home.id;
     const agents: { id: string }[] = [];
 
-    for (const name of ["Writer", "Builder", "Reviewer"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: home.id, name }));
+    for (const name of ["Writer", "Builder", "Reviewer", "Empty destination"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: home.id, name }));
     await writeFile(target, JSON.stringify(actor(agents[0]!.id)));
     await app.rpc("rail.startDoor", { id: home.id });
     const made = [];
@@ -233,7 +238,14 @@ it("u3311_real_daemon_delegate_board", async () => {
       saved.set(todo.id, { title: todo.title, body: todo.body });
     }
 
-    await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+    const done = await app.rpc("todo.create", { title: "Published release notes", body: "Completed work", blockers: null, owner: me });
+    await app.rpc("todo.move", { id: done.id, home: home.id });
+    await app.rpc("todo.complete", { id: done.id });
+    const video = captureDir("U3311");
+    if (video) {
+      await mkdir(video, { recursive: true });
+      await lane.browser("record", "start", join(video, "hand-offs.webm"), `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+    } else await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     await lane.until("!!document.querySelector('#shelf-tab-todos')");
     await lane.browser("focus", `.rail-row[data-id="${home.id}"]`);
     await lane.until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
@@ -242,8 +254,8 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
     await lane.until(`!!document.querySelector('${group("unassigned")}')`);
     await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');if(g.dataset.state==='closed')g.querySelector('[data-part=branch-control]').click();return true;})()`);
-    await lane.evaluate(`(() => { window.__assignCalls = []; const fetch = window.fetch.bind(window); window.fetch = (url, options) => { if (String(url).endsWith('/__daemon/rpc')) { const call = JSON.parse(options.body); if (call.method === 'todo.assign') window.__assignCalls.push(call); } return fetch(url, options); }; return true; })()`);
-    await lane.capture("delegate-board", "board");
+    await lane.evaluate(`(() => { window.__assignCalls = []; const fetch = window.fetch.bind(window); window.fetch = (url, options) => { if (String(url).endsWith('/__daemon/rpc')) { const call = JSON.parse(options.body); if (call.method === 'todo.assign') window.__assignCalls.push(call); if (call.method === window.__failure?.method) { const failure = window.__failure; window.__failure = null; return Promise.resolve(new Response(JSON.stringify({error:{code:-32003,message:failure.message}}), {headers:{'Content-Type':'application/json'}})); } } return fetch(url, options); }; return true; })()`);
+    await capture("board");
 
     await lane.evaluate(`(() => {
       window.__glides = []; window.__glideRate = 1;
@@ -280,7 +292,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     expect(await busy()).not.toBe(original);
     expect(await lane.evaluate("window.__assignCalls.length")).toBe(0);
     expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: null, ...saved.get(moved.id) });
-    await lane.capture("delegate-board", "drag-preview");
+    await capture("drag-preview");
     await lane.browser("press", "Escape");
     await lane.browser("mouse", "up");
     await lane.until("!document.querySelector('[data-dnd-placeholder]')");
@@ -296,6 +308,11 @@ it("u3311_real_daemon_delegate_board", async () => {
     await observe(moved.id, agents[0]!.id);
     expect(await lane.evaluate<number>(`window.__glides.filter(item=>item.id===${moved.id}).length`)).toBe(1);
     await focus(made[5]!.id);
+    await lane.evaluate("window.__failure = {method:'todo.assign',message:'Agent unavailable; choose another owner'}");
+    await key("3", "Digit3");
+    await lane.until(`!!document.querySelector('.shelf [data-todo="${made[5]!.id}"] [role=alert]')`);
+    expect(await app.rpc("todo.get", { id: made[5]!.id })).toMatchObject({ id: made[5]!.id, home: home.id, owner: me, ...saved.get(made[5]!.id) });
+    await capture("assign-failure");
     await key("3", "Digit3");
     await observe(made[5]!.id, agents[2]!.id);
     await focus(made[6]!.id);
@@ -306,14 +323,15 @@ it("u3311_real_daemon_delegate_board", async () => {
     await observe(made[6]!.id, agents[0]!.id);
 
     await lane.browser("focus", '[role="switch"]');
-    await lane.evaluate("window.__kept = document.activeElement");
+    await lane.evaluate("window.__kept = document.activeElement; window.__scroll = [...document.querySelectorAll('.rail, .shelf-body')].map(el => el.scrollTop)");
     await lane.browser("press", "Space");
     await lane.until("document.querySelector('[role=switch]').getAttribute('aria-checked')==='true'");
     await observe(made[7]!.id, agents[0]!.id);
     expect(await lane.evaluate("document.activeElement === window.__kept")).toBe(true);
+    expect(await lane.evaluate("[...document.querySelectorAll('.rail, .shelf-body')].map(el => el.scrollTop)")).toEqual(await lane.evaluate("window.__scroll"));
     const prompts = await readFile(join(scratch, "prompts.jsonl"), "utf8");
     expect(prompts).toContain(`Todo #${made[7]!.id}`);
-    await lane.capture("delegate-board", "auto-hand-off");
+    await capture("auto-hand-off");
 
     const beforeBurst = await lane.evaluate<number>(`window.__glides.filter(item=>item.id===${moved.id}).length`);
 
@@ -327,14 +345,14 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.evaluate("(() => { window.__glideRate = 1; for (const row of document.querySelectorAll('.todo-row')) for (const animation of row.getAnimations()) animation.playbackRate = 1; })()");
     // Motion frames above record the retarget; the layout Checks read its settled destination.
     await lane.evaluate("Promise.all([...document.querySelectorAll('.todo-row')].flatMap(row=>row.getAnimations()).map(animation=>animation.finished.catch(()=>{}))).then(()=>true)");
-    await lane.capture("delegate-board", "burst-hand-off");
+    await capture("burst-hand-off");
     await lane.browser("set", "media", "dark", "reduced-motion");
     const beforeReduced = await lane.evaluate<number>(`window.__glides.filter(item=>item.id===${moved.id}).length`);
     await app.rpc("todo.assign", { id: moved.id, owner: actor(agents[0]!.id) });
     await observe(moved.id, agents[0]!.id);
     expect(await lane.evaluate(`window.__glides.filter(item=>item.id===${moved.id}).length`)).toBe(beforeReduced);
-    await lane.capture("delegate-board", "reduced-motion");
-    const captures = captureDir("delegate-board");
+    await capture("reduced-motion");
+    const captures = captureDir("U3311");
 
     if (captures) {
       await mkdir(captures, { recursive: true });
@@ -344,14 +362,19 @@ it("u3311_real_daemon_delegate_board", async () => {
     await focus(moved.id);
     await lane.browser("press", "Enter");
     await lane.until("!!document.querySelector('.todo-detail-title .todo-editable')");
-    await lane.browser("dblclick", ".todo-detail-title .todo-editable");
+    await lane.browser("dblclick", ".todo-detail-title .todo-editable p");
     await lane.until("!!document.querySelector('textarea[aria-label=Title]')");
     await lane.browser("fill", "textarea[aria-label=Title]", "Release notes revised");
+    await lane.evaluate("window.__failure = {method:'todo.update',message:'Save unavailable; retry your retained edit'}");
     await lane.browser("press", "Tab");
+    await lane.until("!!document.querySelector('.todo-detail [role=alert]')");
+    expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: actor(agents[0]!.id), ...saved.get(moved.id) });
+    await capture("save-failure");
+    await lane.browser("click", ".todo-detail-title .todo-editable button:last-child");
     await lane.until("!document.querySelector('textarea[aria-label=Title]')");
     saved.set(moved.id, { title: "Release notes revised", body: "" });
     await observe(moved.id, agents[0]!.id);
-    await lane.browser("dblclick", ".todo-detail-body .todo-editable");
+    await lane.browser("click", ".todo-add-notes");
     await lane.until("!!document.querySelector('textarea[aria-label=Body]')");
     await lane.browser("fill", "textarea[aria-label=Body]", "Exact body é 🧪\n次の行");
     await lane.browser("press", "Tab");
@@ -360,7 +383,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-history-line");
     await lane.until("document.querySelector('.todo-history-line')?.getAttribute('aria-expanded') === 'true'");
-    await lane.capture("delegate-board", "drawer-changes");
+    await capture("drawer-changes");
 
     const totals = (await app.rpc("todo.list", null)).filter(todo => !todo.done && todo.owner?.id === agents[0]!.id).reduce((sum, todo) => sum + (todo.estimate_minutes ?? 0), 0);
     const time = new Date(Date.now() + totals * 60_000);
@@ -371,6 +394,7 @@ it("u3311_real_daemon_delegate_board", async () => {
 
     for (const [id, to] of expected) await observe(id, to);
     expect((await app.rpc("todo.get", { id: made[0]!.id })).owner).toEqual(me);
+    expect(lostFocus).toEqual([]);
   } catch (error) {
     console.error(await lane.evaluate("document.body.innerText"));
     console.error(await app.rpc("message.list", { to: null, status: null }));
@@ -378,6 +402,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     console.error(await readFile(join(scratch, "prompts.jsonl"), "utf8").catch(() => "no prompts"));
     throw error;
   } finally {
+    if (captureDir("U3311")) await lane.browser("record", "stop");
     await lane.close();
     await real.stop();
     await rm(scratch, { recursive: true, force: true });
