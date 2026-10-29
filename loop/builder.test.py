@@ -1107,11 +1107,11 @@ class Plumbing(unittest.TestCase):
         self.assertEqual(len(github.bodies()), 1)
 
     def test_l82_a_rules_failure_counts_unless_every_failed_step_checks_pr_shape(self):
-        shape, steps = rules_run('loop/rules.sh ci-trailers "$PR"')
+        shape, steps = rules_run('loop/rules.sh scenario-ids')
         task, plumbing, github = self.start(shape, 'rules', [note(PLUMBED)] * builder.ATTEMPTS, steps=steps)
         self.assertTrue(task and plumbing)
         self.assertEqual(github.writes, [])
-        for steps in (['loop/rules.sh vocab'], ['loop/rules.sh ci-trailers "$PR"', 'python3 loop/builder.test.py']):
+        for steps in (['loop/rules.sh vocab'], ['loop/rules.sh scenario-ids', 'python3 loop/builder.test.py']):
             work, failing = rules_run(*steps)
             task, plumbing, github = self.start(work, 'rules',
                                                 [note(PLUMBED)] * builder.ATTEMPTS, steps=failing)
@@ -1133,7 +1133,7 @@ class Plumbing(unittest.TestCase):
         title = 'Fix PR #9: rules'
         def history(count):
             return [(n, title, MODEL) for n in range(1, count + 1)]
-        view, steps = rules_run('loop/rules.sh ci-trailers "$PR"')
+        view, steps = rules_run('loop/rules.sh scenario-ids')
         notes = [note(PLUMBED)] * builder.ATTEMPTS
         task, plumbing, _ = self.start(view, 'rules', notes, history(builder.PLUMBING_RUNS), steps)
         self.assertIsNone(task)
