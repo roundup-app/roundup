@@ -163,7 +163,11 @@ test("u4590_capture_selection_leaves_ordinary_discovery_unchanged", async () => 
   const loaded = await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
   const config = loaded!.config.test!;
 
-  expect(config.projects![1]).toMatchObject({ test: { include: ["src/**/*.test.{ts,tsx}"] } });
+  // SAFETY: the local Vite config declares inline project objects, not paths or factories.
+  const projects = config.projects! as TestProjectInlineConfiguration[];
+  const files = projects.flatMap(project => globSync(project.test!.include!).filter(file => !project.test!.exclude!.includes(file)));
+
+  expect([...new Set(files)].sort()).toEqual(globSync("src/**/*.test.{ts,tsx}").sort());
   expect(config.projects).toHaveLength(2);
   expect(config.fileParallelism).toBeUndefined();
   expect(config.testNamePattern).toBeUndefined();
