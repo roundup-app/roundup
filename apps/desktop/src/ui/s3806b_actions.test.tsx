@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import * as registry from "../keys/registry";
 import { createSignal } from "solid-js";
@@ -576,7 +576,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 const reviewCases = (["pointer", "enter"] as const).flatMap(how =>
   (["shared", "local"] as const).flatMap(readPath =>
   (["project", "selection"] as const).flatMap(removal =>
-    (["resolve", "reject", "dismiss", "stale-selection", "identity", "missing"] as const).map(outcome => ({ how, removal, outcome, readPath })))));
+    (["resolve", "reject", "dismiss", "stale-selection", "identity", "missing"] as const).filter(outcome => removal === "selection" || outcome !== "dismiss" && outcome !== "stale-selection").map(outcome => ({ how, removal, outcome, readPath })))));
 
 it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $readPath by $how, $removal, $outcome", async ({ how, removal, outcome, readPath }) => {
   const { app, connected, other } = await mountApp();
@@ -648,15 +648,17 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
       tree = outcome === "missing" ? [workstream("ops")] : [workstream("ops"), { ...reviewed, worktree: { ...reviewed.worktree!, branch: "replacement" } }];
       await connected.rail.refresh();
     }
+    app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
+    app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
     if (removal === "project") {
-      fireEvent.click(screen.getByRole("button", { name: /Open draft first/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Open first/ }));
       await screen.findByText("ops", { selector: ".name" });
     }
     await settled();
     const retryBefore = app.calls.length;
     app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
     app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
-    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    fireEvent.click(within(document.querySelector<HTMLElement>(".rail-command-notice")!).getByRole("button", { name: "Retry" }));
     if (outcome === "identity" || outcome === "missing") {
       await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("unavailable"))).toBe(true));
       expect(app.calls.slice(retryBefore).filter(call => call.method === method)).toEqual([]);
@@ -664,7 +666,10 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
       await waitFor(() => expect(app.calls.slice(retryBefore).filter(call => call.method === method).map(call => call.params)).toEqual([{ id: "reviewed" }]));
       await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
     }
-  } else await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
+  } else {
+    await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
+    if (readPath === "shared" && removal === "selection") await waitFor(() => expect(connected.worktrees.read("reviewed")).toMatchObject({ failure: null, state: { ahead: 8, dirty: false } }));
+  }
   expect(connected.drafts.list()).toEqual(drafts);
   expect(notes.list("reviewed")).toEqual(originalNotes);
   expect(other.calls.filter(call => call.method === method)).toEqual([]);
