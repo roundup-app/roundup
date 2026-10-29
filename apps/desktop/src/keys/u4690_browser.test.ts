@@ -36,11 +36,19 @@ beforeAll(async () => {
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());
+  const recording = captureDir("U4690");
+
+  if (recording) mkdirSync(join(recording, "head"), { recursive: true });
   await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+
+  if (recording) await browser("record", "start", join(recording, "head", "interaction.webm"));
 }, 90_000);
 
 afterAll(async () => {
-  try { await browser("close"); } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
+  try {
+    if (captureDir("U4690")) await browser("record", "stop");
+    await browser("close");
+  } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
 });
 
 const wait = async (expression: string) => browser("wait", "--fn", expression);
@@ -92,4 +100,51 @@ it("u4690a_pointer_keeps_source_focus_and_action_destinations", async () => {
   await browser("mouse", "up", "left");
   await wait(`!!document.activeElement?.closest('.ask-bar')`);
   await capture("U4690a", "head/ask");
+}, 60_000);
+
+it("u4690a_native_button_activation_uses_described_context", async () => {
+  await browser("press", "Escape");
+  await wait(`!document.activeElement?.closest('.ask-bar')`);
+
+  for (const key of ["Enter", "Space"]) {
+    await read(`window.__hintSource.focus()`);
+    await wait(`!!document.querySelector('.hint-line [data-hint="⌘K"]:enabled')`);
+    await read(`document.querySelector('.hint-line [data-hint="⌘K"]').focus()`);
+    await browser("press", key);
+    await wait(`!!document.querySelector('.hint-line.leader')`);
+    expect(await read(`document.activeElement === window.__hintSource`)).toBe(true);
+    await browser("press", "Escape");
+    await wait(`!document.querySelector('.hint-line.leader')`);
+  }
+}, 60_000);
+
+it("u4690d_numbered_group_and_rejected_assignment_keep_the_Todo", async () => {
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+  await wait(`!!window.__fake && !!document.querySelector('.shelf [data-part=branch-control]')`);
+  await read(`document.querySelector('.shelf [data-part=branch-control]').click()`);
+  await wait(`!!document.querySelector('.shelf .todo-row-button')`);
+  await read(`window.__todoSource = document.querySelector('.shelf .todo-row-button'); window.__todoSource.focus()`);
+  await wait(`!!document.querySelector('.hint-line [data-hint="Digit9"]:enabled')`);
+  await capture("U4690d", "head/numbered");
+  await read(`window.__fake.app.handlers['todo.assign'] = () => { throw new Error('Assignment refused: reconnect and retry without losing this Todo'); }`);
+  await browser("click", '.hint-line [data-hint="Digit9"]');
+  await wait(`document.querySelector('.shelf [role=alert]')?.textContent.includes('Assignment refused')`);
+  expect(await read(`document.activeElement === window.__todoSource`)).toBe(true);
+  expect(await read(`window.__fake.app.calls.filter(call => call.method === 'todo.assign').length`)).toBe(1);
+  await capture("U4690c", "head/rejected");
+}, 60_000);
+
+it("u2230b_hint_line_drops_from_the_end", async () => {
+  await read(`window.__todoSource.focus()`);
+
+  for (const width of [1280, 700]) {
+    await browser("set", "viewport", String(width), "800");
+    await wait(`!!document.querySelector('.hint-line [hidden]')`);
+    const hidden = await read<boolean[]>(`[...document.querySelector('.hint-line').children].map(row => row.hidden)`);
+    const first = hidden.indexOf(true);
+    expect(hidden.slice(first).every(Boolean)).toBe(true);
+    await read(`const shown = [...document.querySelectorAll('.hint-line button:enabled')].filter(button => !button.closest('[hidden]')); shown.at(-1)?.focus()`);
+    await browser("press", "Tab");
+    expect(await read(`document.activeElement?.closest('.hint-line [hidden]') !== null`)).toBe(false);
+  }
 }, 60_000);
