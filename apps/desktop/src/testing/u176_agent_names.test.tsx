@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { draftStorage } from "../state/storage";
@@ -73,12 +73,28 @@ describe("u2773 Rail task destinations", () => {
   let home: string;
   let other: string;
 
-  beforeEach(async () => {
-    localStorage.clear();
+  beforeAll(async () => {
     first = await startRealDaemon({});
     second = await startRealDaemon({});
+  }, 120_000);
+
+  afterAll(async () => {
+    await first?.stop();
+    await second?.stop();
+  });
+
+  beforeEach(async () => {
+    localStorage.clear();
     left = createServedApp(first.base);
     right = createServedApp(second.base);
+
+    // Keep real Project authorities, but give each probe fresh objects and no prior Agents.
+    for (const source of [left, right]) {
+      for (const node of await source.rpc("rail.tree", null)) {
+        if (node.kind === "workstream" && node.parent === null) await source.rpc("rail.remove", { id: node.id });
+      }
+    }
+
     home = (await left.rpc("rail.createWorkstream", { name: "same", parent: null })).id;
     await right.rpc("rail.createWorkstream", { name: "padding", parent: null });
     other = (await right.rpc("rail.createWorkstream", { name: "same", parent: null })).id;
@@ -90,10 +106,8 @@ describe("u2773 Rail task destinations", () => {
     };
   }, 120_000);
 
-  afterEach(async () => {
+  afterEach(() => {
     cleanup();
-    await first?.stop();
-    await second?.stop();
     localStorage.clear();
   });
 
