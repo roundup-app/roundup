@@ -76,4 +76,3 @@
   color: var(--disabled);
   cursor: default;
 }
-.hint-action:disabled .key-chip { color: var(--disabled); }
