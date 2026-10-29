@@ -30,8 +30,13 @@ const focusableEmulator = (): EmulatorFactory => () => {
     onInput: () => {},
     turns: () => [],
     selectTurn: () => {},
-    show: (host) => {
+    prepare: async host => { host.replaceChildren(field);
+
+ return { cols: 80, rows: 24 }; },
+    show: (host, focus = true) => {
       host.replaceChildren(field);
+
+      if (focus) field.focus();
 
       return { cols: 80, rows: 24 };
     },
@@ -53,7 +58,7 @@ const open = async () => {
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["rail.tree"] = () => [
     door("w", "idle", "idle", { name: "lead" }),
-    ...["a", "b", "c"].map((id) => agent(id, "idle", "x", { parent: "w" })),
+    ...["a", "b", "c"].map((id) => agent(id, id === "a" ? "needs-you" : "idle", "x", { parent: "w" })),
   ];
   Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", owner: { kind: "user", id: "you", parent: null }, updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
   app.handlers["terminal.list"] = () => listed;
@@ -86,6 +91,7 @@ const toRail = async () => {
 const toPane = async () => {
   fireEvent.click(rowOf("b"));
   await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("b")));
   document.querySelector<HTMLElement>(".pane-screen textarea")!.focus();
   await waitFor(() => expect(line()).toEqual(label("agent")));
 };
@@ -152,7 +158,8 @@ describe("u2230 shortcut hints", () => {
 
         if (hint.keys === "⌘⌫") await answerQuestion(true);
 
-        if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
+        if (hint.keys === "⌃⌘J") await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".pane-screen textarea")));
+        else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
         else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
         else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
         else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
