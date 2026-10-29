@@ -98,7 +98,7 @@ export default function PadRichEditor(props: {
 
     // SAFETY: Crepe recursively partials HTMLElement in its root type; the supported root is a real DOM element.
     const blockConfig = {
-      blockHandle: { getOffset: () => 0 },
+      blockHandle: { getOffset: () => 0, root: menuHost },
       slashMenu: { root: menuHost },
       textGroup: { divider: null },
     } as BlockEditFeatureConfig;
