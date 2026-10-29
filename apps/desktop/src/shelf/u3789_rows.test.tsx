@@ -288,6 +288,8 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
   fireEvent.keyDown(controls.row, {key:"F2"});
   const field = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
+  // @zag-js/editable focusInput schedules selectOnFocus in raf; observe after that frame.
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
   const text = "  composed 日本語 🌱  ";
   fireEvent.input(field, {target:{value:text}});
   field.setSelectionRange(2, 5);
@@ -313,6 +315,8 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
 
   const restored = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(document.activeElement).toBe(restored));
+  // Observe the settled library focus, rather than the earlier NameField ref microtask.
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
   expect(restored.value).toBe(text);
   expect([restored.selectionStart, restored.selectionEnd]).toEqual([2,5]);
   expect(controls.app.calls.filter(call => ["todo.update","pad.rename","pad.read","todo.readHistory"].includes(call.method))).toEqual([]);
