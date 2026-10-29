@@ -5,10 +5,11 @@
 //! exists before the reader thread reads any output, so none is missed.
 
 mod contract_handlers;
-mod integration;
 mod input;
+mod integration;
 mod output;
 mod owner;
+mod remote;
 pub use owner::TerminalOwner;
 mod program;
 mod pty;
@@ -248,6 +249,7 @@ impl Shared {
             entry.info.running = false;
             entry.handle = None;
             entry.pid = None;
+            entry.info.program_pid = None;
             entry.info.exit_code = code;
             entry.output = None;
         }
@@ -256,6 +258,8 @@ impl Shared {
 }
 
 pub struct Terminals {
+    owner_helper: Option<std::path::PathBuf>,
+    remotes: Mutex<BTreeMap<u64, Arc<remote::Remote>>>,
     shared: Arc<Shared>,
     /// Where X15's shell integration files are written.
     integration_dir: std::path::PathBuf,
@@ -276,6 +280,8 @@ impl Terminals {
     /// `params.env`): the caller owns the list and what it means.
     pub fn open_with(dir: &Path, bus: Bus, clean_env: &[&str]) -> Result<Self, OpenError> {
         Ok(Self {
+            owner_helper: None,
+            remotes: Mutex::new(BTreeMap::new()),
             shared: Arc::new(Shared {
                 bus,
                 clock: recorder::clock(),
@@ -361,6 +367,9 @@ impl Terminals {
 
     /// X12: stop Terminal `id` if it runs and forget it. `INVALID_PARAMS` for one with no owner.
     pub async fn close(&self, id: &str) -> Result<(), RpcError> {
+        if self.close_remote(id).await? {
+            return Ok(());
+        }
         let number = parse_terminal_number(id)?;
         let running = {
             let table = self.shared.table();
@@ -391,6 +400,7 @@ impl Terminals {
 
     /// Close every Terminal `owner` holds; one `terminal.changed` for all, none for none.
     pub async fn close_owned_by(&self, owner: &str) -> Result<(), RpcError> {
+        let remote_closed = self.close_remote_owned(owner).await?;
         let ids: Vec<u64> = self
             .shared
             .table()
@@ -407,7 +417,7 @@ impl Terminals {
             }
             self.shared.table().remove(number);
         }
-        if !ids.is_empty() {
+        if !ids.is_empty() || remote_closed {
             self.shared
                 .bus
                 .emit(Actor::daemon(), EventData::TerminalChanged);
@@ -417,6 +427,9 @@ impl Terminals {
 
     /// Forget `owner`'s oldest exited Terminal when it holds [`OWNED_CAP`]; true when one went.
     fn make_room(&self, owner: &str) -> Result<bool, RpcError> {
+        if self.owner_helper.is_some() {
+            return self.make_remote_room(owner);
+        }
         let mut table = self.shared.table();
         let parked: Vec<(u64, bool)> = table
             .iter()
@@ -442,6 +455,9 @@ impl Terminals {
     }
 
     async fn start(&self, params: SpawnParams, owner: Option<String>) -> Result<Spawned, RpcError> {
+        if let Some(helper) = &self.owner_helper {
+            return self.start_owner(helper, params, owner).await;
+        }
         check_program(&params)?;
         // portable-pty silently falls back to $HOME when the cwd is unusable; refuse instead.
         if !Path::new(&params.cwd).is_dir() {
@@ -580,6 +596,7 @@ impl Terminals {
             Entry {
                 pid,
                 info: TerminalInfo {
+                    program_pid: pid,
                     id: number.to_string(),
                     incarnation,
                     cwd: params.cwd,
@@ -616,6 +633,12 @@ impl Terminals {
 
     /// Tell a running Terminal its window is now `cols` x `rows`. `NOT_FOUND` as for [`Terminals::write`].
     pub async fn resize(&self, id: &str, cols: u16, rows: u16) -> Result<(), RpcError> {
+        if let Some(remote) = self.remote(id)? {
+            return remote.call(
+                "terminal.resize",
+                serde_json::json!({"id":id,"cols":cols,"rows":rows}),
+            );
+        }
         let size = window(cols, rows)?;
         let handle = self.running(id)?;
         let screen = self.screen(id)?;
@@ -646,6 +669,9 @@ impl Terminals {
 
     /// Return the Terminal's last screen and the output offset represented by it, from one cut.
     pub fn snapshot(&self, id: &str) -> Result<Snapshot, RpcError> {
+        if let Some(remote) = self.remote(id)? {
+            return remote.call("terminal.snapshot", serde_json::json!({"id":id}));
+        }
         let screen = self.screen(id)?;
         let mut state = screen.lock().expect("terminal screen lock");
         if !state.snapshot_available {
@@ -673,6 +699,9 @@ impl Terminals {
         id: &str,
         max: Option<u32>,
     ) -> Result<contracts::terminal::Screen, RpcError> {
+        if let Some(remote) = self.remote(id)? {
+            return remote.call("terminal.screen", serde_json::json!({"id":id,"max":max}));
+        }
         let cap = output::cap(max)?;
         let screen = self.screen(id)?;
         let mut state = screen.lock().expect("terminal screen lock");
@@ -693,6 +722,12 @@ impl Terminals {
     /// X13, X16: the output from `params.after` on, or from the reader's cursor, as plain text.
     /// Writes nothing and emits nothing; only a read by `reader` moves that reader's cursor.
     pub fn read(&self, params: &ReadParams) -> Result<contracts::terminal::Read, RpcError> {
+        if let Some(remote) = self.remote(&params.id)? {
+            return remote.call(
+                "terminal.read",
+                serde_json::to_value(params).map_err(RpcError::internal)?,
+            );
+        }
         let cap = output::cap(params.max)?;
         let (after, reader) = match (params.after, params.reader.as_deref()) {
             (Some(after), _) => (Some(after), None),
@@ -719,6 +754,12 @@ impl Terminals {
     /// X13: the lines of the output that match `params.pattern`. Changes nothing, and searches a
     /// copy of the log with no lock parked.
     pub fn search(&self, params: &SearchParams) -> Result<contracts::terminal::Search, RpcError> {
+        if let Some(remote) = self.remote(&params.id)? {
+            return remote.call(
+                "terminal.search",
+                serde_json::to_value(params).map_err(RpcError::internal)?,
+            );
+        }
         let cap = output::cap(params.max)?;
         let window = self.window(&params.id, params.after.unwrap_or(0))?;
         output::search(&window, &params.pattern, cap)
@@ -741,6 +782,9 @@ impl Terminals {
 
     /// The pid of Terminal `id`'s program, only while it runs (H21).
     pub fn program_pid(&self, id: &str) -> Option<u32> {
+        if let Some(remote) = self.remote(id).ok()? {
+            return remote.info().ok().and_then(|info| info.program_pid);
+        }
         let number = parse_terminal_number(id).ok()?;
         self.shared.table().get(&number).and_then(|entry| entry.pid)
     }
@@ -761,6 +805,9 @@ impl Terminals {
     /// it never slows the PTY reader. For output from the first byte and a guaranteed exit event,
     /// use [`Spawned::events`] instead.
     pub fn subscribe(&self, id: &str) -> Result<broadcast::Receiver<Arc<EventData>>, RpcError> {
+        if let Some(remote) = self.remote(id)? {
+            return remote.subscribe();
+        }
         let number = parse_terminal_number(id)?;
         let table = self.shared.table();
         table
@@ -773,6 +820,9 @@ impl Terminals {
     /// X14: the output of a running Terminal from its current end, in order. `NOT_FOUND` as for
     /// [`Terminals::subscribe`]. Dropping the stream releases the subscription.
     pub fn subscribe_output(&self, id: &str) -> Result<OutputStream, RpcError> {
+        if let Some(remote) = self.remote(id)? {
+            return remote.subscribe_output();
+        }
         let number = parse_terminal_number(id)?;
         let (start, receiver) = {
             let table = self.shared.table();
@@ -803,6 +853,7 @@ impl Terminals {
     /// sends one notice to each running program that turned on mode 2031.
     pub async fn set_scheme(&self, params: SchemeParams) -> Result<(), RpcError> {
         let palette = scheme::Palette::parse(&params)?;
+        self.remote_scheme(&params)?;
         let before = self
             .shared
             .scheme
@@ -829,11 +880,20 @@ impl Terminals {
 
     /// Every Terminal, running or exited, oldest first.
     pub fn list(&self) -> Vec<TerminalInfo> {
-        self.shared
-            .table()
+        let remotes: Vec<_> = self
+            .remotes
+            .lock()
+            .expect("remote table")
             .values()
-            .map(|entry| entry.info.clone())
-            .collect()
+            .cloned()
+            .collect();
+        let mut infos: Vec<_> = remotes
+            .iter()
+            .filter_map(|remote| remote.info().ok())
+            .collect();
+        infos.extend(self.shared.table().values().map(|entry| entry.info.clone()));
+        infos.sort_by_key(|info| info.id.parse::<u64>().expect("Terminal id"));
+        infos
     }
 }
 
