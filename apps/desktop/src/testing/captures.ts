@@ -7,7 +7,9 @@ const root = () => resolve(process.cwd(), "../..", "artifacts/ux");
 export function captureDir(id: string): string | null {
   const named = (process.env.ROUNDUP_CAPTURES ?? "").split(",").map((part) => part.trim());
 
-  const target = named.includes(id) ? id : named.find(name => Object.values(observerTable).flat().some(entry => typeof entry !== "string" && entry.id === name && entry.alias === id)) ?? null;
+  const target = named.includes(id) ? id : named.find(name =>
+    Object.values(observerTable).some(observer => "aliases" in observer
+      && Object.entries(observer.aliases).some(([selection, source]) => selection === name && source === id))) ?? null;
 
   if (target === null) return null;
 
@@ -77,7 +79,7 @@ const observerTable = {
   "src/settings/u4277_rendered.test.ts": ["U4277a", "U4277b", "U4277c"],
   "src/shelf/u371_reserved_modes.test.ts": ["U2892"],
   "src/shelf/u3787c_browser.test.ts": ["U3787c"],
-  "src/shelf/u3789_browser.test.ts": [{ id: "U4708", alias: "U4275a" }, "U3789a", "U3789b", "U3789c", "U3789d", "U3800a", "U4275a", "U4275b", "U4275c", "U4335a"],
+  "src/shelf/u3789_browser.test.ts": { ids: ["U4708", "U3789a", "U3789b", "U3789c", "U3789d", "U3800a", "U4275a", "U4275b", "U4275c", "U4335a"], aliases: { U4708: "U4275a" } },
   "src/shelf/u4463_browser.test.ts": ["U4463"],
   "src/state/u3787f_storage_browser.test.ts": ["U3787f"],
   "src/state/u4086_storage_browser.test.ts": ["U4086a", "U4086b", "U4086c", "U4086d"],
@@ -113,10 +115,10 @@ const observerTable = {
   "src/ui/u3512_rendered.test.ts": ["U3512d"],
   "src/ui/u474_browser.test.ts": ["U477"],
   "src/ui/u484_browser.test.ts": ["U3800a", "U3800b", "U3800c"],
-} satisfies Record<string, readonly (string | { id: string; alias: string })[]>;
+} satisfies Record<string, readonly string[] | { ids: readonly string[]; aliases: Readonly<Record<string, string>> }>;
 
-export const observers = Object.fromEntries(Object.entries(observerTable).map(([file, ids]) =>
-  [file, ids.map(entry => typeof entry === "string" ? entry : entry.id)]));
+export const observers = Object.fromEntries(Object.entries(observerTable).map(([file, observer]) =>
+  [file, "ids" in observer ? observer.ids : observer]));
 
 /** U4590: fail closed before App setup when any requested capture has no observer. */
 export function captureTests(selection: string | undefined) {
