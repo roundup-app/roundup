@@ -18,7 +18,11 @@ fn x8_reconnecting_keeps_the_original_program() {
     let (records, _owned) = runtime.block_on(async {
         let terminals = Terminals::open(dir.path(), rpc::Bus::new())
             .unwrap()
-            .with_terminal_owner(std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner")));
+            .with_terminal_owner(
+                &std::env::var_os("ROUNDUP_TEST_APP_BIN")
+                    .map(|dir| std::path::PathBuf::from(dir).join("terminal-owner"))
+                    .unwrap_or_else(|| env!("CARGO_BIN_EXE_terminal-owner").into()),
+            );
         assert!(terminals.list().await.is_empty());
         assert!(terminals.terminal_owners().is_empty());
         let first = terminals.spawn(params.clone()).await.unwrap();
