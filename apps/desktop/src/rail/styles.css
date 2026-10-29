@@ -848,10 +848,10 @@
 }
 
 /* U4896: the section icon and depth-zero mark share an edge; depth never moves the trailing slot. */
-.rail .section-head {
+.rail-tree .section-head {
   padding-inline: var(--rail-edge);
 }
-.rail .section-head [data-part="branch-indicator"] {
+.rail-tree .section-head [data-part="branch-indicator"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
