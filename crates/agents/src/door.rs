@@ -106,7 +106,7 @@ impl Agents {
                         Some(Slot::Running(run))
                             if run.attempt == attempt && !run.ended && !run.closing =>
                         {
-                            if run.session_started
+                            if run.session_started.is_some()
                                 && !run.first_pending
                                 && run
                                     .adapter
@@ -171,7 +171,7 @@ impl Agents {
                 let observed = self.shared.events.observed.notified();
                 let seen = matches!(
                     self.shared.runs().get(id),
-                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started
+                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started.is_some()
                 );
                 if seen {
                     return;

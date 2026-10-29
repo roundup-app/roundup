@@ -285,14 +285,36 @@ impl Intake {
     }
 
     /// A42, A4452d: type the part's words byte for byte into the new Door once it takes input.
-    async fn type_part(&self, workstream: &str, text: &str) -> Result<(), RpcError> {
-        let deadline = tokio::time::Instant::now() + START_DOOR_ACK_BOUND;
+    async fn type_part(&self, workstream: &str, attempt: &str, text: &str) -> Result<(), RpcError> {
         loop {
             let observed = self.agents.shared.events.observed.notified();
+            let deadline = match self.agents.shared.runs().get(workstream) {
+                Some(Slot::Running(run))
+                    if run.attempt == attempt && !run.ended && !run.closing =>
+                {
+                    run.session_started
+                        .map(|started| started + START_DOOR_ACK_BOUND)
+                }
+                _ => return Err(RpcError::not_accepted("prompt not accepted")),
+            };
+            let Some(deadline) = deadline else {
+                observed.await;
+                continue;
+            };
             match self
                 .agents
                 .shared
-                .prompt(workstream, text, None, true, None)
+                .prompt(
+                    workstream,
+                    text,
+                    None,
+                    true,
+                    Some(PromptRecord {
+                        attempt: Some(attempt.to_owned()),
+                        revision: None,
+                        written: None,
+                    }),
+                )
                 .await
                 .map_err(PromptError::from)
             {
@@ -360,7 +382,7 @@ impl Intake {
                         {
                             Ok(FirstSteerCompletion::Submitted) => {
                                 // A4452d: the Order went to the inbox; the user's words are typed.
-                                self.type_part(&workstream, &part.text).await
+                                self.type_part(&workstream, &attempt, &part.text).await
                             }
                             _ => Err(RpcError::not_accepted("prompt not accepted")),
                         }
@@ -503,6 +525,7 @@ impl Intake {
                             None,
                             true,
                             Some(crate::PromptRecord {
+                                attempt: None,
                                 revision: None,
                                 written: Some(Arc::new(move |_| intake.emit(&ask_id).map(|_| ()))),
                             }),
