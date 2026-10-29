@@ -36,12 +36,12 @@ it("u3800_close_returns_the_center_and_focus", async () => {
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });
   fireEvent.keyDown(view, { key: "Escape", code: "Escape" });
-  expect(screen.queryByRole("region", { name: "Settings" })).toBeNull();
+  expect(view.isConnected).toBe(false);
   expect(document.activeElement).toBe(opener);
   expect(screen.getByRole("button", { name: /Choose/ })).toBe(opener);
   fireEvent.keyDown(opener, { key: ",", code: "Comma", metaKey: true });
   await screen.findByRole("region", { name: "Settings" });
-  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "← Back" }));
   expect(document.activeElement).toBe(opener);
 });
 
@@ -59,7 +59,7 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   fireEvent.click(recorder);
   expect(recorder.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
-  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "← Back" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
@@ -307,20 +307,27 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
     await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(within(view).getByRole("tab", { name }).id));
   }
 
-  const appearance = within(view).getByRole("tab", { name: "Appearance" });
-  appearance.focus();
+  const pages = ["Agents", "Terminal", "Shortcuts", "Appearance"];
+  within(view).getByRole("tab", { name: "Agents" }).focus();
   await Promise.resolve();
-  fireEvent.keyDown(appearance, { key: "ArrowUp" });
-  await waitFor(() => expect(document.activeElement).toBe(within(view).getByRole("tab", { name: "Shortcuts" })));
-  await waitFor(() => expect(document.activeElement?.getAttribute("aria-selected")).toBe("true"));
-  fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
-  await waitFor(() => expect(document.activeElement).toBe(appearance));
-  await waitFor(() => expect(appearance.getAttribute("aria-selected")).toBe("true"));
+
+  for (const [key, names] of [["ArrowDown", pages.slice(1)], ["ArrowUp", pages.slice(0, -1).reverse()]] as const) {
+    for (const name of names) {
+      fireEvent.keyDown(document.activeElement!, { key });
+      const tab = within(view).getByRole("tab", { name });
+      await waitFor(() => expect(document.activeElement).toBe(tab));
+      await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
+      await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tab.id));
+    }
+  }
+
+  fireEvent.click(within(view).getByRole("tab", { name: "Appearance" }));
   const panel = await within(view).findByRole("tabpanel", { name: "Appearance" });
   const appearanceChoice = within(panel).getByRole("combobox", { name: "Appearance" });
   appearanceChoice.focus();
   await waitFor(() => expect(within(view).getByRole("tabpanel").contains(appearanceChoice)).toBe(true));
   expect(document.activeElement).toBe(appearanceChoice);
+
 });
 
 it("u4277a_section_navigation_keeps_unsubmitted_font_text", async () => {

@@ -89,38 +89,47 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     save(patch);
   };
 
+  const close = () => { props.onOpenChange?.(false); view.close(); };
+
   const defaults = [{ value: "", label: copy.modelDefault }];
 
   return <Show when={view.open()}>
-    <SettingsShell heading={copy.settings} onClose={() => { props.onOpenChange?.(false); view.close(); }}>
+    <SettingsShell heading={copy.settings} hideHeading onClose={close}>
       <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
+        <aside class="settings-navigation">
+        <button data-button="quiet" class="settings-back word" type="button" onClick={close}>{copy.settingsBack}</button>
+        <h2 class="settings-title">{copy.settings}</h2>
         <Tabs.List aria-label={copy.settings}>
+          <h3 class="settings-category">{copy.settingsAgents}</h3>
           <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
+          <h3 class="settings-category">{copy.settingsTerminal}</h3>
           <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
+          <h3 class="settings-category">{copy.settingsGeneral}</h3>
           <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
         </Tabs.List>
+        </aside>
       <div class="settings-content">
-      <Tabs.Content value="Agents"><SettingsGroup hideHeading name={copy.settingsAgents}>
-        <Select label={copy.permissionMode} value={appSettings().permissionMode} choices={[
+      <Tabs.Content value="Agents"><SettingsGroup name={copy.settingsAgents}>
+        <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
         ]} onValueChange={permissionMode => { if (permissionMode === "" || permissionMode === "default" || permissionMode === "acceptEdits" || permissionMode === "plan" || permissionMode === "auto") save({ permissionMode }); }} />
         <Show when={props.project()}>
-          <label class="settings-field"><span class="settings-field-caption">{copy.engine}</span><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
+          <Field.Root class="settings-field"><div class="settings-caption"><Field.Label>{copy.engine}</Field.Label><Field.HelperText>{copy.engineHint}</Field.HelperText></div><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
             items={[...defaults, ...(offered()?.list?.engines ?? []).map(item => ({ value: item.id, label: item.label }))]}
-            onSelect={chooseEngine} /></label>
-          <label class="settings-field"><span class="settings-field-caption">{copy.model}</span><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
+            onSelect={chooseEngine} /></Field.Root>
+          <Field.Root class="settings-field"><div class="settings-caption"><Field.Label>{copy.model}</Field.Label><Field.HelperText>{copy.modelHint}</Field.HelperText></div><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
             items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
-            onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></label>
+            onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></Field.Root>
         </Show>
         <ReservedLine message={offered()?.failure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
-        <Field.Root class="settings-field settings-font"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
+        <Field.Root class="settings-field settings-font"><div class="settings-caption"><Field.Label>{copy.fontFamily}</Field.Label><Field.HelperText>{copy.fontFamilyHint}</Field.HelperText></div><Field.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
           onInput={event => edit("fontFamily", event.currentTarget)} onBlur={() => { commit("fontFamily", field("fontFamily")); }}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></Field.Root>
-        <Field.Root class="settings-field" invalid={!!sizeFailure()}><Field.Label>{copy.fontSize}</Field.Label><Deferred load={() => import("../ui/NumberInput")} label={copy.fontSize}>{module => <module.NumberInput.Root value={field("fontSize")} min={MIN_FONT_SIZE} max={MAX_FONT_SIZE} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
+        <Field.Root class="settings-field" invalid={!!sizeFailure()}><div class="settings-caption"><Field.Label>{copy.fontSize}</Field.Label><Field.HelperText>{copy.fontSizeHint}</Field.HelperText></div><Deferred load={() => import("../ui/NumberInput")} label={copy.fontSize}>{module => <module.NumberInput.Root value={field("fontSize")} min={MIN_FONT_SIZE} max={MAX_FONT_SIZE} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
           if (Number.isFinite(valueAsNumber) && valueAsNumber >= MIN_FONT_SIZE && valueAsNumber <= MAX_FONT_SIZE) drafts.edit(destination("fontSize"), { text: value }, null, "ordinary");
         }}><module.NumberInput.Input aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
           onInput={event => edit("fontSize", event.currentTarget)} onBlur={commitSize}
@@ -128,14 +137,14 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <ReservedLine message={sizeFailure()} />
         </Field.Root>
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup hideHeading name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Appearance"><SettingsGroup hideHeading name={copy.settingsAppearance}>
-        <Select label={copy.mode} choices={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
+        <Select description={copy.modeHint} label={copy.mode} choices={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => { if (mode === "dark" || mode === "light" || mode === "system") save({ mode }); }} />
       </SettingsGroup></Tabs.Content>
-      </div></Tabs.Root>
       <ReservedLine message={failure()} />
       <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
+      </div></Tabs.Root>
     </SettingsShell>
   </Show>;
 };
