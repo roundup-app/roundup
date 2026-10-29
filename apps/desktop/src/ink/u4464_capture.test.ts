@@ -93,8 +93,12 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await snap(`${theme}-stopped-door`);
       await load("door-stopped");
       await wait(`!!document.querySelector('.pane-door .empty-state') && !!document.querySelector('.xterm-screen')`);
+      await browser("click", ".pane-door .pane-action");
+      await wait(`!document.querySelector('.pane-door') && !!document.querySelector('.xterm-screen')`);
       await read(`(async () => { const nodes = await window.__fake.app.rpc('rail.tree', {}); const door = nodes.find(node => node.id === 'first-workstream'); window.__fake.writeOutput(door.terminal_id, Array.from({length:60}, (_, index) => 'Retained output line ' + (index + 1) + ' — completed work remains available across the stopped Door pane.').join('\\r\\n') + '\\r\\n'); })()`);
       await wait(`[...window.__terminals.values()].some(emulator => emulator.serialize().data.includes('Retained output line 60'))`);
+      await read(`window.__fake.setStatus('first-workstream', 'done', 'finished')`);
+      await wait(`!!document.querySelector('.pane-door .empty-state')`);
       await snap(`${theme}-stopped-door-output`);
       await load("resources", "resources");
       await read(`window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[]})`);
