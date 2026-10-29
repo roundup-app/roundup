@@ -254,7 +254,10 @@ async fn a4691b_missing_debug_runtime_is_repairable() {
         );
         assert!(message.contains("pnpm install"), "{message}");
         assert!(message.contains("ROUNDUP_SIDECAR_DIR"), "{message}");
-        let repair = format!("tools/sidecar/bundle.sh {} --local-node", sidecar.display());
+        let repair = format!(
+            "tools/sidecar/bundle.sh '{}' --local-node",
+            sidecar.display()
+        );
         assert!(message.contains(&repair), "{message}");
         assert_eq!(std::fs::read(&fx.conversation).unwrap(), RECORDS.as_bytes());
         assert!(
