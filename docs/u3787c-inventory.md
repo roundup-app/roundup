@@ -36,7 +36,32 @@ Agent-owned Pad names retain their ownership restriction. `pads/u3789a_pad_renam
 
 Gates: P3/P9 forbid attention or starts from selection; P6/P11 preserve original identities, exact drafts, recovery and Terminal input ownership; P14 forbids usage/cost data. Observers assert focus, selection, call counts and contracts. Rendered captures judge D2/D5/D6/D9; behavioral tests make no layout assertions. All keyboard/pointer feedback remains instant, using existing Tokens and controls.
 
-The inventory's new App observers pass 18 cases. Full acceptance remains blocked by
-#4733: retained Shelf Pad reload and reaction-acknowledgement observers time out,
-and the real-Terminal restoration observer fails during Vite preparation. None is
-counted as a restoration pass; #4306 and #3843 remain open.
+The final App inventory has 18 behavioral cases. The retained P11 observer repair
+merged in [#4741](https://github.com/roundup-app/roundup/pull/4741), completing
+[#4733](https://github.com/roundup-app/roundup/issues/4733). NameField uses Ark's
+`selectOnFocus={false}` because its existing draft holder restores the selection;
+Ark's deferred select-all must not overwrite that range.
+
+| Retained acceptance | Behavioral observer |
+| --- | --- |
+| Exact Todo/Pad draft, selection and original object after reload; no rename/read/history from restoration | `shelf/u3789_rows.test.tsx`: `u3789a_rename_never_opens_reload_keeps_original_identity`, parameterized over Todo and Pad |
+| Late reaction acknowledgement stays in its original Project and preserves newer input | `reactions/nr9_reactions.test.tsx`: `nr9_creation_acknowledgement_refreshes_the_remounted_project` |
+| Real Project-name restoration and separate Project identities | `header/u184_close.test.tsx`: `u2773a_header_restores_exact_work_real_reload` |
+| Real Terminal-name restoration, exact selection and refusal to rename an ended original | `bubbles/u511a_browser.test.ts`: `u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery` |
+
+The repair's [check run](https://github.com/roundup-app/roundup/actions/runs/40800954408)
+passed all six web lanes and Chromium. Its
+[Issue evidence](https://github.com/roundup-app/roundup/issues/4733#issuecomment-6485381820)
+records passing real-Terminal restoration and six dark 1512×950 Rail/Shelf captures
+on tree-40, tabs-8 and conflict, including visible failure text and D2/D5/D6/D9.
+Earlier observer failures remain recorded there; they are not acceptance passes.
+This inventory completes the bounded list/rename work of #4306, subject to its
+completion PR's required checks and independent review. #3843 remains open.
+
+Completion validation on 2026-10-29, including main `618cb1169`: the combined
+17-file inventory, activation and P11 recovery suite passed all 395 tests
+(`vitest run`, two workers, no retries). This includes all 18 final App inventory
+cases and the real-Project header observer. The real-Terminal reload/ended-original
+observer passed separately with one worker and no retries. Existing native evidence
+is retained: [check 40716930383](https://github.com/roundup-app/roundup/actions/runs/40716930383)
+passed `mac` and `mac-clippy`; the user reports what they meet on the Mac.
