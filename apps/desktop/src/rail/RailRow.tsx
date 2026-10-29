@@ -76,7 +76,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
   };
 
   return <>
-    <input
+    <input spellcheck={false} autocorrect="off" autocapitalize="off"
       type="text"
       aria-label={copy.name}
       aria-invalid={conflict() || current()?.status === "failed" ? true : undefined}
