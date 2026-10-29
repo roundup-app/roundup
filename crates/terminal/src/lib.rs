@@ -258,6 +258,8 @@ impl Shared {
 }
 
 pub struct Terminals {
+    #[cfg(feature = "test-support")]
+    test_input: Option<Mutex<Box<dyn Write + Send>>>,
     owner_helper: Option<std::path::PathBuf>,
     remotes: Mutex<BTreeMap<u64, Arc<remote::Remote>>>,
     shared: Arc<Shared>,
@@ -280,6 +282,8 @@ impl Terminals {
     /// `params.env`): the caller owns the list and what it means.
     pub fn open_with(dir: &Path, bus: Bus, clean_env: &[&str]) -> Result<Self, OpenError> {
         Ok(Self {
+            #[cfg(feature = "test-support")]
+            test_input: None,
             owner_helper: None,
             remotes: Mutex::new(BTreeMap::new()),
             shared: Arc::new(Shared {

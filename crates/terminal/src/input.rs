@@ -2,6 +2,13 @@
 use super::*;
 
 impl Terminals {
+    /// A4899a: exercise physical prompt formatting without a program or PTY.
+    #[cfg(feature = "test-support")]
+    pub fn with_test_input(mut self, writer: impl Write + Send + 'static) -> Self {
+        self.test_input = Some(Mutex::new(Box::new(writer)));
+        self
+    }
+
     /// Queue `bytes` to be typed into a running Terminal and return without waiting for the program to
     /// read them. `NOT_FOUND` if it is unknown or has exited; `CONFLICT` if the program has left
     /// [`WRITE_BACKLOG`] writes unread.
@@ -50,6 +57,10 @@ impl Terminals {
         id: &str,
         effect: impl FnOnce(&mut dyn Write) -> Result<(), RpcError> + Send + 'static,
     ) -> Result<(), RpcError> {
+        #[cfg(feature = "test-support")]
+        if let Some(writer) = &self.test_input {
+            return effect(&mut **writer.lock().expect("test input lock"));
+        }
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.enqueue(id, Input::Effect(Box::new(effect), tx))?;
         rx.await.map_err(|_| {
