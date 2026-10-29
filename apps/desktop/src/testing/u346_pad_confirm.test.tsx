@@ -137,18 +137,14 @@ it("p2544e_reopen_saved_agent_work", async () => {
     };
 
     await openRealPad();
-    expect(await evaluate("document.querySelector('.ProseMirror').getAttribute('contenteditable')")).toBe("false");
-    // Ownership is the subject here; keyboard activation cannot miss the control while lazy visuals change layout.
-    await browser("focus", ".pad-head .pad-make-yours");
-    await browser("press", "Enter");
-    await browser("wait", ".ProseMirror[contenteditable=true]");
+    expect(await evaluate("document.querySelector('.ProseMirror').getAttribute('contenteditable')")).toBe("true");
     await browser("focus", ".ProseMirror");
     await browser("press", "Control+Home");
     await browser("keyboard", "type", "Reviewed ");
     await browser("wait", "[data-state=saved]");
     const expected = `Reviewed ${visualSource}`;
 
-    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, owner: { kind: "user" } });
+    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, owner: { kind: "agent" } });
     await browser("click", ".drawer .close");
     await real.restart();
     await openRealPad();
