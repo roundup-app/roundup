@@ -244,7 +244,13 @@ const resolveAt = (page: Page, el: Element, value: string, depth = 0): string =>
 };
 
 const colourTokens = (page: Page, el: Element): Rgba[] | null => {
-  const read = ["red", "amber", "accent"].map((name) => parseColour(resolveAt(page, el, `var(--${name})`)));
+  const names = ["red", "amber", "accent", "selected", "selected-hover"];
+
+  if (el.closest('.empty-state-art')) names.push("doodle-line", "doodle-patch");
+
+  if (el.closest('[data-button="primary"]')) names.push("button-accent-fill", "button-key-ink");
+
+  const read = names.map((name) => parseColour(resolveAt(page, el, `var(--${name})`)));
 
   // SAFETY: `every(Boolean)` has just shown no entry is null.
   return read.every(Boolean) ? (read as Rgba[]) : null;
