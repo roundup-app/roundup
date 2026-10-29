@@ -80,3 +80,29 @@
 .switcher .reserved-actions {
   justify-self: end;
 }
+
+/* U4681: the destination dialog keeps the Project picker and other choices unchanged. */
+.switcher[role="dialog"] {
+  padding: var(--space-3);
+}
+.switcher[role="dialog"] .app-combobox-list {
+  margin-block-start: var(--space-2);
+}
+
+.switcher[role="dialog"] .app-combobox-item {
+  padding-block: var(--space-2);
+}
+
+.switcher[role="dialog"] .app-combobox-group-label {
+  padding-block: var(--space-3) var(--space-2);
+}
+
+.switcher[role="dialog"] .app-combobox-input:focus-visible {
+  outline: 0;
+}
+
+/* Empty recovery places otherwise leave two blank lines below every result set. */
+.switcher[role="dialog"] .reserved-line[data-empty="true"] {
+  block-size: 0;
+  min-block-size: 0;
+}
