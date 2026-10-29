@@ -576,7 +576,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 const reviewCases = (["pointer", "enter"] as const).flatMap(how =>
   (["shared", "local"] as const).flatMap(readPath =>
   (["project", "selection"] as const).flatMap(removal =>
-    (["resolve", "reject", "dismiss", "stale-selection", "identity", "missing"] as const).filter(outcome => removal === "selection" || outcome !== "dismiss" && outcome !== "stale-selection").map(outcome => ({ how, removal, outcome, readPath })))));
+    (["resolve", "reject", "dismiss", "stale-selection", "identity", "missing"] as const).flatMap(outcome => removal === "selection" || outcome !== "dismiss" && outcome !== "stale-selection" ? [{ how, removal, outcome, readPath }] : []))));
 
 it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $readPath by $how, $removal, $outcome", async ({ how, removal, outcome, readPath }) => {
   const { app, connected, other } = await mountApp();
@@ -597,26 +597,35 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
   const reply = Promise.withResolvers<{ ahead: number; behind: number; dirty: boolean; files: { path: string; status: "modified"; line: number }[] }>();
   const method = readPath === "shared" ? "agent.worktreeState" : "agent.changedFiles";
   const trace: string[] = [];
-  app.handlers[method] = () => { trace.push(field() ? "receipt:open" : "receipt:closed"); return reply.promise; };
+  app.handlers[method] = () => { trace.push(field() ? "receipt:open" : "receipt:closed");
+
+ return reply.promise; };
+
   rowOf("reviewed").focus();
   const captures = vi.spyOn(registry, "captureActions");
   openSwitcher();
   await waitFor(() => expect(field()).not.toBeNull());
   const query = "Review changes";
   fireEvent.input(field()!, { target: { value: query } });
+
   const option = await waitFor(() => {
     const option = options().find(row => row.textContent?.includes(query));
     expect(option).toBeDefined();
+
     return option!;
   });
+
   const before = app.calls.length;
   const reads = () => app.calls.slice(before).filter(call => call.method === method);
+
   if (outcome === "dismiss") {
     switcherKey("Escape", {}, field()!);
     await waitFor(() => expect(field()).toBeNull());
     expect(reads()).toEqual([]);
+
     return;
   }
+
   if (outcome === "stale-selection") {
     const action = captures.mock.results.flatMap(result => result.type === "return" ? result.value : []).findLast(action => action.value === option.dataset.value)!;
     connected.rail.select("ops");
@@ -625,8 +634,10 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
     activate(option, how);
     expect(reads()).toEqual([]);
     expect(field()?.value).toBe(query);
+
     return;
   }
+
   activate(option, how);
   await waitFor(() => expect(reads()).toHaveLength(1));
   expect(trace).toEqual(["receipt:open"]);
@@ -634,31 +645,39 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
   await waitFor(() => expect(field()).toBeNull());
   const drafts = connected.drafts.list();
   expect(drafts.find(draft => draft.destination.surface === "switcher")).toMatchObject({ destination: { object: path("first"), recipient: null }, value: { query } });
+
   if (removal === "project") fireEvent.click(tab("second"));
   else connected.rail.select("ops");
   await waitFor(() => expect(origin.isConnected).toBe(false));
+
   if (outcome === "resolve") reply.resolve({ ahead: 8, behind: 0, dirty: false, files: [{ path: "original.ts", status: "modified", line: 1 }] });
   else reply.reject(new RpcError(-32003, "Review changes rejected: worktree unavailable"));
+
   if (outcome !== "resolve") {
     await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("Review changes rejected: worktree unavailable"))).toBe(true));
     // connectProject's existing retryRead allows one additional wire attempt after rejection.
     expect(reads().map(call => call.params)).toEqual([{ id: "reviewed" }, { id: "reviewed" }]);
     expect(connected.drafts.list()).toEqual(drafts);
+
     if (outcome === "identity" || outcome === "missing") {
       tree = outcome === "missing" ? [workstream("ops")] : [workstream("ops"), { ...reviewed, worktree: { ...reviewed.worktree!, branch: "replacement" } }];
       await connected.rail.refresh();
     }
+
     app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
     app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
+
     if (removal === "project") {
       fireEvent.click(screen.getByRole("button", { name: /Open first/ }));
       await screen.findByText("ops", { selector: ".name" });
     }
+
     await settled();
     const retryBefore = app.calls.length;
     app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
     app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
     fireEvent.click(within(document.querySelector<HTMLElement>(".rail-command-notice")!).getByRole("button", { name: "Retry" }));
+
     if (outcome === "identity" || outcome === "missing") {
       await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("unavailable"))).toBe(true));
       expect(app.calls.slice(retryBefore).filter(call => call.method === method)).toEqual([]);
@@ -668,8 +687,10 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $read
     }
   } else {
     await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
+
     if (readPath === "shared" && removal === "selection") await waitFor(() => expect(connected.worktrees.read("reviewed")).toMatchObject({ failure: null, state: { ahead: 8, dirty: false } }));
   }
+
   expect(connected.drafts.list()).toEqual(drafts);
   expect(notes.list("reviewed")).toEqual(originalNotes);
   expect(other.calls.filter(call => call.method === method)).toEqual([]);

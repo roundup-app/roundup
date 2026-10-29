@@ -106,6 +106,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   const id = props.id;
   const worktree = { ...props.worktree };
   const title = `${copy.reviewChanges} · ${props.name}: `;
+
   const originalAvailable = () => {
     const current = rail.nodes.find(node => node.id === id)?.worktree;
 
