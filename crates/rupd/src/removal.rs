@@ -580,3 +580,6 @@ mod tests {
 
 #[cfg(test)]
 mod restoration_tests;
+
+#[cfg(test)]
+mod refusal_tests;

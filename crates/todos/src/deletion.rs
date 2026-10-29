@@ -107,7 +107,7 @@ impl Todos {
         let before = store.list()?;
         let occupied: Option<(String,String)> = tx.query_row("SELECT CAST(t.id AS TEXT),t.title FROM todos t JOIN deleted_todos d ON d.id=t.id WHERE d.operation=? LIMIT 1", [operation], |r| Ok((r.get(0)?,r.get(1)?))).optional().map_err(RpcError::internal)?;
         if let Some((id, title)) = occupied {
-            return Err(RpcError::undo_identity(id, title));
+            return Err(RpcError::undo_identity(id, title, true));
         }
         // Plain INSERT refuses collisions; the transaction rolls every insertion back.
         for (live, retained, columns) in TABLES {
