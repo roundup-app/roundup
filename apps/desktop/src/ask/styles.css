@@ -466,7 +466,6 @@
 
 .ask-rows,
 .made,
-.ask-history-status,
 .requested-empty {
   box-sizing: border-box;
   width: min(100%, var(--measure));
@@ -474,7 +473,6 @@
   min-width: 0;
 }
 
-.ask-history-status,
 .requested-empty {
   margin: 0;
   color: var(--grey);
@@ -486,7 +484,6 @@
   gap: var(--space-4);
 }
 
-.ask-history,
 .ask-bar .made {
   box-sizing: border-box;
   width: min(100%, var(--ask-width));
@@ -505,12 +502,32 @@
   color: var(--text);
 }
 
-.ask-history .ask-rows {
-  width: 100%;
-}
-
-.ask-bar[data-mode="home"] :is(.made, .reactions, .ask-history, .project-overview) {
-  flex: 1;
+.ask-bar[data-mode="home"] :is(.made, .reactions, .project-overview) {
   display: flex;
   flex-direction: column;
+}
+
+.ask-content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) max-content;
+  column-gap: var(--space-3);
+  row-gap: var(--space-3);
+  width: min(100%, var(--ask-width));
+  align-self: center;
+}
+
+.ask-content :is(.ask-parts, .ask-rows, .ask-earlier, [data-part="content"]) {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+}
+
+.ask-content :is(.overview-heading, .disclosure-trigger) {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.project-overview .overview-heading[data-state="attention"] {
+  color: var(--text);
+  font-size: var(--text-title);
 }
