@@ -147,7 +147,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         position: "absolute",
         top: "0",
         right: "var(--drawer-right)",
-        bottom: "0",
+        bottom: "var(--drawer-bottom)",
         transform: isOpen() ? "translateX(0)" : "translateX(calc(100% + var(--drawer-right)))",
         transition: instant() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
       }}

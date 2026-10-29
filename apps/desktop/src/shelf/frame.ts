@@ -6,9 +6,12 @@ import { copy } from "../copy";
 import { storageSchema, storedValue } from "../state/storage";
 import { createSlideLifetime } from "../ui/slideLifetime";
 
+/** U4708: the PADS tab and each Pad row draw this one icon. */
+export const PAD_ICON = "order";
+
 export const SHELF_TABS = [
   { value: "todos", label: copy.todos, icon: "check" },
-  { value: "pads", label: copy.pads, icon: "order" },
+  { value: "pads", label: copy.pads, icon: PAD_ICON },
 ] as const;
 
 export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
