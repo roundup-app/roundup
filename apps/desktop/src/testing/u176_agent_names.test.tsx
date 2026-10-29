@@ -340,7 +340,7 @@ describe("u2773 Rail persisted edits", () => {
 
     // Reuse the authority, not prior probe objects or the acknowledged root Agent.
     for (const node of await app.rpc("rail.tree", null)) {
-      if (node.parent === null) await app.rpc("rail.remove", { id: node.id, ...(node.kind === "workstream" ? { scope: "all" as const } : {}) });
+      if (node.parent === null) await app.rpc("rail.remove", { id: node.id, scope: node.kind === "workstream" ? "all" : null });
     }
   });
 
