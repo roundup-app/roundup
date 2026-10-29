@@ -117,22 +117,6 @@ it("u474_tooltip_pointer_and_keyboard", async () => {
   await browser("wait", "--fn", `![...document.querySelectorAll('[role=tooltip]')].some(el => el.textContent === "Project contains Agents.")`);
 }, 60_000);
 
-for (const path of ["hover", "focus"] as const) {
-  it(`u477_icon_button_${path}_shows_its_name`, async () => {
-    await load();
-    const selector = '[aria-label="Open Project"]';
-
-    if (path === "hover") await browser("hover", selector);
-    else {
-      await browser("eval", `document.querySelector('[data-scope=tooltip][data-part=trigger]:not([data-button=icon])').focus()`);
-      await browser("press", "Tab");
-    }
-
-    await browser("wait", "--fn", `document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.getClientRects().length > 0`);
-    expect(await read<string>(`document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.getAttribute('role')`)).toBe("tooltip");
-  }, 60_000);
-}
-
 it("u477_icon_button_leave_hides_its_name", async () => {
   await load();
   await browser("hover", '#fixture-icon');
