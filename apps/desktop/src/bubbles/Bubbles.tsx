@@ -25,12 +25,10 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, placesStorage, REVEAL_BUBBLE, shownFor, shownName,
+  clamped, defaultPlace, extentOf, placesStorage, REVEAL_BUBBLE, shownFor, shownName,
 } from "./places";
 import type { Place, Extent } from "./places";
 import "./styles.css";
-
-const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
 const ESCAPE = "Escape".split(" ");
 
@@ -120,11 +118,7 @@ export const Bubbles = (props: {
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined));
   let before: Element | null = null;
 
-  const extent = (): Extent => {
-    const box = layer()?.getBoundingClientRect();
-
-    return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : FALLBACK_EXTENT;
-  };
+  const extent = (): Extent => extentOf(layer());
 
   // U524: every Terminal opened from the Project root stays available alongside Project-owned Terminals.
   const [fromRoot, setFromRoot] = createSignal<readonly { id: string; listed: boolean }[]>([]);
