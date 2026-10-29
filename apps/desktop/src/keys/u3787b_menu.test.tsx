@@ -1,0 +1,72 @@
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { createRoot, createSignal } from "solid-js";
+import { afterEach, expect, it } from "vitest";
+import { mountNavigation } from "../testing/navigationFixture";
+import { openProjectPage, projectMenu } from "../testing/menuProbe";
+import { CHORDS } from "./chords";
+import { captureActions, registerKeys } from "./registry";
+
+const disposals: (() => void)[] = [];
+afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); cleanup(); localStorage.clear(); });
+
+const owner = (terminal: HTMLElement) => {
+  const calls: Element[] = [];
+  const [available, setAvailable] = createSignal(true);
+  let remove = () => {};
+  createRoot(dispose => {
+    remove = dispose;
+    disposals.push(dispose);
+    registerKeys({ kind: "region", element: () => terminal }, [{
+      action: CHORDS.find(action => action.keys === "⌘F")!,
+      capture: focus => ({
+        available: () => available() && !!focus && terminal.contains(focus),
+        invoke: () => { calls.push(focus!); },
+      }),
+    }]);
+  });
+
+  return { calls, setAvailable, remove };
+};
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Terminal Find from %s", async source => {
+  const { connected, daemon } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  const terminal = document.activeElement as HTMLElement;
+  const find = owner(terminal);
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘F")?.enabled).toBe(true));
+  const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
+  expect(document.activeElement).toBe(terminal);
+  expect(find.calls).toEqual([]);
+
+  if (source === "key") fireEvent.keyDown(terminal, { code: "KeyF", key: "f", metaKey: true });
+  else openProjectPage("action:chord:⌘F", "/p");
+
+  expect(find.calls).toEqual([terminal]);
+  expect(document.activeElement).toBe(terminal);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
+});
+
+it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal_terminal_input: %s Find owner", async state => {
+  const { connected } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  const terminal = document.activeElement as HTMLElement;
+  const find = owner(terminal);
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F")).toBe(true));
+  const captured = captureActions(terminal).find(action => action.keys === "⌘F")!;
+
+  if (state === "unavailable") find.setAvailable(false);
+  else if (state === "removed") find.remove();
+  else {
+    const editor = document.createElement("textarea");
+    document.body.append(editor);
+    editor.focus();
+    expect(fireEvent.keyDown(editor, { code: "KeyF", key: "f", metaKey: true })).toBe(true);
+  }
+
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F")).toBe(false));
+  openProjectPage("action:chord:⌘F", "/p");
+  if (state !== "editor") captured.run();
+  expect(find.calls).toEqual([]);
+});
