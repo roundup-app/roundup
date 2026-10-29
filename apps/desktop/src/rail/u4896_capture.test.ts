@@ -21,7 +21,10 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
   try {
     for (const phase of ["base", "head"]) {
       const revision = phase === "base" ? baseRevision : execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+      const captures=process.env.ROUNDUP_CAPTURES;
+      delete process.env.ROUNDUP_CAPTURES;
       const server = await appServer(phase === "base" ? { root: join(base, "apps/desktop") } : {});
+      process.env.ROUNDUP_CAPTURES=captures;
       const origin = server.resolvedUrls.local[0]!;
       const profile = mkdtempSync(join(tmpdir(), "u4896-profile-"));
       const session = `u4896-${phase}-${process.pid}`;
