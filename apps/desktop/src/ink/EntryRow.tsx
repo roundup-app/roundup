@@ -18,7 +18,7 @@ export const EntryRow = (props: {
   onClose: (reason: "enter" | "escape" | "blur") => void;
 }) => (
   <ShelfRow glyph={props.glyph} class={`entry-row ${props.class}`}>
-    <input
+    <input spellcheck={false} autocorrect="off" autocapitalize="off"
       type="text"
       class="entry-field"
       aria-label={props.label}
