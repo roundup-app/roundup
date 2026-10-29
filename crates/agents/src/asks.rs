@@ -433,22 +433,18 @@ impl Intake {
         let shared = self.clone();
         let ctx = user_ctx(ctx);
         let workstream = workstream.to_owned();
-        // Subscribe before scheduling so the first idle cannot be missed.
-        let events = self.bus.subscribe();
         tokio::spawn(async move {
-            if let Err(err) = shared.deliver(&ctx, &workstream, events).await {
+            if let Err(err) = shared.deliver(&ctx, &workstream).await {
                 panic!("Ask Door worker {workstream}: {err}");
             }
         });
     }
 
-    async fn deliver(
-        self: &Arc<Self>,
-        ctx: &Ctx,
-        workstream: &str,
-        mut events: Receiver<contracts::Event>,
-    ) -> Result<(), RpcError> {
+    async fn deliver(self: &Arc<Self>, ctx: &Ctx, workstream: &str) -> Result<(), RpcError> {
         loop {
+            // notify_waiters reaches this registration even before it is polled.
+            // Subscribe before prompt's authoritative admission, including no-write BUSY.
+            let observed = self.agents.shared.events.observed.notified();
             let pending = {
                 // Same lock order as wake/finish so a concurrent enqueue cannot lose its wake.
                 let mut doors = self.doors.lock().expect("Ask workers lock");
@@ -509,19 +505,6 @@ impl Intake {
                             }
                         }
                     }
-                    if node
-                        .status
-                        .as_ref()
-                        .is_none_or(|status| status.kind != Kind::Idle)
-                        || node.terminal_id.is_none()
-                    {
-                        #[cfg(test)]
-                        self.before_wait();
-                        match events.recv().await {
-                            Ok(_) | Err(RecvError::Lagged(_)) => continue,
-                            Err(RecvError::Closed) => return Ok(()),
-                        }
-                    }
                     // Claim before prompt. BUSY guarantees no bytes and is the only retry.
                     part.state = State::Typed;
                     if !self.store().update(&id, ord, &part, State::Queued)? {
@@ -552,10 +535,8 @@ impl Intake {
                             self.store().update(&id, ord, &part, State::Typed)?;
                             #[cfg(test)]
                             self.before_wait();
-                            match events.recv().await {
-                                Ok(_) | Err(RecvError::Lagged(_)) => continue,
-                                Err(RecvError::Closed) => return Ok(()),
-                            }
+                            observed.await;
+                            continue;
                         }
                         Err(PromptError::NotFound { .. }) => {
                             Err("the Door ended before this reached it".into())
