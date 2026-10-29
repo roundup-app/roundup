@@ -13,6 +13,8 @@ pub struct Asks {
     shared: Arc<Intake>,
 }
 struct Intake {
+    #[cfg(test)]
+    before_wait: Mutex<Option<Box<dyn FnOnce() + Send>>>,
     store: Mutex<Store>,
     agents: Arc<Agents>,
     placement: Arc<dyn Placement>,
@@ -41,6 +43,8 @@ impl Asks {
     ) -> Result<Self, OpenError> {
         Ok(Self {
             shared: Arc::new(Intake {
+                #[cfg(test)]
+                before_wait: Mutex::new(None),
                 store: Mutex::new(Store::open(dir)?),
                 agents,
                 placement,
@@ -54,6 +58,13 @@ impl Asks {
 }
 
 impl Intake {
+    #[cfg(test)]
+    fn before_wait(&self) {
+        if let Some(transition) = self.before_wait.lock().unwrap().take() {
+            transition();
+        }
+    }
+
     fn store(&self) -> MutexGuard<'_, Store> {
         agent_lock(&self.store).expect("Ask store lock")
     }
@@ -422,22 +433,18 @@ impl Intake {
         let shared = self.clone();
         let ctx = user_ctx(ctx);
         let workstream = workstream.to_owned();
-        // Subscribe before scheduling so the first idle cannot be missed.
-        let events = self.bus.subscribe();
         tokio::spawn(async move {
-            if let Err(err) = shared.deliver(&ctx, &workstream, events).await {
+            if let Err(err) = shared.deliver(&ctx, &workstream).await {
                 panic!("Ask Door worker {workstream}: {err}");
             }
         });
     }
 
-    async fn deliver(
-        self: &Arc<Self>,
-        ctx: &Ctx,
-        workstream: &str,
-        mut events: Receiver<contracts::Event>,
-    ) -> Result<(), RpcError> {
+    async fn deliver(self: &Arc<Self>, ctx: &Ctx, workstream: &str) -> Result<(), RpcError> {
         loop {
+            // notify_waiters reaches this registration even before it is polled.
+            // Subscribe before prompt's authoritative admission, including no-write BUSY.
+            let observed = self.agents.shared.events.observed.notified();
             let pending = {
                 // Same lock order as wake/finish so a concurrent enqueue cannot lose its wake.
                 let mut doors = self.doors.lock().expect("Ask workers lock");
@@ -451,6 +458,18 @@ impl Intake {
             let Some((id, ord, mut part)) = pending else {
                 return Ok(());
             };
+            // Removal settles its Rail deletion before a queued part reports its cause.
+            // A closing Attempt never grants input admission.
+            if self
+                .agents
+                .shared
+                .runs()
+                .get(workstream)
+                .is_some_and(Slot::closing)
+            {
+                observed.await;
+                continue;
+            }
             let node = self.agents.shared.node(workstream);
             let result: Result<(), String> = match node {
                 Err(_) => Err("the Workstream was removed".to_owned()),
@@ -498,17 +517,6 @@ impl Intake {
                             }
                         }
                     }
-                    if node
-                        .status
-                        .as_ref()
-                        .is_none_or(|status| status.kind != Kind::Idle)
-                        || node.terminal_id.is_none()
-                    {
-                        match events.recv().await {
-                            Ok(_) | Err(RecvError::Lagged(_)) => continue,
-                            Err(RecvError::Closed) => return Ok(()),
-                        }
-                    }
                     // Claim before prompt. BUSY guarantees no bytes and is the only retry.
                     part.state = State::Typed;
                     if !self.store().update(&id, ord, &part, State::Queued)? {
@@ -537,10 +545,10 @@ impl Intake {
                         Err(PromptError::Busy { .. }) => {
                             part.state = State::Queued;
                             self.store().update(&id, ord, &part, State::Typed)?;
-                            match events.recv().await {
-                                Ok(_) | Err(RecvError::Lagged(_)) => continue,
-                                Err(RecvError::Closed) => return Ok(()),
-                            }
+                            #[cfg(test)]
+                            self.before_wait();
+                            observed.await;
+                            continue;
                         }
                         Err(PromptError::NotFound { .. }) => {
                             Err("the Door ended before this reached it".into())
@@ -734,3 +742,7 @@ impl Asks {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "asks/readiness_tests.rs"]
+mod readiness_tests;
