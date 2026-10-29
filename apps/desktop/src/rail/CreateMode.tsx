@@ -65,7 +65,7 @@ export const CreateMode = (props: { onClose: () => void }) => {
         <Field.Root disabled={busy()} class="opening-prompt-field"><Field.Label>{copy.openingPrompt}</Field.Label><Field.Textarea value={value().text} onInput={event => edit({ text: event.currentTarget.value })} spellcheck={false} autocorrect="off" autocapitalize="off" /><Field.HelperText>{copy.openingPromptHint}</Field.HelperText></Field.Root>
         <ReservedLine message={failure()}><button type="button" data-button="quiet" disabled={busy()} onClick={() => void submit()}>{copy.retry}</button></ReservedLine>
         <ReservedLine message={drafts.problem() ? copy.railDraftRetention(project.name, copy.modeWord, drafts.problem()!.operation) : null}><button type="button" data-button="quiet" onClick={() => void drafts.retry()}>{copy.railDraftRetry}</button></ReservedLine>
-        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="accent" disabled={busy() || !value().name.trim() || !value().text.trim()}>{copy.createMode}</button></div>
+        <div class="app-dialog-actions"><Dialog.CloseTrigger type="button" data-button="quiet">{copy.close}</Dialog.CloseTrigger><button type="submit" data-button="primary" aria-disabled={busy() || !value().name.trim() || !value().text.trim()}>{copy.createMode}</button></div>
       </form>
     </Dialog.Content></Dialog.Positioner>
   </Dialog.Root>;

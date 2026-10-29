@@ -31,6 +31,8 @@ it("u4547b_create_selects_one_mode_after_saving_its_prompt", async () => {
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([{ name: "Review", parent: null }]);
   expect(railCallsTo(m.app, "workstream.setOpeningPrompt")).toEqual([{ id: "made", prompt: "  Review e\u0301 🧭\n " }]);
   expect(m.rail.selected()).toBe("made");
+  expect(screen.getByRole("treeitem", { name: "made, Mode" })).toBeTruthy();
+  expect(screen.getByRole("img", { name: "Mode" })).toBeTruthy();
   expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
 });
 
@@ -74,10 +76,14 @@ it.each(["", " \n "])("u4547b_blank_values_cannot_create_%j", async blank => {
   fireEvent.click(screen.getByRole("button", { name: "New Mode" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: blank } });
   fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: "prompt" } });
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: "Create Mode" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Create Mode" }).getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
   fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: "name" } });
   fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: blank } });
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: "Create Mode" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Create Mode" }).getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([]);
   (await screen.findByRole<HTMLElement>("textbox", { name: "First prompt" })).focus();
   fireEvent.keyDown(screen.getByRole("textbox", { name: "First prompt" }), { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

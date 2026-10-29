@@ -809,3 +809,30 @@
   display: grid;
   gap: var(--space-4);
 }
+
+/* Keep the Mode identity with its name and reserve the actions to its right. */
+.mode-name {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.mode-name .name {
+  flex: 0 1 auto;
+}
+
+.mode-mark {
+  display: inline-flex;
+  flex: none;
+  cursor: default;
+}
+
+.rail-row:has(.mode-mark) .row-icons {
+  position: static;
+}
+
+.rail-row:has(.mode-mark) .row-tail {
+  margin-left: var(--space-4);
+}

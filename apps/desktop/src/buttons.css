@@ -258,6 +258,12 @@ button[aria-disabled="true"] {
   background-color: var(--button-surface);
 }
 
+/* Disabled floating actions keep readable ink on a neutral surface. */
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][aria-disabled="true"] {
+  --button-surface: var(--button-neutral);
+  color: var(--disabled);
+}
+
 /* Native visible inputs retain their own hit area and activation. */
 input:is(.todo-tick, [type="range"])[data-pressed="true"]:not(:disabled, [aria-disabled="true"]) {
   opacity: var(--press-opacity);
