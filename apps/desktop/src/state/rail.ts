@@ -12,7 +12,7 @@ import { defaultWorkstreamName } from "../rail/defaultName";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
 import type { RailSection, RailStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
-import type { AppSeam } from "../app/seam";
+import { outcomeOf, type AppSeam } from "../app/seam";
 
 /** How an exited node's program ended: with a code, by a signal, or unknown because the node has no Terminal. */
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
@@ -74,6 +74,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [workstreamCreating, setWorkstreamCreating] = createSignal(false);
   /** The id `rail.createWorkstream` returned, until `rail.tree` shows its row. */
   let wantedWorkstream: string | null = null;
+  let workstreamUnknown: string | null = null;
   let workstreamFocus = captureFocus();
   let selectionRevision = 0;
   let workstreamSelection = 0;
@@ -266,25 +267,34 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     }
   };
 
-  const createWorkstream = async (): Promise<void> => {
-    if (workstreamCreating()) return;
-    workstreamFocus = captureFocus(true);
-    workstreamSelection = selectionRevision;
-    setWorkstreamCreating(true);
+  const createWorkstream = (): Promise<void> => {
+    const params = { name: defaultWorkstreamName(model.tree), parent: null };
 
-    try {
-      wantedWorkstream = (await app.rpc("rail.createWorkstream", { name: defaultWorkstreamName(model.tree), parent: null })).id;
-      commandFailure.acknowledge(null);
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
+    // The connection and these arguments outlive the Rail that offered the action.
+    const create = async (): Promise<void> => {
+      if (workstreamCreating()) return;
+      setWorkstreamCreating(true);
 
-      commandFailure.show(error.message, null, "pane");
-      setWorkstreamCreating(false);
+      try {
+        if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return;
 
-      return;
-    }
+        workstreamFocus = captureFocus(true);
+        workstreamSelection = selectionRevision;
+        wantedWorkstream = (await app.rpc("rail.createWorkstream", params)).id;
+        workstreamUnknown = null;
+        commandFailure.acknowledge(null);
+        fetching(fetchTree);
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
 
-    fetching(fetchTree);
+        workstreamUnknown = outcomeOf(error) === "unknown" ? error.message : null;
+        commandFailure.show(`${copy.newWorkstreamTitle}: ${workstreamUnknown !== null ? copy.terminalOutcomeUnknown : ""}${error.message}`, null, "rail", () => { void create(); });
+      } finally {
+        if (wantedWorkstream === null) setWorkstreamCreating(false);
+      }
+    };
+
+    return create();
   };
 
   events.subscribe((event) => apply([event]));
