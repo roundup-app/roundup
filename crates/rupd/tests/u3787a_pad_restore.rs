@@ -297,12 +297,12 @@ async fn u3787a_bulk_successes_are_individually_restorable_without_failed_target
         w.client
             .request(
                 "pad.delete",
-                json!({"name":"other","operation":"subset-other"})
+                json!({"name":"other","operation":"subset-other","expectedIncarnation":"retired"})
             )
             .await
             .unwrap_err()
             .code,
-        rpc::code::FORBIDDEN
+        rpc::code::CONFLICT
     );
     call(&w, "pad.restore", deletion_id(&receipt)).await;
     assert_eq!(call(&w, "pad.read", json!({"name":"own"})).await, own);
@@ -493,7 +493,7 @@ async fn u3787a_missing_original_home_refuses_without_consuming_the_operation() 
 }
 
 #[tokio::test]
-async fn u3787a_owner_deletion_restore_preserves_retained_publication() {
+async fn u3787a_shared_pad_deletion_restore_preserves_publication_revocation() {
     let w = world().await;
     let home = call(&w, "rail.createWorkstream", json!({"name":"maker"})).await;
     identify(&w, home["id"].as_str().unwrap()).await;
@@ -512,11 +512,8 @@ async fn u3787a_owner_deletion_restore_preserves_retained_publication() {
         json!({"project":publication["project"],"id":publication["id"]}),
     )
     .await;
-    assert_eq!(resolved["kind"], "retained");
-    assert_eq!(
-        std::fs::read_to_string(resolved["path"].as_str().unwrap()).unwrap(),
-        "# Result\n\nexact"
-    );
+    assert_eq!(resolved["kind"], "unavailable");
+    assert_eq!(resolved["cause"], "access-revoked");
 }
 
 #[tokio::test]
