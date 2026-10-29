@@ -1,9 +1,9 @@
 import { KeyHint } from "./KeyHint";
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, onCleanup, onMount } from "solid-js";
 import { hintsFor, LEADER } from "./chords";
 import type { HintPlace } from "./chords";
 import { copy } from "../copy";
-import { captureActions, leaderArmed } from "./registry";
+import { captureActions, endLeader, leaderArmed, modalOpen } from "./registry";
 
 /** Where keyboard focus sits, for the hint line: `null` anywhere that has no hints, a modal layer such as Help included (U2230a). */
 const placeAt = (focus: Element | null): HintPlace | null =>
@@ -23,16 +23,19 @@ const placeAt = (focus: Element | null): HintPlace | null =>
 export const HintLine = () => {
   const [focus, setFocus] = createSignal<Element | null>(null);
 
+  const actions = createMemo(() => captureActions(focus()));
   const place = createMemo(() => placeAt(focus()));
 
   const hints = () => {
+    if (modalOpen()) return [];
+
     if (leaderArmed()) {
-      const actions = captureActions(document.activeElement);
+      const available = actions();
 
       return LEADER.filter(key => {
-        const matches = actions.filter(row => row.value === `action:leader:${key.keys}`);
+        const matches = available.filter(row => row.value === `action:leader:${key.keys}`);
 
-        return matches.length === 0 || matches.some(action => action.available());
+        return matches.some(action => action.available());
       }).map(key => ({ keys: key.keys, label: key.short }));
     }
 
@@ -47,7 +50,7 @@ export const HintLine = () => {
     // The Shelf's own hints follow its state: Restore while maximised, and Export only where `e` acts, on a Pad row.
     const maximised = focus()?.closest(".window")?.getAttribute("data-shelf-maximised") === "true";
     const focused = focus();
-    const rowButton = focused?.matches(".todo-row-button") === true;
+    const rowButton = focused?.matches(".todo-row-button, .pad-name") === true;
     const onPad = rowButton && focused?.closest(".pad-inset") != null;
     const canAssign = rowButton && !focused?.closest(".todo-done-fold");
     const editing = focused?.closest("input,textarea,select,[contenteditable]") != null;
@@ -56,6 +59,7 @@ export const HintLine = () => {
     if (editing || modal) return [];
 
     return shown
+      .filter((hint) => hint.keys !== "1–9" || choices(hint.keys).length > 0)
       .filter((hint) => hint.label !== copy.exportMd || onPad)
       .filter((hint) => hint.label !== copy.assign || canAssign)
       .filter((hint) => hint.label !== copy.deleteFocusedRow || rowButton)
@@ -81,7 +85,8 @@ export const HintLine = () => {
 
   createEffect(() => {
     hints();
-    fit();
+    actions();
+    queueMicrotask(fit);
   });
 
   onMount(() => {
@@ -92,7 +97,9 @@ export const HintLine = () => {
     onCleanup(() => resize.disconnect());
 
     // Both events settle in a microtask, when `activeElement` is where focus went.
-    const sync = () => queueMicrotask(() => setFocus(document.activeElement));
+    const sync = () => queueMicrotask(() => {
+      if (!line?.contains(document.activeElement)) setFocus(document.activeElement);
+    });
 
     document.addEventListener("focusin", sync);
     document.addEventListener("focusout", sync);
@@ -104,9 +111,38 @@ export const HintLine = () => {
     });
   });
 
+  const choices = (keys: string) => actions().filter(row => row.action.keys === keys && ("press" in row.action) === leaderArmed());
+
+  const run = (action: ReturnType<typeof captureActions>[number]) => {
+    if (modalOpen() || !focus()?.isConnected) return;
+
+    if (document.activeElement instanceof HTMLElement && line?.contains(document.activeElement) && focus() instanceof HTMLElement) {
+      const target = focus();
+
+      if (target instanceof HTMLElement) target.focus({ preventScroll: true });
+    }
+
+    if (!action.available()) return;
+
+    if (leaderArmed()) endLeader();
+    action.run();
+  };
+
   return (
     <p class="hint-line" classList={{ leader: leaderArmed() }} role={leaderArmed() ? "status" : undefined} aria-label={leaderArmed() ? copy.leaderPanel : undefined} ref={line} data-place={place() ?? undefined}>
-      <For each={hints()}>{(hint) => <KeyHint keys={hint.keys}>{hint.label}</KeyHint>}</For>
+      <For each={hints()}>{(hint) => <Show when={hint.keys === "1–9"} fallback={
+        <button type="button" class="hint hint-action" data-hint={hint.keys} disabled={!choices(hint.keys).some(action => action.available())}
+          onPointerDown={event => event.preventDefault()} onClick={() => { const action = choices(hint.keys)[0];
+
+ if (action) run(action); }}>
+          <KeyHint bare keys={hint.keys}>{hint.label}</KeyHint>
+        </button>
+      }>
+        <span class="hint key-hint"><For each={choices(hint.keys)}>{action =>
+          <button type="button" class="hint-action" data-hint={action.press} aria-label={action.label} disabled={!action.available()}
+            onPointerDown={event => event.preventDefault()} onClick={() => run(action)}><KeyHint bare keys={action.press?.replace("Digit", "") ?? ""} children={null} /></button>
+        }</For><span class="key-hint-label">{hint.label}</span></span>
+      </Show>}</For>
     </p>
   );
 };
