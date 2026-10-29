@@ -71,6 +71,21 @@
       "command": "first Pad Close observer",
       "exit": 1,
       "failure": "Fake new Door selected a different view; real-Daemon launch remains the startup observer"
+    },
+    {
+      "command": "final startup/later-resize/input/scrollback guard selection --retry 0",
+      "exit": 0,
+      "passed": 3
+    },
+    {
+      "command": "lifecycle DOM tree-40 with Pad Close and persistent failure fixture --retry 0",
+      "exit": 0,
+      "passed": 1
+    },
+    {
+      "command": "loop/rules.sh delta artifacts/ux/U4590/base artifacts/ux/U4590/head",
+      "exit": 2,
+      "failure": "real-agent.checks.json has no baseline counterpart"
     }
   ],
   "remaining": [
