@@ -225,10 +225,22 @@ export const createXtermEmulators = (
     let fontsReady = !document.fonts;
     const family = xtermOptions.fontFamily!;
 
+    const loadEffectiveFont = async () => {
+      if (!document.fonts) return;
+
+      let font: string;
+
+      do {
+        font = `${terminal.options.fontSize}px ${terminal.options.fontFamily}`;
+        await Promise.all([`normal ${terminal.options.fontWeight}`, `normal ${terminal.options.fontWeightBold}`, `italic ${terminal.options.fontWeight}`, `italic ${terminal.options.fontWeightBold}`].map(style => document.fonts.load(`${style} ${font}`)));
+        await document.fonts.ready;
+      } while (!disposed && font !== `${terminal.options.fontSize}px ${terminal.options.fontFamily}`);
+    };
+
     // Load every bundled style even with a custom preference, so clearing it never fits a fallback face.
     const ready = document.fonts ? Promise.all(
       ["normal 300", "normal 700", "italic 300", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
-    ).catch((failure: Error) => {
+    ).then(loadEffectiveFont).catch((failure: Error) => {
       // A damaged/missing local asset still leaves the existing fallback stack usable.
       console.warn("Terminal font unavailable; using the fallback face", failure);
     }).then(() => {
@@ -459,7 +471,20 @@ export const createXtermEmulators = (
         prepareFontChange();
         terminal.options.fontFamily = next;
 
-        if (opened) size();
+        if (!opened) return;
+
+        fontsReady = false;
+        void loadEffectiveFont().catch((failure: Error) => {
+          console.warn("Terminal font unavailable; using the fallback face", failure);
+        }).then(() => {
+          if (disposed || terminal.options.fontFamily !== next) return;
+
+          fontsReady = true;
+          prepareFontChange();
+          terminal.options.fontFamily = /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+          terminal.options.fontFamily = next;
+          size();
+        });
       }));
 
       return dispose;
@@ -512,8 +537,7 @@ export const createXtermEmulators = (
 
       // The selected face may have changed while the bundled faces were loading.
       if (document.fonts) {
-        await Promise.all(["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${terminal.options.fontSize}px ${terminal.options.fontFamily}`)));
-        await document.fonts.ready;
+        await loadEffectiveFont();
 
         if (!disposed) {
           prepareFontChange();
