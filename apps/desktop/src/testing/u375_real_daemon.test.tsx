@@ -7,23 +7,12 @@ import { promisify } from "node:util";
 import { chromePath } from "./chromePage";
 import { openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
-import type { StartedDaemon } from "./realDaemonFixture";
-
-let real: StartedDaemon;
-
-beforeAll(async () => {
-  real = await startRealDaemon({});
-}, 120_000);
-
-afterAll(async () => {
-  await real?.stop();
-});
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
