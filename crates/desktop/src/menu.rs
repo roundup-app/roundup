@@ -719,6 +719,10 @@ mod tests {
                         Some("⌘0"),
                         None,
                     ),
+                    item("action:chord:A", "Assign", Some("A"), None),
+                    item("action:chord:W", "Move", Some("W"), None),
+                    item("action:chord:X", "Complete", Some("X"), None),
+                    item("action:chord:C", "Comment", Some("C"), None),
                     unavailable,
                 ]),
             )
@@ -737,6 +741,10 @@ mod tests {
                 "action:chord:⌘=",
                 "action:chord:⌘-",
                 "action:chord:⌘0",
+                "action:chord:A",
+                "action:chord:W",
+                "action:chord:X",
+                "action:chord:C",
                 "action:leader:A",
             ] {
                 app_chosen(app.handle(), &MenuEvent { id: id.into() });
@@ -752,6 +760,10 @@ mod tests {
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘="}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘-"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘0"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:A"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:W"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:X"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:C"}),
                 serde_json::json!({"path": "/B", "command": "action:leader:C"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘F"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:F2"}),
@@ -759,6 +771,10 @@ mod tests {
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘="}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘-"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘0"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:A"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:W"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:X"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:C"}),
             ]
         );
     }
