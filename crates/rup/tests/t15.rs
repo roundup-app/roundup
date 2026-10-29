@@ -332,6 +332,9 @@ async fn u2773c_matching_change_commits_once_in_its_original_project() {
             if method == "todo.setBlockers" {
                 expected["blocked"] = json!(true);
             }
+            // T30: a committed Change moves `updated_at`.
+            assert!(committed["updated_at"].as_i64() >= expected["updated_at"].as_i64());
+            expected["updated_at"] = committed["updated_at"].clone();
             assert_eq!(committed, expected);
             assert_eq!(
                 client.request("todo.get", json!({"id":1})).await.unwrap(),

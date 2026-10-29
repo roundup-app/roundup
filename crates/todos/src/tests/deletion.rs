@@ -39,7 +39,10 @@ async fn u3787a_undo_restores_original_graph() {
     h.call("todo.restore", json!({"operation":"chosen"}))
         .await
         .unwrap();
-    assert_eq!(h.call("todo.list", Value::Null).await.unwrap(), before);
+    // The dependent's blocker Changes (T6) move its `updated_at` (T30); everything else returns.
+    let mut restored = h.call("todo.list", Value::Null).await.unwrap();
+    restored[1]["updated_at"] = before[1]["updated_at"].clone();
+    assert_eq!(restored, before);
     assert_eq!(changes(&h, 1).await, history);
     assert!(
         h.call_as(Actor::daemon(), "todo.hand", json!({"agent":"worker"}))

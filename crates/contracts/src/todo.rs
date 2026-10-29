@@ -17,6 +17,10 @@ pub struct Todo {
     pub blocked: bool,
     #[specta(type = specta_typescript::Number)]
     pub created_at: i64,
+    /// T30: the time of the Todo's last Change (title, body, done, owner or blockers); `created_at` on creation. A Todo from before this field reads its latest Change time, or `created_at`.
+    #[serde(default)]
+    #[specta(type = specta_typescript::Number)]
+    pub updated_at: i64,
     /// The Actor whose `todo.create` made this Todo. A Todo from before this field reads as `Actor::user()`.
     pub creator: Actor,
     /// The Workstream (a Rail id) this Todo belongs to; `None` is the Project root. A Todo from before this field reads as `None`.
