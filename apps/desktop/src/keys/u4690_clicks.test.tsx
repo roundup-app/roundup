@@ -331,9 +331,11 @@ it("u4690c_unavailable_or_stale_hints_run_nothing: no attention target", async (
   const { app } = await openTabs({ api: [agent("a", "idle", "idle")] });
   document.querySelector<HTMLElement>('.rail-row[data-id="a"]')!.focus();
   press("KeyK", { metaKey: true });
-  await waitFor(() => expect(document.querySelector<HTMLButtonElement>('.hint-line [data-hint="J"]')?.disabled).toBe(true));
+  await waitFor(() => expect(leaderArmed()).toBe(true));
+  expect(document.querySelector('.hint-line [data-hint="J"]')).toBeNull();
   const before = app.calls.length;
-  fireEvent.click(document.querySelector('.hint-line [data-hint="J"]')!);
+  press("KeyJ");
+  expect(leaderArmed()).toBe(false);
   expect(app.calls).toHaveLength(before);
   expect(document.querySelector('[role=treeitem][data-id="a"]')?.getAttribute("aria-selected")).not.toBe("true");
 });
