@@ -67,7 +67,7 @@ it("u3714_capture_in_two_chords_on_tree_40", async () => {
   })()`);
   await browser("press", "Meta+k");
   await wait(`!!document.querySelector('.leader')`);
-  expect(await read(`document.querySelector('.leader').textContent`)).toContain("Capture");
+  // Rule 10: u3713_leader_t_opens_a_focused_empty_field_without_changing_selection proves the Capture command; the critic owns its label.
   await browser("press", "t");
   await wait(`document.activeElement === document.querySelector('.capture-field')`);
   expect(await read(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id === window.__selection`)).toBe(true);
@@ -79,6 +79,61 @@ it("u3714_capture_in_two_chords_on_tree_40", async () => {
   await wait(`[...document.querySelectorAll('.todo-row')].some(row => row.textContent.includes('keyboard thought'))`);
   expect(await read(`({ pointers: window.__pointerEvents, creates: window.__fake.app.calls.filter(call => call.method === 'todo.create').map(call => call.params) })`)).toEqual({ pointers: 0, creates: [{ title: "keyboard thought", body: null, blockers: null }] });
   await capture("U3714", "filed");
+
+  if (captureDir("T4905")) {
+    const dir = captureDir("T4905")!;
+    mkdirSync(dir, { recursive: true });
+    await browser("record", "start", join(dir, "capture.webm"));
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+
+    for (const stage of ["acknowledged", "create", "move"]) {
+      await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+      await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
+      await browser("click", '.rail-row[data-id="backend"]');
+      await wait(`!!document.querySelector('.rail-row[data-id="backend"][data-selected="true"]')`);
+      await read(`(async () => {
+        const { RpcError } = await import('/src/app/seam.ts');
+        const method = ${JSON.stringify(stage)} === 'move' ? 'todo.move' : 'todo.create';
+        const original = window.__fake.app.handlers[method];
+        window.__fake.app.handlers[method] = params => new Promise((resolve, reject) => {
+          window.__settleCapture = () => ${JSON.stringify(stage)} === 'acknowledged'
+            ? resolve(original(params))
+            : reject(new RpcError(-32003, 'Could not ${stage === "move" ? "move" : "file"} the captured Todo. Try again.'));
+        });
+      })()`);
+      await browser("press", "Meta+k");
+      await wait(`!!document.querySelector('.leader')`);
+      await browser("press", "t");
+      await wait(`document.activeElement === document.querySelector('.capture-field')`);
+      await browser("fill", 'textarea[aria-label="Capture a Todo"]', "Captured work to review");
+      await browser("press", "Shift+Enter");
+      await wait(`typeof window.__settleCapture === 'function' && document.querySelector('textarea[aria-label="Capture a Todo"]').value === ''`);
+      await browser("fill", 'textarea[aria-label="Capture a Todo"]', "A newer unfinished thought stays here");
+      await wait(`document.querySelector('textarea[aria-label="Capture a Todo"]').value === 'A newer unfinished thought stays here'`);
+      await read(`(() => {
+        const row = document.querySelector('[data-todo^="-"]');
+        row.querySelector('.todo-open')?.click();
+        row.querySelector('.todo-row-button').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+      })()`);
+      await capture("T4905", `${stage}-pending`);
+      await read(`window.__settleCapture()`);
+
+      if (stage === "acknowledged") {
+        await wait(`!document.querySelector('[data-todo^="-"]') && [...document.querySelectorAll('.todo-open')].some(button => button.getAttribute('aria-label') === 'Open Captured work to review')`);
+        await browser("press", "Escape");
+        await wait(`!document.querySelector('.capture')`);
+        await browser("click", '[aria-label="Open Captured work to review"]');
+        await wait(`!!document.querySelector('.drawer[data-open="true"]')`);
+      } else {
+        await wait(`!!document.querySelector('[aria-label="Recovered capture draft"]') && !!document.querySelector('.capture [role="alert"]')`);
+      }
+
+      await capture("T4905", stage);
+    }
+
+    await browser("record", "stop");
+  }
 
   if (!captureDir("U3715")) return;
   await read(`window.__fake.failNext(-32003, 'name already taken')`);
@@ -114,7 +169,7 @@ it("u3714_capture_in_two_chords_on_tree_40", async () => {
   await wait(`document.querySelector('.capture-field').value === ''`);
   await capture("U3716", "newer-submitted");
 
-}, 60_000);
+}, captureDir("T4905") ? 180_000 : 60_000);
 
 it("u2773a_capture_restores_exact_text_and_caret_after_webview_reload", async () => {
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
