@@ -248,7 +248,7 @@ p {
 }
 
 .drawer {
-  --drawer-right: 0px;
+  --drawer-right: 0rem;
   display: flex;
   flex-direction: column;
   width: var(--drawer-span);
@@ -269,9 +269,9 @@ p {
 /* U4698a: a filled Todo or Pad covers the centre pane only: right of the Rail, left of a shown right side. A maximised Shelf keeps its whole pane, so the item covers it as U4458 did. */
 .window {
   --fill-rail: var(--rail-width);
-  --fill-reserve: 0px;
+  --fill-reserve: 0rem;
 }
-.window[data-rail="closed"] { --fill-rail: 0px; }
+.window[data-rail="closed"] { --fill-rail: 0rem; }
 .window[data-shelf-mode="reserved"][data-shelf-shown="true"]:not([data-shelf-maximised="true"]) { --fill-reserve: var(--shelf-span); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
