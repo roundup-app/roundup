@@ -654,9 +654,8 @@ it.each(["close", "minimise", "Escape"])("u4590_preparing_shell_cancels_with_%s"
 }, 60_000);
 
 // U4590's opt-in policy observer; the single startup guard above remains the CI guard.
-for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-40", "bubbles"]) {
-  it.skipIf(!captureDir("U4590"))(`u4590_rendered_lifecycle_${renderer}_${seed}`, async () => {
-    for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-40", "bubbles"]) for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+  it.skipIf(!captureDir("U4590"))(`u4590_rendered_lifecycle_${renderer}_${seed}_${base ? "base" : "head"}`, async () => {
       await browser("open", url("/src/ui/u498.html", base));
       await read("localStorage.clear(); sessionStorage.clear()");
       const scale = process.env.U4590_SCALE === "2" ? 2 : 1;
@@ -683,6 +682,8 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
           window.__fake.writeOutput('${id}', '\\x1b[9;1H' + ${JSON.stringify(marker)} + '\\x1b[' + rows + ';1H[Enter] Answer  [Esc] Stop');
         })()`);
         await wait(`window.__terminals.get('${id}').serialize().data.includes(${JSON.stringify(marker)})`);
+
+        if (renderer === "dom") await wait(`[...document.querySelectorAll('.xterm-rows')].some(rows => rows.checkVisibility() && rows.textContent.includes(${JSON.stringify(marker)}))`);
         // emulator.ts schedules xterm painting after the subscription's parse callback.
         await read("new Promise(resolve => requestAnimationFrame(resolve))");
 
@@ -718,9 +719,9 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await browser("press", "Meta+=");
         await wait(`window.__fake.app.calls.some(c=>c.method==='terminal.resize' && c.params.id==='${id}')`);
         await capture("project-zoom");
-        await browser("set", "viewport", "1412", "850");
+        await browser("set", "viewport", "1412", "850", String(scale));
         await wait("innerWidth===1412 && innerHeight===850");
-        await browser("set", "viewport", "1512", "950");
+        await browser("set", "viewport", "1512", "950", String(scale));
         await wait("innerWidth===1512 && innerHeight===950");
         await capture("window-resize");
         await select("agent-4", "t-agent-4");
@@ -764,6 +765,19 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await read(`document.querySelector('button.terminal-tab[data-bubble="${id}"]')?.click()`);
         await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
         await capture("reopen");
+        await browser("dblclick", ".bubble:not([hidden]) .bubble-header");
+        const header = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.bubble:not([hidden]) .bubble-header').getBoundingClientRect(); return {x:box.x+box.width/2,y:box.y+box.height/2}; })()");
+        await browser("mouse", "move", String(header.x), String(header.y));
+        await browser("mouse", "down");
+        await browser("mouse", "move", String(header.x + 40), String(header.y + 30));
+        await browser("mouse", "up");
+        await capture("move");
+        await read(`window.__terminals.get('${id}').focus()`);
+        await browser("press", "Meta+b");
+        await wait("!document.querySelector('.bubble:not([hidden])') && !!document.activeElement?.closest('.pane-screen')");
+        await browser("press", "Meta+b");
+        await wait("!!document.activeElement?.closest('.bubble:not([hidden])')");
+        await capture("pair-switch");
         await browser("click", '.rail-row[data-id=runner]');
         await wait("!document.querySelector('.bubble:not([hidden])')");
         await browser("press", "Meta+t");
@@ -772,6 +786,5 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await read("window.__observedEmulator=null");
         await capture("quick-terminal");
       }
-    }
   }, 120_000);
 }
