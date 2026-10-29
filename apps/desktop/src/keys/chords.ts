@@ -31,20 +31,20 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.switchAgentTerminal, at: { agent: 0, bubble: 0 } } },
   { keys: "R", what: copy.restartMode, presses: ["KeyR"], inRail: true },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
-  { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 5 } } },
-  { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true, hint: { label: copy.todoAssignDigit, at: { shelf: 7 } } },
+  { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 6 } } },
+  { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true, hint: { label: copy.assign, at: { shelf: 2 } } },
   { keys: "⏎", what: copy.openDraft, presses: ["Enter"], inShelf: true },
 
   { keys: "O", what: copy.assignTodo, presses: ["KeyO"], inShelf: true, hint: { label: copy.assign, at: { shelf: 1 } } },
   { keys: "M", what: copy.maximise, presses: ["KeyM"], inShelf: true, hint: { label: copy.maximise, at: { shelf: 0 } } },
-  { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 2 } } },
-  { keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 3 } } },
-  { keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 4 } } },
+  { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 3 } } },
+  { keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 4 } } },
+  { keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 5 } } },
   { keys: "⌘F", what: copy.find, presses: ["meta+KeyF"], inTerminals: true },
   { keys: "⌘Z", what: copy.todoUndo, presses: ["meta+KeyZ"] },
   { keys: "⌘,", what: copy.settings, presses: ["meta+Comma"] },
   // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
-  { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 6 } } },
+  { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 7 } } },
   { keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], inShelf: true, inTriage: true },
   { keys: "A", what: copy.triageAssign, presses: ["KeyA"], inShelf: true, inTriage: true },
   { keys: "W", what: copy.triageWorkstream, presses: ["KeyW"], inShelf: true, inTriage: true },
@@ -107,9 +107,6 @@ export const chordsOf = (chord: Chord | undefined, match: "code" | "key" = "code
   );
 
 export const chordsFor = (keys: string, match: "code" | "key" = "code"): readonly string[] => chordsOf(CHORDS.find((chord) => chord.keys === keys), match);
-
-/** `⌘K` arms the leader (U2239). */
-export const LEADER_ARM = chordsFor("⌘K");
 
 /** Existing Rail navigation, kept local to Keys until its Rail lane adopts Ark. */
 export const RAIL_KEYS = "ArrowLeft ArrowRight F2".split(" ");
