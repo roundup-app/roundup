@@ -51,11 +51,11 @@ const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onK
   };
 
   return <Combobox.Control><Combobox.Input asChild={attributes => {
-    const merged = mergeProps(attributes, { onKeyDown });
+    const [, input] = splitProps(mergeProps(attributes, { onKeyDown }), ["type", "role", "aria-expanded", "aria-controls"]);
 
     // Ark's input defaults to a single-line combobox; mentions keep the textarea's
     // multiline textbox role, which supports active-descendant list navigation.
-    return <textarea {...merged} {...rest} role="textbox" aria-multiline="true" aria-haspopup="listbox" aria-expanded={undefined} spellcheck={false} autocorrect="off" autocapitalize="off" />;
+    return <textarea {...input} {...rest} role="textbox" aria-multiline="true" aria-haspopup="listbox" aria-controls={local.open ? combobox().getInputProps()["aria-controls"] : undefined} spellcheck={false} autocorrect="off" autocapitalize="off" />;
   }} /></Combobox.Control>;
 };
 

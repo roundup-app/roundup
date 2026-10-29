@@ -26,8 +26,9 @@
   background-color: var(--selected);
 }
 
-/* A resting pointer moves no highlight: only typing and the arrows do, and a hovered row changes its text colour alone. */
-.app-combobox-item:hover:not([data-highlighted]) {
+/* Hover changes ink only, including mention choices whose active descendant follows the pointer. */
+.app-combobox-item:hover:not([data-row-selected=true]) {
+  background-color: var(--transparent);
   color: var(--text);
 }
 

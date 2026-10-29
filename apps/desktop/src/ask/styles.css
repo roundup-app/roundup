@@ -173,10 +173,21 @@
   min-width: 0;
 }
 
+.app-mention-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--grey);
+}
+
+.app-combobox-item:hover .app-mention-name {
+  color: var(--text);
+}
+
 .app-mentions mark {
   color: var(--text);
   background: var(--transparent);
-  text-decoration: underline;
 }
 
 .app-mention-parent {

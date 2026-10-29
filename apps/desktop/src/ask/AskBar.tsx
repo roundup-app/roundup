@@ -324,7 +324,7 @@ export const AskBar = (props: {
             const start = () => item.label.toLowerCase().indexOf((mentionOf(text()) ?? "").toLowerCase());
             const end = () => start() + (mentionOf(text())?.length ?? 0);
 
-            return <><KindGlyph kind={node()?.status?.kind ?? "idle"} /><span>{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show></>;
+            return <><KindGlyph kind={node()?.status?.kind ?? "idle"} /><span class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show></>;
           }} /></Show>
         </Mentions.Root>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
