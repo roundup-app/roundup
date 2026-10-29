@@ -14,5 +14,5 @@
   ],
   "checks": "D1-D14 and D16 pass",
   "comparison": "keys/styles.css equals origin/main; disabled chip uses --grey rather than full --text ink",
-  "observer_failure": "Settings and hint capture recording stopped with No frames captured. Screenshots and Check readings remain; no successful video claimed."
+  "observer_failure": "Settings recorder returned No frames captured; hint recorder also failed at record stop. Screenshots and Check readings remain; no successful video claimed."
 }
