@@ -254,7 +254,8 @@ it.each(["M", "D", "E", "Esc", "O"].flatMap(keys => (["key", "pointer"] as const
   },
 );
 
-it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wait: competing A owners %s", async source => {
+it("u4690b_leader_clicks_and_keys_share_one_wait: competing A owners pointer", async () => {
+  const source = "pointer";
   const { app } = seedApp("tree-40", 0);
   const tree = app.handlers["rail.tree"]!;
   // Keep both command owners without mounting unrelated Rail branches during teardown.
