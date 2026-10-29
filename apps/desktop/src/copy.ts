@@ -74,7 +74,7 @@ type CopyValue = string | number | undefined;
 
 const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
-const draftSurfaceLabels = new Map(Object.entries({ "opening-prompt": "Opening prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
+const draftSurfaceLabels = new Map(Object.entries({ "mode-create": "New Mode", "opening-prompt": "First prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
 const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"]]);
 
@@ -840,10 +840,15 @@ export const copy = {
   todoWithoutEstimates: (count: number) => `+ ${count} without estimate`,
   todoAuto: "Auto",
   restartSession: "Restart session",
-  openingPrompt: "Opening prompt",
-  openingPromptMenu: "Opening prompt…",
-  openingPromptFor: (name: string) => `Opening prompt · ${name}`,
-  openingPromptPlaceholder: "Your opening words",
+  newMode: "New Mode",
+  modeWord: "Mode",
+  createMode: "Create Mode",
+  openingPrompt: "First prompt",
+  openingPromptMenu: "First prompt…",
+  openingPromptFor: (name: string) => `First prompt · ${name}`,
+  openingPromptPlaceholder: "Your first prompt",
+  openingPromptConflict: "The saved first prompt changed. Your draft is retained; saving replaces the saved prompt.",
+  modePromptHint: "Typed once when this Mode starts a fresh session",
   openingPromptHint: "Typed once when this Workstream starts a fresh session",
   todoAutoHint: "Hand out unassigned Todos",
   todoAutoHandling: "Handing these out",

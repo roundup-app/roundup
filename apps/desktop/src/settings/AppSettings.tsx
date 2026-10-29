@@ -117,7 +117,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <ReservedLine message={offered()?.failure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
-        <Field.Root class="settings-field settings-font"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
+        <Field.Root class="settings-field settings-font"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
           onInput={event => edit("fontFamily", event.currentTarget)} onBlur={() => { commit("fontFamily", field("fontFamily")); }}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></Field.Root>
         <Field.Root class="settings-field" invalid={!!sizeFailure()}><Field.Label>{copy.fontSize}</Field.Label><Deferred load={() => import("../ui/NumberInput")} label={copy.fontSize}>{module => <module.NumberInput.Root value={field("fontSize")} min={MIN_FONT_SIZE} max={MAX_FONT_SIZE} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
