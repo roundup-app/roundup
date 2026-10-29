@@ -9,8 +9,13 @@ import { mountNavigation } from "../testing/navigationFixture";
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 it("u4454a_the_centre_has_no_time_timeline_or_back_to_ask", async () => {
-  const { connected, daemon, nodes } = await mountNavigation();
-  nodes.push(door("running", "working", "Working"), door("stopped", "idle", "Stopped"));
+  const { connected, daemon, nodes } = await mountNavigation(true, 0);
+  nodes.push(
+    workstream("home"),
+    agent("a0", "needs-you", "ready", { parent: "home" }),
+    door("running", "working", "Working"),
+    door("stopped", "idle", "Stopped"),
+  );
   await connected().rail.refresh();
   const draft = "  Keep this exact draft\nfor my original Project 🦉";
   fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: draft } });

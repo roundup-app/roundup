@@ -125,6 +125,10 @@ const TOOLS: &[(&str, &str)] = &[
         "restore your deletion operation in its original Project once, keeping its original Pad creation",
     ),
     (
+        "pad_redoDelete",
+        "redo your restored deletion in its original Project with a fresh operation and the acknowledged incarnation, Revision and Home; refusal remains retryable",
+    ),
+    (
         "checkpoint_list",
         "read the Checkpoints written for a Workstream, oldest first",
     ),

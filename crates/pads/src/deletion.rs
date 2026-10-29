@@ -1,8 +1,18 @@
 //! Transactional retention and restoration through the existing SQLite owner.
 use super::*;
-use contracts::pad::{DeleteParams, Deletion, DeletionId, GetDeletionParams};
+use contracts::pad::{DeleteParams, Deletion, DeletionId, GetDeletionParams, RedoDeleteParams};
 use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
+
+pub(super) fn cause(actor: &Actor) -> PadDeletion {
+    if actor.kind == ActorKind::User {
+        PadDeletion::User
+    } else if *actor == Actor::daemon() {
+        PadDeletion::Cleanup
+    } else {
+        PadDeletion::Owner
+    }
+}
 
 fn project(db: &Connection) -> Result<String, RpcError> {
     db.query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
@@ -211,6 +221,98 @@ impl Pads {
             found(store.delete(&pad.name), &pad.name)?;
             if store.files().map_err(RpcError::internal)? {
                 files.stage(&self.files_dir, &pad.name)?;
+            }
+            Ok((receipt, true))
+        })?;
+        files.commit();
+        if changed {
+            wrote(ctx, &receipt.pad.name)?;
+        }
+        reply(&receipt)
+    }
+
+    pub(super) fn redo_delete(&self, ctx: &Ctx, p: RedoDeleteParams) -> Result<Value, RpcError> {
+        let store = self.store()?;
+        let mut files = RemovalFiles::default();
+        let (receipt, changed) = store.atomically(|| {
+            if project(&store.db)? != p.project {
+                return Err(RpcError::forbidden("deletion belongs to another Project"));
+            }
+            let request = serde_json::to_string(&p).map_err(RpcError::internal)?;
+            if let Some((receipt, previous)) = operation(&store.db, &p.operation, &ctx.actor)? {
+                if previous != request {
+                    return Err(RpcError::conflict(
+                        "deletion operation already used with different targets",
+                    ));
+                }
+                return Ok((receipt, false));
+            }
+            let prior = read(
+                &store.db,
+                &ctx.actor,
+                &DeletionId {
+                    project: p.project.clone(),
+                    operation: p.restored_operation.clone(),
+                },
+            )?;
+            if !prior.restored || prior.pad.incarnation != p.expected_incarnation {
+                return Err(RpcError::conflict(
+                    "Redo requires the restored Pad creation",
+                ));
+            }
+            let incarnation = prior
+                .pad
+                .incarnation
+                .parse::<i64>()
+                .map_err(RpcError::internal)?;
+            let PadSourceState::Live(source) =
+                source_state(&store.db, incarnation).map_err(RpcError::internal)?
+            else {
+                return Err(RpcError::conflict(
+                    "The restored Pad creation is unavailable",
+                ));
+            };
+            let current = source.pad;
+            require_owner_or_user(&ctx.actor, &current, "delete")?;
+            if current.incarnation != prior.pad.incarnation
+                || current.name != prior.pad.name
+                || current.revision != p.expected_revision
+                || current.home != p.expected_home
+            {
+                return Err(RpcError::conflict(
+                    "Pad changed since readback; read it before retrying Redo",
+                ));
+            }
+            if store.files().map_err(RpcError::internal)?
+                && super::files::read(&self.files_dir, &current.name)?
+                    .is_some_and(|text| text != current.text)
+            {
+                return Err(RpcError::conflict(
+                    "Pad mirror has external edits; import them before retrying Redo",
+                ));
+            }
+            let receipt = retain(
+                &store.db,
+                &ctx.actor,
+                &DeleteParams {
+                    name: current.name.clone(),
+                    operation: Some(p.operation.clone()),
+                    expected_incarnation: Some(current.incarnation),
+                },
+            )?;
+            store
+                .db
+                .execute(
+                    "UPDATE pad_deletions SET request=?1 WHERE operation=?2",
+                    rusqlite::params![request, p.operation],
+                )
+                .map_err(RpcError::internal)?;
+            store
+                .record_deletion(&current.name, cause(&ctx.actor))
+                .map_err(RpcError::internal)?;
+            found(store.delete(&current.name), &current.name)?;
+            if store.files().map_err(RpcError::internal)? {
+                files.stage(&self.files_dir, &current.name)?;
             }
             Ok((receipt, true))
         })?;
