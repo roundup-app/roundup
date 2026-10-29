@@ -1,0 +1,69 @@
+{
+  "baseline": "d7cd1eaed3d4695e83a5176972aec9e7a727c8ea",
+  "uiHead": "baa52519133ab030a66e82afa3399993d967a036",
+  "metadataHead": "041874572",
+  "states": [
+    {
+      "state": "agents-10-capture.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    },
+    {
+      "state": "agents-10-rail-hover.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    },
+    {
+      "state": "agents-10-rail-selected.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    },
+    {
+      "state": "tree-40-capture.checks",
+      "regressions": [],
+      "baselineFailures": {
+        "D12": 8
+      },
+      "headFailures": []
+    },
+    {
+      "state": "tree-40-pad-hover.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    },
+    {
+      "state": "tree-40-pad-selected.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    },
+    {
+      "state": "tree-40-rail-hover.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    },
+    {
+      "state": "tree-40-rail-selected.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    },
+    {
+      "state": "tree-40-todo-hover.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    },
+    {
+      "state": "tree-40-todo-selected.checks",
+      "regressions": [],
+      "baselineFailures": {},
+      "headFailures": []
+    }
+  ]
+}

@@ -94,6 +94,7 @@
   --centre-min-width: 388px;
   /* U131: title geometry, including empty leading slots; not a space step. */
   --row-text-inset: 32px;
+  --row-inset: var(--space-1);
   --flat-tab-edge: 1px;
   /* U130: typed zero lengths remain valid in max(), gradients and fallbacks. */
   --length-zero: 0px;
@@ -536,7 +537,3 @@ button, file-tree-container, diffs-container {
 :root[data-interface-scale="large"] { --interface-scale: var(--scale-large); }
 :root[data-focus-markers="false"] { --region-marker: none; }
 
-:root[data-interface-scale="small"] .kind-mark,
-:root[data-interface-scale="large"] .kind-mark { translate: 0 var(--interface-glyph-offset); }
-
-.shelf-row { --interface-glyph-offset: 0.5px; }
