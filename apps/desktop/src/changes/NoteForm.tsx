@@ -52,7 +52,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
     </Tabs.Root>
     <label>{copy.startLine}<input type="number" min="1" value={start()} onInput={event => { setStart(event.currentTarget.value); persist(); }} /></label>
     <label>{copy.endLine}<input type="number" min="1" value={end()} onInput={event => { setEnd(event.currentTarget.value); persist(); }} /></label>
-    <label class="note-field">{copy.note}<textarea value={text()} maxLength={20000} onInput={event => { setText(event.currentTarget.value); persist(); }} onSelect={() => { if (text() !== "" || restored || replacing !== undefined) persist(); }} ref={element => {
+    <label class="note-field">{copy.note}<textarea spellcheck={false} autocorrect="off" autocapitalize="off" value={text()} maxLength={20000} onInput={event => { setText(event.currentTarget.value); persist(); }} onSelect={() => { if (text() !== "" || restored || replacing !== undefined) persist(); }} ref={element => {
       field = element;
       queueFocus(() => {
         if (!element.isConnected) return;

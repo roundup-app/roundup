@@ -47,7 +47,7 @@ const RenameField = (props: { name: string; restored: "none" | "current" | "sele
     else field?.select();
   });
 
-  return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
+  return <input spellcheck={false} autocorrect="off" autocapitalize="off" class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
     onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
     onSelect={event => { if (!finished && document.activeElement === event.currentTarget) props.onEdit(event.currentTarget); }}
     onBlur={event => {
