@@ -1,13 +1,33 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { RequestedApp as App } from "../testing/requestedApp";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { Tabs } from "../ui/Tabs";
+import { createShelfFrame } from "./frame";
+import { createShelfTabs, ProjectShelfTabs, Shelf } from "./Shelf";
 import { seedApp } from "../testing/seeds";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 const mount = async () => {
   window.matchMedia ??= (media) => ({ matches: false, media, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
-  render(() => <App app={seedApp("tree-40", Date.now()).app} reducedMotion={() => true} clock={Date.now} />);
+  const connected = await connectProject(seedApp("tree-40", 0).app, { name: "harness", path: "/Users/you/harness" }, () => true, () => 0);
+
+  await connected.rail.settled();
+  render(() => {
+    const frame = createShelfFrame(() => connected.project.path, () => true, undefined);
+    const tabs = createShelfTabs(frame);
+
+    return <ConnectedProjectContext.Provider value={connected}>
+      <Tabs.RootProvider value={tabs}>
+        <ProjectShelfTabs frame={frame} onToggle={frame.toggle} />
+      </Tabs.RootProvider>
+      <div class="shelf">
+        <Tabs.RootProvider value={tabs} id="shelf-panels" lazyMount unmountOnExit>
+          <Shelf open={frame.open} />
+        </Tabs.RootProvider>
+      </div>
+    </ConnectedProjectContext.Provider>;
+  });
 
   return within(await screen.findByRole("tablist", { name: "Work items" })).getAllByRole("tab");
 };
