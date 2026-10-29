@@ -26,6 +26,8 @@ it.skipIf(!captureDir("U4687a"))("u4687a_rendered_controls_and_preview", async (
   await lane.browser("set", "media", "dark");
   await lane.until("!!document.querySelector('.shelf-tabs')");
 
+  let recording = true;
+
   try {
     await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
     await lane.until("!!document.querySelector('.settings-sections')");
@@ -47,6 +49,8 @@ it.skipIf(!captureDir("U4687a"))("u4687a_rendered_controls_and_preview", async (
     await lane.until("!!document.querySelector('.settings-preview .xterm')");
 
     for (const id of ids) await lane.capture(id, "head/terminal");
+    await lane.browser("record", "stop");
+    recording = false;
     const calls = await lane.calls();
     await lane.browser("fill", "input[aria-label='Line height']", "1");
     await lane.capture("U4687b", "head/line-min-draft");
@@ -67,7 +71,7 @@ it.skipIf(!captureDir("U4687a"))("u4687a_rendered_controls_and_preview", async (
     await lane.until("document.body.textContent.includes('Choose a font size')");
     await lane.capture("U4687a", "head/refused");
     expect((await lane.calls()).slice(calls.length).filter(call => call.method === "terminal.create" || call.method === "terminal.write")).toEqual([]);
-  } finally { await lane.browser("record", "stop"); }
+  } finally { if (recording) await lane.browser("record", "stop"); }
 }, 60_000);
 
 it.skipIf(!captureDir("U4687a") || !process.env.ROUNDUP_SETTINGS_BASE)("u4687c_paired_baseline_at_the_same_viewport", async () => {
@@ -112,4 +116,25 @@ it.skipIf(!captureDir("U4687a"))("u4687a_controls_without_a_project_and_with_age
   }
 
   expect((await lane.calls()).filter(call => call.method === "agent.spawn")).toEqual([]);
+}, 60_000);
+
+it.skipIf(!captureDir("U4687a"))("u4687b_rendered_family_and_weight_choices", async () => {
+  await lane.browser("open", headUrl);
+  await lane.browser("set", "media", "dark");
+  await lane.until("(() => { window.dispatchEvent(new Event('open-app-settings')); return !!document.querySelector('.settings-sections'); })()");
+  await lane.browser("click", "[role=tab][data-value=Terminal]");
+  await lane.until("!!document.querySelector('.settings-preview .xterm')");
+
+  for (const weight of [300, 400, 500, 600]) {
+    await lane.browser("click", "[data-scope=segment-group][data-part=item][aria-label='" + weight + "']");
+    await lane.capture("U4687b", "head/weight-" + weight);
+  }
+
+  for (const family of ["Fira Code", "Menlo", "Monaco", "monospace", "Default"]) {
+    await lane.browser("click", "[role=combobox][aria-label='Font family']");
+    await lane.browser("find", "role", "option", "click", "--name", family, "--exact");
+    await lane.capture("U4687b", "head/family-" + family.replaceAll(" ", "-"));
+  }
+
+  expect((await lane.calls()).filter(call => call.method === "terminal.write")).toEqual([]);
 }, 60_000);
