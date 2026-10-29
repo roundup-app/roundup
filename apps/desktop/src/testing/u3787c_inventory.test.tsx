@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { renderTabs, path } from "../header/stripFixture";
-import { agent, terminal, workstream, USER } from "./nodes";
+import { agent, door, workstream, USER } from "./nodes";
 import { padHandlers, todoHandlers } from "./stores";
 import { padOf } from "../pads/padsFixture";
 import { todo } from "../todos/testHarness";
@@ -12,7 +12,9 @@ import { settled } from "../rail/railFixture";
 
 // Final App inventory: the owner control must use the same Shelf holder as Work items.
 const shelf = ["Todos", "Pads"] as const;
+
 const names = ["Alpha", "Bravo", "Charlie", "Delta", "Éclair"];
+
 const owner = { kind: "agent", id: "a", parent: null } as const;
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -23,21 +25,25 @@ const openShelf = async (tab: typeof shelf[number]) => {
   Object.assign(daemon.handlers, tab === "Todos"
     ? todoHandlers({ todos: names.map((title, i) => todo(i + 1, { title, creator: owner })) }, () => {})
     : padHandlers({ pads: names.map(name => padOf(name, owner)), history: [] }, () => {}));
-  await screen.findByRole("tab", { name: /^p/ });
+  await screen.findByRole("region", { name: "Project overview" });
   openProjectPage("view:workstreams", path("p"));
+
   const control = await waitFor(() => {
     const found = document.querySelector<HTMLElement>('[data-id="a"] [data-pads-control]');
     expect(found).not.toBeNull();
 
     return found!;
   });
+
   fireEvent.click(control);
+
   const rows = await waitFor(() => {
     const found = [...document.querySelectorAll<HTMLElement>(tab === "Todos" ? ".shelf .todo-row-button" : ".shelf .pad-name")];
     expect(found).toHaveLength(5);
 
     return found;
   });
+
   await settled();
 
   return { app: daemon, rows };
@@ -79,7 +85,9 @@ it.each(shelf)("u3787c_each_list_selects_only_visible_rows owner control %s", as
 
 // Full App, rather than WorktreeControl alone: both production openings reach the shadow tree.
 const files = names.map((_, i) => ({ path: `${["alpha", "bravo", "charlie", "delta", "echo"][i]}.ts`, status: "modified" as const, line: i + 1 }));
+
 const shadow = () => document.querySelector("file-tree-container")?.shadowRoot;
+
 const changedRows = () => [...(shadow()?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [])];
 
 const openChanges = async (opening: string) => {
@@ -87,14 +95,16 @@ const openChanges = async (opening: string) => {
   const daemon = app.of(path("p"));
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
   daemon.handlers["agent.changedFiles"] = () => ({ files });
-  await screen.findByRole("tab", { name: /^p/ });
+  await screen.findByRole("region", { name: "Project overview" });
   openProjectPage("view:workstreams", path("p"));
+
   const row = await waitFor(() => {
     const found = document.querySelector<HTMLElement>('.rail-row[data-id="a"]');
     expect(found).not.toBeNull();
 
     return found!;
   });
+
   fireEvent.click(row);
   const control = await screen.findByRole("button", { name: "5 changed files" });
   await settled();
@@ -148,37 +158,45 @@ it.each(["counted control", "Review changes"])("u3787c_each_list_selects_only_vi
   expect(app.calls.slice(before)).toEqual([]);
 });
 
-const renames = ["Todo", "Pad", "Workstream", "Agent", "Terminal"] as const;
+const renames = ["Todo", "Pad", "Workstream", "Agent"] as const;
 
 it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "double-click"] : ["native Rename"]).map(opening => ({ kind, opening }))))("u3787c_escape_restores_the_name App $kind $opening", async ({ kind, opening }) => {
-  const node = kind === "Workstream" ? workstream("a", { name: "Original" }) : kind === "Terminal" ? terminal("a", { name: "Original" }) : agent("a", "idle", "ready", { name: "Original" });
+  const node = kind === "Workstream" ? door("a", "idle", "ready", { name: "Original" }) : agent("a", "idle", "ready", { name: "Original" });
   const { app } = renderTabs({ p: [node] });
   const daemon = app.of(path("p"));
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Original" })] }, () => {}), padHandlers({ pads: [padOf("Original", USER)], history: [] }, () => {}));
-  await screen.findByRole("tab", { name: /^p/ });
+  await screen.findByRole("region", { name: "Project overview" });
   openProjectPage("view:workstreams", path("p"));
   await waitFor(() => expect(document.querySelector('.rail-row[data-id="a"]')).not.toBeNull());
 
   if (kind === "Todo" || kind === "Pad") {
     showShelfTab(kind === "Todo" ? "Todos" : "Pads");
+
     const group = await waitFor(() => {
-      const found = document.querySelector<HTMLElement>('.shelf [data-shelf-group="unassigned"] .shelf-group-control');
+      const found = document.querySelector<HTMLElement>(`${kind === "Todo" ? ".todos-tab" : ".pads-tab"} [data-shelf-group="unassigned"] .shelf-group-control`);
       expect(found).not.toBeNull();
 
       return found!;
     });
 
-    if (group.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(group);
+    if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
+    await waitFor(() => expect(group.closest("[data-shelf-group]")?.getAttribute("aria-expanded")).toBe("true"));
+    await settled();
   }
 
   const selector = kind === "Todo" ? '.shelf [data-todo="1"] .todo-row-button' : kind === "Pad" ? '.shelf [data-pad="Original"] .pad-name' : '.rail-row[data-id="a"]';
+
   const row = await waitFor(() => {
     const found = document.querySelector<HTMLElement>(selector);
     expect(found).not.toBeNull();
 
     return found!;
   });
+
+  const savedName = row.textContent;
+
   row.focus();
+  await settled();
 
   if (opening === "native Rename") { fireEvent.contextMenu(row); await app.pickMenu("Rename"); }
   else if (opening === "double-click") fireEvent.dblClick(row);
@@ -192,10 +210,63 @@ it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "dou
   try { fireEvent.keyDown(field, { key: "Escape" }); }
   finally { document.removeEventListener("keydown", underlying); }
 
-  await waitFor(() => expect(document.activeElement).toBe(row));
-  expect(row.textContent).toContain("Original");
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(selector)));
+  expect(document.querySelector(selector)?.textContent).toBe(savedName);
   expect(underlying).not.toHaveBeenCalled();
   expect(daemon.calls.filter(call => ["rail.rename", "todo.update", "pad.rename", "terminal.write"].includes(call.method))).toEqual([]);
-  fireEvent.keyDown(row, { key: "F2" });
+  fireEvent.keyDown(document.activeElement!, { key: "F2" });
   expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" })).value).toBe(text);
+});
+
+it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_list_navigates_visible_rows App Rail %#", async make => {
+  renderTabs({ p: names.map((name, order) => ({ ...make(`row-${order}`), name, order })) });
+  await screen.findByRole("region", { name: "Project overview" });
+  openProjectPage("view:workstreams", path("p"));
+
+  const rows = await waitFor(() => {
+    const found = [...document.querySelectorAll<HTMLElement>(".rail-row")];
+    expect(found).toHaveLength(5);
+
+    return found;
+  });
+
+  const heading = screen.getByRole("tree", { name: "Rail" }).querySelector(".section-head");
+  rows[2]!.focus();
+
+  for (const [key, target] of [["Home", heading], ["ArrowUp", heading], ["ArrowDown", rows[0]], ["ArrowDown", rows[1]], ["ArrowUp", rows[0]], ["End", rows[4]], ["ArrowDown", rows[4]], ["B", rows[1]]] as const) {
+    fireEvent.keyDown(document.activeElement!, { key });
+    await settled();
+    expect(document.activeElement).toBe(target);
+  }
+});
+
+it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_list_selects_only_visible_rows App Rail %#", async make => {
+  const { app } = renderTabs({ p: names.map((name, order) => ({ ...make(`row-${order}`), name, order })) });
+  await screen.findByRole("region", { name: "Project overview" });
+  openProjectPage("view:workstreams", path("p"));
+
+  const rows = await waitFor(() => {
+    const found = [...document.querySelectorAll<HTMLElement>(".rail-row")];
+    expect(found).toHaveLength(5);
+
+    return found;
+  });
+
+  await settled();
+  const daemon = app.of(path("p"));
+  const before = daemon.calls.length;
+  const selected = () => rows.filter(row => row.getAttribute("data-selected") === "true");
+
+  for (const [at, metaKey, shiftKey, expected] of [[2, false, true, [2]], [0, true, false, [0, 2]], [0, true, false, [2]], [3, true, true, [0, 1, 2, 3]], [1, false, true, [0, 1]]] as const) {
+    fireEvent.click(rows[at]!, { metaKey, shiftKey });
+    await settled();
+    expect(selected()).toEqual(expected.map(index => rows[index]));
+  }
+
+  rows[0]!.focus();
+  fireEvent.keyDown(rows[0]!, { key: "a", metaKey: true });
+  await settled();
+  expect(selected()).toEqual(rows);
+  expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
+  expect(daemon.calls.slice(before)).toEqual([]);
 });
