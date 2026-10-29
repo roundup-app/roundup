@@ -112,4 +112,6 @@ it("a4452c_restart_saves_first_and_retries_the_same_session_identity", async () 
   m.app.handlers["workstream.restart"] = () => workstream("w");
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(railCallsTo(m.app, "workstream.restart")).toEqual([first, first]));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("w")));
 });
