@@ -163,6 +163,7 @@ pub fn u3787e_restore_uses_saved_normal_bounds() {
             assert!((position.x - want_x).abs() <= 1.0, "{position:?}");
             assert!((position.y - want_y).abs() <= 1.0, "{position:?}");
             let original = main.outer_size().unwrap();
+            let original_position = main.outer_position().unwrap();
             // Actual native transitions, with native state/geometry as the completion signal.
             for fullscreen in [false, true] {
                 if fullscreen {
@@ -204,6 +205,8 @@ pub fn u3787e_restore_uses_saved_normal_bounds() {
                     !main.is_fullscreen().unwrap()
                         && !main.is_maximized().unwrap()
                         && main.outer_size().unwrap() == original
+                        // The exit animation moves the frame back after the size; the panel check below starts from the settled frame.
+                        && main.outer_position().unwrap() == original_position
                 });
             }
             #[cfg(target_vendor = "apple")]

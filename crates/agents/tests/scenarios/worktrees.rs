@@ -124,6 +124,7 @@ const GIT_PATH_FAILS: &str = "[ \"$1\" = rev-parse ] && [ \"$2\" = --git-path ]"
 async fn terminal_cwd(f: &Fixture, node: &RailNode) -> String {
     f.terminals
         .list()
+        .await
         .into_iter()
         .find(|t| Some(&t.id) == node.terminal_id.as_ref())
         .unwrap()
