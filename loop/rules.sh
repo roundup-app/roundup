@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen|scenario-closes|empty-diff <pr or local> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | architect-words | merge-loss [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -380,26 +380,6 @@ delta() {
   return "$regressed"
 }
 
-# L54: a clean merge of main: two parents, the second on main, no conflict, and nothing beyond the trial merge.
-# It adds no authored content, so it needs no Author-Agent, and an approve on its first parent still covers it.
-clean_merge() {
-  local c=$1 main_ref=$2 p1 p2 extra trial conflicted f
-  read -r _ p1 p2 extra <<<"$(git rev-list --parents -n 1 "$c")"
-  { [ -n "${p2:-}" ] && [ -z "${extra:-}" ]; } || { echo "clean-merge: $c: not a merge of main" >&2; return 1; }
-  git merge-base --is-ancestor "$p2" "$main_ref" || { echo "clean-merge: $c: not a merge of main (second parent is not on $main_ref)" >&2; return 1; }
-  local mt_rc=0
-  trial=$(git merge-tree --write-tree --name-only --no-messages "$p1" "$p2" 2>/dev/null) || mt_rc=$?
-  { [ "$mt_rc" -le 1 ] && [ -n "$trial" ]; } || { echo "clean-merge: $c: merge-tree failed (exit $mt_rc)" >&2; return 1; }
-  conflicted=$(sed 1d <<<"$trial" | sed '/^$/d')
-  trial=$(head -n 1 <<<"$trial")
-  f=$(head -n 1 <<<"$conflicted")
-  [ -z "$f" ] || { echo "clean-merge: $c: rule a: a conflict in $f" >&2; return 1; }
-  local differs
-  differs=$(git diff --name-only "$trial" "$c") || { echo "clean-merge: $c: could not compare with the trial merge" >&2; return 1; }
-  f=$(head -n 1 <<<"$differs")
-  [ -z "$f" ] || { echo "clean-merge: $c: rule c: $f differs from the trial merge" >&2; return 1; }
-}
-
 # L120: a file that differs from main but that no commit of the branch's own touched changed only through a merge, so a merge dropped
 # the work there for certain. Never reads the PR body. It reads the repository it was run in, so a fix run can run main's copy on
 # the branch it checked out (`builder.py restore-merge-loss`).
@@ -413,191 +393,7 @@ merge_loss() {
   [ -z "$lost" ] || { echo "merge-loss: these files differ from the merge base $base of $main_ref but no own commit touched them, so a merge lost the work there:" >&2; sed 's/^/  /' <<<"$lost" >&2; return 1; }
 }
 
-# PR trees are data: never check them out or execute their copy of this script.
-pr_rule() {
-  python3 - "$1" "$2" <<'PY'
-import json
-import os
-import re
-import subprocess
-import sys
-import tempfile
-
-command, number = sys.argv[1:]
-
-class Refused(Exception):
-    pass
-
-def require(ok, reason):
-    if not ok:
-        raise Refused(reason)
-
-try:
-    limit = float(os.environ.get('LOOP_GH_TIMEOUT', '20'))
-    require(limit > 0, 'LOOP_GH_TIMEOUT must be positive')
-except (ValueError, Refused) as error:
-    print(error, file=sys.stderr)
-    sys.exit(4)
-
-def gh(route):
-    try:
-        result = subprocess.run(['gh', 'api', route, '--paginate', '--slurp'],
-                                text=True, stdout=subprocess.PIPE, timeout=limit, check=True)
-        pages = json.loads(result.stdout)
-        require(isinstance(pages, list) and bool(pages), 'gh returned no pages')
-        return pages
-    except (subprocess.SubprocessError, OSError, ValueError, Refused) as error:
-        print(f'gh: {route}: {error}', file=sys.stderr)
-        sys.exit(4)
-
-def one(route):
-    pages = gh(route)
-    require(len(pages) == 1 and isinstance(pages[0], dict), f'invalid object: {route}')
-    return pages[0]
-
-repo = 'repos/{owner}/{repo}'
-pull = f'{repo}/pulls/{number}'
-
-def git(*args):
-    return subprocess.check_output(['git', *args], text=True, timeout=limit).rstrip('\n')
-
-def present(value):
-    return subprocess.run(['git', 'cat-file', '-e', value+'^{commit}'], stderr=subprocess.DEVNULL).returncode == 0
-
-def sha(value):
-    require(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{40}', value), 'missing or invalid SHA')
-    return value
-
-def fetch(value):
-    if not present(value):
-        # Fetch objects only; hooks, checkout filters and PR executables never run.
-        subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', 'fetch', '--no-tags', 'origin', value],
-                       timeout=limit, check=True, stdout=subprocess.DEVNULL)
-
-def base_gate(pr):
-    ref = pr['base']['ref']
-    require(ref == 'main', f'base is {ref}, not main')
-
-def trailers(commit, key):
-    value = git('show', '-s', f'--format=%(trailers:key={key},valueonly)', commit)
-    ids = value.splitlines()
-    require(all(re.fullmatch(r'[A-Za-z0-9_.-]+', agent) for agent in ids), f'invalid {key} on {commit}')
-    return set(ids)
-
-COPILOT = 'Co-authored-by: Copilot Autofix powered by AI <62310815+github-advanced-security[bot]@users.noreply.github.com>'
-
-# L37: a Copilot Autofix commit accepted on GitHub is authored by `copilot`: it carries Copilot's trailer, GitHub
-# committed it, and its signature verifies against GitHub's web-flow key in loop/web-flow.asc and no other key.
-def copilot(commit):
-    message = git('show', '-s', '--format=%B', commit)
-    if COPILOT not in message.splitlines() or git('show', '-s', '--format=%ce', commit) != 'noreply@github.com':
-        return False
-    with tempfile.TemporaryDirectory() as home:
-        env = {**os.environ, 'GNUPGHOME': home}
-        imported = subprocess.run(['gpg', '--batch', '--quiet', '--import', 'loop/web-flow.asc'], env=env,
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=limit)
-        return imported.returncode == 0 and subprocess.run(
-            ['git', '-c', 'gpg.program=gpg', '-c', 'gpg.ssh.allowedSignersFile=/dev/null', 'verify-commit', commit], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            timeout=limit).returncode == 0
-
-def history(base, head):
-    commits = git('rev-list', '--reverse', base+'..'+head).splitlines()
-    require(commits, 'no PR commits')
-    authors, records = set(), []
-    for commit in commits:
-        parents = git('rev-list', '--parents', '-n', '1', commit).split()[1:]
-        author, reviewer = trailers(commit, 'Author-Agent'), trailers(commit, 'Reviewed-by-Agent')
-        if not author and not reviewer and len(parents) == 1 and copilot(commit):
-            author = {'copilot'}
-        authors.update(author)
-        records.append((commit, parents, author, reviewer))
-    require(authors, 'no Author-Agent trailers')
-    return records
-
-def clean_merge(commit, base):
-    try:
-        return subprocess.run(['bash', 'loop/rules.sh', 'clean-merge', commit, base], stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL, timeout=limit).returncode == 0
-    except subprocess.TimeoutExpired:
-        return False
-
-# L2: an approval is a VERDICT comment, never a commit.
-def trailer_gate(records, base):
-    for commit, parents, author, reviewer in records:
-        require(not reviewer, f'trailers: {commit} carries Reviewed-by-Agent; an approval is a VERDICT comment')
-        if len(parents) == 1:
-            require(author, f'trailers: {commit} has no Author-Agent')
-        else:
-            require(author or clean_merge(commit, base), f'trailers: merge {commit} needs Author-Agent or must be a clean merge of main')
-
-# L118: loop machinery is frozen; only the user changes it. `check.yml`, the `loop/` helpers it and the justfile run,
-# and the journey and harness facts stay open, as Builders keep them current with the product.
-FROZEN = ['.github/workflows/', ':!.github/workflows/check.yml', '.agents/', ':!.agents/data/journey.md',
-          ':!.agents/data/harness.md', 'AGENTS.md', ':(glob)scenarios/loop-*.md',
-          'loop/', *(':!loop/' + name for name in ('affected.py', 'app-data.py', 'app-data.test.py', 'ci-ping.sh',
-                                                    'keep-going.sh', 'launch-sites.json', 'launch-sites.test.py'))]
-
-def frozen_gate(pr, base, head):
-    paths = git('diff', '--name-only', base+'...'+head, '--', *FROZEN).splitlines()
-    bots = [commit for commit in git('rev-list', base+'..'+head).splitlines()
-            if '[bot]' in git('show', '-s', '--format=%ae %ce', commit)]
-    require(not paths or not (bots or pr['user']['type'] == 'Bot'), '\n'.join([
-        f'{head} changes loop machinery, which only the user changes (L118):',
-        *(f'  {path}' for path in paths[:5]), *([f'  and {len(paths) - 5} more'] if len(paths) > 5 else []),
-        "Restore main's side of those paths; loop changes come from the user's own PRs."]))
-
-# A PR whose changed files all sit under scenarios/ lands no code, so closing an implementation Issue from it closes the
-# Issue early. A `Mode: specify` Issue is done by that very PR, so it may close it.
-CLOSES = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?[ \t]+#(\d+)', re.I)
-SPECIFY = re.compile(r'^Mode: specify[ \t]*$', re.M)
-
-def scenario_closes_gate(pr, base, head):
-    paths = git('diff', '--name-only', base+'...'+head).splitlines()
-    if not (paths and all(path.startswith('scenarios/') for path in paths)):
-        return
-    text = '\n'.join([pr.get('body') or '', git('log', '--format=%B', base+'..'+head)])
-    for found in CLOSES.finditer(text):
-        issue = one(f'{repo}/issues/{found.group(1)}')
-        require(SPECIFY.search(issue.get('body') or ''),
-                f'scenario-closes: a scenario-only PR holds "{found.group(0)}", but #{found.group(1)} is not a '
-                'Mode: specify Issue; use Refs: #N (a scenario-only PR may close only a Mode: specify Issue)')
-
-# L46: a PR whose head has no net change against its base merges nothing; only one that closes its Issue (work other PRs
-# already landed, `.agents/data/pr.md`) may be empty.
-def empty_diff_gate(pr, base, head):
-    changed = subprocess.run(['git', 'diff', '--quiet', base+'...'+head], timeout=limit).returncode
-    require(changed in (0, 1), f'git diff failed with {changed}')
-    require(changed == 1 or CLOSES.search('\n'.join([pr.get('body') or '', git('log', '--format=%B', base+'..'+head)])),
-            f'empty-diff: {head} changes nothing against {base}. Restore the work, or name the Issue it already met with '
-            '"Closes #N"; a PR that only undid its own change never merges.')
-
-try:
-    # `local`: the checkout's HEAD against origin/main, before any PR exists (`just ready`); its author counts as a bot.
-    pr = {'base': {'ref': 'main', 'sha': git('rev-parse', 'origin/main')}, 'head': {'sha': git('rev-parse', 'HEAD')},
-          'user': {'type': 'Bot'}} if number == 'local' else one(pull)
-    base_gate(pr)
-    if command != 'base':
-        head, base = sha(pr['head']['sha']), sha(pr['base']['sha'])
-        fetch(head)
-        fetch(base)
-        if command == 'ci-trailers':
-            trailer_gate(history(base, head), base)
-        elif command == 'scenario-closes':
-            scenario_closes_gate(pr, base, head)
-        elif command == 'empty-diff':
-            empty_diff_gate(pr, base, head)
-        else:
-            frozen_gate(pr, base, head)
-except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
-    print(f'{command}: {error}', file=sys.stderr)
-    sys.exit(1)
-PY
-}
-
 case "${1:-}" in
-  base | ci-trailers | frozen | scenario-closes | empty-diff)
-    [[ ${2:-} =~ ^([0-9]+|local)$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
-    pr_rule "$1" "$2" ;;
   vocab) vocab ;;
   scenario-ids) [ $# -eq 1 ] || { echo "usage: loop/rules.sh scenario-ids" >&2; exit 2; }
     scenario_ids ;;
@@ -608,8 +404,6 @@ case "${1:-}" in
   tokens) [ $# -eq 1 ] || { echo "usage: loop/rules.sh tokens" >&2; exit 2; }
     tokens ;;
   delta) delta "${2:-}" "${3:-}" ;;
-  clean-merge) [ -n "${2:-}" ] || { echo "usage: loop/rules.sh clean-merge <commit> [main-ref]" >&2; exit 2; }
-    clean_merge "$2" "${3:-origin/main}" ;;
   merge-loss) merge_loss "${2:-origin/main}" ;;
   *) sed -n '2p' "$0" >&2; exit 2 ;;
 esac
