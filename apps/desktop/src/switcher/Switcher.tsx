@@ -218,7 +218,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     setOpen(true);
   };
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !modalOpen(), invoke: show }) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: show }) }]);
   registerKeys({ kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
   ]);

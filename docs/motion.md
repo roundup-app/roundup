@@ -345,3 +345,9 @@ Registering, disabling or removing the focused Terminal owner changes menu
 availability without moving focus or writing Terminal input. Other editors retain
 their own Cmd+F handling. The Find control itself belongs to Z3788a; no motion is added.
 D2/D5/D6/D9 keep their existing Tokens and layout.
+
+U3787b Switcher and deletion Undo menu routes use their existing captured command
+owners, with instant projection, focus and acknowledgement. Existing Bubble
+minimise/close and Agent/Bubble switching keep their established behavior; menu
+construction moves no focus. No motion, geometry or Token is added. D2/D5/D6/D9
+remain unchanged; native menu rendering is system-owned.
