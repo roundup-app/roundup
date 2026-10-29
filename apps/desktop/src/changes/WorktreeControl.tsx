@@ -127,6 +127,10 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
     else if (rail.commandFailure.message()?.startsWith(title)) rail.commandFailure.clear();
   };
 
+  createEffect(on(() => state()?.failure, (next, before) => {
+    if (next === null && typeof before === "string" && rail.commandFailure.message()?.startsWith(title)) rail.commandFailure.clear();
+  }, { defer: true }));
+
   const openPanel = () => {
     treeFocus = captureFocus(true);
     props.onOpen();
