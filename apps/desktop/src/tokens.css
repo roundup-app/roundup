@@ -1,5 +1,3 @@
-@import "@radix-ui/colors/blue.css";
-@import "@radix-ui/colors/blue-dark.css";
 @import "@radix-ui/colors/amber.css";
 @import "@radix-ui/colors/amber-dark.css";
 @import "@radix-ui/colors/red.css";
@@ -10,8 +8,12 @@
 /* The Token file (docs/design-system.md, "Tokens"): the light values, then the dark column and the contrast setting. */
 
 :root {
-  --text-selection: Highlight;
-  --text-selection-ink: HighlightText;
+  --button-accent-fill: #1f6b62;
+  --button-key-ink: #d4e6e2;
+  --doodle-patch: #2f8f80;
+  --doodle-offset: translate(14px, 10px);
+  --text-selection: var(--button-accent-fill);
+  --text-selection-ink: var(--button-accent-ink);
   color-scheme: light dark;
   --terminal-background: #ffffff;
   --terminal-foreground: #4d4d4c;
@@ -45,8 +47,8 @@
   --ground: var(--gray-1);
   --sunken: var(--gray-2);
   --hover: rgba(0, 0, 0, 0.04);
-  --selected: rgba(0, 0, 0, 0.05);
-  --selected-hover: rgba(0, 0, 0, 0.08);
+  --selected: rgba(31, 107, 98, 0.07);
+  --selected-hover: rgba(31, 107, 98, 0.10);
   --blur-bubble-backdrop: 12px;
   --scrim: rgba(0, 0, 0, 0.4);
   /* U3295a: the one order of floating surfaces, lowest first. */
@@ -62,7 +64,9 @@
   /* Disabled neutral tones sit between Radix gray 10 and 11 and keep 4.5:1. */
   --disabled: #707070;
   --press-opacity: 0.9;
-  --accent: var(--blue-11);
+  --accent: #1a6b61;
+  --doodle-line: #5a4a3e;
+  --doodle-blend: multiply;
   --amber: var(--amber-11);
   --red: var(--red-11);
   --hairline: rgba(0, 0, 0, 0.1);
@@ -119,7 +123,7 @@
   --radius-pill: 999px;
   --surface: #ffffff;
   --button-neutral: var(--gray-4);
-  --button-accent-ink: var(--gray-1);
+  --button-accent-ink: #ffffff;
 
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-instant: 0s;
@@ -217,17 +221,19 @@
     --ground: var(--terminal-background);
     --surface: var(--gray-3);
     --button-neutral: var(--gray-4);
-    --button-accent-ink: var(--gray-1);
+    --button-accent-ink: #ffffff;
     --key-chip-fill: var(--gray-3);
     --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
-    --selected: rgba(255, 255, 255, 0.08);
-    --selected-hover: rgba(255, 255, 255, 0.10);
+    --selected: rgba(92, 199, 181, 0.08);
+    --selected-hover: rgba(92, 199, 181, 0.10);
     --text: var(--gray-12);
     --grey: var(--gray-11);
     --cache-write: var(--gray-9);
     --disabled: #999999;
-    --accent: var(--blue-11);
+    --accent: #5cc7b5;
+    --doodle-line: #e6cfbb;
+    --doodle-blend: screen;
     --amber: var(--amber-11);
     --red: var(--red-11);
     --hairline: rgba(255, 255, 255, 0.12);
@@ -289,14 +295,16 @@ button, file-tree-container, diffs-container {
   --key-chip-fill: var(--gray-3);
   --sunken: var(--gray-2);
   --hover: rgba(0, 0, 0, 0.04);
-  --selected: rgba(0, 0, 0, 0.05);
-  --selected-hover: rgba(0, 0, 0, 0.08);
+  --selected: rgba(31, 107, 98, 0.07);
+  --selected-hover: rgba(31, 107, 98, 0.10);
   --pressed: var(--gray-6);
   --text: var(--gray-12);
   --grey: var(--gray-11);
   --cache-write: var(--gray-9);
   --disabled: #707070;
-  --accent: var(--blue-11);
+  --accent: #1a6b61;
+  --doodle-line: #5a4a3e;
+  --doodle-blend: multiply;
   --amber: var(--amber-11);
   --red: var(--red-11);
   --hairline: rgba(0, 0, 0, 0.1);
@@ -335,14 +343,16 @@ button, file-tree-container, diffs-container {
     --key-chip-fill: var(--gray-3);
     --sunken: var(--terminal-background);
     --hover: rgba(255, 255, 255, 0.06);
-    --selected: rgba(255, 255, 255, 0.08);
-    --selected-hover: rgba(255, 255, 255, 0.10);
+    --selected: rgba(92, 199, 181, 0.08);
+    --selected-hover: rgba(92, 199, 181, 0.10);
     --pressed: var(--gray-6);
     --text: var(--gray-12);
     --grey: var(--gray-11);
     --cache-write: var(--gray-9);
     --disabled: #999999;
-    --accent: var(--blue-11);
+    --accent: #5cc7b5;
+    --doodle-line: #e6cfbb;
+    --doodle-blend: screen;
     --amber: var(--amber-11);
     --red: var(--red-11);
     --hairline: rgba(255, 255, 255, 0.12);
@@ -451,41 +461,4 @@ button, file-tree-container, diffs-container {
    from every duration/delay Token by the CSS build. */
 @media (prefers-reduced-motion: reduce) {
   :root { --duration-vendor: 0s; }
-}
-
-/* Preference delivery supplies contrast-targeted channels for each scheme. */
-:root[data-system-accent] {
-  --accent: rgb(var(--system-accent-light-channels));
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-system-accent] {
-    --accent: rgb(var(--system-accent-dark-channels));
-  }
-}
-:root[data-system-accent][data-mode="light"] {
-  --accent: rgb(var(--system-accent-light-channels));
-}
-:root[data-system-accent][data-mode="dark"] {
-  --accent: rgb(var(--system-accent-dark-channels));
-}
-
-/* U4456c: floating labels and disabled controls keep a distinct dark fill;
-   Light retains its sunken fill. Root aliases prevent a local self-reference. */
-.app-tooltip,
-.tab-tip,
-:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
-.app-dialog-form textarea:disabled,
-.import-prompt:disabled,
-.note-form input:disabled,
-.note-form textarea:disabled,
-.app-select-trigger:disabled,
-.app-combobox-input:disabled,
-.app-switch-track[data-disabled],
-.app-checkbox-box[data-disabled] {
-  --sunken: light-dark(var(--root-sunken), var(--surface));
-}
-
-/* Both flat tab bars retain a lighter selected base without changing the pane. */
-[data-flat-tab][data-selected="true"] {
-  --ground: light-dark(var(--root-ground), var(--surface));
 }

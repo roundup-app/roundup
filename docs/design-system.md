@@ -42,7 +42,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--cache-write` | `var(--gray-9)` | `var(--gray-9)` | Measurement cache-write segment and swatch |
 | `--disabled` | `#707070` | `#999999` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
 | `--press-opacity` | `0.9` | same | immediate button feedback, including filled buttons and independently coloured Glyphs |
-| `--accent` | `var(--blue-11)` | `var(--blue-11)` | Glyph tone of `working`, the primary action |
+| `--accent` | `#1a6b61` | `#5cc7b5` | Glyph tone of `working`, the primary action |
 | `--amber` | `var(--amber-11)` | `var(--amber-11)` | `needs-you` |
 | `--red` | `var(--red-11)` | `var(--red-11)` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
@@ -271,10 +271,10 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 | --- | --- | --- | --- |
 | `--surface` | `#ffffff` | `var(--gray-3)` | Opaque floating surface |
 | `--button-neutral` | `var(--gray-4)` | `var(--gray-4)` | Secondary/action button fill |
-| `--button-accent-ink` | `var(--gray-1)` | `var(--gray-1)` | Label on accent fill |
+| `--button-accent-ink` | `#ffffff` | `#ffffff` | Label on accent fill |
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
 
-The existing primary kind uses `--accent` and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.
+The existing primary kind uses `--button-accent-fill` (#1f6b62 in both schemes) and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces and empty-view action rows; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.
 
 
 ### Terminal Tokens (U3517)
@@ -314,14 +314,16 @@ The elevation recipe is implemented; the remaining requirements below are specif
 | D7 | A selected, focused or dragged item row has exactly one changed cue: text colour or one selected ground; combined states reuse the cue. |
 | D8 | Rail, Todo, Pad and Terminal-tab first text uses one local inset after tree indentation; text and Glyph optical baselines agree within 1 CSS px. |
 | D9 | Stylelint rejects importance, unowned px/ms/s/colours, selectors over two compounds and child combinators; no existing-hit allowlist. Duration and reduced-motion checks remain. |
-| D10 | Floating surfaces share contact + ambient shadow layers and a 0.5 CSS px edge ring, replacing both old shadow Tokens and every consumer. App palette uses Radix light/dark scales plus the system accent. Rail and Shelf use native vibrancy, opaque under reduced transparency; centre, Terminal pixels and floating panels stay opaque. |
+| D10 | Floating surfaces share contact + ambient shadow layers and a 0.5 CSS px edge ring, replacing both old shadow Tokens and every consumer. App palette uses Radix light/dark scales plus the icon-green accent. Rail and Shelf use native vibrancy, opaque under reduced transparency; centre, Terminal pixels and floating panels stay opaque. |
 
 D10’s edge ring is not a control outline or focus ring. Native material is the sole new transparency exception for Rail/Shelf. No shader or WebGL background. Terminal ANSI remains U3517’s palette. Browser captures prove web rendering only; native material and launch cost require the implementation’s Mac observation. No new Token values, App seam names or native performance claims are established by this policy merge.
 
-U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales. Native macOS accent delivery supplies normalized sRGB channels; preference delivery uses Culori to find the closest sRGB mix toward black in light and white in dark that clears 4.7:1 against Radix neutral steps 1–5, covering labels and accent fills. It supplies plain RGB channel Tokens for both schemes, so the rendered Checks measure the same colour the App draws. Unavailable native delivery removes the override and restores Radix blue 11. Explicit App appearance choices also select the corresponding Radix scale. Terminal ANSI and program-authored colours retain U3517.
+U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales. The App accent is icon green: #1a6b61 light, #5cc7b5 dark, including explicit appearance choices and increased contrast. No native accent delivery or fallback remains. Primary fills are #1f6b62 with white ink; dimmer inline keys use #d4e6e2. Selection and existing shared-form rings use this green family. Terminal ANSI and program-authored colours retain U3517.
 
 ## Shared form controls (U4382a)
 
 U4382a supersedes the no-box and no-focus-ring rules above only for shared form controls: Field input/textarea, NumberInput, civil-date input, Select/Combobox picker, Checkbox, Switch and RadioGroup. Ark owns their behavior. Screens arrange fields; `ui/Field.css` and each control stylesheet own their paint. Frames use `--hairline-width` and `--form-border` (Radix gray 8); fields use `--form-ground`, Token padding and `--radius-control`. Checkbox marks use `--radius-chip`; radio and switch marks are round. Switch off uses `--form-off`, on uses `--accent`, and the thumb uses `--form-thumb` and checkbox checks use `--form-on-ink`.
 
 Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons are the sole exception to dark-only evidence.
+
+U4464: empty-view actions reuse shared primary/quiet buttons in one centred horizontal row, with shortcuts inside. Rail order is New Agent ⌘N, New Workstream ⇧⌘N. Single-action and actionless views retain their behavior. Open Doodles use `--doodle-line` (#5a4a3e light, #e6cfbb dark), `--doodle-patch` (#2f8f80), `--doodle-offset` (+14/+10 scene units) and `--doodle-blend` (multiply light, screen dark), with unchanged geometry. These decorative inks and the fixed primary fill/key ink are named D3 exceptions.

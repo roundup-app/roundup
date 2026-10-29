@@ -207,7 +207,6 @@ pub const NO_TOOL: [&str; 79] = [
     "open_in_editor",
     "save_pasted_image",
     // U3787f: only the user opens and controls the native Capture presentation.
-    "system_accent", // App appearance preference, no Agent tool.
     "plugin:capture-panel|control",
     // U3560a: only the user writes the native pasteboard.
     "plugin:clipboard-manager|write_text",
