@@ -270,7 +270,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
     } },
-    { name: "Todo and Pad owner drags: the current owner is never a drop target", run: async () => {
+    { name: "Todo owner and Pad Home drags: the current destination is never a drop target", run: async () => {
       // The pointer-only owner destinations use U3515d's isolated rendered App observer.
       const lane = await openLane(1512, "dark", "u3515-owner-guard");
 
