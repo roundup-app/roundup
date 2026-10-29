@@ -244,6 +244,8 @@ export default defineConfig({
           include: heavy,
           exclude: [...configDefaults.exclude, ...webkitGuards, ...captureExcludes],
           fileParallelism: false,
+          // Projects of one group share the pool; a later group starts after the earlier one ends, so no app file overlaps a heavy one.
+          sequence: { groupOrder: 1 },
           globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
         },
       },
