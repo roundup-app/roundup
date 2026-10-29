@@ -361,3 +361,8 @@ U3787b Help and Rail rename use the same captured registration for menu and key.
 Opening Help, entering rename and returning focus on Escape are instant, with
 no new transition or delayed dispatch. Ark retains Help's dialog focus handling;
 Rail retains its existing rename field and draft recovery.
+
+U3787b triage Assign/Move/Complete/Comment menu actions invoke their captured Todo
+holder immediately, exactly as the corresponding key does. Menu projection adds
+no transition or focus move; existing picker, completion and comment behavior
+keeps its motion contract. No Check or Token changes; D2/D5/D6 remain unchanged.
