@@ -29,6 +29,9 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌃⌘J", what: copy.jumpToWhatNeedsYou, presses: ["ctrl+meta+KeyJ"], hint: { label: copy.jumpToWhatNeedsYou, at: { rail: -1, agent: -1, bubble: -1, shelf: -1, pad: -1, drawer: -1 } } },
   { get keys() { return shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey); }, what: copy.captureATodo, get presses() { return [appSettings().quickAdd]; } },
   { keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.switchAgentTerminal, at: { agent: 0, bubble: 0 } } },
+  { keys: copy.renameChord, what: copy.rename, presses: [copy.renameChord], inRail: true },
+  // Help follows the logical ? through HELP_KEYS, rather than a physical US-layout chord.
+  { keys: "?", what: copy.help, presses: [] },
   { keys: "R", what: copy.restartMode, presses: ["KeyR"], inRail: true },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 6 } } },
