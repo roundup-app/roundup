@@ -49,9 +49,11 @@ remaining command integration. This slice closes neither #4308 nor #3843.
 
 ## Scoped-command continuation
 
-The Project menu now projects every available non-Shelf catalogue owner, keeping
+The Project menu now projects every available non-Shelf command owner, keeping
 #4278's existing create/navigate/views groups and labels. Existing Bubble and Rail
 owners supply their capture and availability; no selection or dispatcher is added.
+The Leader prefix is excluded as a standalone command; its actions display their
+complete sequences, such as `⌘K J` and `⌘K K`.
 The Switcher and deletion Undo register actions instead of separate raw bindings.
 Undo captures the Project and its existing restoration holder; both routes recheck
 availability and pending restoration. Editor and Terminal focus omit deletion Undo
