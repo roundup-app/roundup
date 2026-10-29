@@ -131,6 +131,12 @@ impl Terminals {
         params: &contracts::terminal::CatchUpParams,
     ) -> Result<contracts::terminal::CatchUp, RpcError> {
         use contracts::terminal::CatchUp;
+        if let Some(remote) = self.remote(&params.id)? {
+            return remote.call(
+                "terminal.catchUp",
+                serde_json::to_value(params).map_err(RpcError::internal)?,
+            );
+        }
         let number = parse_terminal_number(&params.id)?;
         let table = self.shared.table();
         let entry = table

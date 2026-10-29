@@ -442,6 +442,10 @@ impl Launcher {
         let mut servers = Map::new();
         if mcp {
             servers.extend(self.mcp_servers(id));
+            if let Some(guide) = &pair.naming_guide {
+                servers.get_mut("roundup").expect("roundup MCP server")["env"] =
+                    json!({"ROUNDUP_NAMING_GUIDE": guide});
+            }
         }
         servers.extend(delivery.servers.clone());
         let has_config = !servers.is_empty();
