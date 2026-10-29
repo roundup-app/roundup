@@ -111,9 +111,10 @@ const BUBBLE_ROWS: Row[] = [
     } },
 ];
 
-const mountApp = async () => {
+const mountApp = async (capture?: import("../app/seam").CapturePort) => {
   useBrowserStorage(localStorage);
   const app = createFakeApp();
+  app.capture = capture;
   app.add(path("first"));
   app.add(path("second"));
   app.of(path("first")).handlers["rail.tree"] = () => [workstream("ops"), workstream("elsewhere", { order: 1 })];
@@ -133,13 +134,37 @@ const mountApp = async () => {
   return { app: app.of(path("first")), connected: original!, other: app.of(path("second")) };
 };
 
-const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
-  (row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
+const CAPTURE_ROW: Row = {
+  owner: "App", label: "Capture a Todo", selected: "ops", origin: '.terminal-tab[data-bubble="7"]',
+  method: "capture.show", params: undefined, confirms: false, removes: "7",
+  hold: () => { throw new Error("Native Capture uses its configured port"); },
+};
+
+const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS, CAPTURE_ROW].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
+  (row === CAPTURE_ROW ? ["dismiss", "resolve", "reject"] as const : row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
-  const mounted = row.owner !== "Rail" ? await mountApp() : await mountSwitcher(row.selected);
-  const { app, connected } = mounted;
   const trace: string[] = [];
+  const nativeCalls: undefined[] = [];
+  const states: import("../app/seam").CaptureState[] = [];
+  const nativeReply = pending(() => { nativeCalls.push(undefined); trace.push(`capture.show:${field() === null ? "closed" : "open"}`); }, undefined);
+
+  const native = row === CAPTURE_ROW ? {
+    configure: async () => {}, show: nativeReply.handler, dismiss: async () => {},
+    publish: async (state: import("../app/seam").CaptureState) => { states.push(state); }, act: async () => {},
+    onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
+  } : undefined;
+
+  const mounted = row.owner !== "Rail" ? await mountApp(native) : await mountSwitcher(row.selected);
+  const { app, connected } = mounted;
+
+  if (native) {
+    const draft = connected.drafts.edit({ surface: "capture", object: "todo-capture", recipient: null }, {
+      text: "  native draft e\u0301 🧭\n  ", targetCaptured: true, targetOwner: null, targetOwnerName: null, targetHome: "ops", targetHomeName: "ops",
+    }, null, "ordinary");
+
+    await draft.retained;
+  }
 
   if (row.owner === "Bubble") {
     const edit = connected.drafts.edit({ surface: "bubbles", object: "fixture-7", recipient: "7" }, { name: "  draft e\u0301 🫧 雪  ", base: "original" }, null, "ordinary");
@@ -147,7 +172,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   }
 
   const retainedDrafts = connected.drafts.list();
-  const reply = row.hold(app, () => trace.push(`${row.method}:${field() === null ? "closed" : "open"}`));
+  const reply = native ? nativeReply.gate : row.hold(app, () => trace.push(`${row.method}:${field() === null ? "closed" : "open"}`));
 
   let shown = questionProbe.shown;
 
@@ -171,7 +196,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   expect(option).toBeDefined();
   const before = app.calls.length;
 
-  const ofMethod = () => app.calls.slice(before).filter((call) => call.method === row.method);
+  const ofMethod = () => native ? nativeCalls.map(() => ({ params: undefined })) : app.calls.slice(before).filter((call) => call.method === row.method);
 
   if (outcome === "dismiss") {
     // Closing the surface alone starts no call and asks nothing.
@@ -179,6 +204,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     await waitFor(() => expect(field()).toBeNull());
     expect(app.calls.slice(before)).toEqual([]);
     expect(trace).toEqual([]);
+    expect(connected.drafts.list().filter(draft => draft.destination.surface === "capture")).toEqual(retainedDrafts.filter(draft => draft.destination.surface === "capture"));
 
     return;
   }
@@ -248,6 +274,47 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   }
 
   expect(ofMethod()).toHaveLength(1);
+
+  if (native) {
+    const drafts = connected.drafts.list();
+    expect(drafts.filter(draft => draft.destination.surface === "capture")).toEqual(retainedDrafts.filter(draft => draft.destination.surface === "capture"));
+    expect(drafts.filter(draft => draft.destination.surface === "switcher")).toEqual(queryDraft);
+
+    if (outcome === "resolve") {
+      reply.resolve();
+      await waitFor(() => expect(states.at(-1)).toMatchObject({ text: "  native draft e\u0301 🧭\n  ", owner: "Unassigned", home: "In ops" }));
+      expect(document.querySelector(row.origin)).toBeNull();
+    } else {
+      reply.reject(new Error("Native Capture could not open"));
+      await waitFor(() => expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes("Native Capture could not open") && alert.textContent.includes(row.label))).toBe(true));
+      expect(connected.drafts.list()).toEqual(drafts);
+      expect(ofMethod()).toHaveLength(1);
+      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
+      await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
+      expect(ofMethod()).toHaveLength(1);
+      connected.rail.select("elsewhere");
+      native.show = async () => { nativeCalls.push(undefined); };
+
+      fireEvent.click(document.querySelector(".rail-command-notice button")!);
+      await waitFor(() => expect(ofMethod()).toHaveLength(2));
+      await waitFor(() => expect(states.at(-1)).toMatchObject({ text: "  native draft e\u0301 🧭\n  ", owner: "Unassigned", home: "In ops" }));
+    }
+
+    expect(connected.drafts.list()).toEqual(drafts);
+    expect(nativeCalls).toHaveLength(outcome === "resolve" ? 1 : 2);
+    expect(app.calls.slice(before).filter(call => ["todo.create", "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
+    expect("other" in mounted && mounted.other.calls.filter(call => ["todo.create", "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
+    expect(app.badges.filter(count => count > 0)).toEqual([]);
+    fireEvent.click(tab("first"));
+    await screen.findByText("ops", { selector: ".name" });
+    rowOf("ops").focus();
+    openSwitcher();
+    await waitFor(() => expect(field()?.value).toBe(query));
+    switcherKey("Escape", {}, field()!);
+    expect(connected.drafts.list()).toEqual(drafts);
+
+    return;
+  }
 
   if (row.owner === "Bubble") {
     const drafts = connected.drafts.list();
