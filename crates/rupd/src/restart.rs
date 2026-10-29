@@ -48,14 +48,25 @@ impl Daemon {
         if matches!(state, SessionRestart::Reserved) {
             self.agents.stop_door(actor.clone(), &p.id).await?;
             messages.set_session_restart(&p.id, &key, SessionRestart::Starting)?;
-            let fresh = self
+            let fresh = match self
                 .agents
                 .restart_door(
                     &self.ctx(actor.clone()),
                     &p.id,
                     std::time::Duration::from_secs(15),
                 )
-                .await?;
+                .await
+            {
+                Ok(fresh) => fresh,
+                Err(error) => {
+                    // The lifecycle result confirms cleanup; an interrupted/unknown launch
+                    // keeps Starting. Retain the reservation and its original prompt bytes.
+                    if error.code != code::UNKNOWN_OUTCOME {
+                        messages.set_session_restart(&p.id, &key, SessionRestart::Reserved)?;
+                    }
+                    return Err(error);
+                }
+            };
             state = SessionRestart::Started {
                 attempt: fresh
                     .attempt
