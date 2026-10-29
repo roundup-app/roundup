@@ -486,12 +486,11 @@ button, file-tree-container, diffs-container {
 
 /* U4685: paint above descendants so opaque Terminal pixels cannot hide the rule.
    Shelf tabs belong to its existing owner even though the shared bar hosts them. */
-.rail,
 .pane {
   position: relative;
 }
 
-.rail:focus-within::after,
+.columns:has(> .rail:focus-within)::after,
 .pane:focus-within::after,
 .drawer:focus-within::after,
 .shelf:focus-within::after,
@@ -503,4 +502,10 @@ button, file-tree-container, diffs-container {
   pointer-events: none;
   outline: var(--hairline-width) solid var(--accent);
   outline-offset: calc(-1 * var(--hairline-width));
+}
+
+/* Keep nested resize edges anchored to columns rather than the clipped Rail. */
+.columns:has(> .rail:focus-within)::after {
+  right: auto;
+  width: var(--rail-width);
 }
