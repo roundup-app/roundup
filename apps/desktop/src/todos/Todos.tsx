@@ -676,12 +676,7 @@ export const Todos = (props: {
     return id === undefined ? undefined : todos.byId().get(id);
   };
 
-  const inTodos = (event: KeyboardEvent) => section?.isConnected === true && !section.closest("[hidden], [inert]") && (!tabs || tabs().value === "todos")
-    && event.target instanceof Element && (event.target === document.body || event.target.closest(".shelf, .shelf-tabs") !== null);
-
-  const canTriage = (event: KeyboardEvent, nesting = false) => inTodos(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && (!event.shiftKey || nesting && event.code === "Tab")
-    && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable]")
-    && !document.querySelector("[role=dialog], [role=alertdialog], [role=menu][data-state=open]");
+  const canTriage = (event: KeyboardEvent, nesting = false) => triage.canKey(event, section, !tabs || tabs().value === "todos", nesting);
 
   const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement, event: KeyboardEvent) => void) => ({
     chords: chordsOf(CHORDS.find(row => row.inTriage && row.keys === keys)),
