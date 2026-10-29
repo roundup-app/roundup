@@ -1,4 +1,4 @@
-import { focusPane, bubbleElement, focusedId, focusItem as focusBubble } from "./focus";
+import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble } from "./focus";
 import { captureFocus } from "../keys/focus";
 import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
 import { createTerminalClose } from "./close";
@@ -337,24 +337,11 @@ export const Bubbles = (props: {
     queueMicrotask(() => { if (generation === revision) focus(() => focusItem(id)); });
   };
 
-  const closeFocused = (focus: Element | null): void => {
-    const id = focusedId(focus);
+  const closeFocused = (focus: Element | null): void => closeBubble(focus, before, async id => {
+    await close(id);
 
-    if (id === null) return;
-
-    const focusReturn = captureFocus();
-    const back = before;
-    const fromTab = focus?.closest(".terminal-tabs") !== null;
-
-    void close(id).then(() => {
-      if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
-
-      focusReturn(() => {
-        if (back instanceof HTMLElement && back.isConnected) back.focus();
-        else focusPane();
-      });
-    });
-  };
+    return failure() === null && !shown().some(terminal => terminal.id === id);
+  });
 
   const terminalOwner = () => resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
