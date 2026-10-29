@@ -66,8 +66,6 @@
 }
 
 .pane-door .empty-state {
-  position: static;
-  flex: 0 1 auto;
   background: var(--ground);
 }
 
