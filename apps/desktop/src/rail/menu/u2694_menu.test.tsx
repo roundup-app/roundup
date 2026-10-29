@@ -453,7 +453,7 @@ it.each([
   },
   {
     name: "Work-item Pad",
-    expected: [["open", "0"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["make-yours", "5"], ["delete", "7"]],
+    expected: [["open", "0"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["assign", "5"], ["make-yours", "5"], ["delete", "7"]],
     receivers: ["a", "b"],
     mount: async () => {
       const { app, connected } = await openShelf([padOf("notes", { kind: "agent", id: "a", parent: null })]);
@@ -468,7 +468,7 @@ it.each([
   },
   {
     name: "Work-item Todo",
-    expected: [["open", "0"], ["complete", "3"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
+    expected: [["open", "0"], ["complete", "3"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["assign", "5"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
     receivers: ["a", "b"],
     mount: async () => {
       const owner = { kind: "agent" as const, id: "a", parent: null };

@@ -107,7 +107,7 @@ declarations! { $;
         "pad.read": contracts::pad::PadName => contracts::pad::Pad, rpc_pad_read, all(schema(contracts::pad::PadName,"Read one Pad."));
         "pad.list": () => Vec<contracts::pad::Pad>, rpc_pad_list, all(empty("List every Pad."));
         "pad.rename": contracts::pad::RenameParams => contracts::pad::Pad, rpc_pad_rename, all(schema(contracts::pad::RenameParams,"Rename a Pad you own, keeping its creation and text. Pass the exact original name and expectedIncarnation from a read in this Project."));
-        "pad.write": contracts::pad::WriteParams => contracts::pad::Pad, rpc_pad_write, all(schema(contracts::pad::WriteParams,"Rewrite a Pad's whole text. Owner only. Optional expectedRevision refuses a stale write with CONFLICT."));
+        "pad.write": contracts::pad::WriteParams => contracts::pad::Pad, rpc_pad_write, all(schema(contracts::pad::WriteParams,"Rewrite a Pad's whole text. The owner or the user. Optional expectedRevision refuses a stale write with CONFLICT."));
         "pad.append": contracts::pad::AppendParams => contracts::pad::Pad, rpc_pad_append, all(schema(contracts::pad::AppendParams,"Add text to the end of any Pad."));
         "pad.appendSection": contracts::pad::AppendSectionParams => contracts::pad::Pad, rpc_pad_append_section, all(schema(contracts::pad::AppendSectionParams,"Add text at the end of the section under a Markdown heading of any Pad; the heading ignores case and extra whitespace. Pass expectedRevision (from a read) to refuse if the Pad changed since."));
         "pad.reorder": contracts::pad::ReorderParams => contracts::pad::Pad, rpc_pad_reorder, none();
