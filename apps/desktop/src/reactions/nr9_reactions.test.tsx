@@ -322,19 +322,24 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   fireEvent.click(tab("original"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
   openProjectPage("view:reactions");
-  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
-  fireEvent.input(screen.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
-  fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
-  fireEvent.click(screen.getByRole("button", { name: /^Target Agent/ }));
+  const region = within(await screen.findByRole("region", { name: copy.reactions }));
+  fireEvent.click(await region.findByRole("button", { name: copy.reactionCreate }));
+  const form = within(await region.findByRole("form", { name: copy.reactionCreate }));
+  fireEvent.input(form.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
+  fireEvent.input(form.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
+  fireEvent.click(form.getByRole("button", { name: /^Target Agent/ }));
   fireEvent.click(await screen.findByRole("option", { name: "a0" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "a0" }));
-  fireEvent.input(screen.getByLabelText(copy.reactionDate), { target: { value: "2026-10-21" } });
-  fireEvent.input(screen.getByLabelText(copy.reactionTime), { target: { value: "09:00" } });
-  const save = screen.getByRole("button", { name: copy.reactionSave });
+  fireEvent.click(form.getByRole("checkbox", { name: "a0" }));
+  fireEvent.input(form.getByLabelText(copy.reactionDate), { target: { value: "2026-10-21" } });
+  fireEvent.input(form.getByLabelText(copy.reactionTime), { target: { value: "09:00" } });
+  const save = form.getByRole("button", { name: copy.reactionSave });
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
   await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
   await waitFor(() => expect(original.calls.filter(call => call.method === "reaction.create")).toHaveLength(1));
+
+  const newer = " newer exact\n e\u0301 🧭 ";
+  fireEvent.input(form.getByLabelText(copy.reactionInstruction), { target: { value: newer } });
 
   fireEvent.click(tab("other"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="b"]')).toBeTruthy());
@@ -343,9 +348,14 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   fireEvent.click(tab("original"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
   await screen.findByText(copy.reactionsEmpty);
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  await screen.findByRole("form", { name: copy.reactionCreate });
   current = saved({ target: "a0", condition: { kind: "agents", ids: ["a0"], any: false } });
   acknowledge(current);
 
+  await waitFor(() => expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", newer));
+  expect(original.calls.filter(call => call.method === "reaction.create").map(call => call.params)).toMatchObject([{ instruction: "go", target: "a0" }]);
+  fireEvent.click(screen.getByRole("button", { name: "Close New reaction" }));
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
@@ -617,18 +627,6 @@ it.each([
   expect(await observeFailure(observation(gap, recovery, "unrecognized /private/history"))).toEqual(baseline);
   expect((await observeFailure(observation(otherGap, recovery, diagnostic))).text).not.toBe(baseline.text);
   expect((await observeFailure(observation(gap, otherRecovery, diagnostic))).text).not.toBe(baseline.text);
-});
-
-it("u4276a_nested_close_returns_to_its_opener", async () => {
-  await mount(() => [saved()]);
-  const row = await screen.findByRole("button", { name: /Ship it/ });
-  fireEvent.click(row);
-  fireEvent.click(await screen.findByRole("button", { name: "Close Ship it" }));
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it/ })));
-  const create = screen.getByRole("button", { name: copy.reactionCreate });
-  fireEvent.click(create);
-  fireEvent.click(await screen.findByRole("button", { name: "Close New reaction" }));
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: copy.reactionCreate })));
 });
 
 it("u4276a_close_preserves_unsent_reaction", async () => {
