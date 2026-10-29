@@ -748,7 +748,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await browser("click", '.drawer[data-open=true] [aria-label=Close]');
         await wait("!document.querySelector('.drawer[data-open=true]')");
         await capture("drawer-closed");
-        await read(`window.__fake.app.handlers['terminal.write']=()=>{throw new Error('Output unavailable. Retry.');}; window.__terminals.get('${id}').paste('retry')`);
+        await read(`window.__fake.app.handlers['terminal.resize']=window.__fake.app.handlers['terminal.write']=()=>{throw new Error('Output unavailable. Retry.');}; window.__terminals.get('${id}').paste('retry')`);
         await wait("!!document.querySelector('.pane-failure')");
         await capture("dense-failure");
       } else {
