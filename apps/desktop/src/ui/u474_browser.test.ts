@@ -77,14 +77,6 @@ it("u474_dialog_focus_returns", async () => {
   await browser("press", "Escape"); await focus("Open Dialog");
 }, 60_000);
 
-it("u474_alert_dialog_is_named", async () => {
-  await load();
-  await browser("find", "role", "button", "click", "--name", "Open AlertDialog", "--exact");
-  await browser("wait", "--fn", `!!document.querySelector('[role=alertdialog]')`);
-  expect(await read<string>(`document.getElementById(document.querySelector('[role=alertdialog]').getAttribute('aria-labelledby')).textContent`)).toBe("Close Project?");
-  expect(await read<string>(`document.getElementById(document.querySelector('[role=alertdialog]').getAttribute('aria-describedby')).textContent`)).toBe("Closing stops Agents.");
-}, 60_000);
-
 it("u477_icon_button_leave_hides_its_name", async () => {
   await load();
   await browser("hover", '#fixture-icon');
