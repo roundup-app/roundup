@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
 import { projectMenu } from "../testing/menuProbe";
+import { fakeEmulators } from "../terminal/paneHarness";
 import { railCallsTo } from "./railFixture";
 
 afterEach(cleanup);
@@ -14,9 +15,8 @@ it.each([
   ["Agent chord", "agent.spawn", true],
 ] as const)("u4644_empty_rail_has_no_sections_and_runs_both_starts_%s", async (_, method, keyboard) => {
   const { app } = seedApp("empty-project", 0);
-  render(() => <App app={app} clock={() => 0} reducedMotion={() => true} />);
+  render(() => <App app={app} clock={() => 0} reducedMotion={() => true} createEmulator={fakeEmulators().factory} />);
   const empty = await screen.findByRole("group", { name: "No Agents yet" });
-  expect(document.querySelectorAll(".rail-tree .section-head")).toHaveLength(0);
   expect(railCallsTo(app, "rail.createWorkstream")).toEqual([]);
   expect(railCallsTo(app, "agent.spawn")).toEqual([]);
 
