@@ -7,6 +7,8 @@
 mod contract_handlers;
 mod integration;
 mod output;
+mod owner;
+pub use owner::TerminalOwner;
 mod program;
 mod pty;
 mod recorder;
