@@ -9,6 +9,7 @@ import type { Reason } from "@contracts/message/Reason";
 import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 const appearanceCopy = {
+  fontFamilyHint: "Choose Default to use the bundled font.",
   discardSettingsEdit: (label: string) => `Discard ${label} edit`,
   settingsConflict: "Settings changed elsewhere. Your edit is kept; compare the saved value or discard this edit.",
   terminalPreview: "Terminal preview",
