@@ -376,3 +376,73 @@ it.skipIf(!groundOutput)("u4456c_ask_and_tooltip", async () => {
     await groundCapture(base, "tree-40", "system", "tooltip");
   }
 }, 120_000);
+
+const arabicCapture = captureDir("U4679");
+
+for (const state of ["agent", "door", "shell"]) {
+  it.skipIf(!arabicCapture)(`u4679_rendered_incremental_arabic_${state}`, async () => {
+    const dir = join(arabicCapture!, process.env.U4679_PHASE ?? "head");
+    mkdirSync(dir, { recursive: true });
+    for (const renderer of ["webgl", "dom"]) for (const prompt of ["$ ", "❯ "]) {
+      await load(state === "agent" ? "agents-10" : "tree-40", false, renderer);
+      await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
+      let id = state === "agent" ? "t-agent-3" : "t-payments";
+      let surface = ".pane";
+      if (state === "shell") {
+        await read("document.querySelector('.terminal-new').click()");
+        await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
+        id = await read<string>("document.querySelector('.bubble:not([hidden])').dataset.bubble");
+        surface = ".bubble:not([hidden])";
+        await read(`window.__terminals.get('${id}').ready`);
+      }
+      const name = `${state}-${renderer}-${prompt === "$ " ? "shell" : "claude"}`;
+      const output = async (text: string) => {
+        await read(`new Promise(resolve => window.__terminals.get('${id}').write(new TextEncoder().encode(${JSON.stringify(text)}), resolve))`);
+        // emulator.ts onRender follows xterm's queued parser callback; the queued animation frame drains its paint.
+        await read("new Promise(resolve => requestAnimationFrame(resolve))");
+      };
+      const capture = async (step: string, text: string) => {
+        // Reference uses the same browser text engine, face, weight and size, independent of xterm's joined cells.
+        const metrics = await read(`(async () => {
+          const {xtermOptions} = await import('/src/terminal/emulator.ts');
+          let reference = document.getElementById('arabic-reference');
+          if (!reference) { reference = document.createElement('div'); reference.id = 'arabic-reference'; document.body.append(reference); }
+          Object.assign(reference.style, {position:'fixed', right:'20px', bottom:'20px', background:'var(--terminal-background)', color:'var(--terminal-foreground)', fontFamily:xtermOptions.fontFamily, fontSize:xtermOptions.fontSize+'px', fontWeight:xtermOptions.fontWeight, whiteSpace:'pre'});
+          reference.textContent = ${JSON.stringify(text)};
+          const emulator = window.__terminals.get('${id}');
+          return {requested:${JSON.stringify(renderer)}, renderer:document.querySelector('${surface} .xterm-screen canvas')?'webgl':'dom', snapshot:emulator.serialize(), selection:emulator.selection(), calls:window.__fake.app.calls.filter(c=>c.method==='terminal.write' && c.params.id==='${id}'), fontStatus:document.fonts.status};
+        })()`);
+        await browser("screenshot", join(dir, `${name}-${step}.png`));
+        writeFileSync(join(dir, `${name}-${step}.metrics.json`), JSON.stringify(metrics, null, 2));
+      };
+      await output('\x1b[2J\x1b[H\x1b[32mGREEN \x1b[33m⚡ \x1b[34mBLUE\x1b[0m\r\n' + prompt);
+      await read(`window.__fake.app.calls.length=0; window.__terminals.get('${id}').focus()`);
+      let text = "";
+      for (const letter of "عربي") {
+        await browser("keyboard", "inserttext", letter);
+        await wait(`window.__fake.app.calls.filter(c=>c.method==='terminal.write' && c.params.id==='${id}').length === ${text.length + 1}`);
+        text += letter;
+        await output(prompt === "$ " ? letter : '\r\x1b[2K' + prompt + text);
+        await capture(`prefix-${text.length}`, text);
+      }
+      expect(await read(`window.__fake.app.calls.filter(c=>c.method==='terminal.write' && c.params.id==='${id}').map(c=>c.params.data)`)).toEqual(["2Lk=", "2LE=", "2Kg=", "2Yo="]);
+      await output('\r\x1b[2K' + prompt + 'abc عربي 123');
+      await browser("press", "Backspace");
+      await wait(`window.__fake.app.calls.filter(c=>c.method==='terminal.write').at(-1)?.params.data === 'fw=='`);
+      await output('\r\x1b[2K' + prompt + 'abc عربي 12');
+      await browser("keyboard", "inserttext", " سَلَام");
+      await wait(`window.__fake.app.calls.filter(c=>c.method==='terminal.write').length === 6`);
+      await output('\r\x1b[2K' + prompt + '🚀 abc عربي 12 سَلَام ASCII');
+      await capture("mixed", '🚀 abc عربي 12 سَلَام ASCII');
+      const cols = await read<number>(`window.__terminals.get('${id}').serialize().cols`);
+      await output('\r\x1b[2K' + ' '.repeat(cols - 2) + 'عربي');
+      await capture("wrap", 'عربي');
+      await output('\r\x1b[2K' + prompt + 'عربي\r\nASCII after Arabic');
+      await capture("redraw", 'عربي');
+      await read(`window.__fake.app.handlers['terminal.write'] = () => {throw new Error('Output unavailable. Retry.');}; window.__terminals.get('${id}').paste('retry')`);
+      await wait("!!document.querySelector('.pane-failure, .bubble-failure')");
+      await capture("failure", 'عربي');
+      writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+    }
+  }, 180_000);
+}
