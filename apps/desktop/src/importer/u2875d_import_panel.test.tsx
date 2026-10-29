@@ -446,8 +446,10 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await capture("U3299c", side!, "retained-todo");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.capture')");
-      await lane.browser("press", "Meta+k");
-      await lane.browser("press", "s");
+      if (await lane.evaluate("document.querySelector('.window')?.dataset.shelf !== 'open'")) {
+        await lane.browser("press", "Meta+k");
+        await lane.browser("press", "s");
+      }
       await lane.until("document.querySelector('.window')?.dataset.shelf === 'open'");
       await lane.browser("click", "#shelf-tab-pads");
       await lane.until("!!document.querySelector('.pads-tab')");
