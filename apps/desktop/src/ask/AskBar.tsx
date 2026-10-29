@@ -317,8 +317,10 @@ export const AskBar = (props: {
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} row={item => {
             const node = () => rail.nodes.find(node => node.id === item.value);
+
             const parent = () => names().filter(other => other.label === item.label).length > 1
               ? (rail.nodes.find(other => other.id === node()?.parent)?.name ?? connected.project.name) : undefined;
+
             const start = () => item.label.toLowerCase().indexOf((mentionOf(text()) ?? "").toLowerCase());
             const end = () => start() + (mentionOf(text())?.length ?? 0);
 

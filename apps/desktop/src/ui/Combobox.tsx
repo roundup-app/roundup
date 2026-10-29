@@ -127,6 +127,7 @@ const Root = (props: {
     <ArkCombobox.Control><ArkCombobox.Input spellcheck={false} autocorrect="off" autocapitalize="off" on:keydown={{ capture: true, handleEvent: (event: KeyboardEvent) => {
       // Home/End edit the query; content-row navigation starts only after focus leaves it.
       if (props.contentRow && (event.key === "Home" || event.key === "End")) event.stopPropagation();
+
       if (!props.contentRow && event.key === "Tab" && !event.shiftKey && !event.isComposing && api().highlightedValue) {
         event.preventDefault();
         api().selectValue(api().highlightedValue!);
