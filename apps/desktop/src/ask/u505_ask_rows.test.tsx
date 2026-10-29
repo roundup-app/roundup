@@ -207,6 +207,10 @@ it("u505_only_sent_parts_viewed_in_their_target_fold", async () => {
   connected.rail.select(null);
   await waitFor(() => expect(document.querySelectorAll(".ask-row")).toHaveLength(0));
   expect(screen.getByRole("button", { name: /Earlier.*2$/ })).toBeTruthy();
+  app.emit(event({ name: "ask.changed", data: { ask: ask("later", 5, [
+    { text: "first", placement: { kind: "routed", workstream: "ops" }, state: "typed" },
+  ]) } }));
+  expect(rowTexts()).toEqual([`first | ops | ${copy.askSent}`]);
   expect(app.calls.filter(call => ["ask.send", "rail.startDoor", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
 
@@ -254,18 +258,42 @@ it("u505_waiting_and_failed_parts_keep_recovery_until_resolved", async () => {
   expect(document.querySelectorAll(".ask-row")).toHaveLength(1);
 });
 
+const earlierOverview = async (browser: Browser, origin: string) => {
+  await browser("set", "media", "dark");
+  await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.ask-input')");
+  await browser("eval", `window.__fake.emit({actor: {kind: "user", id: "you", parent: null}, name: "ask.changed", data: {ask: {id: "fold", at: "1", text: "sent", parts: [{text: "sent", placement: {kind: "routed", workstream: "payments"}, state: "typed"}]}}})`);
+  await browser("wait", "--fn", "!!document.querySelector('button.ask-line')");
+  await browser("click", "button.ask-line");
+  await browser("wait", "--fn", "!!document.querySelector('.pane-screen') && !document.querySelector('.ask-input')");
+  await browser("click", ".todo-project-root");
+  await browser("wait", "--fn", "!!document.querySelector('.ask-earlier button')");
+  await browser("eval", "window.__calls = window.__fake.app.calls.length");
+};
+
 it("u505_earlier_toggles_by_click_and_keyboard", async () => {
   await observe(async (browser, origin) => {
-    await browser("set", "media", "dark");
-    await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
-    await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.ask-input')");
-    await browser("eval", `window.__fake.emit({actor: {kind: "user", id: "you", parent: null}, name: "ask.changed", data: {ask: {id: "fold", at: "1", text: "sent", parts: [{text: "sent", placement: {kind: "routed", workstream: "payments"}, state: "typed"}]}}})`);
-    await browser("wait", "--fn", "!!document.querySelector('button.ask-line')");
-    await browser("click", "button.ask-line");
-    await browser("wait", "--fn", "!!document.querySelector('.pane-screen') && !document.querySelector('.ask-input')");
-    await browser("click", ".todo-project-root");
-    await browser("wait", "--fn", "!!document.querySelector('.ask-earlier button')");
-    await browser("eval", "window.__calls = window.__fake.app.calls.length");
+    await earlierOverview(browser, origin);
+
+    for (const activation of ["click", "Enter", "Space"]) {
+      for (const expanded of [true, false]) {
+        if (activation === "click") await browser("click", ".ask-earlier button");
+        else {
+          await browser("focus", ".ask-earlier button");
+          await browser("press", activation);
+        }
+
+        await browser("wait", "--fn", `document.querySelector('.ask-earlier button').getAttribute('aria-expanded') === '${expanded}' && document.querySelectorAll('.ask-earlier .ask-row').length === ${expanded ? 1 : 0}`);
+      }
+    }
+
+    expect((await browser("eval", "window.__fake.app.calls.slice(window.__calls).filter(c => ['ask.send','rail.startDoor','agent.spawn','terminal.write'].includes(c.method)).length")).result).toBe(0);
+  });
+}, 60_000);
+
+it("u505_expanded_earlier_retains_row_navigation", async () => {
+  await observe(async (browser, origin) => {
+    await earlierOverview(browser, origin);
 
     const capture = async (step: string) => {
       for (const id of ["U504", "U505"]) {
@@ -281,20 +309,6 @@ it("u505_earlier_toggles_by_click_and_keyboard", async () => {
 
     await capture("tree-40-earlier-closed");
 
-    for (const activation of ["click", "Enter", "Space"]) {
-      for (const expanded of [true, false]) {
-        if (activation === "click") await browser("click", ".ask-earlier button");
-        else {
-          await browser("focus", ".ask-earlier button");
-          await browser("press", activation);
-        }
-
-        await browser("wait", "--fn", `document.querySelector('.ask-earlier button').getAttribute('aria-expanded') === '${expanded}' && document.querySelectorAll('.ask-earlier .ask-row').length === ${expanded ? 1 : 0}`);
-
-        if (activation === "click" && expanded) await capture("tree-40-earlier-open");
-      }
-    }
-
     await browser("eval", `window.__fake.emit({actor: {kind: "user", id: "you", parent: null}, name: "ask.changed", data: {ask: {id: "live", at: "2", text: "live", parts: [
       {text: "Keep the full failure actionable", placement: {kind: "routed", workstream: "backend"}, state: "failed", reason: "The Door ended before this reached it. Choose another Workstream or New Workstream to retry."},
       {text: "Which work should own this?", placement: {kind: "unclear", question: "Choose a destination", candidates: ["payments"]}, state: "waiting"},
@@ -304,10 +318,16 @@ it("u505_earlier_toggles_by_click_and_keyboard", async () => {
     ]}}})`);
     await browser("wait", "--fn", "document.querySelectorAll('.ask-back').length === 2");
     await capture("tree-40-live-recovery");
+    await browser("eval", "document.querySelector('.ask-earlier').scrollIntoView({block: 'center'})");
     await browser("click", ".ask-earlier .disclosure-trigger");
-    await browser("wait", "--fn", "document.querySelectorAll('.ask-earlier .ask-row').length === 1");
+    await browser("wait", "--fn", "document.querySelector('.ask-earlier .disclosure-trigger').getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.ask-earlier .ask-row').length === 1");
+    await browser("eval", "document.querySelector('.ask-earlier').scrollIntoView({block: 'end'})");
     await capture("tree-40-live-earlier-open");
-    await browser("click", ".ask-earlier button.ask-line");
+    await capture("tree-40-earlier-open");
+    await browser("focus", ".ask-row[data-state=queued] button.ask-line");
+    await browser("press", "ArrowDown");
+    await browser("wait", "--fn", "document.activeElement === document.querySelector('.ask-earlier button.ask-line')");
+    await browser("press", "Enter");
     await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.dataset.selected === 'true' && !!document.querySelector('.pane-screen')");
     expect((await browser("eval", "window.__fake.app.calls.slice(window.__calls).filter(c => ['ask.send','rail.startDoor','agent.spawn','terminal.write'].includes(c.method)).length")).result).toBe(0);
     await browser("open", new URL("/harness.html?seed=empty-project", origin).href);
