@@ -3,7 +3,6 @@ mod common;
 
 use std::path::Path;
 use std::process::{Output, Stdio};
-use std::sync::Arc;
 use std::time::Duration;
 
 use common::Served;
@@ -88,8 +87,7 @@ struct Project {
 fn start_daemon() -> Project {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
-    let daemon = Arc::new(rupd::Daemon::open(&dir.path().join(".roundup")).unwrap());
-    let daemon = tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let daemon = common::serve(dir.path(), &socket);
     Project {
         _dir: dir,
         socket,

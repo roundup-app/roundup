@@ -547,12 +547,8 @@ async fn p16_shared_pad_access_over_public_seams() {
         let _ = shim.client.cancel().await;
     }
     // Reopen the same authoritative Project store; no fixture data is reconstructed.
-    let reopened = rupd::Daemon::open(&project._dir.path().join(".roundup")).unwrap();
     let socket = project._dir.path().join("reopened.sock");
-    let serving = tokio::spawn(rupd::serve(
-        tokio::net::UnixListener::bind(&socket).unwrap(),
-        std::sync::Arc::new(reopened),
-    ));
+    let serving = super::common::serve(project._dir.path(), &socket);
     let reopened = super::client_as(&socket, contracts::Actor::user()).await;
     let listed = reopened.request("pad.list", Value::Null).await.unwrap();
     for pad in retained {
