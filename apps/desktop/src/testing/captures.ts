@@ -115,6 +115,7 @@ export function captureTests(selection: string | undefined) {
   const files = new Set<string>();
 
   const ids = selection.split(",").map(part => part.trim());
+
   // Shared observers gate on a lead id or write each member's directory. Activate
   // the complete group so an individually requested member cannot silently skip.
   const groups = [
