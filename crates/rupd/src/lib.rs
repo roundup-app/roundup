@@ -8,6 +8,8 @@ mod auto_tests;
 mod builtin;
 mod connection;
 mod context;
+#[cfg(test)]
+mod naming_tests;
 mod contract_handlers;
 #[cfg(test)]
 mod contract_tests;
