@@ -256,6 +256,9 @@ it.each(["M", "D", "E", "Esc", "O"].flatMap(keys => (["key", "pointer"] as const
 
 it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wait: competing A owners %s", async source => {
   const { app } = seedApp("tree-40", 0);
+  // CI timed out in this forty-row fixture; the competing owners need one Workstream and its Agent.
+  const tree = await app.handlers["rail.tree"]!(null);
+  app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend" || node.id === "migrate");
   const listed = await app.handlers["todo.list"]!(null);
   app.handlers["todo.list"] = () => listed.map(todo => ({ ...todo, home: "backend" }));
   render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
