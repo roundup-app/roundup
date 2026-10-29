@@ -6,7 +6,7 @@ export const settingsCopy = {
   engineHint: "Engine for new Agents.",
   modelHint: "Model for new Agents.",
   fontFamilyHint: "Leave blank to use the default font.",
-  fontSizeHint: "Text size in every Terminal.",
+  fontSizeHint: "Default text size for Terminals.",
   quickAddHint: "Open quick add from any app.",
   modeHint: "Use a light, dark or system appearance.",
   model: "Model",
