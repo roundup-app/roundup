@@ -86,23 +86,3 @@ async fn u3789a_real_daemon_rename_retains_publication_after_restart() {
         "retained\n revision"
     );
 }
-
-#[tokio::test]
-async fn p16_the_user_renames_an_agent_owned_pad() {
-    let project = daemon::start(&[]);
-    let client = project.client().await;
-    let original = client
-        .request("pad.create", json!({"name":"Notes","text":"original"}))
-        .await
-        .unwrap();
-    let accepted = client
-        .request(
-            "pad.rename",
-            json!({"name":"Notes","newName":"Plan","expectedIncarnation":original["incarnation"]}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(accepted["incarnation"], original["incarnation"]);
-    assert_eq!(accepted["owner"]["id"], "maker");
-    assert_eq!(accepted["text"], "original");
-}

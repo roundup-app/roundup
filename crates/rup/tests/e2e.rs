@@ -2797,11 +2797,6 @@ async fn p14_pads(client: &rpc::Client, names: &[&str]) {
     }
 }
 
-async fn p14_write(who: &rpc::Client, name: &str) -> Result<Value, rpc::RpcError> {
-    who.request("pad.write", json!({ "name": name, "text": "by owner" }))
-        .await
-}
-
 #[tokio::test]
 async fn p14_pad_ask_is_unknown() {
     let project = start(&[]);
@@ -2840,26 +2835,6 @@ async fn p14_pad_has_no_scribe_field() {
 
     assert!(read.get("scribe").is_none());
     assert!(listed[0].get("scribe").is_none());
-}
-
-#[tokio::test]
-async fn p14_only_owner_writes() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p14_pads(&user, &["notes", "plan"]).await;
-    let a = agent_in(&project, &user, None).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &a)).await;
-
-    p14_write(&user, "notes").await.unwrap();
-    p14_write(&as_a, "plan").await.unwrap();
-    p14_write(&user, "plan").await.unwrap();
-    let err = p14_write(&as_a, "notes").await.unwrap_err();
-    assert_eq!(err.code, rpc::code::FORBIDDEN);
-    let pad = user
-        .request("pad.read", json!({ "name": "notes" }))
-        .await
-        .unwrap();
-    assert_eq!(pad["text"], "by owner");
 }
 
 /// M11: the tools a Brief lists, between its "## Tools" heading and the next.

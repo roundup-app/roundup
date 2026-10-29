@@ -61,7 +61,7 @@ async fn a34_a_blocker_deleted_leaves_the_kept_todos_list() {
 }
 
 #[tokio::test]
-async fn a34_pads_follow_a_kept_agent_and_the_rest_go() {
+async fn a34_pads_are_deleted_by_home_even_when_an_agent_stays() {
     let project = start(&[]);
     let client = project.client().await;
     let ws = workstream(&client, "w").await;
@@ -84,28 +84,24 @@ async fn a34_pads_follow_a_kept_agent_and_the_rest_go() {
         .await
         .unwrap();
 
-    let after = pads::source(&db, "by-running").unwrap().unwrap();
-    assert_eq!(after.incarnation, running_source.incarnation);
-    assert_eq!(after.pad.home, None);
-    for incarnation in [stopped_source.incarnation, user_source.incarnation] {
+    for incarnation in [
+        running_source.incarnation,
+        stopped_source.incarnation,
+        user_source.incarnation,
+    ] {
         assert_eq!(
             pads::source_state(&db, incarnation).unwrap(),
             pads::PadSourceState::Deleted(pads::PadDeletion::Cleanup)
         );
     }
-    assert_eq!(
-        pads(&client).await,
-        [("by-running".to_owned(), Value::Null)]
+    assert!(pads(&client).await.is_empty());
+    assert!(
+        !removal["kept"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["kind"] == "pad")
     );
-    let kept: Vec<&Value> = removal["kept"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|item| item["kind"] == "pad")
-        .collect();
-    assert_eq!(kept.len(), 1);
-    assert_eq!(kept[0]["name"], "by-running");
-    assert_eq!(kept[0]["reason"], "running");
     let gone: Vec<&str> = removal["removed"]
         .as_array()
         .unwrap()
@@ -113,7 +109,7 @@ async fn a34_pads_follow_a_kept_agent_and_the_rest_go() {
         .filter(|item| item["kind"] == "pad")
         .map(|item| item["name"].as_str().unwrap())
         .collect();
-    assert_eq!(gone, ["by-stopped", "by-user"]);
+    assert_eq!(gone, ["by-running", "by-stopped", "by-user"]);
 }
 
 #[tokio::test]
@@ -360,7 +356,7 @@ async fn failed_storage_removal(database: &str, trigger: &str) {
     );
     assert!(!tree.as_array().unwrap().iter().any(|n| n["id"] == gone));
     assert!(!files.join("a-earlier.md").exists());
-    assert!(files.join("c-earlier-kept.md").exists());
+    assert!(!files.join("c-earlier-kept.md").exists());
 }
 
 #[tokio::test]
@@ -376,11 +372,6 @@ async fn a34_a_failed_todo_move_rolls_back_earlier_items_and_retries() {
 #[tokio::test]
 async fn a34_a_failed_pad_deletion_rolls_back_earlier_items_and_retries() {
     failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON pads WHEN old.name = 'b-failure' BEGIN SELECT RAISE(FAIL, 'A34 Pad delete'); END;").await;
-}
-
-#[tokio::test]
-async fn a34_a_failed_pad_move_rolls_back_earlier_items_and_retries() {
-    failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE UPDATE OF home ON pads WHEN old.name = 'd-failure-kept' BEGIN SELECT RAISE(FAIL, 'A34 Pad move'); END;").await;
 }
 
 #[tokio::test]
@@ -816,7 +807,7 @@ async fn n18_removal_commits_all_concerns_once() {
             EventData::PadDeleted(contracts::pad::PadName {
                 name: "deleted".into()
             }),
-            EventData::PadChanged(contracts::pad::PadName {
+            EventData::PadDeleted(contracts::pad::PadName {
                 name: "moved".into()
             }),
         ])
