@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -49,7 +50,7 @@ beforeAll(async () => {
 afterAll(async () => {
   try {
     await browser("close");
-  } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
+  } finally { await server?.close(); await rm(profile, { recursive: true, force: true, maxRetries: 5 }); }
 });
 
 const wait = async (expression: string) => browser("wait", "--fn", expression);
@@ -188,6 +189,9 @@ it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_actio
     await read(`document.querySelector('.shelf .pad-name').focus()`);
     await read(`document.querySelector('.shelf .pad-name').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}))`);
     await wait(`!!document.querySelector('.pad-body button')`);
+    // U4698a opens Pads filling the centre, over the Terminal bar's Hint line.
+    await browser("click", '.drawer button[aria-label="Restore"]');
+    await wait(`document.querySelector('.drawer')?.getAttribute('data-maximised') === 'false' && !document.querySelector('.drawer')?.getAnimations().some(animation => animation.playState === 'running')`);
     await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
   } else {
     await browser("click", '.rail-row[data-id="agent-2"]');

@@ -1,6 +1,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -113,6 +114,9 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
     await browser("click", '.shelf [data-todo] .todo-row-button');
     await browser("press", "Enter");
     await wait(`!!document.querySelector('.drawer[data-open="true"]')`);
+    // U4698a fills the centre by default; restore the side-by-side layout before returning to the Terminal.
+    await browser("click", '.drawer button[aria-label="Restore"]');
+    await wait(`document.querySelector('.drawer')?.getAttribute('data-maximised') === 'false' && !document.querySelector('.drawer')?.getAnimations().some(animation => animation.playState === 'running')`);
     await tabTo(".drawer");
     await snap("09-keyboard-drawer");
     const drawerCounts = await read(`({fits:window.__focusFits,resizes:window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length})`);
@@ -140,6 +144,6 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
       await snap("13-conflict-terminal");
     }
   } finally {
-    try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
+    try { await browser("close"); } finally { await server.close(); await rm(profile, { recursive: true, force: true, maxRetries: 5 }); }
   }
 }, 60_000);
