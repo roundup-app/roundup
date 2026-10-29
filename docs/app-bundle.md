@@ -46,7 +46,7 @@ universal binaries and platform appearance variants are outside this command.
 just app-bundle-check target/<rust-host>/release/bundle/macos/roundup.app
 ```
 
-The observer copies the actual bundle to a fresh temporary directory. It requires
+The observer requires `cargo-nextest` and copies the actual bundle to a fresh temporary directory. It requires
 all four executables, the runtime and notices, refuses external sidecar symlinks,
 and imports the SDK using that extracted Node. It runs the existing App discovery,
 X8 reconnection, U4547e recovery and D5 attached-shutdown tests against the extracted
