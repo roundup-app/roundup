@@ -4,34 +4,65 @@ import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { openLane } from "../todos/laneBrowser";
 
-it.skipIf(!captureDir("U4692"))("u4692_u4692a_rendered_attention_and_discovery", { timeout: 180_000, retry: 0 }, async () => {
+it.skipIf(!captureDir("U4692"))("u4692_u4692a_rendered_attention_and_discovery", { timeout: 60_000, retry: 0 }, async () => {
   const lane = await openLane(1512, "dark", "builder-4692");
   const failure = "Could not add Workstream: choose another name and try again.";
   const dir = captureDir("U4692")!;
   mkdirSync(dir, { recursive: true });
+
   try {
     await lane.browser("record", "start", join(dir, "attention.webm"));
+    await lane.browser("set", "media", "dark");
+    await lane.evaluate(`localStorage.setItem("roundup:app-settings", JSON.stringify({mode:"dark"})); document.documentElement.dataset.mode = "dark"`);
     await lane.until("!!window.__fake && !!document.querySelector('.rail-row')");
     await lane.evaluate(`(() => { window.__fake.failNext(-32003, ${JSON.stringify(failure)}); document.querySelector('[aria-label="Add Workstream"]').click(); return true; })()`);
     await lane.until(`document.querySelector('p.ink[role=alert]')?.textContent.includes(${JSON.stringify(failure)})`);
     await lane.capture("U4692", "before");
+
     for (const [place, selector] of [["rail", ".rail-row"], ["ask", ".ask-input"], ["shelf", ".todo-row-button"], ["terminal", ".pane-screen .xterm-helper-textarea"]]) {
       if (place === "ask") {
-        await lane.browser("press", "Meta+/");
+        await lane.browser("click", "[data-todo-root]");
         await lane.until("!!document.querySelector('.ask-input')");
       }
+
       if (place === "shelf") {
-        await lane.browser("press", "Meta+k"); await lane.browser("press", "s");
+        await lane.browser("click", "[data-todo-root]");
         await lane.until("!!document.querySelector('.shelf')");
         await lane.evaluate(`(() => { document.querySelector('[data-todo-root]')?.click(); document.querySelector('[data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click(); return true; })()`);
         await lane.until("!!document.querySelector('.todo-row-button')");
       }
+
       await lane.browser("focus", selector!);
+
+      if (place === "rail" || place === "shelf" || place === "terminal") await lane.capture("U4692a", `${place}-hint`);
       await lane.browser("press", "Control+Meta+j");
       await lane.until("document.activeElement?.classList.contains('xterm-helper-textarea')");
       expect(await lane.calls("terminal.write")).toEqual([]);
       await lane.capture("U4692", `${place}-jump`);
     }
+
+    await lane.browser("click", "[data-todo-root]");
+    await lane.browser("click", "#shelf-tab-pads");
+    await lane.evaluate(`(() => { document.querySelector('.pads-tab [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click(); return true; })()`);
+    await lane.until("!!document.querySelector('.pad-name')");
+    await lane.browser("focus", ".pad-name");
+    await lane.browser("press", "Enter");
+    await lane.until("!!document.querySelector('.pad-body button')");
+    await lane.browser("focus", ".pad-body button");
+    await lane.capture("U4692a", "pad-hint");
+    await lane.browser("focus", ".drawer .close");
+    await lane.capture("U4692a", "drawer-hint");
+    await lane.browser("press", "Escape");
+    await lane.until("!document.querySelector('.drawer[data-open=true]')");
+    await lane.browser("click", '.rail-row[data-id="backend"]');
+    await lane.browser("press", "Meta+t");
+    await lane.until("!!document.querySelector('.bubble .xterm-helper-textarea')");
+    await lane.evaluate(`(() => { window.__fake.failNext(-32003, ${JSON.stringify(failure)}); document.querySelector('[aria-label="Add Workstream"]').click(); return true; })()`);
+    await lane.until(`document.querySelector('p.ink[role=alert]')?.textContent.includes(${JSON.stringify(failure)})`);
+    await lane.browser("focus", ".bubble .xterm-helper-textarea");
+    await lane.capture("U4692a", "bubble-hint");
+    await lane.browser("press", "Control+Meta+j");
+    await lane.until("document.activeElement?.closest('.pane-screen') !== null");
     await lane.browser("focus", ".rail-row");
     await lane.browser("press", "Shift+?");
     await lane.until("!!document.querySelector('.help')");
