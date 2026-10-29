@@ -8,6 +8,25 @@ import type { ObservationHealth } from "@contracts/reaction/ObservationHealth";
 import type { Reason } from "@contracts/message/Reason";
 import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
+const appearanceCopy = {
+  fontFamilyHint: "Choose Default to use the bundled font.",
+  discardSettingsEdit: (label: string) => `Discard ${label} edit`,
+  settingsConflict: "Settings changed elsewhere. Your edit is kept; compare the saved value or discard this edit.",
+  terminalPreview: "Terminal preview",
+  terminalPreviewSample: "roundup  \x1b[1mTerminal preview\x1b[0m\r\n┌────────┬────────┐\r\n│ ░▒▓█   │ ready  │\r\n└────────┴────────┘\r\n\x1b[32m✓\x1b[0m tests passed",
+  interfaceSample: "A",
+  interfaceSmall: "Small",
+  interfaceDefault: "Default",
+  interfaceLarge: "Large",
+  fontDefault: "Default",
+  fontWeight: "Font weight",
+  lineHeight: "Line height",
+  letterSpacing: "Letter spacing",
+  interfaceScale: "Interface text size",
+  focusMarkers: "Show region focus markers",
+  numericRefusal: (label: string, min: number, max: number) => `${label} must be a number from ${min} to ${max}. Enter a value in this range.`,
+} as const;
+
 const rpcFailures = new Map<number, string>([
   [-32700, "The request could not be read. Try again."], [-32601, "This action is unavailable. Check for an update."],
   [-32602, "Check the input and try again."], [-32603, "Completion is unconfirmed. Check before trying again."],
@@ -157,6 +176,7 @@ export const copy = {
     ["ArrowUp", "↑"], ["ArrowDown", "↓"], ["ArrowLeft", "←"], ["ArrowRight", "→"],
   ].map(([code, label]) => [code!, label!])),
   ...settingsCopy,
+  ...appearanceCopy,
 
   toolCallUnderSecond: "<1s",
   toolCallSeconds: (seconds: number) => `${seconds}s`,
