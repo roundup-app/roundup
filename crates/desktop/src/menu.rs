@@ -677,6 +677,7 @@ mod tests {
                 Some(path.to_owned()),
                 Some(vec![
                     item("action:leader:C", "Review changes", Some("⌘K C"), None),
+                    item("action:chord:⌘F", "Find…", Some("⌘F"), None),
                     unavailable,
                 ]),
             )
@@ -687,7 +688,7 @@ mod tests {
             };
             let changes = plain(project.get("action:leader:C").unwrap());
             assert_eq!(changes.text().unwrap(), "Review changes");
-            for id in ["action:leader:C", "action:leader:A"] {
+            for id in ["action:leader:C", "action:chord:⌘F", "action:leader:A"] {
                 app_chosen(app.handle(), &MenuEvent { id: id.into() });
             }
         }
@@ -695,7 +696,9 @@ mod tests {
             *received.lock().unwrap(),
             vec![
                 serde_json::json!({"path": "/A", "command": "action:leader:C"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:⌘F"}),
                 serde_json::json!({"path": "/B", "command": "action:leader:C"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:⌘F"}),
             ]
         );
     }
