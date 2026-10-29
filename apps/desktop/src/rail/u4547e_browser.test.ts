@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 
 let lane: LaneBrowser;
@@ -65,6 +66,10 @@ it("u4547e_drag_reparents_the_chosen_agent_without_restarting", async () => {
 
 it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
   await seed();
+  await lane.capture("U4547e", "before-picker");
+  const capture = captureDir("U4547e");
+
+  if (capture) await lane.browser("record", "start", `${capture}/move-and-retry.webm`);
   await lane.browser("focus", row("agent-4"));
   await lane.browser("press", "m");
   await lane.until("document.querySelector('[role=combobox]') === document.activeElement");
@@ -79,4 +84,6 @@ it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
   await lane.until("!document.querySelector('.rail-command-notice [role=alert]')");
   expect(await lane.calls("rail.move")).toHaveLength(1);
   await lane.capture("U4547e", "retry");
+
+  if (capture) await lane.browser("record", "stop");
 }, 60_000);
