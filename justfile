@@ -58,7 +58,7 @@ clippy base="":
 # The Rust tests; CI passes nextest a lane's profile (`ci1` to `ci5`), a thread count or the `mac` profile (L89).
 [script('loop/keep-going.sh')]
 test-rust *args:
-    cargo build --quiet -p rupd -p rup
+    just build-debug
     cargo nextest run {{args}}
     just contracts-fresh
 
@@ -140,6 +140,11 @@ harness-real project port="5199":
     echo "http://localhost:{{port}}/harness.html?daemon=1"
     ROUNDUP_REAL_PROJECT="$path" pnpm --filter desktop exec vite --host 127.0.0.1 --port {{port}} --strictPort
 
+# Prepare debug Daemon/CLI binaries and the SDK runtime beside them (A4691a).
+build-debug:
+    cargo build -p rupd -p rup
+    tools/sidecar/bundle.sh target/debug/sidecar --local-node
+
 # Opens the development App only after its imports transform; an HTML response alone can hide a Vite error.
 app project:
     #!/usr/bin/env bash
@@ -148,7 +153,7 @@ app project:
     # Anything already on :5173 would answer the wait below in place of our Vite and the window would open on the wrong webview.
     ! curl --max-time 1 -sf -o /dev/null http://localhost:5173 || { echo "something already answers on :5173; stop it first" >&2; exit 1; }
     CI=true pnpm install --frozen-lockfile
-    cargo build -p rupd -p rup
+    just build-debug
     set -m
     pnpm --filter "./apps/*" --if-present dev &
     dev=$!
