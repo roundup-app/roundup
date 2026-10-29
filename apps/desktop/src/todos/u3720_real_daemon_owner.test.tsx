@@ -257,6 +257,8 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.until(`!!document.querySelector('${group("unassigned")}')`);
     await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');if(g.dataset.state==='closed')g.querySelector('[data-part=branch-control]').click();return true;})()`);
     await lane.evaluate(`(() => { window.__assignCalls = []; const fetch = window.fetch.bind(window); window.fetch = (url, options) => { if (String(url).endsWith('/__daemon/rpc')) { const call = JSON.parse(options.body); if (call.method === 'todo.assign') window.__assignCalls.push(call); if (call.method === window.__failure?.method) { const failure = window.__failure; window.__failure = null; return Promise.resolve(new Response(JSON.stringify({error:{code:-32003,message:failure.message}}), {headers:{'Content-Type':'application/json'}})); } } return fetch(url, options); }; return true; })()`);
+    await lane.browser("click", ".shelf-done-line button:first-child");
+    await lane.until("document.querySelector('.todo-done-fold')?.dataset.open === 'true'");
     await capture("board");
 
     await lane.evaluate(`(() => {
@@ -390,6 +392,11 @@ it("u3311_real_daemon_delegate_board", async () => {
 
     for (const [id, to] of expected) await observe(id, to);
     expect((await app.rpc("todo.get", { id: made[0]!.id })).owner).toEqual(me);
+    await capture("project-reopened");
+    await lane.browser("focus", `.rail-row[data-id="${agents[3]!.id}"]`);
+    await lane.browser("press", "Enter");
+    await lane.until(`document.querySelector('.rail-row[data-id="${agents[3]!.id}"]')?.dataset.selected === 'true'`);
+    await capture("empty-agent");
     expect(lostFocus).toEqual([]);
   } catch (error) {
     console.error(await lane.evaluate("document.body.innerText"));
@@ -398,9 +405,12 @@ it("u3311_real_daemon_delegate_board", async () => {
     console.error(await readFile(join(scratch, "prompts.jsonl"), "utf8").catch(() => "no prompts"));
     throw error;
   } finally {
-    if (captureDir("U3311")) await lane.browser("record", "stop");
-    await lane.close();
-    await real.stop();
-    await rm(scratch, { recursive: true, force: true });
+    try {
+      if (captureDir("U3311")) await lane.browser("record", "stop");
+    } finally {
+      await lane.close();
+      await real.stop();
+      await rm(scratch, { recursive: true, force: true });
+    }
   }
 }, 180_000);
