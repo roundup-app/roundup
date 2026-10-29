@@ -107,7 +107,7 @@
 /* U131: reserve the same leading columns on branches and leaves. */
 .rail-row .row-state,
 .rail-fold .glyph {
-  margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
+  margin-inline-start: max(var(--length-zero), calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap)));
 }
 
 /* Keep disclosure clear of the reserved Kind column and its title. */
