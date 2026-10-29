@@ -176,18 +176,19 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
 
 it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
   await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="agent-2"]')`);
 
   if (place.startsWith("pad-")) {
-    await read(`[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(tab => tab.textContent.includes('Pads')).click()`);
+    await read(`(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); })()`);
     await wait(`!!document.querySelector('.pads-tab [data-part=branch-control]')`);
-    await read(`document.querySelector('.pads-tab [data-part=branch-control]').click()`);
+    await read(`(() => { const group = document.querySelector('.pads-tab [data-part=branch-control]'); if (group.dataset.state === 'closed') group.click(); })()`);
     await wait(`!!document.querySelector('.shelf .pad-name')`);
     await browser("click", ".shelf .pad-name");
     await read(`document.querySelector('.shelf .pad-name').focus()`);
-    await read(`document.querySelector('.shelf .pad-name').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}))`);
-    await wait(`!!document.querySelector('.pad-body button')`);
+    await browser("press", "Enter");
+    await wait(`!!document.querySelector('.pad-body button') && !!document.querySelector('.drawer .ProseMirror')`);
     if (place === "pad-side") {
       await browser("click", '.drawer button[aria-label="Restore"]');
       await wait(`document.querySelector('.drawer').dataset.maximised === 'false'`);
@@ -217,13 +218,14 @@ it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_sou
   expect(await read(`document.activeElement === window.__source`)).toBe(true);
 
   if (place.startsWith("pad-")) {
-    const choice = await point('.hint-line [data-hint="M"]');
+    const choice = await point('.hint-line [data-hint="S"]');
     await browser("mouse", "move", String(choice.x), String(choice.y));
     await browser("mouse", "down", "left");
     expect(await read(`document.activeElement === window.__source && !!document.querySelector('.hint-line.leader')`)).toBe(true);
     await browser("mouse", "up", "left");
     await wait(`!document.querySelector('.hint-line.leader')`);
-    expect(await read(`document.querySelector('.drawer').dataset.maximised`)).toBe(place === "pad-filled" ? "false" : "true");
+    expect(await read(`document.querySelector('.window').dataset.shelf`)).toBe("closed");
+    expect(await read(`document.querySelector('.drawer').dataset.maximised`)).toBe(place === "pad-filled" ? "true" : "false");
     expect(await read(`document.activeElement === window.__source`)).toBe(true);
     expect(await read(`document.querySelector('.drawer .ProseMirror') === window.__padEditor && window.__padEditor.textContent === window.__padDraft`)).toBe(true);
   }

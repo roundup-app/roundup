@@ -203,7 +203,10 @@
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
 :is(.window[data-shelf-maximised="true"]:not(:has(.drawer[data-open="true"])) .shelf, .drawer[data-maximised="true"]:not([data-fill="true"])) { width: calc(100% - var(--rail-width)); }
 /* Hidden content must also suppress descendants that explicitly restore visibility. */
-:is(.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])), .window:has(.drawer[data-open="true"][data-maximised="true"])) .centre { content-visibility: hidden; }
+:is(.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])), .window:has(.drawer[data-open="true"][data-maximised="true"]:not([data-fill="true"]))) .centre { content-visibility: hidden; }
+
+/* The filled item covers the content; its command hints remain reachable in the Terminal bar. */
+.window:has(.drawer[data-open="true"][data-fill="true"]) :is(.project-center-area, .bubbles, .resource-strip, .resource-inspection) { content-visibility: hidden; }
 
 /* U3752: the mode's keys sit after the rows, stuck to the bottom of the scroll area, so no row moves. */
 .triage-hints {
