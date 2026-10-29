@@ -377,41 +377,11 @@ impl Store {
             .ok_or_else(|| RpcError::internal("message vanished right after it was inserted"))
     }
 
-    /// A32: every Message sent to or by `door`, each with the Iteration it belongs to: one more
-    /// than the number of ended Iterations whose last Message came before it.
+    /// Every Message sent to or by `door`, in order.
     pub(crate) fn thread(&self, door: &str) -> Result<Vec<Message>, RpcError> {
-        let ended: Vec<u32> = self
-            .db
-            .prepare("SELECT upto FROM iterations WHERE door = ? ORDER BY iteration")
-            .and_then(|mut q| q.query_map([door], |r| r.get(0))?.collect())
-            .map_err(RpcError::internal)?;
         let mut thread = self.list()?;
         thread.retain(|m| m.to == door || m.from.id == door);
-        for message in &mut thread {
-            let before = ended.iter().filter(|upto| **upto < message.id).count();
-            message.iteration = Some(before as u32 + 1);
-        }
         Ok(thread)
-    }
-
-    /// A32: the Iteration `door` is in ends with the Messages stored so far.
-    pub(crate) fn end_iteration(&self, door: &str) -> Result<u32, RpcError> {
-        let ended: u32 = self
-            .db
-            .query_row(
-                "SELECT COUNT(*) FROM iterations WHERE door = ?",
-                [door],
-                |r| r.get(0),
-            )
-            .map_err(RpcError::internal)?;
-        self.db
-            .execute(
-                "INSERT INTO iterations (door, iteration, upto)
-                 VALUES (?1, ?2, COALESCE((SELECT MAX(id) FROM messages), 0))",
-                params![door, ended + 1],
-            )
-            .map_err(RpcError::internal)?;
-        Ok(ended + 1)
     }
 
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, RpcError> {
@@ -913,7 +883,6 @@ fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
             .map(|text| from_text(7, &text))
             .transpose()?,
         at: row.get(8)?,
-        iteration: None,
     })
 }
 

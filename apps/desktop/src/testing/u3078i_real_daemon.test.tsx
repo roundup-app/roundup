@@ -1,3 +1,5 @@
+import { menuProbe } from "./menuProbe";
+import type { ConnectedProject } from "../state/connectedProject";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
@@ -37,7 +39,8 @@ const interrupted = async (mode: "replace" | "document") => {
 
   const open = async () => {
     const app = createServedApp(real.base);
-    const view = render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    let connected: ConnectedProject | undefined;
+    const view = render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; }} />);
 
     const row = await waitFor(() => {
       const found = [...document.querySelectorAll(".name")].find((each) => each.textContent === "Login");
@@ -47,10 +50,12 @@ const interrupted = async (mode: "replace" | "document") => {
       return found;
     }, { timeout: 30_000 });
 
+    await waitFor(() => expect(connected).toBeDefined());
     fireEvent.click(row);
-    // A running Agent keeps its Order behind the Order line; a stopped one shows it inline.
-    await waitFor(() => expect(document.querySelector(".order-line, .order-overview")).not.toBeNull(), { timeout: 30_000 });
-    document.querySelector(".order-line")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    fireEvent.contextMenu(row.closest<HTMLElement>(".rail-row")!);
+    const action = menuProbe.shown?.find(item => item.label === "Work progress");
+    expect(action?.enabled).toBe(true);
+    menuProbe.answer?.(action!.id);
 
     return { view, section: await screen.findByRole("region", { name: "Progress" }, { timeout: 30_000 }) };
   };

@@ -80,10 +80,22 @@ pub struct Removal {
     pub deletion: Option<Deletion>,
 }
 
+/// Which contents the user chose to remove from a Workstream.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum RemoveScope {
+    #[default]
+    This,
+    All,
+}
+
 /// A client key requests data-only removal; omission keeps irreversible removal's consent path.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RemoveParams {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub scope: Option<RemoveScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional)]
     pub operation: Option<String>,
@@ -374,6 +386,10 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = bool)]
     pub auto: Option<bool>,
+    /// A4452c: the Workstream's saved opening prompt; absent on an Agent and when none is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub opening_prompt: Option<String>,
     pub id: String,
     pub kind: NodeKind,
     pub name: String,
@@ -409,10 +425,6 @@ pub struct RailNode {
     pub model: Option<String>,
     /// A36: the Effort the Agent runs on; `None` passes none. `None` for a Terminal.
     pub effort: Option<String>,
-    /// A32: the Iteration of a Workstream's Door, from `1`; absent on every other node.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = u32)]
-    pub iteration: Option<u32>,
     /// B51: whether the Claude inbox a `note` is written to is usable, from the Agent's latest
     /// check; absent before the first check and on a Terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -668,6 +680,15 @@ pub struct SetModelParams {
 /// X11: start `command` in a Run owned by Agent `id`; `cwd` defaults to its Worktree, else its cwd.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RunParams {
+    /// U4590: initial PTY columns; absent keeps the hostless 80-column default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub cols: Option<u16>,
+    /// U4590: initial PTY rows; absent keeps the hostless 24-row default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u16)]
+    pub rows: Option<u16>,
+
     pub id: String,
     pub command: Vec<String>,
     #[serde(default)]

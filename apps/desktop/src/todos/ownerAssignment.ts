@@ -131,3 +131,7 @@ export const createOwnerPicker = (source: {
     },
   }]);
 };
+
+/** The available owners, leaving out the Todo's current owner. */
+export const ownersToOffer = (connected: ConnectedProject, current: Todo | undefined) =>
+  ownersOnRail(connected).filter(owner => !current || !sameOwner(owner.actor, current.owner));

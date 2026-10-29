@@ -10,7 +10,7 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-use contracts::agent::WorktreeState;
+use contracts::agent::{RemoveScope, WorktreeState};
 use rpc::{RpcError, code};
 
 /// What provisioning makes. `RailNode.worktree` (`contracts::agent::Worktree`) stores the same
@@ -596,22 +596,26 @@ impl Git {
             .collect())
     }
 
-    /// A34: retain complete clean Worktrees (including ignored files) and branch tips until
+    /// A34/U4461: retain chosen Worktrees (including dirty and ignored files) and branch tips until
     /// the coordinated SQLite commit succeeds. A failed git command can then be retried.
     pub(crate) fn prepare_removal(
         &self,
         project: &Path,
         worktrees: &[Worktree],
+        scope: RemoveScope,
     ) -> Result<Removal, RpcError> {
         let mut removal = Removal {
             git: self.clone(),
             project: project.to_owned(),
             entries: Vec::new(),
+            scope,
             removed: false,
         };
         let result = (|| {
             for worktree in worktrees {
-                self.require_landed(project, worktree)?;
+                if scope == RemoveScope::This {
+                    self.require_landed(project, worktree)?;
+                }
                 let tip = self.reference(project, &format!("refs/heads/{}", worktree.branch))?;
                 // G2542d: an enrolled directory is never moved aside; only its branch goes.
                 if self.is_enrolled(&worktree.path) {
@@ -664,7 +668,7 @@ impl Git {
     pub fn remove_landed(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
         let reference = format!("refs/heads/{}", worktree.branch);
         let expected = self.reference(project, &reference)?;
-        self.remove_at_tip(project, worktree, expected.as_deref())
+        self.remove_at_tip(project, worktree, expected.as_deref(), RemoveScope::This)
     }
 
     fn remove_at_tip(
@@ -672,9 +676,12 @@ impl Git {
         project: &Path,
         worktree: &Worktree,
         expected: Option<&str>,
+        scope: RemoveScope,
     ) -> Result<(), RpcError> {
         let reference = format!("refs/heads/{}", worktree.branch);
-        self.require_landed(project, worktree)?;
+        if scope == RemoveScope::This {
+            self.require_landed(project, worktree)?;
+        }
         if self.reference(project, &reference)?.as_deref() != expected {
             return Err(failed("Worktree branch changed during removal"));
         }
@@ -712,13 +719,14 @@ pub(crate) struct Removal {
     git: Git,
     project: PathBuf,
     entries: Vec<(Worktree, Option<String>, Option<tempfile::TempDir>)>,
+    scope: RemoveScope,
     removed: bool,
 }
 
 impl Removal {
     pub(crate) fn remove(&mut self, git: &Git, project: &Path) -> Result<(), RpcError> {
         for (worktree, tip, _) in &self.entries {
-            git.remove_at_tip(project, worktree, tip.as_deref())?;
+            git.remove_at_tip(project, worktree, tip.as_deref(), self.scope)?;
         }
         // The caller explicitly restores on storage failure. Otherwise Drop cleans backups
         // only after the coordinated commit has returned successfully.

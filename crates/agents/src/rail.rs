@@ -3,19 +3,16 @@
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
 mod closed;
-mod measurement;
 mod owner_reads;
 mod settings;
 use owner_reads::OwnerReads;
+mod placement;
 mod queue;
 mod removal;
 mod view;
-pub use measurement::MeasurementWait;
-pub(crate) use measurement::Timing;
 use view::load_nodes;
 
 use std::path::Path;
-use std::sync::Arc;
 
 use contracts::agent::{CapturedOrder, NodeKind, Order, RailNode, Worktree};
 use contracts::project::{Mcp, Prepared, ProjectModels, RoleModels, Worktrees};
@@ -29,9 +26,6 @@ pub struct Rail {
     owner_reads: OwnerReads,
     db: Connection,
     tree_capacity: std::cell::Cell<usize>,
-    measurement_observing: Arc<tokio::sync::Semaphore>,
-    measurement_revision: Option<String>,
-    measurement_failure: Option<String>,
 }
 
 pub(super) struct ClosedPreparation {
@@ -59,9 +53,6 @@ impl Rail {
             owner_reads: OwnerReads::open(path),
             db,
             tree_capacity: Default::default(),
-            measurement_observing: Arc::new(tokio::sync::Semaphore::new(1)),
-            measurement_revision: None,
-            measurement_failure: None,
         })
     }
 
@@ -337,52 +328,6 @@ impl Rail {
         self.node(id)
     }
 
-    /// Put `id` at `index` among the children of `parent`, closing the gap it leaves behind.
-    pub fn move_node(
-        &mut self,
-        id: &str,
-        parent: Option<&str>,
-        index: u32,
-    ) -> Result<(), RpcError> {
-        let name = self.name(id)?;
-        let parent_name = parent.map(|id| self.name(id)).transpose()?;
-        let tx = self.db.transaction().map_err(sql)?;
-        let nodes = load(&tx)?;
-        let node = find(&nodes, id)?;
-        check_parent(&nodes, node.kind, parent)?;
-        // Only a start nests an Agent under an Agent (A6, A26).
-        if let Some(under) = parent.map(|id| find(&nodes, id)).transpose()?
-            && node.kind == NodeKind::Agent
-            && under.kind == NodeKind::Agent
-        {
-            return Err(RpcError::conflict(format!(
-                "{name} cannot move under Agent {}: only a start nests it",
-                parent_name.as_deref().unwrap_or(GONE_AGENT)
-            )));
-        }
-        if parent.is_some_and(|parent| is_within(&nodes, parent, id)) {
-            return Err(RpcError::conflict(format!(
-                "{name} cannot move into itself"
-            )));
-        }
-        let without = |parent: Option<&str>| {
-            let mut ids = siblings(&nodes, parent);
-            ids.retain(|sibling| sibling != id);
-            ids
-        };
-        let mut ids = without(parent);
-        ids.insert((index as usize).min(ids.len()), id.to_owned());
-        place(&tx, parent, &ids)?;
-        if node.parent.as_deref() != parent {
-            place(
-                &tx,
-                node.parent.as_deref(),
-                &without(node.parent.as_deref()),
-            )?;
-        }
-        tx.commit().map_err(sql)
-    }
-
     pub fn allocate_attempt(&mut self, id: &str) -> Result<String, RpcError> {
         let node = self.node(id)?;
         let previous = node
@@ -401,21 +346,6 @@ impl Rail {
             )
             .map_err(sql)?;
         Ok(next.to_string())
-    }
-
-    /// A32: the Door of Workstream `id` is now in Iteration `iteration`.
-    pub fn set_iteration(&mut self, id: &str, iteration: u32) -> Result<(), RpcError> {
-        let changed = self
-            .db
-            .execute(
-                "UPDATE nodes SET iteration = ? WHERE id = ?",
-                params![iteration, id],
-            )
-            .map_err(sql)?;
-        if changed == 0 {
-            return Err(RpcError::not_found(GONE_AGENT));
-        }
-        Ok(())
     }
 
     pub fn detach_terminal(&mut self, id: &str) -> Result<(), RpcError> {
@@ -479,6 +409,17 @@ impl Rail {
             .optional()
             .map_err(sql)
             .map(|name| name.unwrap_or_else(|| GONE_AGENT.into()))
+    }
+
+    /// Last allocated identity, including removed nodes; SQLite never reuses it.
+    pub fn last_id(&self) -> Result<i64, RpcError> {
+        self.db
+            .query_row(
+                "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name='nodes'), 0)",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(sql)
     }
 
     pub fn node(&self, id: &str) -> Result<RailNode, RpcError> {

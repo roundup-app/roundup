@@ -93,13 +93,12 @@ async fn u3802_models_list_returns_the_offered_engines() {
 }
 
 impl Run {
-    async fn node(&self, id: &Value, iteration: Option<u32>) -> Value {
+    async fn node(&self, id: &Value) -> Value {
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
                 let tree = self.user.request("rail.tree", json!({})).await.unwrap();
                 if let Some(node) = tree.as_array().unwrap().iter().find(|n| n["id"] == *id)
                     && node["status"]["kind"] == "idle"
-                    && iteration.is_none_or(|i| node["iteration"] == i)
                 {
                     return node.clone();
                 }
@@ -121,7 +120,7 @@ fn mode(launch: &Value) -> Option<&str> {
 }
 
 #[tokio::test]
-async fn u3801_rpc_launch_choices_reach_spawn_resume_and_the_cleared_door() {
+async fn u3801_rpc_launch_choices_reach_spawn_and_resume() {
     let run = Run::start().await;
     let mut count = 0;
     for selected in [
@@ -136,7 +135,7 @@ async fn u3801_rpc_launch_choices_reach_spawn_resume_and_the_cleared_door() {
             params["permissionMode"] = selected.into();
         }
         let child = run.user.request("agent.spawn", params).await.unwrap();
-        run.node(&child["id"], None).await;
+        run.node(&child["id"]).await;
         count += 1;
         assert_eq!(mode(&run.launches(count).await[count - 1]), selected);
         let mut params = json!({"id":child["id"], "mode":"normal"});
@@ -160,7 +159,7 @@ async fn u3801_rpc_launch_choices_reach_spawn_resume_and_the_cleared_door() {
             params["permissionMode"] = selected.into();
         }
         run.user.request("rail.startDoor", params).await.unwrap();
-        run.node(&door["id"], None).await;
+        run.node(&door["id"]).await;
         count += 1;
         assert_eq!(mode(&run.launches(count).await[count - 1]), selected);
         run.user
@@ -182,23 +181,6 @@ async fn u3801_rpc_launch_choices_reach_spawn_resume_and_the_cleared_door() {
                 .iter()
                 .any(|a| a == "--resume")
         );
-        let mut params =
-            json!({"id":door["id"], "reason":"new launch choices", "without_handoff":true});
-        if let Some(selected) = selected {
-            params["permissionMode"] = selected.into();
-        }
-        run.user.request("workstream.clear", params).await.unwrap();
-        run.node(&door["id"], Some(2)).await;
-        count += 1;
-        let launches = run.launches(count).await;
-        assert_eq!(mode(&launches[count - 1]), selected);
-        assert!(
-            !launches[count - 1]["argv"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|a| a == "--resume")
-        );
         run.user
             .request("agent.stop", json!({"id":door["id"]}))
             .await
@@ -214,7 +196,7 @@ async fn u3801_an_agent_cannot_select_launch_permissions() {
         .request("agent.spawn", json!({"cwd":run.dir.path()}))
         .await
         .unwrap();
-    run.node(&child["id"], None).await;
+    run.node(&child["id"]).await;
     let agent = Client::connect(&run._daemon.socket).await.unwrap();
     agent
         .request(
@@ -251,7 +233,7 @@ async fn u3801_an_agent_restart_keeps_the_users_permission_choice() {
         .request("rail.startDoor", json!({"id":door["id"]}))
         .await
         .unwrap();
-    run.node(&door["id"], None).await;
+    run.node(&door["id"]).await;
     let agent = Client::connect(&run._daemon.socket).await.unwrap();
     agent
         .request(
@@ -261,7 +243,7 @@ async fn u3801_an_agent_restart_keeps_the_users_permission_choice() {
         .await
         .unwrap();
     let child = agent.request("agent.spawn", json!({"cwd":run.dir.path(), "order":{"kind":"work","title":"Read repository","ask":"Read repository","done":"Report findings","limits":["Read only"]}})).await.unwrap();
-    run.node(&child["id"], None).await;
+    run.node(&child["id"]).await;
     run.user
         .request(
             "agent.resume",

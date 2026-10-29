@@ -4,4 +4,4 @@ export type RpcErrorData = { kind: "events-expired";
 /**  The oldest Event number the authoritative log still retains. */
 oldest: number } | 
 /**  `link.read` names an object of another Project; the Daemon of the link's Project answers it. */
-{ kind: "other-project" };
+{ kind: "other-project" } | { kind: "undo-parent"; id: string; name: string } | { kind: "undo-identity"; id: string; name: string } | { kind: "undo-pad-name"; name: string };

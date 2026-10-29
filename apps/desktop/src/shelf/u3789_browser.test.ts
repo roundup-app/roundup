@@ -71,7 +71,7 @@ it("u3789a_drag_never_opens", async () => {
   await load("tree-40");
   await overview();
   await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-  const selector = '.todos-tab [data-todo="1"] .todo-row-button';
+  const selector = '.todos-tab [data-todo="1"] .sortable-handle';
   await wait(`document.querySelector('${selector}')`);
   const point = await read<{ x: number; y: number }>(`(() => { const row = document.querySelector('${selector}'); row.scrollIntoView({block:'center'}); const box = row.getBoundingClientRect(); return {x: box.x + box.width / 2, y: box.y + box.height / 2}; })()`);
   await browser("eval", "window.__fake.app.calls.length = 0");
@@ -86,6 +86,25 @@ it("u3789a_drag_never_opens", async () => {
   expect(await read("window.__fake.app.calls.filter(call => ['todo.getHistory','todo.readHistory','todo.update'].includes(call.method))")).toEqual([]);
   await shot("U3789a", "head", "drag-release");
 }, 120_000);
+
+it("u3800a_owned_todo_grip_reorders_once", async () => {
+  await load("tree-40");
+  await browser("eval", `document.querySelector('.rail-row[data-id="tokens"] [data-pads-control]').click()`);
+  await wait('document.querySelectorAll(".todos-tab .sortable-handle").length > 1');
+  const grip = '.todos-tab [data-todo="1"] .sortable-handle';
+  await browser("eval", "window.__fake.app.calls.length = 0");
+  await browser("focus", grip);
+  await browser("press", "Space");
+  await wait('document.querySelector("[data-dnd-placeholder]")');
+  await shot("U3800a", "head", "owned-todo-slot");
+  await browser("press", "ArrowDown");
+  await wait(`document.querySelector('.todos-tab [data-todo="1"]').closest(".todo-list").dataset.sortableIndex === "1"`);
+  await browser("press", "Space");
+  await wait('!document.querySelector("[data-dnd-placeholder]")');
+  expect(await read("window.__fake.app.calls.filter(c => c.method === 'todo.reorder').map(c => c.params)")).toEqual([{id:1,before:3}]);
+  expect(await read("window.__fake.app.calls.filter(c => ['todo.getHistory','todo.complete','todo.update','pad.write'].includes(c.method))")).toEqual([]);
+  await wait(`document.activeElement === document.querySelector('${grip}')`);
+}, 60_000);
 
 it("u3789b_u3789d_rendered_rows_and_unchanged_disclosures", async () => {
   await browser("set", "viewport", "1512", "950");
@@ -194,13 +213,11 @@ it("u3789d_focus_reaches_open_and_secondary_actions", async () => {
   await overview();
   await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
   await browser("focus", '.todos-tab [data-todo="1"] .todo-row-button');
-  await browser("press", "Tab");
-  await wait("document.activeElement?.getAttribute('aria-label') === 'Open'");
   await shot("U3789d", "head", "focused");
   await browser("press", "Tab");
   await wait("document.activeElement?.matches('.todo-tick')");
   await browser("press", "Shift+Tab");
-  await wait("document.activeElement?.getAttribute('aria-label') === 'Open'");
+  await wait("document.activeElement?.matches('.todos-tab [data-todo=\"1\"] .todo-row-button')");
   await browser("press", "Enter");
   await wait("document.querySelector('.drawer[data-open=true]')");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'todo.getHistory').length")).toBe(1);
@@ -316,8 +333,6 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
       await browser("eval", "document.querySelector('.todos-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
       await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
-      await browser("eval", "document.querySelector('.rail-row[data-id=tokens] [aria-label$=\"todos\"]')?.click()");
-      await browser("eval", "document.querySelectorAll('.rail-leaf [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
       const stage = base ? process.env.U4335_BASE_STAGE ?? "base" : "head";
 
       for (const step of ["rest", "hover", "focus", "selected"]) {
@@ -333,7 +348,7 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 
           await browser("focus", row);
           await browser("press", "Enter");
-          await wait(`document.querySelector('${row}')?.dataset.selected === 'true' && document.querySelector('.shelf-scope-name')?.textContent === document.querySelector('${row} .name')?.textContent`);
+          await wait(`document.querySelector('${row}')?.dataset.selected === 'true' && document.querySelector('[data-shelf-scope] button[aria-label^="add todo to "]')?.getAttribute('aria-label') === 'add todo to ' + document.querySelector('${row} .name')?.textContent`);
         }
 
 

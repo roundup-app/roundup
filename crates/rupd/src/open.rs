@@ -63,6 +63,32 @@ impl Daemon {
                     Ok(context::text(&nodes, &context))
                 }
             })
+            .with_coordination({
+                let messages = Arc::clone(&messages);
+                let ctx_bus = bus.clone();
+                let ctx_touches = Arc::clone(&touches);
+                move |id, text| {
+                    let messages = Arc::clone(&messages);
+                    let ctx = Ctx {
+                        actor: Actor::daemon(),
+                        bus: ctx_bus.clone(),
+                        touches: Arc::clone(&ctx_touches),
+                    };
+                    async move {
+                        let Some(messages) = messages.get() else {
+                            return Err(RpcError::internal("Messages are not open yet"));
+                        };
+                        messages
+                            .call(
+                                &ctx,
+                                "message.send",
+                                serde_json::json!({"to": id, "kind": "note", "body": text}),
+                            )
+                            .await
+                            .map(|_| ())
+                    }
+                }
+            })
             .with_steer_effect(steer_effect_observer())
             .with_resume_effect(resume_effect_observer()),
         );
@@ -91,9 +117,9 @@ impl Daemon {
             renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             owner_events: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             wake_gate: Default::default(),
-            clears: clear::Clears::new(Arc::clone(&agents)),
             checkpoints: Arc::clone(&checkpoints),
             rewinding: Default::default(),
+            restarting: Default::default(),
             queue: Default::default(),
             auto: auto::Auto::new(&bus),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
@@ -290,5 +316,21 @@ impl Daemon {
         for namespace in module.namespaces() {
             self.modules.insert(namespace, Arc::clone(&module));
         }
+    }
+}
+
+#[cfg(feature = "test-support")]
+impl Daemon {
+    /// U4593 seeds a controlled Agent observation without starting a program.
+    pub fn set_agent_status_for_test(&self, id: &str, kind: contracts::Kind) {
+        self.agents.set_status_for_test(
+            id,
+            contracts::Status {
+                kind,
+                label: "fixture".into(),
+                since: 0,
+                finished: "0".into(),
+            },
+        );
     }
 }

@@ -61,3 +61,13 @@ export const select = (name: string) => {
 };
 
 export const rpcCalls = (app: FakeApp, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
+
+/** Open through the Rail's real menu; no Drawer or Progress injection. */
+export const openWorkProgress = async (app: FakeApp, id = "a") => {
+  const row = document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`);
+
+  if (!row) throw new Error(`no Rail row for ${id}`);
+  row.focus();
+  fireEvent.contextMenu(row);
+  await app.pickMenu("Work progress");
+};

@@ -89,41 +89,107 @@ impl Shared {
 }
 
 impl Agents {
-    /// A32: stop the program of the Door of Workstream `id`.
+    /// A4452c: type the reserved user text only into the matching fresh, idle Door.
+    /// The coordinator persists its Typing fence before calling; never retry this effect.
+    pub async fn opening_prompt(
+        &self,
+        id: &str,
+        attempt: &str,
+        text: &str,
+    ) -> Result<(), RpcError> {
+        let ready = async {
+            loop {
+                let observed = self.shared.events.observed.notified();
+                {
+                    let runs = self.shared.runs();
+                    match runs.get(id) {
+                        Some(Slot::Running(run))
+                            if run.attempt == attempt && !run.ended && !run.closing =>
+                        {
+                            if run.session_started.is_some()
+                                && !run.first_pending
+                                && run
+                                    .adapter
+                                    .status()
+                                    .is_some_and(|s| s.kind == contracts::Kind::Idle)
+                            {
+                                break;
+                            }
+                        }
+                        _ => {
+                            return Err(RpcError::conflict("fresh Door Attempt is no longer live"));
+                        }
+                    }
+                }
+                observed.await;
+            }
+            self.shared
+                .prompt(id, text, Some(attempt), true, None)
+                .await
+                .map_err(|error| {
+                    RpcError::unknown_outcome(format!(
+                        "Opening prompt was not acknowledged: {}; do not retype",
+                        PromptError::from(error)
+                    ))
+                })
+        };
+        tokio::time::timeout(Duration::from_secs(15), ready)
+            .await
+            .map_err(|_| {
+                RpcError::unknown_outcome("Opening prompt acknowledgement timed out; do not retype")
+            })?
+    }
+
+    /// A4452c: stop the program before a fresh Door session.
     pub async fn stop_door(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
         self.shared.stop(actor, id).await
     }
 
-    /// A32: start the Door's next Iteration as a fresh conversation whose first prompt is
-    /// `handoff`, and return once its `SessionStart` has arrived, within `bound`. Only then is its
-    /// Iteration advanced; a start that does not get there leaves the Door stopped.
+    /// A4452c: start a fresh conversation and await SessionStart within `bound`.
+    /// A4665: a failed start is retryable only after no launched program remains;
+    /// unconfirmed cleanup returns UNKNOWN_OUTCOME to keep the coordinator's fence.
     pub async fn restart_door(
         &self,
         ctx: &Ctx,
         id: &str,
-        handoff: String,
-        iteration: u32,
         bound: Duration,
-        permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
         let parked = self.shared.node(id)?;
         let params = StartDoorParams {
             id: id.to_owned(),
             model: parked.model,
             effort: parked.effort,
-            permission_mode,
+            permission_mode: None,
             engine: None,
+            cols: None,
+            rows: None,
         };
-        let node = self
-            .start_door_with(ctx, params, Some(handoff), true)
-            .await?;
+        // A failed launch can have crossed the program boundary before its Rail attachment
+        // failed. Only an authoritative Terminal snapshot can rule out that orphan.
+        let before = self.shared.terminals.list();
+        let node = match self
+            .start_door_with(ctx, params, Some(String::new()), true)
+            .await
+        {
+            Ok(node) => node,
+            Err(error) => {
+                if self.shared.terminals.list().iter().any(|terminal| {
+                    terminal.running && !before.iter().any(|old| old.id == terminal.id)
+                }) {
+                    return Err(RpcError::unknown_outcome(format!(
+                        "{error}; fresh Door cleanup is not confirmed"
+                    )));
+                }
+                return Err(error);
+            }
+        };
         let attempt = node.attempt.clone().unwrap_or_default();
         let started = async {
             loop {
                 let observed = self.shared.events.observed.notified();
                 let seen = matches!(
                     self.shared.runs().get(id),
-                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started
+                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started.is_some()
                 );
                 if seen {
                     return;
@@ -132,17 +198,25 @@ impl Agents {
             }
         };
         if tokio::time::timeout(bound, started).await.is_err() {
-            report_undo(
-                "stop a Door that never started",
-                self.shared.stop(ctx.actor.clone(), id).await,
-            );
-            return Err(RpcError::conflict(format!(
-                "{id}: no SessionStart within {}s",
-                bound.as_secs()
-            )));
+            let cause = format!("{id}: no SessionStart within {}s", bound.as_secs());
+            let cleanup = self
+                .shared
+                .stop(ctx.actor.clone(), id)
+                .await
+                .and_then(|()| {
+                    let terminal = node.terminal_id.as_deref().ok_or_else(|| {
+                        RpcError::unknown_outcome("fresh Door Terminal is unknown")
+                    })?;
+                    self.shared.confirm_terminal_exit(terminal)
+                });
+            if let Err(error) = cleanup {
+                return Err(RpcError::unknown_outcome(format!("{cause}; {error}")));
+            }
+            return Err(RpcError::conflict(cause));
         }
-        self.shared.rail().set_iteration(id, iteration)?;
-        self.shared.node(id)
+        self.shared.node(id).map_err(|error| {
+            RpcError::unknown_outcome(format!("fresh Door started but could not be read: {error}"))
+        })
     }
 
     /// A7: start a Workstream's Door. A23: a Door with A21 data resumes that conversation exactly as
@@ -156,8 +230,7 @@ impl Agents {
         self.start_door_with(ctx, params, None, true).await
     }
 
-    /// `first` is A32's Handoff: it replaces the Door's order as the first prompt and a saved
-    /// conversation is not resumed.
+    /// `first` requests a fresh conversation, replacing the saved order as its first prompt.
     pub(super) async fn start_door_with(
         &self,
         ctx: &Ctx,
@@ -167,10 +240,13 @@ impl Agents {
             effort,
             permission_mode,
             engine,
+            cols,
+            rows,
         }: StartDoorParams,
         first: Option<String>,
         startup_context: bool,
     ) -> Result<RailNode, RpcError> {
+        let size = terminal::window(cols.unwrap_or(80), rows.unwrap_or(24))?;
         models::check_engine(engine.as_deref())?;
         models::check_permissions(&ctx.actor, permission_mode)?;
         let _lifecycle = self.shared.door_lifecycle.read().await;
@@ -195,7 +271,13 @@ impl Agents {
                 )?;
             }
             return self
-                .resume_saved(ctx, id, START_DOOR_ACK_BOUND, permission_mode)
+                .resume_saved(
+                    ctx,
+                    id,
+                    START_DOOR_ACK_BOUND,
+                    permission_mode,
+                    (size.cols, size.rows),
+                )
                 .await;
         }
         let attempt = {
@@ -245,6 +327,7 @@ impl Agents {
                 first,
                 startup_context,
                 permission_mode,
+                (size.cols, size.rows),
             )
             .await
         {

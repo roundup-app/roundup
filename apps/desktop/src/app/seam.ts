@@ -88,10 +88,13 @@ export type ProjectCalls = {
 
 /** All Tauri commands, including the R24 feature-only command; M5 checks each has a tool or a reason. Normal-build exclusion is probed separately. */
 export const SEAM_COMMANDS = [
+  "ask_removal",
   "plugin:capture-panel|control",
   "system_accent",
   "native_open",
   "projects",
+  "recent_projects",
+  "claude_binary",
   "record_idle_evidence",
   "select_project_menu",
   "open_project",
@@ -146,10 +149,18 @@ export type CapturePort = {
 };
 
 /** A captured system question with complete consequences and named affirmative/cancel buttons. */
+export type RemovalAnswer = "this" | "all" | "cancel";
+
+export type RemovalQuestion = { title: string; message: string; thisLabel: string; allLabel: string; cancelLabel: string };
+
 export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
+export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
+
 export type App = {
+  recentProjects(): Promise<string[]>;
+  claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
   /** Initial macOS accent and later preference changes; null selects the Radix fallback. */
   onSystemAccent(listener: (accent: SystemAccent) => void): Promise<Unsubscribe>;
   capture?: CapturePort | undefined;
@@ -160,6 +171,7 @@ export type App = {
   writeClipboardText(text: string): Promise<void>;
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
   ask(question: NativeQuestion): Promise<boolean>;
+  askRemoval(question: RemovalQuestion): Promise<RemovalAnswer>;
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
   openProject(path: string): Promise<Project>;
@@ -215,6 +227,9 @@ export const rpcFailureSchema = v.object({
   data: v.fallback(v.optional(v.variant("kind", [
     v.object({ kind: v.literal("events-expired"), oldest: v.pipe(v.number(), v.safeInteger(), v.minValue(1)) }),
     v.object({ kind: v.literal("other-project") }),
+    v.object({ kind: v.literal("undo-parent"), id: v.string(), name: v.string() }),
+    v.object({ kind: v.literal("undo-identity"), id: v.string(), name: v.string() }),
+    v.object({ kind: v.literal("undo-pad-name"), name: v.string() }),
   ])), undefined),
 });
 

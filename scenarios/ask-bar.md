@@ -27,6 +27,14 @@ The decider is a judgement over the user's Workstreams, so the candidates are mo
 
 Tests: `a39_the_placement_call_is_one_slim_request` (pinned real Claude against strict aimock, as E10 in `scenarios/test-real-claude.md`: one Ask makes exactly one model request, whose model starts with `claude-haiku`, whose system text is roundup's placement text, and which offers no tool but the structured-output one; the fixture's parts become the Ask's parts), `a39_an_answer_that_is_not_a_checked_span_is_unclear` (a fake Placement trait returns a paraphrased part, an unknown id, a seven-word title and overlapping parts; each gives one `unclear` part naming the cause, and nothing is typed), `a39_a_failed_or_slow_call_is_unclear_and_logged_once` (a non-zero exit, empty output, and the 60 s bound under an injected clock). If pinned Claude Code's structured output cannot be served from an aimock fixture, that one test uses the stub, and the PR names the missing aimock capability with library evidence (as E10).
 
+**Ask part** (`AskPart`, `ask::State`): A verbatim, non-overlapping span of an Ask, with its Placement.
+
+**Placement** (`Placement`, `Destination`, `Target`): An Ask part's proposed destination: routed to a Workstream, new with an Order title, or unclear with a question and up to three candidate Workstreams.
+
+**Placement request** (`placement::Request`, `EarlierAsk`): An Ask's text and its context: the five newest earlier Asks' parts and destinations, and every Workstream's name, Order and Status Kind.
+
+**Placement call** (`PlacementCall`, `Agents::placement_call`): The Adapter's one-shot judgement that splits an Ask into checked parts and proposes their Placements. It is not an Agent and has no Terminal or Rail node.
+
 **A40 sending an Ask.** Contract change (rule 4, the Contract recipe of `.agents/builder.md`): `ask.send {text}` returns the `Ask`; `ask.list` returns every Ask, newest first; `ask.pick {id, part, target}` is A42's; the event `ask.changed {ask}` follows every change to an Ask or its parts. `Ask {id, text, at, parts}`; `AskPart {text, placement, state, reason?}`; `Placement` is `routed {workstream}`, `new {title, workstream?}` or `unclear {question, candidates}`; `state` is `placing`, `waiting` (on the user), `queued`, `typed`, `failed` or `dropped`. All three methods are the user's: M5 lists them with a reason (each carries a Steer from the user, P9), no MCP tool offers them, and an Agent's call is `FORBIDDEN` (M2). Given `ask.send {text}`, then:
 
 - **At once.** It returns before any Placement call ends, with one `placing` part holding all of the text. The call's answer replaces that part with A39's parts and emits `ask.changed`.
@@ -36,6 +44,12 @@ Tests: `a39_the_placement_call_is_one_slim_request` (pinned real Claude against 
 - **Usage only when asked (P9).** A Placement call runs only for an `ask.send` that names no Workstream: never for a Message, an Agent's tool call, `ask.pick`, a timer or a restart.
 
 Tests: `a40_send_returns_at_once_and_the_parts_follow`, `a40_naming_a_workstream_makes_no_call` (aimock's request log stays empty), `a40_a_two_topic_message_becomes_two_parts`, `a40_asks_survive_a_restart_and_placing_becomes_unclear`, `a40_an_agent_cannot_call_the_ask_methods` (each of the three through `rup mcp` and as an Agent identity is `FORBIDDEN`), and `m5_every_app_action_has_a_tool_or_a_reason` with the three methods listed.
+
+**Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`): One message the user sends from the Ask bar; distinct from an Agent's own question in its Terminal. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
+
+**Ask submission** (`AskSubmission`, `submission`): The caller-captured identity of one submitted Ask revision within its original Project. Durable intake binds it to exact text and an optional captured Workstream id; equal replay returns the same Ask and conflicting replay refuses. Separate intentional submissions use distinct identities even for equal text.
+
+**Ask outcome** (`AskOutcome`): Acknowledged durable intake, an explicit RPC refusal retaining its error code, or unknown acceptance without an authoritative acknowledgement. Read-only reconciliation matches the submission identity, never text or current selection. Acknowledged intake does not promise that later delivery succeeds.
 
 **A41 a routed part reaches its Door verbatim.** Given an Ask part `routed` to Workstream `w`, then:
 

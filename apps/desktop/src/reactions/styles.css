@@ -34,12 +34,20 @@
 
 .reaction-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: flex-start;
   gap: var(--space-2);
   width: 100%;
-  padding: var(--space-2) 0;
+  padding: var(--space-2);
   text-align: start;
+}
+
+.reaction-row:is([data-row-selected="true"], :focus-visible) {
+  background: var(--selected);
+}
+
+.reaction-row:is([data-row-selected="true"], :focus-visible):hover {
+  background: var(--selected-hover);
 }
 
 .reaction-row .reaction-name {
@@ -71,8 +79,7 @@
   white-space: pre-wrap;
 }
 
-.reaction-state,
-.reaction-empty {
+.reaction-state {
   color: var(--grey);
 }
 
@@ -194,19 +201,7 @@
   min-width: 0;
 }
 
-.reaction-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding-block: var(--space-6);
-}
 
-.reaction-empty p {
-  margin: 0;
-  max-width: var(--ask-width);
-  text-wrap: balance;
-}
 
 .reaction-list {
   gap: var(--space-2);

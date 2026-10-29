@@ -296,7 +296,7 @@ async fn a35_write_records_a_mark_per_agent_and_a_plan_changes_nothing() {
     assert_eq!(card["title"], "ready");
     assert_eq!(card["blocks"], json!([{"kind": "text", "text": "facts"}]));
     assert_eq!(listed(&fx).await[0]["rewindable"], true);
-    let marks = store(&fx).marks(&fx.ws, 1, 1).unwrap();
+    let marks = store(&fx).marks(&fx.ws, 1).unwrap();
     let mut ids: Vec<_> = marks
         .agents
         .iter()
@@ -336,7 +336,7 @@ async fn a35_write_records_a_mark_per_agent_and_a_plan_changes_nothing() {
             std::fs::read(root.join("README")).unwrap(),
             format!("working {}", mark.agent).as_bytes()
         );
-        assert!(String::from_utf8_lossy(&mark.conversation).contains("Follow this instruction"));
+        assert!(String::from_utf8_lossy(&mark.conversation).contains("from-name"));
     }
     let linked = marks.agents.iter().find(|mark| mark.agent == fx.b).unwrap();
     assert!(!linked.files.iter().any(|file| file.path == b"folder/file"));
@@ -366,67 +366,6 @@ async fn a35_write_records_a_mark_per_agent_and_a_plan_changes_nothing() {
     assert_eq!(listing["files_changed"], true);
     assert_eq!(std::fs::read(root(&fx.a).join("README")).unwrap(), b"after");
     assert_eq!(attempts(&rail_tree(&fx.user).await), attempts(&tree));
-    fx.project.model.as_ref().unwrap().assert_matched();
-}
-
-#[tokio::test]
-async fn a35_a_clear_makes_earlier_marks_unusable() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let mut events = fx.project.subscribed().await;
-    fx.user
-        .request(
-            "workstream.clear",
-            json!({"id": fx.ws, "reason": "next iteration"}),
-        )
-        .await
-        .unwrap();
-    let mut working = false;
-    loop {
-        let status = daemon::next(&mut events, |event| match event {
-            contracts::EventData::AgentStatus(status) if status.id == fx.ws => Some(status),
-            _ => None,
-        })
-        .await;
-        working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
-            break;
-        }
-    }
-    as_actor(&fx.project, ActorKind::Agent, &fx.ws)
-        .await
-        .request(
-            "workstream.handoff",
-            json!({"id": fx.ws, "summary": "Build the login page.", "keep_todos": [], "keep_pads": []}),
-        )
-        .await
-        .unwrap();
-    daemon::next(&mut events, |event| match event {
-        contracts::EventData::WorkstreamCleared(data) => Some(data.iteration),
-        _ => None,
-    })
-    .await;
-    assert_eq!(listed(&fx).await[0]["rewindable"], false);
-    // The fresh Door writes its conversation before a Mark can record it.
-    let mut working = false;
-    loop {
-        let status = daemon::next(&mut events, |event| match event {
-            contracts::EventData::AgentStatus(status)
-                if status.id == fx.ws && status.attempt == "2" =>
-            {
-                Some(status)
-            }
-            _ => None,
-        })
-        .await;
-        working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
-            break;
-        }
-    }
-    write(&fx).await;
-    assert_eq!(listed(&fx).await[1]["rewindable"], true);
-    assert_eq!(store(&fx).marks(&fx.ws, 2, 2).unwrap().agents.len(), 1);
     fx.project.model.as_ref().unwrap().assert_matched();
 }
 
@@ -821,10 +760,7 @@ async fn a35_rewind_applies_the_selection_and_files_it_is_given() {
     assert_eq!(asked.len(), 2);
     for entry in asked {
         let body = entry["body"].to_string();
-        assert!(
-            body.contains("Follow this instruction"),
-            "earlier turns stay"
-        );
+        assert!(body.contains("from-name"), "earlier turns stay");
         assert!(!body.contains("after mark"), "later turns left the context");
     }
     let projects = fx.project.dir.path().join("claude-config/projects");

@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use contracts::pad::{
     AppendParams, AppendSectionParams, CreateParams, ExportParams, MoveParams, Pad, PadName,
-    SetOwnerParams, SetStorageParams, WriteParams,
+    ReorderParams, SetOwnerParams, SetStorageParams, WriteParams,
 };
 use contracts::{Actor, ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, OpenError, RpcError, reply};
@@ -165,16 +165,63 @@ impl Pads {
         reply(&pad)
     }
 
+    pub(super) fn reorder(&self, ctx: &Ctx, p: ReorderParams) -> Result<Value, RpcError> {
+        if ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user may reorder pads"));
+        }
+        let store = self.store()?;
+        let (pad, changed) = store.atomically(|| {
+            let pad = get(&store, &p.name)?;
+            if pad.incarnation != p.expected_incarnation || pad.name != p.name {
+                return Err(RpcError::conflict("the original pad creation changed"));
+            }
+            let mut order = store.list().map_err(RpcError::internal)?;
+            let original: Vec<_> = order.iter().map(|pad| pad.incarnation.clone()).collect();
+            order.retain(|entry| entry.incarnation != pad.incarnation);
+            let at = if let Some(before) = &p.before {
+                let target = get(&store, before)?;
+                if target.owner != pad.owner || target.incarnation == pad.incarnation {
+                    return Err(RpcError::conflict(
+                        "reorder needs another pad of the same owner",
+                    ));
+                }
+                order
+                    .iter()
+                    .position(|entry| entry.incarnation == target.incarnation)
+                    .ok_or_else(|| RpcError::conflict("pad target changed"))?
+            } else {
+                order.len()
+            };
+            order.insert(at, pad.clone());
+            let changed = original
+                != order
+                    .iter()
+                    .map(|pad| pad.incarnation.clone())
+                    .collect::<Vec<_>>();
+            if changed {
+                store.set_order(&order).map_err(RpcError::internal)?;
+            }
+            Ok((pad, changed))
+        })?;
+        if changed {
+            ctx.emit(EventData::PadChanged(PadName {
+                name: pad.name.clone(),
+            }));
+        }
+        reply(&pad)
+    }
+
     pub(super) fn set_owner(&self, ctx: &Ctx, p: SetOwnerParams) -> Result<Value, RpcError> {
+        let owner = p
+            .owner
+            .into_actor()
+            .map_err(|e| RpcError::new(rpc::code::INVALID_PARAMS, e))?;
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         require_owner_or_user(&ctx.actor, &pad, "hand over")?;
-        found(store.set_owner(&pad.name, &p.owner, now_ms()), &pad.name)?;
+        found(store.set_owner(&pad.name, &owner, now_ms()), &pad.name)?;
         wrote(ctx, &pad.name)?;
-        reply(&Pad {
-            owner: p.owner,
-            ..pad
-        })
+        reply(&Pad { owner, ..pad })
     }
 
     /// The Daemon has checked `home` against the Rail (P12). A move to the Home it has changes nothing.

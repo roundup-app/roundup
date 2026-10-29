@@ -1,16 +1,16 @@
+import ArrowUpRight from "lucide-solid/icons/arrow-up-right";
+import { IconButton } from "../ui/IconButton";
+import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { NameField } from "../ui/Editable";
 import type { Accessor, JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
-import { IconButton } from "../ui/IconButton";
 import { createCutTitle } from "../ui/cutTitle";
-import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
-import { Icon } from "../ink/Icon";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 
@@ -25,8 +25,9 @@ const KIND_LABEL = { idle: copy.idle, blocked: copy.blocked, done: copy.done } a
 export type SortedRow = {
   /** The row's frame, which the Sortable moves. */
   frame: (el: HTMLElement | null) => void;
-  /** The open button: the Sortable's handle, and the element that keeps focus after a move. */
+  /** The name button, retaining neighbour-move and selection focus. */
   button: (el: HTMLButtonElement | null) => void;
+  handle: (el: HTMLButtonElement | null) => void;
   /** Where a failed move shows. */
   fail: (show: (message: string | null) => void) => void;
   /** `⌥↑` and `⌥↓`. */
@@ -118,6 +119,7 @@ export const OpenRow = (props: {
     props.registerRow?.(props.todo.id, null);
     sorted?.frame(null);
     sorted?.button(null);
+    sorted?.handle(null);
   });
 
   const reportMove = (message: string | null) => { if (message === null) clearFailure(); else setMoveFailure(message); };
@@ -163,9 +165,10 @@ export const OpenRow = (props: {
         </RowButton>
         </Show>
         <span class="row-controls">
-          <IconButton aria-label={copy.openDraft} onClick={event => props.onOpen(props.todo, activationSource(event))}><Icon name="right" /></IconButton>
           <Show when={props.groupComplete === undefined}><TickBox motion={props.motion === true} todo={props.todo} onToggle={toggle} /></Show>
         </span>
+        <IconButton class="todo-open" aria-label={copy.openItem(props.todo.title)} onClick={event => { event.stopPropagation(); props.onOpen(props.todo, "pointer"); }}><ArrowUpRight aria-hidden="true" /></IconButton>
+        <Show when={sorted}>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} tooltip={copy.moveItem(props.todo.title)} ref={el => order().handle(el ?? null)} />}</Show>
       </div>
   );
 
@@ -174,6 +177,7 @@ export const OpenRow = (props: {
       glyph={<span><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      data-requested={connected.padsTab() === "todos" && props.todo.creator.kind === "agent" && props.todo.creator.id === connected.padsOwner() ? "true" : undefined}
       onClick={event => {
         if (editing() || props.lifted || !(event.target instanceof Element) || event.target.closest("button, input, [role=checkbox]")) return;
 

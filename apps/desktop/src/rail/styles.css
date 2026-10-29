@@ -8,6 +8,7 @@
   display: flex;
   flex: none;
   align-items: stretch;
+  justify-content: space-between;
   height: var(--rail-actions-height);
   box-sizing: border-box;
   background: var(--sunken);
@@ -18,7 +19,7 @@
 }
 
 .rail-actions button {
-  flex: 1;
+  flex: none;
   justify-content: flex-start;
   min-height: calc(var(--space-5) + var(--space-1));
   --button-lead: 0;
@@ -62,7 +63,7 @@
   position: relative;
 }
 
-.rail-root-branch[data-depth="1"]:not(:first-child) {
+.rail-root-branch[data-depth="2"]:not(:first-child) {
   margin-top: var(--space-3);
 }
 
@@ -234,9 +235,6 @@
   user-select: text;
 }
 
-.rail-tree .sortable-slot {
-  margin-inline-start: calc(var(--space-4) + var(--sortable-indent, var(--length-zero)) + var(--rail-inset));
-}
 
 /* Greyed, not faded: opacity would sink the Live lines under the 4.5:1 contrast U25 keeps; grayscale holds it (rail/u25_daemon_gone.test.tsx). */
 .rail-tree [role="tree"][aria-disabled="true"] {
@@ -403,21 +401,6 @@
   }
 }
 
-.rail-clear {
-  box-sizing: border-box;
-  padding: var(--space-3);
-  border: 0;
-  width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
-  max-width: min(var(--shelf-width), var(--available-width));
-}
-
-/* Keep long reasons and failures reachable inside Ark’s available viewport. */
-.rail-clear .clear-prompt {
-  max-height: calc(var(--available-height) - 2 * var(--space-3));
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
 /* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
 .rail-row .row-tail {
   position: relative;
@@ -527,52 +510,6 @@
   height: var(--space-2);
   z-index: 1;
   pointer-events: none;
-}
-
-/* U350: the clear prompt's fields. */
-.clear-prompt {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.clear-title {
-  display: grid;
-  gap: var(--space-1);
-  color: var(--text);
-  font-size: var(--text-body);
-}
-
-.clear-reason {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: var(--space-5);
-  padding: var(--space-1) var(--space-2);
-  font: inherit;
-  color: var(--text);
-  background: var(--ground);
-  border: var(--hairline-width) solid var(--hairline);
-  resize: none;
-  white-space: pre;
-  overflow: hidden;
-}
-
-.clear-line,
-.clear-failure {
-  font-size: var(--text-small);
-}
-
-/* The action and its dismissal share one line, `Keep` trailing; `Clear without a summary` wraps after the action. */
-.clear-words {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  column-gap: var(--space-2);
-}
-
-/* Quiet words paint no box, so they drop the menu's inline pad: with it, `Keep` no longer fits beside the action on the 288 px Rail's card. */
-.clear-words button {
-  --button-inline: 0;
 }
 
 /* U520: the tree's name is for a screen reader; the section head speaks to the eye. */
@@ -844,3 +781,26 @@
 .rail-row,
 .rail-fold,
 .rail-leaf { --tree-mid: var(--elbow-y); }
+
+.opening-prompt-field [data-part="textarea"] {
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow: auto;
+  resize: none;
+  min-height: calc(var(--space-6) * 5);
+}
+
+.opening-prompt-dialog { width: calc(var(--dialog-min-width) + var(--space-6) * 3); }
+.opening-prompt-dialog [data-part="title"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opening-prompt-dialog .opening-prompt-field { gap: var(--space-2); }
+.opening-prompt-dialog .app-dialog-actions { align-items: center; }
+.opening-prompt-dialog .reserved-line { flex: 1; }
+
+.rail-section + .rail-section { margin-top: var(--space-2); }
+.rail-section [data-part="branch-content"] { padding-inline-start: 0; }
+.rail .section-head[data-part="branch-control"] { color: var(--grey); }
+.rail .section-head:is(:hover, :focus-visible) { color: var(--text); }

@@ -31,6 +31,8 @@ printf '%s\n' "$*" >> "$ELAN_HOME/calls"
 case "$*" in
   'toolchain install leanprover/lean4:v4.34.0')
     [ "${FAKE_LEAN_INSTALL_RC:-0}" = 0 ] || exit 1
+    n=$(($(grep -c . "$ELAN_HOME/fails" 2>/dev/null || echo 0)))
+    [ "$n" -ge "${FAKE_LEAN_FAILS:-0}" ] || { echo x >> "$ELAN_HOME/fails"; exit 1; }
     [ "${FAKE_MISSING_LEAN:-0}" = 0 ] || exit 0
     printf '#!/bin/sh\necho "Lean (version %s, test)"\n' "${FAKE_LEAN_VERSION:-4.34.0}" > "$ELAN_HOME/lean"
     chmod +x "$ELAN_HOME/lean" ;;
@@ -42,7 +44,7 @@ esac
 F
   chmod +x "$c/elan/bin/elan"
 }
-run_setup() { PATH=$1/elan/bin:$PATH ELAN_HOME=$1/elan PROOFS_DIR=$1/proofs BEND_BASE_URL=file://$1/dl BEND_ASSET_PLATFORM=test-x64 "$root/proofs/setup.sh" 2>&1; }
+run_setup() { PATH=$1/elan/bin:$PATH PROOFS_RETRY_DELAY=0 ELAN_HOME=$1/elan PROOFS_DIR=$1/proofs BEND_BASE_URL=file://$1/dl BEND_ASSET_PLATFORM=test-x64 "$root/proofs/setup.sh" 2>&1; }
 
 setup "$scratch/a" 9.9.9
 out=$(run_setup "$scratch/a"); rc=$?
@@ -80,6 +82,11 @@ out=$(run_setup "$scratch/e"); expect "v1 Bend asset missing executable fails" 1
 setup "$scratch/f" 9.9.9
 out=$(FAKE_LEAN_INSTALL_RC=1 run_setup "$scratch/f")
 expect "v1 pinned Lean toolchain failure names Lean and toolchain" 1 "Lean: toolchain.*installation failed" "$?" "$out"
+setup "$scratch/r" 9.9.9
+out=$(FAKE_LEAN_FAILS=2 run_setup "$scratch/r"); rc=$?
+if [ "$rc" = 0 ] && [ "$(grep -c 'toolchain install' "$scratch/r/elan/calls")" = 3 ]; then
+  ok "v1 a dropped Lean download is retried"
+else bad "v1 Lean download retry ($rc: $out)"; fi
 setup "$scratch/g" 9.9.9
 out=$(FAKE_MISSING_LEAN=1 run_setup "$scratch/g")
 expect "v1 missing Lean executable fails" 1 "Lean: executable missing" "$?" "$out"

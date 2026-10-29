@@ -1,7 +1,9 @@
+import { Menu } from "../ui/Menu";
+import type { MenuItem } from "../app/seam";
 import { StorageRecovery } from "../app/StorageRecovery";
 import { useBrowserStorage } from "../state/storage";
 import { questionProbe } from "./menuProbe";
-import { createEffect, createRoot } from "solid-js";
+import { createEffect, createRoot, createSignal, For, Show } from "solid-js";
 import { render } from "solid-js/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
 import { captureActions } from "../keys/registry";
@@ -82,6 +84,17 @@ if (query.has("storage-recovery")) {
 
 
 const mount = (app: AppSeam) => {
+  // Chromium has no native host menu; expose that same seam with the installed Ark primitive.
+  const [nativeMenu, setNativeMenu] = createSignal<{ items: MenuItem[]; x: number; y: number; answer: (id: string | null) => void } | null>(null);
+
+  if (query.get("menu") === "1") app.showContextMenu = (items, x, y) => new Promise(resolve => setNativeMenu({ items, x, y, answer: resolve }));
+
+  const choose = (id: string | null) => {
+    const current = nativeMenu();
+    setNativeMenu(null);
+    current?.answer(id);
+  };
+
   const reducedMotion = createRoot(() => createReducedMotion((media) => window.matchMedia(media)));
 
   const createEmulator = query.get("renderer") === "dom"
@@ -97,7 +110,7 @@ const mount = (app: AppSeam) => {
     });
   };
 
-  const content = () => <App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
+  const content = () => <><App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
     if (requested.has(open.project.path)) return;
     requested.add(open.project.path);
     inspection(open);
@@ -112,7 +125,14 @@ const mount = (app: AppSeam) => {
     window.__terminals.set(id, emulator);
 
     return emulator;
-  }} />;
+  }} />
+    <Show when={nativeMenu()} keyed>{current => <Menu.Root open onSelect={details => choose(details.value)} onOpenChange={details => { if (!details.open) choose(null); }}
+      positioning={{ getAnchorRect: () => ({ x: current.x, y: current.y, width: 0, height: 0 }) }}>
+      <Menu.Positioner><Menu.Content>
+        <For each={current.items}>{item => <Menu.Item value={item.id} disabled={!item.enabled || item.children !== undefined}>{item.label}</Menu.Item>}</For>
+      </Menu.Content></Menu.Positioner>
+    </Menu.Root>}</Show>
+  </>;
 
   render(() => query.has("storage-recovery") ? <StorageRecovery>{content()}</StorageRecovery> : content(), root);
 };

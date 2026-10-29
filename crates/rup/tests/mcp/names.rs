@@ -84,29 +84,6 @@ async fn named_actions(rename: bool) {
             .iter()
             .all(|node| node["id"] != fx.child)
     );
-    for phase in 0..=usize::from(rename) {
-        let name = if phase == 0 { "Research" } else { "Planning" };
-        fx.user
-            .request("rail.rename", json!({"id":fx.door,"name":name}))
-            .await
-            .unwrap();
-        let mut events = fx.begin_clear().await;
-        let handed = door
-            .call(
-                "workstream_handoff",
-                json!({"summary":"Reviewed the work","keep_todos":[],"keep_pads":[]}),
-            )
-            .await;
-        assert_eq!(handed.is_error, Some(false), "{handed:?}");
-        assert_eq!(
-            handed.content[0].as_text().unwrap().text,
-            format!("handed off Workstream {name}")
-        );
-        assert_eq!(
-            fx.cleared(&mut events).await,
-            u32::try_from(phase).unwrap() + 2
-        );
-    }
 }
 
 #[tokio::test]

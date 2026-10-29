@@ -1,3 +1,5 @@
+import { WorkProgress } from "../orders/WorkProgress";
+import { EmptyRail } from "../app/FirstRun";
 import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
@@ -6,20 +8,21 @@ import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import { Portal } from "solid-js/web";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, LEADER } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
+import type { RailSection } from "./persist/storage";
 import { TreeView } from "../ui/TreeView";
-import { Popover } from "../ui/Popover";
 import { railCollection } from "./collection";
+import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
+import { OpeningPrompt } from "./OpeningPrompt";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
@@ -32,8 +35,6 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
 import type { RowActions } from "./rows";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
-import { ClearPrompt } from "./ClearPrompt";
-import { clearingOf } from "./clear";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import { draftsOf } from "./persist/storage";
@@ -56,17 +57,25 @@ export const Rail = () => {
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
+  const [openingPrompt, setOpeningPrompt] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
-  const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.events, connected.drafts, (id) => {
+  const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.drafts, (id) => {
     setEditingName(id);
   }, connected.queue, node => {
     const actions = actionsOf(node);
 
     return [
+      ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
+        id: "progress", label: copy.workProgress, run: () => {
+          rowElement(node.id)?.focus({ preventScroll: true });
+          connected.drawer.open(() => <WorkProgress id={node.id} />, "key", { kind: "progress", project: project.path });
+        },
+      }] : []),
+      ...(node.kind === "workstream" ? [{ id: "opening-prompt", label: copy.openingPromptMenu, run: () => { setOpeningPrompt(node.id); } }] : []),
       { id: "folder", label: copy.openFolder, run: actions.folder },
       { id: "editor", label: copy.openInEditor, run: actions.editor },
-      ...(actions.kind === "workstream" ? [...((node.attempt === null || connected.queue.entryOf(node.id)) && actions.clear ? [{ id: "clear", label: copy.clearMenu, run: actions.clear }] : []), { id: "add", label: copy.addMenu, children: [
+      ...(actions.kind === "workstream" ? [{ id: "add", label: copy.addMenu, children: [
         { id: "add-agent", label: copy.addAgentMenu, enabled: !actions.add.disabled, run: actions.add.run },
         { id: "add-todo", label: copy.todo, enabled: daemonExit() === null, run: () => connected.createIn("todo", node.id) },
         { id: "add-pad", label: copy.pad, enabled: daemonExit() === null, run: () => connected.createIn("pad", node.id) },
@@ -76,15 +85,6 @@ export const Rail = () => {
     ];
   }, id => copied.get(id));
 
-
-  const clearPrompt = createMemo(() => {
-    const node = menu.clearTarget();
-
-    return node !== null && clearingOf(app, connected.events, node.id, connected.drafts).phase() !== "closed" ? node : null;
-  });
-
-  // Keep the anchor mounted while Ark restores focus after the visible target closes.
-  const clearAnchor = createMemo((previous: RailNode | null) => menu.clearTarget() ?? previous, null);
 
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
@@ -101,10 +101,6 @@ export const Rail = () => {
     if (surface === "rail-task" && composing() && entry.revision === task()?.revision) return false;
 
     if (surface === "rail-name" && object === editingName() && rail.nodes.some(node => node.id === object)) {
-      return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
-    }
-
-    if (surface === "rail-clear" && object === clearPrompt()?.id) {
       return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
     }
 
@@ -158,13 +154,48 @@ export const Rail = () => {
 
   const endCompose = () => setComposing(false);
 
-  const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }));
+  const sections: { id: RailSection; label: string; icon: "messages" | "circle" | "diamond" }[] = [
+    { id: "workstreams", label: copy.workstreamsHead, icon: "messages" },
+    { id: "modes", label: copy.modesHead, icon: "diamond" },
+    { id: "agents", label: copy.agentsHead, icon: "circle" },
+  ];
 
-  /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
+  const sectionNodes = createMemo(() => {
+    const roots = new Map(rail.nodes.filter(node => node.parent === null).map(node => [node.id,
+      node.kind === "agent" ? "agents" : node.opening_prompt?.trim() ? "modes" : "workstreams"]));
 
-  /** U520: every Workstream open, so Ark can open one that is folded and walk into it; Ark's `expandedValue` keeps the folded ones shut. */
-  const collection = createMemo(() => railCollection(layoutRail(rail.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() })));
-  const expanded = createMemo(() => collection().getBranchValues().filter((id) => !collapsed().has(id)));
+    return sections.map(section => ({ ...section, nodes: rail.nodes.filter(node => roots.get(ancestorsOf(rail.nodes, node.id).at(-1) ?? node.id) === section.id) }));
+  });
+
+  const sectionRows = createMemo(() => sectionNodes().filter(section => section.nodes.length > 0).map(section => ({
+    ...section,
+    rows: rail.closedSections().has(section.id) ? [] : layoutRail(section.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }),
+  })));
+
+  const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
+
+  /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
+  const isEmpty = () => rail.nodes.length === 0 && rail.failure() === null;
+
+  /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
+  const collection = createMemo(() => {
+    const children = sectionNodes().filter(section => section.nodes.length > 0).map(section => ({
+      id: `section:${section.id}`, name: section.label,
+      children: railCollection(layoutRail(section.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() })).rootNode.children ?? [],
+    }));
+
+    return createTreeCollection({
+      nodeToValue: node => node.id, nodeToString: node => node.name,
+      isNodeDisabled: node => Boolean(rowElement(node.id)?.closest("[hidden], [inert], [aria-disabled=true]")),
+      rootNode: { id: "", name: "", children },
+    });
+  });
+
+  const expanded = createMemo(() => collection().getBranchValues().filter(id => {
+    const section = sections.find(section => `section:${section.id}` === id);
+
+    return section ? !rail.closedSections().has(section.id) : !collapsed().has(id);
+  }));
 
   /** The tree node and index path Ark's providers need for the row `id`. */
   const entryOf = (id: string) => {
@@ -180,7 +211,6 @@ export const Rail = () => {
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
   const indexOf = createMemo(() => new Map(nodeIds().map((id, at) => [id, at])));
   const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: row.node.parent })));
-  const keys = createMemo(() => rows().map((row) => row.key));
   const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
   const attempt = async <T,>(call: () => Promise<T>, item?: string): Promise<void> => {
@@ -247,7 +277,7 @@ export const Rail = () => {
   const selectKey = (event: KeyboardEvent) => {
     const id = focusedRowId(event);
 
-    if (id === undefined || daemonExit() !== null || event.ctrlKey || event.altKey || event.isComposing) return;
+    if (id === undefined || !rail.nodes.some(node => node.id === id) || daemonExit() !== null || event.ctrlKey || event.altKey || event.isComposing) return;
 
     if (event.metaKey && event.key.toLowerCase() === "a") {
       event.preventDefault(); event.stopPropagation();
@@ -256,20 +286,8 @@ export const Rail = () => {
       return;
     }
 
-    const collection = selection.collection();
-
-    const navigation = event.key === "Home" ? collection.firstValue
-      : event.key === "End" ? collection.lastValue
-      : event.key === "ArrowUp" ? collection.getPreviousValue(id)
-      : event.key === "ArrowDown" ? collection.getNextValue(id) : undefined;
-
-    if (!event.metaKey && navigation !== undefined) {
-      event.preventDefault(); event.stopPropagation();
-
-      if (navigation !== null) focusRow(navigation);
-
-      return;
-    }
+    // Ark owns the complete walk, including section headings; selection still contains only data rows.
+    if (!event.metaKey && (event.key === "Home" || event.key === "End" || event.key === "ArrowUp" || event.key === "ArrowDown")) return;
 
     if (event.target instanceof HTMLElement) event.target.dataset.collectionValue = id;
     const match = selection.search(event);
@@ -380,13 +398,11 @@ export const Rail = () => {
       // U31: Enter on a row selects it. The library would lift on Enter too, so Enter stops here and selects, and only Space lifts.
       if (key.key !== "Enter" || key.metaKey || key.ctrlKey || key.altKey || key.shiftKey || !(key.target instanceof HTMLElement) || !key.target.matches(ROW)) return;
 
-      key.stopPropagation();
-      key.preventDefault();
-
       const id = key.target.closest<HTMLElement>("[data-id]")?.dataset.id;
 
-      if (id === undefined) return;
-
+      if (id === undefined || !rail.nodes.some(node => node.id === id)) return;
+      key.stopPropagation();
+      key.preventDefault();
       openRow(id);
     };
 
@@ -441,17 +457,34 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
-    guarded(async () => {
-      const focus = captureFocus(true);
-      const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
+  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) => {
+    const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
 
-      const spawned = await app.rpc("agent.spawn", params);
+    const run = () => {
+      if (!canSpawn()) return;
 
-      setWanted({ id: spawned.id, focus });
+      if (under !== null && !rail.nodes.some(node => node.id === under && node.kind === "workstream")) {
+        failure.show(copy.railDraftUnavailable);
 
-      if (composing()) endCompose();
-    });
+        return;
+      }
+
+      guarded(async () => {
+        const focus = captureFocus(true);
+
+        try {
+          const spawned = await app.rpc("agent.spawn", params);
+          failure.acknowledge(null);
+          setWanted({ id: spawned.id, focus });
+        } catch (error) {
+          if (!(error instanceof Error)) throw error;
+          failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
+        }
+      });
+    };
+
+    run();
+  };
 
   const spawnAgent = () => spawnAgentWith(null);
 
@@ -482,7 +515,6 @@ export const Rail = () => {
         },
       };
 
-      if (menu.isClearable(node)) actions.clear = () => menu.requestClear(node);
 
       return actions;
     }
@@ -503,12 +535,10 @@ export const Rail = () => {
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
 
-  const submitPrompt = async (prompt: string | null) => {
-    const snapshot = task() ?? keepDraft(draft());
-
+  const submitPrompt = async (prompt: string | null, snapshot = task() ?? keepDraft(draft())) => {
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
-    const originalParent = taskParent();
-    const action = taskAction();
+    const originalParent = v.is(v.nullable(v.string()), snapshot.value.parent) ? snapshot.value.parent : snapshot.destination.object === "" || snapshot.destination.object === project.path ? null : snapshot.destination.object;
+    const action = snapshot.value.action === "note" || snapshot.value.action === undefined && snapshot.destination.recipient !== null ? "note" : "spawn";
 
     if (originalParent !== null && !rail.nodes.some((node) => node.id === originalParent && node.kind === "workstream")) {
       failure.show(copy.railDraftUnavailable);
@@ -534,14 +564,30 @@ export const Rail = () => {
 
         const latest = task()?.revision === revision.revision;
         retained.settle(revision.revision, "acknowledged");
+        failure.acknowledge(null);
 
         if (latest) {
           if (spawned !== null) setWanted({ id: spawned, focus });
           endCompose();
         }
       } catch (error) {
-        retained.settle(revision.revision, outcomeOf(error));
-        throw error;
+        const outcome = outcomeOf(error);
+        retained.settle(revision.revision, outcome);
+
+        if (!(error instanceof Error)) throw error;
+        failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", () => {
+          const saved = retained.records().find(entry => entry.revision === revision.revision);
+
+          if (!saved || !canSpawn()) return;
+
+          if (saved.status === "unknown") {
+            // Native details expose the exact uncertain revision without issuing a duplicate.
+            const recovered = document.querySelector<HTMLElement>(`[data-revision="${CSS.escape(saved.revision)}"]`);
+            recovered?.closest(".rail-recovery")?.setAttribute("open", "");
+            recovered?.setAttribute("open", "");
+            recovered?.querySelector("textarea")?.focus();
+          } else void submitPrompt(prompt, saved);
+        });
       } finally {
         clearTimeout(slow);
         setAsking(false);
@@ -552,8 +598,11 @@ export const Rail = () => {
   const canSpawn = () => !pending() && !rail.workstreamCreating() && !rail.doorPending(rail.selected() ?? "") && daemonExit() === null;
 
   onMount(() => {
-    const clear = () => {
-      if (!failure.retry()) {
+    const clear = (event: MouseEvent) => {
+      const recoversSpawn = failure.message()?.startsWith(`${copy.newAgent}: `);
+      const usesRecovery = event.target instanceof Element && event.target.closest(".rail-command-notice");
+
+      if (!failure.retry() || recoversSpawn && !usesRecovery) {
         failure.clear();
         rail.clearWorkstreamFailure();
       }
@@ -565,13 +614,33 @@ export const Rail = () => {
     onCleanup(() => document.removeEventListener("click", clear, true));
   });
 
+  // U4453b: leader `A` and the Overview row both return to Ask.
+  const isAskReturnAllowed = () => !(connected.settingsView.open() && connected.settingsView.page() === "import-work" && connected.importing.pending());
+
+  const backToAsk = () => {
+    if (!isAskReturnAllowed()) return;
+    connected.importing.cancel();
+    connected.settingsView.close(false);
+    connected.showView(null);
+    rail.select(null);
+  };
+
+  createEffect(() => {
+    if (rail.selected() === null && !connected.settingsView.open()) return;
+
+    registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "A")!, capture: () => ({
+      available: isAskReturnAllowed,
+      invoke: backToAsk,
+    }) }]);
+  });
+
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find((row) => row.keys === "⌘N")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, match: "key", capture: () => ({ available: canSpawn, invoke: openCompose }) },
+    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: () => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(); } }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
@@ -605,7 +674,7 @@ export const Rail = () => {
       aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
-      onClick={() => rail.select(null)}
+      onClick={backToAsk}
       onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
         const entries = recoveryEntries();
 
@@ -620,6 +689,7 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
+    <Show when={isEmpty()}><EmptyRail onNew={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()} onWorkstream={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⇧⌘N")?.run()} available={canSpawn()} /></Show>
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
@@ -654,15 +724,20 @@ export const Rail = () => {
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined) { selection.selection.replace(id); anchor = id; rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
+        if (id !== undefined && rail.nodes.some(node => node.id === id)) { selection.selection.replace(id); anchor = id; rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
 
-        for (const id of collection().getBranchValues()) if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
+        for (const id of collection().getBranchValues()) {
+          const section = sections.find(section => `section:${section.id}` === id);
+
+          if (section) rail.setSectionOpen(section.id, open.has(id));
+          else if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
+        }
       }}
     >
-      <SectionHead icon="messages" label={copy.workstreamsHead} />
+
       <Show when={composing()}>
         <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
@@ -683,13 +758,23 @@ export const Rail = () => {
         tree={{
           rows: treeRows(),
           indent: railStep(),
+          inset: (element) => {
+            const content = element.querySelector<HTMLElement>(".line");
+
+            return content ? content.getBoundingClientRect().left - element.getBoundingClientRect().left : 0;
+          },
           nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
           onMove: moveTo,
           onPreview: (next) => placeDrop(next),
         }}
       >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
-        <For each={keys()}>
+        <For each={sections}>{section => <Show when={sectionRows().find(each => each.id === section.id)}>
+          <TreeView.NodeProvider node={entryOf(`section:${section.id}`).node} indexPath={entryOf(`section:${section.id}`).indexPath}>
+          <TreeView.Branch class="rail-section" aria-label={section.label}>
+            <SectionHead icon={section.icon} label={section.label} disclosure={{ open: !rail.closedSections().has(section.id), setOpen: open => rail.setSectionOpen(section.id, open) }} />
+            <TreeView.BranchContent>
+        <For each={sectionRows().find(each => each.id === section.id)?.rows.map(row => row.key) ?? []}>
           {(key) => (
             <Show when={byKey().get(key)}>
               {(row) => {
@@ -715,7 +800,7 @@ export const Rail = () => {
                           row={view()}
                           actions={actionsOf(view().node)}
                           doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
-                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== rows()[0]?.key}
+                          rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
                             copied.set(id, feedback);
@@ -723,7 +808,6 @@ export const Rail = () => {
                             return () => { if (copied.get(id) === feedback) copied.delete(id); };
                           }}
                           editing={editingName() === view().node.id}
-                          onOpen={() => openRow(view().node.id)}
                           selected={selection.selection.isSelected(view().node.id)}
                           multiple={selection.selection.selectedValues().length > 1}
                           tabbable={tabbableId() === view().node.id}
@@ -740,6 +824,8 @@ export const Rail = () => {
                           }}
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
+                          handleRef={parts.handleRef}
+                          draggable={daemonExit() === null}
                           onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
                         />
                         }</Sortable.Item>
@@ -753,7 +839,7 @@ export const Rail = () => {
                           <button data-button="quiet"
                             class="word"
                             role="treeitem"
-                            aria-level={view().depth + 1}
+                            aria-level={view().depth + 2}
                             onClick={() => setUnfolded((open) => toggled(open, view().parent))}
                           >
                             <KindGlyph kind="done" decorative /><span class="rail-fold-name">{view().count}{copy.doneCount}</span></button>
@@ -766,6 +852,10 @@ export const Rail = () => {
             </Show>
           )}
         </For>
+            </TreeView.BranchContent>
+          </TreeView.Branch>
+          </TreeView.NodeProvider>
+        </Show>}</For>
       </TreeView.Tree>
       </Sortable.Root>
     </TreeView.Root>
@@ -789,13 +879,12 @@ export const Rail = () => {
               };
 
               return (
-                <details class="rail-recovery-detail">
+                <details class="rail-recovery-detail" data-revision={entry().revision}>
                   <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
                   <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
                   <p>{copy.railDraftDestination(project.name, destinationName(entry().destination.recipient ?? entry().destination.object))}</p>
                   <Show when={entry().destination.surface === "rail-task"}><p>{copy.railDraftTaskAction(entry().value.action === "note" || (entry().value.action === undefined && entry().destination.recipient !== null))}</p></Show>
-                  <Show when={entry().destination.surface === "rail-clear"}><p>{entry().value.withoutHandoff === true ? copy.clearWithoutHandoff : copy.clearWithHandoff}</p></Show>
                   <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
@@ -813,22 +902,9 @@ export const Rail = () => {
           )}</For>
         </details>
       </Show>
+      <Show when={openingPrompt()} keyed>{id => <OpeningPrompt id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
-      <Show when={clearAnchor()} keyed>
-        {(node) => {
-          const clearing = clearingOf(app, connected.events, node.id, connected.drafts);
-
-          return <Popover.Root open={clearPrompt()?.id === node.id}
-            onOpenChange={({ open }) => { if (!open) { clearing.keep(); menu.hideClear(); } }}
-            finalFocusEl={() => rowElement(node.id) ?? null}
-            positioning={{ placement: "bottom-start", strategy: "fixed", boundary: () => container() ?? [], getAnchorElement: () => rowElement(node.id) ?? null, fitViewport: true }}>
-            <Show when={clearPrompt()?.id === node.id}><Portal><Popover.Positioner><Popover.Content class="rail-clear" aria-label={copy.clearName(node.name)}>
-              <ClearPrompt node={node} onHide={menu.hideClear} />
-            </Popover.Content></Popover.Positioner></Portal></Show>
-          </Popover.Root>;
-        }}
-      </Show>
-      <ReservedLine class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+      <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
         <Show when={failure.retry()}>{retry => <>
           <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
@@ -845,8 +921,8 @@ export const Rail = () => {
             if (canSpawn()) guarded(() => rail.createWorkstream());
           }}
         >
-          <Icon name="plus" />{copy.addWorkstreamWord}</button>
-        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="plus" />{copy.addAgentWord}</button>
+          <Icon name="messages" />{copy.addWorkstreamWord}</button>
+        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
       </div>
     </>
   );
