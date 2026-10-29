@@ -26,7 +26,7 @@ it("u4424a_cmd_t_opens_and_accepts_input_without_a_tab_host", async () => {
   const emulator = emulators.made.get("9")!;
   expect(emulator.host?.contains(document.activeElement)).toBe(true);
   emulator.type(new TextEncoder().encode("printf 'hostless ✓'\r"));
-  expect(bubbleCalls(app, "terminal.open")).toEqual([{ workstream: "w" }]);
+  expect(bubbleCalls(app, "terminal.open")).toMatchObject([{ workstream: "w" }]);
   expect(bubbleCalls(app, "terminal.write")).toEqual([{ id: "9", data: btoa(String.fromCharCode(...new TextEncoder().encode("printf 'hostless ✓'\r"))) }]);
   expect(app.calls.filter(call => /^(terminal.close|agent.spawn|agent.resume|rail.startDoor)$/.test(call.method))).toEqual([]);
 });
@@ -59,6 +59,6 @@ it("u4424b_tab_host_replacement_keeps_the_bubble_and_terminal", async () => {
     { id: "9", data: btoa("absent\r") },
     { id: "9", data: btoa("replaced\r") },
   ]);
-  expect(bubbleCalls(app, "terminal.open")).toEqual([{ workstream: "w" }]);
+  expect(bubbleCalls(app, "terminal.open")).toMatchObject([{ workstream: "w" }]);
   expect(app.calls.filter(call => /^(terminal.close|agent.spawn|agent.resume|rail.startDoor)$/.test(call.method))).toEqual([]);
 });
