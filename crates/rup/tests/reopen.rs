@@ -7,9 +7,12 @@ mod daemon;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use contracts::Kind;
 use contracts::agent::RailNode;
+use contracts::{EventData, Kind};
+use rmcp::ServiceExt;
+use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
+use tokio::io::AsyncWriteExt;
 
 use daemon::{rail_tree, wait_until_idle};
 
@@ -75,9 +78,63 @@ async fn u4547e_reparenting_survives_reopen() {
     let before = rail_tree(&c).await;
     let original: Vec<contracts::terminal::TerminalInfo> =
         serde_json::from_value(c.request("terminal.list", Value::Null).await.unwrap()).unwrap();
+    // Start the vendor's actual MCP command before the crash. Its process and inherited
+    // socket stay unchanged across recovery; every tool call must reconnect to this Project.
+    let launched: Vec<Value> = std::fs::read_to_string(&launches)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let mut retained = Vec::new();
+    for launch in &launched {
+        let argv = launch["argv"].as_array().unwrap();
+        let file = |flag| {
+            let at = argv.iter().position(|arg| arg == flag).unwrap();
+            argv[at + 1].as_str().unwrap()
+        };
+        let settings: Value =
+            serde_json::from_slice(&std::fs::read(file("--settings")).unwrap()).unwrap();
+        let mcp: Value =
+            serde_json::from_slice(&std::fs::read(file("--mcp-config")).unwrap()).unwrap();
+        let config = &mcp["mcpServers"]["roundup"];
+        let env: Vec<_> = config["env"]
+            .as_object()
+            .unwrap()
+            .iter()
+            .map(|(key, value)| (key.as_str(), value.as_str().unwrap()))
+            .collect();
+        let mut child = tokio::process::Command::new(config["command"].as_str().unwrap())
+            .args(
+                config["args"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|arg| arg.as_str().unwrap()),
+            )
+            .env("RUPD_SOCKET", project.socket())
+            .envs(env)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let transport = (child.stdout.take().unwrap(), child.stdin.take().unwrap());
+        let client = tokio::time::timeout(Duration::from_secs(30), ().serve(transport))
+            .await
+            .unwrap()
+            .unwrap();
+        let tools = client.list_all_tools().await.unwrap();
+        retained.push((child, client, settings, tools));
+    }
+    let old_socket = project.socket().to_owned();
     drop(c);
 
-    project.restart(&fake);
+    let new_socket = logs.path().join("reopened.sock");
+    let mut reopened = fake.to_vec();
+    reopened.push(("RUPD_SOCKET", new_socket.to_str().unwrap()));
+    project.restart(&reopened);
+    assert_eq!(project.socket(), new_socket);
+    assert_ne!(project.socket(), old_socket);
     let c = project.client().await;
     let after = rail_tree(&c).await;
     for (id, parent) in [
@@ -97,6 +154,67 @@ async fn u4547e_reparenting_survives_reopen() {
     let listed: Vec<contracts::terminal::TerminalInfo> =
         serde_json::from_value(c.request("terminal.list", Value::Null).await.unwrap()).unwrap();
     assert_eq!(listed.iter().filter(|t| t.running).count(), 2);
+    for (_child, client, settings, tools) in &retained {
+        assert_eq!(
+            client.list_all_tools().await.unwrap(),
+            *tools,
+            "stable vendor tool list"
+        );
+        let result = tokio::time::timeout(
+            Duration::from_secs(30),
+            client.call_tool(CallToolRequestParams::new("agent_context")),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_ne!(result.is_error, Some(true), "{result:?}");
+        let context: contracts::agent::Context =
+            serde_json::from_str(&result.content[0].as_text().unwrap().text).unwrap();
+        let id = settings["env"]["ROUNDUP_AGENT_ID"].as_str().unwrap();
+        assert_eq!(context.this.id, id);
+        let node = after.iter().find(|node| node.id == id).unwrap();
+        assert_eq!(
+            context.parent.as_ref().map(|parent| parent.id.as_str()),
+            node.parent.as_deref()
+        );
+        let mut events = project.subscribed().await;
+        // Run the unchanged vendor hook command with its original inherited routing.
+        let mut hook = tokio::process::Command::new("sh")
+            .args([
+                "-c",
+                settings["hooks"]["PermissionRequest"][0]["hooks"][0]["command"]
+                    .as_str()
+                    .unwrap(),
+            ])
+            .env("RUPD_SOCKET", &old_socket)
+            .envs(
+                settings["env"]
+                    .as_object()
+                    .unwrap()
+                    .iter()
+                    .map(|(key, value)| (key, value.as_str().unwrap())),
+            )
+            .stdin(std::process::Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        hook.stdin.take().unwrap().write_all(
+            br#"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"ls"}}"#,
+        ).await.unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_secs(30), hook.wait())
+                .await
+                .unwrap()
+                .unwrap()
+                .success()
+        );
+        let status = daemon::next(&mut events, |data| match data {
+            EventData::AgentStatus(status) if status.id == id => Some(status.status),
+            _ => None,
+        })
+        .await;
+        assert_eq!(status.kind, Kind::NeedsYou);
+    }
     for was in original {
         let now = listed
             .iter()
