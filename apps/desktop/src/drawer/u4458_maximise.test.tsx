@@ -80,22 +80,54 @@ it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
   render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
 
   for (const kind of ["todo", "pad"]) {
-    drawer.open(() => <input aria-label="draft" />, "key", { kind, project: "/one" });
-    // SAFETY: the draft field rendered above is an <input>.
-    const field = screen.getByLabelText("draft") as HTMLInputElement;
-    fireEvent.input(field, { target: { value: "unsent" } });
-
     for (const press of [false, true]) {
-      const control = screen.getByRole("button", { name: /^(Maximise|Restore)$/ });
+      let reads = 0;
+      drawer.open(() => { reads += 1; return <input aria-label="draft" />; }, "key", { kind, project: "/one" });
+      // SAFETY: the draft field rendered above is an <input>.
+      const field = screen.getByLabelText("draft") as HTMLInputElement;
+      fireEvent.input(field, { target: { value: "unsent" } });
+      const dialogs = document.querySelectorAll("[role=dialog]").length;
+      const states: string[] = [screen.getByLabelText("Drawer").dataset.maximised ?? ""];
 
-      if (press) { control.focus(); fireEvent.keyDown(control, { key: "m", code: "KeyM" }); } else fireEvent.click(control);
-      expect(screen.getByLabelText("draft")).toBe(field);
-      expect(field.value).toBe("unsent");
+      for (const _ of [0, 1]) {
+        expect(screen.getAllByRole("button", { name: /^(Maximise|Restore)$/ })).toHaveLength(1);
+        const control = screen.getByRole("button", { name: /^(Maximise|Restore)$/ });
+
+        if (press) { control.focus(); fireEvent.keyDown(control, { key: "m", code: "KeyM" }); } else fireEvent.click(control);
+        states.push(screen.getByLabelText("Drawer").dataset.maximised ?? "");
+        expect(screen.getByLabelText("draft")).toBe(field);
+        expect(field.value).toBe("unsent");
+      }
+
+      expect(states).toEqual(["true", "false", "true"]);
+      expect(fireEvent.keyDown(field, { key: "m", code: "KeyM" })).toBe(true);
+      expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
+      expect(document.querySelectorAll("[role=dialog]").length).toBe(dialogs);
+      expect(reads).toBe(1);
+      drawer.close("key");
+      localStorage.clear();
     }
-
-    expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
-    drawer.close("key");
   }
+});
+
+it("u4698a_choice_survives_reopen_and_is_scoped", () => {
+  const drawer = createDrawer();
+  localStorage.setItem("roundup:shelf:/one:pad", JSON.stringify({ maximised: false }));
+  localStorage.setItem("roundup:shelf:/one:todo", JSON.stringify({ maximised: true }));
+  render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
+  const maximisedOf = (kind: string, project: string) => {
+    drawer.open(() => <p>{kind}</p>, "key", { kind, project });
+    const value = screen.getByLabelText("Drawer").dataset.maximised;
+    drawer.close("key");
+
+    return value;
+  };
+
+  expect(maximisedOf("pad", "/one")).toBe("false");
+  expect(maximisedOf("todo", "/one")).toBe("true");
+  expect(maximisedOf("pad", "/two")).toBe("true");
+  expect(maximisedOf("todo", "/two")).toBe("true");
+  expect(maximisedOf("work-order", "/one")).toBe("false");
 });
 
 it("u4698a_filled_drawer_preserves_other_surfaces", () => {
