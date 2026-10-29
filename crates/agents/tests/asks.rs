@@ -467,7 +467,7 @@ async fn a41_a_stopped_door_is_started_first() {
 #[tokio::test]
 async fn a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone() {
     let dir = tempfile::tempdir().unwrap();
-    let mut f = DoorHarness::open(dir.path());
+    let mut f = DoorHarness::open_with_program(dir.path(), ASK_BOUND, Some(readiness::PROGRAM));
     let mut events = f.h.ctx.bus.subscribe();
     let ask = f.h.send("/skill café").await;
     f.h.calls
@@ -498,6 +498,7 @@ async fn a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone() {
             }
         }
     };
+    readiness::star(&f, dir.path(), &id).await;
     f.signal(&id, "SessionStart").await;
     assert_eq!(f.read().await, paste("/skill café"));
     f.signal(&id, "UserPromptSubmit").await;

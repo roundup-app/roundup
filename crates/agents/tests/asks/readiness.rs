@@ -2,8 +2,8 @@ use super::*;
 
 // The PTY reader retains early paste bytes but drops Enter until it has emitted its star.
 // Its accepted file is the fake vendor's UserPromptSubmit, independent of Recorder's bytes.
-const PROGRAM: &str = r#"#!/usr/bin/env python3
-import os, pathlib, select, sys, tty
+pub(super) const PROGRAM: &str = r#"#!/usr/bin/env python3
+import json, os, pathlib, select, sys, tty
 if len(sys.argv) > 1 and sys.argv[1] == 'plugin':
     print('Q11 runtime hook closure: 1 pass')
     sys.exit(0)
@@ -18,9 +18,14 @@ while True:
         starred = True
     if select.select([0], [], [], 0.005)[0]:
         for byte in os.read(0, 4096):
+            if byte == 3:
+                sys.exit(0)
             if byte == 13:
                 if starred:
-                    (d / 'accepted').write_bytes(pending)
+                    (d / 'accepted.tmp').write_bytes(pending)
+                    (d / 'accepted.tmp').replace(d / 'accepted')
+                    (d / 'submit.tmp').write_text(json.dumps({'hook_event_name': 'UserPromptSubmit'}))
+                    (d / 'submit.tmp').replace(d / 'submit')
                     pending = b''
             else:
                 pending += bytes([byte])
@@ -34,6 +39,31 @@ async fn until_file(path: &std::path::Path) {
     })
     .await
     .unwrap();
+}
+
+async fn submit(f: &DoorHarness, dir: &std::path::Path, id: &str) {
+    until_file(&dir.join("submit")).await;
+    let payload: Value =
+        serde_json::from_slice(&std::fs::read(dir.join("submit")).unwrap()).unwrap();
+    let tree =
+        f.h.agents
+            .call(&f.h.ctx, "rail.tree", Value::Null)
+            .await
+            .unwrap();
+    let node = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == id)
+        .unwrap();
+    f.h.agents
+        .call(
+            &f.h.ctx,
+            "agent.signal",
+            json!({"id":id,"attempt":node["attempt"],"payload":payload}),
+        )
+        .await
+        .unwrap();
 }
 
 async fn new_part(f: &mut DoorHarness, text: &str) -> (Value, String, String) {
@@ -72,16 +102,38 @@ async fn new_part(f: &mut DoorHarness, text: &str) -> (Value, String, String) {
     (ask, id, attempt)
 }
 
-async fn star(f: &DoorHarness, dir: &std::path::Path, id: &str) {
+pub(super) async fn star(f: &DoorHarness, dir: &std::path::Path, id: &str) {
     let mut events = f.h.ctx.bus.subscribe();
+    let tree =
+        f.h.agents
+            .call(&f.h.ctx, "rail.tree", Value::Null)
+            .await
+            .unwrap();
+    let node = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == id)
+        .unwrap();
+    let already_idle = node["status"]["kind"] == "idle";
+    let terminal = node["terminal_id"].as_str().unwrap();
     std::fs::write(dir.join("star"), "").unwrap();
     tokio::time::timeout(Duration::from_secs(3), async {
         loop {
-            if let contracts::EventData::AgentStatus(status) = events.recv().await.unwrap().data
-                && status.id == id
-                && status.status.kind == contracts::Kind::Idle
-            {
-                break;
+            match events.recv().await.unwrap().data {
+                contracts::EventData::TerminalTitle(title)
+                    if already_idle && title.id == terminal && title.title.starts_with('✳') =>
+                {
+                    break;
+                }
+                contracts::EventData::AgentStatus(status)
+                    if !already_idle
+                        && status.id == id
+                        && status.status.kind == contracts::Kind::Idle =>
+                {
+                    break;
+                }
+                _ => {}
             }
         }
     })
@@ -144,7 +196,7 @@ async fn h4612a_ready_part_is_written_once_byte_for_byte() {
             std::fs::read(dir.path().join("accepted")).unwrap(),
             &paste(text)[..paste(text).len() - 1]
         );
-        f.signal(&id, "UserPromptSubmit").await;
+        submit(&f, dir.path(), &id).await;
         f.changed(&mut events, &ask["id"], "typed").await;
         f.signal(&id, "Stop").await;
         assert!(
@@ -167,7 +219,7 @@ async fn h4612a_part_waits_for_submit_acceptance() {
     assert_eq!(f.read().await, paste("hello"));
     until_file(&dir.path().join("accepted")).await;
     assert_eq!(f.h.list().await[0]["parts"][0]["state"], "placing");
-    f.signal(&id, "UserPromptSubmit").await;
+    submit(&f, dir.path(), &id).await;
     f.changed(&mut events, &ask["id"], "typed").await;
     f.stop().await;
 }
@@ -185,7 +237,9 @@ async fn h4612a_missing_star_fails_without_late_typing() {
         .first_steer_completion(&id, &attempt)
         .await
         .unwrap();
-    tokio::time::advance(agents::START_DOOR_ACK_BOUND).await;
+    tokio::time::advance(agents::START_DOOR_ACK_BOUND / 2).await;
+    f.signal(&id, "SessionStart").await;
+    tokio::time::advance(agents::START_DOOR_ACK_BOUND / 2).await;
     let failed = f.changed(&mut events, &ask["id"], "failed").await;
     tokio::time::resume();
     assert_eq!(failed["parts"][0]["reason"], "prompt not accepted");
