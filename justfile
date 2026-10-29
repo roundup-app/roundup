@@ -27,6 +27,7 @@ lint-rust base="":
     python3 tools/file-size/guard.test.py
     python3 tools/file-size/guard.py {{quote(base)}}
     cargo fmt --check
+    python3 tools/clippy/selection.test.py
     just clippy {{quote(base)}}
     cargo machete crates
     python3 tools/lint/setup.py rust
@@ -46,8 +47,11 @@ lint-rust base="":
 clippy base="":
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ -n "{{base}}" ] && [ -z "$(python3 loop/affected.py rust {{quote(base)}})" ]; then
-        echo "no Rust crate reaches the diff since {{base}}: clippy skipped"; exit 0
+    if [ -n "{{base}}" ]; then
+        crates=$(python3 loop/affected.py rust {{quote(base)}})
+        if [ -z "$crates" ]; then
+            echo "no Rust crate reaches the diff since {{base}}: clippy skipped"; exit 0
+        fi
     fi
     exec cargo clippy --all-targets -- -D warnings
 
