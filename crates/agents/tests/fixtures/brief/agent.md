@@ -102,6 +102,8 @@ To read a Terminal of your Runs or your Workstream, search first with `terminal_
 
 Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
 
+If you have a coordinating Door and cannot proceed within your order, report the block and the decision needed to that Door with `message_send`, not `AskUserQuestion`; engineering choices within existing authorization go to the Door. Only a decision reserved to the user by their stated limits, or an unresolved goal or taste choice, goes to the user with `AskUserQuestion`. A vendor permission prompt remains the user's to answer; never seek its answer from the Door.
+
 ## Reduce and show
 
 Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, and lay it out as `show-me` does. Write each limit of a Work order as a rule that reads on its own, such as "Change no file in the repo". Both skills follow. When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
