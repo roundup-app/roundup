@@ -355,7 +355,7 @@ impl Agents {
             first_prompt: None,
             prompt,
             steer: None,
-            session_started: false,
+            session_started: None,
             starred: false,
             interrupt: None,
             named,
