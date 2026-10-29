@@ -233,6 +233,7 @@ it.each(["live", "retained"])("r3841c_only_the_measured_shell_can_release_setup_
 
     fixture.app.handlers["terminal.read"] = (params) => answered ? retained(params) : (answered = true, new Promise<{ from: number; next: number; text: string; truncated: boolean }>((resolve) => { recover = resolve; }));
   }
+
   fixture.agent.write(bytes("ready\n"));
   const continued = vi.fn();
   const done = terminalReady(fixture.app, fixture.terminal).then(continued);
@@ -489,6 +490,7 @@ it("r20_the_recorder_addresses_the_terminal_the_daemon_listed_not_the_placeholde
   let nodes: ReturnType<typeof workstream>[] = [];
   let terminals: ReturnType<typeof info>[] = [];
   let answer: () => void = () => {};
+
   const opening = new Promise<void>(resolve => (answer = resolve));
 
   app.opened.project = { name: "isolated", path: "/r20" };
@@ -501,6 +503,7 @@ it("r20_the_recorder_addresses_the_terminal_the_daemon_listed_not_the_placeholde
 
     return node;
   };
+
   app.handlers["rail.startDoor"] = () => {
     const node = door("w", "idle", "idle");
 
@@ -534,6 +537,7 @@ it("r20_the_recorder_addresses_the_terminal_the_daemon_listed_not_the_placeholde
     };
 
     return { ...emulator, prepare: async (host: HTMLElement, ...rest: unknown[]) => {
+      // SAFETY: the fake emulator's prepare resolves the size it was given.
       const size = await (emulator.prepare as (...args: unknown[]) => Promise<{ cols: number; rows: number }>)(host, ...rest);
 
       input(host);
@@ -555,5 +559,6 @@ it("r20_the_recorder_addresses_the_terminal_the_daemon_listed_not_the_placeholde
   setTimeout(answer, 100);
   await ready;
   expect(terminal.target()).toBe("7");
+  // SAFETY: only terminal.read calls are kept, and they carry { id }.
   expect(app.calls.filter(call => call.method === "terminal.read").map(call => (call.params as { id: string }).id)).toEqual(["7"]);
 });
