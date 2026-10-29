@@ -288,6 +288,8 @@ it("u4692_rendered_direct_jump_and_discovery", async () => {
     await lane.browser("press", "Meta+k");
     await lane.browser("press", "k");
     await lane.until("!!document.querySelector('.switcher')");
+    await lane.browser("fill", ".switcher input", "Jump to what needs you");
+    await lane.until(`!!document.querySelector('.switcher [data-value^="action:"]')`);
     await lane.capture("U4692a", "switcher");
   } finally { try { await lane.browser("record", "stop"); } finally { await lane.close(); } }
 }, 60_000);
