@@ -149,7 +149,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
         : <p class="todo-comment-body">{part.text}</p>}</For></div>
     </div>}</For>
     <ReservedLine class="todo-comments-live" status={announcement()} aria-live="polite" aria-atomic="true" />
-    <textarea class="todo-comment-field" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
+    <textarea spellcheck={false} autocorrect="off" autocapitalize="off" class="todo-comment-field" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
       onInput={(event) => setText(event.currentTarget.value)}
       onKeyDown={(event) => {

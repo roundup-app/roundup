@@ -70,8 +70,8 @@ it.each(["tree-40", "agents-10", "door-stopped", "conflict"])("u350_rendered_wor
 
     if (seed === "tree-40" || seed === "door-stopped") {
       await rightClick(selector);
-      await wait(`window.__fake.app.menuLabels().includes('Opening prompt…')`);
-      await read(`window.__fake.app.pickMenu('Opening prompt…')`);
+      await wait(`window.__fake.app.menuLabels().includes('First prompt…')`);
+      await read(`window.__fake.app.pickMenu('First prompt…')`);
       await wait(`document.querySelector('.opening-prompt-dialog')`);
       await capture(`${seed}-opening-prompt`);
       await browser("press", "Escape");

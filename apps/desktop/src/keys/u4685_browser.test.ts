@@ -1,6 +1,6 @@
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -42,8 +42,11 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
     if (!dirs.length) return;
     const observation = await read(`({revision:${JSON.stringify(revision)}, checks:window.__checks(), focus:document.activeElement.outerHTML, regions:[...document.querySelectorAll('.pane,.rail,.shelf,.drawer,.xterm-screen')].map(el=>({selector:el.className,rect:el.getBoundingClientRect().toJSON(),focused:el.contains(document.activeElement)})), fits:window.__focusFits, resizes:window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length})`);
 
+    const screenshot = join(dirs[0]!, `${name}.png`);
+    await browser("screenshot", screenshot);
+
     for (const dir of dirs) {
-      await browser("screenshot", join(dir, `${name}.png`));
+      if (dir !== dirs[0]) copyFileSync(screenshot, join(dir, `${name}.png`));
       writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(observation, null, 2));
     }
   };
