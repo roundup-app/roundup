@@ -116,10 +116,10 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
         ]} onValueChange={permissionMode => { if (permissionMode === "" || permissionMode === "default" || permissionMode === "acceptEdits" || permissionMode === "plan" || permissionMode === "auto") save({ permissionMode }); }} />
         <Show when={props.project()}>
-          <Field.Root class="settings-field"><div class="settings-caption"><span class="settings-field-caption">{copy.engine}</span><Field.HelperText>{copy.engineHint}</Field.HelperText></div><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
+          <Field.Root class="settings-field"><div class="settings-caption"><Field.Label>{copy.engine}</Field.Label><Field.HelperText>{copy.engineHint}</Field.HelperText></div><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
             items={[...defaults, ...(offered()?.list?.engines ?? []).map(item => ({ value: item.id, label: item.label }))]}
             onSelect={chooseEngine} /></Field.Root>
-          <Field.Root class="settings-field"><div class="settings-caption"><span class="settings-field-caption">{copy.model}</span><Field.HelperText>{copy.modelHint}</Field.HelperText></div><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
+          <Field.Root class="settings-field"><div class="settings-caption"><Field.Label>{copy.model}</Field.Label><Field.HelperText>{copy.modelHint}</Field.HelperText></div><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
             items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></Field.Root>
         </Show>
