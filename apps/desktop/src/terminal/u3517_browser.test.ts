@@ -739,9 +739,9 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await browser("press", "s");
         await wait("!!document.querySelector('.shelf')");
         await capture("shelf-open");
-        await read("for(const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if(control.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false') control.click()");
-        await wait("[...document.querySelectorAll('.todo-row-button')].some(e=>e.checkVisibility())");
-        await read("[...document.querySelectorAll('.todo-row-button')].find(e=>e.checkVisibility()).focus()");
+        await browser("click", "#shelf-tab-pads");
+        await wait("[...document.querySelectorAll('.pad-name')].some(e=>e.checkVisibility())");
+        await read("[...document.querySelectorAll('.pad-name')].find(e=>e.checkVisibility()).focus()");
         await browser("press", "Enter");
         await wait("!!document.querySelector('.drawer[data-open=true]')");
         await capture("drawer-open");
