@@ -19,6 +19,13 @@ postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")
 
 const captures = captureTests(process.env.ROUNDUP_CAPTURES);
 
+const captureIds = process.env.ROUNDUP_CAPTURES?.split(",").map(id => id.trim());
+// This shared file also owns logged-in Claude observers; U4590 uses only its deterministic PTY observer.
+const startupOnly = captureIds?.includes("U4590") && !captureIds.some(id => ["U463", "U2773g", "U2875d", "U3037d"].includes(id));
+const startupObserver = "src/testing/u463_real_daemon.test.ts";
+
+if (captureIds) process.env.ROUNDUP_CAPTURES = captureIds.join(",");
+
 const served = realDaemonFromEnv(process.env);
 
 // These scenario-prescribed files own no browser or App server, including S3806b when its caller slice lands.
@@ -211,10 +218,16 @@ export default defineConfig({
         test: {
           name: "app",
           include: captures ?? ["src/**/*.test.{ts,tsx}"],
-          exclude: [...configDefaults.exclude, ...webkitGuards],
+          exclude: [...configDefaults.exclude, ...webkitGuards, ...(startupOnly ? [startupObserver] : [])],
           globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
         },
       },
+      ...(startupOnly ? [{ test: {
+        name: "terminal-startup",
+        include: [startupObserver],
+        testNamePattern: /^u4590_/i,
+        globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+      } }] : []),
     ],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
     server: { deps: { inline: [/solid-js/, /@excalidraw/] } },

@@ -142,14 +142,23 @@ test("u4590_capture_selection_keeps_all_policy_observers_and_guards", async () =
     "src/testing/u463_real_daemon.test.ts",
   ] } });
   expect(config.fileParallelism).toBe(false);
+  expect(config.projects![2]).toMatchObject({ test: { name: "terminal-startup", include: ["src/testing/u463_real_daemon.test.ts"], testNamePattern: /^u4590_/i } });
   for (const name of ["u4590_rendered_lifecycle_dom_agents-10_head", "u4590_rendered_lifecycle_webgl_bubbles_base", "u4590_visible_launch_params_match_first_pty_grid", "u4590_restored_terminal_keeps_its_program_and_paints_later_output", "u3517a_font_loading_keeps_live_terminal_input_available", "u3517d_rendering_changes_keep_input_and_scrollback"]) {
     expect(name).toMatch(config.testNamePattern!);
   }
   expect("u2875d_real_import_reopen_and_resume").not.toMatch(config.testNamePattern!);
 });
 
-test("u4590_capture_selection_leaves_ordinary_discovery_unchanged", () => {
-  expect(captureTests(undefined)).toBeUndefined();
+test("u4590_capture_selection_leaves_ordinary_discovery_unchanged", async () => {
+  named(undefined);
+  const { loadConfigFromFile } = await import("vite");
+  const loaded = await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
+  const config = loaded!.config.test!;
+
+  expect(config.projects![1]).toMatchObject({ test: { include: ["src/**/*.test.{ts,tsx}"] } });
+  expect(config.projects).toHaveLength(2);
+  expect(config.fileParallelism).toBeUndefined();
+  expect(config.testNamePattern).toBeUndefined();
 });
 
 test.each(["", "U999999", "U4590, U999999"])("u4590_capture_selection_refuses_unsupported_ids_%s", selection => {
@@ -160,4 +169,15 @@ test("u4590_capture_selection_unions_existing_observers_once", () => {
   expect(captureTests("U4590, U3707, U4590")).toEqual([
     ...captureTests("U4590")!, "src/terminal/u3707_browser.test.ts",
   ]);
+});
+
+test("u4590_mixed_capture_ids_do_not_start_unrelated_Claude_observers", async () => {
+  named(" U4590, U3707 ");
+  const { loadConfigFromFile } = await import("vite");
+  const loaded = await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
+  const config = loaded!.config.test!;
+
+  expect(config.projects![1]).toMatchObject({ test: { exclude: expect.arrayContaining(["src/testing/u463_real_daemon.test.ts"]) } });
+  expect(config.projects![2]).toMatchObject({ test: { testNamePattern: /^u4590_/i } });
+  expect(process.env.ROUNDUP_CAPTURES).toBe("U4590,U3707");
 });
