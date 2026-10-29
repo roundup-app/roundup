@@ -30,7 +30,10 @@ it.skipIf(!captureDir("U3787d")).each(["tree-40", "tabs-8", "conflict"])("u3787d
       if (seed === "conflict") {
         await lane.browser("focus", `.shelf [data-todo="${id}"] .todo-row-button`);
         await lane.browser("press", "o");
-        await lane.browser("find", "text", "New Workstream…", "click");
+        await lane.until("!!document.querySelector('[role=menu]')");
+        await lane.browser("press", "End");
+        await lane.browser("press", "ArrowUp");
+        await lane.browser("press", "Enter");
         await lane.until("!!document.querySelector('.new-workstream textarea')");
         await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Storage unavailable. Retry.'); return true; })()");
         await lane.browser("click", ".new-workstream button[type=submit]");
