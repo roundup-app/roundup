@@ -13,16 +13,8 @@ use crate::Agents;
 
 #[async_trait::async_trait]
 impl RecordMarks for Agents {
-    fn iteration(&self, workstream: &str) -> Result<u32, RpcError> {
-        let node = self.shared.rail().node(workstream)?;
-        if node.kind != NodeKind::Workstream {
-            return Err(RpcError::new(code::INVALID_PARAMS, "not a Workstream"));
-        }
-        Ok(node.iteration.unwrap_or(1))
-    }
-
     async fn record(&self, workstream: &str) -> Result<Option<Marks>, RpcError> {
-        let (iteration, members) = self.mark_sources(workstream)?;
+        let members = self.mark_sources(workstream)?;
         let mut agents = Vec::new();
         let mut complete = true;
         for source in &members {
@@ -56,13 +48,13 @@ impl RecordMarks for Agents {
         for mark in &mut agents {
             mark.files = files(Path::new(&mark.worktree)).await?;
         }
-        if self.mark_sources(workstream)? != (iteration, members) {
+        if self.mark_sources(workstream)? != members {
             return Err(RpcError::new(
                 code::CONFLICT,
                 "Workstream changed while recording Marks",
             ));
         }
-        Ok(Some(Marks { iteration, agents }))
+        Ok(Some(Marks { agents }))
     }
 }
 
@@ -74,9 +66,9 @@ struct MarkSource {
 }
 
 impl Agents {
-    fn mark_sources(&self, workstream: &str) -> Result<(u32, Vec<MarkSource>), RpcError> {
+    fn mark_sources(&self, workstream: &str) -> Result<Vec<MarkSource>, RpcError> {
         let rail = self.shared.rail();
-        let iteration = rail.node(workstream)?.iteration.unwrap_or(1);
+        rail.node(workstream)?;
         let nodes = rail.tree()?;
         let mut members = Vec::new();
         for node in &nodes {
@@ -100,7 +92,7 @@ impl Agents {
                 at = ancestor.and_then(|n| n.parent.as_deref());
             }
         }
-        Ok((iteration, members))
+        Ok(members)
     }
 }
 
