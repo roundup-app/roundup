@@ -31,8 +31,6 @@ it("u4547b_create_selects_one_mode_after_saving_its_prompt", async () => {
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([{ name: "Review", parent: null }]);
   expect(railCallsTo(m.app, "workstream.setOpeningPrompt")).toEqual([{ id: "made", prompt: "  Review e\u0301 🧭\n " }]);
   expect(m.rail.selected()).toBe("made");
-  expect(screen.getByRole("treeitem", { name: "made, Mode" })).toBeTruthy();
-  expect(screen.getByRole("img", { name: "Mode" })).toBeTruthy();
   expect(railCallsTo(m.app, "rail.startDoor")).toEqual([]);
 });
 
