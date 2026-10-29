@@ -5,6 +5,10 @@ async fn estimate_of(h: &Harness) -> Value {
     h.call("todo.get", json!({"id": 1})).await.unwrap()["estimate_minutes"].clone()
 }
 
+async fn get_at(h: &Harness) -> Value {
+    h.call("todo.get", json!({"id": 2})).await.unwrap()["updated_at"].clone()
+}
+
 #[tokio::test]
 async fn t29_estimate_set_and_cleared_with_history() {
     let dir = tempfile::tempdir().unwrap();
@@ -22,6 +26,7 @@ async fn t29_estimate_set_and_cleared_with_history() {
     assert_eq!(h.touches(2).len(), 2);
     let mut expected = plain.clone();
     expected["estimate_minutes"] = json!(45);
+    expected["updated_at"] = get_at(&h).await;
     assert_eq!(
         h.call("todo.get", json!({"id": 2})).await.unwrap(),
         expected

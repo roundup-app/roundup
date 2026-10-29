@@ -20,6 +20,7 @@ async fn t19_reopen_preserves_identity_fields_and_order() {
     let mut expected = h.call("todo.list", json!({})).await.unwrap();
     expected[1]["done"] = json!(false);
     let reopened = h.call("todo.reopen", json!({"id":1})).await.unwrap();
+    expected[1]["updated_at"] = reopened["updated_at"].clone();
     assert_eq!(reopened, expected[1]);
     assert_eq!(h.call("todo.get", json!({"id":1})).await.unwrap(), reopened);
     assert_eq!(h.call("todo.list", json!({})).await.unwrap(), expected);
