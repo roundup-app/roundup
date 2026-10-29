@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../copy";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
 type Loader = () => Promise<EmulatorFactory>;
@@ -30,6 +31,25 @@ export const lazyEmulators = (load: Loader): EmulatorFactory => {
     });
 
     return {
+      prepare: (host, settled, signal) => {
+        const waiting = new Promise<Size>((resolve, reject) => run(emulator => {
+          if (!emulator.prepare) { reject(new Error(appCopy.terminalPreparationUnavailable));
+
+ return; }
+
+          void emulator.prepare(host, settled, signal).then(resolve, reject);
+        }));
+
+        if (!signal) return waiting;
+        const cancelled = Promise.withResolvers<never>();
+        const abort = () => cancelled.reject(signal.reason);
+        signal.addEventListener("abort", abort, { once: true });
+
+        if (signal.aborted) abort();
+
+        return Promise.race([waiting, cancelled.promise]).finally(() => signal.removeEventListener("abort", abort));
+      },
+      bind: next => run(emulator => emulator.bind?.(next)),
       ready,
       write: (bytes, parsed) => run(emulator => emulator.write(bytes, parsed)),
       setSize: (next) => { size = next; run(emulator => emulator.setSize(next)); },

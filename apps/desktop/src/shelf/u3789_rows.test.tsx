@@ -526,7 +526,7 @@ it("u4275b_row_actions_keep_menu_semantics", async () => {
   const { app } = await open("tree-40", ["backend", "payments", "auth", "tokens"]);
   const row = document.querySelector('.rail-row[data-id="auth"]')!;
   fireEvent.click(row.querySelector('[aria-label="Add Agent"]')!);
-  await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{cwd:"/Users/you/harness",prompt:null,parent:"auth",model:null,effort:null}]));
+  await waitFor(() => expect(rpcCalls(app, "agent.spawn")).toEqual([{cwd:"/Users/you/harness",prompt:null,parent:"auth",model:null,effort:null,cols:100,rows:30}]));
 
 });
 
