@@ -237,11 +237,9 @@ const PadBody = (props: {
     else actionFailure.show(message);
   };
 
-  const ownedByUser = () => pad().owner.kind === "user";
-
   const write = () =>
     act(async () => {
-      if (paused() || sent !== null || due === null || deleted() || !ownedByUser() || (conflictActor() && due !== "keep-mine")) return;
+      if (paused() || sent !== null || due === null || deleted() || (conflictActor() && due !== "keep-mine")) return;
 
       const resolveConflict = due === "keep-mine";
       const version = conflictVersion;
@@ -393,7 +391,7 @@ const PadBody = (props: {
 
     capture();
 
-    if (!paused() && ownedByUser() && (!conflictActor() || sent !== null) && !deleted()) saveAfterPause();
+    if (!paused() && (!conflictActor() || sent !== null) && !deleted()) saveAfterPause();
   };
 
   const onText = (text: string) => {
@@ -404,7 +402,7 @@ const PadBody = (props: {
   const onEditorBlur = (next: EventTarget | null) => {
     if (next instanceof Element && next.closest(".pad-rich-editor, [data-pad-dismiss]")) return;
 
-    if (ownedByUser()) flush();
+    flush();
   };
 
   /** U58: a Pad opened from under its Agent is taken here, by the owner mark, as U18's click does in the Shelf. */
@@ -470,7 +468,7 @@ const PadBody = (props: {
           }
           </Show>
         </span>
-        <Show when={!ownedByUser()}>
+        <Show when={pad().owner.kind !== "user"}>
           <button data-button="quiet" type="button" class="word pad-make-yours" style={wholeWord} onClick={() => void takeIt()}>{copy.makeYours}</button>
         </Show>
         <Show when={owner()}>
@@ -520,7 +518,7 @@ const PadBody = (props: {
         <PadRichEditor
           initialFocus={props.initialFocus}
           text={source}
-          readonly={!ownedByUser() || invalid()}
+          readonly={invalid()}
           onChange={onChange}
           onText={onText}
           onBlur={onEditorBlur}
