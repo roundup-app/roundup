@@ -36,7 +36,7 @@ it("u3800_close_returns_the_center_and_focus", async () => {
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });
   fireEvent.keyDown(view, { key: "Escape", code: "Escape" });
-  expect(screen.queryByRole("region", { name: "Settings" })).toBeNull();
+  expect(view.isConnected).toBe(false);
   expect(document.activeElement).toBe(opener);
   expect(screen.getByRole("button", { name: /Choose/ })).toBe(opener);
   fireEvent.keyDown(opener, { key: ",", code: "Comma", metaKey: true });
