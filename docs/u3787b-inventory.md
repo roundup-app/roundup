@@ -105,3 +105,30 @@ Neither CI nor Chromium observes native font key equivalents or combined
 AppKit/webview dispatch. Existing #4278 native evidence is retained; the remaining
 complete inventory, clipboard, scoped lists/triage/Help/settings/Rail rename,
 responder Find and final native observations keep #4308 open.
+
+## Terminal clipboard continuation
+
+Terminal Copy and Paste stay the standard responder commands of Tauri's default
+Edit menu; no Project-menu accelerator is added, because one would take ⌘C/⌘V from
+every editor. Paste already arrives as the webview `paste` event. The Terminal
+screen now also takes the `copy` event the Edit menu sends, writing the selection
+through the same `copy` as the ⌘C key. A key press is consumed before the event
+exists, so either path acts once; an empty selection or an editor leaves the event
+to the browser. `u3787b_edit_menu_copy_event_copies_the_terminal_selection_once`
+proves it; the U101 key proofs are unchanged and no test is removed or retired.
+
+Still open on #4308: scoped Shelf/list/triage, Rail rename, Help and settings
+inventory, the complete real-registration inventory observer, and the native
+displayed-key, responder Find and combined-dispatch observations against the
+final implementation SHA. No native result is claimed here.
+
+## Registry-to-menu inventory observer
+
+`u3787b_menu_covers_bound_commands` compares, for a focused Terminal and a focused
+Rail row in the connected App, every available captured Project action with the
+menu items the App writes: each has an item, displays its chord or `⌘K` sequence,
+and the menu holds no item the registry does not offer (so no unavailable command
+is shown). Building the menu leaves focus where it was. This is the real-registration
+inventory for those two foci; Shelf, triage and Help foci, Rail rename, and the
+native displayed-key, responder Find and combined-dispatch observations stay open.
+No test is removed or retired, and no native result is claimed.
