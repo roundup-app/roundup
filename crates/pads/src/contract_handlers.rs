@@ -110,6 +110,15 @@ impl Pads {
         )
     }
 
+    pub(super) async fn rpc_pad_redo_delete(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        self.redo_delete(ctx, params(value)?)
+    }
+
     pub(super) async fn rpc_pad_get_deletion(
         &self,
         ctx: &Ctx,
