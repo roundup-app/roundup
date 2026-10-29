@@ -344,10 +344,12 @@ it("t4905_opening_a_pending_capture_sends_no_item_rpc", async () => {
   const row = document.querySelector<HTMLElement>("[data-todo]")!;
   const open = row.querySelector<HTMLElement>(".todo-open");
 
-  if (open) fireEvent.click(open);
-  const button = row.querySelector<HTMLElement>(".todo-row-button");
+  expect(open).toBeNull();
+  fireEvent.click(row);
+  const button = row.querySelector<HTMLElement>(".todo-row-button")!;
 
-  if (button) fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
+  expect(button).not.toBeNull();
+  fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
   expect(app.calls.filter(call => ["todo.refs", "todo.comments", "todo.getHistory"].includes(call.method))).toEqual([]);
   expect(app.calls.filter(call => JSON.stringify(call.params).includes(row.dataset.todo!))).toEqual([]);
   expect(screen.queryByRole("alert")).toBeNull();
