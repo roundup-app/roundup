@@ -74,4 +74,6 @@ Project/Home/object/recipient, exact drafts, revision settlement and recovery.
 P14: no usage data. D2/D5/D6/D9: existing Tokens, layout and instant feedback.
 Dark 1512×950 tree-40/tabs-8/conflict captures and video remain uncommitted under
 `artifacts/ux/U3787d/`; the observer uses the isolated production harness and adds
-five Todo rows including duplicate and long Unicode names and a refused rename.
+five Todo rows including duplicate and long Unicode names. The tree-40 and conflict
+observers open New Workstream from a Todo and retain the full failed-create cause
+and retry instruction beside its literal name field.
