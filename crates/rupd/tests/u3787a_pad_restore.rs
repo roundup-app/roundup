@@ -672,6 +672,7 @@ async fn u3787a_redo_refuses_stale_content_and_home_then_retains_acknowledged_ed
     for observed in [
         &pad,
         &json!({"incarnation":edited["incarnation"],"revision":edited["revision"],"home":null}),
+        &json!({"incarnation":edited["incarnation"],"revision":pad["revision"],"home":edited["home"]}),
     ] {
         assert_eq!(
             w.client
