@@ -81,6 +81,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     // A naming field can remove itself while handling Escape; its original path
     // still belongs to the Shelf, so that same key must not close the fallback.
     const inside = (shelf !== null && press.composedPath().includes(shelf)) || press.target.closest(".shelf-tabs") !== null;
+
     if (!escapeLocation(press.target, inside) || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]')) return false;
 
     return true;
