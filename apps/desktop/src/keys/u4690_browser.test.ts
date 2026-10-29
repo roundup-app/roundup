@@ -180,14 +180,24 @@ it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_actio
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="agent-2"]')`);
 
   if (place === "pad") {
-    await read(`[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(tab => tab.textContent.includes('Pads')).click()`);
+    // The selected Shelf tab persists across loads; clicking an already open tab closes it.
+    if (!await read(`document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') === 'true'`)) await browser("click", "#shelf-tab-pads");
     await wait(`!!document.querySelector('.pads-tab [data-part=branch-control]')`);
-    await read(`document.querySelector('.pads-tab [data-part=branch-control]').click()`);
+
+    if (!await read(`document.querySelector('.pads-tab [data-part=branch-control]').closest('[role=treeitem]').getAttribute('aria-expanded') === 'true'`)) await browser("click", '.pads-tab [data-part=branch-control]');
+
+    await wait(`document.querySelector('.pads-tab [data-part=branch-control]').closest('[role=treeitem]').getAttribute('aria-expanded') === 'true'`);
     await wait(`!!document.querySelector('.shelf .pad-name')`);
     await browser("click", ".shelf .pad-name");
     await read(`document.querySelector('.shelf .pad-name').focus()`);
-    await read(`document.querySelector('.shelf .pad-name').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}))`);
-    await wait(`!!document.querySelector('.pad-body button')`);
+    await browser("press", "Enter");
+    // The writable editor and Drawer finish their opening focus before the probe chooses a Pad control.
+    await wait(`!!document.activeElement?.closest('.pad-body .pad-rich-editor') && !!document.querySelector('.drawer[data-settling="false"]') && document.querySelector('.drawer').getAnimations().every(animation => animation.playState !== 'running')`);
+
+    // U4698a's filled item covers the centre's Hint line; this probe exercises its original side-Drawer context.
+    if (await read(`document.querySelector('.drawer').getAttribute('data-maximised') === 'true'`)) await browser("click", '.drawer button[aria-label="Restore"]');
+
+    await wait(`!!document.querySelector('.drawer[data-maximised="false"]') && [...document.querySelector('.drawer').getAnimations(), ...document.querySelector('.columns').getAnimations()].every(animation => animation.playState !== 'running')`);
     await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
   } else {
     await browser("click", '.rail-row[data-id="agent-2"]');
