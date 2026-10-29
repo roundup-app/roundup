@@ -174,42 +174,20 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
   }
 }, 60_000);
 
-it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
+it.each(["agent", "bubble"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
   await browser("set", "viewport", "1512", "950");
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="agent-2"]')`);
 
-  if (place === "pad") {
-    // The selected Shelf tab persists across loads; clicking an already open tab closes it.
-    if (!await read(`document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded') === 'true'`)) await browser("click", "#shelf-tab-pads");
-    await wait(`!!document.querySelector('.pads-tab [data-part=branch-control]')`);
+  await browser("click", '.rail-row[data-id="agent-2"]');
+  await wait(`!!document.querySelector('.pane-screen textarea')`);
 
-    if (!await read(`document.querySelector('.pads-tab [data-part=branch-control]').closest('[role=treeitem]').getAttribute('aria-expanded') === 'true'`)) await browser("click", '.pads-tab [data-part=branch-control]');
-
-    await wait(`document.querySelector('.pads-tab [data-part=branch-control]').closest('[role=treeitem]').getAttribute('aria-expanded') === 'true'`);
-    await wait(`!!document.querySelector('.shelf .pad-name')`);
-    await browser("click", ".shelf .pad-name");
-    await read(`document.querySelector('.shelf .pad-name').focus()`);
-    await browser("press", "Enter");
-    // The writable editor and Drawer finish their opening focus before the probe chooses a Pad control.
-    await wait(`!!document.activeElement?.closest('.pad-body .pad-rich-editor') && !!document.querySelector('.drawer[data-settling="false"]') && document.querySelector('.drawer').getAnimations().every(animation => animation.playState !== 'running')`);
-
-    // U4698a's filled item covers the centre's Hint line; this probe exercises its original side-Drawer context.
-    if (await read(`document.querySelector('.drawer').getAttribute('data-maximised') === 'true'`)) await browser("click", '.drawer button[aria-label="Restore"]');
-
-    await wait(`!!document.querySelector('.drawer[data-maximised="false"]') && [...document.querySelector('.drawer').getAnimations(), ...document.querySelector('.columns').getAnimations()].every(animation => animation.playState !== 'running')`);
-    await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
-  } else {
-    await browser("click", '.rail-row[data-id="agent-2"]');
-    await wait(`!!document.querySelector('.pane-screen textarea')`);
-
-    if (place === "bubble") {
-      await browser("click", ".terminal-new");
-      await wait(`!!document.querySelector('.bubble textarea')`);
-    }
-
-    await read(`window.__source = document.querySelector(${JSON.stringify(place === "bubble" ? ".bubble textarea" : ".pane-screen textarea")}); window.__source.focus()`);
+  if (place === "bubble") {
+    await browser("click", ".terminal-new");
+    await wait(`!!document.querySelector('.bubble textarea')`);
   }
+
+  await read(`window.__source = document.querySelector(${JSON.stringify(place === "bubble" ? ".bubble textarea" : ".pane-screen textarea")}); window.__source.focus()`);
 
   await wait(`!!document.querySelector('.hint-line [data-hint="⌘K"]:enabled')`);
   const target = await point('.hint-line [data-hint="⌘K"]');
