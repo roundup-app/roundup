@@ -38,3 +38,17 @@ export const closeFocused = (focus: Element | null, back: Element | null, close:
     });
   });
 };
+
+/** Keep the focused Bubble's tab in view and remember it for the next switch. */
+export const onBubbleFocus = (event: FocusEvent, remember: (id: string) => void): void => {
+  if (!(event.target instanceof Element)) return;
+
+  const id = event.target.closest<HTMLElement>("[data-bubble]")?.dataset.bubble;
+
+  if (id !== undefined) {
+    remember(id);
+    document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+};
+
+export const hasTerminalFocus = (focus: Element | null): boolean => focus?.isConnected === true && focus.closest(".bubble, button.terminal-tab, .pane-screen") !== null;
