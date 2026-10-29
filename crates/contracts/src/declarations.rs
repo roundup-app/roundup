@@ -113,6 +113,7 @@ declarations! { $;
         "pad.reorder": contracts::pad::ReorderParams => contracts::pad::Pad, rpc_pad_reorder, none();
         "pad.move": contracts::pad::MoveParams => contracts::pad::Pad, rpc_pad_move, all(schema(contracts::pad::MoveParams,"Move a Pad to a Workstream or the Project root."));
         "pad.delete": contracts::pad::DeleteParams => contracts::pad::Deletion, rpc_pad_delete, all(schema(contracts::pad::DeleteParams,"Delete a Pad, retaining its original creation for restoration."));
+        "pad.redoDelete": contracts::pad::RedoDeleteParams => contracts::pad::Deletion, rpc_pad_redo_delete, all(schema(contracts::pad::RedoDeleteParams,"Redo a restored Pad deletion with an acknowledged creation, Revision and Home; retain the current authoritative state for Undo."));
         "pad.getDeletion": contracts::pad::GetDeletionParams => contracts::pad::Deletion, rpc_pad_get_deletion, all(schema(contracts::pad::GetDeletionParams,"Reconcile an unknown Pad deletion on its originating Project."));
         "pad.restore": contracts::pad::DeletionId => contracts::pad::Deletion, rpc_pad_restore, all(schema(contracts::pad::DeletionId,"Restore your retained Pad deletion once, without replaying external effects."));
         "pad.export": contracts::pad::ExportParams => (), rpc_pad_export, all(schema(contracts::pad::ExportParams,"Write a Pad's text to a file at an absolute path."));

@@ -678,7 +678,7 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
                     .as_array()
                     .is_some_and(|ids| ids.contains(&json!(s.a)))
             });
-        completed.then_some(seen)
+        (completed && seen.observation.health == "acceptance-failed").then_some(seen)
     })
     .await;
     assert_ne!(

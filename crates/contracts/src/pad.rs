@@ -120,6 +120,25 @@ pub struct DeletionId {
     pub operation: String,
 }
 
+/// Redo a restored deletion in its original Project. The fresh operation key is
+/// reconciled with pad.getDeletion and equal replay never repeats effects.
+/// Guards come from an acknowledged Pad read in that Project, not a client snapshot.
+/// A changed creation, name, Revision or Home is CONFLICT; current deletion authority
+/// is checked again. Refusal retains both operations and permits retry after repair
+/// or a fresh acknowledged read. Success retains current authoritative content and
+/// placement for pad.restore using the returned operation, including later cycles.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RedoDeleteParams {
+    pub project: String,
+    pub restored_operation: String,
+    pub operation: String,
+    pub expected_incarnation: String,
+    #[specta(type = specta_typescript::Number)]
+    pub expected_revision: u64,
+    pub expected_home: Option<String>,
+}
+
 /// Immutable pre-deletion state plus the durable consumption fact. A replay returns
 /// this receipt without repeating effects, even if the restored Pad was edited/deleted.
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
