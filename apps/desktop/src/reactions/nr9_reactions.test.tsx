@@ -322,7 +322,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   fireEvent.click(tab("original"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
   openProjectPage("view:reactions");
-  const opening = within(document.querySelector<HTMLElement>(".reactions")!);
+  const opening = within(await screen.findByRole("region", { name: copy.reactions }));
   fireEvent.click(await opening.findByRole("button", { name: copy.reactionCreate }));
   const form = within(opening.getByRole("form", { name: copy.reactionCreate }));
   fireEvent.input(form.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
@@ -351,7 +351,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   current = saved({ target: "a0", condition: { kind: "agents", ids: ["a0"], any: false } });
   acknowledge(current);
 
-  const returned = within(document.querySelector<HTMLElement>(".reactions")!);
+  const returned = within(await screen.findByRole("region", { name: copy.reactions }));
   fireEvent.click(await returned.findByRole("button", { name: /Ship it/ }));
   const detail = await returned.findByRole("region", { name: copy.reactionDetail("Ship it") });
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
