@@ -317,7 +317,7 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
       const tab = within(view).getByRole("tab", { name });
       await waitFor(() => expect(document.activeElement).toBe(tab));
       await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
-      expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tab.id);
+      await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tab.id));
     }
   }
 });
