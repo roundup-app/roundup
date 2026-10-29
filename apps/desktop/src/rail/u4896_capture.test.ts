@@ -125,11 +125,30 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
               await browser("mouse", "move", "1400", "900");
               await browser("focus", row);
               await snap(`${prefix}-${kind}-${selected}-focus`);
+              if (selected) {
+                const buttons=await read(`document.querySelector(${JSON.stringify(row)}).querySelectorAll('button').length`);
+                const walk=[];
+                for (let index=0; index<buttons; index++) {
+                  await browser("press", "Tab");
+                  await wait(`document.activeElement !== document.querySelector(${JSON.stringify(row)})`);
+                  const action=await read(`({label:document.activeElement.getAttribute('aria-label'),row:document.activeElement.closest('.rail-row')?.dataset.id,selected:[...document.querySelectorAll('.rail-row[data-selected=true]')].map(el=>el.dataset.id)})`);
+                  if (action.row!==id) break;
+                  if (action.label==='Open folder'||action.label==='Open in editor') {
+                    const before=await read("window.__fake.app.openedTargets.length+window.__fake.app.editorOpened.length");
+                    await browser("press", index%2 ? "Space" : "Enter");
+                    await wait(`window.__fake.app.openedTargets.length+window.__fake.app.editorOpened.length>${before}`);
+                    expect(await read(`document.querySelector(${JSON.stringify(row)}).dataset.selected`)).toBe("true");
+                  }
+                  walk.push(action);
+                }
+                writeFileSync(join(dir,`${prefix}-${kind}-keyboard.json`),JSON.stringify(walk,null,2));
+              }
               await browser("focus", ".rail-tree .section-head");
               await snap(`${prefix}-${kind}-${selected}-leave`);
             }
           }
 
+          await load(width);
           await read("window.__fake.app.openFailure=new Error('Folder unavailable; try again')");
           const folder = '.rail-row .row-icons [aria-label="Open folder"]';
           await browser("focus", folder);
