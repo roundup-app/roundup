@@ -22,7 +22,7 @@ it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empt
   else if (source === "menu") openProjectPage("action:chord:⌘T", "/p");
   else fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
-  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner }]);
+  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner, cols: 100, rows: 30 }]);
   expect(daemon.calls.filter(call => ["rail.createWorkstream", "rail.startDoor", "agent.spawn"].includes(call.method))).toHaveLength(0);
   expect(emulators.made.has("shell")).toBe(true);
   expect(document.querySelector('.bubble[data-bubble="shell"]')).not.toBeNull();
@@ -87,7 +87,7 @@ it("u524_a_failed_empty_project_open_can_be_retried", async () => {
 
   fireEvent.click(action);
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
-  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: null }, { workstream: null }]);
+  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: null, cols: 100, rows: 30 }, { workstream: null, cols: 100, rows: 30 }]);
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
@@ -125,7 +125,7 @@ it.each(["keyboard", "footer"].flatMap(source => ["home", "a1", null, "empty"].m
   else fireEvent.click(within(document.querySelector<HTMLElement>(".rail-actions")!).getByRole("button", { name: "New Agent" }));
   await waitFor(() => expect(connected().rail.selected()).toBe("fresh"));
   expect(daemon.calls.filter(call => ["agent.spawn", "terminal.open", "rail.createWorkstream"].includes(call.method))).toEqual([
-    { method: "agent.spawn", params: { cwd: "/p", prompt: null, parent, model: null, effort: null } },
+    { method: "agent.spawn", params: { cwd: "/p", prompt: null, parent, model: null, effort: null, cols: 100, rows: 30 } },
   ]);
 });
 
@@ -165,7 +165,7 @@ it.each(["home", "a1", null, "empty", "root-agent"])("u4453c_command_menu_opens_
   expect(option).toBeDefined();
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
-  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner }]);
+  expect(daemon.calls.filter(call => call.method === "terminal.open").map(call => call.params)).toEqual([{ workstream: owner, cols: 100, rows: 30 }]);
   expect(emulators.made.has("shell")).toBe(true);
   expect(document.querySelectorAll('.bubble[data-bubble="shell"]')).toHaveLength(1);
   expect(connected().rail.selected()).toBe(selected);
@@ -227,7 +227,7 @@ it("u4453c_tabs_and_saved_drafts_stay_reachable", async () => {
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(dialog.querySelector(".draft-value")?.textContent).toBe(text);
   expect(connected().drafts.list()).toEqual([expect.objectContaining({ destination: { surface: "bubbles", object: shells[0]!.incarnation, recipient: "saved" }, value: { name: text, base: "zsh" } })]);
-  expect(daemon.calls.filter(call => ["terminal.open", "terminal.close", "terminal.write"].includes(call.method))).toEqual([{ method: "terminal.open", params: { workstream: "home" } }]);
+  expect(daemon.calls.filter(call => ["terminal.open", "terminal.close", "terminal.write"].includes(call.method))).toEqual([{ method: "terminal.open", params: { workstream: "home", cols: 100, rows: 30 } }]);
 });
 
 it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_root_agent_new_terminal", async () => {
@@ -265,7 +265,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U4453c"))("u4453c_rendered_ro
       writeFileSync(join(output, "root-agent.observation.json"), JSON.stringify({ ...observed, checks: undefined }, null, 2));
       await page.browser("screenshot", join(output, "root-agent.png"));
 
-      if (side === "head") expect(observed).toMatchObject({ selected: "agent-3", calls: [{ method: "terminal.open", params: { workstream: null } }] });
+      if (side === "head") expect(observed).toMatchObject({ selected: "agent-3", calls: [{ method: "terminal.open", params: { workstream: null, cols: 100, rows: 30 } }] });
       await page.evaluate("localStorage.clear()");
       await page.browser("open", new URL("/harness.html?seed=tree-40", url).href);
       await page.until("!!window.__fake && !!document.querySelector('[data-id=migrate]')");

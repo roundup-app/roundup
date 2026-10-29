@@ -25,15 +25,15 @@ describe("u165 the keys for bubbles", () => {
 
     expect(bubbleChord("t").defaultPrevented).toBe(true);
     await waitFor(() => expect(bubbleNames()).toContain("login"));
-    expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "w" }]);
-    expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("9");
+    expect(bubbleCalls(mounted.app, "terminal.open")).toMatchObject([{ workstream: "w" }]);
+    await waitFor(() => expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("9"));
     expect(document.querySelector('[role="treeitem"]')).toBeNull();
 
     cleanup();
     const nothing = await mountBubbles(null);
 
     bubbleChord("t");
-    await waitFor(() => expect(bubbleCalls(nothing.app, "terminal.open")).toEqual([{ workstream: "w" }]));
+    await waitFor(() => expect(bubbleCalls(nothing.app, "terminal.open")).toMatchObject([{ workstream: "w" }]));
     expect(bubbleChord("t", { shiftKey: true }).defaultPrevented).toBe(false);
     expect(bubbleChord("t", { ctrlKey: true }).defaultPrevented).toBe(false);
   });

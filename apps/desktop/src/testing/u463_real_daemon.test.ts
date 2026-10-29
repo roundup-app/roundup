@@ -530,3 +530,90 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     }
   } finally { await fixture.close(); }
 }, 240_000);
+
+it("u4590_visible_launch_params_match_first_pty_grid", async () => {
+  const { readFile, mkdtemp, writeFile, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const scratch = await mkdtemp(join(tmpdir(), "u4590-"));
+  // #4609's kernel-size program is the shared observer, rather than another vendor simulation.
+  const source = await readFile(join(process.cwd(), "../../crates/agents/tests/scenarios/spawn.rs"), "utf8");
+  const program = source.split('const SIZE_PROGRAM: &str = r#"exec python3 -c \'')[1]!.split("'\"#;")[0]!;
+  const executable = join(scratch, "size-program");
+  await writeFile(executable, "#!/usr/bin/env python3\n" + program, { mode: 0o755 });
+  const command = JSON.stringify([executable]);
+  const observed = await observer(1512, "pointer", "terminal-size", undefined, undefined, { SHELL: executable, FAKE_CLAUDE_CHILD_PROCESS: command, FAKE_CLAUDE_DOOR_PROCESS: command });
+  const { real, browser, wait } = observed;
+  const read = async <T,>(expression: string): Promise<T> => (await browser("eval", expression)).result;
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const app = createServedApp(real.base);
+  const evidence = captureDir("U4590") ?? join(scratch, "evidence");
+  mkdirSync(evidence, { recursive: true });
+
+  try {
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await browser("open", `${real.base}/harness.html?daemon=1&view=workstreams&items=1&tabs=1&renderer=dom`);
+    await wait("!!document.querySelector('[aria-label=\"Add Workstream\"]')");
+    await read(`(() => {
+      window.__launches = [];
+      window.__sizingWrites = [];
+      const original = window.fetch.bind(window);
+      window.fetch = async (url, options) => {
+        const call = options?.body && JSON.parse(options.body);
+        if (call?.method === 'terminal.write') window.__sizingWrites.push(call);
+        const launch = call && ['rail.startDoor', 'agent.spawn', 'terminal.open'].includes(call.method);
+        const fitted = launch ? [...window.__terminals.values()].at(-1).fit() : null;
+        const response = await original(url, options);
+        if (launch) window.__launches.push({ ...call, fitted, outcome: await response.clone().json() });
+        return response;
+      };
+    })()`);
+
+    for (const action of ["door", "agent", "prompt", "shell", "quick"]) {
+      await read("window.__launches.length = 0");
+
+      if (action === "door") await browser("click", '[aria-label="Add Workstream"]');
+      else if (action === "agent") await browser("click", '[aria-label="New Agent"]');
+      else if (action === "prompt") {
+        await browser("press", "Meta+Shift+n");
+        await wait("document.activeElement?.matches('.spawn-prompt-field')");
+        await browser("fill", ".spawn-prompt-field", "sizing-fixture");
+        await browser("press", "Enter");
+      }
+      else if (action === "shell") await browser("click", ".terminal-new");
+      else {
+        await read("document.querySelector('.rail-row').click()");
+        await wait("!document.querySelector('.bubble:not([hidden])')");
+        await browser("press", "Meta+t");
+      }
+
+      await wait("window.__launches.length === 1");
+      const trace = await read<{ method: string; params: { cols: number; rows: number }; fitted: { cols: number; rows: number }; outcome: { result: { terminal_id: string } } }>("window.__launches[0]");
+      expect({ cols: trace.params.cols, rows: trace.params.rows }).toEqual(trace.fitted);
+      expect(await read("window.__sizingWrites")).toEqual([]);
+      const id = trace.outcome.result.terminal_id;
+      let first: Awaited<ReturnType<typeof app.rpc<"terminal.snapshot">>>;
+      await expect.poll(async () => { first = await app.rpc("terminal.snapshot", { id });
+
+ return Buffer.from(first.data, "base64").toString(); }).toContain("first ");
+      const before = Buffer.from(first!.data, "base64").toString();
+      expect(before).toContain(`first ${trace.fitted.cols} ${trace.fitted.rows}`);
+      const pid = /pid=(\d+)/.exec(before)![1];
+      const incarnation = (await app.rpc("terminal.list", null)).find(terminal => terminal.id === id)!.incarnation;
+      await browser("set", "viewport", "1412", "850");
+
+      if (action === "shell" || action === "quick") await browser("dblclick", ".bubble:not([hidden]) .bubble-header");
+      let later = "";
+      await expect.poll(async () => { const snapshot = await app.rpc("terminal.snapshot", { id }); later = Buffer.from(snapshot.data, "base64").toString();
+
+ return later; }).toContain("later ");
+      expect(later).toContain(`pid=${pid}`);
+      expect((await app.rpc("terminal.list", null)).find(terminal => terminal.id === id)!.incarnation).toBe(incarnation);
+      writeFileSync(join(evidence, `${action}-launch.json`), JSON.stringify({ trace, before, later, pid, incarnation }, null, 2));
+      await browser("set", "viewport", "1512", "950");
+      await wait("innerWidth === 1512 && innerHeight === 950 && document.fonts.status === 'loaded'");
+      writeFileSync(join(evidence, `${action}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+      await browser("screenshot", join(evidence, `${action}.png`));
+    }
+  } finally { await observed.close(); await rm(scratch, { recursive: true, force: true }); }
+}, 180_000);
