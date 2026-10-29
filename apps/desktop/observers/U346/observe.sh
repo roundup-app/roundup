@@ -1,6 +1,6 @@
 #!/bin/bash
 # usage: observe.sh   (run from the repo root after `cargo build -p rupd -p rup`; starts its own rupd on the fake claude, Vite and a headless agent-browser session)
-# U346: at 1280x800 and 700x800, with a Terminal open, the confirm `delete` of an Pad created by an Agent, a Pad created by the user and a Todo must be what
+# U346: at 1280x800 and 700x800, with a Terminal open, the confirm `delete` of a Pad created by an Agent, a Pad created by the user and a Todo must be what
 # elementFromPoint returns at its centre, and a pointer click there must remove the item. Exits non-zero on any miss.
 set -euo pipefail
 root=$(pwd)
