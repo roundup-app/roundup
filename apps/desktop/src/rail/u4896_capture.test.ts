@@ -30,6 +30,7 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
       const profile = mkdtempSync(join(tmpdir(), "u4896-profile-"));
       const session = `u4896-${phase}-${process.pid}`;
       const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout;
+
       const read = async (expression: string) => {
         const reply = JSON.parse(await browser("eval", expression));
 
@@ -37,11 +38,14 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
 
         return reply.data.result;
       };
+
       const wait = (expression: string) => browser("wait", "--fn", expression);
       const dir = join(captureDir("U4896")!, phase);
       mkdirSync(dir, { recursive: true });
+
       const snap = async (name: string) => {
         await browser("screenshot", join(dir, `${name}.png`));
+
         const audit = await read(`(() => {
           const box = el => { const b = el.getBoundingClientRect(); return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,height:b.height,centre:b.left+b.width/2}; };
           const visible = el => el.getClientRects().length > 0;
@@ -55,10 +59,13 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
             focus:document.activeElement?.getAttribute('aria-label'), selected:[...document.querySelectorAll('.rail-row[data-selected=true]')].map(el=>el.dataset.id),calls:window.__fake.app.calls,alerts:[...document.querySelectorAll('[role=alert]')].map(el=>el.textContent),
             clauses:{1:'critic: compare row marks and connector paint with each head icon',2:'critic: compare rendered grip and chevron centres',3:'critic: compare section gaps with adjacent row gaps and paired heights',4:'compare baseline Checks; failure and keyboard evidence',5:'critic: action opacity, hover/focus/selection and keyboard calls in state captures'} };
         })()`);
+
         writeFileSync(join(dir, `${name}.audit.json`), JSON.stringify(audit, null, 2));
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(audit.checks, null, 2));
       };
+
       const emit = `window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'})`;
+
       const load = async (width: number) => {
         await browser("open", new URL('/harness.html?seed=tree-40&view=workstreams', origin).href);
         await wait("!!window.__fake && !!document.querySelector('.rail-row')");
@@ -124,6 +131,7 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
                 await browser("mouse","up");
                 await wait(`document.querySelector(${JSON.stringify(row)}).dataset.selected==='true'`);
               }
+
               await browser("focus", ".rail-tree .section-head");
               await browser("mouse", "move", "1400", "900");
               await snap(`${prefix}-${kind}-${selected}-rest`);
@@ -132,24 +140,31 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
               await browser("mouse", "move", "1400", "900");
               await browser("focus", row);
               await snap(`${prefix}-${kind}-${selected}-focus`);
+
               if (selected && theme === "dark" && width === 252) {
                 const buttons=await read(`document.querySelector(${JSON.stringify(row)}).querySelectorAll('button').length`);
                 const walk=[];
+
                 for (let index=0; index<buttons; index++) {
                   await browser("press", "Tab");
                   await wait(`document.activeElement !== document.querySelector(${JSON.stringify(row)})`);
                   const action=await read(`({label:document.activeElement.getAttribute('aria-label'),row:document.activeElement.closest('.rail-row')?.dataset.id,selected:[...document.querySelectorAll('.rail-row[data-selected=true]')].map(el=>el.dataset.id)})`);
+
                   if (action.row!==id) break;
+
                   if (action.label==='Open folder'||action.label==='Open in editor') {
                     const before=await read("window.__fake.app.openedTargets.length+window.__fake.app.editorOpened.length");
                     await browser("press", index%2 ? "Space" : "Enter");
                     await wait(`window.__fake.app.openedTargets.length+window.__fake.app.editorOpened.length>${before}`);
                     expect(await read(`document.querySelector(${JSON.stringify(row)}).dataset.selected`)).toBe("true");
                   }
+
                   walk.push(action);
                 }
+
                 writeFileSync(join(dir,`${prefix}-${kind}-keyboard.json`),JSON.stringify(walk,null,2));
               }
+
               await browser("focus", ".rail-tree .section-head");
               await snap(`${prefix}-${kind}-${selected}-leave`);
             }

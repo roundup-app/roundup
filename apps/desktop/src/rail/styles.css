@@ -758,7 +758,7 @@
   mask-image: linear-gradient(to right, var(--transparent), var(--text));
   pointer-events: none;
 }
-.rail-tree .rail-row:not(:hover, :focus-within) .row-controls { opacity: 0; pointer-events: none; }
+.rail-row[data-id]:not(:hover, :focus-within) .row-controls { opacity: 0; pointer-events: none; }
 .rail-row:is(:hover, :focus-within) :is(.row-icons, .row-controls) {
   opacity: 1;
   pointer-events: auto;
@@ -852,7 +852,7 @@
 .rail-tree .section-head {
   padding-inline: var(--rail-edge);
 }
-.rail-tree .section-head [data-part="branch-indicator"] {
+.rail-tree [data-part="branch-indicator"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
