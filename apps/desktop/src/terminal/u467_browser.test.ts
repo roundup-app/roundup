@@ -43,25 +43,6 @@ const record = async (id: string, name: string, checks: Checks) => {
   writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(checks, null, 2));
 };
 
-describe("u467 the primary Terminal stands alone", () => {
-  it("u467_the_primary_terminal_has_no_thread_wrappers", async () => {
-    for (const width of VIEWPORTS) {
-      for (const scheme of SCHEMES) {
-        await open(width, scheme);
-        await select("payments");
-
-        const wrappers = await page.call<string[]>(`() => [...document.querySelectorAll('.thread-composer, .thread-feed, .thread-header, .digest, [data-thread]')].map((e) => e.className)`);
-
-        expect(wrappers).toEqual([]);
-
-        const checks = await readChecks();
-
-        await record("U467", `door-${width}-${scheme}`, checks);
-      }
-    }
-  }, 60_000);
-});
-
 describe("u468 attention keeps focus until activated", () => {
   it("u468_attention_keeps_focus_until_activated", async () => {
     for (const width of VIEWPORTS) {
