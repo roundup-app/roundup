@@ -1,0 +1,115 @@
+{
+  "source_sha": "bd36d0f27c31d59abcc0f00eead774626f7bcc5b",
+  "run_url": "https://github.com/roundup-app/roundup/actions/runs/40786093037",
+  "capture_flags": "DV6,U3021c,U3049a,U3299a,U3813,U3814,U3799,U4277c,U3741,U3760,P3557c,U3774,U3776,U461,U462,U461a,U461b,U3728,U3295a,U3295b,U3517f",
+  "isolated": {
+    "command": "python3 loop/app-data.py pnpm --filter desktop exec vitest run src/header/u475_browser.test.ts",
+    "exit_code": 0,
+    "log": "repair-4712-header-isolated.log.gz",
+    "file": "apps/desktop/src/header/u475_browser.test.ts",
+    "file_seconds_including_hooks": 34.641,
+    "invocation_seconds": 46.32,
+    "retries": 0,
+    "tests": [
+      {
+        "full_title": "u2773a_header_restores_exact_work_browser",
+        "status": "passed",
+        "first_attempt_ms": 11928.136273,
+        "aggregate_ms": 11928.136273,
+        "retries": 0
+      },
+      {
+        "full_title": "u2773a_header_pointer_switch_keeps_caret",
+        "status": "passed",
+        "first_attempt_ms": 5702.573593000001,
+        "aggregate_ms": 5702.573593000001,
+        "retries": 0
+      },
+      {
+        "full_title": "u2773e_header_recovery_opens_after_selected_tab_grows",
+        "status": "passed",
+        "first_attempt_ms": 4108.057256,
+        "aggregate_ms": 4108.057256,
+        "retries": 0
+      },
+      {
+        "full_title": "p3557c_header_rendered_failure_before_and_after_clearing",
+        "status": "passed",
+        "first_attempt_ms": 10478.303237,
+        "aggregate_ms": 10478.303237,
+        "retries": 0
+      }
+    ]
+  },
+  "normal_workload": {
+    "files": [
+      "src/ask/dv5_real_daemon.test.tsx",
+      "src/ask/dv5_rendered.test.ts",
+      "src/ask/u505_ask_rows.test.tsx",
+      "src/bubbles/u2224_rendered.test.ts",
+      "src/bubbles/u2236_browser.test.ts",
+      "src/bubbles/u2307a_browser.test.ts",
+      "src/bubbles/u2307c_browser.test.ts",
+      "src/bubbles/u469_bar.test.ts",
+      "src/changes/u2540b_notes.test.tsx",
+      "src/header/u2232_flat_tabs.test.ts",
+      "src/header/u475_browser.test.ts",
+      "src/importer/u2875d_import_panel.test.tsx",
+      "src/inbox/u3770_browser.test.ts",
+      "src/ink/u501_browser.test.ts",
+      "src/keys/u533_browser.test.ts",
+      "src/orders/q2_surfaces.test.tsx",
+      "src/orders/u3078i_rendered.test.ts",
+      "src/pads/u3732_drag_browser.test.ts",
+      "src/pads/u3732_real_daemon_agent_owner.test.tsx",
+      "src/rail/menu/u2694_menu.test.tsx",
+      "src/reactions/nr9_rendered.test.ts",
+      "src/settings/u3799_app_settings.test.tsx",
+      "src/settings/u3799_rendered.test.ts",
+      "src/shelf/u371_reserved_checks_light.test.ts",
+      "src/switcher/u2572_browser.test.ts",
+      "src/terminal/u102_emulator.test.ts",
+      "src/terminal/u3517_browser.test.ts",
+      "src/terminal/u467_browser.test.ts",
+      "src/testing/a33_blocked_real_daemon.test.tsx",
+      "src/testing/n5_real_daemon.test.ts",
+      "src/testing/u177_restarted_door.test.tsx",
+      "src/testing/u194_real_daemon.test.tsx",
+      "src/testing/u198_real_daemon.test.ts",
+      "src/testing/u2875d_real_import.test.tsx",
+      "src/testing/u3078i_real_daemon.test.tsx",
+      "src/testing/u375_real_daemon.test.tsx",
+      "src/testing/x14_output_relay.test.ts",
+      "src/toasts/p3557c_capture.test.ts",
+      "src/todos/u3741_rendered.test.ts",
+      "src/todos/u3760_rendered.test.ts",
+      "src/todos/u3774_rendered.test.ts",
+      "src/todos/u3776_rendered.test.ts",
+      "src/todos/u461_rendered.test.ts",
+      "src/ui/u3295_capture.test.ts",
+      "src/ui/u483_browser.test.ts",
+      "src/ui/u499_browser.test.ts"
+    ],
+    "command": "python3 loop/app-data.py pnpm --filter desktop exec vitest run <files in listed order> --maxWorkers=3",
+    "concurrent_command": "just ready",
+    "status": "interrupted at the Builder budget; incomplete, no timing bound",
+    "log": "repair-4712-normal-46.log.gz",
+    "observed_failures": [
+      "u3814_project_pages_survive_work_elsewhere_import-work",
+      "u3814_project_pages_survive_work_elsewhere_project-settings"
+    ],
+    "observed_retry_aggregates_ms": [
+      59424,
+      45582
+    ],
+    "first_attempt_durations": "not available in the incomplete normal reporter output; not inferred from retry aggregates",
+    "required_checks_log": "repair-4712-ready.log.gz",
+    "required_checks_status": "interrupted unfinished at Builder budget with SIGTERM; no passing ready claim",
+    "snapshot_utc": "2026-10-28T23:43:09.574149+00:00",
+    "vitest_exit_code": 130,
+    "pnpm_and_app_data_exit_code": 1,
+    "final_json_report": false,
+    "required_checks_termination_signal": "SIGTERM"
+  },
+  "workflow_source_sha": "343669a0ecfb83b929aa290053e0f2dd42b785ef"
+}
