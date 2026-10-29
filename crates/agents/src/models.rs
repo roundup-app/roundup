@@ -86,6 +86,7 @@ pub fn resolve(
 ) -> Pair {
     let own = project.roles.iter().find(|entry| entry.role == role.id());
     Pair {
+        naming_guide: None,
         yolo: false,
         permission_mode: None,
         model: model.or_else(|| own.and_then(|entry| entry.model.clone())),
