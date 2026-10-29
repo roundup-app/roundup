@@ -426,10 +426,18 @@ impl Shared {
         {
             let _ = steer.submitted.send(());
         }
-        if acks
+        // H4702a: a Signal that takes a native question from `needs-you` to idle or working
+        // is an observed dismissal, though the title never changes.
+        let dismissed = signal
+            && was_kind == Some(Kind::NeedsYou)
             && changed
                 .as_ref()
-                .is_some_and(|status| status.kind == Kind::Idle)
+                .is_some_and(|status| matches!(status.kind, Kind::Idle | Kind::Working));
+        if (dismissed
+            || acks
+                && changed
+                    .as_ref()
+                    .is_some_and(|status| status.kind == Kind::Idle))
             && let Some(waiting) = run.interrupt.take()
         {
             let _ = waiting.send(());
