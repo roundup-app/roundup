@@ -3,7 +3,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tempfile::TempDir;
 
 #[test]
@@ -22,7 +22,7 @@ fn s4_just_app_refuses_to_start_when_something_already_answers_on_the_dev_port()
         });
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let project = TempDir::new().unwrap();
-    let mut just = Command::new("just")
+    let just = Command::new("just")
         .arg("app")
         .arg(project.path())
         .current_dir(root)
@@ -31,28 +31,24 @@ fn s4_just_app_refuses_to_start_when_something_already_answers_on_the_dev_port()
         .spawn()
         .unwrap();
 
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let status = loop {
-        if let Some(status) = just.try_wait().unwrap() {
-            break Some(status);
-        }
-        if Instant::now() > deadline {
-            // Without the guard the recipe goes on to open a real window; take its whole group down.
+    let pid = just.id();
+    let (done, result) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = done.send(just.wait_with_output());
+    });
+    let output = result
+        .recv_timeout(Duration::from_secs(10))
+        .unwrap_or_else(|_| {
+            // Without the guard the recipe may open a window; stop this fixture's group.
             let _ = Command::new("kill")
                 .arg("--")
-                .arg(format!("-{}", just.id()))
+                .arg(format!("-{pid}"))
                 .status();
-            break None;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    };
-    let mut stderr = String::new();
-    std::io::Read::read_to_string(&mut just.stderr.take().unwrap(), &mut stderr).unwrap();
-
-    assert!(
-        status.is_some_and(|status| !status.success()),
-        "just app did not refuse within 10 s"
-    );
+            panic!("just app did not refuse within 10 s");
+        })
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(!output.status.success());
     assert!(stderr.contains("already answers on :5173"));
 }
 
