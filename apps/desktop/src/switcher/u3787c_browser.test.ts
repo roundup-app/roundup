@@ -202,10 +202,7 @@ it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async 
       for (const value of order) {
         await browser("press", key);
         await active(value);
-        expect(await read("document.activeElement?.matches('.switcher input')")).toBe(true);
-        expect(await read(selection)).toEqual(["backend"]);
-        expect(await read("document.querySelectorAll('.switcher [aria-selected=true]').length")).toBe(0);
-        expect(await read(effects)).toEqual(before);
+        expect(await read(`({ focused: document.activeElement?.matches('.switcher input'), selected: ${selection}, content: document.querySelectorAll('.switcher [aria-selected=true]').length, effects: ${effects} })`)).toEqual({ focused: true, selected: ["backend"], content: 0, effects: before });
         if (key === "ArrowDown" && value === values[boundary]) await capture("boundary");
         if (key === "ArrowDown" && value === values.at(-1)) await capture("last-action");
       }
@@ -227,7 +224,7 @@ it.each(["destination", "action"] as const)("u4682_enter_activates_only_the_row_
     const before = await read(effects);
     await open();
     const values = await options();
-    const target = choice === "destination" ? "auth" : "action:chord:⌘N";
+    const target = choice === "destination" ? "agent-1" : "action:chord:⌘N";
     const index = values.indexOf(target);
     expect(index).toBeGreaterThan(0);
     // Approach from both directions, so Enter cannot accidentally use a stale down-arrow row.
@@ -242,8 +239,8 @@ it.each(["destination", "action"] as const)("u4682_enter_activates_only_the_row_
     await browser("press", "Enter");
     await browser("wait", "--fn", "!document.querySelector('.switcher')");
     if (choice === "destination") {
-      await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=auth]')?.dataset.selected==='true' && document.activeElement?.matches('.thread-composer textarea')");
-      expect(await read(selection)).toEqual(["auth"]);
+      await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=agent-1]')?.dataset.selected==='true' && !!document.activeElement?.closest('.pane-screen')");
+      expect(await read(selection)).toEqual(["agent-1"]);
       expect(await read(effects)).toEqual(before);
     } else {
       await browser("wait", "--fn", "window.__fake.app.calls.some(c=>c.method==='agent.spawn')");
