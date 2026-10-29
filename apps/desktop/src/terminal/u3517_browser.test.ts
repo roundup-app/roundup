@@ -745,7 +745,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await browser("press", "Enter");
         await wait("!!document.querySelector('.drawer[data-open=true]')");
         await capture("drawer-open");
-        await browser("press", "Escape");
+        await browser("click", '.drawer[data-open=true] [aria-label=Close]');
         await wait("!document.querySelector('.drawer[data-open=true]')");
         await capture("drawer-closed");
         await browser("click", '[aria-label="Add Workstream"]');
