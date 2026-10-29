@@ -257,10 +257,11 @@ it.each(["M", "D", "E", "Esc", "O"].flatMap(keys => (["key", "pointer"] as const
 it("u4690b_leader_clicks_and_keys_share_one_wait: competing A owners pointer", async () => {
   const source = "pointer";
   const { app } = seedApp("tree-40", 0);
-  const tree = app.handlers["rail.tree"]!;
-  // Keep both command owners without mounting unrelated Rail branches during teardown.
-  app.handlers["rail.tree"] = async params => (await tree(params)).filter(node => node.id === "backend" || node.id === "migrate");
-  app.handlers["todo.list"] = () => [todo(1, { home: "backend" })];
+  // CI timed out in this forty-row fixture; the competing owners need one Workstream and its Agent.
+  const tree = await app.handlers["rail.tree"]!(null);
+  app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend" || node.id === "migrate");
+  const listed = await app.handlers["todo.list"]!(null);
+  app.handlers["todo.list"] = () => listed.map(todo => ({ ...todo, home: "backend" }));
   render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
   fireEvent.click(document.querySelector('.rail-row[data-id="backend"]')!);
