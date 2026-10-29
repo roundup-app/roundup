@@ -285,3 +285,11 @@
   overflow: visible;
   overflow-wrap: anywhere;
 }
+
+.settings-content .app-segments { flex-wrap: wrap; justify-content: space-between; }
+.settings-content .app-segment[data-state="checked"] { color: var(--accent); }
+.settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.settings-preview-terminal { height: var(--preview-height); overflow: hidden; background: var(--terminal-background); }
+.settings-scale-small { font-size: var(--text-caption); }
+.settings-scale-default { font-size: var(--text-body); }
+.settings-scale-large { font-size: var(--text-title); }
