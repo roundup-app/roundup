@@ -97,3 +97,22 @@ it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
     drawer.close("key");
   }
 });
+
+it("u4698a_filled_drawer_preserves_other_surfaces", () => {
+  const drawer = createDrawer();
+  let shelf!: ReturnType<typeof createShelfFrame>;
+  render(() => {
+    shelf = createShelfFrame(() => "/one", () => true, () => {});
+
+    return <DrawerHost drawer={drawer} reducedMotion={() => true} />;
+  });
+  shelf.toggleMaximise("key");
+
+  for (const kind of ["todo", "pad"]) {
+    drawer.open(() => <p>{kind}</p>, "key", { kind, project: "/one" });
+    expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
+    expect(shelf.maximised()).toBe(true);
+    drawer.close("key");
+    expect(shelf.maximised()).toBe(true);
+  }
+});
