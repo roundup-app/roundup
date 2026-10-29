@@ -1,0 +1,18 @@
+{
+  "head": "bc22b404653dc2bdea4e05ac12e758517e2bbf54",
+  "base": "24064f437c8a2129f8f48a99965c03cc4aa0c56f",
+  "seed": "tree-40",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "renderer": "isolated headless Chromium; fake Daemon Terminal input focused",
+  "chips": [
+    {
+      "text": "\u2318B",
+      "ink": "rgb(180, 180, 180)",
+      "fill": "rgb(34, 34, 34)"
+    }
+  ],
+  "checks": "D1-D14 and D16 pass",
+  "comparison": "keys/styles.css equals origin/main; disabled chip uses --grey rather than full --text ink",
+  "observer_failure": "Settings recorder returned No frames captured; hint recorder also failed at record stop. Screenshots and Check readings remain; no successful video claimed."
+}

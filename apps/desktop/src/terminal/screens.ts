@@ -310,7 +310,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
             if (stream.open && holder.stream === stream) settle(id, holder, stream);
           }, 0);
-          else stream.parsing = false;
+          else {
+            stream.parsing = false;
+
+            // A gap delivered during the parse found `settle` returning early; nothing else will start its restore.
+            if (stream.lost && stream.open && holder.stream === stream) settle(id, holder, stream);
+          }
         });
       } catch (thrown) {
         if (!(thrown instanceof Error)) throw thrown;
