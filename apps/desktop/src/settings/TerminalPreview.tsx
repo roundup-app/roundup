@@ -15,14 +15,16 @@ export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }
   const disposers: (() => void)[] = [];
   const fit = new FitAddon();
   terminal.loadAddon(fit);
+
   const repaint = () => {
     fit.fit();
     // With no scrollback, resizing can discard sample rows. Rebuild the complete sample after fitting.
-    terminal.reset();
-    terminal.write(copy.terminalPreviewSample);
+    // Queue the reset with its text so an earlier asynchronous write cannot append after it.
+    terminal.write(`\x1bc${copy.terminalPreviewSample}`);
   };
 
   let themeFrame: number | undefined;
+
   const repaintTheme = () => {
     if (themeFrame !== undefined) cancelAnimationFrame(themeFrame);
     // Appearance's root effect must update the resolved CSS scheme before xterm reads its Tokens.
@@ -38,10 +40,12 @@ export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }
     terminal.open(host);
     attachRenderer(terminal, () => new WebglAddon(), console.warn);
     dropInlineGround(host, disposers);
+
     if (terminal.textarea) {
       terminal.textarea.tabIndex = -1;
       terminal.textarea.setAttribute("aria-hidden", "true");
     }
+
     repaint();
     repaintTheme();
     const observer = new ResizeObserver(repaint);
@@ -51,6 +55,7 @@ export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }
   });
   createEffect(() => {
     Object.assign(terminal.options, props.type);
+
     if (host) repaint();
   });
   onCleanup(() => { if (themeFrame !== undefined) cancelAnimationFrame(themeFrame); disposers.forEach(dispose => dispose()); terminal.dispose(); });

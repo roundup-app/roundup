@@ -51,6 +51,7 @@ describe("u130 tokens", () => {
 
     // U4687a scales only these five interface steps; default scale keeps U130's documented sizes.
     const scaled = new Set(["--text-caption", "--text-small", "--text-body", "--text-row", "--text-title"]);
+
     const wrong = [...expectedLight].filter(
       ([name, value]) => normalised(valueOf(css, name) ?? "") !== normalised(KNOWN_DIFFERENCES.get(name) ?? (scaled.has(name) ? `calc(${value} * var(--interface-scale))` : value)),
     );
