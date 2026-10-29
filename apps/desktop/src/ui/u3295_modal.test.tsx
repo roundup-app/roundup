@@ -54,7 +54,7 @@ const mount = (kind: Surface) => {
   };
 
   const show = async () => {
-    const trigger = kind === "mentions" ? screen.getByRole("combobox", { name: "Mention" }) : screen.getByRole(kind === "select" ? "combobox" : "button", { name: kind === "blocker" ? /Blocker/ : "Open" });
+    const trigger = kind === "mentions" ? screen.getByRole("textbox", { name: "Mention" }) : screen.getByRole(kind === "select" ? "combobox" : "button", { name: kind === "blocker" ? /Blocker/ : "Open" });
 
     if (kind === "tooltip") { fireEvent.pointerOver(trigger, { pointerType: "mouse" }); fireEvent.focus(trigger); }
     else if (kind === "mentions") { trigger.focus(); fireEvent.input(trigger, { target: { value: "@al" } }); }
@@ -87,7 +87,7 @@ it.each(surfaces)("u3295b_a_dialog_closes_outside_floating_controls: %s", async 
   expect(floating()).toBeNull();
   expect(control.picked).not.toHaveBeenCalled();
 
-  if (kind === "mentions") expect(screen.getByRole<HTMLTextAreaElement>("combobox").value).toBe("@al");
+  if (kind === "mentions") expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("@al");
 });
 
 it.each(["menu", "select", "tooltip", "mentions", "blocker"] as const)("u3295b_dialog_owned_controls_still_work: %s", async kind => {
