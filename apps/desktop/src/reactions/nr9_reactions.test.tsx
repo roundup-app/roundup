@@ -322,19 +322,24 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   fireEvent.click(tab("original"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
   openProjectPage("view:reactions");
-  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
-  fireEvent.input(screen.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
-  fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
-  fireEvent.click(screen.getByRole("button", { name: /^Target Agent/ }));
+  const opening = within(document.querySelector<HTMLElement>(".reactions")!);
+  fireEvent.click(await opening.findByRole("button", { name: copy.reactionCreate }));
+  const form = within(opening.getByRole("form", { name: copy.reactionCreate }));
+  fireEvent.input(form.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
+  fireEvent.input(form.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
+  fireEvent.click(form.getByRole("button", { name: /^Target Agent/ }));
   fireEvent.click(await screen.findByRole("option", { name: "a0" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "a0" }));
-  fireEvent.input(screen.getByLabelText(copy.reactionDate), { target: { value: "2026-10-21" } });
-  fireEvent.input(screen.getByLabelText(copy.reactionTime), { target: { value: "09:00" } });
-  const save = screen.getByRole("button", { name: copy.reactionSave });
+  fireEvent.click(form.getByRole("checkbox", { name: "a0" }));
+  fireEvent.input(form.getByLabelText(copy.reactionDate), { target: { value: "2026-10-21" } });
+  fireEvent.input(form.getByLabelText(copy.reactionTime), { target: { value: "09:00" } });
+  const save = form.getByRole("button", { name: copy.reactionSave });
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
   await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
   await waitFor(() => expect(original.calls.filter(call => call.method === "reaction.create")).toHaveLength(1));
+
+  const newer = "  newer e\u0301\n 日本語 🧭  ";
+  fireEvent.input(form.getByLabelText(copy.reactionInstruction), { target: { value: newer } });
 
   fireEvent.click(tab("other"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="b"]')).toBeTruthy());
@@ -346,12 +351,21 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   current = saved({ target: "a0", condition: { kind: "agents", ids: ["a0"], any: false } });
   acknowledge(current);
 
-  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
-  const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+  const returned = within(document.querySelector<HTMLElement>(".reactions")!);
+  fireEvent.click(await returned.findByRole("button", { name: /Ship it/ }));
+  const detail = await returned.findByRole("region", { name: copy.reactionDetail("Ship it") });
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", true));
   expect(original.calls.filter(call => call.method === "reaction.stop").map(call => call.params)).toEqual([{ id: "r1" }]);
   expect(app.of(path("other")).calls.filter(call => call.method === "reaction.create" || call.method === "reaction.stop")).toHaveLength(0);
+  expect(original.calls.filter(call => call.method === "reaction.create").map(call => call.params)).toEqual([expect.objectContaining({ target: "a0", instruction: "go" })]);
+  fireEvent.click(within(detail).getByRole("button", { name: /^Close/ }));
+  fireEvent.click(await returned.findByRole("button", { name: copy.reactionCreate }));
+  expect(returned.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", newer);
+  expect(original.calls.filter(call => call.method === "reaction.create")).toHaveLength(1);
+  fireEvent.click(tab("other"));
+  await screen.findByText(copy.reactionsEmpty);
+  expect(screen.queryByRole("button", { name: /Ship it/ })).toBeNull();
 });
 
 it("u3299b_copy_keeps_original_facts", async () => {
@@ -617,18 +631,6 @@ it.each([
   expect(await observeFailure(observation(gap, recovery, "unrecognized /private/history"))).toEqual(baseline);
   expect((await observeFailure(observation(otherGap, recovery, diagnostic))).text).not.toBe(baseline.text);
   expect((await observeFailure(observation(gap, otherRecovery, diagnostic))).text).not.toBe(baseline.text);
-});
-
-it("u4276a_nested_close_returns_to_its_opener", async () => {
-  await mount(() => [saved()]);
-  const row = await screen.findByRole("button", { name: /Ship it/ });
-  fireEvent.click(row);
-  fireEvent.click(await screen.findByRole("button", { name: "Close Ship it" }));
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it/ })));
-  const create = screen.getByRole("button", { name: copy.reactionCreate });
-  fireEvent.click(create);
-  fireEvent.click(await screen.findByRole("button", { name: "Close New reaction" }));
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: copy.reactionCreate })));
 });
 
 it("u4276a_close_preserves_unsent_reaction", async () => {

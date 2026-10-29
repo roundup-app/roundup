@@ -23,9 +23,19 @@ export const showEverythingInApp = async (_name = /backend/, tab: "Todos" | "Pad
 
   showShelfTab(tab);
 
-  await waitFor(() => {
-    if (!document.querySelector(".shelf [data-shelf-group], .shelf .shelf-done-line, .shelf .empty-state")) throw new Error("Shelf list has not loaded");
+  const panel = await waitFor(() => {
+    const panel = document.querySelector(`.shelf .${tab.toLowerCase()}-tab`);
+
+    if (!panel?.querySelector("[data-shelf-group], .shelf-done-line, .empty-state")) throw new Error("Shelf list has not loaded");
+
+    return panel;
   });
 
-  for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+  for (const control of panel.querySelectorAll<HTMLElement>('[data-shelf-group] [data-part="branch-control"]')) {
+    if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") !== "false") continue;
+    fireEvent.click(control);
+    await waitFor(() => {
+      if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") !== "true") throw new Error("Shelf owner has not opened");
+    });
+  }
 };
