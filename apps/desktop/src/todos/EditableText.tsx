@@ -326,7 +326,7 @@ export const EditableText = (props: {
     >
       {(started) => (<>
         <ReservedLine message={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />
-        <textarea
+        <textarea spellcheck={false} autocorrect="off" autocapitalize="off"
           ref={field(started)}
           aria-label={props.name === "title" ? copy.title : copy.body}
           rows={1}

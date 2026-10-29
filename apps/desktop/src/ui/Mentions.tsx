@@ -37,7 +37,7 @@ const Root = (props: {
 const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onKeyDown"> & { open: boolean; onKey: (event: KeyboardEvent) => void }) => {
   const [local, rest] = splitProps(props, ["open", "onKey"]);
 
-  return <Popover.Anchor><ArkListbox.Input asChild={(input) => <textarea {...input()} {...rest}
+  return <Popover.Anchor><ArkListbox.Input asChild={(input) => <textarea {...input()} {...rest} spellcheck={false} autocorrect="off" autocapitalize="off"
     aria-controls={local.open ? input()["aria-controls"] : undefined}
     aria-activedescendant={local.open ? input()["aria-activedescendant"] : undefined}
     onKeyDown={(event) => {

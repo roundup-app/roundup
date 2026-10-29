@@ -57,7 +57,7 @@ export const CapturePanel = (props: { port: CapturePort }) => {
   return <section class="capture capture-native" aria-label={copy.captureLabel} onKeyDown={event => {
     if (event.key === "Escape") { event.preventDefault(); dismiss(); }
   }}>
-    <textarea ref={input} class="capture-field" rows={1} aria-label={copy.captureLabel} placeholder={copy.capturePlaceholder} value={text()}
+    <textarea spellcheck={false} autocorrect="off" autocapitalize="off" ref={input} class="capture-field" rows={1} aria-label={copy.captureLabel} placeholder={copy.capturePlaceholder} value={text()}
       onInput={event => {
         setText(event.currentTarget.value);
         const current = state();
