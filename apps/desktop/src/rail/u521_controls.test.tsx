@@ -1,3 +1,4 @@
+import { fakeEmulators } from "../terminal/paneHarness";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { copy } from "../copy";
@@ -53,7 +54,7 @@ it("u521_shortcuts_follow_focus", async () => {
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["rail.tree"] = () => [workstream("g"), agent("a", "idle", "x", { parent: "g" })];
   app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting", { parent: "g" });
-  render(() => <App app={app} reducedMotion={() => false} clock={() => 0} />);
+  render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await waitFor(() => rowOf("a"));
 
   // Rail focus: the registry selects the Rail's ⌘N.
