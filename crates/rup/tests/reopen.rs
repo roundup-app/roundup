@@ -11,7 +11,7 @@ use contracts::Kind;
 use contracts::agent::RailNode;
 use serde_json::{Value, json};
 
-use daemon::{rail_tree, signal, wait_until_idle};
+use daemon::{rail_tree, wait_until_idle};
 
 /// U4547e, A12a, D6: a moved running Agent survives a killed Daemon with its identity, parent and
 /// one running Terminal, and its retained hooks still reach the reopened Project.
@@ -19,7 +19,14 @@ use daemon::{rail_tree, signal, wait_until_idle};
 async fn u4547e_reparenting_survives_reopen() {
     let owner = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner");
     assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
-    let fake = [("RUPD_TERMINAL_OWNER", owner.to_str().unwrap())];
+    let logs = tempfile::tempdir().unwrap();
+    let launches = logs.path().join("launches");
+    let inputs = logs.path().join("inputs");
+    let fake = [
+        ("RUPD_TERMINAL_OWNER", owner.to_str().unwrap()),
+        ("FAKE_CLAUDE_LAUNCH_LOG", launches.to_str().unwrap()),
+        ("FAKE_CLAUDE_INPUT_LOG", inputs.to_str().unwrap()),
+    ];
     let mut project = daemon::start(&fake);
     let c = project.client().await;
     let workstream: RailNode = serde_json::from_value(
@@ -46,6 +53,7 @@ async fn u4547e_reparenting_survives_reopen() {
     )
     .await
     .unwrap();
+    let mut events = project.subscribed().await;
     let into_workstream = project.spawn_agent(&c).await;
     let into_mode = project.spawn_agent(&c).await;
     for (id, parent) in [
@@ -56,11 +64,7 @@ async fn u4547e_reparenting_survives_reopen() {
             .await
             .unwrap();
     }
-    let mut events = project.subscribed().await;
     let ids = [into_workstream.id.clone(), into_mode.id.clone()];
-    for id in &ids {
-        signal(&c, id, json!({ "hook_event_name": "SessionStart" })).await;
-    }
     wait_until_idle(
         &mut events,
         &ids,
@@ -69,6 +73,8 @@ async fn u4547e_reparenting_survives_reopen() {
     .await
     .unwrap();
     let before = rail_tree(&c).await;
+    let original: Vec<contracts::terminal::TerminalInfo> =
+        serde_json::from_value(c.request("terminal.list", Value::Null).await.unwrap()).unwrap();
     drop(c);
 
     project.restart(&fake);
@@ -91,4 +97,74 @@ async fn u4547e_reparenting_survives_reopen() {
     let listed: Vec<contracts::terminal::TerminalInfo> =
         serde_json::from_value(c.request("terminal.list", Value::Null).await.unwrap()).unwrap();
     assert_eq!(listed.iter().filter(|t| t.running).count(), 2);
+    for was in original {
+        let now = listed
+            .iter()
+            .find(|t| t.incarnation == was.incarnation)
+            .unwrap();
+        assert_eq!(now.program_pid, was.program_pid, "same original program");
+    }
+    assert_eq!(
+        std::fs::read_to_string(launches).unwrap().lines().count(),
+        2
+    );
+    assert!(!inputs.exists(), "move and reopen type no prompt");
+}
+
+/// D1/D5/S3, A12a: App exit stops independently owned programs, including recovered ones.
+#[tokio::test]
+async fn d5_attached_shutdown_stops_owner_held_agents_after_reopen() {
+    let owner = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner");
+    assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
+    for reopen in [false, true] {
+        let logs = tempfile::tempdir().unwrap();
+        let child = logs.path().join("child");
+        let script = logs.path().join("child.sh");
+        std::fs::write(
+            &script,
+            format!("echo $$ > '{}'; exec sleep 1000\n", child.display()),
+        )
+        .unwrap();
+        let argv = serde_json::to_string(&["sh", script.to_str().unwrap()]).unwrap();
+        let fake = [
+            ("RUPD_TERMINAL_OWNER", owner.to_str().unwrap()),
+            ("FAKE_CLAUDE_CHILD_PROCESS", argv.as_str()),
+        ];
+        let mut project = daemon::start(&fake);
+        let c = project.client().await;
+        project.spawn_agent(&c).await;
+        let child_pid = daemon::h21_poll("the Agent's child PID", async || {
+            std::fs::read_to_string(&child)
+                .ok()?
+                .trim()
+                .parse::<u32>()
+                .ok()
+        })
+        .await;
+        let listed: Vec<contracts::terminal::TerminalInfo> =
+            serde_json::from_value(c.request("terminal.list", Value::Null).await.unwrap()).unwrap();
+        let pid = listed[0].program_pid.unwrap();
+        drop(c);
+        if reopen {
+            project.restart(&fake);
+        }
+        assert!(alive(pid), "original Agent is live before App exit");
+        assert!(alive(child_pid), "its child is live before App exit");
+        project.close().await;
+        for pid in [pid, child_pid] {
+            assert!(
+                !alive(pid),
+                "program {pid} outlived attached shutdown (reopen={reopen})"
+            );
+        }
+    }
+}
+
+fn alive(pid: u32) -> bool {
+    std::process::Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .stderr(std::process::Stdio::null())
+        .status()
+        .unwrap()
+        .success()
 }
