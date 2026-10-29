@@ -1,7 +1,8 @@
 import { batch } from "solid-js";
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { Layout } from "../app/Layout";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
@@ -264,4 +265,24 @@ describe("u370 the Shelf closes and opens", () => {
     expect(shelf().getAttribute("data-animated")).toBe("false");
   });
 
+});
+
+describe("u371 the Shelf selects its mode at the centre minimum", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([[387, "overlay"], [388, "reserved"], [389, "reserved"]] as const)("u371_minimum_pane_width_selects_the_mode_%i", (available, mode) => {
+    // jsdom has no layout engine; supply the measured window and panel widths.
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(480 + 560 + available);
+    const style = window.getComputedStyle;
+    vi.spyOn(window, "getComputedStyle").mockImplementation(element => {
+      const computed = style(element);
+      vi.spyOn(computed, "getPropertyValue").mockImplementation(name => ({ "--rail-width": "480px", "--shelf-span": "560px", "--centre-min-width": "388px" })[name] ?? "");
+
+      return computed;
+    });
+
+    render(() => <Layout header={null} rail={null} centre={null} shelf={null} overlay={null} />);
+
+    expect(document.querySelector(".window")?.getAttribute("data-shelf-mode")).toBe(mode);
+  });
 });
