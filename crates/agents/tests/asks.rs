@@ -1,5 +1,7 @@
 #[path = "asks/placement.rs"]
 mod placement;
+#[path = "asks/readiness.rs"]
+mod readiness;
 #[path = "asks/submission.rs"]
 mod submission;
 
@@ -166,11 +168,17 @@ impl DoorHarness {
         Self::open_with_bound(dir, ASK_BOUND)
     }
     fn open_with_bound(dir: &std::path::Path, bound: Duration) -> Self {
+        Self::open_with_program(dir, bound, None)
+    }
+    fn open_with_program(dir: &std::path::Path, bound: Duration, program: Option<&str>) -> Self {
         use std::os::unix::fs::PermissionsExt;
         let bin = dir.join("program");
         let rup = dir.join("rup");
         std::fs::write(&rup, "").unwrap();
         std::fs::write(&bin,"#!/bin/sh\nif [ \"$1\" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nstty raw -echo\nprintf '\\033]0;✳ Claude Code\\007'\nexec cat >/dev/null\n").unwrap();
+        if let Some(program) = program {
+            std::fs::write(&bin, program).unwrap();
+        }
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         let bus = Bus::new();
         let (tx, bytes) = mpsc::unbounded_channel();
@@ -459,7 +467,7 @@ async fn a41_a_stopped_door_is_started_first() {
 #[tokio::test]
 async fn a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone() {
     let dir = tempfile::tempdir().unwrap();
-    let mut f = DoorHarness::open(dir.path());
+    let mut f = DoorHarness::open_with_program(dir.path(), ASK_BOUND, Some(readiness::PROGRAM));
     let mut events = f.h.ctx.bus.subscribe();
     let ask = f.h.send("/skill café").await;
     f.h.calls
@@ -490,6 +498,7 @@ async fn a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone() {
             }
         }
     };
+    readiness::star(&f, dir.path(), &id).await;
     f.signal(&id, "SessionStart").await;
     assert_eq!(f.read().await, paste("/skill café"));
     f.signal(&id, "UserPromptSubmit").await;

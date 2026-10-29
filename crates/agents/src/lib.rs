@@ -325,8 +325,8 @@ struct Run {
     first_completion: Option<tokio::sync::watch::Sender<Option<FirstSteerCompletion>>>,
     /// Retained after the first Steer acknowledgement so a dropped coordinator can retry.
     first_prompt: Option<FirstPrompt>,
-    /// H19: the first `SessionStart` Signal has arrived.
-    session_started: bool,
+    /// H19: when the first `SessionStart` arrived; repeats cannot extend the Ask wait.
+    session_started: Option<tokio::time::Instant>,
     /// H19: the first title with the star glyph has arrived.
     starred: bool,
     /// H11: the Steer awaiting submission or local-command acceptance.
@@ -408,6 +408,8 @@ struct SteerWait {
 }
 
 struct PromptRecord {
+    /// H4612a: fence the new Door's typed Ask and admit it only after H19 readiness.
+    attempt: Option<String>,
     revision: Option<String>,
     written: Option<SteerEffect>,
 }

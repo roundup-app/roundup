@@ -338,7 +338,8 @@ impl Shared {
             if claude_code::is_session_start(payload));
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
         if session_start {
-            run.session_started = true;
+            run.session_started
+                .get_or_insert_with(tokio::time::Instant::now);
         }
         if star {
             run.starred = true;
@@ -488,7 +489,7 @@ impl Shared {
             }
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
-        let prompt = run.prompt.take_if(|_| run.session_started);
+        let prompt = run.prompt.take_if(|_| run.session_started.is_some());
         Ok((prompt, run.adapter.tick_at()))
     }
 }
