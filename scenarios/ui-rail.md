@@ -142,7 +142,7 @@ Observer: Vitest `u403_` cases against the fake App; the harness measures the bo
 
 - **No Live line, no age.** No `.live`, `.live-age` or `.value` element is rendered in any Rail row, and the row's `title` holds the full Status label as U49 keeps it. `elapsed` (`apps/desktop/src/ink/elapsed.ts:7`), `liveLineOf`'s age (`apps/desktop/src/rail/liveLine.ts:11-12`) and the `.live-age` and `.value` rules (`apps/desktop/src/rail/styles.css:154,189`) are deleted once nothing calls them. Test: `u404_a_row_draws_no_live_line_or_age`, `u404_the_title_keeps_the_status_label`.
 - **Name.** The name is regular weight; a `needs-you` or `error` row keeps that weight and shows its Kind by colour alone (amended: Ink never changes weight). Test: `u404_ink_rows_carry_their_tone`.
-- **Item control.** Retired by U4457: no Agent-specific Pad control or item leaves (policy).
+- **Item control.** U4457 removes the Pad contribution and all item leaves; preserve the existing Todo-only opener for Todos created by the Agent (policy).
 - **Selection.** The selected row keeps its `--selected` band and its 2 px `--accent` bar. Test: `u404_selection_keeps_the_band_and_bar`.
 - **Unmoved.** Hovering, selecting, folding and unfolding move no row's top edge or height (U46's geometry clause, now without a Live line to show), rows stay 28 px (U131), the name is cut with `…` only when it alone does not fit (U23), and the contrast of every word in the Rail stays 4.5:1 (D5, U87 minus the Live line). Test: `u404_no_state_moves_a_row`.
 
