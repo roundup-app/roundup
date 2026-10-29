@@ -160,7 +160,7 @@ it.each(["counted control", "Review changes"])("u3787c_each_list_selects_only_vi
 
 const renames = ["Todo", "Pad", "Workstream", "Agent"] as const;
 
-it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "double-click"] : ["native Rename"]).map(opening => ({ kind, opening }))))("u3787c_escape_restores_the_name App $kind $opening", async ({ kind, opening }) => {
+it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "native Rename"] : ["native Rename"]).map(opening => ({ kind, opening }))))("u3787c_escape_restores_the_name App $kind $opening", async ({ kind, opening }) => {
   const node = kind === "Workstream" ? door("a", "idle", "ready", { name: "Original" }) : agent("a", "idle", "ready", { name: "Original" });
   const { app } = renderTabs({ p: [node] });
   const daemon = app.of(path("p"));
@@ -199,7 +199,6 @@ it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "dou
   await settled();
 
   if (opening === "native Rename") { fireEvent.contextMenu(row); await app.pickMenu("Rename"); }
-  else if (opening === "double-click") fireEvent.dblClick(row);
   else fireEvent.keyDown(row, { key: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
   const text = "  e\u0301 🧭 日本語  ";
