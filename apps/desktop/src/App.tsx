@@ -22,7 +22,7 @@ import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
-import type { App as AppCalls, DaemonExit } from "./app/seam";
+import type { App as AppCalls, DaemonExit, MenuItem } from "./app/seam";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -462,7 +462,7 @@ export const App = (props: {
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -476,7 +476,11 @@ export const App = (props: {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
         const action = actions.find(action => action.value === id && action.available());
 
-        return { id, label: row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" ? "navigate" as const : "create" as const, shortcut: "press" in row ? `⌘K ${row.keys}` : row.keys, enabled: (available || row.keys === "⌘O") && action !== undefined };
+        const item: MenuItem = { id, label: row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
+
+        if (!("inRail" in row && row.inRail && row.keys === "R")) item.shortcut = "press" in row ? `⌘K ${row.keys}` : row.keys;
+
+        return item;
       }),
     ].filter(item => item.enabled);
   });
