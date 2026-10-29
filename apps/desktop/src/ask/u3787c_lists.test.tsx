@@ -114,11 +114,12 @@ it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening",
 
   if (command !== "view:made") openProjectPage("view:made", "/p");
   await screen.findByRole("region", { name: "Made" });
+  expect(document.querySelector(".project-overview")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Close Made" }));
   await waitFor(() => expect(document.querySelector(".made")).toBeNull());
 
   if (command === "view:made") openProjectPage("view:made", "/p");
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
-  expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)])).toEqual(command === "view:made" ? [] : [rows[1]]);
+  expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)])).toEqual([]);
   expect(app.openedTargets).toEqual([]);
 });
