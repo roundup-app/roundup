@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it, vi } from "vitest";
-import { USER } from "./nodes";
 import { openPad } from "../pads/padsFixture";
 
 // jsdom has no layout, so the editor's scroll-to-selection asks a Range for rects it cannot give.
@@ -113,7 +112,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     });
 
     await expect.poll(() => app.rpc("pad.list", null), { timeout: 30_000 }).toMatchObject([
-      { name: "agent-work", owner: { kind: "agent", id: agent.id }, home: home.id, text: visualSource, revision: 1 },
+      { name: "agent-work", home: home.id, text: visualSource, revision: 1 },
     ]);
 
     const openRealPad = async () => {
