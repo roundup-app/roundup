@@ -28,9 +28,9 @@ Each named observer below is a planned behavioral test, not an existing test cla
 
 Cost observer (TC1): `dv2_publish_failures` retains the real Project Daemon publication boundary and on-disk payloads: the stale-revision, file-size and aggregate-quota refusals must leave the public listing intact after actual publication transactions, not merely pass a size predicate. All 32 actual 32 MiB publications remain on disk; exact 1 GiB equality and refusal are observed through the public Daemon. R3778d retains this production observer; a lowered-quota fixture cannot replace it.
 
-**Pad source** (`PadSource`, `source`): One creation of a Pad, identified by a Project-scoped never-reused **incarnation**, together with its current text and Revision. Its identity survives edits, ownership and Home changes; another creation with the same name is another source.
+**Pad source** (`PadSource`, `source`): One creation of a Pad, identified by a Project-scoped never-reused **incarnation**, together with its current text and Revision. Its identity survives edits and Home changes; another creation with the same name is another source.
 
-**Pad incarnation** (`incarnation`, `expectedIncarnation`, `expected_incarnation`): The Pad source creation identity exposed as an opaque string in every public Pad result. It survives edits, ownership/Home changes and restart. Retain it with the original Project and content Revision. `pad.write` checks a supplied incarnation and `expectedRevision` in its write transaction: replacement is `CONFLICT`, absence is `NOT_FOUND`, and refusal changes no text, mirror, Touch or Event. Omitting the incarnation keeps current-content-by-name semantics. Incarnations can be equal in different Projects.
+**Pad incarnation** (`incarnation`, `expectedIncarnation`, `expected_incarnation`): The Pad source creation identity exposed as an opaque string in every public Pad result. It survives edits/Home changes and restart. Retain it with the original Project and content Revision. `pad.write` checks a supplied incarnation and `expectedRevision` in its write transaction: replacement is `CONFLICT`, absence is `NOT_FOUND`, and refusal changes no text, mirror, Touch or Event. Omitting the incarnation keeps current-content-by-name semantics. Incarnations can be equal in different Projects.
 
 **Published target** (`PublishedTarget`, `ExternalAvailability`): The retained target identity of a Deliverable: local bytes with length and SHA-256, a Pad source incarnation and Revision, or an exact external URL whose availability is not checked.
 
@@ -38,7 +38,7 @@ Cost observer (TC1): `dv2_publish_failures` retains the real Project Daemon publ
 
 **Pad source state** (`PadSourceState`, `source_state`): The live Pad source, its recorded deletion, or an unknown incarnation; an unknown source grants no authority to a same-named Pad.
 
-**Pad deletion** (`PadDeletion`): The cause recorded when a Pad source ends: explicit deletion by the user, deletion by its owner, or cleanup (including Workstream removal and archival). Cleanup alone is not explicit source revocation.
+**Pad deletion** (`PadDeletion`): The cause recorded when a Pad source ends: explicit deletion by the user, deletion by an Agent, or cleanup (including Workstream removal and archival). Cleanup alone is not explicit source revocation.
 
 **Resolution** (`Resolution`, `UnavailableCause`): The exact retained target or an explicit cause preventing its use. Missing or corrupt revisions and revoked access never authorize substitution by a current path, title or same-named Pad.
 

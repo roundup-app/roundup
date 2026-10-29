@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -9,7 +10,7 @@ import { RpcError } from "../app/seam";
 import { askToDelete } from "./bulkQuestionHarness";
 import { todo } from "../todos/testHarness";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 it("u460_pending_delete_stays_with_its_project", async () => {
   const { app } = seedApp("empty-project", 0);
