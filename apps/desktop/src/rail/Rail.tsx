@@ -471,15 +471,22 @@ export const Rail = () => {
 
       guarded(async () => {
         const focus = captureFocus(true);
+        let prepared: Awaited<ReturnType<NonNullable<typeof rail.prepareTerminal>>> | undefined;
 
         try {
-          const spawned = await app.rpc("agent.spawn", params);
+          prepared = await rail.prepareTerminal?.();
+          const spawned = await app.rpc("agent.spawn", { ...params, ...prepared?.size });
+
+          if (spawned.terminal_id) prepared?.bind(spawned.terminal_id);
+          await rail.refresh();
           failure.acknowledge(null);
           setWanted({ id: spawned.id, focus });
         } catch (error) {
           if (!(error instanceof Error)) throw error;
+
+          if (error.name === "AbortError") return;
           failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
-        }
+        } finally { prepared?.dispose(); }
       });
     };
 
@@ -559,7 +566,15 @@ export const Rail = () => {
       try {
         if (door !== null) await app.rpc("message.send", { to: door, kind: "note", body: prompt!, replyTo: null });
         else {
-          spawned = (await app.rpc("agent.spawn", { cwd: project.path, prompt, parent: originalParent, model: null, effort: null })).id;
+          const prepared = await rail.prepareTerminal?.();
+
+          try {
+            const node = await app.rpc("agent.spawn", { cwd: project.path, prompt, parent: originalParent, model: null, effort: null, ...prepared?.size });
+
+            if (node.terminal_id) prepared?.bind(node.terminal_id);
+            spawned = node.id;
+            await rail.refresh();
+          } finally { prepared?.dispose(); }
         }
 
         const latest = task()?.revision === revision.revision;
@@ -575,6 +590,8 @@ export const Rail = () => {
         retained.settle(revision.revision, outcome);
 
         if (!(error instanceof Error)) throw error;
+
+        if (error.name === "AbortError") return;
         failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", () => {
           const saved = retained.records().find(entry => entry.revision === revision.revision);
 

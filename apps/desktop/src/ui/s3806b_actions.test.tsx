@@ -3,6 +3,8 @@ import { afterEach, expect, it } from "vitest";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { RpcError } from "../app/seam";
 import { questionProbe } from "../testing/menuProbe";
+import type { OpenParams } from "@contracts/terminal/OpenParams";
+import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { FakeApp } from "../testing/fakeApp";
 import { Rail } from "../rail/Rail";
@@ -40,7 +42,7 @@ type Row = {
   selected: string;
   origin: string;
   method: string;
-  params: unknown;
+  params: SpawnParams | OpenParams | { id: string };
   /** Installs the pending handler for this row's method; `entered` runs as the call arrives. */
   hold: (app: FakeApp, entered: () => void) => Pending;
   confirms: boolean;
@@ -219,7 +221,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
   await waitFor(() => expect(ofMethod()).toHaveLength(1));
   expect(trace).toEqual(row.confirms ? ["question:closed", `${row.method}:closed`] : [`${row.method}:closed`]);
-  expect(ofMethod().map((call) => call.params)).toEqual([row.params]);
+  const visibleParams = row.method === "agent.spawn" || row.method === "terminal.open" ? { ...row.params, cols: 100, rows: 30 } : row.params;
+  expect(ofMethod().map((call) => call.params)).toEqual([visibleParams]);
   await waitFor(() => expect(field()).toBeNull());
 
   const queryDraft = connected.drafts.list().filter(entry => entry.destination.surface === "switcher");
@@ -273,7 +276,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(ofMethod()).toHaveLength(1);
       await answerQuestion(true);
       await waitFor(() => expect(ofMethod()).toHaveLength(2));
-      expect(ofMethod().map(call => call.params)).toEqual([row.params, row.params]);
+      expect(ofMethod().map(call => call.params)).toEqual([visibleParams, row.params]);
     }
 
     expect(connected.drafts.list()).toEqual(drafts);
@@ -369,7 +372,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       }
 
       await waitFor(() => expect(ofMethod()).toHaveLength(2));
-      expect(ofMethod().map(call => call.params)).toEqual([row.params, row.params]);
+      // App recovery remounts its Pane; a standalone Rail retry remains hostless.
+      expect(ofMethod().map(call => call.params)).toEqual([visibleParams, row.owner === "App" ? visibleParams : row.params]);
       await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
 
       if (submitted) {

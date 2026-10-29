@@ -124,9 +124,9 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(document.querySelector(".drawer .close")!);
   fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
-  await waitFor(() => expect(document.querySelector('.bubble:not([hidden])')).not.toBeNull());
+  await waitFor(() => expect(document.querySelector('.bubble:not([hidden]) [data-terminal]')).not.toBeNull());
   expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(document.querySelector('.bubble [aria-label="Minimise"]')!);
+  fireEvent.click(await within(document.querySelector<HTMLElement>('.bubble:not([hidden])')!).findByRole("button", { name: "Minimise" }));
   fireEvent.click(rowOf("agent-1"));
   expect(screen.getByRole("region", { name: heading })).toBe(page);
 

@@ -281,7 +281,7 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
   // U467: the started Door's own Terminal fills the centre.
   await waitFor(() => expect(document.querySelector(".pane-screen")?.hasAttribute("hidden")).toBe(false));
   expect(railCallsTo(mounted.app, "rail.createWorkstream")).toHaveLength(1);
-  expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{id:"actual"},{id:"actual"}]);
+  expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "actual", cols: 100, rows: 30 }, { id: "actual", cols: 100, rows: 30 }]);
 });
 
 it("u9_selecting_a_reopened_workstream_offers_start_without_launching", async () => {
