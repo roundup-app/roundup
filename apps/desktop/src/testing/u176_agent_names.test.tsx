@@ -266,6 +266,7 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
       await lane.browser("open", url);
       await lane.until(`!!document.querySelector('[data-id="${target.id}"] .name')`);
       // U4707: hover icons overlay the name's middle, so select by the name's first pixels.
+      // SAFETY: the evaluated expression returns an object with numeric x and y.
       const point = await lane.evaluate(`(() => { const box = document.querySelector('.rail-row[data-id="${target.id}"] .name').getBoundingClientRect(); return {x:box.x + 4,y:box.y + box.height / 2}; })()`) as {x:number;y:number};
       await lane.browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
       await lane.browser("mouse", "down");
