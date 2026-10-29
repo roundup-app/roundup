@@ -222,6 +222,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Daemon | same | — |
+| Naming settings (`NamingSettings`, `daemon.getNaming`, `daemon.setNaming`, `automatic_renaming`, `with_automatic_renaming`, `naming_guide`) | Automatic renaming, Naming guide | — |
 | Link (`link.read`) | same | — |
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |
