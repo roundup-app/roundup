@@ -74,6 +74,11 @@ pub fn spawn(
         command.arg("--attached").stdin(Stdio::piped());
     }
     configure(&mut command);
+    let socket = command
+        .get_envs()
+        .find_map(|(key, value)| (key == "RUPD_SOCKET").then_some(value).flatten())
+        .map(PathBuf::from)
+        .expect("the harness sets RUPD_SOCKET");
     // Only an override supplied by this caller survives; inherited App redirection does not.
     let supplied = command
         .get_envs()
