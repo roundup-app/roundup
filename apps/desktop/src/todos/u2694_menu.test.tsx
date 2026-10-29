@@ -17,7 +17,7 @@ it("u2694a_each_object_builds_its_items_todo", async () => {
 
   fireEvent.contextMenu(await rowOf("session store"), { clientX: 10, clientY: 10 });
 
-  expect(app.shownMenus.at(-1)!.items.map(item => [item.id, item.group])).toEqual([["open", "0"], ["complete", "3"], ["copy-link", "4"], ["assign", "5"], ["move", "5"], ["delete", "7"]]);
+  expect(app.shownMenus.at(-1)!.items.map(item => [item.id, item.group])).toEqual([["open", "0"], ["complete", "3"], ["copy-link", "4"], ["rename", "5"], ["assign", "5"], ["move", "5"], ["delete", "7"]]);
   await app.pickMenu("Delete");
   await waitFor(() => expect(callsTo(app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }]));
   expect(questionProbe.count).toBe(0);

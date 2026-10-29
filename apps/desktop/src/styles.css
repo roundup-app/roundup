@@ -249,6 +249,7 @@ p {
 
 .drawer {
   --drawer-right: 0rem;
+  --drawer-bottom: var(--length-zero);
   display: flex;
   flex-direction: column;
   width: var(--drawer-span);
@@ -275,6 +276,7 @@ p {
 .window[data-shelf-mode="reserved"][data-shelf-shown="true"]:not([data-shelf-maximised="true"]) { --fill-reserve: var(--shelf-span); }
 .drawer[data-fill="true"] {
   --drawer-right: var(--fill-reserve);
+  --drawer-bottom: var(--rail-actions-height);
   width: calc(100% - var(--fill-rail) - var(--fill-reserve));
 }
 
@@ -354,7 +356,7 @@ p {
   top: var(--space-2);
 }
 
-.drawer[data-maximised="true"] :is(.pad-editor, .todo-detail) {
+.drawer[data-maximised="true"] .todo-detail {
   width: min(100%, var(--measure));
   align-self: center;
 }

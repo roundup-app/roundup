@@ -7,14 +7,17 @@ import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
-import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
+import { createContext, createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
+import { Portal } from "solid-js/web";
 import { Icon } from "../ink/Icon";
 import { DRAWER_EASING, fillsCentre } from "./drawer";
 import { createMaximiseSlide, createSlideLifetime } from "../ui/slideLifetime";
 import { setDrawerSliding } from "./sliding";
 import type { ActivationSource } from "../keys/registry";
 import type { DrawerContent, DrawerState } from "./drawer";
+
+export const DrawerExpandContext = createContext<(host: HTMLElement | undefined) => void>();
 
 /**
  * An overlay: absolutely positioned over the Shelf, at the window's right edge. The centre narrows by the
@@ -34,6 +37,14 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
     if (host && left !== undefined && source !== "key") maximiseSlide.start(left - host.getBoundingClientRect().left);
   };
+
+  const [expandHost, setExpandHost] = createSignal<HTMLElement>();
+
+  const expand = () => (
+    <IconButton chord={CHORDS.find(row => row.keys === "M")} aria-label={frame.maximised() ? copy.restore : copy.maximise} onClick={event => toggleMaximise(activationSource(event))}>
+      <Show when={frame.maximised()} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>
+    </IconButton>
+  );
 
   const [edgeHovered, setEdgeHovered] = createSignal(false);
   const isOpen = () => props.drawer.content() !== null;
@@ -147,22 +158,20 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         position: "absolute",
         top: "0",
         right: "var(--drawer-right)",
-        bottom: "0",
+        bottom: "var(--drawer-bottom)",
         transform: isOpen() ? "translateX(0)" : "translateX(calc(100% + var(--drawer-right)))",
         transition: instant() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
       }}
 
     >
       <div class="drawer-controls">
-        <IconButton chord={CHORDS.find(row => row.keys === "M")} aria-label={frame.maximised() ? copy.restore : copy.maximise} onClick={event => toggleMaximise(activationSource(event))}>
-          <Show when={frame.maximised()} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>
-        </IconButton>
+        <Show when={expandHost()} fallback={expand()}>{target => <Portal mount={target()}><div class="pad-toolbar-expand">{expand()}</div></Portal>}</Show>
         <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
           <Icon name="x" />
         </IconButton>
       </div>
       <Show when={mounted()} keyed>
-        {(content) => content()}
+        {(content) => <DrawerExpandContext.Provider value={setExpandHost}>{content()}</DrawerExpandContext.Provider>}
       </Show>
     </aside>
   );

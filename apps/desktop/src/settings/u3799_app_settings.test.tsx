@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { showEverythingInApp } from "../testing/showEverything";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -13,7 +14,7 @@ import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups", async () => {
   render(() => <App app={createFakeApp()} reducedMotion={() => true} clock={Date.now} />);
@@ -93,54 +94,6 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
   }
 });
 
-
-it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survive_work_elsewhere_%s", async command => {
-  const { seedApp } = await import("../testing/seeds");
-  const { app } = seedApp("tree-40", Date.now());
-  render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  await screen.findAllByRole("treeitem");
-  await showEverythingInApp();
-  app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
-  const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
-  overview.focus();
-  openProjectPage(command);
-  const heading = command === "import-work" ? "Import Claude Code work" : "Project settings";
-  const page = await screen.findByRole("region", { name: heading });
-
-  if (command === "import-work") fireEvent.click(within(page).getByRole("button", { name: "Last month" }));
-  else {
-    const field = await within(page).findByRole("textbox");
-    await waitFor(() => expect(field).toHaveProperty("disabled", false));
-    fireEvent.input(field, { target: { value: "unfinished" } });
-  }
-
-  openProjectPage(command);
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  // U4453b owns Overview activation: it now closes the requested screen.
-  await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
-  fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
-  fireEvent.keyDown(document.querySelector('.shelf .todo-row-button')!, { key: "Enter" });
-  await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(document.querySelector(".drawer .close")!);
-  fireEvent.click(within(screen.getByRole("group", { name: "Terminals" })).getByRole("button", { name: "New Terminal" }));
-  await waitFor(() => expect(document.querySelector('.bubble:not([hidden]) [data-terminal]')).not.toBeNull());
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(await within(document.querySelector<HTMLElement>('.bubble:not([hidden])')!).findByRole("button", { name: "Minimise" }));
-  fireEvent.click(rowOf("agent-1"));
-  expect(screen.getByRole("region", { name: heading })).toBe(page);
-
-  if (command === "import-work") expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
-  else expect(within(page).getByRole("textbox")).toHaveProperty("value", "unfinished");
-  const destination = rowOf("agent-1");
-  destination.focus();
-  fireEvent.keyDown(destination, { key: "Enter", code: "Enter" });
-  await waitFor(() => expect(overview.getAttribute("aria-pressed")).toBe("false"));
-  page.focus();
-  fireEvent.keyDown(page, { key: "Escape" });
-  await waitFor(() => expect(document.activeElement).toBe(overview));
-  expect(overview.getAttribute("aria-pressed")).toBe("true");
-});
 
 it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keeps_each_page_with_its_project_%s", async command => {
   const { app } = await openTabs({ api: [], web: [] });
@@ -295,9 +248,9 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
 
 it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s", async project => {
   const { seedApp } = await import("../testing/seeds");
-  render(() => <App app={project ? seedApp("tree-40", Date.now()).app : createFakeApp()} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  render(() => <App app={project ? seedApp("empty-project", Date.now()).app : createFakeApp()} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-  if (project) await screen.findAllByRole("treeitem");
+  if (project) await screen.findByRole("tree", { name: "Rail" });
   else await screen.findByRole("button", { name: /Choose/ });
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });

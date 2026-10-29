@@ -25,7 +25,7 @@ describe("u431 the Drawer's head", () => {
     await openPad("auth-notes");
 
     const buttons = await waitFor(() => {
-      const found = [...document.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar button")];
+      const found = [...document.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item, .milkdown-top-bar .top-bar-heading-button")];
 
       expect(found.length).toBeGreaterThan(0);
 
