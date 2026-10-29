@@ -43,3 +43,22 @@ retains its existing single-line truncation. `made-controls` and
 
 Validation: the existing 107 vector/name/shape and U6/U9/U15/U20/U80 behavioral
 cases pass. Appearance is reviewed from the captures, not asserted by tests.
+
+## Remaining verification
+
+Observed UI source head: `c6eb6e5a06ff278747199ae968b0aca7a0dc3fab`;
+`c5092c678` repairs only capture readiness.
+
+The paired readings expose a D8/D10 conflict in Shelf-bearing views:
+`testing/designChecks.ts`, `rowAlignmentCheck`, still rejects the painted
+Glyph's bottom edge more than 1 px from the font baseline. U86 explicitly
+supersedes that vertical clause with critic-only x-height centring; the
+horizontal inset clause remains required. Resolve this obsolete vertical
+observer under U86, retaining its inset check, and regenerate paired readings.
+Do not restore per-surface compensation or claim the current delta passes.
+
+The broad related-source run and final `just ready` were still running when
+this report was written. The 107 focused behavioral proofs pass; those runs
+and a complete independent optical inventory verdict are required before
+closing #4922. WorkProgress result-state pairs and per-control state coverage
+also need completing; existing conflict captures do not show those results.
