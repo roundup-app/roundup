@@ -42,7 +42,7 @@ type Row = {
   selected: string;
   origin: string;
   method: string;
-  params: SpawnParams | OpenParams | { id: string };
+  params: SpawnParams | OpenParams | { id: string } | undefined;
   /** Installs the pending handler for this row's method; `entered` runs as the call arrives. */
   hold: (app: FakeApp, entered: () => void) => Pending;
   confirms: boolean;
