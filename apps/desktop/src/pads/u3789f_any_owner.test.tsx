@@ -53,3 +53,12 @@ it("u3789f_the_user_edits_an_agent_owned_pad_and_todo", async () => {
 
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1));
 });
+
+it("u3789f_the_user_opens_any_owners_item_every_way", async () => {
+  await openShelf([padOf("notes", AGENT, "a")]);
+
+  fireEvent.keyDown(await screen.findByRole("button", { name: "notes" }), { key: "Enter" });
+
+  await screen.findByRole("textbox", { name: "Pad body" }, { timeout: 5000 });
+  expect(screen.queryByText(/failed/i)).toBeNull();
+});
