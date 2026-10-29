@@ -1,4 +1,4 @@
-import { createMemo, createSignal, createEffect, onCleanup } from "solid-js";
+import { createMemo, createSignal, createEffect, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import { outcomeOf } from "../app/seam";
 import { copy } from "../copy";
@@ -16,7 +16,7 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
   const [restarting, setRestarting] = createSignal(false);
   const [restartRequest, setRestartRequest] = createSignal<string | null>(null);
   const { drafts } = connected;
-  drafts.validate("opening-prompt", v.strictObject({ text: v.string() }));
+  drafts.validate("opening-prompt", v.strictObject({ text: v.string(), base: v.optional(v.string()) }));
   drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "workstream" && node.id === draft.destination.object) ? "available" : "unavailable");
   const destination = () => ({ surface: "opening-prompt", object: props.id, recipient: null });
   const draft = () => drafts.list().filter(record => record.destination.surface === "opening-prompt" && record.destination.object === props.id).at(-1);
@@ -84,10 +84,11 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
       <Dialog.Title>{copy.openingPromptFor(current()?.name ?? "")}</Dialog.Title>
       <Field.Root class="opening-prompt-field">
         <Field.Textarea aria-label={copy.openingPrompt} value={text()} placeholder={copy.openingPromptPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" onInput={event => {
-          drafts.edit(destination(), { text: event.currentTarget.value }, null, "ordinary");
+          drafts.edit(destination(), { text: event.currentTarget.value, base: draft()?.value.base ?? current()?.opening_prompt ?? "" }, null, "ordinary");
         }} onBlur={() => void save()} />
         <Field.HelperText>{copy.openingPromptHint}</Field.HelperText>
       </Field.Root>
+      <Show when={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.opening_prompt ?? "")}><ReservedLine status={copy.openingPromptConflict} /></Show>
       <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void (restartRequest() ? restart() : save())}>{copy.retry}</button></ReservedLine>
       <div class="app-dialog-actions">
         <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restartSession}</button>
