@@ -57,3 +57,11 @@ on tree-40, tabs-8 and conflict, including visible failure text and D2/D5/D6/D9.
 Earlier observer failures remain recorded there; they are not acceptance passes.
 This inventory completes the bounded list/rename work of #4306, subject to its
 completion PR's required checks and independent review. #3843 remains open.
+
+Completion validation on 2026-10-29, including main `618cb1169`: the combined
+17-file inventory, activation and P11 recovery suite passed all 395 tests
+(`vitest run`, two workers, no retries). This includes all 18 final App inventory
+cases and the real-Project header observer. The real-Terminal reload/ended-original
+observer passed separately with one worker and no retries. Existing native evidence
+is retained: [check 40716930383](https://github.com/roundup-app/roundup/actions/runs/40716930383)
+passed `mac` and `mac-clippy`; the user reports what they meet on the Mac.
