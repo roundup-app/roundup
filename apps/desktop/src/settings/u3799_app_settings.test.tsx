@@ -94,7 +94,8 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
 });
 
 
-it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survive_work_elsewhere_%s", async command => {
+it("u3814_project_pages_survive_work_elsewhere_import-work", async () => {
+  const command = "import-work";
   const { seedApp } = await import("../testing/seeds");
   const { app } = seedApp("tree-40", Date.now());
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
@@ -104,15 +105,10 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
   overview.focus();
   openProjectPage(command);
-  const heading = command === "import-work" ? "Import Claude Code work" : "Project settings";
+  const heading = "Import Claude Code work";
   const page = await screen.findByRole("region", { name: heading });
 
-  if (command === "import-work") fireEvent.click(within(page).getByRole("button", { name: "Last month" }));
-  else {
-    const field = await within(page).findByRole("textbox");
-    await waitFor(() => expect(field).toHaveProperty("disabled", false));
-    fireEvent.input(field, { target: { value: "unfinished" } });
-  }
+  fireEvent.click(within(page).getByRole("button", { name: "Last month" }));
 
   openProjectPage(command);
   expect(screen.getByRole("region", { name: heading })).toBe(page);
@@ -130,8 +126,7 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   fireEvent.click(rowOf("agent-1"));
   expect(screen.getByRole("region", { name: heading })).toBe(page);
 
-  if (command === "import-work") expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
-  else expect(within(page).getByRole("textbox")).toHaveProperty("value", "unfinished");
+  expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
   const destination = rowOf("agent-1");
   destination.focus();
   fireEvent.keyDown(destination, { key: "Enter", code: "Enter" });

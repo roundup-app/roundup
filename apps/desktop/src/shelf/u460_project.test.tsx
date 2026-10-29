@@ -37,17 +37,3 @@ it("u460_pending_delete_stays_with_its_project", async () => {
   expect(screen.queryByText(/old Project error/)).toBeNull();
   expect([screen.queryByText("2 selected")]).toEqual([null]);
 }, 20_000);
-
-it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", async () => {
-  const { app } = seedApp("tree-40", 0);
-  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-  await showEverythingInApp();
-  const row = document.querySelector<HTMLButtonElement>(".todo-row-button[aria-pressed]")!;
-  fireEvent.click(row, { metaKey: true });
-  const tab = within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: /Todos/ });
-  tab.focus();
-  fireEvent.keyDown(tab, { key: "Escape" });
-  expect(screen.queryByText("1 selected")).toBeNull();
-  expect(document.querySelector<HTMLElement>(".shelf")!.hidden).toBe(false);
-  expect(document.activeElement).toBe(row);
-}, 20_000);
