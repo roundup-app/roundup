@@ -186,6 +186,11 @@ async fn x8_attachment_never_creates_or_substitutes_a_program() {
     for (key, value) in [
         ("info", {
             let mut info = original_record["info"].clone();
+            info["id"] = json!("2");
+            info
+        }),
+        ("info", {
+            let mut info = original_record["info"].clone();
             info["incarnation"] = json!("wrong");
             info
         }),
@@ -247,7 +252,9 @@ async fn x8_attachment_never_creates_or_substitutes_a_program() {
     drop(other);
     drop(client);
     drop(replacement);
+    let stale = original.owner.clone();
     drop(original);
+    assert!(stale.connect(dir.path()).await.is_err());
     assert_eq!(
         std::fs::read_to_string(dir.path().join("launches")).unwrap(),
         "launch\nlaunch\n"

@@ -42,22 +42,36 @@ impl TerminalOwner {
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()?;
-        let result = (|| {
-            serde_json::to_writer(child.stdin.take().ok_or("owner stdin")?, &params)?;
-            let mut line = String::new();
-            std::io::BufReader::new(child.stdout.take().ok_or("owner stdout")?)
-                .read_line(&mut line)?;
-            let owner: Self = serde_json::from_str(&line)?;
-            if owner.project != project {
-                return Err("owner Project mismatch".into());
-            }
-            Ok(owner)
-        })();
+        let stdin = child.stdin.take().ok_or("owner stdin")?;
+        let stdout = child.stdout.take().ok_or("owner stdout")?;
+        let expected_project = project.clone();
+        let (ready, record) = std::sync::mpsc::sync_channel(1);
+        let bootstrap = std::thread::spawn(move || {
+            let result = (|| -> Result<Self, OpenError> {
+                serde_json::to_writer(stdin, &params)?;
+                let mut line = String::new();
+                std::io::BufReader::new(stdout).read_line(&mut line)?;
+                let owner: Self = serde_json::from_str(&line)?;
+                if owner.project != expected_project {
+                    return Err("owner Project mismatch".into());
+                }
+                Ok(owner)
+            })();
+            let _ = ready.send(result);
+        });
+        let result = record
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|err| -> OpenError { Box::new(err) })
+            .and_then(|result| result);
         match result {
-            Ok(owner) => Ok((owner, child)),
+            Ok(owner) => {
+                bootstrap.join().map_err(|_| "owner bootstrap panicked")?;
+                Ok((owner, child))
+            }
             Err(err) => {
                 let _ = child.kill();
                 let _ = child.wait();
+                let _ = bootstrap.join();
                 Err(err)
             }
         }
@@ -302,7 +316,7 @@ fn report_connection(
 ) -> Result<(), OpenError> {
     // A disconnected/malformed client ends its own task, never the PTY owner.
     if let Err(err) = result? {
-        eprintln!("terminal owner connection ended: {err}");
+        let _ = writeln!(std::io::stderr(), "terminal owner connection ended: {err}");
     }
     Ok(())
 }
