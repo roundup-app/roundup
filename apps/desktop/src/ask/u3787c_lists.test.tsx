@@ -119,6 +119,6 @@ it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening",
 
   if (command === "view:made") openProjectPage("view:made", "/p");
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
-  expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)])).toEqual([]);
+  expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)])).toEqual(command === "view:made" ? [] : [rows[1]]);
   expect(app.openedTargets).toEqual([]);
 });
