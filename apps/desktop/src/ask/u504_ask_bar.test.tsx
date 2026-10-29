@@ -103,6 +103,7 @@ describe("u504 the Ask bar", () => {
     await waitFor(() => expect(document.querySelector(".app-mentions")).toBeNull());
     expect(input()!.value).toBe("@");
     expect(document.activeElement).toBe(input());
+
     if (mode === "over") {
       press("Escape", {}, input()!);
       await waitFor(() => expect(input()).toBeNull());
@@ -135,8 +136,10 @@ describe("u504 the Ask bar", () => {
       workstream("one", { name: "First parent" }), workstream("two", { name: "Second parent" }),
       workstream("first", { name: "Same", parent: "one" }), workstream("second", { name: "Same", parent: "two" }),
     ]);
+
     input()!.focus();
     type("@same");
+
     const options = within(await screen.findByRole("listbox")).getAllByRole("option");
     expect(options).toHaveLength(2);
     press("ArrowDown", {}, input()!);

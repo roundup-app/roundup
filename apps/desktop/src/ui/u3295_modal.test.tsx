@@ -73,13 +73,18 @@ it.each(surfaces)("u3295b_a_dialog_closes_outside_floating_controls: %s", async 
   await control.show();
   const setOpen = modal();
 
+  const floating = () => kind === "tooltip" ? screen.queryByRole("tooltip", { hidden: true })
+    : kind === "menu" ? screen.queryByRole("menu", { hidden: true })
+    : ["select", "mentions", "blocker"].includes(kind) ? screen.queryByRole("listbox", { hidden: true })
+    : screen.queryAllByRole("button").find(button => button.closest('[data-scope="popover"][data-part="content"]')) ?? null;
+
   setOpen(true);
   await screen.findByRole("dialog", { name: "Import" });
-  await waitFor(() => expect(kind === "select" ? screen.queryByRole("listbox") : screen.queryByText("Alpha")).toBeNull());
+  await waitFor(() => expect(floating()).toBeNull());
   await waitFor(() => expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true));
   setOpen(false);
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect(kind === "select" ? screen.queryByRole("listbox") : screen.queryByText("Alpha")).toBeNull();
+  expect(floating()).toBeNull();
   expect(control.picked).not.toHaveBeenCalled();
 
   if (kind === "mentions") expect(screen.getByRole<HTMLTextAreaElement>("combobox").value).toBe("@al");
