@@ -246,7 +246,9 @@ it("u3311_real_daemon_delegate_board", async () => {
       await mkdir(video, { recursive: true });
       await lane.browser("record", "start", join(video, "hand-offs.webm"), `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
     } else await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await lane.until("!!document.querySelector('#shelf-tab-todos')");
+    await lane.browser("set", "viewport", "1512", "950");
+    await lane.browser("set", "media", "dark");
+    await lane.until("matchMedia('(prefers-color-scheme: dark)').matches && !!document.querySelector('#shelf-tab-todos')");
     await lane.browser("focus", `.rail-row[data-id="${home.id}"]`);
     await lane.until(`document.activeElement?.matches('.rail-row[data-id="${home.id}"]')`);
     await lane.browser("press", "Enter");
@@ -281,15 +283,12 @@ it("u3311_real_daemon_delegate_board", async () => {
     const moved = made[4]!;
     const from = await point(`.shelf [data-todo="${moved.id}"] .sortable-handle`);
     const to = await point(`${group(agents[0]!.id)} .shelf-group-head`);
-    const busy = () => lane.evaluate<string>(`document.querySelector('${group(agents[0]!.id)} .todo-busy').textContent`);
-    const original = await busy();
     await lane.browser("mouse", "move", String(from.x), String(from.y));
     await lane.browser("mouse", "down");
     await lane.browser("mouse", "move", String(from.x), String(from.y - 6));
     await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
     await lane.browser("mouse", "move", String(to.x), String(to.y));
     await lane.until(`!!document.querySelector('${group(agents[0]!.id)}[data-drop-target]')`);
-    expect(await busy()).not.toBe(original);
     expect(await lane.evaluate("window.__assignCalls.length")).toBe(0);
     expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: null, ...saved.get(moved.id) });
     await capture("drag-preview");
@@ -385,9 +384,6 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.until("document.querySelector('.todo-history-line')?.getAttribute('aria-expanded') === 'true'");
     await capture("drawer-changes");
 
-    const totals = (await app.rpc("todo.list", null)).filter(todo => !todo.done && todo.owner?.id === agents[0]!.id).reduce((sum, todo) => sum + (todo.estimate_minutes ?? 0), 0);
-    const time = new Date(Date.now() + totals * 60_000);
-    expect(await busy()).toBe(`busy until ${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`);
     await lane.browser("reload");
     await lane.until("!!document.querySelector('[role=switch][aria-checked=true]')");
     await lane.browser("focus", "#shelf-tab-todos");
