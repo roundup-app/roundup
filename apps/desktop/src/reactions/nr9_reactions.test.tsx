@@ -324,7 +324,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   openProjectPage("view:reactions");
   const opening = within(await screen.findByRole("region", { name: copy.reactions }));
   fireEvent.click(await opening.findByRole("button", { name: copy.reactionCreate }));
-  const form = within(opening.getByRole("form", { name: copy.reactionCreate }));
+  const form = within(await opening.findByRole("form", { name: copy.reactionCreate }));
   fireEvent.input(form.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
   fireEvent.input(form.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
   fireEvent.click(form.getByRole("button", { name: /^Target Agent/ }));
