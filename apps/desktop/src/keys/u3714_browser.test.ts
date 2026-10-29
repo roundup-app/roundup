@@ -114,7 +114,7 @@ it("u3714_capture_in_two_chords_on_tree_40", async () => {
       await read(`(() => {
         const row = document.querySelector('[data-todo^="-"]');
         row.querySelector('.todo-open')?.click();
-        row.querySelector('.todo-row-button').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+        row.querySelector('.shelf-title').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
       })()`);
       await capture("T4905", `${stage}-pending`);
       await read(`window.__settleCapture()`);

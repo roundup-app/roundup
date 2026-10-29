@@ -890,7 +890,7 @@ export const Todos = (props: {
         }}</For>;
 
         return <>
-        <For each={group().items.filter(todo => pending().includes(todo))}>{todo => <ShelfRow class="todo-row todo-inset" data-todo={todo.id} data-pending="true" glyph={<span><KindGlyph kind="idle" /></span>} head={<div class="row-head"><span class="todo-row-button shelf-title" tabIndex={0} aria-disabled="true">{todo.title}</span></div>} />}</For>
+        <For each={group().items.filter(todo => pending().includes(todo))}>{todo => <ShelfRow class="todo-row todo-inset" data-todo={todo.id} data-pending="true" glyph={<span><KindGlyph kind="idle" /></span>} head={<div class="row-head"><span class="shelf-title">{todo.title}</span></div>} />}</For>
         <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => dependency.expanded(Number(id)))} onExpandedChange={details => {
           for (const id of collection().getBranchValues()) dependency.setExpanded(Number(id), details.expandedValue.includes(id));
         }}>
