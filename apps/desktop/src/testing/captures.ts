@@ -103,6 +103,7 @@ const observerTable = {
   "src/testing/u463_real_daemon.test.ts": ["A4899a", "U2773g", "U2875d", "U3037d", "U4590", "U463"],
   "src/toasts/p3557c_capture.test.ts": ["P3557c"],
   "src/todos/u3010c_rendered.test.ts": ["U3010c"],
+  "src/todos/u3720_real_daemon_owner.test.tsx": ["U3308", "U3311", "T4902"],
   "src/todos/u3741_rendered.test.ts": ["U3741"],
   "src/todos/u3760_rendered.test.ts": ["P3557c", "U3760"],
   "src/todos/u3774_rendered.test.ts": ["U3774"],
