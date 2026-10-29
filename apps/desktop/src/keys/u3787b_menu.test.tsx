@@ -7,12 +7,14 @@ import { CHORDS } from "./chords";
 import { captureActions, registerKeys } from "./registry";
 
 const disposals: (() => void)[] = [];
+
 afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); cleanup(); localStorage.clear(); });
 
 const owner = (terminal: HTMLElement) => {
   const calls: Element[] = [];
   const [available, setAvailable] = createSignal(true);
   let remove = () => {};
+
   createRoot(dispose => {
     remove = dispose;
     disposals.push(dispose);
@@ -32,7 +34,11 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Terminal Find fr
   const { connected, daemon } = await mountNavigation();
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
-  const terminal = document.activeElement as HTMLElement;
+  const terminal = document.activeElement;
+
+  if (!(terminal instanceof HTMLElement)) throw new Error("Terminal did not receive focus");
+
+  const inactive = owner(document.createElement("div"));
   const find = owner(terminal);
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘F")?.enabled).toBe(true));
   const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
@@ -43,6 +49,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Terminal Find fr
   else openProjectPage("action:chord:⌘F", "/p");
 
   expect(find.calls).toEqual([terminal]);
+  expect(inactive.calls).toEqual([]);
   expect(document.activeElement).toBe(terminal);
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
 });
@@ -51,7 +58,10 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
   const { connected } = await mountNavigation();
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
-  const terminal = document.activeElement as HTMLElement;
+  const terminal = document.activeElement;
+
+  if (!(terminal instanceof HTMLElement)) throw new Error("Terminal did not receive focus");
+
   const find = owner(terminal);
   await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F")).toBe(true));
   const captured = captureActions(terminal).find(action => action.keys === "⌘F")!;
@@ -67,6 +77,8 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
 
   await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F")).toBe(false));
   openProjectPage("action:chord:⌘F", "/p");
+
   if (state !== "editor") captured.run();
+
   expect(find.calls).toEqual([]);
 });
