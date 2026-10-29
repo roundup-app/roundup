@@ -71,6 +71,8 @@ it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
   if (capture) {
     mkdirSync(capture, { recursive: true });
     await lane.browser("record", "start", `${capture}/move-and-retry.webm`);
+    // Recording restarts Chromium, so the new context needs the capture theme again.
+    await lane.browser("set", "media", "dark");
   }
 
   await seed();
