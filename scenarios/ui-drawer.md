@@ -33,16 +33,9 @@ Observer: `agent-browser` (headless, the U26 harness) captures to `artifacts/ux/
 
 Observer: `u431_` in `apps/desktop/src/pads/`; `agent-browser` (headless) captures to `artifacts/ux/U431/` with `window.__checks()` read. Moves D2, D5 and D6. Scope: `apps/desktop/src/pads/`.
 
-**U432 `Open owner` selects the Agent that owns a Pad.** Found by the user's report #1110 ("an action that says open owner so we can directly takeover and speak with the owner about the pad"); #3563 removed the Takeover, so the action only selects the owner. Narrows U20; changes no contract, App seam command or Token. Given a Pad Drawer, then:
-- **Where.** For a Pad an Agent owns, the head has an icon button `Open owner`, `title` `Open owner: <owner's name>` (`nameOf`), beside `Export .md`. For a Pad the user owns there is none and the user edits in place (U20). Asserted in `u432_agent_pad_has_open_owner_named_by_title` and `u432_user_pad_has_no_open_owner`.
-- **Act.** Pressing it selects the owner's Rail row (U64) and calls no `takeover.*` method, so the owner's Terminal shows and typing goes to it. Asserted in `u432_open_owner_selects_the_owner`.
-- **Stays open.** The Drawer stays open and the Pad's text stays selectable, so the user can copy from it while typing (#1109). Asserted in `u432_drawer_stays_open`.
-- **Exited owner.** When the owner's Terminal has exited and A22 applies, it calls `agent.resume {id}` first and then selects it; when A22 does not apply, or any call fails, the Drawer shows `✕ <message>` (U80) on a line below the head. Asserted in `u432_exited_owner_is_resumed_first` and `u432_open_owner_failure_shows_its_message`.
-- **Gone owner.** An owner no longer on the Rail has no `Open owner`. Asserted in `u432_removed_owner_has_no_button`.
+**U432 retired.** Policy: remove the former person-navigation action from the Pad Drawer; access to Agents remains through their Rail rows. U3736 proves the Drawer retains its document actions without a transfer or person control. Retire the former action-only tests; retain unrelated Drawer lifetime and direct Agent-navigation tests.
 
-Observer: `u432_` in `apps/desktop/src/pads/` against the fake App; one capture to `artifacts/ux/U432/`. Moves D5 and D6. Scope: `apps/desktop/src/pads/`.
-
-**U433 the Pad Drawer has no ask field, no exchange and no last-read line.** Found by the user's report #1110 ("we don't have to redesign an agent view and shitty input"). Overturns U190 (its input, **Exchange**, **Last touch** sentence and **Rail** clauses), U188, U388 and the `PadAsk` row of `scenarios/plain-text.md` (`q2_pad_reply`); narrows U20 and U5. Given a Pad Drawer for either owner, then:
+**U433 the Pad Drawer has no ask field, no exchange and no last-read line.** Found by the user's report #1110 ("we don't have to redesign an agent view and shitty input"). Overturns U190 (its input, **Exchange**, **Last touch** sentence and **Rail** clauses), U188, U388 and the `PadAsk` row of `scenarios/plain-text.md` (`q2_pad_reply`); narrows U20 and U5. Given a Pad Drawer created by any Actor, then:
 - **Gone.** There is no `Ask or edit this pad` field, no `send`, no exchange list and no `You read this Pad at …` line; `pads/PadAsk.tsx` and `pads/scribe.ts` are deleted and the webview never calls `pad.ask`. Asserted in `u433_no_ask_field_no_exchange_no_read_line`.
 - **Kept.** The Pad body, the user's in-place edit and U36's conflict rules hold for every Actor; the last-touch Touch of a write stays in `provenance.history` (U5's `wrote` line stays; the read-Touch sentence goes). Asserted by U20's and U36's tests unchanged.
 - **Rail.** A Pad from before, bound to a Scribe, loads; its Scribe's Rail row, if any, is removed with the rest (P14). Asserted in `u433_rail_shows_no_scribe_row`.
