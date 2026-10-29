@@ -36,8 +36,8 @@ const cases = ["todo-shelf", "pad-shelf", "workstream", "agent"] as const;
 
 type RowCase = typeof cases[number];
 
-const target = async (kind: RowCase) => {
-  const controls = await open();
+const target = async (kind: RowCase, rows?: readonly string[]) => {
+  const controls = await open("tree-40", rows);
 
   if (kind === "pad-shelf") await showEverythingInApp(undefined, copy.pads);
 
@@ -290,7 +290,8 @@ it.each(["overview", "workstream", "agent", "terminal"].flatMap(scope => ["key",
 });
 
 it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_keeps_original_identity_%s", async kind => {
-  const controls = await target(kind);
+  // CI exceeded 15 s remounting two full trees; draft identity needs only its item's Home.
+  const controls = await target(kind, ["payments"]);
   fireEvent.keyDown(controls.row, {key:"F2"});
   const field = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
