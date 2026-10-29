@@ -211,7 +211,6 @@ export const EditableText = (props: {
 
     const submit = async () => {
       if (left) return;
-      const retryFocus = captureFocus();
       left = true;
 
       if (element.value === started.form.base && !started.recovered) {
@@ -239,7 +238,11 @@ export const EditableText = (props: {
       }
 
       const submission = connected.drafts.submit(draft.revision);
+      const restoreFocus = element.parentElement?.contains(document.activeElement);
       setEditing(null);
+      const retryFocus = captureFocus();
+
+      if (restoreFocus) queueFocus(() => shown?.focus());
 
       if (!(await submission)) {
         setFailure(copy.draftStatus[draft.status]);
@@ -255,8 +258,6 @@ export const EditableText = (props: {
         if (alive) {
           setFailure(null); props.onSaved?.();
 
-          // The submitted field and its Save button unmount together; return only unclaimed focus.
-          if (document.activeElement === document.body && connected.drawer.content() === content) retryFocus(() => shown?.focus());
         }
       } catch (error) {
         if (!(error instanceof Error)) throw error;
@@ -266,7 +267,7 @@ export const EditableText = (props: {
           setFailure(error.message);
 
           if (outcomeOf(error) === "failed" && connected.drawer.content() === content && editing() === null && !records().some(record => record.status === "draft")
-            && (document.activeElement === null || document.activeElement === document.body)) retryFocus(() => startWith(started.width));
+            && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown)) retryFocus(() => startWith(started.width));
         }
       }
     };
