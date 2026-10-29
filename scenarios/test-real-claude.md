@@ -83,7 +83,6 @@ Cost observer (TC1): `e11_a_tool_result_matches_the_next_turn` also asserts D3â€
 - `f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own`
 - `h15_every_hook_call_of_a_ten_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle`
 - `m9_a_door_asked_for_a_workstream_makes_one`
-- `t8_creator_survives_removing_the_agent_that_made_the_todo`
 
 </details>
 

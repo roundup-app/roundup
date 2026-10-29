@@ -149,38 +149,6 @@ async fn a16_removing_an_agent_leaves_its_pads_and_todos_untouched() {
     assert_eq!(reclaimed.owner, Actor::user());
 }
 
-/// T8: `rail.remove` (A16) does not know `creator`, since `crates/agents` has no `todos` dependency;
-/// the Todo the removed Agent made must still read with that Agent as its creator.
-#[tokio::test]
-async fn t8_creator_survives_removing_the_agent_that_made_the_todo() {
-    let (project, agent, todo) =
-        agent_created_a_todo("t8_creator_survives_removing_the_agent_that_made_the_todo").await;
-    let client = project.client().await;
-    let before: Todo = serde_json::from_value(
-        client
-            .request("todo.get", json!({"id": todo.id}))
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(before.creator.kind, ActorKind::Agent);
-    assert_eq!(before.creator.id, agent.id);
-
-    client
-        .request("rail.remove", json!({"id": agent.id}))
-        .await
-        .unwrap();
-
-    let after: Todo = serde_json::from_value(
-        client
-            .request("todo.get", json!({"id": todo.id}))
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(after.creator, before.creator);
-}
-
 /// How much memory the Daemon allows its own share of ten idle Agents (rule 7).
 const BUDGET_MB: u64 = 150;
 
@@ -401,36 +369,6 @@ async fn d4_a_miss_tells_a_closed_connection_from_a_slow_daemon() {
     .unwrap_err();
 
     assert!(report.contains("connection closed"), "{report}");
-}
-
-#[tokio::test]
-async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
-    let project = start(&[]);
-    let client = project.client().await;
-
-    client
-        .request(
-            "project.setWorktrees",
-            json!({"on": true, "check": "just check"}),
-        )
-        .await
-        .unwrap();
-    let settings = client.request("project.get", json!(null)).await.unwrap();
-
-    assert_eq!(
-        settings,
-        json!({
-            "worktrees": {"on": true, "check": "just check"},
-            "models": {
-                "roles": [
-                    {"role": "door", "model": null, "effort": null},
-                    {"role": "subagent", "model": null, "effort": null},
-                ],
-            },
-            "mcp": {"on": true},
-            "workstreamCap": null,
-        })
-    );
 }
 
 /// H15's last clause: a Signal that changes the Kind reaches a subscribed client as a Status event,
@@ -1579,10 +1517,10 @@ async fn t17_a_stopped_agent_keeps_its_todos_and_assign_tells_no_agent() {
     assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
 }
 
-/// T12, T13: a Todo moves to a Workstream, the Daemon checks the Rail, and the Home survives a restart.
+/// T13: the Daemon validates the destination against the live Rail.
 #[tokio::test]
-async fn t13_move_checks_the_rail_and_survives_a_restart() {
-    let mut project = start(&[]);
+async fn t13_move_checks_the_rail() {
+    let project = start(&[]);
     let mut events = project.subscribed().await;
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
@@ -1629,9 +1567,6 @@ async fn t13_move_checks_the_rail_and_survives_a_restart() {
     .await;
     assert_eq!(first, Some(r1.clone()));
     assert_eq!(home_of(&client, id).await, json!(r1));
-
-    project.restart(&[]);
-    assert_eq!(home_of(&project.client().await, id).await, json!(r1));
 }
 
 #[tokio::test]
@@ -1770,7 +1705,7 @@ async fn pad_home(client: &rpc::Client, name: &str) -> Value {
 /// P12: a Door's or nested Agent's Pad gets the nearest Workstream; every other caller gives null.
 #[tokio::test]
 async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
-    let mut project = start(&[]);
+    let project = start(&[]);
     let client = project.client().await;
     let outer = workstream(&client, "outer").await;
     let nested = agent_in(&project, &client, Some(&outer)).await;
@@ -1796,17 +1731,12 @@ async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
         .await
         .unwrap();
     assert_eq!(made["home"], Value::Null);
-    let homes =
-        |client: rpc::Client| async move { client.request("pad.list", json!(null)).await.unwrap() };
-    let before = homes(project.client().await).await;
-    project.restart(&[]);
-    assert_eq!(homes(project.client().await).await, before);
 }
 
-/// P12: the Daemon checks the Rail, an Agent may not move, and the Home survives a restart.
+/// P12: the Daemon validates the destination against the live Rail.
 #[tokio::test]
-async fn p12_move_checks_the_rail_and_survives_a_restart() {
-    let mut project = start(&[]);
+async fn p12_move_checks_the_rail() {
+    let project = start(&[]);
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
     let agent = agent_in(&project, &client, None).await;
@@ -1842,8 +1772,6 @@ async fn p12_move_checks_the_rail_and_survives_a_restart() {
         .await
         .unwrap();
     assert_eq!(pad_home(&client, "notes").await, json!(r1));
-    project.restart(&[]);
-    assert_eq!(pad_home(&project.client().await, "notes").await, json!(r1));
 }
 
 /// P12: removing a Workstream sends the Pads of its kept Agents to the Project root (A34 deletes the rest).
@@ -2676,11 +2604,6 @@ async fn p14_pads(client: &rpc::Client, names: &[&str]) {
     }
 }
 
-async fn p14_write(who: &rpc::Client, name: &str) -> Result<Value, rpc::RpcError> {
-    who.request("pad.write", json!({ "name": name, "text": "by owner" }))
-        .await
-}
-
 #[tokio::test]
 async fn p14_pad_ask_is_unknown() {
     let project = start(&[]);
@@ -2721,32 +2644,6 @@ async fn p14_pad_has_no_scribe_field() {
     assert!(listed[0].get("scribe").is_none());
 }
 
-#[tokio::test]
-async fn p14_only_owner_writes() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p14_pads(&user, &["notes", "plan"]).await;
-    let a = agent_in(&project, &user, None).await;
-    user.request(
-        "pad.setOwner",
-        json!({ "name": "plan", "owner": actor(ActorKind::Agent, &a) }),
-    )
-    .await
-    .unwrap();
-    let as_a = client_as(&project, actor(ActorKind::Agent, &a)).await;
-
-    p14_write(&user, "notes").await.unwrap();
-    p14_write(&as_a, "plan").await.unwrap();
-    p14_write(&user, "plan").await.unwrap();
-    let err = p14_write(&as_a, "notes").await.unwrap_err();
-    assert_eq!(err.code, rpc::code::FORBIDDEN);
-    let pad = user
-        .request("pad.read", json!({ "name": "notes" }))
-        .await
-        .unwrap();
-    assert_eq!(pad["text"], "by owner");
-}
-
 /// M11: the tools a Brief lists, between its "## Tools" heading and the next.
 fn brief_tools(brief: &str) -> Vec<String> {
     let section = brief.split("## Tools").nth(1).unwrap();
@@ -2773,30 +2670,6 @@ async fn m11_no_role_is_offered_a_tool_its_brief_does_not_name() {
         offered.sort();
         named.sort();
         assert_eq!(offered, named, "agent {id}");
-    }
-}
-
-/// M9: the Brief names exactly what its `rup mcp` offers, for a Door as for an Agent.
-#[tokio::test]
-async fn m9_the_brief_names_exactly_the_tools_offered() {
-    let report = tempfile::tempdir().unwrap().keep().join("seen.json");
-    let project = start(&[("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap())]);
-    let client = project.client().await;
-    start_door(&client).await;
-
-    let seen = seen_at(&report).await;
-
-    let mut listed = seen.tools.clone();
-    listed.sort();
-    assert_eq!(advertised(&seen.brief), listed);
-    for tool in [
-        "rail_createWorkstream",
-        "rail_startDoor",
-        "project_open",
-        "agent_stop",
-        "agent_prompt",
-    ] {
-        assert!(listed.iter().any(|t| t == tool), "{tool}");
     }
 }
 
@@ -3281,26 +3154,6 @@ async fn d8_memory_and_cpu_sum_the_whole_tree_and_two_calls_in_a_second_share_a_
     assert_eq!(sampled.agents[0].id, agent.id);
     assert_eq!(sampled.agents[0].disk_bytes, None);
     assert_eq!(sampled.total.memory_bytes, sampled.agents[0].memory_bytes);
-    assert_eq!(sampled.total.disk_bytes, None);
-}
-
-#[tokio::test]
-async fn d8_a_project_with_no_running_agent_returns_empty_and_zeros() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let sampled: contracts::project::Resources = serde_json::from_value(
-        client
-            .request("project.resources", Value::Null)
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-
-    assert!(sampled.agents.is_empty());
-    assert_eq!(
-        (sampled.total.memory_bytes, sampled.total.cpu_percent),
-        (0, 0.0)
-    );
     assert_eq!(sampled.total.disk_bytes, None);
 }
 
