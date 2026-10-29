@@ -41,10 +41,8 @@ with tempfile.TemporaryDirectory(prefix="roundup-bundle-") as folder:
                  "RUPD_TERMINAL_OWNER"]:
         environment.pop(name, None)
     environment["ROUNDUP_TEST_APP_BIN"] = str(binaries)
-    for arguments in [
-        ["-p", "desktop", "--test", "a12a"],
-        ["-p", "terminal", "--test", "durable_owner", "x8_reconnecting_keeps_the_original_program"],
-        ["-p", "rup", "--test", "reopen"],
-    ]:
-        subprocess.run(["cargo", "test", *arguments, "--", "--nocapture"],
-                       env=environment, check=True)
+    subprocess.run([
+        "cargo", "nextest", "run", "-p", "desktop", "-p", "terminal", "-p", "rup",
+        "--test", "a12a", "--test", "durable_owner", "--test", "reopen", "-E",
+        "binary(a12a) | binary(reopen) | test(=x8_reconnecting_keeps_the_original_program)",
+    ], env=environment, check=True)
