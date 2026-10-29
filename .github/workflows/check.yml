@@ -78,6 +78,11 @@ jobs:
           if [ -n "$CI3781_CACHE" ]; then rust_base=''; fi
           rust=$(python3 loop/affected.py rust "$rust_base")
           web=$(python3 loop/affected.py web "$BASE")
+          # The capture registry is imported by vite.config.ts and browser fixtures. Its 96-file selection
+          # timed out in two serial-heavy shards in run 40970125076; use the full configuration lane set.
+          if [ -n "$BASE" ] && ! git diff --quiet "$BASE" -- apps/desktop/src/testing/captures.ts; then
+            web=all
+          fi
           {
             echo "rust=${rust:+true}"
             echo "web=${web:+true}"
