@@ -54,7 +54,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   let chosenTerminal: string | null = null;
 
   const dialog = useDialog(() => ({
-    open: open() && !dispatching(), modal: false, trapFocus: true, preventScroll: false,
+    open: open(), modal: false, trapFocus: true, preventScroll: false,
     restoreFocus: true, closeOnInteractOutside: true,
     "aria-label": copy.switcherLabel,
     initialFocusEl: () => openingFocus.target(() => input),
