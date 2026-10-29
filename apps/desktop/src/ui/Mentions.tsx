@@ -1,65 +1,66 @@
-import { Listbox as ArkListbox, createListCollection } from "@ark-ui/solid/listbox";
-import { createEffect, createMemo, createSignal, on, For, Show, splitProps, type JSX } from "solid-js";
+import { Combobox, createListCollection, useComboboxContext } from "@ark-ui/solid/combobox";
+import { createMemo, createSignal, For, Show, splitProps, type JSX } from "solid-js";
+import { mergeProps } from "@zag-js/solid";
 import { Portal } from "solid-js/web";
-import { Popover } from "./Popover";
+import "./Combobox.css";
+import { floatingControl } from "./Dialog";
 
 type Mention = { value: string; label: string };
 
-/** A floating suggestion list anchored to a multi-line field: the caller filters `items`; Ark owns the highlight and `↑` `↓` (no wrap), and a click on a row calls `onSelect`. */
+/** A textarea suggestion list: Ark owns navigation, pointer highlight and the input's active descendant. */
 const Root = (props: {
   items: readonly Mention[];
   highlightedValue: string | null;
   onHighlightChange: (value: string | null) => void;
   onSelect: (value: string) => void;
+  inputValue: string;
   children: JSX.Element;
-  onDismiss?: () => void;
+  onDismiss: () => void;
 }) => {
-  const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label }));
+  const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: item => item.value, itemToString: item => item.label }));
 
-  const [dismissed, setDismissed] = createSignal(false);
+  const [element, setElement] = createSignal<HTMLElement>();
+  const control = floatingControl({ get open() { return props.items.length > 0; }, onOpenChange: details => { if (!details.open) props.onDismiss(); } }, element);
 
-  createEffect(on(() => props.items, () => setDismissed(false)));
+  return <Combobox.Root ref={setElement} collection={collection()} open={control.open()} inputValue={props.inputValue}
+    value={[]} highlightedValue={props.highlightedValue} loopFocus inputBehavior="none" selectionBehavior="preserve"
+    openOnClick={false} openOnKeyPress={false} positioning={{ placement: "bottom-start", gutter: 4, strategy: "fixed" }}
+    onHighlightChange={details => props.onHighlightChange(details.highlightedValue)}
+    onOpenChange={control.change}
+    onValueChange={details => { const value = details.value[0];
 
-  return <Popover.Root closeOnInteractOutside={false} open={props.items.length > 0 && !dismissed()} onOpenChange={({ open }) => { if (!open) { setDismissed(true); props.onDismiss?.(); } }} closeOnEscape positioning={{ placement: "bottom-start", gutter: 4, strategy: "fixed" }}>
-    <ArkListbox.Root collection={collection()} value={[]} highlightedValue={props.highlightedValue ?? undefined} typeahead={false}
-      onHighlightChange={(details) => props.onHighlightChange(details.highlightedValue)}
-      onValueChange={(details) => {
-        const [value] = details.value;
-
-        if (value !== undefined) props.onSelect(value);
-      }}>
-      {props.children}
-    </ArkListbox.Root>
-  </Popover.Root>;
+      if (value !== undefined) props.onSelect(value); }}>
+    {props.children}
+  </Combobox.Root>;
 };
 
-/** The field the list belongs to. While `open`, Ark takes `↑` `↓`; every other key, and every key while closed, stays the field's through `onKey`. */
 const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onKeyDown"> & { open: boolean; onKey: (event: KeyboardEvent) => void }) => {
   const [local, rest] = splitProps(props, ["open", "onKey"]);
+  const combobox = useComboboxContext();
 
-  return <Popover.Anchor><ArkListbox.Input asChild={(input) => <textarea {...input()} {...rest} spellcheck={false} autocorrect="off" autocapitalize="off"
-    aria-controls={local.open ? input()["aria-controls"] : undefined}
-    aria-activedescendant={local.open ? input()["aria-activedescendant"] : undefined}
-    onKeyDown={(event) => {
-      local.onKey(event);
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (local.open && !event.isComposing && !event.shiftKey && event.key === "Tab" && combobox().highlightedValue) {
+      event.preventDefault();
+      combobox().selectValue(combobox().highlightedValue!);
 
-      if (!local.open || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) return;
+      return;
+    }
 
-      const handler = input().onKeyDown;
+    // Ark handles the open list; the Ask bar handles submission and the second Escape.
+    if (!local.open || event.key === "Escape") local.onKey(event);
+  };
 
-      if (handler === undefined) return;
+  return <Combobox.Control><Combobox.Input asChild={attributes => {
+    const merged = mergeProps(attributes, { onKeyDown });
 
-      if (0 in handler) handler[0](handler[1], event);
-      else handler(event);
-    }} />} /></Popover.Anchor>;
+    return <textarea {...merged} {...rest} spellcheck={false} autocorrect="off" autocapitalize="off" />;
+  }} /></Combobox.Control>;
 };
 
-const List = (props: { label: string; items: readonly Mention[] }) => (
-  <Show when={props.items.length > 0}><Portal><Popover.Positioner><Popover.Content class="app-mentions-panel">
-    <ArkListbox.Content class="app-listbox app-mentions" aria-label={props.label}>
-      <For each={props.items}>{(item) => <ArkListbox.Item item={item} class="app-listbox-item"><ArkListbox.ItemText>{item.label}</ArkListbox.ItemText></ArkListbox.Item>}</For>
-    </ArkListbox.Content>
-  </Popover.Content></Popover.Positioner></Portal></Show>
+const List = (props: { label: string; items: readonly Mention[]; row: (item: Mention) => JSX.Element }) => (
+  <Show when={props.items.length > 0}><Portal><Combobox.Positioner><Combobox.Content class="app-popover app-mentions-panel app-mentions app-combobox-list" aria-label={props.label}>
+    <For each={props.items}>{item => <Combobox.Item item={item} class="app-combobox-item"><Combobox.ItemText>{props.row(item)}</Combobox.ItemText></Combobox.Item>}</For>
+  </Combobox.Content></Combobox.Positioner></Portal></Show>
 );
 
 export const Mentions = { Root, Field, List };

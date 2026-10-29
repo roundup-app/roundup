@@ -153,8 +153,9 @@
 
 .app-mentions-panel {
   box-sizing: border-box;
-  width: max-content;
-  max-width: min(var(--ask-menu-width), var(--available-width));
+  width: var(--ask-menu-width);
+  max-width: var(--available-width);
+  z-index: var(--layer-menu);
   padding: var(--space-1);
 }
 
@@ -165,13 +166,24 @@
   overscroll-behavior: contain;
 }
 
-.app-mentions .app-listbox-item[data-highlighted] {
-  color: var(--accent);
+.app-mentions [data-part="item-text"] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-.app-mentions .app-listbox-item {
-  min-height: var(--space-5);
-  align-items: center;
+.app-mentions mark {
+  color: var(--text);
+  background: var(--transparent);
+  text-decoration: underline;
+}
+
+.app-mention-parent {
+  color: var(--grey);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The picker's visible label would repeat its trigger; the accessible name stays. */
