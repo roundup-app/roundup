@@ -336,3 +336,40 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
         assert_eq!(crate::common::renames(&mut events), expected, "{case}");
     }
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a4688a_a_parked_prompt_while_off_consumes_its_naming_opportunity() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let enabled = Arc::new(AtomicBool::new(false));
+    let switch = Arc::clone(&enabled);
+    let mut fixture = Fixture::running("sleep 30");
+    fixture.agents = fixture
+        .agents
+        .with_automatic_renaming(move || Ok(switch.load(Ordering::SeqCst)));
+    let f = Arc::new(fixture);
+    let config = hold_starts(&f);
+    let spawning = {
+        let f = Arc::clone(&f);
+        tokio::spawn(async move { f.spawn(None, None).await })
+    };
+    let tree = f.until(|tree| !tree.is_empty()).await;
+    let id = tree[0].id.clone();
+    let before = tree[0].name.clone();
+    f.submit(&id, "Fix the refresh race").await;
+    let mut events = f.bus.subscribe();
+    release(config).await;
+    spawning.await.unwrap().unwrap();
+    enabled.store(true, Ordering::SeqCst);
+    f.submit(&id, "now write the docs").await;
+    assert_eq!(f.name_of(&id).await, before);
+    while let Ok(event) = events.try_recv() {
+        assert!(!matches!(
+            event.data,
+            contracts::EventData::RailRenamed { .. }
+        ));
+    }
+    f.call("agent.stop", json!({"id":id})).await.unwrap();
+}
