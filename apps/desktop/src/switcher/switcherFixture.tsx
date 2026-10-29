@@ -6,7 +6,6 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Bubbles } from "../bubbles/Bubbles";
 import { AskBar } from "../ask/AskBar";
 import { AttentionKey } from "../rail/AttentionKey";
-import { Keys } from "../keys/Keys";
 import { Rail } from "../rail/Rail";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -27,7 +26,7 @@ const TREE: RailNode[] = [
 
 const TERMINALS: TerminalInfo[] = [info("7", { owner: "ops", title: "build shell" })];
 
-/** The Rail, `Keys`, a Pane, its bubbles and the Switcher in one open Project; `failures` collects what the Switcher reports. */
+/** The Rail, a Pane, its bubbles and the Switcher in one open Project; `failures` collects what the Switcher reports. */
 export const mountSwitcher = async (selected: string | null = null, tree: RailNode[] = TREE, terminals: TerminalInfo[] = TERMINALS, daemonExit: () => { code: number | null } | null = () => null) => {
   const app = createFakeApp();
   let listed = [...terminals, ...tree.flatMap((node) => node.terminal_id ? [info(node.terminal_id)] : [])];
@@ -56,7 +55,6 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
 
     return (
       <ConnectedProjectContext.Provider value={connected}>
-        <Keys />
         <AttentionKey />
         <AskBar />
         <Rail />

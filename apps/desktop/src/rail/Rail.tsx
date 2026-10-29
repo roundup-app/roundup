@@ -683,6 +683,15 @@ export const Rail = () => {
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
+  registerKeys({ kind: "region", element: container }, [{ action: CHORDS.find(row => row.keys === "F2")!, capture: focus => {
+    const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+
+    return {
+      available: () => !!id && !!focus?.isConnected && !focus.classList.contains("sortable-source") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
+      invoke: () => { if (id) setEditingName(id); },
+    };
+  } }]);
+
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(
     on(rail.selected, (id) => {

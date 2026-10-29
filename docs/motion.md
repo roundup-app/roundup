@@ -356,3 +356,8 @@ U3787b Terminal font menu actions reuse the pane's instant font update and exist
 frame-coalesced refit. Menu projection and target capture move no focus or Terminal
 input. Logical aliases and held-key sizing keep their control-owned behavior.
 D2/D5/D6 retain the same layout and Tokens; native menu rendering stays system-owned.
+
+U3787b Help and Rail rename use the same captured registration for menu and key.
+Opening Help, entering rename and returning focus on Escape are instant, with
+no new transition or delayed dispatch. Ark retains Help's dialog focus handling;
+Rail retains its existing rename field and draft recovery.

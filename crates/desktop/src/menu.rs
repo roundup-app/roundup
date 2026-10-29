@@ -636,7 +636,7 @@ mod tests {
     #[test]
     fn u3787b_plain_key_commands_register_no_accelerator() {
         let app = mock_app();
-        for key in ["D", "E", "M", "J K", "⇧Tab", "Tab", "1–9", "⏎"] {
+        for key in ["D", "E", "M", "J K", "⇧Tab", "Tab", "1–9", "⏎", "F2", "?"] {
             let source = item(
                 &format!("action:chord:{key}"),
                 "Run action",
@@ -709,6 +709,8 @@ mod tests {
                 Some(vec![
                     item("action:leader:C", "Review changes", Some("⌘K C"), None),
                     item("action:chord:⌘F", "Find…", Some("⌘F"), None),
+                    item("action:chord:F2", "Rename", Some("F2"), None),
+                    item("action:chord:?", "Help", Some("?"), None),
                     item("action:chord:⌘=", "Larger Terminal text", Some("⌘="), None),
                     item("action:chord:⌘-", "Smaller Terminal text", Some("⌘-"), None),
                     item(
@@ -730,6 +732,8 @@ mod tests {
             for id in [
                 "action:leader:C",
                 "action:chord:⌘F",
+                "action:chord:F2",
+                "action:chord:?",
                 "action:chord:⌘=",
                 "action:chord:⌘-",
                 "action:chord:⌘0",
@@ -743,11 +747,15 @@ mod tests {
             vec![
                 serde_json::json!({"path": "/A", "command": "action:leader:C"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘F"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:F2"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:?"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘="}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘-"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘0"}),
                 serde_json::json!({"path": "/B", "command": "action:leader:C"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘F"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:F2"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:?"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘="}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘-"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘0"}),

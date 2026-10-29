@@ -6,7 +6,6 @@ import type { Actor } from "@contracts/Actor";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Pad } from "@contracts/pad/Pad";
 import { DrawerHost } from "../../drawer/DrawerHost";
-import { Keys } from "../../keys/Keys";
 import { Pads } from "../../pads/Pads";
 import { ConnectedProjectContext, connectProject } from "../../state/connectedProject";
 import { createFakeApp } from "../../testing/fakeApp";
@@ -24,7 +23,7 @@ const USER: Actor = { kind: "user", id: "you", parent: null };
 
 const padOf = (name: string, who: Actor): Pad => ({ incarnation: `fixture-${name}`, name, owner: who, text: "", updated_at: 0, revision: 1, home: null });
 
-/** The Rail, `Keys`, the Shelf and the Drawer over one fake Daemon whose Pads are `pads`. */
+/** The Rail, the Shelf and the Drawer over one fake Daemon whose Pads are `pads`. */
 const mount = async (tree: RailNode[], pads: Pad[]) => {
   const state: PadStore = { pads, history: [] };
   const app = createFakeApp();
@@ -36,7 +35,6 @@ const mount = async (tree: RailNode[], pads: Pad[]) => {
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <Keys />
       <Rail />
       <Pads />
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
