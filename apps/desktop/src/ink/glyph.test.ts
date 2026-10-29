@@ -6,7 +6,7 @@ describe("u4 ink", () => {
   it.each([
     ["needs-you", "disc", "amber"],
     ["error", "cross", "red"],
-    ["blocked", "dashed", "grey"],
+    ["blocked", "barred", "grey"],
     ["working", "quarter", "accent"],
     ["idle", "ring", "grey"],
     ["done", "check", "grey"],
