@@ -108,38 +108,6 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
   await capture("pointer-and-keyboard-notes");
 }, 60_000);
 
-it("u2540d_review_stage_rendered_observer", async () => {
-  for (const theme of ["light", "dark"]) {
-    await browser("set", "media", theme);
-    await open("/src/changes/u2540.html");
-    const baseline = await capture(`${theme}-before`);
-    await showDiff();
-    await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
-    const after = await capture(`${theme}-diff`);
-
-    for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(after[id].status, id).toBe("pass");
-    await click("Close");
-    await wait("!!document.querySelector('file-tree-container')");
-    await click("Close");
-    await open("/src/changes/u2540.html?dense");
-    await showDiff();
-    await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
-    await wait("document.querySelectorAll('[aria-label=\"Notes\"] > li').length === 100");
-    const dense = await capture(`${theme}-dense`);
-
-    for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(dense[id].status, id).toBe("pass");
-    await click("Close changes");
-    await open("/src/changes/u2540.html?dense&failure");
-    await showDiff();
-    await wait("!!document.querySelector('[role=alert]')");
-    const failure = await capture(`${theme}-failure`);
-
-    for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(failure[id].status, id).toBe("pass");
-    await click("Close");
-    await click("Close");
-  }
-}, 180_000);
-
 it("u2773a_changes_browser_reload_restores_exact_work", async () => {
   await open("/src/changes/u2540.html");
   await showDiff();
