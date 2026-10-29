@@ -15,7 +15,7 @@ import { tab, path } from "../header/stripFixture";
 import { rowOf, settled } from "../rail/railFixture";
 import type { ConnectedProject } from "../state/connectedProject";
 import { useBrowserStorage } from "../state/storage";
-import { agent, event, workstream } from "../testing/nodes";
+import { agent, event, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
 afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); localStorage.clear(); sessionStorage.clear(); });
@@ -93,13 +93,31 @@ const activate = (row: HTMLElement, how: "enter" | "pointer"): void => {
 // App owns the surviving notice; the real Rail captures each original spawn contract.
 const APP_ROWS: Row[] = ROWS.flatMap(row => row.method === "agent.spawn" ? [{ ...row, owner: "App", params: { cwd: path("first"), prompt: row.label === "New Agent" ? null : "A\ne\u0301 🧭", parent: "ops", model: null, effort: null } }] : []);
 
+const BUBBLE_ROWS: Row[] = [
+  { owner: "Bubble", label: "New Terminal", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.open", params: { workstream: "ops" }, confirms: false, removes: "7",
+    hold: (app, entered) => {
+      const reply = pending(entered, { terminal_id: "9" });
+      app.handlers["terminal.open"] = reply.handler;
+
+      return reply.gate;
+    } },
+  { owner: "Bubble", label: "Close the Bubble", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.close", params: { id: "7" }, confirms: true, removes: "7",
+    hold: (app, entered) => {
+      const reply = pending(entered, null);
+      app.handlers["terminal.close"] = reply.handler;
+
+      return reply.gate;
+    } },
+];
+
 const mountApp = async () => {
   useBrowserStorage(localStorage);
   const app = createFakeApp();
   app.add(path("first"));
   app.add(path("second"));
-  app.of(path("first")).handlers["rail.tree"] = () => [workstream("ops")];
+  app.of(path("first")).handlers["rail.tree"] = () => [workstream("ops"), workstream("elsewhere", { order: 1 })];
   app.of(path("second")).handlers["rail.tree"] = () => [workstream("other")];
+  app.of(path("first")).handlers["terminal.list"] = () => [info("7", { owner: "ops", title: "original" })];
   let original: ConnectedProject | undefined;
   const emulators = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { if (open.project.path === path("first")) original = open; }} />);
@@ -108,18 +126,26 @@ const mountApp = async () => {
   await waitFor(() => expect(original).toBeDefined());
   await screen.findByText("ops", { selector: ".name" });
   fireEvent.click(rowOf("ops"));
+  original!.showView("terminal-tabs");
   await settled();
 
   return { app: app.of(path("first")), connected: original!, other: app.of(path("second")) };
 };
 
-const cases = [...ROWS, ...APP_ROWS].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
-  (row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : ["dismiss", "resolve", "reject", "unknown"] as const)).map((outcome) => ({ row, how, outcome }))));
+const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
+  (row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
-  const mounted = row.owner === "App" ? await mountApp() : await mountSwitcher(row.selected);
+  const mounted = row.owner !== "Rail" ? await mountApp() : await mountSwitcher(row.selected);
   const { app, connected } = mounted;
   const trace: string[] = [];
+
+  if (row.owner === "Bubble") {
+    const edit = connected.drafts.edit({ surface: "bubbles", object: "fixture-7", recipient: "7" }, { name: "  draft e\u0301 🫧 雪  ", base: "original" }, null, "ordinary");
+    await edit.retained;
+  }
+
+  const retainedDrafts = connected.drafts.list();
   const reply = row.hold(app, () => trace.push(`${row.method}:${field() === null ? "closed" : "open"}`));
 
   let shown = questionProbe.shown;
@@ -171,14 +197,20 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     switcherKey("Escape", {}, prompt);
   }
 
-  // The surface is dismissed first so Ark's focus trap releases focus to an action that moves it; the captured action still starts once.
+  // Current dispatch follows dismissal; #4439 owns initiating requests before Switcher dismissal. This guard proves the captured Bubble confirmation survives Project removal.
   if (row.confirms) {
     await questionDialog();
     expect(trace).toEqual(["question:closed"]);
     expect(ofMethod()).toEqual([]);
-    await answerQuestion(outcome !== "cancel");
 
-    if (outcome === "cancel") {
+    if (outcome === "confirmation-accept" || outcome === "confirmation-cancel") {
+      fireEvent.click(tab("second"));
+      await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
+    }
+
+    await answerQuestion(outcome !== "cancel" && outcome !== "confirmation-cancel");
+
+    if (outcome === "cancel" || outcome === "confirmation-cancel") {
       expect(ofMethod()).toEqual([]);
       expect(trace).toEqual(["question:closed"]);
 
@@ -194,9 +226,15 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
   const queryDraft = connected.drafts.list().filter(entry => entry.destination.surface === "switcher");
 
-  if (row.owner === "App") {
+  if (row.owner !== "Rail") {
     expect(queryDraft).toHaveLength(1);
     expect(queryDraft[0]).toMatchObject({ destination: { surface: "switcher", object: path("first"), recipient: null }, value: { query } });
+
+    if (outcome === "reject-before-switch") {
+      reply.reject(new RpcError(-32000, `${row.label} late rejection`));
+      await waitFor(() => expect(document.body.textContent).toContain(`${row.label} late rejection`));
+    }
+
     fireEvent.click(tab("second"));
     await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
   } else {
@@ -209,6 +247,53 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   }
 
   expect(ofMethod()).toHaveLength(1);
+
+  if (row.owner === "Bubble") {
+    const drafts = connected.drafts.list();
+    expect(drafts.filter(draft => draft.destination.surface === "bubbles")).toEqual(retainedDrafts.filter(draft => draft.destination.surface === "bubbles"));
+
+    if (outcome === "resolve" || outcome === "confirmation-accept") {
+      app.handlers["terminal.list"] = () => row.method === "terminal.open" ? [info("7", { owner: "ops", title: "original" }), info("9", { owner: "ops", title: "created" })] : [];
+      reply.resolve();
+      await waitFor(() => expect(connected.rail.terminals().map(terminal => terminal.id)).toEqual(row.method === "terminal.open" ? ["7", "9"] : []));
+    } else {
+      if (outcome !== "reject-before-switch") reply.reject(outcome === "unknown" ? new Error(`${row.label} late rejection`) : new RpcError(-32000, `${row.label} late rejection`));
+      await waitFor(() => expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes(`${row.label} late rejection`))).toBe(true));
+      expect(connected.drafts.list()).toEqual(drafts);
+      expect(ofMethod()).toHaveLength(1);
+      expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes("Outcome unknown"))).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
+      await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
+      expect(ofMethod()).toHaveLength(1);
+      expect(connected.drafts.list()).toEqual(drafts);
+      connected.rail.select("elsewhere");
+
+      if (row.method === "terminal.open") app.handlers["terminal.open"] = () => ({ terminal_id: "9" });
+      else app.handlers["terminal.close"] = () => null;
+      fireEvent.click(document.querySelector(".rail-command-notice button")!);
+      await questionDialog();
+      expect(ofMethod()).toHaveLength(1);
+      await answerQuestion(true);
+      await waitFor(() => expect(ofMethod()).toHaveLength(2));
+      expect(ofMethod().map(call => call.params)).toEqual([row.params, row.params]);
+    }
+
+    expect(connected.drafts.list()).toEqual(drafts);
+    expect("other" in mounted && mounted.other.calls.filter(call => [row.method, "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
+    expect(app.calls.slice(before).filter(call => ["message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
+    expect(app.badges.filter(count => count > 0)).toEqual([]);
+
+    if (outcome === "resolve" || outcome === "confirmation-accept") {
+      fireEvent.click(tab("first"));
+      await screen.findByText("ops", { selector: ".name" });
+      rowOf("ops").focus();
+    }
+
+    openSwitcher();
+    await waitFor(() => expect(field()?.value).toBe(query));
+
+    return;
+  }
 
   if (outcome === "resolve") {
     if (row.owner === "App") {

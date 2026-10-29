@@ -1,4 +1,5 @@
 import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble } from "./focus";
+import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
 import { createTerminalClose } from "./close";
@@ -88,6 +89,7 @@ export const Bubbles = (props: {
   const [failure, setFailure] = createSignal<{ message: string; terminal: { id: string; incarnation: string } | null } | null>(null);
 
   const clearItemFailure = (terminal: { id: string; incarnation: string }) => {
+    rail.commandFailure.acknowledgeTerminal(terminal);
     setFailure(prior => prior?.terminal?.id === terminal.id && prior.terminal.incarnation === terminal.incarnation ? null : prior);
   };
 
@@ -319,7 +321,7 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const { close, closing, Failure: CloseFailure } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure);
+  const { close, closing, Failure: CloseFailure, reportFailure, mounted } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure, failure);
 
   const focusItem = (id: string) => focusBubble(id, places()[id], props.screens);
 
@@ -382,7 +384,7 @@ export const Bubbles = (props: {
       if (focus && focusReturn(() => host.closest(".bubble")?.querySelector<HTMLElement>(".bubble-controls button")?.focus({ preventScroll: true }))) focusReturn = captureFocus();
       prepared = await props.screens.prepare(host, settled, controller.signal);
 
-      if (!current() || rail.selected() !== selection) return null;
+      if ((focus && !current()) || rail.selected() !== selection) return null;
       const opened = await app.rpc("terminal.open", { workstream, ...prepared.size });
 
       if (controller.signal.aborted && controller.signal.reason?.message === copy.terminalPreparationCancelled) {
@@ -394,7 +396,7 @@ export const Bubbles = (props: {
 
       prepared.bind(opened.terminal_id);
       setPlaces(prior => ({ ...prior, [opened.terminal_id]: placeOf(key) }));
-      const available = () => !controller.signal.aborted && current() && rail.selected() === selection;
+      const available = () => mounted() && !controller.signal.aborted && current() && rail.selected() === selection;
 
       if (available()) {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
@@ -402,6 +404,7 @@ export const Bubbles = (props: {
         if (selection !== null && (workstream === null || resolvedWorkstream(rail.nodes, selection) !== workstream)) setOpenedHere(prior => [...prior, opened.terminal_id]);
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
+      rail.commandFailure.acknowledge(null);
       await rail.refresh({ terminals: true });
       setReserved(prior => ({ ...prior, [key]: opened.terminal_id }));
 
@@ -418,7 +421,16 @@ export const Bubbles = (props: {
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      if (!controller.signal.aborted) setFailure({ message: thrown.message, terminal: null });
+      if (prepared || !controller.signal.aborted) reportFailure(thrown, copy.newTerminal, undefined, () => {
+        if (workstream !== null && !rail.nodes.some(node => node.id === workstream && node.kind === "workstream")) {
+          rail.commandFailure.show(copy.terminalOriginalWorkstreamUnavailable);
+
+          return;
+        }
+
+        if (outcomeOf(thrown) === "failed") void openTerminal(() => false, false, workstream);
+        else void app.ask({ title: copy.newTerminal, message: copy.terminalOpenAgainQuestion, okLabel: copy.newTerminal, cancelLabel: copy.keep }).then(accepted => { if (accepted) void openTerminal(() => false, false, workstream); });
+      });
 
       return null;
     } finally {
@@ -436,7 +448,7 @@ export const Bubbles = (props: {
       });
       setOpening(false);
 
-      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
+      if (mounted() && focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
 
