@@ -124,7 +124,7 @@ it("u3517d_rendering_changes_keep_input_and_scrollback", async () => {
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
 }, 60_000);
 
-const captureIds = ["U4590", "U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d", "U4592", "U4649"].filter(id => captureDir(id));
+const captureIds = ["U3517b", "U3517c", "U3517f", "U4456a", "U4456b", "U4456c", "U4456d", "U4592", "U4649"].filter(id => captureDir(id));
 
 const replay = [
   "\x1b[2J\x1b[H\x1b]133;A\x07Selected Terminal 0123456789",
@@ -659,14 +659,22 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       await browser("open", url("/src/ui/u498.html", base));
       await read("localStorage.clear(); sessionStorage.clear()");
-      await load(seed, base, renderer);
+      const scale = process.env.U4590_SCALE === "2" ? 2 : 1;
+
+      await load(seed, base, renderer, scale);
       let id = seed === "agents-10" ? "t-agent-3" : seed === "tree-40" ? "t-payments" : "t-runner";
       await select(seed === "agents-10" ? "agent-3" : seed === "tree-40" ? "payments" : "runner", id);
       const dir = join(captureDir("U4590")!, base ? "base" : "head");
       mkdirSync(dir, { recursive: true });
       const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", cwd: base ? process.env.U500_BASE_ROOT : process.cwd() }).trim();
+
       const capture = async (step: string) => {
         const marker = `U4590 ${step} later output`;
+        await read(`(async () => { await window.__terminals.get('${id}').ready; await document.fonts.ready;
+          window.__drawer = await import('/src/drawer/sliding.ts'); window.__shelf = await import('/src/shelf/sliding.ts'); })()`);
+        await wait("!window.__drawer.drawerSliding() && !window.__shelf.shelfSliding()");
+        // Pane and Bubble schedule their completed-layout refit on the next render frame.
+        await read("new Promise(resolve => requestAnimationFrame(resolve))");
         await read(`(() => {
           const emulator = window.__terminals.get('${id}');
           window.__observedEmulator ??= emulator;
@@ -677,27 +685,30 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await wait(`window.__terminals.get('${id}').serialize().data.includes(${JSON.stringify(marker)})`);
         // emulator.ts schedules xterm painting after the subscription's parse callback.
         await read("new Promise(resolve => requestAnimationFrame(resolve))");
+
         const record = await read(`(() => {
           const emulator = window.__terminals.get('${id}');
-          const input = [...document.querySelectorAll('.xterm-helper-textarea')].find(e => e.checkVisibility());
-          const host = input?.closest('.pane-screen, .bubble-body');
+          const bubble = document.querySelector('.bubble[data-bubble="${id}"]:not([hidden]) .bubble-body');
+          const host = bubble ?? document.querySelector('.pane-screen');
           const snapshot = emulator.serialize();
-          return { id: '${id}', fontStatus: document.fonts.status, snapshot,
+          return { id: '${id}', dpr: devicePixelRatio, fontStatus: document.fonts.status, snapshot,
             sameEmulator: emulator === window.__observedEmulator,
             renderer: host?.querySelector('.xterm-screen canvas') ? 'webgl' : 'dom',
             host: host?.getBoundingClientRect().toJSON(),
             visibleRows: host?.querySelector('.xterm-rows')?.textContent,
             calls: window.__fake.app.calls.filter(c => ['terminal.resize', 'terminal.snapshot', 'terminal.catchUp', 'terminal.open', 'agent.spawn', 'rail.startDoor', 'terminal.write'].includes(c.method)) };
         })()`);
-        const name = `${seed}-${renderer}-${step}`;
+
+        const name = `${seed}-${renderer}-${step}${scale === 2 ? "-scale2" : ""}`;
         writeFileSync(join(dir, `${name}.trace.json`), JSON.stringify({ commit, seed, step, requestedRenderer: renderer, record }, null, 2));
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
         await browser("screenshot", join(dir, `${name}.png`));
       };
+
       await capture("existing");
 
       if (seed === "agents-10") {
-        await read("window.__settings = await import('/src/settings/preferences.ts'); window.__settings.saveAppSettings({fontFamily:'monospace',fontSize:15})");
+        await read("(async () => { window.__settings = await import('/src/settings/preferences.ts'); window.__settings.saveAppSettings({fontFamily:'monospace',fontSize:15}); })()");
         await wait(`window.__fake.app.calls.some(c=>c.method==='terminal.resize' && c.params.id==='${id}') && document.fonts.status==='loaded'`);
         await capture("custom-font");
         await read("window.__settings.saveAppSettings({fontFamily:'',fontSize:11})");
@@ -712,13 +723,16 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await browser("set", "viewport", "1512", "950");
         await wait("innerWidth===1512 && innerHeight===950");
         await capture("window-resize");
+        await select("agent-4", "t-agent-4");
+        await select("agent-3", "t-agent-3");
+        await capture("restore-after-switch");
         await browser("click", '.rail-actions [aria-label="New Agent"]');
         await wait("window.__fake.app.calls.some(c=>c.method==='agent.spawn') && !!document.querySelector('.pane .xterm-screen')");
         id = await read<string>("[...window.__terminals.keys()].at(-1)");
         await read("window.__observedEmulator=null");
         await capture("new-agent");
       } else if (seed === "tree-40") {
-        await read("document.querySelector('.shelf [aria-label=Close]').click()");
+        await read("document.querySelector('.shelf [aria-label=\"Close work items\"]').click()");
         await wait("document.querySelector('.window')?.dataset.shelf==='closed'");
         await capture("shelf-closed");
         await browser("press", "Meta+k");
@@ -752,7 +766,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await capture("maximise");
         await browser("click", '.bubble:not([hidden]) [aria-label=Minimise]');
         await wait("!document.querySelector('.bubble:not([hidden])')");
-        await read(`document.querySelector('[data-terminal="${id}"]')?.click()`);
+        await read(`document.querySelector('button.terminal-tab[data-bubble="${id}"]')?.click()`);
         await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
         await capture("reopen");
         await browser("click", '.rail-row[data-id=runner]');
