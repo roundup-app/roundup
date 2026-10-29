@@ -206,90 +206,54 @@ async fn name_of(user: &rpc::Client, id: &str) -> String {
 async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
     let logs = tempfile::tempdir().unwrap();
     let prompts = logs.path().join("prompts.jsonl");
-    let s = scene(&env(&prompts)).await;
-    // The Door's own first turn is over before the flips are counted.
-    h21_poll("the Door's first prompt", async || {
-        std::fs::read_to_string(&prompts)
-            .ok()
-            .filter(|log| !log.is_empty())
+    let project = start(&env(&prompts));
+    let user = project.client().await;
+    let door = super::start_door(&user).await;
+    // The fake's first prompt ends with Stop. Wait for that acknowledgement before
+    // driving statuses, so a late startup Stop cannot overwrite a replayed flip.
+    h21_poll("the Door's initial turn to finish", async || {
+        let tree = super::daemon::rail_tree(&user).await;
+        tree.iter()
+            .find(|node| node.id == door)?
+            .status
+            .as_ref()
+            .filter(|status| status.kind == Kind::Idle)
+            .map(|_| ())
     })
     .await;
-    // The children's start is over once no setup note is still waiting. `alpha` then works, and
-    // the Door has been told so, before the flips below.
-    let ended = async || {
-        let listed = s
-            .user
-            .request("message.list", json!({ "to": s.door }))
-            .await
-            .unwrap();
-        listed
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|m| m["status"] == "delivered" || m["status"] == "dropped")
-    };
-    h21_poll("the setup notes to end", async || {
-        ended().await.then_some(())
+    let child = named(&project, &user, "alpha", Some(&door)).await;
+    h21_poll("the child's startup to finish", async || {
+        let tree = super::daemon::rail_tree(&user).await;
+        tree.iter()
+            .find(|node| node.id == child)?
+            .status
+            .as_ref()
+            .filter(|status| status.kind == Kind::Idle)
+            .map(|_| ())
     })
     .await;
-    // A Door told `idle` hears no `last` change of a child that stays idle, so `alpha` is told
-    // `working` first when the Door's newest word of it is `idle`. The Door's word and the Rail
-    // agree before that, since a Status the Daemon has not yet told is still on its way.
-    let name = name_of(&s.user, &s.a).await;
-    let word = format!("{name} is ");
-    let told_kind = async || {
-        let bodies = made(&s.user, &s.door).await;
-        let said = bodies.iter().rev().find_map(|body| {
-            let rest = &body[body.rfind(&word)? + word.len()..];
-            Some(rest.split_whitespace().next()?.to_owned())
-        });
-        let tree = super::daemon::rail_tree(&s.user).await;
-        let kind = tree.iter().find(|n| n.id == s.a)?.status.as_ref()?.kind;
-        let said = said?;
-        ((said == "working") == (kind == Kind::Working) && (said == "idle") == (kind == Kind::Idle))
-            .then_some(said)
-    };
-    let said = h21_poll("the Door's word of alpha to match its Status", async || {
-        told_kind().await
-    })
-    .await;
-    if said == "idle" {
-        let told = made(&s.user, &s.door).await.len();
-        drive(&s.user, &s.a, WORK).await;
-        h21_poll("the Digest of alpha working", async || {
-            (made(&s.user, &s.door).await.len() > told).then_some(())
-        })
-        .await;
-    }
-    h21_poll("the setup notes to end", async || {
-        ended().await.then_some(())
-    })
-    .await;
-    // With a `last` of its own (B35), the child's flips change no entry.
-    let as_a = client_as(&s.project, actor(ActorKind::Agent, &s.a)).await;
-    as_a.request(
-        "message.send",
-        json!({ "to": s.door, "kind": "note", "body": "found it" }),
-    )
-    .await
-    .unwrap();
-    // The Daemon reads a child's `last` when it sees the flip, so the second flip waits for the
-    // Digest of the first: two flips it saw as one would push nothing.
-    drive(&s.user, &s.a, STOP).await;
-    h21_poll("the updated Digest", async || {
-        made(&s.user, &s.door)
+    let as_child = client_as(&project, actor(ActorKind::Agent, &child)).await;
+    as_child
+        .request(
+            "message.send",
+            json!({ "to": door, "kind": "note", "body": "found it" }),
+        )
+        .await
+        .unwrap();
+    drive(&user, &child, WORK).await;
+    // One child keeps setup below B22's cap. Its own last line makes both replayed
+    // kinds equivalent without waiting for a suppressed Kind-only Digest.
+    h21_poll("the Digest with the child's last line", async || {
+        made(&user, &door)
             .await
             .iter()
             .any(|body| body.contains("  last: found it\n"))
             .then_some(())
     })
     .await;
-    drive(&s.user, &s.a, WORK).await;
-    // Every setup note has ended: delivered, or folded into a newer Digest (B22).
     h21_poll("all setup notes to be delivered", async || {
-        let listed = s
-            .user
-            .request("message.list", json!({ "to": s.door }))
+        let listed = user
+            .request("message.list", json!({ "to": door }))
             .await
             .unwrap();
         listed
@@ -300,13 +264,14 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
             .then_some(())
     })
     .await;
-    let before = (made(&s.user, &s.door).await, typed(&prompts, 0).await.len());
+    let before = (made(&user, &door).await, typed(&prompts, 0).await.len());
     for _ in 0..5 {
-        drive(&s.user, &s.a, STOP).await;
-        drive(&s.user, &s.a, WORK).await;
+        drive(&user, &child, STOP).await;
+        drive(&user, &child, WORK).await;
     }
+    // Observation window: a forbidden extra Digest/turn has no completion event.
     tokio::time::sleep(Duration::from_secs(1)).await;
-    let after = (made(&s.user, &s.door).await, typed(&prompts, 0).await.len());
+    let after = (made(&user, &door).await, typed(&prompts, 0).await.len());
     assert_eq!(after.0, before.0);
     assert_eq!(after.1, before.1);
 }
