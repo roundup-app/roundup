@@ -43,7 +43,6 @@ import type { LinkContent } from "@contracts/link/LinkContent";
 import { PadHost } from "./pads/PadDrawer";
 import { TodoHost } from "./todos/TodoDrawer";
 import { Capture } from "./todos/Capture";
-import { Keys } from "./keys/Keys";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
@@ -482,7 +481,7 @@ export const App = (props: {
 
     return [
       ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "ask-history" || id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => !row.inShelf && row.keys !== copy.leaderChord), ...LEADER.filter(row => row.keys !== "T")].map(row => {
+      ...[...CHORDS.filter(row => row.keys !== copy.leaderChord), ...LEADER.filter(row => row.keys !== "T")].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
         const action = actions.find(action => action.value === id && action.available());
 
@@ -492,7 +491,7 @@ export const App = (props: {
 
         return item;
       }),
-    ].filter(item => item.enabled);
+    ].filter((item, at, all) => item.enabled && all.findIndex(other => other.enabled && other.id === item.id) === at);
   });
 
   let menuWriting = false;
@@ -609,7 +608,6 @@ export const App = (props: {
               <InProject open={activeConnection()}>
                 {() => (
                   <>
-                    <Keys />
                     <AttentionKey />
                     <Rail />
                   </>
