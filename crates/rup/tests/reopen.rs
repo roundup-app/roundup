@@ -137,6 +137,9 @@ async fn u4547e_reparenting_survives_reopen() {
     assert_ne!(project.socket(), old_socket);
     let c = project.client().await;
     let after = rail_tree(&c).await;
+    let listed: Vec<contracts::terminal::TerminalInfo> =
+        serde_json::from_value(c.request("terminal.list", Value::Null).await.unwrap()).unwrap();
+    assert_eq!(listed.iter().filter(|t| t.running).count(), 2);
     for (id, parent) in [
         (&into_workstream.id, Some(&workstream.id)),
         (&into_mode.id, Some(&mode.id)),
@@ -145,15 +148,27 @@ async fn u4547e_reparenting_survives_reopen() {
         let now = after.iter().find(|n| &n.id == id).expect("same Agent");
         assert_eq!(now.parent.as_ref(), parent);
         assert_eq!(now.name, was.name);
+        assert_eq!(now.attempt, was.attempt, "same Attempt");
+        let was_terminal = original
+            .iter()
+            .find(|terminal| Some(&terminal.id) == was.terminal_id.as_ref())
+            .unwrap();
+        let now_terminal = listed
+            .iter()
+            .find(|terminal| Some(&terminal.id) == now.terminal_id.as_ref())
+            .unwrap();
+        assert!(now_terminal.running);
+        assert_eq!(now_terminal.incarnation, was_terminal.incarnation);
+        assert_eq!(
+            now_terminal.program_pid, was_terminal.program_pid,
+            "same Agent's original program"
+        );
         assert_ne!(now.status.as_ref().map(|s| s.kind), Some(Kind::Done));
         assert!(
             now.terminal_id.is_some(),
             "a Terminal of the new client table"
         );
     }
-    let listed: Vec<contracts::terminal::TerminalInfo> =
-        serde_json::from_value(c.request("terminal.list", Value::Null).await.unwrap()).unwrap();
-    assert_eq!(listed.iter().filter(|t| t.running).count(), 2);
     for (_child, client, settings, tools) in &retained {
         assert_eq!(
             client.list_all_tools().await.unwrap(),
@@ -214,13 +229,6 @@ async fn u4547e_reparenting_survives_reopen() {
         })
         .await;
         assert_eq!(status.kind, Kind::NeedsYou);
-    }
-    for was in original {
-        let now = listed
-            .iter()
-            .find(|t| t.incarnation == was.incarnation)
-            .unwrap();
-        assert_eq!(now.program_pid, was.program_pid, "same original program");
     }
     assert_eq!(
         std::fs::read_to_string(launches).unwrap().lines().count(),
