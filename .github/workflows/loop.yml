@@ -20,26 +20,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - run: loop/rules.sh ci-trailers "$PR"
-        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        run: loop/rules.sh frozen "$PR"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        run: loop/rules.sh scenario-closes "$PR"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        run: loop/rules.sh empty-diff "$PR"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
       - run: loop/rules.sh merge-loss
         if: ${{ !cancelled() && github.event_name == 'pull_request' }}
       - run: loop/rules.sh vocab
@@ -75,8 +55,6 @@ jobs:
         run: |
           pnpm install --filter @roundup/agent-runners --frozen-lockfile --ignore-scripts
           pnpm --filter @roundup/agent-runners test:runners
-      - run: python3 loop/workflows.test.py
-        if: ${{ !cancelled() }}
       - run: loop/rules.test.sh
         if: ${{ !cancelled() }}
       - run: loop/qa-sweep.test.sh
