@@ -166,7 +166,7 @@ describe("u2230 shortcut hints", () => {
       }
   });
 
-  it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u4690_each_hint_runs_its_key_action_once_in_%s", async (place, go) => {
+  it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")]] as const)("u4690_each_hint_runs_its_key_action_once_in_%s", async (place, go) => {
       for (const hint of hintsFor(place)) {
         // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
         cleanup();

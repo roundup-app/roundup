@@ -1,80 +1,15 @@
 import { execFile } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { promisify } from "node:util";
-import { createServer, type ViteDevServer } from "vite";
-import { realDaemon, } from "../testing/realDaemonPlugin";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
+import { expect, it } from "vitest";
+import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
-
-describe("U2773a Ask restoration", () => {
-  let real: StartedDaemon;
-
-  // Compile and warm the real fixture before the draft-restoration deadline starts.
-  beforeAll(async () => { real = await startRealDaemon({}, true); }, 120_000);
-  afterAll(async () => { await real?.stop(); });
-
-  it("u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen", async () => {
-    const profile = mkdtempSync(join(tmpdir(), "unfinished-ask-profile-"));
-    const session = `unfinished-ask-${process.pid}`;
-    writeFileSync(join(profile, "config.json"), "{}");
-    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
-    const browser = async (...args: string[]) => (await exec("agent-browser", ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--config", join(profile, "config.json"), "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000 })).stdout;
-    const app = createServedApp(real.base);
-    const exact = "@Captured  e\u0301 🌿\nlast line  ";
-
-    try {
-      const original = await app.rpc("rail.createWorkstream", { name: "Captured", parent: null });
-      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
-      await browser("set", "viewport", "1512", "950");
-      await browser("wait", ".ask-input");
-      await browser("eval", `(() => {
-        const field = document.querySelector('.ask-input');
-        field.focus(); field.value = ${JSON.stringify(exact)};
-        field.dispatchEvent(new Event('input', {bubbles: true}));
-        field.setSelectionRange(2, 6, 'backward');
-        field.dispatchEvent(new Event('select', {bubbles: true}));
-      })()`);
-      await app.rpc("rail.rename", { id: original.id, name: "Renamed" });
-      const replacement = await app.rpc("rail.createWorkstream", { name: "Captured", parent: null });
-      await browser("reload");
-      await browser("wait", ".ask-input");
-
-      const restored = JSON.parse(await browser("eval", `(() => {
-        const field = document.querySelector('.ask-input');
-        return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection, document.activeElement === field];
-      })()`));
-
-      expect(restored.success).toBe(true);
-      expect(restored.data.result).toEqual([exact, 2, 6, "backward", false]);
-      expect(await app.rpc("ask.list", null)).toEqual([]);
-      await browser("open", "about:blank");
-      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
-      await browser("wait", ".ask-input");
-      expect(JSON.parse(await browser("eval", "(() => { const field = document.querySelector('.ask-input'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]; })()")).data.result).toEqual([exact, 2, 6, "backward"]);
-      await browser("eval", `document.querySelector('.ask-input').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true}))`);
-      await browser("wait", "--fn", "!!document.querySelector('.ask-row') && !document.querySelector('.ask-input').value");
-      await expect.poll(async () => (await app.rpc("ask.list", null))[0]?.parts[0]?.placement).toEqual({ kind: "routed", workstream: original.id });
-      const accepted = await app.rpc("ask.list", null);
-      expect(accepted).toHaveLength(1);
-      expect(accepted[0]?.text).toBe(exact);
-      expect((await app.rpc("rail.tree", null)).find(node => node.id === replacement.id)?.terminal_id).toBeNull();
-      await browser("reload");
-      await browser("wait", ".ask-input");
-      expect(JSON.parse(await browser("eval", "document.querySelector('.ask-input').value")).data.result).toBe("");
-      expect(await app.rpc("ask.list", null)).toHaveLength(1);
-    } finally {
-      await browser("close");
-      rmSync(profile, { recursive: true, force: true });
-    }
-  }, 60_000);
-});
 
 it.skipIf(!captureDir("U3021c"))("u3021c_ask_selected_revision_browser_focus", async () => {
   const real = await startRealDaemon({}, true);

@@ -173,7 +173,7 @@
 .shelf-bar .app-switch { gap: var(--space-1); color: var(--grey); font-size: var(--text-body); line-height: var(--space-4); }
 .shelf-bar .app-switch-track { align-self: center; }
 .shelf-groups.app-tree { padding: 0; }
-.shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
+.shelf-groups [data-part="branch-control"] { padding-inline: var(--space-2) 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: var(--transparent); }
 .shelf-groups [data-part="branch"] { cursor: pointer; }
 .shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
@@ -203,7 +203,10 @@
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
 :is(.window[data-shelf-maximised="true"]:not(:has(.drawer[data-open="true"])) .shelf, .drawer[data-maximised="true"]:not([data-fill="true"])) { width: calc(100% - var(--rail-width)); }
 /* Hidden content must also suppress descendants that explicitly restore visibility. */
-:is(.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])), .window:has(.drawer[data-open="true"][data-maximised="true"])) .centre { content-visibility: hidden; }
+:is(.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])), .window:has(.drawer[data-open="true"][data-maximised="true"]:not([data-fill="true"]))) .centre { content-visibility: hidden; }
+
+/* The filled item covers the content; its command hints remain reachable in the Terminal bar. */
+.window:has(.drawer[data-open="true"][data-fill="true"]) :is(.project-center-area, .bubbles, .resource-strip, .resource-inspection) { content-visibility: hidden; }
 
 /* U3752: the mode's keys sit after the rows, stuck to the bottom of the scroll area, so no row moves. */
 .triage-hints {
