@@ -82,8 +82,6 @@
 {"file":"apps/desktop/src/changes/u2539d_choose.test.tsx","test":"U2539d > u2539d_a_deleted_file_opens_nothing","identity":"ff3f03b28f238608702f89cf4cd94e1d565651cf3f044fd927b7bd57fbfabbe6"}
 {"file":"apps/desktop/src/changes/u2539d_choose.test.tsx","test":"U2539d > u2539d_a_failed_open_shows_one_failure_line","identity":"9c8b345e35c7f1a3544e9ef09f068c87edd70fa20a7c7698d14b6cb5d3797834"}
 {"file":"apps/desktop/src/changes/u2539d_choose.test.tsx","test":"U2539d > u2539d_a_failed_open_shows_one_failure_line","identity":"f312a1999c0d803f768123957fbcee5f81d89df5da030be2dbb8b00652764e5f"}
-{"file":"apps/desktop/src/changes/u2540_rendered.test.ts","test":"u2540b_pointer_and_keyboard_select_lines","identity":"35345d698f274e91da77d06575ba75532b17a4216363cc7bb0a52edf2eabdb60"}
-{"file":"apps/desktop/src/changes/u2540_rendered.test.ts","test":"u2540b_pointer_and_keyboard_select_lines","identity":"1cd304f015ef5397e9904f7f674621b741b3ff33f9e4d2adc37edfc6007e4db4"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_save_cancel_and_invalid_ranges","identity":"e4e1ad3ecf400f63d5a4b628b46fdc5b5798f6f17fb8f27bb7cded62c6941568"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_save_cancel_and_invalid_ranges","identity":"33b881f39ab2bf18d96a003543db4a064e1a6803d8d48562f953bb2552875b69"}
 {"file":"apps/desktop/src/changes/u2540b_notes.test.tsx","test":"u2540b_edit_remove_and_batch_across_files","identity":"7a21a0b5c840c76fe2dca79348cdf1c585f8fbef94d091d97040c78a97cbfcd3"}
