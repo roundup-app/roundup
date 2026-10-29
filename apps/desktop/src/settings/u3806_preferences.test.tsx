@@ -174,3 +174,11 @@ it("u4686d_controls_have_labels_and_descriptions", async () => {
     for (const [role, name] of controls) expect(await screen.findByRole(role, { name, description: /\S/ })).toBeTruthy();
   }
 });
+
+it("u4687a_mode_segments_keep_scheme_behavior", async () => {
+  await mount();
+  await section("Appearance");
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "System" }).checked).toBe(true);
+  fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
+  await waitFor(() => expect(appSettings().mode).toBe("dark"));
+});
