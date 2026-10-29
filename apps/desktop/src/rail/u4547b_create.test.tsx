@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { workstream, agent } from "../testing/nodes";
 import { RpcError } from "../app/seam";
-import { mountRail, railCallsTo } from "./railFixture";
+import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -18,16 +18,22 @@ it("u4547b_create_selects_one_mode_after_saving_its_prompt", async () => {
 
  return null; };
 
-  m.app.handlers["workstream.restart"] = () => { order.push("restart");
+  let finishStart!: () => void;
+  m.app.handlers["workstream.restart"] = async () => {
+    order.push("restart");
+    await new Promise<void>(resolve => { finishStart = resolve; });
 
- return tree[1]!; };
+    return tree[1]!;
+  };
 
   fireEvent.click(screen.getByRole("button", { name: "New Mode" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: "  Review  " } });
   fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: "  Review e\u0301 🧭\n " } });
   fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(rowOf("made")));
   expect(order).toEqual(["create", "save", "restart"]);
+  finishStart();
   expect(railCallsTo(m.app, "rail.createWorkstream")).toEqual([{ name: "Review", parent: null }]);
   expect(railCallsTo(m.app, "workstream.setOpeningPrompt")).toEqual([{ id: "made", prompt: "  Review e\u0301 🧭\n " }]);
   expect(m.rail.selected()).toBe("made");
@@ -135,4 +141,37 @@ it("u4547b_late_creation_failure_preserves_the_newer_draft", async () => {
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "First prompt" }).value).toBe(" second\n ");
   expect(m.connected.drafts.list().map(draft => draft.value.text)).toEqual([" first\n ", " second\n "]);
   expect(railCallsTo(m.app, "workstream.restart")).toEqual([]);
+});
+
+it("u4547b_start_failure_is_retried_on_the_created_row", async () => {
+  const tree = [workstream("existing")];
+  const m = await mountRail(tree, [], undefined, () => true);
+  m.app.handlers["rail.createWorkstream"] = () => {
+    const made = workstream("made");
+    tree.push(made);
+
+    return made;
+  };
+
+  m.app.handlers["workstream.setOpeningPrompt"] = ({ prompt }) => {
+    tree[1]!.opening_prompt = prompt ?? "";
+
+    return null;
+  };
+
+  m.app.handlers["workstream.restart"] = () => { throw new RpcError(-32003, "Door could not start; retry"); };
+
+  fireEvent.click(screen.getByRole("button", { name: "New Mode" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Name" }), { target: { value: "Review" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "First prompt" }), { target: { value: "Review changes" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create Mode" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await screen.findByRole("alert");
+  expect(document.activeElement).toBe(rowOf("made"));
+  const first = railCallsTo(m.app, "workstream.restart")[0];
+  m.app.handlers["workstream.restart"] = () => tree[1]!;
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(railCallsTo(m.app, "workstream.restart")).toEqual([first, first]));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(railCallsTo(m.app, "rail.createWorkstream")).toHaveLength(1);
 });
