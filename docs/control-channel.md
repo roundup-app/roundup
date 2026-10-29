@@ -44,7 +44,7 @@ P1 (the user answers any prompt in its Terminal and no Agent answers another's; 
 
 ## Known limitation
 
-The terminal title is the only acknowledgement of an Interrupt, because Claude Code fires no hook on Esc. It is the one screen read left. It fails loudly: `NOT_ACKED` after a bound, never a silent retry (H13, H17).
+The terminal title acknowledges an Interrupt of a working Agent, because Claude Code fires no hook on Esc; an Agent in `needs-you` over `AskUserQuestion` is acknowledged by the Signal that moves its Kind to idle or working (H4702a), with no title change. It is the one screen read left. It fails loudly: `NOT_ACKED` after a bound, never a silent retry (H13, H17).
 
 ## Open
 
