@@ -219,11 +219,11 @@ it.each(["M", "D", "E", "Esc", "O", "T"].flatMap(keys => (["key", "pointer"] as 
   "u4690_each_hint_runs_its_key_action_once: Shelf $keys $source", async ({ keys, source }) => {
     const seeded = seedApp("tree-40", 0);
 
-    if (keys === "M") {
-      // Maximise needs one focused Todo, not the dense Rail's forty independent rows.
-      seeded.app.handlers["rail.tree"] = () => [];
-      seeded.app.handlers["todo.list"] = () => [todo(1)];
-    }
+    const tree = seeded.app.handlers["rail.tree"]!;
+    // Shelf actions need their rows and one assignable Agent, not forty independent Rail rows.
+    seeded.app.handlers["rail.tree"] = async params => (await tree(params)).filter(node => node.id === "backend" || node.id === "migrate");
+
+    if (keys === "M") seeded.app.handlers["todo.list"] = () => [todo(1)];
 
     const mounted = keys === "T" ? await mountTodos([todo(1, { title: "item 1" })]) : null;
     const app = mounted?.app ?? seeded.app;
