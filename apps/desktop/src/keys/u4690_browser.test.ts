@@ -36,17 +36,12 @@ beforeAll(async () => {
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());
-  const recording = captureDir("U4690");
-
-  if (recording) mkdirSync(join(recording, "head"), { recursive: true });
   await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
 
-  if (recording) await browser("record", "start", join(recording, "head", "interaction.webm"));
 }, 90_000);
 
 afterAll(async () => {
   try {
-    if (captureDir("U4690")) await browser("record", "stop");
     await browser("close");
   } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
 });
@@ -134,15 +129,37 @@ it("u4690d_numbered_group_and_rejected_assignment_keep_the_Todo", async () => {
   await capture("U4690c", "head/rejected");
 }, 60_000);
 
-it("u2230b_hint_line_drops_from_the_end", async () => {
+it("u4690a_pointer_picker_returns_to_its_Todo", async () => {
   await read(`window.__todoSource.focus()`);
+  await wait(`!!document.querySelector('.hint-line [data-hint="O"]:enabled')`);
+  const target = await point('.hint-line [data-hint="O"]');
 
+  await browser("mouse", "move", String(target.x), String(target.y));
+  await browser("mouse", "down", "left");
+  expect(await read(`document.activeElement === window.__todoSource`)).toBe(true);
+  await browser("mouse", "up", "left");
+  await wait(`!!document.querySelector('.owner-picker')`);
+  await capture("U4690a", "head/picker");
+  await browser("press", "Escape");
+  await wait(`!document.querySelector('.owner-picker') && document.activeElement === window.__todoSource`);
+}, 60_000);
+
+it("u2230b_hint_line_drops_from_the_end", async () => {
   for (const width of [1280, 700]) {
     await browser("set", "viewport", String(width), "800");
-    await wait(`!!document.querySelector('.hint-line [hidden]')`);
+    await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+    await wait(`!!document.querySelector('.shelf [data-part=branch-control]')`);
+    await read(`document.querySelector('.shelf [data-part=branch-control]').click()`);
+    await wait(`!!document.querySelector('.shelf .todo-row-button')`);
+    await read(`document.querySelector('.shelf .todo-row-button').focus()`);
+    await wait(`document.querySelector('.hint-line').children.length > 0`);
     const hidden = await read<boolean[]>(`[...document.querySelector('.hint-line').children].map(row => row.hidden)`);
+
+    if (width === 700) expect(hidden.some(Boolean)).toBe(true);
+
     const first = hidden.indexOf(true);
-    expect(hidden.slice(first).every(Boolean)).toBe(true);
+
+    if (first !== -1) expect(hidden.slice(first).every(Boolean)).toBe(true);
     await read(`const shown = [...document.querySelectorAll('.hint-line button:enabled')].filter(button => !button.closest('[hidden]')); shown.at(-1)?.focus()`);
     await browser("press", "Tab");
     expect(await read(`document.activeElement?.closest('.hint-line [hidden]') !== null`)).toBe(false);

@@ -105,9 +105,6 @@ export const chordsOf = (chord: Chord | undefined, match: "code" | "key" = "code
 
 export const chordsFor = (keys: string, match: "code" | "key" = "code"): readonly string[] => chordsOf(CHORDS.find((chord) => chord.keys === keys), match);
 
-/** `⌘K` arms the leader (U2239). */
-export const LEADER_ARM = chordsFor("⌘K");
-
 /** Existing Rail navigation, kept local to Keys until its Rail lane adopts Ark. */
 export const RAIL_KEYS = "ArrowLeft ArrowRight F2".split(" ");
 
