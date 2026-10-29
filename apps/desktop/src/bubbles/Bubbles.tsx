@@ -1,3 +1,4 @@
+import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
 import { createTerminalClose } from "./close";
@@ -100,6 +101,7 @@ export const Bubbles = (props: {
   const [failure, setFailure] = createSignal<{ message: string; terminal: { id: string; incarnation: string } | null } | null>(null);
 
   const clearItemFailure = (terminal: { id: string; incarnation: string }) => {
+    rail.commandFailure.acknowledgeTerminal(terminal);
     setFailure(prior => prior?.terminal?.id === terminal.id && prior.terminal.incarnation === terminal.incarnation ? null : prior);
   };
 
@@ -330,7 +332,7 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const { close, closing, Failure: CloseFailure } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure);
+  const { close, closing, Failure: CloseFailure, reportFailure, mounted } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure, failure);
 
   const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
 
@@ -395,7 +397,7 @@ export const Bubbles = (props: {
     try {
       const opened = await app.rpc("terminal.open", { workstream });
 
-      const available = () => current() && rail.selected() === selection;
+      const available = () => mounted() && current() && rail.selected() === selection;
 
       if (available()) {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
@@ -405,6 +407,7 @@ export const Bubbles = (props: {
         if (focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
+      rail.commandFailure.acknowledge(null);
       await rail.refresh({ terminals: true });
 
       if (available()) {
@@ -418,13 +421,22 @@ export const Bubbles = (props: {
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailure({ message: thrown.message, terminal: null });
+      reportFailure(thrown, copy.newTerminal, undefined, () => {
+        if (workstream !== null && !rail.nodes.some(node => node.id === workstream && node.kind === "workstream")) {
+          rail.commandFailure.show(copy.terminalOriginalWorkstreamUnavailable);
+
+          return;
+        }
+
+        if (outcomeOf(thrown) === "failed") void openTerminal(() => false, false, workstream);
+        else void app.ask({ title: copy.newTerminal, message: copy.terminalOpenAgainQuestion, okLabel: copy.newTerminal, cancelLabel: copy.keep }).then(accepted => { if (accepted) void openTerminal(() => false, false, workstream); });
+      });
 
       return null;
     } finally {
       setOpening(false);
 
-      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
+      if (mounted() && focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
 

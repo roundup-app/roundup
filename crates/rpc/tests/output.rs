@@ -146,3 +146,36 @@ async fn x14_rpc_saturated_output_consumer_releases_its_connection() {
     .await
     .expect("saturated disposal and second Client must finish");
 }
+
+#[tokio::test]
+async fn r21_buffered_rpc_output_leaves_a_turn_for_echo_delivery() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fair.sock");
+    let listener = UnixListener::bind(&socket).unwrap();
+    let mut client = Client::connect(&socket).await.unwrap();
+    let mut output = client.take_output().unwrap();
+    let (mut peer, _) = listener.accept().await.unwrap();
+    let mut batch = Vec::new();
+    for offset in 0..96 {
+        batch.extend_from_slice(
+            format!(
+                "{}\n",
+                json!({"jsonrpc":"2.0","method":"terminal.output",
+            "params":{"id":"flood","offset":offset,"data":"eA=="}})
+            )
+            .as_bytes(),
+        );
+    }
+    // Preload a ready socket, not a producer that yields between writes itself.
+    peer.write_all(&batch).await.unwrap();
+    timeout(Duration::from_secs(1), async {
+        for offset in 0..96 {
+            let rpc::OutputFrame::Bytes(event) = output.recv().await.unwrap() else {
+                panic!("unexpected output gap");
+            };
+            assert_eq!(event.offset, offset);
+        }
+    })
+    .await
+    .expect("a ready output consumer must run between buffered frames");
+}
