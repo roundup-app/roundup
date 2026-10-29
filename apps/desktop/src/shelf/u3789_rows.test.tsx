@@ -101,7 +101,10 @@ it.each(["todo-shelf", "pad-shelf", "workstream", "agent"] as const)("u3789a_ren
   fireEvent.click(row);
   await settled();
   // U3789f: a double-click on a Todo or Pad row opens it; F2 renames.
-  if (kind === "todo-shelf" || kind === "pad-shelf") { row.focus(); fireEvent.keyDown(row, { key: "F2" }); } else fireEvent.dblClick(row);
+  if (kind === "todo-shelf" || kind === "pad-shelf") {
+    row.focus();
+    fireEvent.keyDown(row, { key: "F2" });
+  } else fireEvent.dblClick(row);
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: copy.name });
   await waitFor(() => expect(document.activeElement).toBe(field));
   expect(field.selectionStart).toBe(0);
