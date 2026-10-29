@@ -64,9 +64,14 @@ Scope (policy): the same directories as U479, plus `apps/desktop/src/copy.ts` an
 | `K` | open the switcher (U51) |
 | `M` | minimise or restore the focused Bubble (U165) |
 | `W` | close the focused Bubble (U165) |
-| `S` | show or hide the Shelf (U370) |
+| `B` | open or close the Bench (Shelf code term, U370); replaces leader `S` under #4966 |
+| `I` | open Overview with Needs you expanded, not an Inbox Drawer (U3770e) |
 
 The action is the one the removed chord ran, with its guards (an `M` or `W` with no focused Bubble does nothing, as `⌘.` and `⇧⌘⌫` did). The leader has no timeout. `Escape`, or any key that is not in the table (a letter, digit, `⌘`, `⌃` or `⌥` combination, `Enter`, `Tab`), ends the wait, runs nothing and reaches no Terminal, no field and no Rail; a lone modifier press (`⇧` before `J`) neither ends the wait nor counts as the key. A pointer press outside an enabled Hint line leader choice, `⌘K` again, a Project switch, or a modal layer opening ends it too. U4690b in `scenarios/ui-shortcut-hints.md` makes that enabled choice run its action once and end the wait, without pointer-down cancelling the choice before click. The key that ends the wait is handled by the webview with `preventDefault`, and its key repeat does nothing. While a modal layer such as Help or the switcher is open, `⌘K` arms nothing (U479). Tests: `u2239_each_leader_key_runs_its_action_once`, `u2239_the_leader_waits_without_a_timeout` (a fake clock moves an hour; the next `J` still jumps), `u2239_escape_and_an_unbound_key_end_the_wait_and_reach_nothing` (including `⌘J`, `⌥J`, `⌃J` and `Enter` with a Terminal focused: no `terminal.write`, no action, then a plain `j` reaches the Terminal), `u2239_a_modifier_alone_keeps_the_wait`, `u2239_pointer_press_project_switch_and_modal_end_the_wait`, in `apps/desktop/src/keys/`.
+
+U2239 #4966 routing amendment: the Bench action uses `⌘K B`; `⌘K S` becomes an unbound leader sequence, consumes its key and performs nothing. This does not change the scoped direct `⌘B` Terminal switch (U2742c). `⌘K I` is an explicit request for Overview/Needs you even when empty; repeat leaves it expanded. Existing modal guards, focus ownership, Caps Lock neutrality and repeat consumption remain. Extend `u2239_each_leader_key_runs_its_action_once` and `u2239_escape_and_an_unbound_key_end_the_wait_and_reach_nothing` for B/I/retired S, including a focused Terminal and zero `terminal.write`; retain `u2241_no_other_chord_is_taken_at_app_scope` for direct-key ownership. U3770e proves the I destination; U370 proves B persistence/focus/toggle. The registry, leader panel, Help, hints and native menu project the same bound action; no independent matcher or display-only binding (policy). Policy: the critic checks Bench/Reactions labels, including Open the Bench and Close the Bench, and no remaining Named reactions/work items labels. Tests assert behavior, accessible roles and routing rather than exact copy.
+
+Numbered regression Checks for this chord amendment: (1) `apps/desktop/src/keys/chords.ts`, `LEADER` and `CHORDS`, show leader B is free on main and direct scoped B is distinct; (2) `apps/desktop/src/keys/u2239_leader.test.tsx`, `u2239_each_leader_key_runs_its_action_once`, proves single dispatch; (3) `scenarios/ui-shortcuts.md`, U2241, preserves the Terminal exception boundary; (4) `scenarios/ui-shelf-frame.md`, U370/U373, preserves Bench tab/focus behavior. These are baseline anchors, not implementation evidence.
 
 **Leader**: `⌘K`: it waits for one more key from the `LEADER` table (`LeaderKey`, `leaderChord`), or ends on any other key (U2239). The `leader` KeyScope holds those keys' actions; `armLeader`, `endLeader`, `leaderArmed` and `modalOpen` are its state.
 
@@ -89,7 +94,7 @@ Under rule 10 the implementation deletes these clauses and their tests; it migra
 | `⌘,` Models | U377, U480's Models test | the key and the Models button; U377 retires the sheet |
 | `⌘J`, `⇧⌘J` | U30, U45, U186 | replaced by leader `J`, `⇧J` (U2239) |
 | `⌘.`, `⇧⌘⌫` | U165 | replaced by leader `M`, `W` (U2239) |
-| `⌘\` | U370 | replaced by leader `S` (U2239) |
+| `⌘\` | U370 | replaced by leader `B` (U2239, #4966) |
 | `⌘K` opens the switcher | U51 | replaced by leader `K` (U2239) |
 | the Help rows of all the above | U54 | Help lists what U2241 says |
 
