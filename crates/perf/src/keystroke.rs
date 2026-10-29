@@ -186,12 +186,19 @@ fn checked_workload(report: &Value, flood: bool) -> io::Result<()> {
                 pair[0]["bytes"]
                     .as_u64()
                     .zip(pair[1]["bytes"].as_u64())
-                    .is_some_and(|(a, b)| b > a)
+                    .is_some_and(|(a, b)| b >= a)
                     && pair[0]["at_ms"]
                         .as_f64()
                         .zip(pair[1]["at_ms"].as_f64())
-                        .is_some_and(|(a, b)| b > a)
+                        .is_some_and(|(a, b)| a.is_finite() && b.is_finite() && a >= 0.0 && b >= a)
             })
+            || !samples
+                .first()
+                .zip(samples.last())
+                .is_some_and(|(first, last)| {
+                    last["bytes"].as_u64() > first["bytes"].as_u64()
+                        && last["at_ms"].as_f64() > first["at_ms"].as_f64()
+                })
             || !samples
                 .iter()
                 .all(|sample| matches!(sample["state"].as_str(), Some("visible" | "folded")))
