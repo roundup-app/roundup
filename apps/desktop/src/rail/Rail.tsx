@@ -483,6 +483,7 @@ export const Rail = () => {
           setWanted({ id: spawned.id, focus });
         } catch (error) {
           if (!(error instanceof Error)) throw error;
+          if (error.name === "AbortError") return;
           failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", run);
         } finally { prepared?.dispose(); }
       });
@@ -588,6 +589,7 @@ export const Rail = () => {
         retained.settle(revision.revision, outcome);
 
         if (!(error instanceof Error)) throw error;
+        if (error.name === "AbortError") return;
         failure.show(`${copy.newAgent}: ${error.message}`, null, "rail", () => {
           const saved = retained.records().find(entry => entry.revision === revision.revision);
 

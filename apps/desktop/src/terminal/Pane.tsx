@@ -98,12 +98,21 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
       if (!host) throw new Error(copy.terminalDestinationUnavailable);
       const prepared = await screens.prepare(host, () => !resizeDragging() && !drawerSliding() && !shelfSliding(), controller.signal);
 
-      return { ...prepared, dispose: () => { prepared.dispose();
+      return { ...prepared, dispose: () => {
+        prepared.dispose();
 
- if (preparation === controller) { preparation = undefined; setPreparing(false); } } };
-    } catch (error) { if (preparation === controller) { preparation = undefined; setPreparing(false); }
+        if (preparation === controller) {
+          preparation = undefined;
+          setPreparing(false);
+        }
+      } };
+    } catch (error) {
+      if (preparation === controller) {
+        preparation = undefined;
+        setPreparing(false);
+      }
 
- if (controller.signal.aborted) throw error;
+      if (controller.signal.aborted) throw new DOMException(copy.terminalPreparationCancelled, "AbortError");
 
       // A host that cannot be prepared must not block the launch: the Terminal fits to it once shown.
       console.warn(error);
