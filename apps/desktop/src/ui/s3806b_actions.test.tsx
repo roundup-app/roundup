@@ -10,6 +10,7 @@ import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { FakeApp } from "../testing/fakeApp";
 import { Rail } from "../rail/Rail";
+import { notesFor } from "../changes/notes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
@@ -573,24 +574,30 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 });
 
 const reviewCases = (["pointer", "enter"] as const).flatMap(how =>
+  (["shared", "local"] as const).flatMap(readPath =>
   (["project", "selection"] as const).flatMap(removal =>
-    (["resolve", "reject", "dismiss", "stale-selection", "identity", "missing"] as const).map(outcome => ({ how, removal, outcome }))));
+    (["resolve", "reject", "dismiss", "stale-selection", "identity", "missing"] as const).map(outcome => ({ how, removal, outcome, readPath })))));
 
-it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes by $how, $removal, $outcome", async ({ how, removal, outcome }) => {
+it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes $readPath by $how, $removal, $outcome", async ({ how, removal, outcome, readPath }) => {
   const { app, connected, other } = await mountApp();
   const reviewed = agent("reviewed", "idle", "ready", { parent: "ops", worktree: { path: "/first/.roundup/reviewed", branch: "reviewed", base: "main" } });
   let tree = [workstream("ops"), reviewed];
   app.handlers["rail.tree"] = () => tree;
-  app.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
+  // The shared resource has not answered yet: the real panel falls back to changedFiles.
+  app.handlers["agent.worktreeState"] = () => readPath === "local" ? new Promise(() => {}) : { ahead: 0, behind: 0, dirty: true };
   app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
   await connected.rail.refresh();
   connected.rail.select("reviewed");
   const origin = await screen.findByRole("button", { name: "1 changed file" });
   const retained = connected.drafts.edit({ surface: "rail-task", object: "ops", recipient: "reviewed" }, { text: "  é 🧭\n unfinished  " }, null, "ordinary");
   await retained.retained;
-  const reply = Promise.withResolvers<{ ahead: number; behind: number; dirty: boolean }>();
+  const notes = notesFor(connected.app, path("first"), connected.drafts);
+  await notes.save("reviewed", { comparison: { base: "main", oldPath: "a.ts", newPath: "a.ts", status: "modified", old: { kind: "text", revision: "old", text: "before" }, new: { kind: "text", revision: "new", text: "after" } }, side: "new", start: 1, end: 1, source: "after", text: "  retain note é 🧭\n  " });
+  const originalNotes = structuredClone(notes.list("reviewed"));
+  const reply = Promise.withResolvers<{ ahead: number; behind: number; dirty: boolean; files: { path: string; status: "modified"; line: number }[] }>();
+  const method = readPath === "shared" ? "agent.worktreeState" : "agent.changedFiles";
   const trace: string[] = [];
-  app.handlers["agent.worktreeState"] = () => { trace.push(field() ? "receipt:open" : "receipt:closed"); return reply.promise; };
+  app.handlers[method] = () => { trace.push(field() ? "receipt:open" : "receipt:closed"); return reply.promise; };
   rowOf("reviewed").focus();
   const captures = vi.spyOn(registry, "captureActions");
   openSwitcher();
@@ -603,7 +610,7 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes by $h
     return option!;
   });
   const before = app.calls.length;
-  const reads = () => app.calls.slice(before).filter(call => call.method === "agent.worktreeState");
+  const reads = () => app.calls.slice(before).filter(call => call.method === method);
   if (outcome === "dismiss") {
     switcherKey("Escape", {}, field()!);
     await waitFor(() => expect(field()).toBeNull());
@@ -630,11 +637,12 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes by $h
   if (removal === "project") fireEvent.click(tab("second"));
   else connected.rail.select("ops");
   await waitFor(() => expect(origin.isConnected).toBe(false));
-  if (outcome === "resolve") reply.resolve({ ahead: 8, behind: 0, dirty: false });
+  if (outcome === "resolve") reply.resolve({ ahead: 8, behind: 0, dirty: false, files: [{ path: "original.ts", status: "modified", line: 1 }] });
   else reply.reject(new RpcError(-32003, "Review changes rejected: worktree unavailable"));
   if (outcome !== "resolve") {
     await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("Review changes rejected: worktree unavailable"))).toBe(true));
-    expect(reads()).toHaveLength(1);
+    // connectProject's existing retryRead allows one additional wire attempt after rejection.
+    expect(reads().map(call => call.params)).toEqual([{ id: "reviewed" }, { id: "reviewed" }]);
     expect(connected.drafts.list()).toEqual(drafts);
     if (outcome === "identity" || outcome === "missing") {
       tree = outcome === "missing" ? [workstream("ops")] : [workstream("ops"), { ...reviewed, worktree: { ...reviewed.worktree!, branch: "replacement" } }];
@@ -644,18 +652,21 @@ it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes by $h
       fireEvent.click(screen.getByRole("button", { name: /Open draft first/ }));
       await screen.findByText("ops", { selector: ".name" });
     }
+    await settled();
     const retryBefore = app.calls.length;
     app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
-    fireEvent.click(await screen.findByRole("button", { name: "Retry", exact: true }));
+    app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "original.ts", status: "modified", line: 1 }] });
+    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
     if (outcome === "identity" || outcome === "missing") {
       await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("unavailable"))).toBe(true));
-      expect(app.calls.slice(retryBefore).filter(call => call.method === "agent.worktreeState")).toEqual([]);
+      expect(app.calls.slice(retryBefore).filter(call => call.method === method)).toEqual([]);
     } else {
-      await waitFor(() => expect(app.calls.slice(retryBefore).filter(call => call.method === "agent.worktreeState").map(call => call.params)).toEqual([{ id: "reviewed" }]));
+      await waitFor(() => expect(app.calls.slice(retryBefore).filter(call => call.method === method).map(call => call.params)).toEqual([{ id: "reviewed" }]));
       await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
     }
   } else await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
   expect(connected.drafts.list()).toEqual(drafts);
-  expect(other.calls.filter(call => call.method === "agent.worktreeState")).toEqual([]);
+  expect(notes.list("reviewed")).toEqual(originalNotes);
+  expect(other.calls.filter(call => call.method === method)).toEqual([]);
   expect(app.calls.slice(before).filter(call => ["terminal.write", "agent.prompt"].includes(call.method))).toEqual([]);
 });
