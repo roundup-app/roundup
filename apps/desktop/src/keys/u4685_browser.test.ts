@@ -140,6 +140,6 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
       await snap("13-conflict-terminal");
     }
   } finally {
-    try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
+    try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
   }
 }, 60_000);
