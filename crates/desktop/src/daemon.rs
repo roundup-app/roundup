@@ -84,6 +84,9 @@ pub async fn start(
     if let Some(dir) = data_dir {
         command.env("ROUNDUP_DATA_DIR", dir);
     }
+    if let Some(helper) = &config.terminal_owner {
+        command.env("RUPD_TERMINAL_OWNER", helper);
+    }
     let mut child = command
         .kill_on_drop(true)
         .stdin(Stdio::piped())

@@ -247,9 +247,9 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
 
 it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s", async project => {
   const { seedApp } = await import("../testing/seeds");
-  render(() => <App app={project ? seedApp("tree-40", Date.now()).app : createFakeApp()} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  render(() => <App app={project ? seedApp("empty-project", Date.now()).app : createFakeApp()} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-  if (project) await screen.findAllByRole("treeitem");
+  if (project) await screen.findByRole("tree", { name: "Rail" });
   else await screen.findByRole("button", { name: /Choose/ });
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });
