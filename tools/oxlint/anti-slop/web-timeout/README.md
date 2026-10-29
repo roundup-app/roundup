@@ -7,7 +7,7 @@ This PR does not complete T3779a, enable the repository gate, or authorize cuts.
 ```text
 pnpm lint --config tools/oxlint/anti-slop/web-timeout/audit.json
   -> existing rules + bounded-test-timeout
-  -> 161 timeout observations in 53 files require review
+  -> 162 timeout observations in 54 files require review
   -> justify exact exceptions or repair each observation
   -> enable the rule in .oxlintrc.json in a subsequent PR
 ```
@@ -20,7 +20,7 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 ```
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
-file count and each diagnostic. Its App source equals base `04bafbf18`;
+file count and each diagnostic. Its App source equals merged base `ff965f46b`;
 the recorded tool hash identifies the rule used for this audit. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /
@@ -29,7 +29,7 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 
 `fixtures.jsonl` records every boundary fixture's input, diagnostic and exit code
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
-The 89 retained fixtures include 57 negatives, each with its own diagnostic and
+The 95 retained fixtures include 62 negatives, each with its own diagnostic and
 exit code. The over-limit alias fixture added during development was removed:
 `configuration default` already proves that literal-property rejection; the
 mutated and immutable alias fixtures retain the distinct binding-resolution proof.
@@ -60,6 +60,20 @@ An exported alias of `defineConfig(...)` is checked at its call rather than
 misread as an unresolved object. Configuration-wide defaults still cannot use
 a named-test exception. Configuration namespace destructuring reuses the same
 import resolution as test registrations; unrelated objects remain outside this rule.
+
+Vitest 5.0.3's `TestProjectConfiguration` includes inline project objects and
+configuration paths. Inline project `test` options now use the same effective
+property resolver as root configurations: computed timeout keys and unresolved
+options cannot escape the bound. Explicit unresolved project lists fail; constant
+arrays, path entries and safe inline overrides pass. Raw configuration exports
+receive the same checks. The four new negative fixtures reproduced exit 0 before
+the repair and now exit 1. Their diagnostics and inputs are in `fixtures.jsonl`.
+A fifth negative rejects a mutated project array instead of treating its initializer
+as the complete collection; it also reproduced exit 0 before repair. No existing
+fixture was removed. Inline projects cannot declare nested projects
+([Vitest projects](https://vitest.dev/config/projects)); unknown root spreads keep
+the existing timeout-override policy. Referenced configuration paths are linted at
+their declarations rather than loaded or executed by this rule.
 
 Vitest 5.0.3's installed `dist/config.js` returns `defineProject` options unchanged,
 like `defineConfig`. Project helpers use the same effective-property resolver,
