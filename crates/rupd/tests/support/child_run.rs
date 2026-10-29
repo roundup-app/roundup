@@ -312,6 +312,8 @@ pub fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
                 .env("ROUNDUP_RUP_BIN", rup)
+                // Terminal fixtures invent saved identities; they exercise no SDK storage.
+                .env("ROUNDUP_SIDECAR_DIR", project.join("unused-sidecar"))
                 .env("CLAUDE_CONFIG_DIR", project.join("config"))
                 .stderr(std::process::Stdio::null());
         },
