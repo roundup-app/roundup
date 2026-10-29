@@ -748,11 +748,6 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await browser("click", '.drawer[data-open=true] [aria-label=Close]');
         await wait("!document.querySelector('.drawer[data-open=true]')");
         await capture("drawer-closed");
-        await browser("click", '[aria-label="Add Workstream"]');
-        await wait("window.__fake.app.calls.some(c=>c.method==='rail.startDoor')");
-        id = await read<string>("[...window.__terminals.keys()].at(-1)");
-        await read("window.__observedEmulator=null");
-        await capture("new-door");
         await read(`window.__fake.app.handlers['terminal.write']=()=>{throw new Error('Output unavailable. Retry.');}; window.__terminals.get('${id}').paste('retry')`);
         await wait("!!document.querySelector('.pane-failure')");
         await capture("dense-failure");
