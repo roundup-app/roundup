@@ -494,7 +494,7 @@
   padding-inline-start: calc(var(--space-2) + var(--todo-depth) * var(--tree-step));
 }
 
-/* U361: one quiet cue for combined interaction states, without a row wash. */
+/* Todo names keep their existing ink tones inside the shared row paint. */
 .shelf-row.todo-row {
   color: var(--grey);
 }
