@@ -172,3 +172,26 @@ it("u4277c_empty_history_keeps_composition_without_target_actions", async () => 
   expect(document.querySelector('.ask-input')).toBeTruthy();
   expect(app.calls.filter(call => ["ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
+
+it("u505_only_sent_parts_viewed_in_their_target_fold", async () => {
+  const split = ask("split", 4, [
+    { text: "first", placement: { kind: "routed", workstream: "ops" }, state: "typed" },
+    { text: "second", placement: { kind: "routed", workstream: "lead" }, state: "queued" },
+  ]);
+  const { connected, app } = await mountAskBar([split]);
+  await waitFor(() => expect(document.querySelectorAll(".ask-row")).toHaveLength(2));
+  connected.rail.select("lead");
+  connected.rail.select(null);
+  expect(screen.queryByRole("button", { name: /Earlier/ })).toBeNull();
+  connected.rail.select("ops");
+  connected.rail.select(null);
+  await waitFor(() => expect(screen.getByRole("button", { name: /Earlier/ }).getAttribute("aria-expanded")).toBe("false"));
+  expect(rowTexts()).toEqual([`second | lead | ${copy.askQueued}`]);
+  app.emit(event({ name: "ask.changed", data: { ask: { ...split, parts: split.parts.map(part => ({ ...part, state: "typed" })) } } }));
+  expect(document.querySelectorAll(".ask-row")).toHaveLength(1);
+  connected.rail.select("lead");
+  connected.rail.select(null);
+  await waitFor(() => expect(document.querySelectorAll(".ask-row")).toHaveLength(0));
+  expect(screen.getByRole("button", { name: /Earlier/ }).textContent).toContain("2");
+  expect(app.calls.filter(call => ["ask.send", "rail.startDoor", "terminal.write"].includes(call.method))).toHaveLength(0);
+});
