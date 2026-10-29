@@ -38,7 +38,7 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
     // SAFETY: pad.write params carry the saved Markdown as `text`.
-    expect((writes(app.calls)[0]?.params as { text: string }).text.trim()).toBe(saved);
+    expect((writes(app.calls)[0]!.params as { text: string }).text.trim()).toBe(saved);
   });
 
   it("u4698b_read_only_toolbar_cannot_write", async () => {
@@ -47,6 +47,7 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
 
     expect(field.readOnly).toBe(true);
     expect(document.querySelector(".pad-readonly .milkdown-top-bar")).not.toBeNull();
+
     for (const button of document.querySelectorAll<HTMLElement>(".milkdown-top-bar .top-bar-item")) fireEvent.click(button);
 
     fireEvent.focusOut(field);
