@@ -327,7 +327,7 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').focus()");
     await wait("document.activeElement?.matches('.pad-name')");
     await browser("press", "Enter");
-  const selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
+  const selector = '.pad-rich-editor .ProseMirror p';
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
 
