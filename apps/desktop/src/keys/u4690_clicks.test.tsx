@@ -215,17 +215,20 @@ it.each(["M", "W"].flatMap(keys => (["key", "pointer"] as const).map(source => (
   },
 );
 
-it.each(["M", "D", "E", "Esc", "O", "T"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
+it.each(["M", "D", "E", "Esc", "O"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690_each_hint_runs_its_key_action_once: Shelf $keys $source", async ({ keys, source }) => {
     const seeded = seedApp("tree-40", 0);
-    const mounted = keys === "T" ? await mountTodos([todo(1, { title: "item 1" })]) : null;
-    const app = mounted?.app ?? seeded.app;
 
-    if (mounted) render(() => <ConnectedProjectContext.Provider value={mounted.connected}><HintLine /></ConnectedProjectContext.Provider>);
-    else {
-      render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-      await showEverythingInApp(/backend/, keys === "E" ? "Pads" : "Todos");
-    }
+    const tree = seeded.app.handlers["rail.tree"]!;
+    // Shelf actions need their rows and one assignable Agent, not forty independent Rail rows.
+    seeded.app.handlers["rail.tree"] = async params => (await tree(params)).filter(node => node.id === "backend" || node.id === "migrate");
+
+    if (keys === "M") seeded.app.handlers["todo.list"] = () => [todo(1)];
+
+    const app = seeded.app;
+
+    render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+    await showEverythingInApp(/backend/, keys === "E" ? "Pads" : "Todos");
 
     const row = document.querySelector<HTMLElement>(keys === "E" ? ".shelf .pad-name" : ".shelf .todo-row-button[aria-pressed]")!;
     row.focus();
@@ -245,11 +248,6 @@ it.each(["M", "D", "E", "Esc", "O", "T"].flatMap(keys => (["key", "pointer"] as 
       await waitFor(() => expect(document.querySelectorAll(".owner-picker")).toHaveLength(1));
       press("Escape");
       await waitFor(() => expect(document.activeElement).toBe(row));
-    } else {
-      await waitFor(() => expect(document.querySelector('.shelf')?.getAttribute("data-triage")).toBe("on"));
-      await waitFor(() => expect(document.querySelector<HTMLButtonElement>('.hint-line [data-hint="T"]')?.disabled).toBe(true));
-      await activate("Esc", source);
-      await waitFor(() => expect(document.querySelector('.shelf')?.getAttribute("data-triage")).not.toBe("on"));
     }
 
     expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);

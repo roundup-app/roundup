@@ -39,19 +39,19 @@ it("u3517d_saved_absolute_zoom_survives_default_changes_and_reset", async () => 
   await waitFor(() => expect(reopened.emulators.get("t-a")?.fontSize).toBe(18));
 });
 
-it("u3803_font_family_changes_keep_the_same_xterm_and_scrollback", async () => {
+it("u4687c_saved_values_reach_existing_and_new_terminals_u3803_font_family_changes_keep_the_same_xterm_and_scrollback", async () => {
   const spy = vi.spyOn(xtermModule, "Terminal");
   const factory = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }));
   const first = factory("first");
   const instance = spy.mock.instances[0]!;
   await new Promise<void>(resolve => first.write(new TextEncoder().encode(`kept output\r\n${"c".repeat(70)}`), resolve));
-  await saveAppSettings({ fontFamily: "Menlo" });
-  await waitFor(() => expect(instance.options.fontFamily).toBe("Menlo"));
+  await saveAppSettings({ fontFamily: "Menlo", fontWeight: 500, lineHeight: 1.2, letterSpacing: 2 });
+  await waitFor(() => expect(instance.options).toMatchObject({ fontFamily: "Menlo", fontWeight: 500, lineHeight: 1.2, letterSpacing: 2 }));
   vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => instance.resize(60, 24));
   first.fit();
   expect((instance.buffer.active.getLine(1)?.translateToString(true) ?? "") + (instance.buffer.active.getLine(2)?.translateToString(true) ?? "")).toBe("c".repeat(70));
   const second = factory("second");
-  await waitFor(() => expect(spy.mock.instances[1]!.options.fontFamily).toBe("Menlo"));
+  await waitFor(() => expect(spy.mock.instances[1]!.options).toMatchObject({ fontFamily: "Menlo", fontWeight: 500, lineHeight: 1.2, letterSpacing: 2 }));
   expect(instance.buffer.active.getLine(0)?.translateToString(true)).toBe("kept output");
   await saveAppSettings({ fontFamily: "" });
   await waitFor(() => expect(instance.options.fontFamily).toContain("monospace"));
@@ -92,4 +92,21 @@ it("u3805_system_follows_a_change_of_the_media_query", async () => {
   stop();
   query.dispatchEvent(new Event("change"));
   expect(observed).toHaveLength(2);
+});
+
+it("u4687d_visibility_keeps_focus_input_and_resize_behavior", async () => {
+  const { app, connected, emulators } = await mountPane([terminal("a")], [info("t-a")]);
+  connected.rail.select("a");
+  await waitFor(() => expect(emulators.has("t-a")).toBe(true));
+  const emulator = emulators.get("t-a")!;
+  const focused = document.activeElement;
+  const fits = emulator.fits;
+  const calls = app.calls.length;
+  await saveAppSettings({ focusMarkers: false });
+  await saveAppSettings({ focusMarkers: true });
+  expect(document.activeElement).toBe(focused);
+  expect(emulator.fits).toBe(fits);
+  expect(app.calls.slice(calls).filter(call => ["terminal.resize", "terminal.write", "agent.spawn", "rail.startDoor"].includes(call.method))).toEqual([]);
+  emulator.type(new TextEncoder().encode("kept input"));
+  await waitFor(() => expect(app.calls.some(call => call.method === "terminal.write")).toBe(true));
 });

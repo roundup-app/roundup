@@ -35,6 +35,13 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   daemon.handlers["agent.compareFile"] = async () => (await import("../changes/noteHarness")).COMPARISON;
   daemon.handlers["terminal.list"] = () => [info("term", { owner: path("p"), title: "Shell" })];
   daemon.handlers["terminal.open"] = () => ({ terminal_id: "term" });
+
+  // U4687a retains a text editor only for a family draft restored before App construction.
+  if (opening === "Font family") {
+    const { draftStorage } = await import("../state/storage");
+    await draftStorage("app-settings").edit({ surface: "settings", object: "fontFamily", recipient: null }, { text: "recovered family", saved: "" }, null, "ordinary").retained;
+  }
+
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => open.showView("terminal-tabs")} />);
   await screen.findByRole("region", { name: "Project overview" });
   let field: HTMLInputElement | HTMLTextAreaElement;

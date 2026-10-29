@@ -49,8 +49,11 @@ describe("u130 tokens", () => {
   it("u130_every_token_has_the_tables_light_value_except_the_named_differences", () => {
     const css = Object.values(import.meta.glob<string>("../tokens.css", { query: "?raw", import: "default", eager: true }))[0] ?? "";
 
+    // U4687a scales only these five interface steps; default scale keeps U130's documented sizes.
+    const scaled = new Set(["--text-caption", "--text-small", "--text-body", "--text-row", "--text-title"]);
+
     const wrong = [...expectedLight].filter(
-      ([name, value]) => normalised(valueOf(css, name) ?? "") !== normalised(KNOWN_DIFFERENCES.get(name) ?? value),
+      ([name, value]) => normalised(valueOf(css, name) ?? "") !== normalised(KNOWN_DIFFERENCES.get(name) ?? (scaled.has(name) ? `calc(${value} * var(--interface-scale))` : value)),
     );
 
     expect(wrong, "Tokens whose light value is not the table's").toEqual([]);
