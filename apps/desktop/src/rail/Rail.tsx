@@ -949,7 +949,13 @@ export const Rail = () => {
         </details>
       </Show>
       <Show when={openingPrompt()} keyed>{id => <OpeningPrompt restart={() => menu.restartSession(id)} id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
-      <Show when={creatingMode()}><CreateMode onClose={() => setCreatingMode(false)} /></Show>
+      <Show when={creatingMode()}><CreateMode finalFocus={id => rowElement(id) ?? null} onClose={() => setCreatingMode(false)} onCreated={(id, request) => {
+        setCreatingMode(false);
+        // The arriving Door must not reuse the selection permission to take focus from this row.
+        const focus = rail.terminalFocus();
+        queueMicrotask(() => focus(() => rowElement(id)?.focus({ preventScroll: true })));
+        void menu.restartSession(id, request);
+      }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
