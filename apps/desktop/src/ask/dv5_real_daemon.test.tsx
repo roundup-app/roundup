@@ -85,10 +85,11 @@ it("dv5_discover_open_retained_and_current_targets_after_reopen", async () => {
   if (padTarget.kind === "path") expect(await readFile(padTarget.path, "utf8")).toBe("Pad revision one");
   expect((await app.rpc("pad.read", { name: "published-pad" })).text).toBe("Pad revision two");
   expect(calls.filter(method => method.startsWith("agent.") || method.startsWith("message."))).toEqual([]);
-  connected.rail.select(home.id);
-  fireEvent.click(await screen.findByRole("button", { name: "Made" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Filter Made/ }));
+  fireEvent.click(await screen.findByRole("option", { name: "Made Home" }));
   await waitFor(() => expect(within(screen.getByRole("region", { name: "Made" })).getAllByRole("listitem")).toHaveLength(6));
-  connected.rail.select(makers[0]!.id);
+  fireEvent.click(screen.getByRole("button", { name: /^Filter Made/ }));
+  fireEvent.click(await screen.findByRole("option", { name: "Maker 0" }));
   await waitFor(() => expect(within(screen.getByRole("region", { name: "Made" })).getAllByRole("listitem")).toHaveLength(1));
 });
 

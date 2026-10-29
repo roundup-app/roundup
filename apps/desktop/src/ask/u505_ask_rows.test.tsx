@@ -80,6 +80,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
             data: {ask: {id: "native", at: "1", text: "ship it", parts: [{text: "ship it",
               placement: {kind: "routed", workstream: "payments"}, state: "typed"}]}}});
         })()`);
+        await browser("click", ".overview-sections [data-part=item]:nth-child(2) [data-part=item-trigger]");
         await browser("wait", "--fn", "!!document.querySelector('button.ask-line') && document.fonts.status === 'loaded'");
         await browser("eval", `(() => {
           window.__activations = 0;
@@ -122,6 +123,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
         window.__fake.emit({actor: {kind: "user", id: "you", parent: null}, name: "ask.changed",
           data: {ask: {id: "arrows", at: "1", text: "arrows", parts}}});
       })()`);
+      await browser("click", ".overview-sections [data-part=item]:nth-child(2) [data-part=item-trigger]");
       await browser("wait", "--fn", "document.querySelectorAll('button.ask-line').length === 2");
 
       await browser("focus", ".ask-row[data-state=queued] button.ask-line");

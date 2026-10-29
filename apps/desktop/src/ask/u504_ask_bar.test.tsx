@@ -16,18 +16,26 @@ describe("u504 the Ask bar", () => {
   it("u504_sections_toggle_as_one_accordion", async () => {
     const { app, connected } = await mountAskBar();
     connected.showView(null);
+
     const headings = await waitFor(() => {
       const buttons = [...document.querySelectorAll<HTMLButtonElement>(".overview-sections [data-part=item-trigger]")];
       expect(buttons).toHaveLength(4);
+
       return buttons;
     });
-    expect(headings.map(button => button.getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]);
+
+    await waitFor(() => expect(headings.map(button => button.getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]));
     type("keep @ops exact\n unfinished");
+
     for (const button of headings) {
+      button.focus();
+      await waitFor(() => expect(button.hasAttribute("data-focus")).toBe(true));
+      const wasOpen = button.getAttribute("aria-expanded") === "true";
       fireEvent.click(button);
-      expect(headings.filter(head => head.getAttribute("aria-expanded") === "true")).toEqual(button.getAttribute("aria-expanded") === "true" ? [button] : []);
+      await waitFor(() => expect(headings.filter(head => head.getAttribute("aria-expanded") === "true")).toEqual(wasOpen ? [] : [button]));
       expect(input()!.value).toBe("keep @ops exact\n unfinished");
     }
+
     expect(app.calls.filter(call => ["ask.send", "agent.start", "reaction.run", "terminal.write"].includes(call.method))).toEqual([]);
   });
 
