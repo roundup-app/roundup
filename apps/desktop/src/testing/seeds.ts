@@ -287,6 +287,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     return changed(Object.assign(node, { attempt, status_revision: "1", terminal_id: `t-${id}-${attempt}`, status: statusAt(Date.now(), "working", "starting", 0) }));
   };
 
+  app.handlers["workstream.restart"] = ({ id }) => app.handlers["rail.startDoor"]!({ id });
+
   app.handlers["rail.move"] = ({ id, parent, index }) => {
     const moved = find(id);
     const siblings = nodes.filter((other) => other.parent === parent && other.id !== id).sort((left, right) => left.order - right.order);
