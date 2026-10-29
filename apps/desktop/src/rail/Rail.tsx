@@ -68,6 +68,7 @@ export const Rail = () => {
     const actions = actionsOf(node);
 
     return [
+      ...(node.kind === "workstream" && node.opening_prompt?.trim() ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartSession(node.id); } }] : []),
       ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
         id: "progress", label: copy.workProgress, run: () => {
           rowElement(node.id)?.focus({ preventScroll: true });
@@ -524,6 +525,15 @@ export const Rail = () => {
         },
       };
 
+      if (node.opening_prompt?.trim()) actions.restart = {
+        pending: menu.restartPending(node.id),
+        run: () => { void menu.restartSession(node.id); },
+        menu: click => {
+          if (!(click.currentTarget instanceof HTMLElement)) return;
+          const box = click.currentTarget.getBoundingClientRect();
+          void menu.open(node, rail.exitOf(node), box.left, box.bottom);
+        },
+      };
 
       return actions;
     }
@@ -655,6 +665,14 @@ export const Rail = () => {
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
+    { action: CHORDS.find(row => row.keys === "R" && row.inRail)!, when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
+      const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+
+      return {
+        available: () => !!id && !!focus?.isConnected && daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "workstream" && !!node.opening_prompt?.trim()),
+        invoke: () => { if (id) void menu.restartSession(id); },
+      };
+    } },
     { action: CHORDS.find((row) => row.keys === "⌘N")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
       if (composing()) field()?.focus();
       else spawnAgent();
@@ -818,7 +836,7 @@ export const Rail = () => {
                         <RailRowView
                           row={view()}
                           actions={actionsOf(view().node)}
-                          doorAction={<Show when={isWorkstream(view().node) && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
+                          doorAction={<Show when={isWorkstream(view().node) && !view().node.opening_prompt?.trim() && rail.exitOf(view().node) !== null && !connected.queue.entryOf(view().node.id)}><IconButton aria-label={rail.doorFailure(view().node.id) ? copy.retryDoor : copy.startDoor} aria-disabled={rail.doorPending(view().node.id)} onKeyDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); failure.clear(); rail.clearWorkstreamFailure(); void rail.startDoor(view().node.id); }}><Icon name="play" /></IconButton></Show>}
                           rootDivider={collection().isBranchNode(entryOf(view().node.id).node) && view().key !== sectionRows().find(each => each.id === section.id)?.rows[0]?.key}
                           copyWith={feedback => {
                             const id = view().node.id;
@@ -921,7 +939,7 @@ export const Rail = () => {
           )}</For>
         </details>
       </Show>
-      <Show when={openingPrompt()} keyed>{id => <OpeningPrompt id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
+      <Show when={openingPrompt()} keyed>{id => <OpeningPrompt restart={() => menu.restartSession(id)} id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <Show when={creatingMode()}><CreateMode onClose={() => setCreatingMode(false)} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}

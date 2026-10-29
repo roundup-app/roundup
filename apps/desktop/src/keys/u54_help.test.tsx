@@ -39,14 +39,16 @@ const focusableEmulator = (): EmulatorFactory => () => {
   };
 };
 
-const open = async () => {
+const open = async (openingPrompt = "") => {
   const app = createFakeApp();
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
-    door("w", "idle", "idle", { name: "lead" }),
+    door("w", "idle", "idle", { name: "lead", opening_prompt: openingPrompt }),
     ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: "w" })),
   ];
+
+  app.handlers["workstream.restart"] = () => door("w", "idle", "idle", { opening_prompt: openingPrompt });
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));
@@ -184,7 +186,7 @@ describe("u54 keyboard help", () => {
   });
 
   it("u480_u54_help_stays_in_step_with_the_chords_bound_in_the_webview", async () => {
-    await open();
+    await open("Saved Mode prompt");
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector('.rail-actions [aria-label="New Agent"]')).not.toBeNull());
 
@@ -208,6 +210,14 @@ describe("u54 keyboard help", () => {
       row.focus();
       railOnly.push(...(await boundPresses(row, [{ metaKey: true }], [code])));
     }
+
+    // U4547d: unmodified R binds only on a focused Mode row.
+    const mode = rowOf("lead");
+    mode.focus();
+    const restart = new KeyboardEvent("keydown", { key: "r", code: "KeyR", bubbles: true, cancelable: true });
+    mode.dispatchEvent(restart);
+
+    if (restart.defaultPrevented) railOnly.push(pressOf(restart));
 
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
     expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inFirstRun && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
