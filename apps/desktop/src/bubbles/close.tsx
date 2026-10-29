@@ -21,6 +21,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
   // The connection already owns App/Rail recovery; removed Bubble owners hand their failure to it.
   const reportFailure = (error: Error, action: string, terminal: TerminalInfo | undefined, recover: () => void) => {
     const message = `${action}: ${outcomeOf(error) === "unknown" ? "Outcome unknown. " : ""}${error.message}`;
+
     const publish = () => {
       if (terminal) rail.commandFailure.showTerminal(message, terminal, "rail", recover);
       else rail.commandFailure.show(message, null, "rail", recover);
@@ -45,6 +46,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
     try {
       if (!terminal || connected.daemonExit() !== null) return;
+
       if (!rail.terminals().some(item => item.id === terminal.id && item.incarnation === terminal.incarnation)) return;
       const accepted = await app.ask({ title: copy.closeQuestion(nameFor(terminal)), message: terminal.running ? copy.closeTerminalWarning : copy.closeTerminalOutputWarning, okLabel: copy.close, cancelLabel: copy.keep });
 
