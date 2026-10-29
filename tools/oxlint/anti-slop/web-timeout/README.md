@@ -20,7 +20,7 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 ```
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
-file count and each diagnostic. Its App source equals merged base `a8e812f93`;
+file count and each diagnostic. Its App source equals merged base `b6fe73f76`;
 the recorded tool hash identifies the rule used for this audit. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /
@@ -29,13 +29,19 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 
 `fixtures.jsonl` records every boundary fixture's input, diagnostic and exit code
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
-The 102 retained fixtures include 67 negatives, each with its own diagnostic and
+The 104 retained fixtures include 68 negatives, each with its own diagnostic and
 exit code. The over-limit alias fixture added during development was removed:
 `configuration default` already proves that literal-property rejection; the
 mutated and immutable alias fixtures retain the distinct binding-resolution proof.
 The development-only `destructured config explicit override` fixture was cut:
 `unresolved config overridden` already proves explicit-override precedence, while
 `destructured utility config` proves that alias recognition reaches file defaults.
+The extracted suite fixtures retain two distinct regressions: a destructured
+`test.describe` must not pass a suite-only exception to its children, and a
+`test.suite` extracted from `test.extend({})` must accept an exact full child-title
+exception. Both failed through `pnpm lint` before the collector-resolution repair.
+Development-only modifier and hook inputs were removed: `local test alias`,
+`skip` and `hook and polling bounds` already retain their respective proofs.
 Each test verifies that Oxlint analyzed its file and that the expected rule emitted
 its diagnostic. Successful fixtures also reject unexpected timeout diagnostics.
 Normal `pnpm lint` (and therefore `just lint-web` and CI) also runs this suite,
