@@ -35,14 +35,7 @@ impl Drop for Fix {
     fn drop(&mut self) {
         // Attached EOF lets the Daemon stop and reap its fake vendor before storage disappears.
         drop(self.daemon.stdin.take());
-        let deadline = std::time::Instant::now() + Duration::from_secs(30);
-        while self.daemon.child.try_wait().unwrap().is_none() {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "attached Daemon did not stop"
-            );
-            std::thread::sleep(Duration::from_millis(20));
-        }
+        self.daemon.child.wait().unwrap();
     }
 }
 
