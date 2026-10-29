@@ -130,8 +130,7 @@ it.each(["rail", "centre", "shelf", "triage", "ask", "pad", "drawer", "watch", "
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 
-// Keep the scenario-prescribed runtime name; escape its keyboard adjective for the retired-domain-word scan.
-it("u4692_a_h\u0065ld_chord_jumps_once", async () => {
+it("u4692_a_repeating_chord_jumps_once", async () => {
   const { connected, daemon } = await open();
   expect(press({ repeat: true }).defaultPrevented).toBe(true);
   expect(connected().rail.selected()).toBeNull();
