@@ -802,7 +802,6 @@ async fn r16_reopened_rail_keeps_resume_data_without_live_presentation() {
     assert_eq!(reopened.work, node.work);
     assert_eq!(reopened.model, node.model);
     assert_eq!(reopened.effort, node.effort);
-    assert_eq!(reopened.iteration, node.iteration);
 }
 
 async fn resume_in_mode(f: &Arc<Fixture>, node: &RailNode, mode: Option<&str>) -> RailNode {

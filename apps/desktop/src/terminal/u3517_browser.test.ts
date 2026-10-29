@@ -122,7 +122,6 @@ for (const state of ["agent", "door", "shell"]) {
         const emulator = window.__terminals.get('${id}');
         // xterm schedules painting after its parser callback; the next animation frame drains that render.
         await new Promise(resolve => requestAnimationFrame(resolve));
-        emulator.selectTurn(0, false);
         window.__fake.app.handlers['terminal.resize'] = window.__fake.app.handlers['terminal.write'] = () => { throw new Error('Output unavailable. Retry.'); };
         emulator.paste('retry');
       })()`);
@@ -153,6 +152,13 @@ for (const state of ["agent", "door", "shell"]) {
           canvas: canvas ? {width:canvas.width,height:canvas.height,cssWidth:canvas.getBoundingClientRect().width,cssHeight:canvas.getBoundingClientRect().height} : null,
           tokens: Object.fromEntries(['--font-terminal','--text-terminal','--line-terminal','--letter-terminal','--weight-terminal'].map(name => [name, style.getPropertyValue(name).trim()])),
           fontStatus: document.fonts.status, smoothing: style.webkitFontSmoothing };
+      })()`);
+
+      await read(`(async () => {
+        const emulator = window.__terminals.get('${id}');
+        emulator.selectTurn(emulator.turns().length - 1, false);
+        // selectLines schedules xterm's next render frame; paint selection after the failed paste clears it.
+        await new Promise(resolve => requestAnimationFrame(resolve));
       })()`);
 
       const record = { ...metrics, ...metadata, commit: execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8', cwd: base ? process.env.U500_BASE_ROOT : process.cwd()}).trim(),

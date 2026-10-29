@@ -74,7 +74,7 @@ pub struct Checkpoint {
     pub workstream: String,
     #[specta(type = specta_typescript::Number)]
     pub at: i64,
-    /// Complete, usable Marks in the Workstream’s current Iteration.
+    /// Complete, usable Marks for this Workstream.
     pub rewindable: bool,
     pub title: String,
     pub blocks: Vec<Block>,
