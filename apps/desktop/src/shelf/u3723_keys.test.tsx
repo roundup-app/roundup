@@ -191,6 +191,7 @@ it("u3787b_triage_menu_refuses_an_owner_after_leaving_the_mode", async () => {
   const captured = captureActions(document.activeElement).find(action => action.value === "action:chord:X")!;
   fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X")).toBe(false));
+  expect(fireEvent.keyDown(document.activeElement!, { key: "x", code: "KeyX" })).toBe(true);
   openProjectPage("action:chord:X");
   captured.run();
   expect(app.calls.filter(call => call.method === "todo.complete")).toEqual([]);
