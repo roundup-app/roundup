@@ -214,7 +214,7 @@
   /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
   --rail-step: var(--tree-step);
   /* The leading gap keeps every glyph clear of the tree's connecting lines. */
-  --rail-edge: var(--space-4);
+  --rail-edge: var(--space-2);
   --rail-inset: var(--rail-edge);
   --rail-slot: var(--space-5);
   --rail-section-gap: var(--space-4);
