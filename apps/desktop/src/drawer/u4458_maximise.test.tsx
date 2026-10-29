@@ -82,7 +82,11 @@ it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
   for (const kind of ["todo", "pad"]) {
     for (const press of [false, true]) {
       let reads = 0;
-      drawer.open(() => { reads += 1; return <input aria-label="draft" />; }, "key", { kind, project: "/one" });
+      drawer.open(() => {
+        reads += 1;
+
+        return <input aria-label="draft" />;
+      }, "key", { kind, project: "/one" });
       // SAFETY: the draft field rendered above is an <input>.
       const field = screen.getByLabelText("draft") as HTMLInputElement;
       fireEvent.input(field, { target: { value: "unsent" } });
@@ -90,7 +94,6 @@ it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
       const states: string[] = [screen.getByLabelText("Drawer").dataset.maximised ?? ""];
 
       for (const _ of [0, 1]) {
-        expect(screen.getAllByRole("button", { name: /^(Maximise|Restore)$/ })).toHaveLength(1);
         const control = screen.getByRole("button", { name: /^(Maximise|Restore)$/ });
 
         if (press) { control.focus(); fireEvent.keyDown(control, { key: "m", code: "KeyM" }); } else fireEvent.click(control);
@@ -115,6 +118,7 @@ it("u4698a_choice_survives_reopen_and_is_scoped", () => {
   localStorage.setItem("roundup:shelf:/one:pad", JSON.stringify({ maximised: false }));
   localStorage.setItem("roundup:shelf:/one:todo", JSON.stringify({ maximised: true }));
   render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
+
   const maximisedOf = (kind: string, project: string) => {
     drawer.open(() => <p>{kind}</p>, "key", { kind, project });
     const value = screen.getByLabelText("Drawer").dataset.maximised;
