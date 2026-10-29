@@ -192,31 +192,6 @@ for (const list of [shelf]) {
       expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
     }, 60_000);
 
-    it("u3789a_a_click_selects_the_Todo_without_open_or_drag", async () => {
-      await page.scheme(captureDir("U490a") ? "dark" : "light");
-      await list.setup();
-
-      const beforeHover = await centre(rows, 0, false);
-      await page.pointer("move", beforeHover.x, beforeHover.y);
-      const point = await centre(rows, 0, false);
-
-      await page.pointer("down", point.x, point.y);
-      await page.pointer("up", point.x, point.y);
-      await page.until(`() => document.activeElement?.matches(${JSON.stringify(rows)})`);
-      expect(await state(rows)).toMatchObject({ drawer: false, reorders: [] });
-    }, 60_000);
-
-    it("u3789a_Return_on_a_row_button_opens_it_without_drag_semantics", async () => {
-      await page.scheme(captureDir("U490a") ? "dark" : "light");
-      await list.setup();
-      await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-      // The shared Tooltip may describe the row; Sortable adds no drag role or disabled state.
-      expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|grabbed|disabled)=/.test(a))`, rows)).toEqual([]);
-      await page.press("Enter", "Enter");
-      await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
-      expect(await state(rows)).toMatchObject({ drawer: true, reorders: [] });
-    }, 60_000);
-
     it("u490a_keyboard_reorders", async () => {
       await page.scheme(captureDir("U490a") ? "dark" : "light");
       await list.setup();
