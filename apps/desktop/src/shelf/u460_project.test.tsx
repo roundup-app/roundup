@@ -36,7 +36,7 @@ it("u460_pending_delete_stays_with_its_project", async () => {
   await waitFor(() => expect(app.calls.filter((call) => call.method === "todo.delete")).toHaveLength(1));
   expect(other.calls.filter((call) => call.method === "todo.delete")).toEqual([]);
   expect(screen.queryByText(/old Project error/)).toBeNull();
-  expect([screen.queryByText("2 selected")]).toEqual([null]);
+  expect(document.querySelector('.todo-row-button[aria-pressed="true"]')).toBeNull();
 }, 20_000);
 
 it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", async () => {
@@ -49,7 +49,7 @@ it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", asy
   const tab = within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: /Todos/ });
   tab.focus();
   fireEvent.keyDown(tab, { key: "Escape" });
-  expect(screen.queryByText("1 selected")).toBeNull();
+  expect(document.querySelector('.todo-row-button[aria-pressed="true"]')).toBeNull();
   expect(document.querySelector<HTMLElement>(".shelf")!.hidden).toBe(false);
   expect(document.activeElement).toBe(row);
 }, 20_000);
