@@ -27,7 +27,7 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   tick(4_000);
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(1);
   finish(facts);
-  await Promise.all([first, second]);
+  expect(await Promise.all([first, second])).toEqual([{ failure: null, state: facts }, { failure: null, state: facts }]);
   await waitFor(() => expect(connected.worktrees.read("a")).toEqual({ failure: null, state: facts }));
   tick(15_000);
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(1);
