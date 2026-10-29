@@ -804,3 +804,45 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
       }
   }, 120_000);
 }
+
+it("u4818_webgl_scale2_paints_output_after_resize", async () => {
+  // Chromium's device-pixel ResizeObserver uses the physical scale even with an emulated DPR.
+  await browser("close");
+  await browser("--args", "--force-device-scale-factor=2", "open", url("/src/ui/u498.html"));
+  await read("localStorage.clear(); sessionStorage.clear()");
+  await load("agents-10", false, "webgl", 2);
+  // Keep the drawing buffer so the canvas's pixels can be read after xterm's frame.
+  await read(`(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function(type, options) {
+      return getContext.call(this, type, type === 'webgl2' ? { ...options, preserveDrawingBuffer: true } : options);
+    };
+  })()`);
+  await select("agent-3", "t-agent-3");
+  await read(`(() => {
+    const rows = window.__terminals.get('t-agent-3').serialize().rows;
+    window.__fake.writeOutput('t-agent-3', '\\x1b[2J\\x1b[HReady to continue?\\r\\n1. Continue\\r\\n2. Review changes\\r\\n3. Stop\\r\\n');
+    window.__fake.writeOutput('t-agent-3', '\\x1b[9;1HU4818 marker\\x1b[' + rows + ';1H[Enter] Answer  [Esc] Stop');
+  })()`);
+  await wait("window.__terminals.get('t-agent-3').serialize().data.includes('U4818 marker')");
+
+  // Rows 1 to 4, the marker row and the bottom key bar must each hold painted pixels.
+  const painted = await read<number[]>(`new Promise(resolve => requestAnimationFrame(() => {
+    const canvas = document.querySelector('.pane-screen .xterm-screen canvas:not(.xterm-link-layer)');
+    const rows = window.__terminals.get('t-agent-3').serialize().rows;
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width; copy.height = canvas.height;
+    const context = copy.getContext('2d');
+    context.drawImage(canvas, 0, 0);
+    const cell = canvas.height / rows;
+    resolve([0, 1, 2, 3, 8, rows - 1].map(row => {
+      const data = context.getImageData(0, Math.floor(row * cell), canvas.width, Math.floor(cell)).data;
+      const first = [data[0], data[1], data[2]];
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i] !== first[0] || data[i + 1] !== first[1] || data[i + 2] !== first[2]) count++;
+      return count;
+    }));
+  }))`);
+
+  expect(painted.every(count => count > 0), `painted pixels per row: ${painted}`).toBe(true);
+}, 120_000);

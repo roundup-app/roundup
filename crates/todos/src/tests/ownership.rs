@@ -107,6 +107,7 @@ async fn t17_assign_changes_only_the_owner() {
         .unwrap();
     let mut expected = before;
     expected["owner"] = owner_of(&agent("b"));
+    expected["updated_at"] = assigned["updated_at"].clone();
     assert_eq!(assigned, expected);
     assert_eq!(h.events(), ["todo.updated 1"]);
     assert_eq!(h.touches(1).last(), Some(&(Verb::Wrote, "a".to_string())));

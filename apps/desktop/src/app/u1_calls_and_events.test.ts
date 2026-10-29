@@ -17,6 +17,7 @@ const TODO: Todo = {
   blockers: [],
   blocked: false,
   created_at: 0,
+  updated_at: 0,
   creator: { kind: "user", id: "you", parent: null },
   home: null,
   owner: null,

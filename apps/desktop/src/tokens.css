@@ -502,7 +502,6 @@ button, file-tree-container, diffs-container {
 
 .columns:has(> .rail:focus-within)::after,
 .pane:focus-within::after,
-.drawer:focus-within::after,
 .shelf:focus-within::after,
 .window:has(.shelf-tabs:focus-within) .shelf::after {
   content: var(--region-marker);
@@ -510,6 +509,12 @@ button, file-tree-container, diffs-container {
   inset: 0;
   z-index: var(--layer-toast);
   pointer-events: none;
+  outline: var(--hairline-width) solid var(--accent);
+  outline-offset: calc(-1 * var(--hairline-width));
+}
+
+/* U4685c: the Drawer scrolls, so its own outline (not a child of its scrolled content) stays on the panel edges. */
+.drawer:focus-within {
   outline: var(--hairline-width) solid var(--accent);
   outline-offset: calc(-1 * var(--hairline-width));
 }

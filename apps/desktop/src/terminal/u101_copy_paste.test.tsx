@@ -82,3 +82,26 @@ it("u101_exited_terminal_and_daemon_exited_copy_but_never_paste", async () => {
   expect(emulators.get("t-b")!.pasted).toEqual([]);
   expect(callsTo(app, "terminal.write")).toEqual([]);
 });
+
+it("u3787b_edit_menu_copy_event_copies_the_terminal_selection_once", async () => {
+  const { app, connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
+  connected.rail.select("a");
+  const target = container.querySelector("[data-terminal]")!;
+  const field = document.createElement("textarea");
+  container.querySelector(".pane-screen")!.append(field);
+
+  const copyEvent = (on: Element) => {
+    const event = new Event("copy", { bubbles: true, cancelable: true });
+    on.dispatchEvent(event);
+
+    return event;
+  };
+
+  expect(copyEvent(target).defaultPrevented).toBe(false);
+  expect(copyEvent(field).defaultPrevented).toBe(false);
+  emulators.get("t-a")!.selectedText = "menu selection";
+  expect(copyEvent(field).defaultPrevented).toBe(false);
+  expect(copyEvent(target).defaultPrevented).toBe(true);
+  await vi.waitFor(() => expect(app.clipboardWrites).toEqual(["menu selection"]));
+  expect(callsTo(app, "terminal.write")).toEqual([]);
+});
