@@ -330,8 +330,12 @@ li[aria-selected="true"] svg {
   background: none;
 }
 
-.pad-block-menu .milkdown-slash-menu {
+.pad-block-menu :is(.milkdown-slash-menu, .milkdown-block-handle) {
   pointer-events: auto;
+}
+
+.pad-block-menu .milkdown-block-handle {
+  z-index: var(--layer-menu);
 }
 
 .menu-group+.menu-group::before {
