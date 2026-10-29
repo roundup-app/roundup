@@ -83,6 +83,7 @@ import type { GetDeletionParams as pad_GetDeletionParams } from "./pad/GetDeleti
 import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
 import type { Pad as pad_Pad } from "./pad/Pad";
 import type { PadName as pad_PadName } from "./pad/PadName";
+import type { RedoDeleteParams as pad_RedoDeleteParams } from "./pad/RedoDeleteParams";
 import type { RenameParams as pad_RenameParams } from "./pad/RenameParams";
 import type { ReorderParams as pad_ReorderParams } from "./pad/ReorderParams";
 import type { SetStorageParams as pad_SetStorageParams } from "./pad/SetStorageParams";
@@ -238,6 +239,7 @@ export type RpcMethods = {
   "pad.reorder": { params: pad_ReorderParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_DeleteParams; result: pad_Deletion };
+  "pad.redoDelete": { params: pad_RedoDeleteParams; result: pad_Deletion };
   "pad.getDeletion": { params: pad_GetDeletionParams; result: pad_Deletion };
   "pad.restore": { params: pad_DeletionId; result: pad_Deletion };
   "pad.export": { params: pad_ExportParams; result: null };

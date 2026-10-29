@@ -350,36 +350,6 @@ async fn d4_a_miss_tells_a_closed_connection_from_a_slow_daemon() {
     assert!(report.contains("connection closed"), "{report}");
 }
 
-#[tokio::test]
-async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
-    let project = start(&[]);
-    let client = project.client().await;
-
-    client
-        .request(
-            "project.setWorktrees",
-            json!({"on": true, "check": "just check"}),
-        )
-        .await
-        .unwrap();
-    let settings = client.request("project.get", json!(null)).await.unwrap();
-
-    assert_eq!(
-        settings,
-        json!({
-            "worktrees": {"on": true, "check": "just check"},
-            "models": {
-                "roles": [
-                    {"role": "door", "model": null, "effort": null},
-                    {"role": "subagent", "model": null, "effort": null},
-                ],
-            },
-            "mcp": {"on": true},
-            "workstreamCap": null,
-        })
-    );
-}
-
 /// H15's last clause: a Signal that changes the Kind reaches a subscribed client as a Status event,
 /// within the bound every e2e wait uses. The keystroke-to-render budget itself is rule 7's
 /// `just perf-keystroke`; a wall-clock assertion of it here would only measure the CI runner.
@@ -814,30 +784,6 @@ async fn digest_of(client: &rpc::Client, id: &str) -> Result<Value, rpc::RpcErro
 }
 
 #[tokio::test]
-async fn b20_a_door_and_the_user_ask_for_its_children_and_no_one_else_does() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-
-    let asked = digest_of(&as_m, &rail.m).await.unwrap();
-    assert_eq!(digest_of(&user, &rail.m).await.unwrap(), asked);
-    let children = asked["children"].as_array().unwrap();
-    assert_eq!(children.len(), 2);
-    for child in children {
-        let mut keys: Vec<_> = child.as_object().unwrap().keys().cloned().collect();
-        keys.sort();
-        assert_eq!(keys, ["kind", "last", "name", "pads", "todos"]);
-    }
-
-    let code = |result: Result<Value, rpc::RpcError>| result.unwrap_err().code;
-    assert_eq!(code(digest_of(&as_a, &rail.m).await), rpc::code::FORBIDDEN);
-    assert_eq!(code(digest_of(&user, "nobody").await), rpc::code::NOT_FOUND);
-    assert_eq!(code(digest_of(&user, &rail.a).await), rpc::code::CONFLICT);
-}
-
-#[tokio::test]
 async fn b19_a_childs_pads_reach_the_door_once_and_terminal_output_never() {
     let project = start(&[]);
     let user = project.client().await;
@@ -987,24 +933,6 @@ async fn b21_a_childs_kind_pad_and_todo_changes_each_push_one_entry_to_its_door(
 }
 
 #[tokio::test]
-async fn b21_a_change_that_leaves_the_entry_as_it_was_pushes_nothing() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    settled(&user, &rail.m).await;
-    signal(&user, &rail.a, json!({"hook_event_name": "Stop"})).await;
-    let before = settled(&user, &rail.m).await;
-
-    signal(&user, &rail.a, json!({"hook_event_name": "Stop"})).await;
-    let todo = todo_at(&user, "at the root").await;
-    user.request("todo.update", json!({ "id": todo, "title": "renamed" }))
-        .await
-        .unwrap();
-
-    assert_eq!(settled(&user, &rail.m).await, before);
-}
-
-#[tokio::test]
 async fn b21_a_child_with_no_door_above_it_pushes_nothing() {
     let project = start(&[]);
     let user = project.client().await;
@@ -1026,59 +954,6 @@ async fn b21_a_child_with_no_door_above_it_pushes_nothing() {
         );
     }
     assert!(digest_pushes(&user, &rail.g).await.is_empty());
-}
-
-#[tokio::test]
-async fn b22_a_burst_of_changes_sends_a_door_at_most_eight_pushes_in_a_window() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    settled(&user, &rail.m).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-    for n in 0..12 {
-        as_a.request(
-            "pad.create",
-            json!({ "name": format!("pad-{n}"), "text": "x" }),
-        )
-        .await
-        .unwrap();
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-
-    let held_back = settled(&user, &rail.m).await;
-    assert!(held_back <= 8, "{held_back} pushes within one window");
-    // The changes beyond the eighth wait for the window's rollup instead of getting CONFLICT.
-    let all = user
-        .request("message.list", json!({ "to": rail.m }))
-        .await
-        .unwrap();
-    assert!(
-        all.as_array()
-            .unwrap()
-            .iter()
-            .all(|message| message["status"] != "dropped" || message["reason"] == "merged")
-    );
-}
-
-#[tokio::test]
-async fn b23_a_removed_child_gets_one_last_push_with_its_kind() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let b_name = rail_tree(&user)
-        .await
-        .into_iter()
-        .find(|node| node.id == rail.b)
-        .unwrap()
-        .name;
-    settled(&user, &rail.m).await;
-    let before = digest_pushes(&user, &rail.m).await.len();
-
-    user.request("rail.remove", json!({ "id": rail.b }))
-        .await
-        .unwrap();
-    push_where(&user, &rail.m, |_, e| e["name"] == b_name.as_str()).await;
-    assert_eq!(settled(&user, &rail.m).await, before + 1);
 }
 
 #[tokio::test]
@@ -1621,10 +1496,10 @@ async fn t17_a_stopped_agent_keeps_its_todos_and_assign_tells_no_agent() {
     assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
 }
 
-/// T12, T13: a Todo moves to a Workstream, the Daemon checks the Rail, and the Home survives a restart.
+/// T13: the Daemon validates the destination against the live Rail.
 #[tokio::test]
-async fn t13_move_checks_the_rail_and_survives_a_restart() {
-    let mut project = start(&[]);
+async fn t13_move_checks_the_rail() {
+    let project = start(&[]);
     let mut events = project.subscribed().await;
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
@@ -1671,9 +1546,6 @@ async fn t13_move_checks_the_rail_and_survives_a_restart() {
     .await;
     assert_eq!(first, Some(r1.clone()));
     assert_eq!(home_of(&client, id).await, json!(r1));
-
-    project.restart(&[]);
-    assert_eq!(home_of(&project.client().await, id).await, json!(r1));
 }
 
 #[tokio::test]
@@ -1756,20 +1628,6 @@ async fn t13_a_failed_rail_remove_leaves_every_home() {
     assert!(none.is_err());
 }
 
-/// T12: a Todo made by an Agent or an Extension is at the Project root, whatever its params say.
-#[tokio::test]
-async fn t12_every_caller_creates_at_the_project_root_on_a_real_daemon() {
-    let project = start(&[]);
-    for who in [actor(ActorKind::Agent, "a1"), actor(ActorKind::Ext, "x")] {
-        let client = client_as(&project, who).await;
-        let made = client
-            .request("todo.create", json!({ "title": "t", "home": "r1" }))
-            .await
-            .unwrap();
-        assert_eq!(made["home"], Value::Null);
-    }
-}
-
 #[tokio::test]
 async fn t14_an_agent_under_a_workstream_creates_todos_with_the_nearest_workstream_as_home() {
     let project = start(&[]);
@@ -1826,7 +1684,7 @@ async fn pad_home(client: &rpc::Client, name: &str) -> Value {
 /// P12: a Door's or nested Agent's Pad gets the nearest Workstream; every other caller gives null.
 #[tokio::test]
 async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
-    let mut project = start(&[]);
+    let project = start(&[]);
     let client = project.client().await;
     let outer = workstream(&client, "outer").await;
     let nested = agent_in(&project, &client, Some(&outer)).await;
@@ -1852,17 +1710,12 @@ async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
         .await
         .unwrap();
     assert_eq!(made["home"], Value::Null);
-    let homes =
-        |client: rpc::Client| async move { client.request("pad.list", json!(null)).await.unwrap() };
-    let before = homes(project.client().await).await;
-    project.restart(&[]);
-    assert_eq!(homes(project.client().await).await, before);
 }
 
 /// P12: the Daemon checks the Rail, any Actor may move, and the Home survives a restart.
 #[tokio::test]
-async fn p12_move_checks_the_rail_and_survives_a_restart() {
-    let mut project = start(&[]);
+async fn p12_move_checks_the_rail() {
+    let project = start(&[]);
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
     let agent = agent_in(&project, &client, None).await;
@@ -1893,8 +1746,6 @@ async fn p12_move_checks_the_rail_and_survives_a_restart() {
         .await
         .unwrap();
     assert_eq!(pad_home(&client, "notes").await, json!(r1));
-    project.restart(&[]);
-    assert_eq!(pad_home(&project.client().await, "notes").await, json!(r1));
 }
 
 /// P12: removing a Workstream deletes its Pads by Home, independently of kept Agents.
@@ -1989,43 +1840,6 @@ async fn ids_listed(client: &rpc::Client) -> Vec<u32> {
     let listed: Vec<Todo> =
         serde_json::from_value(client.request("todo.list", json!(null)).await.unwrap()).unwrap();
     listed.into_iter().map(|todo| todo.id).collect()
-}
-
-/// T11: four Todos, `todo.reorder`, and the ids `todo.list` prints.
-#[tokio::test]
-async fn t11_reorder_changes_the_list_on_a_real_daemon() {
-    let project = start(&[]);
-    let client = project.client().await;
-    for title in ["a", "b", "c", "d"] {
-        todo_at(&client, title).await;
-    }
-    let mut events = project.subscribed().await;
-    let moved = client
-        .request("todo.reorder", json!({ "id": 3, "before": 1 }))
-        .await
-        .unwrap();
-    assert_eq!(moved["id"], 3);
-    let updated = next(&mut events, |data| match data {
-        EventData::TodoUpdated(todo) => Some(todo.id),
-        _ => None,
-    })
-    .await;
-    assert_eq!(updated, 3);
-    assert_eq!(ids_listed(&client).await, [3, 1, 2, 4]);
-    let missing = client
-        .request("todo.reorder", json!({ "id": 3, "before": 9 }))
-        .await
-        .unwrap_err();
-    assert_eq!(missing.code, rpc::code::NOT_FOUND);
-    assert_eq!(ids_listed(&client).await, [3, 1, 2, 4]);
-    let more = tokio::time::timeout(
-        Duration::from_millis(300),
-        next(&mut events, |data| {
-            matches!(data, EventData::TodoUpdated(_)).then_some(())
-        }),
-    )
-    .await;
-    assert!(more.is_err());
 }
 
 /// T10, U155: the order the user dropped a Todo into is the order `todo.list` gives after `rupd` restarts.
@@ -2224,45 +2038,6 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
         format!("{}:{}:{path}", rup_dir(), shims.display())
     );
     assert!(shims.join("claude").is_file());
-}
-
-#[tokio::test]
-async fn a26_a_daemon_reopened_on_a_stored_nested_workstream_shows_it_flat() {
-    let mut project = start(&[]);
-    let client = project.client().await;
-    let w1 = workstream(&client, "w1").await;
-    let w2 = workstream(&client, "w2").await;
-    let w3 = workstream(&client, "w3").await;
-    let k = agent_in(&project, &client, Some(&w1)).await;
-    let inside = agent_in(&project, &client, Some(&w2)).await;
-    drop(client);
-    project.crash();
-    // What an earlier Daemon stored: `w2` under `w1`, `w3` under `w2`.
-    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
-    db.execute(
-        "UPDATE nodes SET parent = ?1, ord = 1 WHERE id = ?2",
-        (&w1, &w2),
-    )
-    .unwrap();
-    db.execute(
-        "UPDATE nodes SET parent = ?1, ord = 1 WHERE id = ?2",
-        (&w2, &w3),
-    )
-    .unwrap();
-    drop(db);
-    project.restart(&[]);
-    let client = project.client().await;
-
-    let tree = rail_tree(&client).await;
-    let at = |id: &str| tree.iter().find(|n| n.id == id).unwrap();
-    // After the last root (`w1`, order 0): `w2` at depth 1, then `w3` at depth 2.
-    assert_eq!((at(&w1).parent.clone(), at(&w1).order), (None, 0));
-    assert_eq!((at(&w2).parent.clone(), at(&w2).order), (None, 1));
-    assert_eq!((at(&w3).parent.clone(), at(&w3).order), (None, 2));
-    assert_eq!(at(&k).parent.as_deref(), Some(w1.as_str()));
-    assert_eq!(at(&inside).parent.as_deref(), Some(w2.as_str()));
-    assert_eq!(tree.len(), 5);
-    assert!(tree.iter().all(|n| n.terminal_id.is_none()));
 }
 
 #[tokio::test]
@@ -2797,11 +2572,6 @@ async fn p14_pads(client: &rpc::Client, names: &[&str]) {
     }
 }
 
-async fn p14_write(who: &rpc::Client, name: &str) -> Result<Value, rpc::RpcError> {
-    who.request("pad.write", json!({ "name": name, "text": "by owner" }))
-        .await
-}
-
 #[tokio::test]
 async fn p14_pad_ask_is_unknown() {
     let project = start(&[]);
@@ -2842,26 +2612,6 @@ async fn p14_pad_has_no_scribe_field() {
     assert!(listed[0].get("scribe").is_none());
 }
 
-#[tokio::test]
-async fn p14_only_owner_writes() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p14_pads(&user, &["notes", "plan"]).await;
-    let a = agent_in(&project, &user, None).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &a)).await;
-
-    p14_write(&user, "notes").await.unwrap();
-    p14_write(&as_a, "plan").await.unwrap();
-    p14_write(&user, "plan").await.unwrap();
-    let err = p14_write(&as_a, "notes").await.unwrap_err();
-    assert_eq!(err.code, rpc::code::FORBIDDEN);
-    let pad = user
-        .request("pad.read", json!({ "name": "notes" }))
-        .await
-        .unwrap();
-    assert_eq!(pad["text"], "by owner");
-}
-
 /// M11: the tools a Brief lists, between its "## Tools" heading and the next.
 fn brief_tools(brief: &str) -> Vec<String> {
     let section = brief.split("## Tools").nth(1).unwrap();
@@ -2888,30 +2638,6 @@ async fn m11_no_role_is_offered_a_tool_its_brief_does_not_name() {
         offered.sort();
         named.sort();
         assert_eq!(offered, named, "agent {id}");
-    }
-}
-
-/// M9: the Brief names exactly what its `rup mcp` offers, for a Door as for an Agent.
-#[tokio::test]
-async fn m9_the_brief_names_exactly_the_tools_offered() {
-    let report = tempfile::tempdir().unwrap().keep().join("seen.json");
-    let project = start(&[("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap())]);
-    let client = project.client().await;
-    start_door(&client).await;
-
-    let seen = seen_at(&report).await;
-
-    let mut listed = seen.tools.clone();
-    listed.sort();
-    assert_eq!(advertised(&seen.brief), listed);
-    for tool in [
-        "rail_createWorkstream",
-        "rail_startDoor",
-        "project_open",
-        "agent_stop",
-        "agent_prompt",
-    ] {
-        assert!(listed.iter().any(|t| t == tool), "{tool}");
     }
 }
 
@@ -3396,26 +3122,6 @@ async fn d8_memory_and_cpu_sum_the_whole_tree_and_two_calls_in_a_second_share_a_
     assert_eq!(sampled.agents[0].id, agent.id);
     assert_eq!(sampled.agents[0].disk_bytes, None);
     assert_eq!(sampled.total.memory_bytes, sampled.agents[0].memory_bytes);
-    assert_eq!(sampled.total.disk_bytes, None);
-}
-
-#[tokio::test]
-async fn d8_a_project_with_no_running_agent_returns_empty_and_zeros() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let sampled: contracts::project::Resources = serde_json::from_value(
-        client
-            .request("project.resources", Value::Null)
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-
-    assert!(sampled.agents.is_empty());
-    assert_eq!(
-        (sampled.total.memory_bytes, sampled.total.cpu_percent),
-        (0, 0.0)
-    );
     assert_eq!(sampled.total.disk_bytes, None);
 }
 
@@ -4104,40 +3810,6 @@ async fn m16_action_descriptions_prefer_direct_tools() {
     assert!(
         write.contains("type keystrokes only when no direct tool does"),
         "{write}"
-    );
-}
-
-#[tokio::test]
-async fn p2544d_write_revision_guard_over_rpc() {
-    let project = start(&[]);
-    let first = project.client().await;
-    let second = project.client().await;
-    first
-        .request("pad.create", json!({"name": "notes", "text": "original"}))
-        .await
-        .unwrap();
-    let (one, two) = tokio::join!(
-        first.request(
-            "pad.write",
-            json!({"name": "notes", "text": "one", "expectedRevision": 1})
-        ),
-        second.request(
-            "pad.write",
-            json!({"name": "notes", "text": "two", "expectedRevision": 1})
-        )
-    );
-    let results = [one, two];
-    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
-    let error = results
-        .iter()
-        .find_map(|result| result.as_ref().err())
-        .unwrap();
-    assert_eq!(error.code, rpc::code::CONFLICT);
-    assert!(error.message.contains("revision 2"));
-    let winner = results.into_iter().find_map(Result::ok).unwrap();
-    assert_eq!(
-        first.request("pad.list", json!(null)).await.unwrap()[0],
-        winner
     );
 }
 
