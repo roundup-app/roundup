@@ -786,3 +786,12 @@ on the quiet Mac decides whether startup now reaches the flood/hop report.
 Retain all three reports, exit code, logs and machine/power/load evidence.
 No new latency measurement, dominant-hop choice or R21 pass is claimed here;
 the full acceptance remains open on #3550.
+
+## R20/R21 flood duplicates and scheduling (2026-10-29)
+
+The [retained Mac baseline and repair limits](perf-keystroke-attribution.md#flood-duplicates-and-scheduling-repair-2026-10-29)
+record `04bafbf18`'s 43–45 ms p95, zero drops and three invalid duplicate-sample
+verdicts. The recorder now permits repeated observations with growth across
+the window. Output delivery yields in Rust, and live xterm parsing takes one
+8 KiB chunk at a time. No after-repair Mac distribution or <16 ms claim exists
+yet; #3550 remains open for the same three-run flood observation and full acceptance.
