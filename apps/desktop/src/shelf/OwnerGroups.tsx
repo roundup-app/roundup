@@ -95,7 +95,7 @@ export const OwnerGroups = <T,>(props: {
         return <TreeView.NodeProvider node={entry(group())} indexPath={indexPath()}>
         <TreeView.Branch data-shelf-group={id} data-drop-target={props.target?.() === id ? "" : undefined}>
           <div class="shelf-group-head" hidden={props.bare?.() === id}>
-            <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
+            <TreeView.BranchControl class="shelf-group-control row-wash" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
               <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
               <span class="shelf-group-count" data-state="">{props.count ? props.count(group()) : total(group())}</span>

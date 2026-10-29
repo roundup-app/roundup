@@ -78,11 +78,6 @@ p.ink[role="alert"] {
   background-color: var(--transparent);
 }
 
-/* U133: keyboard focus shares the wash without replacing Kind or failure ink. */
-.shelf-row:is([data-selected="true"], [data-lifted="true"], :has(:focus-visible)) {
-  background-image: linear-gradient(var(--selected), var(--selected));
-}
-
 /* U379: the title button covers its row, so the wash and the click target are one box; every other control sits above it. */
 .shelf-row :is(.todo-row-button, .pad-name)::after {
   content: "";
@@ -231,8 +226,22 @@ p.ink[role="alert"] {
   opacity: 1;
 }
 
+/* The disabled capture mark fits the glyph column; it has no click target. */
 .entry-row .todo-tick {
   pointer-events: none;
+  width: var(--space-4);
+}
+.entry-row .todo-tick::before {
+  left: var(--space-1);
+  right: 0;
+  top: calc(var(--space-1) * 1.5);
+  bottom: calc(var(--space-1) * 1.5);
+}
+.entry-row .todo-tick:not(:checked)::after {
+  left: calc(var(--space-1) + var(--hairline-width));
+  right: var(--hairline-width);
+  top: calc(var(--space-1) * 1.5 + var(--hairline-width));
+  bottom: calc(var(--space-1) * 1.5 + var(--hairline-width));
 }
 
 /* U3807: message text and actions share a fixed edge; neither determines its size. */
