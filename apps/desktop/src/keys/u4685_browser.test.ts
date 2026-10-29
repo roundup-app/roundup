@@ -125,6 +125,7 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
     expect(await read(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id`)).toBe("agent-4");
 
     if (dirs.length) {
+      await browser("record", "stop");
       await browser("click", ".drawer .close");
       await wait(`!document.querySelector('.drawer[data-open="true"]')`);
       await read(`window.__fake.failNext(-32003,'Focus observer failure')`);
@@ -137,7 +138,6 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
       await wait(`!!document.querySelector('.pane .xterm-screen')`);
       await browser("click", ".pane .xterm-screen");
       await snap("13-conflict-terminal");
-      await browser("record", "stop");
     }
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
