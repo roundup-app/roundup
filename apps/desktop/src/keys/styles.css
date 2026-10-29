@@ -72,3 +72,8 @@
   .hint-line .hint-action:enabled:hover { color: var(--text); }
 }
 .hint-line .hint-action:focus-visible { outline: none; }
+.hint-line .hint-action:disabled {
+  color: var(--disabled);
+  cursor: default;
+}
+.hint-action:disabled .key-chip { color: var(--disabled); }
