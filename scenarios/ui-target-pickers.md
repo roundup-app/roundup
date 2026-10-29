@@ -15,7 +15,7 @@ Test: `u3515b_exhausted_target_actions_do_nothing` (planned, mounted App seam) e
 | Action | Excluded targets | Planned mounted App-seam test |
 | --- | --- | --- |
 | Move a Todo or Pad to a Home, wherever a move action exists | Its current Workstream or current Project root | `u3515c_home_moves_offer_only_other_homes` |
-| Assign a Todo or Pad, including owner-group drag and keyboard assignment | Its current owner, compared by Actor identity, including Me and Unassigned where supported | `u3515c_assignment_offers_only_changed_owners` |
+| Assign a Todo, including owner-group drag and keyboard assignment | Its current owner, compared by Actor identity, including Me and Unassigned where supported | `u3515c_assignment_offers_only_changed_owners` |
 | Add a blocker | The Todo itself, an existing blocker, or a Todo that depends on it directly or transitively | `u3515c_blockers_exclude_self_existing_and_transitive_cycles` |
 | Nest or reparent by list, drag or keyboard, including Rail moves and Todo nesting | The item itself, any descendant, and a destination that preserves both current parent and order | `u3515c_nesting_excludes_self_descendants_and_unchanged_placement` |
 | An existing bulk target action | A target leaving every selected item unchanged, or invalid for any selected item; for an offered target, call the action only for selected items whose value changes | `u3515c_bulk_targets_change_only_selected_items_that_need_it` |
