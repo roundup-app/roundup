@@ -275,7 +275,7 @@ impl Shared {
             first_prompt: prompt.as_ref().map(|_| FirstPrompt::Reserved),
             prompt,
             steer: None,
-            session_started: false,
+            session_started: None,
             starred: false,
             interrupt: None,
             named: true,
