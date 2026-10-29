@@ -57,7 +57,7 @@ export const NamingSettings = (props: { app: App }) => {
           drafts.edit(destination, { text: input.value }, { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection }, "ordinary");
         }} />
         <button class="word" data-button="quiet" type="button" disabled={saving()} onClick={() => void save(value().automaticRenaming, text(), draft()?.revision)}>{copy.save}</button>
-        <Field.ErrorText>{failure()}</Field.ErrorText>
+        <Field.ErrorText asChild={error => <div {...error()}><ReservedLine message={failure()} /></div>} />
       </Field.Root>
     </>}</Show>
     <Show when={!settings() && failure()}><ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void refetch()}>{copy.storageRetry}</button></ReservedLine></Show>
