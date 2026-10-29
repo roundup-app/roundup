@@ -102,8 +102,9 @@ async fn x18_program_ended_of_a_hung_owner_returns_within_patience() {
     let (terminals, ids) = owners(dir.path(), 1).await;
     kill(helpers()[0], Signal::SIGSTOP).unwrap();
     let ticks = tokio::spawn(async {
+        let mut tick = tokio::time::interval(Duration::from_millis(100));
         for _ in 0..10 {
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tick.tick().await;
         }
     });
     assert!(
