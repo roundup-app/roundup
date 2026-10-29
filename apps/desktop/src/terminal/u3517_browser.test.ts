@@ -843,5 +843,6 @@ it("u4818_webgl_scale2_paints_output_after_resize", async () => {
       return count;
     }));
   }))`);
+
   expect(painted.every(count => count > 0), `painted pixels per row: ${painted}`).toBe(true);
 }, 120_000);
