@@ -76,4 +76,5 @@
   color: var(--disabled);
   cursor: default;
 }
-.hint-action:disabled .key-chip { color: var(--disabled); }
+/* D5: --disabled keeps 4.5:1 on the page ground only; the chip fill is darker. */
+.hint-action:disabled .key-chip { color: var(--grey); }
