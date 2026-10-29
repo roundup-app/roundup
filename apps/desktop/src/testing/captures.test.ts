@@ -174,7 +174,7 @@ test("u4590_capture_selection_leaves_ordinary_discovery_unchanged", async () => 
   const files = projects.flatMap(project => globSync(project.test!.include!).filter(file => !project.test!.exclude!.includes(file)));
 
   expect([...new Set(files)].sort()).toEqual(globSync("src/**/*.test.{ts,tsx}").sort());
-  expect(config.projects).toHaveLength(2);
+  expect(config.projects).toHaveLength(3);
   expect(config.fileParallelism).toBeUndefined();
   expect(config.testNamePattern).toBeUndefined();
 });
