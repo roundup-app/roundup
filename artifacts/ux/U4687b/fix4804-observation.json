@@ -1,6 +1,5 @@
 {
   "base": "b71ae8938e239631fbf43ee6baaa38e6ab3ecfb8",
-  "code_base": "5a4bd6984",
   "viewport": "1512x950",
   "scheme": "dark",
   "renderer": "isolated headless Chromium",
@@ -11,5 +10,6 @@
     "read_only": "helper textarea tabIndex -1 and aria-hidden true"
   },
   "checks": "all recorded Checks pass",
-  "recorder_failure": "just capture was interrupted when it launched the whole repository suite. The targeted scenario capture run failed its recorder stop: No frames captured. Static first-run/agents and family/weight captures passed; a separate preview observer passed. No video pass is claimed."
+  "recorder_failure": "just capture was interrupted when it launched the whole repository suite. The targeted scenario capture run failed its recorder stop: No frames captured. Static first-run/agents and family/weight captures passed; a separate preview observer passed. No video pass is claimed.",
+  "rendered_code": "aad0158dc2d80dca4c48f7fba679b56ed71d178b"
 }
