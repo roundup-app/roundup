@@ -1,22 +1,19 @@
-import { execFile } from "node:child_process";
+import { buffer } from "node:stream/consumers";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { request } from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer as unixServer } from "node:net";
 import type { Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { expect, it, vi } from "vitest";
-import { chromePath } from "./chromePage";
 import type { RpcErrorData } from "@contracts/RpcErrorData";
 import { createServedApp } from "./realSeam";
 import { realDaemon } from "./realDaemonPlugin";
 
-const execute = promisify(execFile);
 
 const bound = <T>(promise: Promise<T>) => Promise.race([promise, new Promise<never>((_, reject) => {
   const timer = setTimeout(() => reject(new Error("fixture barrier exceeded 10 s")), 10_000);
@@ -128,48 +125,23 @@ it("u3791b_served_rpc_preserves_event_error_data_and_identity", async () => {
 
 it("x14_harness_output_relay_selects_exact_bytes", async () => {
   const real = await fixture();
-  const executable = chromePath();
-  const profile = join(real.dir, "profile");
-  const config = join(real.dir, "browser.json");
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
-
-  const browser = async (...args: string[]) => {
-    if (!executable) throw new Error("X14 requires isolated Chromium: set CHROME_PATH");
-    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", `x14-${process.pid}`, "--profile", profile, "--json", ...args], { env, timeout: 30_000 });
-    const reply = JSON.parse(stdout);
-    expect(reply.success, stdout).toBe(true);
-
-    return reply.data;
-  };
 
   try {
-    await writeFile(config, "{}");
-    await browser("open", real.base);
-    await browser("eval", `window.received = {}; window.meta = {}; window.finished = {}; window.start = (id) => {
-      window.received[id] = []; fetch('/__daemon/output?terminal=' + id).then(async response => {
-        window.meta[id] = [response.status, response.headers.get('content-type'), response.headers.get('x-terminal'), response.headers.get('x-output-after')];
-        const reader = response.body.getReader();
-        for (;;) { const { value, done } = await reader.read(); if (done) break; window.received[id].push(...value); }
-        window.finished[id] = true;
-      });
-    }; window.start('A');`);
-    await expect.poll(() => real.subscriptions.length).toBe(1);
-    await browser("eval", "window.start('B')");
-    await expect.poll(() => real.subscriptions.length).toBe(2);
+    const first = await real.select("A");
+    const second = await real.select("B");
+    const received = Promise.all([buffer(first.response), buffer(second.response)]);
 
-    // Each socket is one selection: the Daemon sends it its own Terminal's bytes and no other's.
-    real.subscriptions[0]!.write(output("A", [0, 27, 255, 226], 0));
-    real.subscriptions[1]!.write(output("B", [66, 0], 0));
-    real.subscriptions[0]!.end(output("A", [130, 172, 128], 4));
-    real.subscriptions[1]!.end();
+    // Each socket is one selection: the relay preserves arbitrary binary chunks.
+    first.socket.write(output("A", [0, 27, 255, 226], 0));
+    second.socket.write(output("B", [66, 0], 0));
+    first.socket.end(output("A", [130, 172, 128], 4));
+    second.socket.end();
 
-    await browser("wait", "--fn", "window.finished.A && window.finished.B");
-    expect((await browser("eval", "window.received")).result).toEqual({ A: [0, 27, 255, 226, 130, 172, 128], B: [66, 0] });
-    expect((await browser("eval", "window.meta")).result).toEqual({ A: [200, "application/octet-stream", "A", "0"], B: [200, "application/octet-stream", "B", "0"] });
-  } finally {
-    try { await browser("close"); } finally { await real.close(); }
-  }
-}, 60_000);
+    expect((await received).map(bytes => Array.from(bytes))).toEqual([[0, 27, 255, 226, 130, 172, 128], [66, 0]]);
+    expect([first, second].map(({ response }) => [response.statusCode, response.headers["content-type"], response.headers["x-terminal"], response.headers["x-output-after"]]))
+      .toEqual([[200, "application/octet-stream", "A", "0"], [200, "application/octet-stream", "B", "0"]]);
+  } finally { await real.close(); }
+});
 
 it("x14_harness_output_relay_is_bounded_without_blocking_control", async () => {
   const real = await fixture();
