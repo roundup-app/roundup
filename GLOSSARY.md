@@ -104,7 +104,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
 | Remove all (`agent::RemoveScope::All`) | Remove all | — |
 | Hint line | same | — |
-| Shelf | work items | — |
+| Shelf | Bench | — |
 | Scrim | same | — |
 | Resize edge | same | — |
 | Inbox | same | — |
