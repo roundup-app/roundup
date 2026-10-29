@@ -312,7 +312,6 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
 
   pressUndo();
   await screen.findByText("second: name conflict");
-  await daemon.rpc("pad.setOwner", { name: "first", owner: USER });
   await daemon.rpc("pad.write", { name: "first", text: "edited after restore" });
   refuse = false;
   pressUndo();

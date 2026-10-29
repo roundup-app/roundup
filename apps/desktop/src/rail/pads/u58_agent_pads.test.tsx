@@ -21,7 +21,7 @@ const owner = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
 const USER: Actor = { kind: "user", id: "you", parent: null };
 
-const padOf = (name: string, who: Actor): Pad => ({ incarnation: `fixture-${name}`, name, owner: who, text: "", updated_at: 0, revision: 1, home: null });
+const padOf = (name: string, who: Actor): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null });
 
 /** The Rail, the Shelf and the Drawer over one fake Daemon whose Pads are `pads`. */
 const mount = async (tree: RailNode[], pads: Pad[]) => {
@@ -56,7 +56,7 @@ describe("u58 an Agent's Pads under it", () => {
   it("u58_the_rail_and_the_shelf_share_one_pad_list", async () => {
     const { app } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
-    await waitFor(() => expect(control(rowOf("auth"))).not.toBeNull());
+    await waitFor(() => expect(control(rowOf("auth"))).toBeNull());
 
     expect(app.calls.filter((call) => call.method === "pad.list")).toHaveLength(1);
   });

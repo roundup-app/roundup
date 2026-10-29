@@ -95,13 +95,6 @@ async fn p16_the_user_renames_an_agent_owned_pad() {
         .request("pad.create", json!({"name":"Notes","text":"original"}))
         .await
         .unwrap();
-    client
-        .request(
-            "pad.setOwner",
-            json!({"name":"Notes","owner":{"kind":"agent","id":"maker","parent":null}}),
-        )
-        .await
-        .unwrap();
     let accepted = client
         .request(
             "pad.rename",

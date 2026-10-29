@@ -34,10 +34,10 @@ export const AGENT: Actor = { kind: "agent", id: "agent-7f3", parent: null };
 
 const AGENT_NAME = "auth-refactor";
 
-export const padOf = (name: string, owner: Actor, text = ""): Pad => ({
+export const padOf = (name: string, _actor: Actor, text = ""): Pad => ({
   incarnation: `fixture-${name}`,
   name,
-  owner,
+
   text,
   updated_at: 0,
   revision: 1,

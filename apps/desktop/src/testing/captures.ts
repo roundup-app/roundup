@@ -57,7 +57,7 @@ export const observers = {
   "src/orders/u3078i_rendered.test.ts": ["P3557c", "U3078i", "U3791b", "U4453b"],
   "src/pads/u4698b_browser.test.ts": ["U4698b"],
   "src/pads/p2544a_browser.test.ts": ["U3021c"],
-  "src/pads/u3732_real_daemon_agent_owner.test.tsx": ["U4457"],
+  "src/pads/u3732_real_daemon_agent_owner.test.tsx": ["U3736"],
   "src/rail/menu/u3787a_browser.test.ts": ["U3787a"],
   "src/rail/menu/u4461_rendered.test.ts": ["U4461", "U4601"],
   "src/rail/u3787c_browser.test.ts": ["U3787c"],

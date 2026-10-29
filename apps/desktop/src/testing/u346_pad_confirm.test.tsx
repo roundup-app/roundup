@@ -255,7 +255,6 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     expect(restored.value).toBe("unfinished é 🪁\nsecond");
     ;
     const focused = document.activeElement;
-    await one.rpc("pad.setOwner", { name, owner: USER });
     expect(document.activeElement).toBe(focused);
     fireEvent.focusOut(restored);
     expect(writes()).toBe(afterExternal);

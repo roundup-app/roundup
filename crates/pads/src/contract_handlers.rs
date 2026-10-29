@@ -73,15 +73,6 @@ impl Pads {
         self.reorder(ctx, params(value)?)
     }
 
-    pub(super) async fn rpc_pad_set_owner(
-        &self,
-        ctx: &Ctx,
-        _method: &str,
-        value: Value,
-    ) -> Result<Value, RpcError> {
-        self.set_owner(ctx, params(value)?)
-    }
-
     pub(super) async fn rpc_pad_move(
         &self,
         ctx: &Ctx,
@@ -100,12 +91,10 @@ impl Pads {
         self.delete(
             ctx,
             params(value)?,
-            if ctx.actor.kind == ActorKind::User {
-                PadDeletion::User
-            } else if ctx.actor == Actor::daemon() {
+            if ctx.actor == Actor::daemon() {
                 PadDeletion::Cleanup
             } else {
-                PadDeletion::Owner
+                PadDeletion::User
             },
         )
     }

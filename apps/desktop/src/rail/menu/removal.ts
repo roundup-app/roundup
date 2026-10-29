@@ -57,10 +57,7 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
     else removal.stays.todos += 1;
   }
 
-  for (const pad of pads.filter((each: Pad) => each.home === id)) {
-    if (pad.owner.kind === "agent" && staying.has(pad.owner.id)) removal.stays.pads += 1;
-    else removal.goes.pads += 1;
-  }
+  removal.goes.pads += pads.filter((each: Pad) => each.home === id).length;
 
   return removal;
 };
