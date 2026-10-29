@@ -63,13 +63,17 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
         .unwrap();
     let hook: Value = serde_json::from_str(brief["stdout"].as_str().unwrap()).unwrap();
     assert_eq!(hook["hookSpecificOutput"]["hookEventName"], "SessionStart");
-    assert!(
-        messages.contains(
-            hook["hookSpecificOutput"]["additionalContext"]
-                .as_str()
-                .unwrap()
-        )
-    );
+    // The naming lines follow the live first-prompt state, not the request's Context.
+    for line in hook["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap()
+        .lines()
+        .filter(|line| {
+            !line.starts_with("Automatic self-naming") && !line.starts_with("Naming guide:")
+        })
+    {
+        assert!(messages.contains(line), "{line}");
+    }
     for kind in [Kind::Working, Kind::Idle] {
         next(&mut events, |event| match event {
             EventData::AgentStatus(status)

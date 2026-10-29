@@ -179,6 +179,33 @@ pub(crate) fn naming_path(project_data: &Path) -> PathBuf {
     root.join("preferences.db")
 }
 
+/// Handle user-owned naming preferences in the App's global data folder, without a Project.
+pub fn naming_settings(
+    root: &Path,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, rpc::RpcError> {
+    let db = open_naming(&root.join("preferences.db")).map_err(rpc::RpcError::internal)?;
+    if method == "daemon.getNaming" {
+        return rpc::reply(&read_naming(&db).map_err(rpc::RpcError::internal)?);
+    }
+    if method != "daemon.setNaming" {
+        return Err(rpc::RpcError::new(
+            rpc::code::METHOD_NOT_FOUND,
+            "Unknown naming action",
+        ));
+    }
+    let settings: contracts::project::NamingSettings = rpc::params(params)?;
+    if settings.naming_guide.trim().is_empty() {
+        return Err(rpc::RpcError::new(
+            rpc::code::INVALID_PARAMS,
+            "Enter a naming guide before saving.",
+        ));
+    }
+    write_naming(&db, &settings).map_err(rpc::RpcError::internal)?;
+    rpc::reply(&())
+}
+
 /// SQLite owns atomic commits and cross-process visibility for all Project Daemons.
 pub(crate) fn open_naming(path: &Path) -> rusqlite::Result<rusqlite::Connection> {
     if let Some(parent) = path.parent() {
