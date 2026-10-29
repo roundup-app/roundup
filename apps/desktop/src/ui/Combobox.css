@@ -26,7 +26,7 @@
   background-color: var(--selected);
 }
 
-/* Keep the active-row wash visible while the pointer tracks Ark's highlight. */
+/* A resting pointer moves no highlight; hover changes ink only. */
 .app-combobox-item:hover:not([data-highlighted], [data-row-selected=true]) {
   background-color: var(--transparent);
   color: var(--text);
