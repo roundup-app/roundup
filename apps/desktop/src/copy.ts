@@ -652,6 +652,7 @@ export const copy = {
   worktreePrState: (number: number, stale: boolean) => `PR #${number}${stale ? ", stale" : ""}`,
   worktreeUnavailableMark: "—",
   worktreeUnavailable: "Worktree state unavailable",
+  worktreeReadUnavailable: "Worktree state is unavailable.",
   worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 })}↑`,
   worktreeAheadState: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead of Base`,
   worktreeStateText: (ahead: number, behind: number, dirty: boolean) => `${ahead} ahead, ${behind} behind${dirty ? ", dirty" : ""}`,
