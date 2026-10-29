@@ -76,7 +76,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
   };
 
   return <>
-    <input
+    <input spellcheck={false} autocorrect="off" autocapitalize="off"
       type="text"
       aria-label={copy.name}
       aria-invalid={conflict() || current()?.status === "failed" ? true : undefined}
@@ -181,7 +181,9 @@ export const RailRowView = (props: {
     <p class="line">
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={copy.collapse} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
-      {name()}
+      <Show when={workstream() && props.row.node.opening_prompt?.trim()} fallback={name()}>
+        <span class="mode-name">{name()}<span class="mode-mark" data-state="mode" role="img" aria-label={copy.modeWord}><Icon name="diamond" /></span></span>
+      </Show>
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
@@ -199,8 +201,8 @@ export const RailRowView = (props: {
   </div>;
 
   return <>
-    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
-      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)}>
+    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
+      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)}>
         <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
       </TreeView.Branch>
     </Show>
