@@ -2,6 +2,14 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "<session>\nFollow this instruction: Help me shape an ask for filing Workstream behavior feedback"
+      },
+      "response": {
+        "content": "{\"title\":\"Shape feedback\"}"
+      }
+    },
+    {
+      "match": {
         "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
       },
       "response": {
@@ -29,7 +37,8 @@
     {
       "match": {
         "userMessage": "Help me shape an ask for filing Workstream behavior feedback",
-        "hasToolResult": false
+        "hasToolResult": false,
+        "systemMessage": "spawn exactly one shaping child under yourself in this Workstream"
       },
       "response": {
         "toolCalls": [
@@ -64,6 +73,15 @@
       },
       "response": {
         "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Help me shape an ask for filing Workstream behavior feedback",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "What Workstream behavior should the feedback describe?"
       }
     }
   ]
