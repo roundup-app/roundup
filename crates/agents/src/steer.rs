@@ -442,6 +442,8 @@ impl Shared {
         let ended = match runs.get_mut(id) {
             Some(Slot::Running(run)) if run.terminal_id == terminal_id => {
                 run.steer = None;
+                // An unacknowledged Steer can release input without a Kind change.
+                self.events.observed.notify_waiters();
                 run.ended || run.closing
             }
             _ => true,

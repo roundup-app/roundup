@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
@@ -8,7 +9,7 @@ import type { SeedName } from "../testing/seeds";
 
 afterEach(() => {
   if (live) return;
-  cleanup();
+  batch(cleanup);
   localStorage.clear();
 });
 
@@ -59,7 +60,7 @@ const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected")
 
 describe("u373 and u370 on one mounted App", () => {
   afterAll(() => {
-    cleanup();
+    batch(cleanup);
     localStorage.clear();
     live = undefined;
   });
@@ -224,7 +225,7 @@ describe("u373 the Shelf has two tabs", () => {
     fireEvent.click(tabNamed("Pads"));
     await waitFor(() => expect(JSON.parse(localStorage.getItem(Object.keys(localStorage).find((key) => key.startsWith("roundup:shelf:"))!)!).tab).toBe("pads"));
 
-    cleanup();
+    batch(cleanup);
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
     expect(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { selected: true }).id).toBe(chosen);
@@ -238,12 +239,15 @@ describe("u373 the Shelf has two tabs", () => {
   });
 
   it("u373_add_keeps_its_path", async () => {
-    await mountApp();
+    // Add has no dependency on the forty owners used by the scope/count probes.
+    await mountApp("empty-project");
     fireEvent.click(await within(shelf()).findByRole("button", { name: "add todo to Overview" }));
-    expect(await screen.findByLabelText("New Todo title")).toBeTruthy();
+    const todoField = await screen.findByLabelText("New Todo title");
+    await waitFor(() => expect(document.activeElement).toBe(todoField));
     fireEvent.click(tabNamed("Pads"));
     fireEvent.click(await within(shelf()).findByRole("button", { name: "Add Pad" }));
-    expect(await screen.findByLabelText("Pad name")).toBeTruthy();
+    const padField = await screen.findByLabelText("Pad name");
+    await waitFor(() => expect(document.activeElement).toBe(padField));
   });
 });
 
@@ -253,7 +257,7 @@ describe("u370 the Shelf closes and opens", () => {
     const first = await mountApp();
 
     chord();
-    cleanup();
+    batch(cleanup);
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
     expect(shelf().hidden).toBe(true);
