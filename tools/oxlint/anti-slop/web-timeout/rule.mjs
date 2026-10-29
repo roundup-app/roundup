@@ -121,7 +121,13 @@ function registration(source, node, seen = new Set()) {
   if (["it", "test"].includes(name)) return "test";
   if (["describe", "suite"].includes(name)) return "suite";
   if (node.type === "Identifier") return registration(source, initializer(source, node), seen);
-  if (node.type === "MemberExpression") return registration(source, node.object, seen);
+  if (node.type === "MemberExpression") {
+    const kind = registration(source, node.object, seen);
+    const property = member(source, node);
+    // Vitest exposes suite collectors on test APIs, including fixture builders.
+    if (kind === "test" && ["describe", "suite"].includes(property?.name)) return "suite";
+    return kind;
+  }
   if (node?.type === "CallExpression" || node?.type === "TaggedTemplateExpression") {
     const callee = node.callee ?? node.tag;
     const property = member(source, callee);
