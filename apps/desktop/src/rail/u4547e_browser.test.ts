@@ -1,3 +1,4 @@
+import { mkdirSync } from "node:fs";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
@@ -65,11 +66,15 @@ it("u4547e_drag_reparents_the_chosen_agent_without_restarting", async () => {
 }, 60_000);
 
 it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
-  await seed();
-  await lane.capture("U4547e", "before-picker");
   const capture = captureDir("U4547e");
 
-  if (capture) await lane.browser("record", "start", `${capture}/move-and-retry.webm`);
+  if (capture) {
+    mkdirSync(capture, { recursive: true });
+    await lane.browser("record", "start", `${capture}/move-and-retry.webm`);
+  }
+
+  await seed();
+  await lane.capture("U4547e", "before-picker");
   await lane.browser("focus", row("agent-4"));
   await lane.browser("press", "m");
   await lane.until("document.querySelector('[role=combobox]') === document.activeElement");
