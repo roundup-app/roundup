@@ -15,7 +15,10 @@ it.skipIf(!captureDir("U4692"))("u4692_u4692a_rendered_attention_and_discovery",
     await lane.browser("set", "media", "dark");
     await lane.evaluate(`localStorage.setItem("roundup:app-settings", JSON.stringify({mode:"dark"})); document.documentElement.dataset.mode = "dark"`);
     await lane.until("!!window.__fake && !!document.querySelector('.rail-row')");
-    await lane.evaluate(`(() => { window.__fake.failNext(-32003, ${JSON.stringify(failure)}); document.querySelector('[aria-label="Add Workstream"]').click(); return true; })()`);
+    await lane.browser("click", '.rail-row[data-id="backend"]');
+    await lane.browser("press", "Meta+t");
+    await lane.until("!!document.querySelector('.bubble .xterm-helper-textarea')");
+    await lane.evaluate(`(() => { window.__fake.app.handlers['rail.createWorkstream'] = () => { throw new Error(${JSON.stringify(failure)}); }; document.querySelector('[aria-label="Add Workstream"]').click(); return true; })()`);
     await lane.until(`document.querySelector('p.ink[role=alert]')?.textContent.includes(${JSON.stringify(failure)})`);
     await lane.capture("U4692", "before");
 
@@ -55,10 +58,8 @@ it.skipIf(!captureDir("U4692"))("u4692_u4692a_rendered_attention_and_discovery",
     await lane.browser("press", "Escape");
     await lane.until("!document.querySelector('.drawer[data-open=true]')");
     await lane.browser("click", '.rail-row[data-id="backend"]');
-    await lane.browser("press", "Meta+t");
+    await lane.browser("click", ".terminal-tab");
     await lane.until("!!document.querySelector('.bubble .xterm-helper-textarea')");
-    await lane.evaluate(`(() => { window.__fake.failNext(-32003, ${JSON.stringify(failure)}); document.querySelector('[aria-label="Add Workstream"]').click(); return true; })()`);
-    await lane.until(`document.querySelector('p.ink[role=alert]')?.textContent.includes(${JSON.stringify(failure)})`);
     await lane.browser("focus", ".bubble .xterm-helper-textarea");
     await lane.capture("U4692a", "bubble-hint");
     await lane.browser("press", "Control+Meta+j");

@@ -124,7 +124,7 @@ it.each(["rail", "centre", "shelf", "triage", "ask", "agent", "door", "bubble", 
   expect(app.calls.filter(call => call.method === "ask.send")).toEqual([]);
 });
 
-it("u4692_a_held_chord_jumps_once", async () => {
+it("u4692_a_repeating_chord_jumps_once", async () => {
   const { connected, writes } = await open();
   press({ repeat: true });
   expect(connected().rail.selected()).not.toBe("ask");
