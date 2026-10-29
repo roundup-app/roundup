@@ -2,7 +2,10 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { door, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
-import { mountRail, railCallsTo, rowOf, chooseAction } from "./railFixture";
+import { mountRail, railCallsTo, rowOf, chooseAction, exitedTerminal } from "./railFixture";
+import { openTabs, path } from "../header/stripFixture";
+import { projectMenu, openProjectPage } from "../testing/menuProbe";
+import { fakeEmulators } from "../terminal/paneHarness";
 import { copy } from "../copy";
 import { captureActions } from "../keys/registry";
 
@@ -21,7 +24,7 @@ it("u4547d_restart_controls_share_the_focused_mode_action", async () => {
   row.focus();
   fireEvent.keyDown(row, { key: "r", code: "KeyR" });
   await waitFor(() => expect(railCallsTo(m.app, "workstream.restart")).toHaveLength(3));
-  expect(railCallsTo(m.app, "workstream.restart").every(p => (p as { id: string }).id === "mode")).toBe(true);
+  expect(railCallsTo(m.app, "workstream.restart")).toEqual(Array.from({ length: 3 }, () => ({ id: "mode", request: expect.any(String) })));
   expect(railCallsTo(m.app, "agent.resume")).toEqual([]);
   expect(captureActions(row).find(a => a.keys === "R")?.available()).toBe(true);
   rowOf("other").focus();
@@ -49,8 +52,11 @@ it("u4547d_pending_and_failed_restart_keep_one_operation", async () => {
 });
 
 it("u4547d_only_explicit_restart_requests_a_fresh_session", async () => {
-  const tree = [workstream("mode", { opening_prompt: "saved" })];
-  const m = await mountRail(tree);
+  const tree = [door("mode", "done", "", { opening_prompt: "saved", can_resume: true })];
+  const m = await mountRail(tree, [exitedTerminal("mode", 0)]);
+  m.app.handlers["agent.resume"] = () => tree[0]!;
+  await chooseAction(m.app, "mode", copy.resume);
+  expect(railCallsTo(m.app, "agent.resume")).toEqual([{ id: "mode" }]);
   m.rail.select("mode");
   await m.rail.refresh();
   await chooseAction(m.app, "mode", copy.openingPromptMenu);
@@ -63,6 +69,35 @@ it("u4547d_only_explicit_restart_requests_a_fresh_session", async () => {
   await waitFor(() => expect(railCallsTo(m.app, "workstream.setOpeningPrompt")).toHaveLength(1));
   expect(railCallsTo(m.app, "workstream.restart")).toEqual([]);
   cleanup();
-  const reopened = await mountRail(tree);
+  const reopened = await mountRail([door("mode", "idle", "", { opening_prompt: "saved" })], [], undefined, undefined, { pane: fakeEmulators().factory });
+  reopened.rail.select("mode");
+
+  const terminal = await waitFor(() => {
+    const screen = document.querySelector<HTMLElement>('[data-terminal="t-mode"]');
+    expect(screen).not.toBeNull();
+
+    return screen!;
+  });
+
+  terminal.focus();
+  expect(fireEvent.keyDown(terminal, { key: "r", code: "KeyR" })).toBe(true);
   expect(railCallsTo(reopened.app, "workstream.restart")).toEqual([]);
+});
+
+it("u4547d_restart_controls_share_the_focused_mode_action_in_the_native_menu", async () => {
+  const tree = [workstream("mode", { opening_prompt: "saved" })];
+  const { app } = await openTabs({ p: tree });
+  const daemon = app.of(path("p"));
+  daemon.handlers["workstream.restart"] = () => tree[0]!;
+  rowOf("mode").focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:R")).toMatchObject({ label: "Restart Mode (R · Rail row)", enabled: true }));
+  expect(projectMenu.items.find(item => item.id === "action:chord:R")?.shortcut).toBeUndefined();
+  openProjectPage("action:chord:R", path("p"));
+  await waitFor(() => expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1));
+  expect(railCallsTo(daemon, "agent.resume")).toEqual([]);
+  const field = screen.getByRole("textbox", { name: "Ask" });
+  field.focus();
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:R")).toBe(false));
+  expect(fireEvent.keyDown(field, { key: "r", code: "KeyR" })).toBe(true);
+  expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1);
 });

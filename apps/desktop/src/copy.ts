@@ -781,6 +781,7 @@ export const copy = {
   addAgentMenu: "Agent",
   addTerminalMenu: "Terminal",
   copyLink: "Copy link",
+  restartModeInRail: "Restart Mode (R · Rail row)",
   restart: "Restart",
   startYolo: "Start YOLO",
   creatingWorkstream: "Creating Workstream…",
