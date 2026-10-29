@@ -138,6 +138,7 @@ describe("u54 keyboard help", () => {
 
     for (const keys of ["⌃⌘J", "⌘K J", "⌘K ⇧J"]) expect([...panel!.querySelectorAll(".key-chips")].some(chip => chip.textContent === keys)).toBe(true);
     expect(within(panel!).queryByText(/Choose folder/)).toBeNull();
+    expect([...panel!.querySelectorAll(".key-chips")].map(chip => chip.textContent)).toEqual(expect.arrayContaining(["⌃⌘J", "⌘K J", "⌘K ⇧J"]));
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 

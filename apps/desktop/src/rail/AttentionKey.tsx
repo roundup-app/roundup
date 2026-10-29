@@ -7,12 +7,14 @@ import { nextAttention } from "./attention";
 export const AttentionKey = () => {
   const { rail } = useConnectedProject();
 
-  const capture = () => ({ available: () => nextAttention(rail.nodes, rail.selected()) !== null,
+  const capture = () => ({
+    available: () => nextAttention(rail.nodes, rail.selected()) !== null,
     invoke: () => {
       const next = nextAttention(rail.nodes, rail.selected());
 
       if (next) rail.select(next.id);
-    } });
+    },
+  });
 
   registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "J")!, capture }]);
   registerKeys({ kind: "app" }, [{ action: CHORDS.find((row) => row.keys === "⌃⌘J")!, capture }]);
