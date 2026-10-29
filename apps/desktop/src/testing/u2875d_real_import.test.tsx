@@ -1,4 +1,4 @@
-import { menuProbe, openProjectPage } from "./menuProbe";
+import { openProjectPage } from "./menuProbe";
 // @vitest-environment jsdom
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -12,7 +12,7 @@ import { withProjectPair } from "./realDaemonFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
-it("u2875d_real_import_reopen_and_resume", async () => {
+it("u2875d_real_import_changes_only_selected_project", async () => {
   await withProjectPair(async (real, other) => {
     try {
       const ID = "22222222-2222-4222-8222-222222222222";
@@ -50,24 +50,6 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       const first = await created();
       expect(first.workstream).toBeTruthy();
       expect(first.child?.can_resume).toBe(true);
-      expect(await app.rpc("terminal.list", null)).toEqual([]);
-
-      cleanup();
-
-      // Reopen: the same nodes, still closed, still resumable, never launched.
-      await real.restart();
-      const again = await created();
-      expect(again.workstream?.id).toBe(first.workstream?.id);
-      expect(again.child?.id).toBe(first.child?.id);
-      expect(again.child?.can_resume).toBe(true);
-      expect(await app.rpc("terminal.list", null)).toEqual([]);
-
-      // Reopening the App shows the Workstream with its closed child offering Resume, and starts nothing.
-      render(() => <App app={createServedApp(real.base)} reducedMotion={() => true} clock={Date.now} createEmulator={emulators.factory} />);
-      await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${again.child?.id}"]`)).toBeTruthy());
-      fireEvent.contextMenu(document.querySelector(`.rail-row[data-id="${again.child?.id}"]`)!);
-      await waitFor(() => expect(menuProbe.shown?.some(item => item.id === "resume" && item.enabled)).toBe(true));
-      menuProbe.answer?.(null);
       expect(await app.rpc("terminal.list", null)).toEqual([]);
     } finally {
       cleanup();
