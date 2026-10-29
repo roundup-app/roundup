@@ -39,12 +39,12 @@ it.each([
 it("t4905_pending_rows_cannot_mutate_items_blocker_or_bulk_target", async () => {
   const { app, todos } = await mountTodos([todo(1), todo(2)]);
   todos.show(pending);
-  fireEvent.keyDown(screen.getByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
   const drawer = await screen.findByRole("complementary", { name: "Drawer" });
   fireEvent.click(await within(drawer).findByRole("button", { name: /Blocker/ }));
   const input = await screen.findByRole("combobox");
   fireEvent.input(input, { target: { value: "pending" } });
-  expect(screen.queryAllByRole("option")).toEqual([]);
+  await waitFor(() => expect(screen.queryAllByRole("option")).toEqual([]));
   fireEvent.keyDown(input, { key: "Enter" });
   expect(todoCallsTo(app, "todo.setBlockers")).toEqual([]);
   expect(todos.byId().has(-7)).toBe(false);
@@ -59,7 +59,7 @@ it("t4905_pending_rows_cannot_mutate_items_drag_and_reorder", async () => {
   expect(planDrop(rows, real, real, -7, null, 1)).toEqual({});
   expect(planDrop(rows, real, real, 1, -7, 1)).toEqual({});
   expect(planDrop(rows, real, real, 1, null, 1)).toEqual({ before: 3 });
-  const row = screen.getByRole("button", { name: "Idle #1 todo 1" });
+  const row = await screen.findByRole("button", { name: "Idle #1 todo 1" });
   row.focus();
   fireEvent.keyDown(row, { key: "ArrowDown", code: "ArrowDown", altKey: true });
   await waitFor(() => expect(todoCallsTo(app, "todo.reorder").map(call => call.params)).toEqual([{ id: 1, before: 3 }]));
