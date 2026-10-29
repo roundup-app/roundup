@@ -249,8 +249,10 @@ export const EditableText = (props: {
       }
 
       const submission = connected.drafts.submit(draft.revision);
+
       const restoreFocus = element.parentElement?.contains(document.activeElement)
         || (destination instanceof Node && element.parentElement?.contains(destination));
+
       setEditing(null);
       const retryFocus = captureFocus();
 
