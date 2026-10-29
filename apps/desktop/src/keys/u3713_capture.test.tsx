@@ -346,10 +346,9 @@ it("t4905_opening_a_pending_capture_sends_no_item_rpc", async () => {
 
   expect(open).toBeNull();
   fireEvent.click(row);
-  const button = row.querySelector<HTMLElement>(".todo-row-button")!;
+  const title = screen.getByText("pending capture");
 
-  expect(button).not.toBeNull();
-  fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
+  fireEvent.keyDown(title, { key: "Enter", code: "Enter" });
   expect(app.calls.filter(call => ["todo.refs", "todo.comments", "todo.getHistory"].includes(call.method))).toEqual([]);
   expect(app.calls.filter(call => JSON.stringify(call.params).includes(row.dataset.todo!))).toEqual([]);
   expect(screen.queryByRole("alert")).toBeNull();
