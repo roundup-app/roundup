@@ -223,3 +223,112 @@ async fn a4452c_unknown_input_outcome_never_retypes_on_retry() {
     assert_eq!(written, b"\x1b[200~Only once\x1b[201~");
     run.finish().await;
 }
+
+#[tokio::test]
+async fn a4665_failed_start_retries_same_request() {
+    for missing_start in [false, true] {
+        for prompt in [Some("  /compose original\nKeep spacing  "), None] {
+            let mut run = door(prompt).await;
+            let launches = run.dir.path().join(format!("launches-{}.jsonl", run.child));
+            let launched = || -> Vec<Value> {
+                std::fs::read_to_string(&launches)
+                    .unwrap()
+                    .lines()
+                    .map(|line| serde_json::from_str(line).unwrap())
+                    .collect()
+            };
+            let fake = run.dir.path().join("claude");
+            let fault = run.dir.path().join("missing-session-start");
+            if missing_start {
+                std::fs::write(&fault, "hold").unwrap();
+            } else {
+                std::fs::rename(&fake, fake.with_extension("disabled")).unwrap();
+            }
+            let error = restart(&mut run, "retry-failed-start").await.unwrap_err();
+            if missing_start {
+                assert!(
+                    error.message.contains("no SessionStart within 15s"),
+                    "{error}"
+                );
+            } else {
+                assert_ne!(error.code, rpc::code::UNKNOWN_OUTCOME, "{error}");
+            }
+            let failed_launches = launched();
+            assert_eq!(failed_launches.len(), if missing_start { 2 } else { 1 });
+            let terminals = run.user.request("terminal.list", ()).await.unwrap();
+            assert!(
+                terminals
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|t| t["running"] == false)
+            );
+            for terminal in terminals.as_array().unwrap() {
+                let output = run
+                    .user
+                    .request("terminal.read", json!({"id":terminal["id"],"after":0}))
+                    .await
+                    .unwrap();
+                assert!(!output["text"].as_str().unwrap().contains("BYTE:"));
+            }
+            let notes = run
+                .user
+                .request("message.list", json!({"to":run.child}))
+                .await
+                .unwrap();
+            assert!(notes.as_array().unwrap().is_empty(), "{notes}");
+            run.user
+                .request(
+                    "workstream.setOpeningPrompt",
+                    json!({"id":run.child,"prompt":"Replacement setting"}),
+                )
+                .await
+                .unwrap();
+            if missing_start {
+                std::fs::remove_file(&fault).unwrap();
+            } else {
+                std::fs::rename(fake.with_extension("disabled"), &fake).unwrap();
+            }
+            let node = restart(&mut run, "retry-failed-start").await.unwrap();
+            let expected = prompt
+                .map(|text| format!("\x1b[200~{text}\x1b[201~\r").into_bytes())
+                .unwrap_or_default();
+            assert_eq!(recorded_bytes(&run).await, expected);
+            let notes = run
+                .user
+                .request("message.list", json!({"to":run.child}))
+                .await
+                .unwrap();
+            let saved_notes: Vec<_> = notes
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|note| note["kind"] == "note" && note["from"]["kind"] == "user")
+                .collect();
+            assert_eq!(saved_notes.len(), usize::from(prompt.is_some()), "{notes}");
+            if let Some(prompt) = prompt {
+                assert_eq!(saved_notes[0]["body"], prompt);
+                assert_eq!(saved_notes[0]["status"], "delivered");
+            }
+            let retried = restart(&mut run, "retry-failed-start").await.unwrap();
+            assert_eq!(retried["attempt"], node["attempt"]);
+            assert_eq!(recorded_bytes(&run).await, expected);
+            assert_eq!(
+                run.user
+                    .request("message.list", json!({"to":run.child}))
+                    .await
+                    .unwrap(),
+                notes
+            );
+            let all_launches = launched();
+            assert_eq!(all_launches.len(), failed_launches.len() + 1);
+            assert!(
+                all_launches
+                    .iter()
+                    .all(|launch| launch["live"].as_array().unwrap().is_empty()),
+                "{all_launches:?}"
+            );
+            run.finish().await;
+        }
+    }
+}
