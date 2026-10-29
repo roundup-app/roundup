@@ -15,7 +15,8 @@ with tempfile.TemporaryDirectory(prefix="roundup-bundle-") as folder:
     binaries = extracted / "Contents/MacOS"
     for name in ["roundup", "rupd", "rup", "terminal-owner", "sidecar/node"]:
         binary = binaries / name
-        if not binary.is_file() or not os.access(binary, os.X_OK):
+        if (not binary.is_file() or not os.access(binary, os.X_OK)
+                or not binary.resolve().is_relative_to(extracted)):
             raise SystemExit(f"missing executable: {binary}")
     sidecar = binaries / "sidecar"
     for path in sidecar.rglob("*"):
