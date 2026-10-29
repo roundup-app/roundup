@@ -96,7 +96,7 @@ export const Bubble = (props: {
 
   let restoreResize: (() => void) | undefined;
 
-  registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
+  registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => props.preparing || restoreResize !== undefined, run: () => { if (props.preparing) void props.close(id()); else restoreResize?.(); } }]);
   onCleanup(() => restoreResize?.());
 
   // Move and resize share settlement; listeners exist before capture can cause an early blur.
@@ -203,12 +203,7 @@ export const Bubble = (props: {
   };
 
   return (
-    <Panel.Root open={!place().min} onPointerDownOutside={dismissed} onEscapeKeyDown={event => {
-      if (props.preparing) {
-        event.preventDefault();
-        void props.close(id());
-      } else event.preventDefault = () => undefined;
-    }}>
+    <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
       <Portal>
         <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
           style={{ display: place().min ? "none" : "block", left: `${props.origin.left}px`, top: `${props.origin.top}px` }}>

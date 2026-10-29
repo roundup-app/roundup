@@ -36,20 +36,22 @@ it("u4590_unready_destination_fails_and_releases_only_its_preparation", async ()
   dispose();
 });
 
-it("u4590_preparing_shell_can_cancel_before_launch_receipt", async () => {
+it.each(["Close", "Escape"])("u4590_preparing_shell_cancel_closes_pending_launch_and_restores_focus_%s", async cancel => {
   const { app } = await mountBubbles("w", [], [workstream("w")]);
   const reply = Promise.withResolvers<{ terminal_id: string }>();
   const open = app.handlers["terminal.open"]!;
   app.handlers["terminal.open"] = () => reply.promise;
+  const opener = document.querySelector<HTMLElement>(".terminal-new")!;
+  opener.focus();
   bubbleChord("t");
   await waitFor(() => expect(bubbleCalls(app, "terminal.open")).toHaveLength(1));
   const preparing = document.querySelector<HTMLElement>('.bubble:not([hidden])')!;
-  fireEvent.click(preparing.querySelector<HTMLElement>('[aria-label="Close"]')!);
+  if (cancel === "Close") fireEvent.click(preparing.querySelector<HTMLElement>('[aria-label="Close"]')!);
+  else fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(opener));
   reply.resolve(await open({ workstream: "w" }));
-  await waitFor(() => expect(preparing.getAttribute("data-bubble")).toBe("9"));
-
-  await waitFor(() => expect(preparing.hidden).toBe(true));
-  expect(bubbleCalls(app, "terminal.close")).toEqual([]);
+  await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "9" }]));
+  await waitFor(() => expect(preparing.isConnected).toBe(false));
   expect(bubbleCalls(app, "terminal.open")).toHaveLength(1);
 });
 

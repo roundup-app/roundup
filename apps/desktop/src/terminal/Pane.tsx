@@ -112,7 +112,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         setPreparing(false);
       }
 
-      if (controller.signal.aborted) throw new DOMException(copy.terminalPreparationCancelled, "AbortError");
+      controller.signal.throwIfAborted();
 
       // A host that cannot be prepared must not block the launch: the Terminal fits to it once shown.
       console.warn(error);
