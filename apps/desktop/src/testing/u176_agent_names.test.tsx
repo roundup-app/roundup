@@ -59,25 +59,28 @@ describe("u176 Agent names", () => {
 
 });
 
+// Reuse both Project authorities across the Rail probes; each probe still creates fresh objects.
+let first: StartedDaemon;
+
+let second: StartedDaemon;
+
+beforeAll(async () => {
+  first = await startRealDaemon({});
+  second = await startRealDaemon({});
+}, 180_000);
+
+afterAll(async () => {
+  await first?.stop();
+  await second?.stop();
+});
+
 // The public Daemon owns identities and mutations; only reply timing is controlled here.
 describe("u2773 Rail task destinations", () => {
-  let first: StartedDaemon;
-  let second: StartedDaemon;
   let app: AppSeam;
   let left: AppSeam;
   let right: AppSeam;
   let home: string;
   let other: string;
-
-  beforeAll(async () => {
-    first = await startRealDaemon({});
-    second = await startRealDaemon({});
-  }, 120_000);
-
-  afterAll(async () => {
-    await first?.stop();
-    await second?.stop();
-  });
 
   beforeEach(async () => {
     localStorage.clear();
@@ -208,23 +211,16 @@ describe("u2773 Rail task destinations", () => {
 
 // Rail continuity probes share the audited real-Daemon launch site.
 describe("u2773 Rail persisted edits", () => {
-  let first: StartedDaemon;
-
-  beforeAll(async () => {
-    first = await startRealDaemon({});
-  }, 180_000);
-
-  afterAll(async () => {
-    await first?.stop();
-  });
-
   beforeEach(async () => {
     localStorage.clear();
-    const app = createServedApp(first.base);
 
-    // Reuse the authority, not prior probe objects or the acknowledged root Agent.
-    for (const node of await app.rpc("rail.tree", null)) {
-      if (node.parent === null) await app.rpc("rail.remove", { id: node.id, scope: node.kind === "workstream" ? "all" : null });
+    // Reuse authorities, not prior probe objects or the acknowledged root Agent.
+    for (const real of [first, second]) {
+      const app = createServedApp(real.base);
+
+      for (const node of await app.rpc("rail.tree", null)) {
+        if (node.parent === null) await app.rpc("rail.remove", { id: node.id, scope: node.kind === "workstream" ? "all" : null });
+      }
     }
   });
 
@@ -252,4 +248,49 @@ describe("u2773 Rail persisted edits", () => {
     expect(document.body.textContent).toContain("unavailable");
   }, 120_000);
 
+  it("u2773a_rail_real_names_keep_original_project_and_object_on_reopen", async () => {
+    const one = first;
+    const two = second;
+
+    try {
+      const records = [];
+
+      for (const [index, real] of [one, two].entries()) {
+        const app = createServedApp(real.base);
+
+        if (index === 1) await app.rpc("rail.createWorkstream", { name: "Spacer", parent: null });
+        const target = await app.rpc("rail.createWorkstream", { name: "Same name", parent: null });
+        render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+        fireEvent.dblClick(await screen.findByText("Same name", { selector: ".rail-row .name" }));
+        fireEvent.input(screen.getByLabelText("Name"), { target: { value: ` exact ${index} e\u0301 😀 ` } });
+        records.push({ app, target, text: ` exact ${index} e\u0301 😀 ` });
+        cleanup();
+      }
+
+      expect(records[0]!.target.id).not.toBe(records[1]!.target.id);
+
+      for (const { app, target, text } of records) {
+        const renames: string[] = [];
+        const rpc = app.rpc;
+        app.rpc = (method, params) => {
+          if (method === "rail.rename") renames.push(JSON.stringify(params));
+
+          return rpc(method, params);
+        };
+
+        render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+        fireEvent.dblClick(await screen.findByText("Same name", { selector: ".rail-row .name" }));
+        const field = screen.getByLabelText<HTMLInputElement>("Name");
+        expect(field.value).toBe(text);
+        expect(renames).toEqual([]);
+        fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
+        await waitFor(() => expect(field.isConnected).toBe(false));
+        expect((await app.rpc("rail.tree", null)).find((node) => node.id === target.id)?.name).toBe(text.trim());
+        expect(renames).toEqual([JSON.stringify({ id: target.id, name: text.trim() })]);
+        cleanup();
+      }
+    } finally {
+      cleanup();
+    }
+  }, 120_000);
 });
