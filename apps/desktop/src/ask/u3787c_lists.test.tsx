@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { App } from "../App";
+import { copy } from "../copy";
 import { createFakeApp } from "../testing/fakeApp";
 import { openProjectPage } from "../testing/menuProbe";
 import { agent, workstream } from "../testing/nodes";
@@ -114,7 +115,7 @@ it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening",
 
   if (command !== "view:made") openProjectPage("view:made", "/p");
   await screen.findByRole("region", { name: "Made" });
-  expect(document.querySelector(".project-overview")).toBeNull();
+  expect(screen.queryByRole("region", { name: copy.projectOverview })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Close Made" }));
   await waitFor(() => expect(document.querySelector(".made")).toBeNull());
 
