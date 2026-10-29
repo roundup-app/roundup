@@ -353,10 +353,6 @@ async fn m1_input_schemas_are_the_contract_schemas() {
             "pad_appendSection",
             derived(schemars::schema_for!(pad::AppendSectionParams)),
         ),
-        (
-            "pad_setOwner",
-            derived(schemars::schema_for!(pad::SetOwnerParams)),
-        ),
         ("pad_delete", derived(schemars::schema_for!(DeleteParams))),
         (
             "message_send",
@@ -484,20 +480,15 @@ async fn p15_tool_offered_and_touch_by_agent() {
 #[tokio::test]
 async fn m2_a_daemon_error_is_a_tool_error_carrying_code_and_message() {
     let project = start_daemon();
-    let owner = client_as(&project.socket, agent("owner")).await;
-    owner
-        .request("pad.create", json!({ "name": "notes" }))
-        .await
-        .unwrap();
     let shim = spawn_shim(&project.socket, "a1").await;
 
     let result = shim
-        .call("pad_write", json!({ "name": "notes", "text": "mine" }))
+        .call("pad_write", json!({ "name": "missing", "text": "mine" }))
         .await;
 
     assert_eq!(result.is_error, Some(true));
     let error = text(&result);
-    assert_eq!(error["code"], rpc::code::FORBIDDEN);
+    assert_eq!(error["code"], rpc::code::NOT_FOUND);
     assert!(error["message"].is_string());
 }
 

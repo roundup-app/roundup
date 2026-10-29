@@ -171,9 +171,6 @@ impl Daemon {
             .get(owner)
             .ok_or_else(|| RpcError::method_not_found(method))?;
         if matches!(method, "todo.move" | "pad.move") {
-            if method == "pad.move" && conn.actor.kind == ActorKind::Agent {
-                return Err(RpcError::forbidden("an Agent may not move a pad"));
-            }
             self.require_workstream(&params).await?;
         }
         if matches!(method, "todo.create" | "todo.assign") {

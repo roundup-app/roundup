@@ -39,7 +39,7 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
     });
     const app = createFakeApp();
     app.opened.project = { name: "drawings", path: "/project" };
-    const state = { pads: [{ incarnation: "stored-sketch", name: "sketch", owner: USER, home: null, text: `${mermaid}\n${drawing}`, revision: 1, updated_at: 0 }], history: [] };
+    const state = { pads: [{ incarnation: "stored-sketch", name: "sketch",  home: null, text: `${mermaid}\n${drawing}`, revision: 1, updated_at: 0 }], history: [] };
     app.handlers["rail.tree"] = () => [workstream("scope", { name: "scope" })];
     Object.assign(app.handlers, padHandlers(state, () => {}));
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);

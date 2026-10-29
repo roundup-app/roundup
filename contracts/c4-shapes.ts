@@ -282,7 +282,7 @@ type SelectorInputs = "todo/AssignParams" | "todo/CreateParams" | "pad/SetOwnerP
 
 type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]> : Before[K] };
 
-type SelectorMethods = "todo.assign" | "todo.create" | "pad.setOwner";
+type SelectorMethods = "todo.assign" | "todo.create";
 
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }

@@ -67,8 +67,8 @@ impl Rig {
         rusqlite::Connection::open(self.dir.path().join("pads.db"))
             .unwrap()
             .execute(
-                "INSERT INTO pads (key, name, owner, text, updated_at) VALUES (?1, ?1, ?2, 'orig', 0)",
-                [name.to_string(), serde_json::to_string(&agent("a")).unwrap()],
+                "INSERT INTO pads (key, name, text, updated_at) VALUES (?1, ?1, 'orig', 0)",
+                [name.to_string()],
             )
             .unwrap();
     }
@@ -88,7 +88,7 @@ impl Rig {
 }
 
 #[tokio::test]
-async fn p1_create_makes_the_caller_owner_and_logs_a_write() {
+async fn p1_create_stores_text_and_logs_a_write() {
     let rig = Rig::new();
     let mut events = rig.bus.subscribe();
     let a = agent("a");
@@ -97,7 +97,6 @@ async fn p1_create_makes_the_caller_owner_and_logs_a_write() {
         .ok(&a, "pad.create", json!({"name": "notes", "text": "hi"}))
         .await;
 
-    assert_eq!(pad["owner"]["id"], "a");
     assert_eq!(pad["text"], "hi");
     let duplicate = rig.fail(&a, "pad.create", json!({"name": "notes"})).await;
     assert_eq!(duplicate.code, code::CONFLICT);
@@ -114,15 +113,33 @@ async fn p1_create_makes_the_caller_owner_and_logs_a_write() {
 async fn p2_any_actor_rewrites_and_appends() {
     for caller in [user(), agent("a"), agent("b")] {
         let rig = Rig::new();
-        rig.ok(&agent("a"), "pad.create", json!({"name": "notes", "text": "one"})).await;
+        rig.ok(
+            &agent("a"),
+            "pad.create",
+            json!({"name": "notes", "text": "one"}),
+        )
+        .await;
         let mut events = rig.bus.subscribe();
-        rig.ok(&caller, "pad.write", json!({"name": "notes", "text": "two"})).await;
-        rig.ok(&caller, "pad.append", json!({"name": "notes", "text": "+more"})).await;
+        rig.ok(
+            &caller,
+            "pad.write",
+            json!({"name": "notes", "text": "two"}),
+        )
+        .await;
+        rig.ok(
+            &caller,
+            "pad.append",
+            json!({"name": "notes", "text": "+more"}),
+        )
+        .await;
         let pad = rig.ok(&caller, "pad.read", json!({"name": "notes"})).await;
         assert_eq!(pad["text"], "two+more");
         assert_eq!(pad["revision"], 3);
         for _ in 0..2 {
-            assert!(matches!(events.try_recv().unwrap().data, EventData::PadChanged(_)));
+            assert!(matches!(
+                events.try_recv().unwrap().data,
+                EventData::PadChanged(_)
+            ));
         }
         let history = rig.touches.history("pad:notes").unwrap();
         assert_eq!(history[1].actor, caller);
@@ -178,7 +195,6 @@ async fn p8_bad_names_are_invalid_params_for_every_method() {
         "pad.write",
         "pad.append",
         "pad.delete",
-        "pad.setOwner",
         "pad.export",
     ] {
         for name in ["", "a/b", "a\\b", "..", ".hidden", "a..b", "a\0b"] {
@@ -201,52 +217,6 @@ async fn p8_bad_names_are_invalid_params_for_every_method() {
 
 fn user() -> Actor {
     Actor::user()
-}
-
-#[tokio::test]
-async fn p4_user_flips_ownership_and_owner_may_hand_over() {
-    let rig = Rig::new();
-    let (a, b) = (agent("a"), agent("b"));
-    rig.call(&a, "pad.create", json!({"name": "notes"}))
-        .await
-        .unwrap();
-
-    let denied = rig
-        .call(&b, "pad.setOwner", json!({"name": "notes", "owner": b}))
-        .await
-        .unwrap_err();
-    assert_eq!(denied.code, code::FORBIDDEN);
-    let flipped = rig
-        .call(
-            &user(),
-            "pad.setOwner",
-            json!({"name": "notes", "owner": user()}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(flipped["owner"]["kind"], "user");
-
-    let locked_out = rig
-        .call(&a, "pad.write", json!({"name": "notes", "text": "x"}))
-        .await
-        .unwrap_err();
-    assert_eq!(locked_out.code, code::FORBIDDEN);
-    rig.call(
-        &user(),
-        "pad.write",
-        json!({"name": "notes", "text": "mine"}),
-    )
-    .await
-    .unwrap();
-    let handed = rig
-        .call(
-            &user(),
-            "pad.setOwner",
-            json!({"name": "notes", "owner": b}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(handed["owner"]["id"], "b");
 }
 
 #[tokio::test]
@@ -286,9 +256,9 @@ async fn p6_export_writes_one_file_and_never_creates_directories() {
     assert!(!out.path().join("nope").exists());
 }
 
-// Rule 10: p7_every_pad_keeps_its_own_owner_and_text_after_reopening proves the single-Pad reopen too.
+// Rule 10: p7_pads_keep_home_and_text_after_reopening proves the single-Pad reopen too.
 #[tokio::test]
-async fn p7_every_pad_keeps_its_own_owner_and_text_after_reopening() {
+async fn p7_pads_keep_home_and_text_after_reopening() {
     let dir = TempDir::new().unwrap();
     let (a, b) = (agent("a"), agent("b"));
     let touches = Arc::new(Touches::in_memory().unwrap());
@@ -315,63 +285,74 @@ async fn p7_every_pad_keeps_its_own_owner_and_text_after_reopening() {
     )
     .await;
 
+    call(
+        Pads::open(dir.path(), Bus::new()).unwrap(),
+        b.clone(),
+        "pad.move",
+        json!({"name": "notes", "home": "home"}),
+    )
+    .await;
+
     let reopened = Pads::open(dir.path(), Bus::new()).unwrap();
     let listed = call(reopened, a.clone(), "pad.list", Value::Null).await;
 
     let pads = listed.as_array().unwrap();
     let names: Vec<_> = pads.iter().map(|p| p["name"].as_str().unwrap()).collect();
-    let owners: Vec<_> = pads
-        .iter()
-        .map(|p| p["owner"]["id"].as_str().unwrap())
-        .collect();
     let texts: Vec<_> = pads.iter().map(|p| p["text"].as_str().unwrap()).collect();
     assert_eq!(names, ["notes", "plan"]);
-    assert_eq!(owners, ["a", "b"]);
+    assert_eq!(
+        pads.iter()
+            .map(|pad| pad["home"].clone())
+            .collect::<Vec<_>>(),
+        [json!("home"), Value::Null]
+    );
     assert_eq!(texts, ["n1", "n2"]);
 }
 
 #[tokio::test]
-async fn p9_owner_or_user_deletes_and_others_are_forbidden() {
-    let rig = Rig::new();
-    let (a, b) = (agent("a"), agent("b"));
-    rig.ok(&a, "pad.create", json!({"name": "notes"})).await;
-    rig.ok(&a, "pad.create", json!({"name": "plan"})).await;
-
-    let db = rusqlite::Connection::open(rig.dir.path().join("pads.db")).unwrap();
-    let notes = source(&db, "notes").unwrap().unwrap();
-    let plan = source(&db, "plan").unwrap().unwrap();
-    let denied = rig.fail(&b, "pad.delete", json!({"name": "notes"})).await;
-    assert_eq!(denied.code, code::FORBIDDEN);
-    assert_eq!(
-        source_state(&db, notes.incarnation).unwrap(),
-        PadSourceState::Live(notes.clone())
-    );
-    let mut events = rig.bus.subscribe();
-    rig.ok(&a, "pad.delete", json!({"name": "notes"})).await;
-    rig.ok(&user(), "pad.delete", json!({"name": "plan"})).await;
-
-    assert_eq!(
-        source_state(&db, notes.incarnation).unwrap(),
-        PadSourceState::Deleted(PadDeletion::Owner)
-    );
-    assert_eq!(
-        source_state(&db, plan.incarnation).unwrap(),
-        PadSourceState::Deleted(PadDeletion::User)
-    );
-    let gone = rig.fail(&a, "pad.read", json!({"name": "notes"})).await;
-    assert_eq!(gone.code, code::NOT_FOUND);
-    let EventData::PadChanged(changed) = events.try_recv().unwrap().data else {
-        panic!("expected pad.changed");
-    };
-    assert_eq!(changed.name, "notes");
-    let verbs: Vec<_> = rig
-        .touches
-        .history("pad:notes")
-        .unwrap()
-        .iter()
-        .map(|t| t.verb)
-        .collect();
-    assert_eq!(verbs, [Verb::Wrote, Verb::Wrote]);
+async fn p9_any_actor_deletes() {
+    for files in [false, true] {
+        for caller in [user(), agent("a"), agent("b")] {
+            let rig = Rig::new();
+            rig.ok(
+                &agent("a"),
+                "pad.create",
+                json!({"name": "notes", "text": "original"}),
+            )
+            .await;
+            rig.ok(&user(), "pad.setStorage", json!({"files": files}))
+                .await;
+            let db = rusqlite::Connection::open(rig.dir.path().join("pads.db")).unwrap();
+            let original = source(&db, "notes").unwrap().unwrap();
+            let mut events = rig.bus.subscribe();
+            rig.ok(&caller, "pad.delete", json!({"name": "notes"}))
+                .await;
+            let cause = if caller.kind == ActorKind::User {
+                PadDeletion::User
+            } else {
+                PadDeletion::User
+            };
+            assert_eq!(
+                source_state(&db, original.incarnation).unwrap(),
+                PadSourceState::Deleted(cause)
+            );
+            assert_eq!(
+                rig.fail(&caller, "pad.read", json!({"name": "notes"}))
+                    .await
+                    .code,
+                code::NOT_FOUND
+            );
+            assert!(!rig.dir.path().join("pads/notes.md").exists());
+            let EventData::PadChanged(changed) = events.try_recv().unwrap().data else {
+                panic!("expected pad.changed");
+            };
+            assert_eq!(changed.name, "notes");
+            let history = rig.touches.history("pad:notes").unwrap();
+            assert_eq!(history.len(), 2);
+            assert_eq!(history[1].actor, caller);
+            assert_eq!(history[1].verb, Verb::Wrote);
+        }
+    }
 }
 
 #[tokio::test]
@@ -432,23 +413,6 @@ async fn p9_delete_removes_the_file_when_file_backed() {
     rig.ok(&a, "pad.delete", json!({"name": "notes"})).await;
 
     assert!(!file.exists());
-}
-
-#[tokio::test]
-async fn p4_owner_may_hand_over_its_own_pad() {
-    let rig = Rig::new();
-    let (a, b) = (agent("a"), agent("b"));
-    rig.ok(&a, "pad.create", json!({"name": "notes"})).await;
-
-    let handed = rig
-        .ok(&a, "pad.setOwner", json!({"name": "notes", "owner": b}))
-        .await;
-
-    assert_eq!(handed["owner"]["id"], "b");
-    let again = rig
-        .fail(&a, "pad.setOwner", json!({"name": "notes", "owner": a}))
-        .await;
-    assert_eq!(again.code, code::FORBIDDEN);
 }
 
 #[tokio::test]
@@ -662,8 +626,6 @@ async fn p1_every_method_resolves_other_spellings_to_the_same_pad() {
         (read["name"].as_str(), read["text"].as_str()),
         (Some("Notes"), Some("yz"))
     );
-    rig.ok(&a, "pad.setOwner", json!({"name": "nOtEs", "owner": b}))
-        .await;
     let path = out.path().join("n.md");
     rig.ok(&b, "pad.export", json!({"name": "NOTES", "path": path}))
         .await;
@@ -944,48 +906,48 @@ async fn u149_a_drawing_survives_files_export_and_reopening_byte_exact() {
     );
 }
 
+// P2 now proves writes for every Actor, including the former user exception.
 #[tokio::test]
-async fn p16_the_user_rewrites_an_agent_owned_pad() {
-    let rig = Rig::new();
-    let a = agent("a");
-    rig.ok(&a, "pad.create", json!({"name": "notes", "text": "one"}))
-        .await;
-    let before = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
-    let written = rig
-        .ok(
-            &user(),
-            "pad.write",
-            json!({"name": "notes", "text": "two"}),
-        )
-        .await;
-    assert_eq!(written["text"], "two");
-    assert_eq!(written["owner"]["id"], "a");
-    assert!(written["revision"].as_u64() > before["revision"].as_u64());
-    let by_user = rig.touches.touched("you").unwrap();
-    assert_eq!(by_user.last().unwrap().verb, Verb::Wrote);
-}
-
-#[tokio::test]
-async fn p16_another_agent_still_cannot_rename_or_rewrite() {
-    let rig = Rig::new();
-    let (a, b) = (agent("a"), agent("b"));
-    let pad = rig
-        .ok(&a, "pad.create", json!({"name": "notes", "text": "one"}))
-        .await;
-    let write = rig
-        .fail(&b, "pad.write", json!({"name": "notes", "text": "x"}))
-        .await;
-    let rename = rig
-        .fail(
-            &b,
-            "pad.rename",
-            json!({"name": "notes", "newName": "plan", "expectedIncarnation": pad["incarnation"]}),
-        )
-        .await;
-    assert_eq!(
-        (write.code, rename.code),
-        (code::FORBIDDEN, code::FORBIDDEN)
-    );
-    let after = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
-    assert_eq!(after["text"], "one");
+async fn p16_any_actor_renames_any_pad() {
+    for files in [false, true] {
+        for caller in [user(), agent("a"), agent("b")] {
+            let rig = Rig::new();
+            let original = rig
+                .ok(
+                    &agent("a"),
+                    "pad.create",
+                    json!({"name": "notes", "text": "original"}),
+                )
+                .await;
+            rig.ok(
+                &user(),
+                "pad.move",
+                json!({"name": "notes", "home": "home"}),
+            )
+            .await;
+            rig.ok(&user(), "pad.setStorage", json!({"files": files}))
+                .await;
+            let mut events = rig.bus.subscribe();
+            let renamed = rig.ok(&caller, "pad.rename", json!({"name": "notes", "newName": "plan", "expectedIncarnation": original["incarnation"]})).await;
+            assert_eq!(renamed["incarnation"], original["incarnation"]);
+            assert_eq!(renamed["revision"], original["revision"]);
+            assert_eq!(renamed["text"], "original");
+            assert_eq!(renamed["home"], "home");
+            assert!(matches!(
+                events.try_recv().unwrap().data,
+                EventData::PadChanged(_)
+            ));
+            assert!(matches!(
+                events.try_recv().unwrap().data,
+                EventData::PadRenamed { .. }
+            ));
+            let history = rig.touches.history("pad:plan").unwrap();
+            assert_eq!(history.last().unwrap().actor, caller);
+            assert_eq!(history.last().unwrap().verb, Verb::Wrote);
+            if files {
+                assert_eq!(rig.file_text("plan.md"), "original");
+                assert!(!rig.dir.path().join("pads/notes.md").exists());
+            }
+        }
+    }
 }

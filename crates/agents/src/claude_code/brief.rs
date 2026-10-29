@@ -104,14 +104,14 @@ const TOOLS: &[(&str, &str)] = &[
     ("pad_write", "rewrite a Pad you own"),
     (
         "pad_rename",
-        "rename a Pad you own, keeping its creation and text; pass the exact original name and expectedIncarnation from a read in this Project",
+        "rename any Pad, keeping its creation and text; pass the exact original name and expectedIncarnation from a read in this Project",
     ),
     ("pad_append", "add text to the end of any Pad"),
     (
         "pad_appendSection",
         "add text at the end of the section under a Markdown heading of any Pad",
     ),
-    ("pad_setOwner", "give a Pad to another Actor"),
+    ("pad_move", "move a Pad to a Workstream or the Project root"),
     (
         "pad_delete",
         "delete a Pad you no longer need; supply an operation and expectedIncarnation to reconcile an unknown reply",
