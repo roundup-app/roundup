@@ -79,11 +79,13 @@ it("u3787f_failed_migration_keeps_recovery_rendered_retry", async () => {
         await lane.until("!!document.querySelector('[role=tooltip]')");
         await lane.capture("U3787f", `head-${seed}-retention-failure`);
         await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
-        await lane.until("!!document.querySelector('.settings-font input')");
+        await lane.until("!!document.querySelector('[role=tab][data-value=Terminal]')");
+        await lane.browser("click", "[role=tab][data-value=Terminal]");
+        await lane.until("!!document.querySelector('[role=combobox][aria-label=\"Font family\"]')");
         await lane.evaluate("window.__restoreStorage()");
         await lane.browser("click", ".storage-failure button");
         await lane.until("!document.querySelector('.storage-failure')");
-        expect(await lane.evaluate("document.querySelector('.settings-font input').value")).toBe("Original font 雪");
+        expect(await lane.evaluate("(async () => (await import('/src/settings/preferences.ts')).appSettings().fontFamily)()")).toBe("Original font 雪");
         await lane.capture("U3787f", `head-${seed}-retained`);
       } finally { if (capture) await lane.browser("record", "stop"); }
     }

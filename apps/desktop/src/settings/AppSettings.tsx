@@ -223,9 +223,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <SegmentGroup description={copy.modeHint} label={copy.mode} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => save({ mode })} />
         <SegmentGroup label={copy.interfaceScale} value={appSettings().interfaceScale} segments={[
-          { value: "small", label: "Small", content: <span class="settings-scale-small">A</span> },
-          { value: "default", label: "Default", content: <span class="settings-scale-default">A</span> },
-          { value: "large", label: "Large", content: <span class="settings-scale-large">A</span> },
+          { value: "small", label: copy.interfaceSmall, content: <span class="settings-scale-small">{copy.interfaceSample}</span> },
+          { value: "default", label: copy.interfaceDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
+          { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => save({ interfaceScale })} />
         <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
       </SettingsGroup></Tabs.Content>

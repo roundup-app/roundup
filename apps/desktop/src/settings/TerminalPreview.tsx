@@ -15,21 +15,45 @@ export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }
   const disposers: (() => void)[] = [];
   const fit = new FitAddon();
   terminal.loadAddon(fit);
+  const repaint = () => {
+    fit.fit();
+    // With no scrollback, resizing can discard sample rows. Rebuild the complete sample after fitting.
+    terminal.reset();
+    terminal.write(copy.terminalPreviewSample);
+  };
+
+  let themeFrame: number | undefined;
+  const repaintTheme = () => {
+    if (themeFrame !== undefined) cancelAnimationFrame(themeFrame);
+    // Appearance's root effect must update the resolved CSS scheme before xterm reads its Tokens.
+    themeFrame = requestAnimationFrame(() => {
+      themeFrame = undefined;
+      terminal.options.theme = terminalThemeFor();
+      terminal.clearTextureAtlas();
+      terminal.refresh(0, terminal.rows - 1);
+    });
+  };
+
   onMount(() => {
     terminal.open(host);
     attachRenderer(terminal, () => new WebglAddon(), console.warn);
     dropInlineGround(host, disposers);
-    fit.fit();
-    terminal.write("roundup  \x1b[1mTerminal preview\x1b[0m\r\n┌────────┬────────┐\r\n│ ░▒▓█   │ ready  │\r\n└────────┴────────┘\r\n\x1b[32m✓\x1b[0m tests passed\r\n");
-    const observer = new ResizeObserver(() => fit.fit());
+    if (terminal.textarea) {
+      terminal.textarea.tabIndex = -1;
+      terminal.textarea.setAttribute("aria-hidden", "true");
+    }
+    repaint();
+    repaintTheme();
+    const observer = new ResizeObserver(repaint);
     observer.observe(host);
-    const stop = followAppAppearance(() => { terminal.options.theme = terminalThemeFor(); });
+    const stop = followAppAppearance(repaintTheme);
     onCleanup(() => { observer.disconnect(); stop(); });
   });
-  createEffect(() => { Object.assign(terminal.options, props.type);
-
- if (host) fit.fit(); });
-  onCleanup(() => { disposers.forEach(dispose => dispose()); terminal.dispose(); });
+  createEffect(() => {
+    Object.assign(terminal.options, props.type);
+    if (host) repaint();
+  });
+  onCleanup(() => { if (themeFrame !== undefined) cancelAnimationFrame(themeFrame); disposers.forEach(dispose => dispose()); terminal.dispose(); });
 
   return <section class="settings-preview" aria-label={copy.terminalPreview}>
     <h3 class="settings-group-name">{copy.terminalPreview}</h3>
