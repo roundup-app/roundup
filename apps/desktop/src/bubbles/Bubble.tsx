@@ -205,7 +205,8 @@ export const Bubble = (props: {
   };
 
   return (
-    <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
+    <Panel.Root open={!place().min} onPointerDownOutside={dismissed}
+      persistentElements={[() => document.querySelector(".hint-line")]} >
       <Portal>
         <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
           style={{ display: place().min ? "none" : "block", left: `${props.origin.left}px`, top: `${props.origin.top}px` }}>
