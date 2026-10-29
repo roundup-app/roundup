@@ -94,9 +94,19 @@ const APP_ROWS: Row[] = ROWS.flatMap(row => row.method === "agent.spawn" ? [{ ..
 
 const BUBBLE_ROWS: Row[] = [
   { owner: "Bubble", label: "New Terminal", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.open", params: { workstream: "ops" }, confirms: false, removes: "7",
-    hold: (app, entered) => { const reply = pending(entered, { terminal_id: "9" }); app.handlers["terminal.open"] = reply.handler; return reply.gate; } },
+    hold: (app, entered) => {
+      const reply = pending(entered, { terminal_id: "9" });
+      app.handlers["terminal.open"] = reply.handler;
+
+      return reply.gate;
+    } },
   { owner: "Bubble", label: "Close the Bubble", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.close", params: { id: "7" }, confirms: true, removes: "7",
-    hold: (app, entered) => { const reply = pending(entered, null); app.handlers["terminal.close"] = reply.handler; return reply.gate; } },
+    hold: (app, entered) => {
+      const reply = pending(entered, null);
+      app.handlers["terminal.close"] = reply.handler;
+
+      return reply.gate;
+    } },
 ];
 
 const mountApp = async () => {
@@ -122,16 +132,18 @@ const mountApp = async () => {
 };
 
 const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
-  (row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "unknown", "held-accept", "held-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : ["dismiss", "resolve", "reject", "unknown"] as const)).map((outcome) => ({ row, how, outcome }))));
+  (row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : ["dismiss", "resolve", "reject", "unknown"] as const)).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
   const mounted = row.owner !== "Rail" ? await mountApp() : await mountSwitcher(row.selected);
   const { app, connected } = mounted;
   const trace: string[] = [];
+
   if (row.owner === "Bubble") {
     const edit = connected.drafts.edit({ surface: "bubbles", object: "fixture-7", recipient: "7" }, { name: "  draft e\u0301 🫧 雪  ", base: "original" }, null, "ordinary");
     await edit.retained;
   }
+
   const retainedDrafts = connected.drafts.list();
   const reply = row.hold(app, () => trace.push(`${row.method}:${field() === null ? "closed" : "open"}`));
 
@@ -189,13 +201,15 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     await questionDialog();
     expect(trace).toEqual(["question:closed"]);
     expect(ofMethod()).toEqual([]);
-    if (outcome === "held-accept" || outcome === "held-cancel") {
+
+    if (outcome === "confirmation-accept" || outcome === "confirmation-cancel") {
       fireEvent.click(tab("second"));
       await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
     }
-    await answerQuestion(outcome !== "cancel" && outcome !== "held-cancel");
 
-    if (outcome === "cancel" || outcome === "held-cancel") {
+    await answerQuestion(outcome !== "cancel" && outcome !== "confirmation-cancel");
+
+    if (outcome === "cancel" || outcome === "confirmation-cancel") {
       expect(ofMethod()).toEqual([]);
       expect(trace).toEqual(["question:closed"]);
 
@@ -229,7 +243,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   if (row.owner === "Bubble") {
     const drafts = connected.drafts.list();
     expect(drafts.filter(draft => draft.destination.surface === "bubbles")).toEqual(retainedDrafts.filter(draft => draft.destination.surface === "bubbles"));
-    if (outcome === "resolve" || outcome === "held-accept") {
+
+    if (outcome === "resolve" || outcome === "confirmation-accept") {
       app.handlers["terminal.list"] = () => row.method === "terminal.open" ? [info("7", { owner: "ops", title: "original" }), info("9", { owner: "ops", title: "created" })] : [];
       reply.resolve();
       await waitFor(() => expect(connected.rail.terminals().map(terminal => terminal.id)).toEqual(row.method === "terminal.open" ? ["7", "9"] : []));
@@ -244,6 +259,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(ofMethod()).toHaveLength(1);
       expect(connected.drafts.list()).toEqual(drafts);
       connected.rail.select("elsewhere");
+
       if (row.method === "terminal.open") app.handlers["terminal.open"] = () => ({ terminal_id: "9" });
       else app.handlers["terminal.close"] = () => null;
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
@@ -253,17 +269,21 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(ofMethod()).toHaveLength(2));
       expect(ofMethod().map(call => call.params)).toEqual([row.params, row.params]);
     }
+
     expect(connected.drafts.list()).toEqual(drafts);
     expect("other" in mounted && mounted.other.calls.filter(call => [row.method, "message.send", "agent.spawn", "terminal.write"].includes(call.method))).toEqual([]);
     expect(app.calls.slice(before).filter(call => ["message.send", "agent.spawn", "terminal.write"].includes(call.method))).toEqual([]);
     expect(app.badges.filter(count => count > 0)).toEqual([]);
-    if (outcome === "resolve" || outcome === "held-accept") {
+
+    if (outcome === "resolve" || outcome === "confirmation-accept") {
       fireEvent.click(tab("first"));
       await screen.findByText("ops", { selector: ".name" });
       rowOf("ops").focus();
     }
+
     openSwitcher();
     await waitFor(() => expect(field()?.value).toBe(query));
+
     return;
   }
 
