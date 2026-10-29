@@ -1,5 +1,7 @@
 #[path = "asks/placement.rs"]
 mod placement;
+#[path = "asks/readiness.rs"]
+mod readiness;
 #[path = "asks/submission.rs"]
 mod submission;
 
@@ -166,11 +168,17 @@ impl DoorHarness {
         Self::open_with_bound(dir, ASK_BOUND)
     }
     fn open_with_bound(dir: &std::path::Path, bound: Duration) -> Self {
+        Self::open_with_program(dir, bound, None)
+    }
+    fn open_with_program(dir: &std::path::Path, bound: Duration, program: Option<&str>) -> Self {
         use std::os::unix::fs::PermissionsExt;
         let bin = dir.join("program");
         let rup = dir.join("rup");
         std::fs::write(&rup, "").unwrap();
         std::fs::write(&bin,"#!/bin/sh\nif [ \"$1\" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nstty raw -echo\nprintf '\\033]0;✳ Claude Code\\007'\nexec cat >/dev/null\n").unwrap();
+        if let Some(program) = program {
+            std::fs::write(&bin, program).unwrap();
+        }
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         let bus = Bus::new();
         let (tx, bytes) = mpsc::unbounded_channel();
