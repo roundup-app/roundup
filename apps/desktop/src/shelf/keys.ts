@@ -65,8 +65,8 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     if (opening) queueFocus(() => selectedTab()?.focus({ preventScroll: true }));
   };
 
-  const canEscape = (press: KeyboardEvent) => {
-    if (press.defaultPrevented || press.key !== "Escape" || !props.frame.open() || !(press.target instanceof Element)) return false;
+  const isCloseAvailable = (target: Element, path: EventTarget[] = []) => {
+    if (!props.frame.open()) return false;
 
     const shelf = props.shelf();
 
@@ -74,15 +74,17 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
 
     // A naming field can remove itself while handling Escape; its original path
     // still belongs to the Shelf, so that same key must not close the fallback.
-    const inside = (shelf !== null && press.composedPath().includes(shelf)) || press.target.closest(".shelf-tabs") !== null;
+    const inside = (shelf !== null && (shelf.contains(target) || path.includes(shelf))) || target.closest(".shelf-tabs") !== null;
     const overlay = props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") === "overlay";
 
-    if (!inside && (!overlay || !press.target.closest(".centre"))) return false;
+    if (!inside && (!overlay || !target.closest(".centre"))) return false;
 
-    if ((inside && press.target.closest("input, textarea, [contenteditable]")) || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]')) return false;
+    if ((inside && target.closest("input, textarea, [contenteditable]")) || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]')) return false;
 
     return true;
   };
+
+  const canEscape = (press: KeyboardEvent) => !press.defaultPrevented && press.key === "Escape" && press.target instanceof Element && isCloseAvailable(press.target, press.composedPath());
 
   const moveFocus = (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.key !== "Tab" || !props.frame.open() || !(event.target instanceof HTMLElement)) return;
@@ -105,7 +107,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     }, { action: CHORDS.find(row => row.keys === "M")!, searchable: false,
       when: canShelfKey, capture: focus => ({ available: () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]") && props.frame.open() && props.shelf()?.contains(focus) === true && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", invoke: () => props.frame.toggleMaximise("key") }) }]);
     registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "Esc" && !row.inTriage)!, searchable: false, when: canEscape,
-      capture: focus => ({ available: () => focus?.isConnected === true && props.frame.open() && props.shelf()?.contains(focus) === true && !focus.closest("input,textarea,[contenteditable]") && props.shelf()?.getAttribute("data-triage") !== "on", invoke: () => toggle("key") }) }]);
+      capture: focus => ({ available: () => focus?.isConnected === true && isCloseAvailable(focus), invoke: () => toggle("key") }) }]);
 
     return dispose;
   });

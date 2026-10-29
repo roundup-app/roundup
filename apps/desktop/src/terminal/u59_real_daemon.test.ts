@@ -69,7 +69,7 @@ run("u59 on the real Daemon", () => {
 
     const checks = await page.call<Checks>(`() => window.__checks()`);
 
-    expect(["D1", "D6", "D7", "D10"].map((id) => [id, checks[id]!.status, checks[id]!.selector])).toEqual([["D1", "pass", ""], ["D6", "pass", ""], ["D7", "pass", ""], ["D10", "pass", ""]]);
+    expect(["D1", "D6", "D7", "D10"].map((id) => [id, checks[id]!.status, checks[id]!.selector]), JSON.stringify(Object.fromEntries(Object.entries(checks).filter(([, check]) => check.status === "fail")))).toEqual([["D1", "pass", ""], ["D6", "pass", ""], ["D7", "pass", ""], ["D10", "pass", ""]]);
   });
 
   it.runIf(process.env["U2680_REAL"] === "1")("u2680a_u2680b_real_zsh_webgl_selection_observer", async () => {
