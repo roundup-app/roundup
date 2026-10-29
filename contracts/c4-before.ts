@@ -439,7 +439,7 @@ export type pad_MoveParams = { name: string, home: string | null, };
 
 export type pad_Pad = { 
 
-incarnation: string, name: string, owner: Actor, text: string, updated_at: number, 
+incarnation: string, name: string, text: string, updated_at: number, 
 
 revision: number, 
 
