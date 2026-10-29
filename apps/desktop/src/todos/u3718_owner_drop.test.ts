@@ -1,8 +1,12 @@
 import { createRoot } from "solid-js";
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import { createSortedList } from "./sortedList";
-import { todo } from "./testHarness";
+import { mountTodos, todo } from "./testHarness";
+import { cleanup } from "@solidjs/testing-library";
+import { todoDropTargets } from "./todoDropTargets";
+
+afterEach(cleanup);
 
 const by: Actor = { kind: "agent", id: "a", parent: null };
 
@@ -48,4 +52,16 @@ it("u3718_a_refused_assign_keeps_the_row_and_shows_its_cause", async () => {
 
   drop(null);
   await vi.waitFor(() => expect(shown).toHaveBeenCalledWith("no such agent"));
+});
+
+// Hit-test inputs stand in for browser coordinates; assertions concern target routing only.
+it.each(["own-group", "outside"])("u3718_no_owner_assignment_target_for_%s", async place => {
+  const { connected, todos } = await mountTodos([todo(1)]);
+  const group = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"]')!;
+  vi.spyOn(group, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 100));
+  const preview = vi.fn();
+  const targets = todoDropTargets(connected, todos, { preview });
+
+  expect(targets.owner(1, place === "own-group" ? 50 : 200, 50)).toBeNull();
+  expect(preview).not.toHaveBeenCalled();
 });
