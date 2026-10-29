@@ -462,6 +462,8 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) group.click(); return true; })()`);
       await lane.until("!!document.querySelector('.pad-name')");
       await lane.browser("find", "role", "button", "click", "--name", "retained-notes");
+      await lane.until("document.activeElement?.matches('.pad-name')");
+      await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer [contenteditable=true]')");
       await lane.browser("fill", ".drawer [contenteditable=true]", "Exact retained Pad body /Users/authored/path");
       await lane.until("!!document.querySelector('.drawer .pad-body [role=alert]')");
