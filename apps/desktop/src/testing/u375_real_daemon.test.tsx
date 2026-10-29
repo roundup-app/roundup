@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { chromePath } from "./chromePage";
+import { appServer } from "./appServer";
 import { openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
@@ -80,7 +81,8 @@ it("u2773a_queries_keep_original_project_through_switch_events_and_reopen", asyn
 
 
 it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => {
-  const real = await startRealDaemon({}, true);
+  const server = await appServer();
+  const base = server.resolvedUrls.local[0]!;
   const profile = await mkdtemp(join(tmpdir(), "u2773-queries-"));
   const config = join(profile, "config.json");
   await writeFile(config, "{}");
@@ -106,7 +108,7 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
   })()`);
 
   try {
-    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+    await browser("open", `${base}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await browser("set", "viewport", "1512", "950");
     await browser("wait", "--fn", "!!document.querySelector('.project-tab')");
     await open();
@@ -125,12 +127,14 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
     await browser("reload");
     await browser("wait", "--fn", "!!document.querySelector('.project-tab')");
     expect((await browser("eval", "!!document.querySelector('.switcher')")).result).toBe(false);
-    await browser("eval", `window.__queryCalls = []; const originalFetch = window.fetch.bind(window); window.fetch = (url, init) => { if (String(url).endsWith('/rpc')) window.__queryCalls.push(JSON.parse(init.body).method); return originalFetch(url, init); };`);
+    await browser("eval", "window.__queryCallStart = window.__fake.app.calls.length");
     await open();
     await browser("wait", "--fn", "document.querySelector('.switcher input')?.value === '  é 🧭 東京  ' && document.querySelector('.switcher input').selectionStart === 2");
-    expect((await browser("eval", "(() => { const input = document.querySelector('.switcher input'); return [input.selectionStart, input.selectionEnd, input.selectionDirection, document.activeElement === input, window.__queryCalls]; })()")).result).toEqual([2, 9, "backward", true, []]);
+    expect((await browser("eval", "(() => { const input = document.querySelector('.switcher input'); return [input.selectionStart, input.selectionEnd, input.selectionDirection, document.activeElement === input, window.__fake.app.calls.slice(window.__queryCallStart)]; })()")).result).toEqual([2, 9, "backward", true, []]);
 
-    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
+    // The retention-failure probe starts without the query restored above.
+    await browser("eval", "localStorage.clear()");
+    await browser("open", `${base}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await browser("wait", "--fn", "!!document.querySelector('.project-tab')");
     await open();
     await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
@@ -173,7 +177,7 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
     expect((await browser("eval", "[document.querySelector('.switcher input').value, !!document.querySelector('.switcher [role=alert]'), window.__fake.app.calls.length]")).result).toEqual(["", true, calls]);
   } finally {
     await browser("close");
-    await real.stop();
+    await server.close();
     await rm(profile, { recursive: true, force: true });
   }
 }, 60_000);
