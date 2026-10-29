@@ -10,7 +10,7 @@ import { copy } from "../copy";
 import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Icon } from "../ink/Icon";
-import { DRAWER_EASING } from "./drawer";
+import { DRAWER_EASING, fillsCentre } from "./drawer";
 import { createMaximiseSlide, createSlideLifetime } from "../ui/slideLifetime";
 import { setDrawerSliding } from "./sliding";
 import type { ActivationSource } from "../keys/registry";
@@ -23,7 +23,7 @@ import type { DrawerContent, DrawerState } from "./drawer";
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
   const [panel, setPanel] = createSignal<HTMLElement>();
-  const frame = createShelfFrame(() => props.drawer.surface()?.project ?? null, props.reducedMotion, undefined, undefined, () => props.drawer.surface()?.kind ?? "drawer");
+  const frame = createShelfFrame(() => props.drawer.surface()?.project ?? null, props.reducedMotion, undefined, undefined, () => props.drawer.surface()?.kind ?? "drawer", fillsCentre);
   const maximiseSlide = createMaximiseSlide(panel, () => props.drawer.content() !== null && !props.reducedMotion());
 
   const toggleMaximise = (source: ActivationSource) => {
@@ -121,6 +121,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       inert={!isOpen()}
       data-open={isOpen()}
       data-maximised={frame.maximised()}
+      data-fill={frame.maximised() && fillsCentre(props.drawer.surface()?.kind)}
       data-mounted={mounted() !== null}
       data-motion={instant() ? "none" : "slide"}
       data-settling={settling()}
@@ -145,9 +146,9 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         cursor: edgeHovered() ? "pointer" : undefined,
         position: "absolute",
         top: "0",
-        right: "0",
+        right: "var(--drawer-right)",
         bottom: "0",
-        transform: isOpen() ? "translateX(0)" : "translateX(100%)",
+        transform: isOpen() ? "translateX(0)" : "translateX(calc(100% + var(--drawer-right)))",
         transition: instant() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
       }}
 
