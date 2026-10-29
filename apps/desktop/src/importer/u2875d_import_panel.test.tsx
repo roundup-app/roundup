@@ -335,6 +335,21 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
     for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", headUrl]] as const) {
       await lane.browser("open", `${url}/harness.html?seed=tree-40`);
       await lane.until("!!document.querySelector('.todo-project-root')");
+      let legacyRevision: string | null = null;
+
+      if (phase === "retention") {
+        legacyRevision = await lane.evaluate<string>(`(async () => {
+          const { draftStorage } = await import('/src/state/storage.ts');
+          const holder = draftStorage('/Users/you/harness');
+          const legacy = holder.edit({surface:'orders',object:'tokens',recipient:'tokens'}, {title:'Orchard release',ask:'Exact retained Order /Users/authored/path',done:'Release checked'}, null, 'ordinary');
+          if (await legacy.retained) throw new Error('Legacy fixture was not retained');
+          return legacy.draft.revision;
+        })()`);
+        // A fresh App must restore the legacy record before storage starts failing.
+        await lane.browser("open", `${url}/harness.html?seed=tree-40`);
+        await lane.until("!!document.querySelector('.todo-project-root')");
+      }
+
       await lane.evaluate(`(async () => {
         const app = window.__fake.app;
         const tree = await app.rpc('rail.tree', null);
@@ -471,13 +486,10 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await lane.browser("click", ".drawer .close");
       await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");
       // U4453b retired Order editing; the same authored revision remains in shared recovery.
-      await lane.evaluate(`(async () => {
-        const { draftStorage } = await import('/src/state/storage.ts');
-        const holder = draftStorage('/Users/you/harness');
-        const legacy = holder.edit({surface:'orders',object:'tokens',recipient:'tokens'}, {title:'Orchard release',ask:'Exact retained Order /Users/authored/path',done:'Release checked'}, null, 'ordinary');
-        await legacy.retained;
-        window.__auditLegacy = legacy.draft.revision;
+      await lane.evaluate(`(() => {
+        window.__auditLegacy = ${JSON.stringify(legacyRevision)};
         window.__fake.app.menuChoice = 'recover';
+        return true;
       })()`);
       await lane.browser("focus", ".todo-project-root");
       await lane.browser("press", "Shift+F10");
