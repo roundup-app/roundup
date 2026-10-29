@@ -670,15 +670,11 @@ export const Todos = (props: {
 
   const clearFailures = () => pickFails.forEach(failure => failure.show(null));
 
-  const triageTarget = (event: KeyboardEvent) => {
-    const id = idOfRow(event.target instanceof Element ? event.target : null);
-
-    return id === undefined ? undefined : todos.byId().get(id);
-  };
+  const triageTarget = (event: KeyboardEvent) => todos.byId().get(idOfRow(event.target instanceof Element ? event.target : null) ?? -1);
 
   const canTriage = (event: KeyboardEvent, nesting = false) => triage.canKey(event, section, !tabs || tabs().value === "todos", nesting);
 
-  const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement, event: KeyboardEvent) => void) => ({
+  const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement, event?: KeyboardEvent) => void) => keys === "J K" ? {
     chords: chordsOf(CHORDS.find(row => row.inTriage && row.keys === keys)),
     when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
     run: (event: KeyboardEvent) => {
@@ -686,7 +682,16 @@ export const Todos = (props: {
 
       if (found && event.target instanceof HTMLButtonElement) run(found, event.target, event);
     },
-  });
+  } : {
+    action: CHORDS.find(row => row.inTriage && row.keys === keys)!, searchable: false as const,
+    when: canTriage,
+    capture: (focus: Element | null) => {
+      const id = idOfRow(focus);
+      const todo = id === undefined ? undefined : todos.byId().get(id);
+
+      return { available: () => triage.on() && active() && focus instanceof HTMLButtonElement && focus.isConnected && !focus.closest("[hidden], [inert]") && document.activeElement === focus && todo !== undefined && todos.byId().get(todo.id)?.done === false && (keys !== "W" || homesToOffer(connected.rail.nodes, todo.home).length > 0), invoke: () => { if (todo && focus instanceof HTMLButtonElement) run(todo, focus); } };
+    },
+  };
 
   const moveHome = async (id: number, home: string | null) => {
     const focus = captureFocus();
@@ -722,7 +727,7 @@ export const Todos = (props: {
       const buttons = triageButtons();
       const at = buttons.indexOf(button);
 
-      if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (event.code === "KeyJ" ? 1 : -1)))]?.focus();
+      if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (event?.code === "KeyJ" ? 1 : -1)))]?.focus();
     }),
     triageKey("A", (todo, button) => {
       clearFailures();

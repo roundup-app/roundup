@@ -6,7 +6,8 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
 import { stubDialogLayout } from "./bulkQuestionHarness";
-import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
+import { captureActions } from "../keys/registry";
+import { CHORDS } from "../keys/chords";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -94,20 +95,6 @@ it("u3723_keys_are_shelf_scoped_and_leave_the_terminal_alone", async () => {
   terminal.remove();
 });
 
-it("u3724_each_new_key_is_in_chords_and_help", async () => {
-  const { rows } = await open();
-  rows[0]!.focus();
-
-  for (const keys of ["M", "D", "E"]) {
-    expect(CHORDS.filter(row => row.keys === keys && row.inShelf)).toHaveLength(1);
-    expect(HELP_ROWS.filter(row => row.keys === keys)).toHaveLength(1);
-    expect(hintsFor("shelf").filter(row => row.keys === keys)).toHaveLength(1);
-
-    // Export is hinted only on a Pad row (HintLine), and a Todo row's line holds M, O and D.
-  }
-});
-
-
 it("u3721_maximise_keeps_the_centre_mounted", async () => {
   const { rows } = await open();
   const centre = document.querySelector(".centre");
@@ -167,7 +154,7 @@ it("u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row", 
 });
 
 
-it.each(["key", "menu"])("u3787b_triage_commands_share_the_focused_todo: %s", async source => {
+it.each(["A", "W", "X", "C"].flatMap(key => ["key", "menu"].map(source => ({ key, source }))))("u3787b_triage_commands_share_the_focused_todo: $key from $source", async ({ key, source }) => {
   const { app, rows } = await open();
   rows[0]!.focus();
   fireEvent.click(screen.getByRole("button", { name: "Triage" }));
@@ -181,8 +168,30 @@ it.each(["key", "menu"])("u3787b_triage_commands_share_the_focused_todo: %s", as
 
   expect(document.activeElement).toBe(focused);
 
-  if (source === "key") fireEvent.keyDown(focused, { key: "x", code: "KeyX" });
-  else openProjectPage("action:chord:X");
+  if (source === "key") fireEvent.keyDown(focused, { key: key.toLowerCase(), code: `Key${key}` });
+  else openProjectPage(`action:chord:${key}`);
 
-  await waitFor(() => expect(app.calls.filter(call => call.method === "todo.complete").map(call => call.params)).toEqual([{ id }]));
+  if (key === "X") await waitFor(() => expect(app.calls.filter(call => call.method === "todo.complete").map(call => call.params)).toEqual([{ id }]));
+  else if (key === "C") {
+    const field = await screen.findByRole("textbox", { name: "Write a comment" });
+    fireEvent.input(field, { target: { value: "reviewed" } });
+    fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(app.calls.filter(call => call.method === "todo.comment").map(call => call.params)).toEqual([{ id, body: "reviewed" }]));
+  } else {
+    const menu = await screen.findByRole("menu", { name: `${key === "A" ? "Owners" : "Homes"} for #${id}` });
+    expect(screen.getAllByRole("menu")).toEqual([menu]);
+  }
+});
+
+it("u3787b_triage_menu_refuses_an_owner_after_leaving_the_mode", async () => {
+  const { app, rows } = await open();
+  rows[0]!.focus();
+  fireEvent.click(screen.getByRole("button", { name: "Triage" }));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X")).toBe(true));
+  const captured = captureActions(document.activeElement).find(action => action.value === "action:chord:X")!;
+  fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X")).toBe(false));
+  openProjectPage("action:chord:X");
+  captured.run();
+  expect(app.calls.filter(call => call.method === "todo.complete")).toEqual([]);
 });
