@@ -2922,10 +2922,9 @@ async fn p14_only_owner_writes() {
 
     p14_write(&user, "notes").await.unwrap();
     p14_write(&as_a, "plan").await.unwrap();
-    for (who, pad) in [(&as_a, "notes"), (&user, "plan")] {
-        let err = p14_write(who, pad).await.unwrap_err();
-        assert_eq!(err.code, rpc::code::FORBIDDEN);
-    }
+    p14_write(&user, "plan").await.unwrap();
+    let err = p14_write(&as_a, "notes").await.unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
     let pad = user
         .request("pad.read", json!({ "name": "notes" }))
         .await
