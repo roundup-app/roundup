@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { showEverythingInApp } from "../testing/showEverything";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -13,7 +14,7 @@ import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups", async () => {
   render(() => <App app={createFakeApp()} reducedMotion={() => true} clock={Date.now} />);

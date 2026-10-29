@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { seedApp } from "../testing/seeds";
 import { RequestedApp } from "../testing/requestedApp";
 import { showEverythingInApp } from "../testing/showEverything";
@@ -17,7 +18,8 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { RpcError } from "../app/seam";
 import { leaderArmed, endLeader } from "./registry";
 
-afterEach(() => { cleanup(); endLeader(); localStorage.clear(); sessionStorage.clear(); });
+// CI timed out in this hook: unbatched owner disposal recomputes mounted menus and hints per owner.
+afterEach(() => { batch(cleanup); endLeader(); localStorage.clear(); sessionStorage.clear(); });
 
 it.each(["key", "pointer", "button"] as const)("u4690_each_hint_runs_its_key_action_once: Ask %s", async source => {
   const { app } = await openTabs({ api: [agent("a1", "idle", "x")] });
@@ -51,7 +53,7 @@ it.each([1, 9])("u4690d_each_number_assigns_its_key_target_once: %s", async numb
     else fireEvent.click(document.querySelector(`.hint-line [data-hint="Digit${number}"]`)!);
     await waitFor(() => expect(app.calls.filter(call => call.method === "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner: { kind: "agent", id: `a${number}`, parent: null } }]));
     expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
-    cleanup();
+    batch(cleanup);
   }
 });
 

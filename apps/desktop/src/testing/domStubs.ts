@@ -1,15 +1,10 @@
 import { useBrowserStorage } from "../state/storage";
-import { batch } from "solid-js";
-import { cleanup, configure } from "@solidjs/testing-library";
-import { afterEach, beforeEach } from "vitest";
+import { configure } from "@solidjs/testing-library";
+import { beforeEach } from "vitest";
 
 useBrowserStorage(window.localStorage);
 
 beforeEach(() => useBrowserStorage(window.localStorage));
-
-// U460: unbatched root disposal re-runs menu/hint computations for each removed key owner.
-// The cleanup profile took 4.5 s in registry-driven DOM queries; batch reduced it to 36 ms.
-afterEach(() => batch(cleanup));
 
 // A lazily mounted tab (Todos, Progress) on a CPU-starved shard outlasts the 1000 ms default of `waitFor` and `findBy`; the 15 s test timeout decides instead.
 configure({ asyncUtilTimeout: 10_000 });
