@@ -147,3 +147,48 @@ field. Two rows sharing an id (`Esc`) yield one item. No test is removed or reti
 Still open on #4308: Rail rename and Help in the inventory observer, responder Find,
 and the native displayed-key, responder and combined-dispatch observations against the
 final implementation SHA. No native result is claimed.
+
+
+## Help and Rail rename continuation
+
+Continues unmerged PR #4877 from its head, preserving Shelf hint projection and
+plain-key accelerator exclusion. Help (`?`) now registers its existing opener;
+Rail rename (`F2`) registers with the owning Rail and calls its existing editing
+state directly. The obsolete `Keys` component's synthetic double-click is removed,
+along with its mounts in App and fixtures. Ark still owns tree navigation and
+Help's dialog; neither command installs a native accelerator for its plain key.
+
+`u3787b_menu_and_key_share_one_action` now exercises Help and focused Rail rename
+by both routes. Rename addresses the focused row even when another is selected;
+its editor omits menu Rename, Escape returns focus, and opening sends no rename
+RPC. Help closes back to the original row and writes no Terminal input. Existing
+U140 focused-row, U4324 Help focus exclusions and U2241 Terminal modifier observers
+remain required. No test is removed or retired; fixture edits only remove the
+obsolete component mount. The real Tauri event proof
+`u2539b_native_menu_projects_the_task_chords` now forwards Help/F2 in two Projects;
+`u3787b_plain_key_commands_register_no_accelerator` adds both hints.
+
+The inventory observer now also visits Shelf and triage focus. Settings remains
+the standard application menu's `app-settings` event, with equivalence proved by
+`u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups`.
+Configured Capture remains covered by #4278's existing
+`u2539b_native_menu_projects_the_task_chords` observer rather
+than a duplicate test. Terminal clipboard responders remain covered by U101 and
+its Edit-menu copy event proof. Library-owned editing and list navigation stay
+with their controls.
+
+Read current main macOS CI:
+[40916673952](https://github.com/roundup-app/roundup/actions/runs/40916673952),
+`c7cf55de270fcdf9c0c2490df607b5a2113f0bc6`: `mac` and `mac-clippy` both passed.
+Earlier macOS compilation records and #4278 native evidence above remain valid
+for their recorded SHAs. This run makes no new native dispatch claim.
+
+Remaining on #4308: native responder Find integration and actual responder
+availability for Find/Close Window; complete library/native inventory validation;
+and displayed-key, alignment, responder and combined accelerator/webview dispatch
+observations against the final implementation SHA. Tauri 2.12.1 and muda 0.20.0
+expose predefined Close Window but no Find constructor. AppKit's
+[performTextFinderAction:](https://developer.apple.com/documentation/appkit/nsresponder/performtextfinderaction(_:))
+is the responder-chain capability to investigate. A WebKit/AppKit observer must
+establish support and availability; adding a webview global search is not authorized.
+This continuation closes neither #4308 nor #3843.

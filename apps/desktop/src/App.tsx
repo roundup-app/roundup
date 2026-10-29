@@ -43,7 +43,6 @@ import type { LinkContent } from "@contracts/link/LinkContent";
 import { PadHost } from "./pads/PadDrawer";
 import { TodoHost } from "./todos/TodoDrawer";
 import { Capture } from "./todos/Capture";
-import { Keys } from "./keys/Keys";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
@@ -609,7 +608,6 @@ export const App = (props: {
               <InProject open={activeConnection()}>
                 {() => (
                   <>
-                    <Keys />
                     <AttentionKey />
                     <Rail />
                   </>
