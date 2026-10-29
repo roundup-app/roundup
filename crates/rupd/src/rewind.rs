@@ -531,7 +531,7 @@ mod tests {
             );
         }
         assert_eq!(daemon.rail().await.unwrap(), before);
-        assert!(daemon.terminals.list().is_empty());
+        assert!(daemon.terminals.list().await.is_empty());
     }
 
     #[tokio::test]
@@ -625,7 +625,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(error.code, code::CONFLICT);
         assert!(error.message.contains("already being rewound"));
-        assert!(daemon.terminals.list().is_empty());
+        assert!(daemon.terminals.list().await.is_empty());
     }
     #[tokio::test]
     async fn a35_a_selected_later_child_cannot_orphan_an_unselected_descendant() {
@@ -645,6 +645,6 @@ mod tests {
             assert!(error.message.contains("Nested"), "{error:?}");
         }
         assert_eq!(daemon.rail().await.unwrap(), before);
-        assert!(daemon.terminals.list().is_empty());
+        assert!(daemon.terminals.list().await.is_empty());
     }
 }

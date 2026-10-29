@@ -293,6 +293,7 @@ pub(super) async fn kill_or_already_gone(
     if let Some(mut exit) = exit
         && terminals
             .list()
+            .await
             .iter()
             .any(|t| t.id == terminal_id && t.running)
     {
