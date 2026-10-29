@@ -504,6 +504,11 @@ button, file-tree-container, diffs-container {
   outline-offset: calc(-1 * var(--hairline-width));
 }
 
+/* Keep region paint below portalled tooltips without moving resize anchors. */
+.columns {
+  isolation: isolate;
+}
+
 /* Keep nested resize edges anchored to columns rather than the clipped Rail. */
 .columns:has(> .rail:focus-within)::after {
   right: auto;
