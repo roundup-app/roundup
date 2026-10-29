@@ -86,6 +86,16 @@
       "command": "loop/rules.sh delta artifacts/ux/U4590/base artifacts/ux/U4590/head",
       "exit": 2,
       "failure": "real-agent.checks.json has no baseline counterpart"
+    },
+    {
+      "command": "just ready (repeat after report commit)",
+      "exit": 1,
+      "failure": "Report used a spelling rejected by typos; changed to images. Other ready steps passed; targeted boundary lint rerun follows."
+    },
+    {
+      "command": "final lifecycle WebGL tree-40 --retry 0",
+      "exit": 0,
+      "passed": 1
     }
   ],
   "remaining": [
@@ -94,5 +104,5 @@
     "Real-Daemon restored-session painting",
     "Full native-scale matrix; existing scale acceptance unchanged"
   ],
-  "artifacts": "Paired PNGs, Checks and traces in base/head; no image/video committed"
+  "artifacts": "Paired images, Checks and traces in base/head; no image/video committed"
 }
