@@ -417,14 +417,9 @@ async fn p16_shared_pad_access_over_public_seams() {
             super::agent(actor)
         };
         let shim = super::spawn_shim(&project.socket, actor).await;
-        assert!(
-            shim.client
-                .list_all_tools()
-                .await
-                .unwrap()
-                .iter()
-                .any(|tool| tool.name == "pad_move")
-        );
+        let tools = shim.client.list_all_tools().await.unwrap();
+        assert!(tools.iter().any(|tool| tool.name == "pad_move"));
+        assert!(!tools.iter().any(|tool| tool.name == "pad_setOwner"));
         let creator = super::spawn_shim(&project.socket, actors[(index + 1) % actors.len()]).await;
         for cli in [false, true] {
             if actor.is_empty() && cli {
@@ -554,11 +549,15 @@ async fn p16_shared_pad_access_over_public_seams() {
     for pad in retained {
         assert!(listed.as_array().unwrap().contains(&pad));
     }
-    assert!(
-        reopened
-            .request("pad.setOwner", json!({"name":"missing"}))
-            .await
-            .is_err()
+    let before = reopened.request("pad.list", Value::Null).await.unwrap();
+    let error = reopened
+        .request("pad.setOwner", json!({"name":"missing"}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::METHOD_NOT_FOUND);
+    assert_eq!(
+        reopened.request("pad.list", Value::Null).await.unwrap(),
+        before
     );
     serving.abort();
 }
