@@ -62,3 +62,6 @@ this report was written. The 107 focused behavioral proofs pass; those runs
 and a complete independent optical inventory verdict are required before
 closing #4922. WorkProgress result-state pairs and per-control state coverage
 also need completing; existing conflict captures do not show those results.
+
+Final `just capture U86` passes (38 paired PNGs). The delta reports D8/D10
+regressions from the obsolete baseline observer; D2, D5 and D6 do not regress.
