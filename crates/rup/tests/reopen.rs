@@ -99,8 +99,8 @@ async fn u4547e_reparenting_survives_reopen() {
         let config = &mcp["mcpServers"]["roundup"];
         let env: Vec<_> = config["env"]
             .as_object()
-            .unwrap()
-            .iter()
+            .into_iter()
+            .flatten()
             .map(|(key, value)| (key.as_str(), value.as_str().unwrap()))
             .collect();
         let mut child = tokio::process::Command::new(config["command"].as_str().unwrap())
