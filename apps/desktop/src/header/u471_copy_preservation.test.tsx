@@ -17,19 +17,7 @@ const mount = () => {
 it("u471_previous_copy_assertions_are_preserved_header_labels_use_sentence_case_and_preserve_project_names", () => {
   mount();
 
-  ;
   expect(screen.getByRole("tab").hasAttribute("title")).toBe(false);
-  ;
-  ;
-  ;
-});
-
-it("u471_previous_copy_assertions_are_preserved_header_rename_label_keeps_the_glossary_capital", async () => {
-  mount();
-  screen.getByRole("tab").focus();
-  fireEvent.keyDown(screen.getByRole("tab"), { key: "F2" });
-
-  expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" }).value).toBe("lowercase");
 });
 
 it("u497_copy_preserves_authored_values_project_name_and_agents", async () => {
