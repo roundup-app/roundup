@@ -803,7 +803,8 @@
   max-block-size: none;
 }
 .opening-prompt-dialog .reserved-content { align-items: baseline; }
-.opening-prompt-dialog .reserved-content :is(.ink, .reserved-status) {
+.opening-prompt-dialog .ink[role="alert"],
+.opening-prompt-dialog .reserved-status {
   white-space: normal;
   overflow-wrap: anywhere;
   text-overflow: clip;
