@@ -1,4 +1,4 @@
-import { createMemo, createSignal, createEffect, onCleanup } from "solid-js";
+import { createMemo, createSignal, createEffect, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import { outcomeOf } from "../app/seam";
 import { copy } from "../copy";
@@ -88,7 +88,7 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
         }} onBlur={() => void save()} />
         <Field.HelperText>{copy.openingPromptHint}</Field.HelperText>
       </Field.Root>
-      <ReservedLine status={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.opening_prompt ?? "") ? copy.openingPromptConflict : null} />
+      <Show when={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.opening_prompt ?? "")}><ReservedLine status={copy.openingPromptConflict} /></Show>
       <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void (restartRequest() ? restart() : save())}>{copy.retry}</button></ReservedLine>
       <div class="app-dialog-actions">
         <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restartSession}</button>

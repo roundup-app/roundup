@@ -845,6 +845,7 @@ export const copy = {
   openingPromptFor: (name: string) => `First prompt · ${name}`,
   openingPromptPlaceholder: "Your first prompt",
   openingPromptConflict: "The saved first prompt changed. Your draft is retained; saving replaces the saved prompt.",
+  modePromptHint: "Typed once when this Mode starts a fresh session",
   openingPromptHint: "Typed once when this Workstream starts a fresh session",
   todoAutoHint: "Hand out unassigned Todos",
   todoAutoHandling: "Handing these out",
