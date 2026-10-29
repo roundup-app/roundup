@@ -279,11 +279,13 @@ The existing primary kind uses `--accent` and `--button-accent-ink`; the existin
 
 ### Terminal Tokens (U3517)
 
-Terminal defaults use bundled Fira Code 6.2 (regular 400 and bold 700, with
+Terminal defaults use bundled Fira Code 6.2 (Light 300 regular and bold 700, with
 browser-synthesized italic and bold italic; OFL in
 `apps/desktop/public/fonts/fira-code/`). `--font-terminal` is
 `"Fira Code", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
 uses it; the rest of the App retains its existing type.
+`--weight-terminal: 300` selects the bundled Light face through xterm’s public
+`fontWeight`; bold retains 700. Regular 400 remains bundled for explicit use.
 
 The emulator, App Settings and Project zoom reset share `--text-terminal` (11 CSS
 px). `--line-terminal` is xterm's unitless line-height multiplier (1.7, calibrated to 22 CSS px rows) and
