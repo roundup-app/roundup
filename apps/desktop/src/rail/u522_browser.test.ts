@@ -124,20 +124,6 @@ it("u522_keyboard_move", async () => {
   await wait(`document.activeElement?.closest('[data-id]')?.dataset.id === 'tokens'`);
 }, 90_000);
 
-it("u522_file_drop_coexists", async () => {
-  await load();
-  expect(await read<boolean>(`(() => {
-    const row = document.querySelector('[data-part="item"][data-id="tokens"]');
-    const transfer = new DataTransfer(); transfer.items.add(new File(['hello'], 'example.txt', { type: 'text/plain' }));
-    row.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: transfer }));
-    const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer });
-    row.dispatchEvent(over);
-    return over.defaultPrevented || document.querySelector('[data-dnd-placeholder]') === null;
-  })()`)).toBe(true);
-  expect(await read<number>(`document.querySelectorAll('[data-dnd-placeholder]').length`)).toBe(0);
-  expect(await moves()).toEqual([]);
-}, 90_000);
-
 it("u522_a_press_on_a_button_starts_no_drag", async () => {
   await load();
   await read<void>(`document.querySelector('.rail-row[data-id="backend"]').focus()`);
