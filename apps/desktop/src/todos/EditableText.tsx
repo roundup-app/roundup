@@ -258,6 +258,8 @@ export const EditableText = (props: {
         if (alive) {
           setFailure(null); props.onSaved?.();
 
+          // A first body save replaces Add notes with prose after acknowledgement.
+          if (restoreFocus && document.activeElement === document.body && connected.drawer.content() === content) retryFocus(() => shown?.focus());
         }
       } catch (error) {
         if (!(error instanceof Error)) throw error;
