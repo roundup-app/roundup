@@ -27,12 +27,14 @@ const startupOnly = captureIds?.includes("U4590") && !captureIds.some(id => ["U4
 
 if (captureIds) process.env.ROUNDUP_CAPTURES = captureIds.join(",");
 
-const captureSelection: { fileParallelism?: boolean; testNamePattern?: RegExp } = {};
+type CaptureSelection = { fileParallelism?: boolean; testNamePattern?: RegExp };
+
+const captureSelection: CaptureSelection = {};
 
 if (captures) {
   captureSelection.fileParallelism = false;
 
-  if (captureIds?.every(id => id === "U4590")) captureSelection.testNamePattern = /^(u4590_|u3517[abd]_|u3529)/i;
+  if (captureIds?.every(id => id === "U4590")) captureSelection.testNamePattern = /^(u4590_|u3517[a-d]_|u3529|u4592_|s3806c_)/i;
   else if (startupOnly) captureSelection.testNamePattern = /^(?!u463_|u2773[ag]_|u2875d_real_import_)/i;
 }
 
