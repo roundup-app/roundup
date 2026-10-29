@@ -84,7 +84,7 @@ Observer: `u177_` tests in `apps/desktop/src/testing/` start the real `rupd` as 
 
 **U352 retired by U467.** The Thread's Messages and their images are gone.
 
-**U198 the Daemon lists the Skills of a Door.** Found by the user's report #728. The Thread's `/` list is gone (U467); `agent.skills` (A31) stays a Daemon method. Test `u198_the_list_holds_the_fixture_skills_and_no_banned_command` in `apps/desktop/src/testing/` starts the real `rupd` with a fixture home folder and Project and asserts the list holds their Skills and none of P9's banned commands (`model`, `effort`, `compact`, `clear`).
+**U198 the Daemon lists the Skills of a Door.** Found by the user's report #728. The Thread's `/` list is gone (U467); `agent.skills` (A31) stays a Daemon method. Observer: `crates/rup/tests/e2e.rs::a31_a_workstream_id_resolves_to_its_door` starts the real `rupd` with a fixture home folder and Project and asserts the list holds their Skills and none of P9's banned commands (`model`, `effort`, `compact`, `clear`). `crates/agents/src/claude_code/skills.rs::a31_lists_user_project_plugin_and_command_skills` retains description parsing proof, and `a31_banned_commands_are_never_listed` retains the process-free exclusion proof. The duplicate web observer `u198_the_list_holds_the_fixture_skills_and_no_banned_command` is retired under T3779c; the Daemon behavior and real-process A31 observer remain required.
 
 **U199 retired by U467.** The Thread's input is gone; a pasted image reaches a Terminal as U418 says and a dropped one as U162 says.
 
