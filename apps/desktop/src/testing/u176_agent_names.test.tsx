@@ -380,7 +380,7 @@ describe("u2773 Rail persisted edits", () => {
   }, 120_000);
 
   it("u2773a_rail_real_names_keep_original_project_and_object_on_reopen", async () => {
-    const one = await startRealDaemon({});
+    const one = first;
     const two = await startRealDaemon({});
 
     try {
@@ -411,10 +411,11 @@ describe("u2773 Rail persisted edits", () => {
 
         render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
         fireEvent.dblClick(await screen.findByText("Same name", { selector: ".rail-row .name" }));
-        expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe(text);
+        const field = screen.getByLabelText<HTMLInputElement>("Name");
+        expect(field.value).toBe(text);
         expect(renames).toEqual([]);
         fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
-        await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
+        await waitFor(() => expect(field.isConnected).toBe(false));
         expect((await app.rpc("rail.tree", null)).find((node) => node.id === target.id)?.name).toBe(text.trim());
         expect(renames).toEqual([JSON.stringify({ id: target.id, name: text.trim() })]);
         cleanup();
@@ -422,7 +423,6 @@ describe("u2773 Rail persisted edits", () => {
     } finally {
       cleanup();
       await two.stop();
-      await one.stop();
     }
   }, 120_000);
 });
