@@ -810,7 +810,7 @@
   gap: var(--space-4);
 }
 
-/* Keep the Mode identity with its name and reserve the actions to its right. */
+/* Hidden actions must not shorten Mode names; visible actions must not cover their mark. */
 .mode-name {
   display: flex;
   align-items: center;
@@ -829,10 +829,10 @@
   cursor: default;
 }
 
-.rail-row:has(.mode-mark) .row-icons {
+.rail-row:has(.mode-mark):is(:hover, :focus-within, [data-selected="true"]:not([data-multiple="true"])) .row-icons {
   position: static;
 }
 
-.rail-row:has(.mode-mark) .row-tail {
+.rail-row:has(.mode-mark):is(:hover, :focus-within, [data-selected="true"]:not([data-multiple="true"])) .row-tail {
   margin-left: var(--space-4);
 }
