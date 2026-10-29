@@ -24,9 +24,10 @@ it("u4547d_rendered_restart_and_refusal_keep_the_mode_reachable", async () => {
   await lane.evaluate(`(() => {
     const restart = window.__fake.app.handlers['workstream.restart'];
     let refused = false;
+    let started;
     window.__fake.app.handlers['workstream.restart'] = params => {
       if (!refused) { refused = true; throw new Error('Door could not start. Restore Claude, then retry.'); }
-      return restart(params);
+      return started ??= restart(params);
     };
     return true;
   })()`);
@@ -42,7 +43,8 @@ it("u4547d_rendered_restart_and_refusal_keep_the_mode_reachable", async () => {
   await lane.browser("focus", row);
   await lane.browser("press", "r");
   await lane.until("window.__fake.app.calls.filter(call => call.method === 'workstream.restart').length === 3");
-  await lane.browser("click", `${row} [aria-label='Row actions']`);
+  await lane.until(`document.querySelector(${JSON.stringify(`${row} [aria-label=Restart]`)})?.getAttribute('aria-disabled') !== 'true'`);
+  await lane.browser("click", `${row} button[aria-label='Row actions']`);
   await lane.until("window.__fake.app.menuLabels().includes('Restart')");
   await lane.evaluate("window.__fake.app.pickMenu('Restart')");
   await lane.until("window.__fake.app.calls.filter(call => call.method === 'workstream.restart').length === 4");

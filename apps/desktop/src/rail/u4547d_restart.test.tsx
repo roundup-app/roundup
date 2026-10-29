@@ -20,7 +20,8 @@ it("u4547d_restart_controls_share_the_focused_mode_action", async () => {
   fireEvent.click(within(row).getByRole("button", { name: copy.restart }));
   await waitFor(() => expect(railCallsTo(m.app, "workstream.restart")).toHaveLength(1));
   await m.rail.settled();
-  await chooseAction(m.app, "mode", copy.restart);
+  fireEvent.click(within(row).getByRole("button", { name: copy.rowActions }));
+  await m.app.pickMenu(copy.restart);
   row.focus();
   fireEvent.keyDown(row, { key: "r", code: "KeyR" });
   await waitFor(() => expect(railCallsTo(m.app, "workstream.restart")).toHaveLength(3));
