@@ -89,6 +89,22 @@ async fn u3787a_daemon_restores_exact_graph_without_starting_processes() {
     call(&daemon, "todo.restore", json!({"operation":"bulk"}))
         .await
         .unwrap();
+    let redo = json!({"source":"bulk","operation":"redo-bulk"});
+    let receipt = call(&daemon, "todo.redo", redo.clone()).await.unwrap();
+    assert_eq!(receipt["deleted"], json!([1, 2]));
+    assert_eq!(
+        call(&daemon, "todo.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(call(&daemon, "todo.redo", redo).await.unwrap(), receipt);
+    call(&daemon, "todo.restore", json!({"operation":"redo-bulk"}))
+        .await
+        .unwrap();
     assert_eq!(
         without_updated_at(call(&daemon, "todo.list", Value::Null).await.unwrap()),
         without_updated_at(before)
