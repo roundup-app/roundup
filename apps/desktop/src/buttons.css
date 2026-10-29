@@ -261,7 +261,7 @@ button[aria-disabled="true"] {
 /* Disabled floating actions keep readable ink on a neutral surface. */
 :is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][aria-disabled="true"] {
   --button-surface: var(--button-neutral);
-  color: var(--disabled);
+  color: var(--grey);
 }
 
 /* Native visible inputs retain their own hit area and activation. */
