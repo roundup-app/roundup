@@ -23,7 +23,7 @@ type Read = { failure: null; changed: ChangedFiles } | { failure: string; change
 
 /** U2539b: the panel of one Agent's Worktree. It reads again on every open and closes when the selection moves, because it is keyed on the Agent. */
 const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes; recoveryOpen: boolean; onOpen: () => void; returnFocus?: (() => void) | undefined; recover: () => void }) => {
-  const { app, worktrees, rail } = useConnectedProject();
+  const { app, worktrees, rail, daemonExit } = useConnectedProject();
   const state = () => worktrees.read(props.id);
 
   const facts = () => {
@@ -67,7 +67,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
     let changed: ChangedFiles | undefined;
     const failure = await failureOf(async () => { changed = await app.rpc("agent.changedFiles", { id: props.id }); });
 
-    if (request !== generation) return;
+    if (request !== generation) return failure;
     setRead(previous => {
       if (failure === null && changed) return { failure: null, changed };
       const failed: Read = { failure: failure! };
@@ -81,6 +81,8 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
       close();
       queueFocus(() => props.returnFocus?.());
     }
+
+    return failure;
   };
 
   onCleanup(() => { generation++; });
@@ -101,11 +103,42 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
   let viewButton: HTMLButtonElement | undefined;
 
-  const openPanel = () => { treeFocus = captureFocus(true); props.onOpen(); setOpen(true);
+  const id = props.id;
+  const worktree = { ...props.worktree };
+  const title = `${copy.reviewChanges} · ${props.name}: `;
 
- if (state()) void worktrees.refresh(props.id); else void refresh(); };
+  const originalAvailable = () => {
+    const current = rail.nodes.find(node => node.id === id)?.worktree;
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "C")!, capture: () => ({ available: () => count() > 0, invoke: openPanel }) }]);
+    return !daemonExit() && current?.path === worktree.path && current?.branch === worktree.branch && current?.base === worktree.base;
+  };
+
+  // Keep the request's result outside the panel's render lifetime, using the existing Project failure holder.
+  const review = async (shared = Boolean(state())) => {
+    if (!originalAvailable()) {
+      rail.commandFailure.show(`${title}${copy.worktreeReadUnavailable}`, null, "rail", () => { void review(shared); });
+
+      return;
+    }
+
+    const failure = shared ? (await worktrees.refresh(id)).failure : await refresh();
+
+    if (failure) rail.commandFailure.show(`${title}${failure}`, null, "rail", () => { void review(shared); });
+    else if (rail.commandFailure.message()?.startsWith(title)) rail.commandFailure.clear();
+  };
+
+  createEffect(on(() => state()?.failure, (next, before) => {
+    if (next === null && Boolean(before) && rail.commandFailure.message()?.startsWith(title)) rail.commandFailure.clear();
+  }, { defer: true }));
+
+  const openPanel = () => {
+    treeFocus = captureFocus(true);
+    props.onOpen();
+    setOpen(true);
+    void review();
+  };
+
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "C")!, capture: () => ({ available: () => count() > 0 && rail.selected() === id && originalAvailable(), invoke: openPanel }) }]);
 
   createEffect(() => { if (props.recoveryOpen) close(); });
 

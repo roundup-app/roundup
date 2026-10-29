@@ -21,7 +21,7 @@ export const activationSource = (event: Pick<MouseEvent, "detail">): ActivationS
 
 type Binding = { chords: readonly string[]; when?: (event: KeyboardEvent) => boolean; run: (event: KeyboardEvent) => void };
 
-type ActionBinding = { action: Chord | LeaderKey; match?: "key"; press?: string; searchable?: false; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: () => void; label?: string } };
+type ActionBinding = { action: Chord | LeaderKey; chords?: readonly string[]; repeat?: true; match?: "key"; press?: string; searchable?: false; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: () => void; label?: string } };
 
 type Registration = { scope: KeyScope; actions: ActionBinding[]; bindings: { matches: ReturnType<typeof parseKeybinding>[number][]; when: Binding["when"]; run: Binding["run"] }[] };
 
@@ -197,11 +197,11 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
     if (!("action" in binding)) return binding;
 
     const key: Binding = {
-      chords: binding.press ? [binding.press] : "presses" in binding.action ? chordsFor(binding.action.keys, binding.match) : leaderChord(binding.action.keys),
+      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsFor(binding.action.keys, binding.match) : leaderChord(binding.action.keys)),
       run: (event) => {
         const captured = binding.capture(event.target instanceof Element ? event.target : document.activeElement);
 
-        if (!event.repeat && captured.available()) {
+        if ((!event.repeat || binding.repeat) && captured.available()) {
           captured.invoke();
 
           if (armed()) kept = event.code;

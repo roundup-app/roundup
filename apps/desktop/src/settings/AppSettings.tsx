@@ -1,4 +1,4 @@
-import { createResource, createSignal, onCleanup, Show } from "solid-js";
+import { createResource, createSignal, createMemo, For, onCleanup, Show } from "solid-js";
 import type { App } from "../app/seam";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -7,13 +7,15 @@ import { Combobox } from "../ui/Combobox";
 import { Tabs } from "../ui/Tabs";
 import { Field } from "../ui/Field";
 import { Deferred } from "../ui/Deferred";
+import { SegmentGroup } from "../ui/SegmentGroup";
+import { Switch } from "../ui/Switch";
 import { Select } from "../ui/Select";
 import * as v from "valibot";
 import { draftStorage } from "../state/storage";
 import { createSettingsView } from "../state/settingsView";
-import { MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
-import { appSettings, saveAppSettings } from "./preferences";
+import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsShell } from "./SettingsShell";
+import { NamingSettings } from "./NamingSettings";
 import { ShortcutSetting } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
@@ -21,23 +23,50 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const view = createSettingsView();
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
-  const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
-  const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-terminal").trim().split(",")[0]!.replaceAll('"', "");
+  const [numericFailure, setNumericFailure] = createSignal<Record<string, string | null>>({});
   const drafts = draftStorage("app-settings");
-  drafts.validate("settings", v.object({ text: v.string() }));
+  drafts.validate("settings", v.object({ text: v.string(), saved: v.optional(v.string()) }));
   const destination = (field: string) => ({ surface: "settings", object: field, recipient: null });
   const current = (field: string) => drafts.list().findLast(draft => draft.destination.surface === "settings" && draft.destination.object === field);
-  const field = (name: "fontFamily" | "fontSize") => String(current(name)?.value.text ?? appSettings()[name]);
 
-  const edit = (name: string, input: HTMLInputElement) => drafts.edit(destination(name), { text: input.value },
+  type Numeric = keyof typeof terminalRanges;
+
+  const field = (name: "fontFamily" | Numeric) => String(current(name)?.value.text ?? appSettings()[name]);
+
+  const edit = (name: "fontFamily" | Numeric, input: HTMLInputElement) => drafts.edit(destination(name), { text: input.value, saved: current(name)?.value.saved ?? String(appSettings()[name]) },
     { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" }, "ordinary");
 
-  const commit = async (name: "fontFamily" | "fontSize", value: string | number) => {
-    const revision = current(name)?.revision;
+  const ownSaves = new Map<string, { from: string; to: string }>();
+
+  const conflicted = (name: "fontFamily" | Numeric) => {
+    const saved = String(appSettings()[name]);
+    const baseline = current(name)?.value.saved;
+    const own = ownSaves.get(name);
+
+    return baseline !== undefined && baseline !== saved && !(own?.from === baseline && own.to === saved);
+  };
+
+  const commit = async (name: "fontFamily" | Numeric, value: string | number) => {
+    const draft = current(name);
+    const revision = draft?.revision;
+
+    if (conflicted(name)) {
+      return;
+    }
+
+    ownSaves.set(name, { from: String(draft?.value.saved ?? appSettings()[name]), to: String(value) });
+
+    if (revision) await drafts.submit(revision);
     const cause = await saveAppSettings({ [name]: value });
     setFailure(cause);
 
-    if (cause === null && revision) drafts.discard(revision);
+    if (cause !== null) ownSaves.delete(name);
+
+    if (revision) await drafts.settle(revision, cause === null ? "acknowledged" : "failed");
+    const newer = current(name);
+
+    if (cause === null && newer?.status === "draft" && newer.revision !== revision && newer.value.saved === draft?.value.saved)
+      drafts.edit(destination(name), { ...newer.value, saved: String(value) }, newer.selection, "ordinary", newer.revision);
   };
 
   const show = () => { if (!view.open()) { view.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body); props.onOpenChange?.(true); } };
@@ -67,13 +96,51 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const save = async (patch: Parameters<typeof saveAppSettings>[0]) => setFailure(await saveAppSettings(patch));
 
-  const commitSize = () => {
-    const size = Number(field("fontSize"));
+  const numericFields = [
+    { name: "fontSize", label: copy.fontSize, hint: copy.fontSizeHint },
+    { name: "lineHeight", label: copy.lineHeight, hint: "" },
+    { name: "letterSpacing", label: copy.letterSpacing, hint: "" },
+  ] as const;
 
-    if (field("fontSize").trim() === "" || !Number.isFinite(size) || size < MIN_FONT_SIZE || size > MAX_FONT_SIZE) return setSizeFailure(copy.fontSizeRefusal(MIN_FONT_SIZE, MAX_FONT_SIZE));
+  const validNumber = (name: Numeric) => {
+    const text = field(name);
+    const value = Number(text);
+    const range = terminalRanges[name];
 
-    setSizeFailure(null);
-    commit("fontSize", size);
+    return text.trim() !== "" && Number.isFinite(value) && value >= range.min && value <= range.max ? value : null;
+  };
+
+  const [selectedType, setSelectedType] = createSignal<{ fontFamily?: string; fontWeight?: number }>({});
+
+  const chooseType = async (patch: { fontFamily?: string; fontWeight?: number }) => {
+    setSelectedType(previous => ({ ...previous, ...patch }));
+    const failure = await saveAppSettings(patch);
+    setFailure(failure);
+    setSelectedType(previous => {
+      const remaining = { ...previous };
+
+      if (patch.fontFamily === remaining.fontFamily) delete remaining.fontFamily;
+
+      if (patch.fontWeight === remaining.fontWeight) delete remaining.fontWeight;
+
+      return remaining;
+    });
+  };
+
+  const preview = createMemo((previous: ReturnType<typeof terminalType> | undefined) => {
+    const type = terminalType({ ...appSettings(), ...selectedType() });
+
+    for (const { name } of numericFields) type[name] = validNumber(name) ?? previous?.[name] ?? type[name];
+
+    return type;
+  });
+
+  const commitNumber = (name: Numeric, label: string) => {
+    const value = validNumber(name);
+    const { min, max } = terminalRanges[name];
+    setNumericFailure(previous => ({ ...previous, [name]: value === null ? (name === "fontSize" ? copy.fontSizeRefusal(min, max) : copy.numericRefusal(label, min, max)) : null }));
+
+    if (value !== null && (current(name) || value !== appSettings()[name])) void commit(name, value);
   };
 
   const chooseEngine = (engine: string) => {
@@ -123,26 +190,53 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></Field.Root>
         </Show>
+        <NamingSettings app={props.app} />
         <ReservedLine message={offered()?.failure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
-        <Field.Root class="settings-field settings-font"><div class="settings-caption"><Field.Label>{copy.fontFamily}</Field.Label><Field.HelperText>{copy.fontFamilyHint}</Field.HelperText></div><Field.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
-          onInput={event => edit("fontFamily", event.currentTarget)} onBlur={() => { commit("fontFamily", field("fontFamily")); }}
-          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></Field.Root>
-        <Field.Root class="settings-field" invalid={!!sizeFailure()}><div class="settings-caption"><Field.Label>{copy.fontSize}</Field.Label><Field.HelperText>{copy.fontSizeHint}</Field.HelperText></div><Deferred load={() => import("../ui/NumberInput")} label={copy.fontSize}>{module => <module.NumberInput.Root value={field("fontSize")} min={MIN_FONT_SIZE} max={MAX_FONT_SIZE} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
-          if (Number.isFinite(valueAsNumber) && valueAsNumber >= MIN_FONT_SIZE && valueAsNumber <= MAX_FONT_SIZE) drafts.edit(destination("fontSize"), { text: value }, null, "ordinary");
-        }}><module.NumberInput.Input aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
-          onInput={event => edit("fontSize", event.currentTarget)} onBlur={commitSize}
-          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitSize(); } }} /></module.NumberInput.Root>}</Deferred>
-          <ReservedLine message={sizeFailure()} />
-        </Field.Root>
+        <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
+          choices={[{ value: "", label: copy.fontDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
+          onValueChange={value => chooseType({ fontFamily: value })} />
+        <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck={false} autocorrect="off" autocapitalize="off"
+          onInput={event => edit("fontFamily", event.currentTarget)}
+          onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) void commit("fontFamily", field("fontFamily")); }} /></Field.Root>}</Show>
+        <SegmentGroup label={copy.fontWeight} value={String(appSettings().fontWeight)} segments={[300, 400, 500, 600].map(value => ({ value: String(value), label: String(value) }))}
+          onValueChange={value => { const weight = Number(value);
+
+ if (weight === 300 || weight === 400 || weight === 500 || weight === 600) void chooseType({ fontWeight: weight }); }} />
+        <For each={numericFields}>{({ name, label, hint }) => <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
+          <div class="settings-caption"><Field.Label>{label}</Field.Label><Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show></div>
+          <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
+            const range = terminalRanges[name];
+
+            if (value !== field(name) && value.trim() !== "" && Number.isFinite(valueAsNumber) && valueAsNumber >= range.min && valueAsNumber <= range.max)
+              drafts.edit(destination(name), { text: value, saved: current(name)?.value.saved ?? String(appSettings()[name]) }, null, "ordinary");
+          }}>
+            <module.NumberInput.Input aria-label={label} inputMode="decimal" value={field(name)}
+              onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
+              onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
+          </module.NumberInput.Root>}</Deferred>
+          <ReservedLine message={numericFailure()[name]} />
+        </Field.Root>}</For>
+        <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
-        <Select description={copy.modeHint} label={copy.mode} choices={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
-          onValueChange={mode => { if (mode === "dark" || mode === "light" || mode === "system") save({ mode }); }} />
+        <SegmentGroup description={copy.modeHint} label={copy.mode} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
+          onValueChange={mode => save({ mode })} />
+        <SegmentGroup label={copy.interfaceScale} value={appSettings().interfaceScale} segments={[
+          { value: "small", label: copy.interfaceSmall, content: <span class="settings-scale-small">{copy.interfaceSample}</span> },
+          { value: "default", label: copy.interfaceDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
+          { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
+        ]} onValueChange={interfaceScale => save({ interfaceScale })} />
+        <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
       </SettingsGroup></Tabs.Content>
       <ReservedLine message={failure()} />
+      <ReservedLine message={numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null}>
+        <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <button data-button="quiet" type="button" onClick={() => { const draft = current(name);
+
+ if (draft) void drafts.discard(draft.revision); }}>{copy.discardSettingsEdit(label)}</button>}</For>
+      </ReservedLine>
       <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
       </div></Tabs.Root>
     </SettingsShell>
