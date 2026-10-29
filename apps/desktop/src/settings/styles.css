@@ -280,7 +280,7 @@
   overflow: visible;
 }
 
-.settings-content :is(.ink, .reserved-status) {
+.settings-content .ink[data-kind="error"] {
   white-space: normal;
   overflow: visible;
   overflow-wrap: anywhere;
