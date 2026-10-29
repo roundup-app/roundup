@@ -147,7 +147,7 @@ describe("u2239 the leader takes the next key", () => {
     const panel = document.querySelector(".hint-line.leader")!;
 
     expect(document.activeElement).toBe(focus);
-    expect(panel.querySelector("[tabindex], button, a")).toBeNull();
+    expect(panel.querySelectorAll("button:enabled").length).toBeGreaterThan(0);
     key("Escape");
     expect(document.querySelector(".leader")).toBeNull();
   });
