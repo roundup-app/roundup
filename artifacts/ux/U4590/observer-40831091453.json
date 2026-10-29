@@ -204,12 +204,21 @@
       "command": "loop/rules.sh merge-loss",
       "exit": 0,
       "result": "Clean merge of main; no lost files."
+    },
+    {
+      "command": "just ready (integrated head)",
+      "exit": 1,
+      "result": "All steps pass except the new report image abbreviation rejected by typos. Replaced with images; targeted web scan follows."
+    },
+    {
+      "command": "python3 tools/lint/scan.py web (after the report spelling repair)",
+      "exit": 0,
+      "result": "Affected scan passes; all other integrated readiness steps passed."
     }
   ],
   "remaining": [
     "Repair or isolate the scale-2 production WebGL painting failure and rerun its visual observations; do not treat buffer/receipt success as painting.",
-    "Complete the requested whole-workspace just capture U4590 command without timeout.",
-    "Final integrated just ready result is recorded on the Issue."
+    "Complete the requested whole-workspace just capture U4590 command without timeout."
   ],
-  "artifacts": "All paired PNGs, Check JSON and traces remain under base/head; images/videos are not committed. Main and observed head contain the same Terminal implementation."
+  "artifacts": "All paired images, Check JSON and traces remain under base/head; images/videos are not committed. Main and observed head contain the same Terminal implementation."
 }
