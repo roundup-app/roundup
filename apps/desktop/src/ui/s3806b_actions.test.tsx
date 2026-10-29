@@ -126,10 +126,12 @@ const mountApp = async (capture?: import("../app/seam").CapturePort, empty = fal
   await screen.findByRole("tab", { name: /^first/ });
   fireEvent.click(tab("first"));
   await waitFor(() => expect(original).toBeDefined());
+
   if (!empty) {
     await screen.findByText("ops", { selector: ".name" });
     fireEvent.click(rowOf("ops"));
   }
+
   original!.showView("terminal-tabs");
   await settled();
 
@@ -292,6 +294,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   if (row === WORKSTREAM_ROW) {
     await connected.drafts.edit({ surface: "rail-task", object: path("first"), recipient: null }, { text: " newer\ne\u0301 🧭 " }, null, "ordinary").retained;
     const drafts = connected.drafts.list();
+
     const complete = () => {
       app.handlers["rail.tree"] = () => [workstream("created")];
       app.handlers["rail.startDoor"] = () => workstream("created");
