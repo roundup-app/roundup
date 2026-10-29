@@ -252,6 +252,7 @@ async fn a4665_failed_start_retries_same_request() {
                 );
             } else {
                 assert_ne!(error.code, rpc::code::UNKNOWN_OUTCOME, "{error}");
+                assert!(error.message.contains("claude"), "{error}");
             }
             let failed_launches = launched();
             assert_eq!(failed_launches.len(), if missing_start { 2 } else { 1 });
