@@ -12,6 +12,7 @@ const noFocusRing = stylelint.createPlugin(focusRingRule, () => (root, result) =
           /(?:\[data-scope="(?:field|number-input|date-picker)"\]|\.app-(?:select-trigger|combobox-input|checkbox|switch|radio|dialog-form)|\.(?:import-prompt|note-form))/.test(selector))) return;
 
     if (root.source?.input.file?.endsWith('/apps/desktop/src/ui/Field.css') && declaration.prop === 'outline-offset' && declaration.value === 'var(--stroke-width)') return;
+
     // U4685 allows paint on these region owners only; descendants keep U3528.
     if (root.source?.input.file?.endsWith('/apps/desktop/src/tokens.css') &&
         declaration.parent?.type === 'rule' && declaration.parent.selector ===
