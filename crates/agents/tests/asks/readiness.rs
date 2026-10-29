@@ -32,9 +32,19 @@ while True:
 "#;
 
 async fn until_file(path: &std::path::Path) {
+    use notify::Watcher;
+    let (tx, mut changes) = mpsc::unbounded_channel();
+    let mut watcher = notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+        // The bounded observer may have finished before the watcher callback ends.
+        let _ = tx.send(event);
+    })
+    .unwrap();
+    watcher
+        .watch(path.parent().unwrap(), notify::RecursiveMode::NonRecursive)
+        .unwrap();
     tokio::time::timeout(Duration::from_secs(3), async {
         while !path.exists() {
-            tokio::time::sleep(Duration::from_millis(5)).await;
+            changes.recv().await.unwrap().unwrap();
         }
     })
     .await
