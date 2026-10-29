@@ -132,6 +132,22 @@ export default defineConfig({
           },
         },
         {
+          // Every webview the App ships on reads woff2; KaTeX's woff and ttf fallbacks add ~800 KB to C9c's byte cap.
+          postcssPlugin: "katex-woff2-only",
+          AtRule: {
+            "font-face"(face) {
+              if (!face.source?.input.file?.includes("/katex/")) return;
+
+              face.walkDecls("src", declaration => {
+                const sources = declaration.value.split(/,(?![^(]*\))/).filter(source => source.includes("format(\"woff2\")"));
+
+                if (sources.length === 0) throw declaration.error("KaTeX @font-face has no woff2 source");
+                declaration.value = sources.join(",");
+              });
+            },
+          },
+        },
+        {
           postcssPlugin: "radix-colors-prefers-color-scheme",
           Once(root, { AtRule }) {
             for (const node of [...root.nodes]) {
