@@ -20,25 +20,48 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
   });
 
   it.each([
-    ["Bold", "**word**"],
-    ["Italic", "*word*"],
-    ["Inline code", "`word`"],
-    ["Bullet list", "- word"],
-    ["Numbered list", "1. word"],
-    ["Checklist", "- [ ] word"],
-    ["Quote", "> word"],
-    ["Code block", "```\nword\n```"],
-  ])("u4698b_%s_edits_the_selection_and_saves_markdown", async (name, saved) => {
-    const { app } = await openShelf([padOf("note", USER, "word")]);
+    ["Bold", "**word**", "strong"],
+    ["Italic", "*word*", "em"],
+    ["Inline code", "`word`", "p code"],
+    ["Bullet list", "- word", "ul li"],
+    ["Numbered list", "1. word", "ol li"],
+    ["Checklist", "- [ ] word", "li[data-item-type=task]"],
+    ["Quote", "> word", "blockquote"],
+    ["Code block", "```\nword\n```", "pre code"],
+    ["Link", "[word](https://example.com/)", "a[href=\"https://example.com/\"]"],
+    ["Heading", "# word", "h1"],
+    ["Table", null, "table"],
+  ])("u4698b_toolbar_edits_and_reopens_each_format: Pad %s", async (name, saved, semantic) => {
+    const { app, connected, state } = await openShelf([padOf("note", USER, "word")]);
     const field = await openPad("note");
 
     field.setSelectionRange(1, 5, "forward");
     fireEvent.pointerDown(screen.getByRole("button", { name }));
+    if (name === "Heading") fireEvent.pointerDown(await screen.findByRole("button", { name: "Heading 1" }));
+
+    if (name === "Link") {
+      const input = await screen.findByPlaceholderText("Paste link...");
+      fireEvent.input(input, { target: { value: "https://example.com/" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+    }
+
+    await waitFor(() => expect(field.querySelector(semantic)).not.toBeNull());
     fireEvent.focusOut(field);
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
     // SAFETY: pad.write params carry the saved Markdown as `text`.
-    expect((writes(app.calls)[0]!.params as { text: string }).text.trim()).toBe(saved);
+    const source = (writes(app.calls)[0]!.params as { text: string }).text.trim();
+
+    if (saved) expect(source).toBe(saved);
+    else expect(source).toContain("| --- | --- | --- |");
+
+    await waitFor(() => expect(state.pads[0]?.text.trim()).toBe(source));
+    connected.drawer.close();
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+    const reopened = await openPad("note");
+
+    expect(reopened.querySelector(semantic)).not.toBeNull();
+    expect(reopened.value.trim()).toBe(source);
   });
 
   it("u4698b_read_only_toolbar_cannot_write", async () => {
