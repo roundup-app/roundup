@@ -466,6 +466,10 @@ impl Shared {
         }
         if let (Some(rail), Some(name)) = (rail, first_prompt)
             && !std::mem::replace(&mut run.named, true)
+            && self
+                .automatic_renaming
+                .as_ref()
+                .map_or(Ok(true), |read| read())?
             && let Some(name) = name
             && rail.node(id)?.kind == NodeKind::Agent
         {

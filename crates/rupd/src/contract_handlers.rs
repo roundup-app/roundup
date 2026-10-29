@@ -4,6 +4,32 @@ use rpc::RpcError;
 use serde_json::Value;
 
 impl Daemon {
+    pub(super) async fn rpc_naming(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        if conn.actor.kind != contracts::ActorKind::User {
+            return Err(RpcError::forbidden(
+                "only the user controls global naming preferences",
+            ));
+        }
+        let db = self.naming.lock().expect("naming preferences poisoned");
+        if method == "daemon.getNaming" {
+            return rpc::reply(&crate::data::read_naming(&db).map_err(RpcError::internal)?);
+        }
+        let settings: contracts::project::NamingSettings = rpc::params(params)?;
+        if settings.naming_guide.trim().is_empty() {
+            return Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                "Enter a naming guide before saving.",
+            ));
+        }
+        crate::data::write_naming(&db, &settings).map_err(RpcError::internal)?;
+        rpc::reply(&())
+    }
+
     pub(super) async fn rpc_builtin(
         &self,
         conn: &mut Conn,
