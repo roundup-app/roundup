@@ -98,15 +98,21 @@ impl RpcError {
         }
     }
 
-    pub fn undo_identity(id: impl Into<String>, name: impl Into<String>) -> Self {
+    /// `removable`: the Daemon authorizes the caller's removal action for the blocking item.
+    pub fn undo_identity(id: impl Into<String>, name: impl Into<String>, removable: bool) -> Self {
         let name = name.into();
+        let next = if removable {
+            "Remove that item before trying Undo again."
+        } else {
+            "This Undo cannot currently be completed; the deletion is retained."
+        };
         Self {
             data: Some(contracts::RpcErrorData::UndoIdentity {
                 id: id.into(),
                 name: name.clone(),
             }),
             ..Self::conflict(format!(
-                "Can't undo: \"{name}\" already occupies the removed item's identity. Remove that item before trying Undo again."
+                "Can't undo: \"{name}\" already occupies the removed item's identity. {next}"
             ))
         }
     }
@@ -145,6 +151,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn u3787j_occupied_identity_refusal_matches_removal_authority() {
+        for (removable, expected) in [
+            (
+                true,
+                "Can't undo: \"Research\" already occupies the removed item's identity. Remove that item before trying Undo again.",
+            ),
+            (
+                false,
+                "Can't undo: \"Research\" already occupies the removed item's identity. This Undo cannot currently be completed; the deletion is retained.",
+            ),
+        ] {
+            assert_eq!(
+                RpcError::undo_identity("8", "Research", removable).message,
+                expected
+            );
+        }
+    }
+
+    #[test]
     fn u3787a_undo_refusal_names_cause_and_recovery() {
         for (error, expected) in [
             (
@@ -152,7 +177,7 @@ mod tests {
                 "Can't undo: \"Planning\" was removed too. Undo that first.",
             ),
             (
-                RpcError::undo_identity("8", "Research"),
+                RpcError::undo_identity("8", "Research", true),
                 "Can't undo: \"Research\" already occupies the removed item's identity. Remove that item before trying Undo again.",
             ),
             (
