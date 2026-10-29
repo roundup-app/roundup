@@ -123,7 +123,10 @@ async fn u4547e_reparenting_survives_reopen() {
             .await
             .unwrap()
             .unwrap();
-        let tools = client.list_all_tools().await.unwrap();
+        let tools = tokio::time::timeout(Duration::from_secs(30), client.list_all_tools())
+            .await
+            .unwrap()
+            .unwrap();
         retained.push((child, client, settings, tools));
     }
     let old_socket = project.socket().to_owned();
@@ -171,7 +174,10 @@ async fn u4547e_reparenting_survives_reopen() {
     }
     for (_child, client, settings, tools) in &retained {
         assert_eq!(
-            client.list_all_tools().await.unwrap(),
+            tokio::time::timeout(Duration::from_secs(30), client.list_all_tools())
+                .await
+                .unwrap()
+                .unwrap(),
             *tools,
             "stable vendor tool list"
         );
@@ -235,6 +241,12 @@ async fn u4547e_reparenting_survives_reopen() {
         2
     );
     assert!(!inputs.exists(), "move and reopen type no prompt");
+    for (mut child, ..) in retained {
+        tokio::time::timeout(Duration::from_secs(5), child.kill())
+            .await
+            .unwrap()
+            .unwrap();
+    }
 }
 
 /// D1/D5/S3, A12a: App exit stops independently owned programs, including recovered ones.
