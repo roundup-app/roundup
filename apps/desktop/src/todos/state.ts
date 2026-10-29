@@ -13,6 +13,8 @@ export type TodosState = {
   reload: () => Promise<void>;
   /** The Project's Todos as `todo.list` last answered. */
   all: Accessor<readonly Todo[]>;
+  /** Visible Capture feedback, excluded from all item actions until acknowledged. */
+  pending: Accessor<readonly Todo[]>;
   /** Every Todo by id, rebuilt once per change of the list, so a row finds its blockers without scanning. */
   byId: Accessor<ReadonlyMap<number, Todo>>;
   /** Accepted Project Hand-offs in Change.seq order; null means pending/failed, [] means none. */
@@ -110,8 +112,8 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     return () => setPending((rows) => rows.filter((row) => row !== todo));
   };
 
-  const all = () => pending().length === 0 ? shelf.todos : [...shelf.todos, ...pending()];
+  const all = () => shelf.todos;
   const byId = createMemo(() => new Map(all().map((todo) => [todo.id, todo])));
 
-  return { project, reload, all, show, revealed, byId, handed, handedFailure, failure, isLoaded };
+  return { project, reload, all, pending, show, revealed, byId, handed, handedFailure, failure, isLoaded };
 };
