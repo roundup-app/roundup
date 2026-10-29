@@ -656,9 +656,12 @@ it.each(["close", "minimise", "Escape"])("u4590_preparing_shell_cancels_with_%s"
 // U4590's opt-in policy observer; the single startup guard above remains the CI guard.
 for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-40", "bubbles"]) for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
   it.skipIf(!captureDir("U4590"))(`u4590_rendered_lifecycle_${renderer}_${seed}_${base ? "base" : "head"}`, async () => {
-      await browser("open", url("/src/ui/u498.html", base));
-      await read("localStorage.clear(); sessionStorage.clear()");
       const scale = process.env.U4590_SCALE === "2" ? 2 : 1;
+      // Chromium's device-pixel ResizeObserver uses the physical scale even with an emulated DPR.
+      // Match both at launch so xterm's canvas and viewport use the same device pixels.
+      await browser("close");
+      await browser("--args", `--force-device-scale-factor=${scale}`, "open", url("/src/ui/u498.html", base));
+      await read("localStorage.clear(); sessionStorage.clear()");
 
       await load(seed, base, renderer, scale);
       let id = seed === "agents-10" ? "t-agent-3" : seed === "tree-40" ? "t-payments" : "t-runner";
@@ -687,6 +690,19 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         // emulator.ts schedules xterm painting after the subscription's parse callback.
         await read("new Promise(resolve => requestAnimationFrame(resolve))");
 
+        const pixels = await read(`new Promise(resolve => {
+          const canvas = document.querySelector('.bubble[data-bubble="${id}"]:not([hidden]) .xterm-screen canvas:not(.xterm-link-layer)')
+            ?? document.querySelector('.pane-screen .xterm-screen canvas:not(.xterm-link-layer)');
+          if (!canvas) { resolve(null); return; }
+          const observer = new ResizeObserver(([entry]) => {
+            observer.disconnect();
+            resolve({ canvas: { width: canvas.width, height: canvas.height },
+              css: entry.contentRect.toJSON(), device: entry.devicePixelContentBoxSize?.[0]?.toJSON?.()
+                ?? { inlineSize: entry.devicePixelContentBoxSize?.[0]?.inlineSize, blockSize: entry.devicePixelContentBoxSize?.[0]?.blockSize } });
+          });
+          observer.observe(canvas, { box: 'device-pixel-content-box' });
+        })`);
+
         const record = await read(`(() => {
           const emulator = window.__terminals.get('${id}');
           const bubble = document.querySelector('.bubble[data-bubble="${id}"]:not([hidden]) .bubble-body');
@@ -701,7 +717,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         })()`);
 
         const name = `${seed}-${renderer}-${step}${scale === 2 ? "-scale2" : ""}`;
-        writeFileSync(join(dir, `${name}.trace.json`), JSON.stringify({ commit, seed, step, requestedRenderer: renderer, record }, null, 2));
+        writeFileSync(join(dir, `${name}.trace.json`), JSON.stringify({ commit, seed, step, requestedRenderer: renderer, physicalScale: scale, pixels, record }, null, 2));
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
         await browser("screenshot", join(dir, `${name}.png`));
       };
