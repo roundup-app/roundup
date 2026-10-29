@@ -11,6 +11,8 @@ const output = captureDir("U4698b");
 it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: 90_000 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
 
+  await browser("set", "viewport", "1512", "950");
+
   if (output) {
     mkdirSync(output, { recursive: true });
     await browser("record", "start", join(output, "reading.webm"));
@@ -34,6 +36,14 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
   await browser("press", "Enter");
   await browser("wait", ".drawer .ProseMirror");
   await settle();
+
+  if (output) {
+    await browser("click", '.drawer [aria-label="Restore"]');
+    await settle();
+    await browser("click", '.drawer [aria-label="Maximise"]');
+    await settle();
+    await browser("record", "stop");
+  }
 
   for (const [width, height] of [[1512, 950], [1280, 820]]) {
     await browser("set", "viewport", String(width), String(height));
@@ -69,6 +79,5 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
     await settle();
     await browser("screenshot", join(output, "save-failure-1280.png"));
-    await browser("record", "stop");
   }
 });
