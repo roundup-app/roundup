@@ -301,3 +301,37 @@ async fn a4688a_persisted_off_governs_the_first_prompt_after_daemon_restart() {
         .unwrap();
     assert_eq!(context["self"]["name"], node["name"]);
 }
+
+#[tokio::test]
+async fn a4688a_a_vendor_process_cannot_claim_the_users_naming_authority() {
+    let mut run = Run::open(1, false).await;
+    // The request originates in the launched vendor process, rather than a test client
+    // which merely identifies as an Agent. Its default wire identity is the user.
+    let probe = r#"
+conn = socket.socket(socket.AF_UNIX)
+conn.connect(os.environ['RUPD_SOCKET'])
+conn.sendall((json.dumps({'id':4688,'method':'daemon.setNaming','params':{'automaticRenaming':False,'namingGuide':'Replace names'}}) + '\n').encode())
+reply = json.loads(conn.makefile().readline())
+json.dump(reply, open(here + '/naming-refusal.json', 'w'))
+conn.close()
+"#;
+    std::fs::write(
+        run.dir.path().join("claude"),
+        FAKE.replace(
+            "print('READY', flush=True)",
+            &format!("{probe}\nprint('READY', flush=True)"),
+        ),
+    )
+    .unwrap();
+    run.spawn().await;
+    let reply: Value =
+        serde_json::from_slice(&std::fs::read(run.dir.path().join("naming-refusal.json")).unwrap())
+            .unwrap();
+    assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN);
+    let saved = run
+        .user
+        .request("daemon.getNaming", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(saved["automaticRenaming"], true);
+}
