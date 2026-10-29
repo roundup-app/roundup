@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { afterEach, expect, test } from "vitest";
-import { captureDir, readCapture } from "./captures";
+import { captureDir, readCapture, captureTests } from "./captures";
 
 const named = (value: string | undefined) => {
   if (value === undefined) delete process.env.ROUNDUP_CAPTURES;
@@ -132,4 +132,28 @@ test("u453_committed_capture_reads_do_not_enable_writes", () => {
   named(undefined);
   expect(readCapture("U453", "base/first-run-1280x800-light-rest.checks.json")).toContain("1280x800");
   expect(captureDir("U453")).toBeNull();
+});
+
+// U4590: selection is observed before Vitest starts any App/browser setup.
+test("u4590_capture_selection_keeps_all_policy_observers_and_guards", () => {
+  expect(captureTests("U4590")).toEqual([
+    "src/terminal/u3517_browser.test.ts",
+    "src/terminal/u4590_preparation.test.tsx",
+    "src/terminal/u59_real_daemon.test.ts",
+    "src/testing/u463_real_daemon.test.ts",
+  ]);
+});
+
+test("u4590_capture_selection_leaves_ordinary_discovery_unchanged", () => {
+  expect(captureTests(undefined)).toBeUndefined();
+});
+
+test.each(["", "U999999", "U4590, U999999"])("u4590_capture_selection_refuses_unsupported_ids_%s", selection => {
+  expect(() => captureTests(selection)).toThrow(selection.includes("U999999") ? "U999999" : "empty");
+});
+
+test("u4590_capture_selection_unions_existing_observers_once", () => {
+  expect(captureTests("U4590, U3707, U4590")).toEqual([
+    ...captureTests("U4590")!, "src/terminal/u3707_browser.test.ts",
+  ]);
 });
