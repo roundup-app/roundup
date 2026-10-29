@@ -6,15 +6,16 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { queueFocus } from "../keys/focus";
+import type { RailMenuModel } from "./menu/model";
 import { ReservedLine } from "../ink/ReservedLine";
 
 /** A4452c: the row menu captures the Workstream independently of the selected Todo scope. */
-export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
+export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["restartSession"]>; id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
   const connected = useConnectedProject();
   const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "workstream" && node.id === props.id));
   const [failure, setFailure] = createSignal<string | null>(null);
   const [restarting, setRestarting] = createSignal(false);
-  const [restartRequest, setRestartRequest] = createSignal<string | null>(null);
+  const [restartFailed, setRestartFailed] = createSignal(false);
   const { drafts } = connected;
   drafts.validate("opening-prompt", v.strictObject({ text: v.string(), base: v.optional(v.string()) }));
   drafts.registerRecovery("opening-prompt", (draft, facts) => facts.rail.nodes.some(node => node.kind === "workstream" && node.id === draft.destination.object) ? "available" : "unavailable");
@@ -65,12 +66,14 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
 
     try {
       if (!await save()) return;
-      const request = restartRequest() ?? crypto.randomUUID();
-      setRestartRequest(request);
-      await connected.app.rpc("workstream.restart", { id: props.id, request });
-      await connected.rail.refresh();
-      setRestartRequest(null);
-      setFailure(null);
+      const result = await props.restart();
+
+      if (result.kind === "pending") return;
+      const failed = "message" in result;
+      setRestartFailed(failed);
+      setFailure(failed ? result.message : null);
+
+      if (failed) connected.rail.commandFailure.clear();
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setFailure(error.message);
@@ -89,7 +92,7 @@ export const OpeningPrompt = (props: { id: string; onClose: () => void; finalFoc
         <Field.HelperText>{copy.openingPromptHint}</Field.HelperText>
       </Field.Root>
       <Show when={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.opening_prompt ?? "")}><ReservedLine status={copy.openingPromptConflict} /></Show>
-      <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void (restartRequest() ? restart() : save())}>{copy.retry}</button></ReservedLine>
+      <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void (restartFailed() ? restart() : save())}>{copy.retry}</button></ReservedLine>
       <div class="app-dialog-actions">
         <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restartSession}</button>
         <Dialog.CloseTrigger data-button="quiet" class="word">{copy.close}</Dialog.CloseTrigger>
