@@ -56,7 +56,7 @@
     "status": "pass",
     "value": {
       "extension": {
-        "controls": 156,
+        "controls": 185,
         "feedback": "instant Token recipe; frame readings in paired observer"
       },
       "original": {
@@ -73,7 +73,7 @@
     "selector": "",
     "status": "pass",
     "value": {
-      "targets": 157
+      "targets": 186
     }
   },
   "D7": {
@@ -85,7 +85,7 @@
         "rows": 32
       },
       "original": {
-        "targets": 152
+        "targets": 181
       }
     }
   },

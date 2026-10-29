@@ -270,12 +270,16 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
       const app = createServedApp(location.origin);
       window.__dv6 = { choice: 'copy-link', copied: [], menus: [] };
       app.showContextMenu = async entries => { window.__dv6.menus.push(entries); return window.__dv6.choice; };
-      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__dv6.copied.push(text); } } });
+      app.writeClipboardText = async text => { window.__dv6.copied.push(text); };
       const root = document.createElement('div');
       root.id = 'root';
       document.body.replaceChildren(root);
       render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0 }), root);
+      window.__dv6.projectMenu = (await import('/src/testing/menuProbe.ts')).projectMenu;
     })()`);
+    // Deliver the native menu's published action through the host event seam.
+    await browser("wait", "--fn", "window.__dv6.projectMenu.items.some(item => item.id === 'view:made' && item.enabled)");
+    await evaluate("window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:window.__dv6.projectMenu.path,command:'view:made'}}))");
     await browser("wait", "--fn", "document.querySelectorAll('.made-row').length === 13");
     const row = `.made-row[data-deliverable="${record.id}"]`;
     await evaluate(`document.querySelector(${JSON.stringify(row)}).scrollIntoView({ block: 'center' })`);

@@ -192,7 +192,7 @@ export const Inbox = () => {
       <Show when={selectedText() !== ""}><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></Show>
     </div>
     <ReservedLine message={copyFailure() ?? failure()}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
-    <Show when={loaded() && total() === 0 && !failure() && !copyFailure()}><EmptyState art="talk" {...{ title: copy.inboxEmpty }} line={copy.emptyInboxLine} /></Show>
+    <Show when={loaded() && total() === 0 && !failure() && !copyFailure()}><EmptyState art="laying" {...{ title: copy.inboxEmpty }} line={copy.emptyInboxLine} /></Show>
     <Show when={needsCount() > 0 || needsKeys().length > 0}>
       <section class="inbox-group" aria-label={copy.needsYou}>
         {sectionTitle(copy.needsYou, needsCount, true)}

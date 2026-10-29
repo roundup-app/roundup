@@ -807,7 +807,7 @@ export const Todos = (props: {
       </ScopeAction>
       <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} />
       <Show when={isEmpty() && !typing() && !todos.failure() && !createFailure()}>
-        <EmptyState art="check" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
+        <EmptyState art="running" {...{ title: copy.noTodosYet }} line={copy.emptyTodosLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addTodoWord}</button>} />
       </Show>
       <Show when={listed().length > 0}>
         <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={revealed} focus={() => requestedOpen()[0] ? groupOf(requestedOpen()[0]!) : null} focusItem={() => rowButtonOf(requestedOpen()[0]?.id ?? -1)} onFocused={connected.finishPadsRequest} arrivals={requestedGroups} unfold={() => filed() + todos.revealed()}>{group => {

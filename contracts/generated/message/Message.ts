@@ -18,6 +18,4 @@ export type Message = {
 	status: message$MessageStatus.MessageStatus,
 	reason: message$Reason.Reason | null,
 	at: number,
-	/**  A32: the Iteration of the Door a `message.list {id}` answer was made for; absent elsewhere. */
-	iteration?: number,
 };
