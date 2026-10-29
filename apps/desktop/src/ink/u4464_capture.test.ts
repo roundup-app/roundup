@@ -35,7 +35,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
   const snap = async (name: string) => {
     await browser("screenshot", join(dir, `${name}.png`));
     const observation = await read(`({ revision: ${JSON.stringify(revision)}, checks: window.__checks(), empty: [...document.querySelectorAll('.empty-state')].map(el => ({name: el.querySelector('h3')?.textContent, artHidden: el.querySelector('.empty-state-art')?.getAttribute('aria-hidden')})), failures: [...document.querySelectorAll('[role=alert]')].map(el => el.textContent) })`);
-    const palette = await read(`(() => { const root = getComputedStyle(document.documentElement); const tokens = Object.fromEntries(['accent','ground','sunken','selected','selected-hover','button-accent-fill','button-accent-ink','button-key-ink','text-selection','text-selection-ink','doodle-line','doodle-patch','doodle-offset','doodle-blend'].map(name => [name, root.getPropertyValue('--'+name).trim()])); return {increasedContrast:matchMedia('(prefers-contrast: more)').matches,tokens,buttons:[...document.querySelectorAll('.empty-state button')].map(el => ({label:el.textContent,ink:getComputedStyle(el).color,fill:getComputedStyle(el).backgroundColor,key:el.querySelector('kbd') ? getComputedStyle(el.querySelector('kbd')).color : null})),selection:{fill:getComputedStyle(document.body,'::selection').backgroundColor,ink:getComputedStyle(document.body,'::selection').color},formRings:[...document.querySelectorAll('.app-combobox-input,[data-scope="field"][data-part="input"]')].map(el => ({ink:getComputedStyle(el).outlineColor,ground:getComputedStyle(el).backgroundColor}))}; })()`);
+    const palette = await read(`(() => { const root = getComputedStyle(document.documentElement); const tokens = Object.fromEntries(['accent','ground','sunken','selected','selected-hover','button-accent-fill','button-accent-ink','button-key-ink','text-selection','text-selection-ink','doodle-line','doodle-patch','doodle-offset','doodle-blend'].map(name => [name, root.getPropertyValue('--'+name).trim()])); return {increasedContrast:matchMedia('(prefers-contrast: more)').matches,tokens,buttons:[...document.querySelectorAll('.empty-state button')].map(el => ({label:el.textContent,ink:getComputedStyle(el).color,fill:getComputedStyle(el).backgroundColor,key:el.querySelector('kbd') ? getComputedStyle(el.querySelector('kbd')).color : null})),selection:{fill:getComputedStyle(document.body,'::selection').backgroundColor,ink:getComputedStyle(document.body,'::selection').color},formRings:[...document.querySelectorAll('.app-select-trigger,.app-combobox-input,[data-scope="field"][data-part="input"]')].map(el => ({ink:getComputedStyle(el).outlineColor,ground:getComputedStyle(el).backgroundColor}))}; })()`);
     writeFileSync(join(dir, `${name}.palette.json`), JSON.stringify(palette, null, 2));
     writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(observation.checks, null, 2));
     writeFileSync(join(dir, `${name}.observation.json`), JSON.stringify(observation, null, 2));
@@ -114,9 +114,9 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
       await load("empty-project");
       await browser("press", "Meta+Comma");
-      await wait(`!!document.querySelector('.app-combobox-input')`);
-      await browser("focus", '.app-combobox-input');
-      await wait(`document.activeElement.matches('.app-combobox-input:focus-visible')`);
+      await wait(`!!document.querySelector('.app-select-trigger')`);
+      await browser("focus", '.app-select-trigger');
+      await wait(`document.activeElement.matches('.app-select-trigger:focus-visible')`);
       await snap(`${theme}-form-ring`);
     }
   } finally {
