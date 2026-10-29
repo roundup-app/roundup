@@ -4,7 +4,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, SystemAccent, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -44,7 +44,6 @@ const emptyReads: Handlers = {
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
 export type FakeApp = AppSeam & {
-  setSystemAccent(accent: SystemAccent): void;
   nativeOpen(request: NativeOpen): void;
   questions: NativeQuestion[];
   removalQuestions: RemovalQuestion[];
@@ -121,7 +120,6 @@ const folderOf = (path: string): string => path.split("/").pop() ?? path;
 
 export const createFakeApp = (): FakeApp => {
   const nativeListeners = new Set<(request: NativeOpen) => void>();
-  const accentListeners = new Set<(accent: SystemAccent) => void>();
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const live = new Map<string, FakeOutputSubscription>();
   const exitListeners = new Set<(exit: DaemonExited) => void>();
@@ -142,13 +140,6 @@ export const createFakeApp = (): FakeApp => {
       return () => { nativeListeners.delete(listener); };
     },
     nativeOpen: request => nativeListeners.forEach(listener => listener(request)),
-    onSystemAccent: async listener => {
-      accentListeners.add(listener);
-      listener(null);
-
-      return () => { accentListeners.delete(listener); };
-    },
-    setSystemAccent: accent => accentListeners.forEach(listener => listener(accent)),
     calls: [],
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },

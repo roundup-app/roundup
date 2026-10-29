@@ -96,7 +96,6 @@
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2540c_rejection_and_unknown_acceptance_preserve_notes","identity":"72f4cc0cfb09ba9ea28a0b14ba20ad4d7997f5e6f57b4bab7c665aca05abe6e1"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2540c_rejection_and_unknown_acceptance_preserve_notes","identity":"0529015c1638e49cf4d48275a2558b55f68215aed0a0b6a2faeb02df0e6e36ad"}
 {"file":"apps/desktop/src/changes/u2540c_send.test.tsx","test":"u2773b_changes_pending_reload_reconciles_without_resending","identity":"32f3b7b94871c72c99da6105f14654170da873e75ef1c595f7b8285fdf14ff68"}
-{"file":"apps/desktop/src/copy.test.ts","test":"u471_action_labels_describe_the_existing_action_retry_supervisor","identity":"2c98d1bf38b9ca791006f7174c4dc354b08f1ba45868a1b84fd61e9b9d69c3e2"}
 {"file":"apps/desktop/src/drawer/u430_browser.test.py","test":"main","identity":"3288f6d5da1c159a3f31caae45ad8950f79acd6ed776ae5e1fd5026d32d8322a"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_the_drawer_shows_a_light_close_word_that_closes_it","identity":"d9f39510e74ffc740ff85e4259d88ea64fe9e2e93c29ba1a0a82e0dd16283aae"}
 {"file":"apps/desktop/src/drawer/u5_drawer.test.tsx","test":"u5 Drawer and last touch > u5_a_closed_drawer_unmounts_its_content_at_once_under_reduced_motion","identity":"b8cd6c6f8d3b6b5ed71c7820273d499d391fe8228552ab38fdcb4d2fcffa84b4"}
@@ -315,7 +314,6 @@
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_add_keeps_its_path","identity":"058ee5b3c74df7930aacd7a0efe7824b7d3b69ac87859a8eb0caf40de2bf94ee"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_add_keeps_its_path","identity":"1274d269781f49d20f40d7cd358acef49343ef4d7ac1b73c46b709c86509d00d"}
 {"file":"apps/desktop/src/shelf/u460_project.test.tsx","test":"u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf","identity":"190aede7b2010045991e35c63656ddb2453ebfe21938f97990a1e7c91d10f12f"}
-{"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572b_actions_share_key_behavior_in_the_opening_view: rejected Terminal %s","identity":"d2191d3b6f5fbd6fc5e78a3d44ceecb2b6cfa36d20d5548c58b9b3b06b76ec43"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending","identity":"fc6dcd68ee23e2c7f00a6e147c3fb2c0f66a0fa9b67808b045cfa9876384318a"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending","identity":"2016467997b2bd0630149bfbd7223bfa191ce90cb9efb698e059098466fa44fa"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream","identity":"bbfebd0880b738782f784e166ae02f8606b58e838295b534816d2c2481cafbed"}

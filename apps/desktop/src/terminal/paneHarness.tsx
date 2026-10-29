@@ -48,6 +48,10 @@ export const fakeEmulators = () => {
     let screenEl: HTMLElement | null = null;
 
     const emulator: FakeEmulator = {
+      bind: next => { made.delete(id); id = next; made.set(id, emulator);
+
+ if (screenEl) { screenEl.textContent = id; screenEl.dataset.terminal = id; } },
+      prepare: async host => emulator.show(host, false),
       written: [],
       host: null,
       size: { cols: 100, rows: 30 },

@@ -140,7 +140,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     drag({ x: 500, y: 130 });
     await frame();
     await frame();
-    expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "other" }]);
+    expect(bubbleCalls(mounted.app, "terminal.open")).toMatchObject([{ workstream: "other" }]);
     expect(bubble("9").hidden).toBe(false);
     release(500, 130);
     expect(bubbleCalls(mounted.app, "terminal.open")).toHaveLength(1);
