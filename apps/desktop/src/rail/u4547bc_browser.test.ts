@@ -47,7 +47,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
     return true;
   })()`);
   await lane.until("document.querySelectorAll('.mode-mark').length === 2");
-  await lane.browser("click", '.rail-row:not(:has(.mode-mark))');
+  await lane.browser("click", '.rail-row[data-id="backend"]');
   await lane.browser("hover", '[aria-label="New Mode"]');
   await lane.capture("U4547b", "mode-names-at-rest");
   await lane.browser("hover", '.rail-row[data-id="' + id + '"]');
