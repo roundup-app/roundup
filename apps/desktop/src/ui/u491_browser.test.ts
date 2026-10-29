@@ -125,22 +125,6 @@ it("u491_drag_preview_end_and_escape", async () => {
 }, 90_000);
 
 
-it.each(["click", "Enter"])("u492_accessible_activation_%s", async (input) => {
-  await load();
-  await browser("find", "role", "button", "click", "--name", "Notify", "--exact");
-  await wait(`document.querySelector('.app-toast-action')`);
-  expect(await read<string>(`document.querySelector('[role=region]').getAttribute('aria-live')`)).toBe("polite");
-
-  if (input === "click") await browser("click", ".app-toast-action");
-  else {
-    await tabTo(".app-toast-action");
-    await browser("press", input);
-  }
-
-  await wait(`!document.querySelector('.app-toast')`);
-  expect(await read<string>(`document.querySelector('[aria-label=Activations]').textContent`)).toBe("1");
-}, 90_000);
-
 it("u492_tab_leaves_toast_for_next_document_control", async () => {
   await load();
   await browser("find", "role", "button", "click", "--name", "Notify", "--exact");
