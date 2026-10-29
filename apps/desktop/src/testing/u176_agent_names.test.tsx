@@ -91,7 +91,7 @@ describe("u2773 Rail task destinations", () => {
     // Keep real Project authorities, but give each probe fresh objects and no prior Agents.
     for (const source of [left, right]) {
       for (const node of await source.rpc("rail.tree", null)) {
-        if (node.kind === "workstream" && node.parent === null) await source.rpc("rail.remove", { id: node.id });
+        if (node.kind === "workstream" && node.parent === null) await source.rpc("rail.remove", { id: node.id, scope: "all" });
       }
     }
 
