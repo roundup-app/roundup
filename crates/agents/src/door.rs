@@ -106,7 +106,7 @@ impl Agents {
                         Some(Slot::Running(run))
                             if run.attempt == attempt && !run.ended && !run.closing =>
                         {
-                            if run.session_started
+                            if run.session_started.is_some()
                                 && !run.first_pending
                                 && run
                                     .adapter
@@ -146,6 +146,8 @@ impl Agents {
     }
 
     /// A4452c: start a fresh conversation and await SessionStart within `bound`.
+    /// A4665: a failed start is retryable only after no launched program remains;
+    /// unconfirmed cleanup returns UNKNOWN_OUTCOME to keep the coordinator's fence.
     pub async fn restart_door(
         &self,
         ctx: &Ctx,
@@ -162,16 +164,32 @@ impl Agents {
             cols: None,
             rows: None,
         };
-        let node = self
+        // A failed launch can have crossed the program boundary before its Rail attachment
+        // failed. Only an authoritative Terminal snapshot can rule out that orphan.
+        let before = self.shared.terminals.list();
+        let node = match self
             .start_door_with(ctx, params, Some(String::new()), true)
-            .await?;
+            .await
+        {
+            Ok(node) => node,
+            Err(error) => {
+                if self.shared.terminals.list().iter().any(|terminal| {
+                    terminal.running && !before.iter().any(|old| old.id == terminal.id)
+                }) {
+                    return Err(RpcError::unknown_outcome(format!(
+                        "{error}; fresh Door cleanup is not confirmed"
+                    )));
+                }
+                return Err(error);
+            }
+        };
         let attempt = node.attempt.clone().unwrap_or_default();
         let started = async {
             loop {
                 let observed = self.shared.events.observed.notified();
                 let seen = matches!(
                     self.shared.runs().get(id),
-                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started
+                    Some(Slot::Running(run)) if run.attempt == attempt && run.session_started.is_some()
                 );
                 if seen {
                     return;
@@ -180,16 +198,25 @@ impl Agents {
             }
         };
         if tokio::time::timeout(bound, started).await.is_err() {
-            report_undo(
-                "stop a Door that never started",
-                self.shared.stop(ctx.actor.clone(), id).await,
-            );
-            return Err(RpcError::conflict(format!(
-                "{id}: no SessionStart within {}s",
-                bound.as_secs()
-            )));
+            let cause = format!("{id}: no SessionStart within {}s", bound.as_secs());
+            let cleanup = self
+                .shared
+                .stop(ctx.actor.clone(), id)
+                .await
+                .and_then(|()| {
+                    let terminal = node.terminal_id.as_deref().ok_or_else(|| {
+                        RpcError::unknown_outcome("fresh Door Terminal is unknown")
+                    })?;
+                    self.shared.confirm_terminal_exit(terminal)
+                });
+            if let Err(error) = cleanup {
+                return Err(RpcError::unknown_outcome(format!("{cause}; {error}")));
+            }
+            return Err(RpcError::conflict(cause));
         }
-        self.shared.node(id)
+        self.shared.node(id).map_err(|error| {
+            RpcError::unknown_outcome(format!("fresh Door started but could not be read: {error}"))
+        })
     }
 
     /// A7: start a Workstream's Door. A23: a Door with A21 data resumes that conversation exactly as
