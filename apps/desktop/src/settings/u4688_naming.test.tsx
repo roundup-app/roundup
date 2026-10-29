@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 const saved = { automaticRenaming: true, namingGuide: "role-verb-object" };
 const mount = async (app = createFakeApp(), project: string | null = null) => {
   app.handlers["daemon.getNaming"] = () => ({ ...saved });
-  app.handlers["daemon.setNaming"] ??= params => { Object.assign(saved, params); return null; };
+  app.handlers["daemon.setNaming"] = params => { Object.assign(saved, params); return null; };
   render(() => <AppSettings app={app} project={() => project} />);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
