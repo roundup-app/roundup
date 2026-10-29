@@ -362,13 +362,11 @@ export const Bubbles = (props: {
   const openTerminal = async (current = () => true, focus = true, home = terminalOwner()): Promise<string | null> => {
     const workstream = home;
     const selection = rail.selected();
-
     if (opening() || readOnly()) return null;
-
+    const opener = document.activeElement;
     let focusReturn = captureFocus(true);
     setOpeningSelection(selection);
     setOpening(true);
-
     const key = crypto.randomUUID();
     const destination = Promise.withResolvers<{ host: HTMLElement; settled: () => boolean }>();
     const controller = new AbortController();
@@ -376,61 +374,61 @@ export const Bubbles = (props: {
     destinations.set(key, destination.resolve);
     setReserved(prior => ({ ...prior, [key]: null }));
     let prepared: Awaited<ReturnType<Screens["prepare"]>> | undefined;
-
+    const cancelled = () => {
+      const host = bubbleElement(key);
+      const restore = focus && rail.selected() === selection && host?.contains(document.activeElement);
+      setPlace(key, { ...placeOf(key), min: true });
+      if (restore) captureFocus(true)(() => {
+        if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) opener.focus();
+        else document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
+      });
+    };
+    controller.signal.addEventListener("abort", cancelled, { once: true });
     try {
       const { host, settled } = await destination.promise;
-
       if (focus && focusReturn(() => host.closest(".bubble")?.querySelector<HTMLElement>(".bubble-controls button")?.focus({ preventScroll: true }))) focusReturn = captureFocus();
-
       prepared = await props.screens.prepare(host, settled, controller.signal);
-
       if (!current() || rail.selected() !== selection) return null;
       const opened = await app.rpc("terminal.open", { workstream, ...prepared.size });
+      if (controller.signal.aborted) {
+        await app.rpc("terminal.close", { id: opened.terminal_id });
+        await rail.refresh({ terminals: true });
+        return null;
+      }
       prepared.bind(opened.terminal_id);
       setPlaces(prior => ({ ...prior, [opened.terminal_id]: placeOf(key) }));
-
       const available = () => !controller.signal.aborted && current() && rail.selected() === selection;
-
       if (available()) {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
-
         if (selection !== null && (workstream === null || resolvedWorkstream(rail.nodes, selection) !== workstream)) setOpenedHere(prior => [...prior, opened.terminal_id]);
-
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
       setReserved(prior => ({ ...prior, [key]: opened.terminal_id }));
-
       if (available() && focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
-
       if (available()) {
         if (!focus) show(opened.terminal_id);
       } else {
         setWanted(prior => prior?.id === opened.terminal_id ? null : prior);
         setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       }
-
       return opened.terminal_id;
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
-
       if (!controller.signal.aborted) setFailure({ message: thrown.message, terminal: null });
-
       return null;
     } finally {
       if (openingController === controller) openingController = undefined;
+      controller.signal.removeEventListener("abort", cancelled);
       controller.abort();
       prepared?.dispose();
       destinations.delete(key);
-
       if (reserved()[key] === null) setReserved(prior => {
         const next = { ...prior };
         delete next[key];
-
         return next;
       });
       setOpening(false);
-
       if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
