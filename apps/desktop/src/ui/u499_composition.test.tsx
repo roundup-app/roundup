@@ -21,14 +21,14 @@ it("u499_controlled_selection", async () => {
   fireEvent.click(screen.getByRole("tab", { name: "Pads" }));
   await waitFor(() => expect(Number(screen.getByLabelText("Requests").textContent?.split(":")[0])).toBe(1));
   expect(screen.getByRole("tab", { name: "Todos" }).getAttribute("aria-selected")).toBe("true");
-  expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Todos" }).id]);
+  await waitFor(() => expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Todos" }).id]));
   fireEvent.click(screen.getByRole("button", { name: "Accept" }));
   await waitFor(() => expect(screen.getByRole("tab", { name: "Pads" }).getAttribute("aria-selected")).toBe("true"));
-  expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Pads" }).id]);
+  await waitFor(() => expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Pads" }).id]));
   fireEvent.click(screen.getByRole("button", { name: "External Todos" }));
   await waitFor(() => expect(screen.getByRole("tab", { name: "Todos" }).getAttribute("aria-selected")).toBe("true"));
   expect(screen.getAllByRole("tab").filter(tab => tab.getAttribute("aria-selected") === "true")).toHaveLength(1);
-  expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Todos" }).id]);
+  await waitFor(() => expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Todos" }).id]));
   expect(Number(screen.getByLabelText("Requests").textContent?.split(":")[0])).toBe(1);
 });
 
