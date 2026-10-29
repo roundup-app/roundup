@@ -389,3 +389,34 @@ async fn t8_unparseable_creator_fails_as_internal() {
     let err = h.call("todo.get", json!({"id": 1})).await.unwrap_err();
     assert_eq!(err.code, code::INTERNAL);
 }
+
+#[tokio::test]
+async fn t31_the_user_updates_an_agent_owned_todo() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::new(dir.path());
+    h.call_as(
+        agent("a"),
+        "todo.create",
+        json!({"title": "a", "body": "b"}),
+    )
+    .await
+    .unwrap();
+    h.call("todo.assign", json!({"id": 1, "owner": agent("a")}))
+        .await
+        .unwrap();
+    h.events();
+    for params in [
+        json!({"id": 1, "title": "x"}),
+        json!({"id": 1, "body": "y"}),
+    ] {
+        h.call("todo.update", params).await.unwrap();
+    }
+    let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
+    assert_eq!(
+        (todo["title"].as_str(), todo["body"].as_str()),
+        (Some("x"), Some("y"))
+    );
+    assert_eq!(todo["owner"]["id"], "a");
+    assert_eq!(h.events(), ["todo.updated 1", "todo.updated 1"]);
+    assert!(h.touches(1).contains(&(Verb::Wrote, "you".to_owned())));
+}

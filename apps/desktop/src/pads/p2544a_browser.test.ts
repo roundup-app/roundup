@@ -107,18 +107,6 @@ it("p2544a_drag_reorders_and_saves", async () => {
   );
 }, 180_000);
 
-it("p2544a_readonly_blocks_do_not_write", async () => {
-  await open(true);
-  const before = await evaluate("document.querySelector('.ProseMirror').textContent");
-
-  await browser("click", ".ProseMirror p:first-of-type");
-  await browser("keyboard", "type", "/changed");
-  await browser("hover", ".ProseMirror p:first-of-type");
-  expect(await evaluate("document.querySelector('.ProseMirror').textContent")).toBe(before);
-  expect(await evaluate("Boolean(document.querySelector('.milkdown-block-handle[data-show=true]'))")).toBe(false);
-  expect(await evaluate("window.__fake.app.calls.filter(c => c.method === 'pad.write')")).toEqual([]);
-}, 180_000);
-
 const visualSource = 'Agent prose.\n\n```mermaid\ngraph LR\nA-->B\n```\n\n```excalidraw\n{"type":"excalidraw","elements":[]}\n```\n\nTail prose.\n';
 
 it("p2544e_visual_blocks_survive_autosave", async () => {

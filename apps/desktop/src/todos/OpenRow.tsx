@@ -58,7 +58,7 @@ export const OpenRow = (props: {
   /** U3720: opens the owner list for this row. */
   onAssign?: (todo: Todo, anchor: HTMLElement) => void;
   /** U3720: a failure the owner list reports for this row. */
-  failWith?: (show: (message: string | null) => void, message: Accessor<string | null>) => void;
+  failWith?: (show: (message: string | null) => void, message: Accessor<string | null>, rename: () => void) => void;
   /** U3708: the Shelf list's tree place of this row; absent for the Rail's copy. */
   place?: { level: number; parent: number | null };
   connections?: JSX.Element;
@@ -127,7 +127,7 @@ export const OpenRow = (props: {
   const reportAction = (message: string | null) => { if (message === null) clearFailure(); else setFailure(message); };
 
   sorted?.fail(reportMove);
-  props.failWith?.(reportAction, failure);
+  props.failWith?.(reportAction, failure, () => setEditing(true));
 
   const titleCut = createCutTitle(() => props.todo.title);
 
@@ -185,7 +185,7 @@ export const OpenRow = (props: {
         else { setPicked(true); rowButton?.focus(); }
       }}
       onDblClick={event => {
-        if (!editing() && !props.lifted && event.target instanceof Element && !event.target.closest("button, input, [role=checkbox]")) setEditing(true);
+        if (!editing() && !props.lifted && event.target instanceof Element && !event.target.closest("button, input, [role=checkbox]")) props.onOpen(props.todo, "pointer");
       }}
       data-lifted={props.lifted ? "true" : undefined}
       onAnimationEnd={event => {
