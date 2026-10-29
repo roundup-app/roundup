@@ -683,6 +683,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
           window.__fake.writeOutput('${id}', '\\x1b[9;1H' + ${JSON.stringify(marker)} + '\\x1b[' + rows + ';1H[Enter] Answer  [Esc] Stop');
         })()`);
         await wait(`window.__terminals.get('${id}').serialize().data.includes(${JSON.stringify(marker)})`);
+        if (renderer === "dom") await wait(`[...document.querySelectorAll('.xterm-rows')].some(rows => rows.checkVisibility() && rows.textContent.includes(${JSON.stringify(marker)}))`);
         // emulator.ts schedules xterm painting after the subscription's parse callback.
         await read("new Promise(resolve => requestAnimationFrame(resolve))");
 
@@ -764,6 +765,18 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await read(`document.querySelector('button.terminal-tab[data-bubble="${id}"]')?.click()`);
         await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
         await capture("reopen");
+        const header = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.bubble:not([hidden]) .bubble-header').getBoundingClientRect(); return {x:box.x+box.width/2,y:box.y+box.height/2}; })()");
+        await browser("mouse", "move", String(header.x), String(header.y));
+        await browser("mouse", "down");
+        await browser("mouse", "move", String(header.x + 40), String(header.y + 30));
+        await browser("mouse", "up");
+        await capture("move");
+        await read(`window.__terminals.get('${id}').focus()`);
+        await browser("press", "Meta+b");
+        await wait("!document.querySelector('.bubble:not([hidden])') && !!document.activeElement?.closest('.pane-screen')");
+        await browser("press", "Meta+b");
+        await wait("!!document.activeElement?.closest('.bubble:not([hidden])')");
+        await capture("pair-switch");
         await browser("click", '.rail-row[data-id=runner]');
         await wait("!document.querySelector('.bubble:not([hidden])')");
         await browser("press", "Meta+t");
