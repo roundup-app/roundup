@@ -51,6 +51,10 @@ const webkitGuards = [
   "src/terminal/s3806c_scale.test.ts",
 ];
 
+// Files that launch Chromium or a real Daemon starve every test sharing their pool: a shard's reds were a hook timing out
+// beside them. They run one file at a time in their own project, so two of them never overlap.
+const heavy = ["src/**/*_browser.test.{ts,tsx}", "src/**/*_rendered.test.{ts,tsx}", "src/**/*real*.test.{ts,tsx}"];
+
 // Radix Colors scopes light to `:root, .light, .light-theme` and dark to `.dark, .dark-theme`, which the App never toggles
 // (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light
 // stays on `:root`, dark moves to `:root` under the same media query tokens.css uses.
@@ -230,7 +234,18 @@ export default defineConfig({
         test: {
           name: "app",
           include: ["src/**/*.test.{ts,tsx}"],
+          exclude: [...configDefaults.exclude, ...webkitGuards, ...heavy, ...captureExcludes],
+          globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+        },
+      },
+      {
+        test: {
+          name: "heavy",
+          include: heavy,
           exclude: [...configDefaults.exclude, ...webkitGuards, ...captureExcludes],
+          fileParallelism: false,
+          // Projects of one group share the pool; a later group starts after the earlier one ends, so no app file overlaps a heavy one.
+          sequence: { groupOrder: 1 },
           globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
         },
       },
