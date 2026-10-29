@@ -84,5 +84,11 @@
     }
   ],
   "captureProcessExit": 143,
-  "captureProcessNote": "The paired capture run reported all 16 tests passing, then exited 143; retain as observer evidence, not a clean full-suite exit."
+  "captureProcessNote": "The paired capture run reported all 16 tests passing, then exited 143; retain as observer evidence, not a clean full-suite exit.",
+  "postMergeRelatedTests": {
+    "exit": 0,
+    "passed": 10,
+    "skipped": "22 opt-in capture observers",
+    "command": "pnpm --filter desktop exec vitest related --run src/terminal/u3517_browser.test.ts src/terminal/u4649_arabic_runs.test.ts src/terminal/u3517_type.test.ts"
+  }
 }
