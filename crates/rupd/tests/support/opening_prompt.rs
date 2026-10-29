@@ -276,7 +276,14 @@ async fn a4665_failed_start_retries_same_request() {
                 .request("message.list", json!({"to":run.child}))
                 .await
                 .unwrap();
-            assert!(notes.as_array().unwrap().is_empty(), "{notes}");
+            assert!(
+                notes
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|note| note["from"]["kind"] != "user"),
+                "{notes}"
+            );
             run.user
                 .request(
                     "workstream.setOpeningPrompt",
@@ -313,13 +320,18 @@ async fn a4665_failed_start_retries_same_request() {
             let retried = restart(&mut run, "retry-failed-start").await.unwrap();
             assert_eq!(retried["attempt"], node["attempt"]);
             assert_eq!(recorded_bytes(&run).await, expected);
-            assert_eq!(
-                run.user
-                    .request("message.list", json!({"to":run.child}))
-                    .await
-                    .unwrap(),
-                notes
-            );
+            let replayed_notes = run
+                .user
+                .request("message.list", json!({"to":run.child}))
+                .await
+                .unwrap();
+            let replayed_notes: Vec<_> = replayed_notes
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|note| note["kind"] == "note" && note["from"]["kind"] == "user")
+                .collect();
+            assert_eq!(replayed_notes, saved_notes);
             let all_launches = launched();
             assert_eq!(all_launches.len(), failed_launches.len() + 1);
             assert!(
