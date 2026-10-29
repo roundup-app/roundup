@@ -224,7 +224,7 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
   await show();
 
   const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
-    "Jump to what needs you", ...(context === "rail" ? ["Remove"] : []),
+    "Jump to what needs you", ...(context === "rail" ? ["Rename", "Remove"] : []),
     "Focus the Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset Terminal text size"] : []), "Assign a Todo to an owner, or go back to Ask", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
