@@ -65,10 +65,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     exited: {},
   });
 
-  const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id));
-
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
+  const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id), terminals);
   const [selected, setSelected] = createSignal<string | null>(null);
   const [terminalFocus, setTerminalFocus] = createSignal(captureFocus());
   const [failure, setFailure] = createSignal<string | null>(null);
