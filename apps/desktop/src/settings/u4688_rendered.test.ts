@@ -20,6 +20,12 @@ it("u4688b_rendered_naming_typing_and_recovery", async () => {
     writeFileSync(join(dir, `${seed}-${step}.checks.json`), JSON.stringify({ sha, seed, renderer: "Chromium", viewport: [1512,950], scheme:"dark", checks: await lane.evaluate("window.__checks()") }) + "\n");
     await lane.browser("screenshot", join(dir, `${seed}-${step}.png`));
   };
+  const videoRoot = captureDir("U4688b");
+  if (videoRoot) {
+    const dir = join(videoRoot, base ? "base" : "head");
+    mkdirSync(dir, { recursive: true });
+    await lane.browser("record", "start", join(dir, "settings.webm"));
+  }
   try {
     for (const seed of ["first-run", "agents-10", "tree-40"]) {
       await lane.browser("open", `${origin}/harness.html?seed=${seed}`);
@@ -61,5 +67,5 @@ it("u4688b_rendered_naming_typing_and_recovery", async () => {
       await lane.until("JSON.parse(localStorage.getItem('roundup:drafts:naming-settings')).drafts.length === 0");
       await capture("U4688b", seed, "saved");
     }
-  } finally { await lane.close(); await server?.close(); }
+  } finally { if (videoRoot) await lane.browser("record", "stop"); await lane.close(); await server?.close(); }
 }, 120_000);
