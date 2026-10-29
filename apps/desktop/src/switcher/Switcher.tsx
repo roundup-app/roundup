@@ -211,14 +211,14 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     actionFocus = null;
     chosenTerminal = null;
     openingFocus = captureFocus(true);
-    setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement) });
+    setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement).filter(action => action.searchable) });
     props.onOpen();
     savedSelection = current()?.selection ?? null;
     restoring = true;
     setOpen(true);
   };
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, capture: () => ({ available: () => !open(), invoke: show }) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: show }) }]);
   registerKeys({ kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
   ]);
