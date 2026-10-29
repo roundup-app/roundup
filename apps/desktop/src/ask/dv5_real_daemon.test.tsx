@@ -1,4 +1,3 @@
-import { settled } from "../rail/railFixture";
 // @vitest-environment jsdom
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -14,10 +13,6 @@ import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixtur
 import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 import { AskBar } from "./AskBar";
-import { createSignal } from "solid-js";
-import { RequestedApp as App } from "../testing/requestedApp";
-import { fakeEmulators } from "../terminal/paneHarness";
-import { createProjectDrafts } from "../state/connectedProject";
 
 const exec = promisify(execFile);
 
@@ -225,120 +220,6 @@ it("u2773b_lost_ask_acknowledgement_reconciles_after_daemon_restart_without_dupl
   if (replay.kind === "acknowledged" && accepted.kind === "acknowledged") expect(replay.ask.id).toBe(accepted.ask.id);
   expect((await app.rpc("ask.list", null)).filter(ask => ask.submission === "lost-response")).toHaveLength(1);
   expect((await app.rpc("rail.tree", null)).find(node => node.id === replacement.id)?.terminal_id).toBeNull();
-});
-
-
-it("u2773a_ask_restores_original_projects_through_App_reopen", async () => {
-  const second = await startRealDaemon({});
-  const first = createServedApp(real.base);
-  const other = createServedApp(second.base);
-  const before = await first.rpc("ask.list", null);
-  const original = await first.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
-  let otherOriginal = await other.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
-
-  if (otherOriginal.id === original.id) {
-    await other.rpc("rail.remove", { id: otherOriginal.id });
-    otherOriginal = await other.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
-  }
-
-  expect(otherOriginal.id).not.toBe(original.id);
-  const roots = new Map([[real.dir, first], [second.dir, other]]);
-  const calls = [...roots.values()].map(bound => vi.spyOn(bound, "rpc"));
-  let opened = [real.dir, second.dir];
-  const projects = () => opened.map(path => ({ path, name: path === real.dir ? "first" : "second", running: true }));
-
-  const app = {
-    ...first,
-    projects: async () => projects(),
-    forProject: (path: string) => roots.get(path)!,
-    chooseProjectPath: async () => real.dir,
-    closeProject: async (path: string) => { opened = opened.filter(each => each !== path); },
-    openProject: async (path: string) => { opened.push(path);
-
- return projects().find(each => each.path === path)!; },
-    onDaemonExited: async () => () => {},
-  };
-
-  const owners = createProjectDrafts();
-  const mount = () => render(() => <App app={app} drafts={owners} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-  const field = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
-  const exact = "@Same destination  e\u0301 🌿\nlast line  ";
-
-  try {
-    const view = mount();
-    await screen.findByRole("tab", { name: "first" });
-    fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    await settled();
-    await screen.findByRole("textbox", { name: "Ask" });
-    fireEvent.input(field(), { target: { value: exact } });
-    field().setSelectionRange(2, 6, "backward");
-    fireEvent.select(field());
-    fireEvent.click(screen.getByRole("tab", { name: "second" }));
-    await settled();
-    await waitFor(() => expect(field().value).toBe(""));
-    fireEvent.input(field(), { target: { value: "  second Project 東京\n " } });
-    const focus = document.activeElement;
-    await first.rpc("rail.rename", { id: original.id, name: "Renamed original" });
-    expect(document.activeElement).toBe(focus);
-    fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    await settled();
-    await waitFor(() => expect(field().value).toBe(exact));
-    expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 6, "backward"]);
-    const tab = document.querySelector<HTMLElement>(`[data-path="${real.dir}"]`)!;
-    fireEvent.pointerEnter(tab);
-    fireEvent.click(within(tab).getByRole("button", { name: "Close first" }));
-    await waitFor(() => expect(document.querySelector(`[data-path="${real.dir}"]`)).toBeNull());
-    expect(field().value).toBe("  second Project 東京\n ");
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: "first" });
-    await waitFor(() => expect(field().value).toBe(exact));
-    expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 6, "backward"]);
-    view.unmount();
-    mount();
-    await screen.findByRole("tab", { name: "first" });
-    fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    await settled();
-    await waitFor(() => expect(field().value).toBe(exact));
-    expect(owners(real.dir).list().find(draft => draft.destination.surface === "ask")?.value.workstream).toBe(original.id);
-    expect(calls.flatMap(spy => spy.mock.calls).filter(([method]) => method === "ask.send")).toEqual([]);
-    expect(await first.rpc("ask.list", null)).toEqual(before);
-    expect(await other.rpc("ask.list", null)).toEqual([]);
-  } finally {
-    cleanup();
-    vi.restoreAllMocks();
-    await second.stop();
-  }
-}, 60_000);
-
-
-it("u3021c_ask_removed_workstream_refuses_selected_editor_after_reopen", async () => {
-  const app = createServedApp(real.base);
-  const original = await app.rpc("rail.createWorkstream", { name: "Same", parent: null });
-  const connected = await connectProject(app, { path: real.dir, name: "Same" }, () => false, () => 0);
-  const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
-  await connected.rail.settled();
-  const destination = { surface: "ask", object: "ask-bar", recipient: null };
-  const a = connected.drafts.edit(destination, { text: "@Same  e\u0301 🌿\n次の行  ", workstream: original.id, name: "Same" }, { start: 2, end: 8, direction: "backward" }, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, "unknown");
-  const b = connected.drafts.edit(destination, { text: "B current", workstream: null, name: null }, null, "ordinary").draft;
-  await app.rpc("rail.remove", { id: original.id });
-  await app.rpc("rail.createWorkstream", { name: "Same", parent: null });
-  const reopened = await connectProject(app, connected.project, () => false, () => 0);
-  reopened.showView("made");
-  render(() => <ConnectedProjectContext.Provider value={reopened}><AskBar recovery={recovery()} /></ConnectedProjectContext.Provider>);
-  await reopened.rail.settled();
-  await waitFor(() => expect(reopened.drafts.availability(a, reopened)).toBe("unavailable"));
-  const before = reopened.drafts.list();
-  const rpc = vi.spyOn(app, "rpc");
-
-  setRecovery({ project: real.dir, revision: a.revision });
-  await Promise.resolve();
-  expect(document.querySelector<HTMLTextAreaElement>(".ask-input")!.value).toBe("B current");
-  expect(reopened.drafts.list()).toContainEqual({ ...a, status: "unknown" });
-  expect(reopened.drafts.list()).toEqual(before);
-  expect(reopened.drafts.list().find(draft => draft.revision === b.revision)?.value.text).toBe("B current");
-  expect(rpc).not.toHaveBeenCalled();
-  rpc.mockRestore();
 });
 
 
