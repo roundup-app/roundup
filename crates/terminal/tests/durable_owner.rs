@@ -44,10 +44,15 @@ fn x8_reconnecting_keeps_the_original_program() {
         .split_whitespace()
         .map(|pid| pid.parse::<i32>().unwrap())
     {
-        assert_eq!(
-            nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), None),
-            Err(nix::errno::Errno::ESRCH)
-        );
+        // Linux's owner reaps adopted descendants; on macOS launchd reaps them.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        while nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), None).is_ok() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "owned PID {pid} survived kill"
+            );
+            std::thread::yield_now();
+        }
     }
     assert_eq!(
         std::fs::read_to_string(dir.path().join("launches")).unwrap(),
