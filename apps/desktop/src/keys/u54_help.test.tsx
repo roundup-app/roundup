@@ -73,6 +73,7 @@ const MODS = [
   {},
   { metaKey: true },
   { metaKey: true, shiftKey: true },
+  { ctrlKey: true, metaKey: true },
   { ctrlKey: true },
   { altKey: true },
   { ctrlKey: true, shiftKey: true },
@@ -136,7 +137,9 @@ describe("u54 keyboard help", () => {
     const panel = help();
 
     expect(panel).not.toBeNull();
+
     expect(within(panel!).queryByText(/Choose folder/)).toBeNull();
+    expect([...panel!.querySelectorAll(".key-chips")].map(chip => chip.textContent)).toEqual(expect.arrayContaining(["⌃⌘J", "⌘K J", "⌘K ⇧J"]));
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
