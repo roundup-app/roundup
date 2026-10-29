@@ -517,4 +517,5 @@
 .todo-row .shelf-glyph { --glyph-optical-transform: translateY(calc(var(--space-1) * -0.5)); }
 
 /* Leave room beyond the trailing grip for sideways pointer nesting. */
-.todo-list { padding-inline-end: var(--space-6); }
+.todo-list,
+.todo-create { padding-inline-end: var(--space-6); }

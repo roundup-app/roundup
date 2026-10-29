@@ -230,8 +230,18 @@ p.ink[role="alert"] {
   pointer-events: none;
   width: var(--space-4);
 }
-.entry-row .todo-tick::before { right: 0; }
-.entry-row .todo-tick:not(:checked)::after { right: var(--hairline-width); }
+.entry-row .todo-tick::before {
+  left: var(--space-1);
+  right: 0;
+  top: calc(var(--space-1) * 1.5);
+  bottom: calc(var(--space-1) * 1.5);
+}
+.entry-row .todo-tick:not(:checked)::after {
+  left: calc(var(--space-1) + var(--hairline-width));
+  right: var(--hairline-width);
+  top: calc(var(--space-1) * 1.5 + var(--hairline-width));
+  bottom: calc(var(--space-1) * 1.5 + var(--hairline-width));
+}
 
 /* U3807: message text and actions share a fixed edge; neither determines its size. */
 .reserved-line {
