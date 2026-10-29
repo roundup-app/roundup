@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
@@ -194,7 +194,14 @@ describe("u54 keyboard help", () => {
     const outsideTerminal = document.querySelector('.rail-actions [aria-label="New Agent"]')!;
     const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
-    expect(bound).toEqual(listed);
+    const helpPress = new KeyboardEvent("keydown", { key: "?", code: "Slash", shiftKey: true, bubbles: true, cancelable: true });
+    outsideTerminal.dispatchEvent(helpPress);
+    await waitFor(() => expect(help()).not.toBeNull());
+
+    if (helpPress.defaultPrevented) bound.push(pressOf(helpPress));
+    fireEvent.keyDown(help()!, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(help()).toBeNull());
+    expect(bound.sort()).toEqual(listed);
 
     const row = rowOf("a");
 
@@ -218,6 +225,13 @@ describe("u54 keyboard help", () => {
 
     if (restart.defaultPrevented) railOnly.push(pressOf(restart));
 
+    row.focus();
+    const rename = new KeyboardEvent("keydown", { key: "F2", code: "F2", bubbles: true, cancelable: true });
+    row.dispatchEvent(rename);
+    await screen.findByRole("textbox", { name: "Name" });
+
+    if (rename.defaultPrevented) railOnly.push(pressOf(rename));
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Name" }), { key: "Escape", code: "Escape" });
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
     expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inFirstRun && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
   });
