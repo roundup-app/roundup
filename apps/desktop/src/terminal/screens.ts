@@ -53,6 +53,9 @@ export type Screens = {
 /** Bytes buffered for one Terminal while its screen is fetched; past this the oldest go and the screen is fetched again. */
 const MAX_BUFFERED_BYTES = 1_048_576;
 
+/** The longest a backlogged stream rests between chunks: one 120 Hz frame. */
+const MAX_PARSE_REST_MS = 8;
+
 /** One output subscription of a displayed Terminal, and the stream state that belongs to it alone. */
 type Stream = {
   open: boolean;
@@ -299,17 +302,21 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       if (stream.after === end) takeFirst(stream);
       stream.parsing = true;
 
+      const started = performance.now();
+
       try {
         holder.emulator.write(bytes, () => {
           holder.retain();
 
           // R21: xterm's default write loop can parse for 12 ms. Keep its backlog
-          // in our bounded stream and yield between chunks for input and drawing.
+          // in our bounded stream and idle as long as each chunk took (at most a
+          // frame), so a flooding Terminal holds half the thread at most and the
+          // focused one's echo reaches its frame.
           if (stream.queue.length > 0) setTimeout(() => {
             stream.parsing = false;
 
             if (stream.open && holder.stream === stream) settle(id, holder, stream);
-          }, 0);
+          }, Math.min(performance.now() - started, MAX_PARSE_REST_MS));
           else {
             stream.parsing = false;
 
@@ -702,10 +709,20 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       void copy(id);
     };
 
+    // The standard Edit > Copy reaches the webview as a `copy` event, not a key press; a key press that did arrive was consumed by onKey, so exactly one runs.
+    const onCopy = (event: ClipboardEvent) => {
+      if (editor(event.target) || !emulatorFor(id).selection()) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void copy(id);
+    };
+
     host.addEventListener("paste", onPaste, true);
+    host.addEventListener("copy", onCopy, true);
     host.addEventListener("keydown", onKey, true);
     holder.stopClipboard = () => {
       host.removeEventListener("paste", onPaste, true);
+      host.removeEventListener("copy", onCopy, true);
       host.removeEventListener("keydown", onKey, true);
     };
 

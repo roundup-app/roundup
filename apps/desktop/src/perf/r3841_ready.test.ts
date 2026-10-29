@@ -146,6 +146,7 @@ it.each(["keys", "frames"])("r3841a_terminal_setup_waits_for_agent_before_openin
   button.onclick = () => document.body.insertAdjacentHTML("beforeend", '<div role="treeitem" aria-selected="true"></div>');
   const app = createFakeApp();
 
+  app.handlers["terminal.list"] = () => [info("shell")];
   app.handlers["terminal.read"] = () => ({ from: 0, next: 6, text: "ready\n", truncated: false });
   app.handlers["terminal.write"] = () => null;
   const rpc = vi.spyOn(app, "rpc");
@@ -188,6 +189,7 @@ const setup = (options: { agent?: boolean; shell?: boolean; retained?: string } 
 
   const app = createFakeApp();
 
+  app.handlers["terminal.list"] = () => [info("shell")];
   app.handlers["terminal.read"] = () => ({ from: 0, next: (options.retained ?? "").length, text: options.retained ?? "", truncated: false });
   const rpc = vi.spyOn(app, "rpc");
   const terminal = reportTerminal(() => ({ write: (_: Uint8Array, parsed?: () => void) => parsed?.() }));
@@ -217,7 +219,7 @@ it.each(["before", "after"])("r3841b_ready_before_or_after_bubble_open_releases_
   expect(fixture.terminal.target()).toBe("shell");
   expect(fixture.rpc).toHaveBeenCalledWith("terminal.read", { id: "shell", after: 0, reader: null, max: null });
   // A screen snapshot would contain only the tail of the stream; readiness must use the log instead.
-  expect(fixture.rpc.mock.calls.every(([method]) => method === "terminal.read")).toBe(true);
+  expect(fixture.rpc.mock.calls.every(([method]) => method === "terminal.read" || method === "terminal.list")).toBe(true);
 });
 
 it.each(["live", "retained"])("r3841c_only_the_measured_shell_can_release_setup_and_receive_report (%s)", async (source) => {
@@ -225,7 +227,13 @@ it.each(["live", "retained"])("r3841c_only_the_measured_shell_can_release_setup_
   const fixture = setup({ retained: "already\nnot ready\nreadying\nready" });
   let recover: ((read: { from: number; next: number; text: string; truncated: boolean }) => void) | undefined;
 
-  if (source === "retained") fixture.rpc.mockReturnValueOnce(new Promise<{ from: number; next: number; text: string; truncated: boolean }>((resolve) => { recover = resolve; }));
+  if (source === "retained") {
+    const retained = fixture.app.handlers["terminal.read"]!;
+    let answered = false;
+
+    fixture.app.handlers["terminal.read"] = (params) => answered ? retained(params) : (answered = true, new Promise<{ from: number; next: number; text: string; truncated: boolean }>((resolve) => { recover = resolve; }));
+  }
+
   fixture.agent.write(bytes("ready\n"));
   const continued = vi.fn();
   const done = terminalReady(fixture.app, fixture.terminal).then(continued);
@@ -266,11 +274,12 @@ it.each([
 it("r3841b_retained_readiness_crosses_read_pages_without_restarting_the_shell", async () => {
   vi.useFakeTimers();
   const fixture = setup();
-  fixture.rpc.mockResolvedValueOnce({ from: 0, next: 9, text: "noise\nrea", truncated: true });
-  fixture.rpc.mockResolvedValueOnce({ from: 9, next: 13, text: "dy\r\n", truncated: false });
+  fixture.app.handlers["terminal.read"] = ({ after }) => after === 0
+    ? { from: 0, next: 9, text: "noise\nrea", truncated: true }
+    : { from: 9, next: 13, text: "dy\r\n", truncated: false };
   await terminalReady(fixture.app, fixture.terminal);
   expect(fixture.terminal.target()).toBe("shell");
-  expect(fixture.rpc.mock.calls).toEqual([
+  expect(fixture.rpc.mock.calls.filter(([method]) => method !== "terminal.list")).toEqual([
     ["terminal.read", { id: "shell", after: 0, reader: null, max: null }],
     ["terminal.read", { id: "shell", after: 9, reader: null, max: null }],
   ]);
@@ -298,7 +307,7 @@ it.each(["\n", "\r\n"].flatMap((ending) => ["", "stream\n", "stream\nrea"].map((
 
     // Drain terminalReady's DOM promises and its first retained read, without parsing a write.
     await vi.advanceTimersByTimeAsync(0);
-    expect(fixture.rpc.mock.calls).toEqual([["terminal.read", { id: "shell", after: 0, reader: null, max: null }]]);
+    expect(fixture.rpc.mock.calls.filter(([method]) => method !== "terminal.list")).toEqual([["terminal.read", { id: "shell", after: 0, reader: null, max: null }]]);
     expect(workload).not.toHaveBeenCalled();
 
     const rest = initial.endsWith("rea") ? "dy" : "ready";
@@ -322,7 +331,7 @@ it.each(["\n", "\r\n"].flatMap((ending) => ["", "stream\n", "stream\nrea"].map((
     for (const callback of parsed) callback();
     await vi.advanceTimersByTimeAsync(SETUP_BOUND_MS);
     expect(workload).toHaveBeenCalledTimes(1);
-    expect(fixture.rpc.mock.calls.every(([method, params]) => method === "terminal.read" && params !== null && "id" in params && params.id === "shell")).toBe(true);
+    expect(fixture.rpc.mock.calls.every(([method, params]) => method === "terminal.list" || method === "terminal.read" && params !== null && "id" in params && params.id === "shell")).toBe(true);
   },
 );
 
@@ -472,4 +481,84 @@ it("r20_flood_reports_activity_and_drops_when_output_stops_display_frames", asyn
     clock.mockRestore();
     document.removeEventListener("keydown", open);
   }
+});
+
+it("r20_the_recorder_addresses_the_terminal_the_daemon_listed_not_the_placeholder_of_one_still_opening", async () => {
+  localStorage.clear();
+  const app = createFakeApp();
+  const emulators = fakeEmulators();
+  let nodes: ReturnType<typeof workstream>[] = [];
+  let terminals: ReturnType<typeof info>[] = [];
+  let answer: () => void = () => {};
+
+  const opening = new Promise<void>(resolve => (answer = resolve));
+
+  app.opened.project = { name: "isolated", path: "/r20" };
+  app.handlers["rail.tree"] = () => nodes;
+  app.handlers["terminal.list"] = () => terminals;
+  app.handlers["rail.createWorkstream"] = () => {
+    const node = workstream("w");
+
+    nodes = [node];
+
+    return node;
+  };
+
+  app.handlers["rail.startDoor"] = () => {
+    const node = door("w", "idle", "idle");
+
+    nodes = [node];
+    terminals = [info("t-w")];
+
+    return node;
+  };
+
+  app.handlers["terminal.open"] = async () => {
+    await opening;
+    terminals = [...terminals, info("7", { owner: "w" })];
+
+    return { terminal_id: "7" };
+  };
+
+  app.handlers["terminal.resize"] = () => null;
+  app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
+  app.handlers["terminal.read"] = () => ({ from: 0, next: 6, text: "ready\n", truncated: false });
+
+  const terminal = reportTerminal((id: string) => {
+    const emulator = emulators.factory(id);
+    const show = emulator.show;
+
+    // Like xterm, the input exists as soon as the host is prepared, before `terminal.open` answers.
+    const input = (host: HTMLElement) => {
+      const area = document.createElement("textarea");
+
+      area.className = "xterm-helper-textarea";
+      host.appendChild(area);
+    };
+
+    return { ...emulator, prepare: async (host: HTMLElement, ...rest: unknown[]) => {
+      // SAFETY: the fake emulator's prepare resolves the size it was given.
+      const size = await (emulator.prepare as (...args: unknown[]) => Promise<{ cols: number; rows: number }>)(host, ...rest);
+
+      input(host);
+
+      return size;
+    }, show: (host: HTMLElement, focus?: boolean) => {
+      const size = show(host, focus);
+
+      if (!host.querySelector("textarea")) input(host);
+
+      return size;
+    } };
+  });
+
+  render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0, createEmulator: terminal.createEmulator }));
+  await waitFor(() => expect(document.querySelector('[aria-label="Add Workstream"]')).not.toBeNull());
+  const ready = terminalReady(app, terminal);
+
+  setTimeout(answer, 100);
+  await ready;
+  expect(terminal.target()).toBe("7");
+  // SAFETY: only terminal.read calls are kept, and they carry { id }.
+  expect(app.calls.filter(call => call.method === "terminal.read").map(call => (call.params as { id: string }).id)).toEqual(["7"]);
 });

@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createRoot, createSignal } from "solid-js";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { info } from "../testing/nodes";
 import { CHORDS } from "./chords";
+import { saveAppSettings } from "../settings/preferences";
 import { captureActions, registerKeys } from "./registry";
 
 const disposals: (() => void)[] = [];
@@ -131,4 +132,67 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Bubble minimise 
 
   await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="shell"]')?.hidden).toBe(true));
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
+});
+
+
+it.each([
+  { chord: "⌘=", key: "=", code: "Equal", size: 18 },
+  { chord: "⌘-", key: "-", code: "Minus", size: 16 },
+  { chord: "⌘0", key: "0", code: "Digit0", size: 15 },
+].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Terminal font $chord from $source", async ({ chord, key, code, size, source }) => {
+  await saveAppSettings({ fontSize: 15 });
+  localStorage.setItem("roundup:terminal-font:/p", "17");
+  const { connected, daemon, emulators } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  const terminal = document.activeElement!;
+  const emulator = emulators.made.get("t-a1")!;
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)?.shortcut).toBe(chord));
+  const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
+  expect(document.activeElement).toBe(terminal);
+  expect(emulator.fontSize).toBe(17);
+  const resize = vi.spyOn(emulator, "setFontSize");
+
+  if (source === "key") fireEvent.keyDown(terminal, { key, code, metaKey: true });
+  else openProjectPage(`action:chord:${chord}`, "/p");
+
+  expect(emulator.fontSize).toBe(size);
+  expect(resize).toHaveBeenCalledExactlyOnceWith(size);
+  expect(document.activeElement).toBe(terminal);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
+});
+
+it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async () => {
+  const { connected, emulators } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  const captured = captureActions(document.activeElement).find(action => action.keys === "⌘=")!;
+  connected().rail.select("a2");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
+  const size = emulators.made.get("t-a2")!.fontSize;
+  captured.run();
+  expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
+});
+
+it.each(["terminal", "rail row"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
+  const { connected } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+
+  if (place === "rail row") document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
+
+  const focus = document.activeElement!;
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === (place === "rail row" ? "action:chord:⌘⌫" : "action:chord:⌘="))).toBe(true));
+  const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
+  const shown = new Map(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
+
+  expect(available.length).toBeGreaterThan(10);
+
+  for (const action of available) {
+    expect(shown.has(action.value), action.value).toBe(true);
+    expect(shown.get(action.value), action.value).toBe(action.value.startsWith("action:leader:") ? `⌘K ${action.value.slice(14)}` : action.keys);
+  }
+
+  expect([...shown.keys()].filter(id => !available.some(action => action.value === id))).toEqual([]);
+  expect(document.activeElement).toBe(focus);
 });

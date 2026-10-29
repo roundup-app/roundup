@@ -16,12 +16,16 @@ use crate::{Output, OutputStream, Terminals};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 
+const SOCKET_ROOT: &str = "/tmp";
+const SOCKET_LINK: &str = "socket-directory";
+
 /// Persistable identity of one owner and its original Terminal. Not permission to start anything.
 /// A numeric id or PID is deliberately insufficient: reconnect verifies the random incarnation
 /// on the connected socket, whose pathname must be inside the original Project data directory.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TerminalOwner {
     project: PathBuf,
+    directory: PathBuf,
     socket: PathBuf,
     pub info: TerminalInfo,
 }
@@ -97,7 +101,11 @@ impl TerminalOwner {
     pub async fn connect(&self, project: &Path) -> Result<Client, RpcError> {
         let project = project.canonicalize().map_err(RpcError::internal)?;
         if project != self.project
-            || self.socket.parent().and_then(Path::parent) != Some(project.as_path())
+            || self.directory.parent() != Some(project.as_path())
+            || std::fs::read_link(self.directory.join(SOCKET_LINK))
+                .ok()
+                .as_deref()
+                != self.socket.parent()
         {
             return Err(RpcError::not_found("Terminal owner Project"));
         }
@@ -133,8 +141,13 @@ impl Terminals {
         let directory = tempfile::Builder::new()
             .prefix("terminal-")
             .tempdir_in(&project)?;
-        // TempDir already uses 0700. Assert the platform's permission contract before any program.
-        let socket = directory.path().join("owner.sock");
+        // `sun_path` is short (104 bytes on macOS), so the socket lives in a short private
+        // directory; a link in the Project directory ties the two together. TempDir is 0700.
+        let socket_directory = tempfile::Builder::new()
+            .prefix("ro-")
+            .tempdir_in(SOCKET_ROOT)?;
+        std::os::unix::fs::symlink(socket_directory.path(), directory.path().join(SOCKET_LINK))?;
+        let socket = socket_directory.path().join("o.sock");
         let listener = UnixListener::bind(&socket)?;
         let bus = Bus::new();
         let terminals = Arc::new(Self::open(&project, bus.clone())?);
@@ -154,6 +167,7 @@ impl Terminals {
             .ok_or("owner Terminal")?;
         let owner = TerminalOwner {
             project,
+            directory: directory.path().to_path_buf(),
             socket,
             info,
         };

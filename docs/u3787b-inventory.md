@@ -28,7 +28,7 @@ than adding a duplicate. No existing behavioral test is removed or retired.
 The fixed Project task subset is not the complete real-registration inventory.
 Remaining production coverage includes scoped Shelf/list/triage commands, Rail
 rename, Help, settings,
-and Terminal clipboard/font actions in `terminal/Pane.tsx` and `terminal/screens.ts`.
+and Terminal clipboard actions in `terminal/screens.ts`.
 Library-owned editor/list navigation must retain its control ownership. Each named
 command still needs its current binding, scoped capture and menu equivalence.
 The complete inventory/configuration observers remain required.
@@ -71,3 +71,64 @@ It is compilation/CI evidence only. Preserve earlier native evidence on #4278;
 this continuation claims no AppKit displayed-key, responder or combined-dispatch
 observation. Remaining native observations follow the complete implementation,
 not this partial catalogue slice.
+
+
+## Terminal font continuation
+
+The production pane's Larger Terminal text (`⌘=`), Smaller Terminal text (`⌘-`)
+and Reset Terminal text size (`⌘0`) now register captured actions. The existing
+Project projection discovers them without another command list or dispatch path.
+Each capture retains the Project's font holder and selected Terminal identity;
+changing that selection or removing the owner makes the capture unavailable.
+The same screen/editor/Daemon guard owns both menu availability and key handling.
+
+`u3787b_menu_and_key_share_one_action` exercises all three production commands by
+key and the App's native-menu event seam, asserting exactly one font update,
+unchanged focus and no Terminal writes. Its unavailable-owner observer refuses a
+capture after changing the selected Terminal. The existing Tauri
+`u2539b_native_menu_projects_the_task_chords` forwards these menu events for two
+Projects, and `u4278b_one_step_items_carry_native_accelerators` checks their native
+accelerator construction. These extend existing proofs; none is retired or removed.
+
+The unmodified U102 file retains the logical `=`/`+` and optional Shift aliases,
+held-key resizing, bounds, saved Project size, configured reset, frame-coalesced
+refitting, scrollback preservation, storage failures and editor/Daemon exclusion.
+The unmodified U2241 ordinary Terminal modifier sweep remains required. The
+registry accepts these existing logical aliases and repeat policy directly,
+using tinykeys rather than another keyboard listener.
+
+macOS CI [40843663089](https://github.com/roundup-app/roundup/actions/runs/40843663089)
+at `626a412ebc62c185c754885872ffdc744d34a673` passed `mac` and `mac-clippy`.
+Installed Tauri 2.12.1 `menu::Menu::default` includes predefined Close Window;
+muda 0.20.0 sends its `performClose:` responder action. Neither is replaced here.
+Neither CI nor Chromium observes native font key equivalents or combined
+AppKit/webview dispatch. Existing #4278 native evidence is retained; the remaining
+complete inventory, clipboard, scoped lists/triage/Help/settings/Rail rename,
+responder Find and final native observations keep #4308 open.
+
+## Terminal clipboard continuation
+
+Terminal Copy and Paste stay the standard responder commands of Tauri's default
+Edit menu; no Project-menu accelerator is added, because one would take ⌘C/⌘V from
+every editor. Paste already arrives as the webview `paste` event. The Terminal
+screen now also takes the `copy` event the Edit menu sends, writing the selection
+through the same `copy` as the ⌘C key. A key press is consumed before the event
+exists, so either path acts once; an empty selection or an editor leaves the event
+to the browser. `u3787b_edit_menu_copy_event_copies_the_terminal_selection_once`
+proves it; the U101 key proofs are unchanged and no test is removed or retired.
+
+Still open on #4308: scoped Shelf/list/triage, Rail rename, Help and settings
+inventory, the complete real-registration inventory observer, and the native
+displayed-key, responder Find and combined-dispatch observations against the
+final implementation SHA. No native result is claimed here.
+
+## Registry-to-menu inventory observer
+
+`u3787b_menu_covers_bound_commands` compares, for a focused Terminal and a focused
+Rail row in the connected App, every available captured Project action with the
+menu items the App writes: each has an item, displays its chord or `⌘K` sequence,
+and the menu holds no item the registry does not offer (so no unavailable command
+is shown). Building the menu leaves focus where it was. This is the real-registration
+inventory for those two foci; Shelf, triage and Help foci, Rail rename, and the
+native displayed-key, responder Find and combined-dispatch observations stay open.
+No test is removed or retired, and no native result is claimed.
