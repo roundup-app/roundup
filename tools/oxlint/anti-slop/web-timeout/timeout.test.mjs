@@ -14,6 +14,10 @@ const exception = {
 };
 
 const cases = [
+  ["destructured test modifier", 'const { only: run } = test; run("t3779a_limit", () => {}, 60_001);', 1, "60001"],
+  ["destructured suite collector", 'const { describe: group } = test; group("group", { timeout: 90_000 }, () => { test("t3779a_child", () => {}); });', 1, "group > t3779a_child", [{ ...exception, test: "group" }]],
+  ["destructured modifier boundary", 'const { skip: run } = test; run("t3779a_limit", () => {}, 60_000);', 0],
+  ["destructured hook retains hook bound", 'const { beforeAll: setup } = test; setup(() => {}, 90_000);', 0],
   ["safe default cannot hide unresolved projects", 'defineConfig({ test: { ...externalOptions, testTimeout: 60_000 } });', 1, "unresolved"],
   ["spread overrides safe project list", 'const key = "testTimeout"; const options = { projects: [{ test: { [key]: 60_001 } }] }; defineConfig({ test: { projects: [], ...options } });', 1, "60001"],
   ["safe project list overrides spread", 'const key = "testTimeout"; const options = { projects: [{ test: { [key]: 60_001 } }] }; defineConfig({ test: { ...options, projects: [] } });', 0],
