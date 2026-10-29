@@ -322,9 +322,9 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   fireEvent.click(tab("original"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
   openProjectPage("view:reactions");
-  const region = within(await screen.findByRole("region", { name: copy.reactions }));
-  fireEvent.click(await region.findByRole("button", { name: copy.reactionCreate }));
-  const form = within(await region.findByRole("form", { name: copy.reactionCreate }));
+  const opening = within(await screen.findByRole("region", { name: copy.reactions }));
+  fireEvent.click(await opening.findByRole("button", { name: copy.reactionCreate }));
+  const form = within(opening.getByRole("form", { name: copy.reactionCreate }));
   fireEvent.input(form.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
   fireEvent.input(form.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
   fireEvent.click(form.getByRole("button", { name: /^Target Agent/ }));
@@ -338,7 +338,7 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   await waitFor(() => expect(app.calls.some(call => call.method === "reaction.create")).toBe(true));
   await waitFor(() => expect(original.calls.filter(call => call.method === "reaction.create")).toHaveLength(1));
 
-  const newer = " newer exact\n e\u0301 🧭 ";
+  const newer = "  newer e\u0301\n 日本語 🧭  ";
   fireEvent.input(form.getByLabelText(copy.reactionInstruction), { target: { value: newer } });
 
   fireEvent.click(tab("other"));
@@ -348,20 +348,24 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   fireEvent.click(tab("original"));
   await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
   await screen.findByText(copy.reactionsEmpty);
-  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
-  await screen.findByRole("form", { name: copy.reactionCreate });
   current = saved({ target: "a0", condition: { kind: "agents", ids: ["a0"], any: false } });
   acknowledge(current);
 
-  await waitFor(() => expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", newer));
-  expect(original.calls.filter(call => call.method === "reaction.create").map(call => call.params)).toMatchObject([{ instruction: "go", target: "a0" }]);
-  fireEvent.click(screen.getByRole("button", { name: "Close New reaction" }));
-  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
-  const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+  const returned = within(await screen.findByRole("region", { name: copy.reactions }));
+  fireEvent.click(await returned.findByRole("button", { name: /Ship it/ }));
+  const detail = await returned.findByRole("region", { name: copy.reactionDetail("Ship it") });
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", true));
   expect(original.calls.filter(call => call.method === "reaction.stop").map(call => call.params)).toEqual([{ id: "r1" }]);
   expect(app.of(path("other")).calls.filter(call => call.method === "reaction.create" || call.method === "reaction.stop")).toHaveLength(0);
+  expect(original.calls.filter(call => call.method === "reaction.create").map(call => call.params)).toEqual([expect.objectContaining({ target: "a0", instruction: "go" })]);
+  fireEvent.click(within(detail).getByRole("button", { name: /^Close/ }));
+  fireEvent.click(await returned.findByRole("button", { name: copy.reactionCreate }));
+  expect(returned.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", newer);
+  expect(original.calls.filter(call => call.method === "reaction.create")).toHaveLength(1);
+  fireEvent.click(tab("other"));
+  await screen.findByText(copy.reactionsEmpty);
+  expect(screen.queryByRole("button", { name: /Ship it/ })).toBeNull();
 });
 
 it("u3299b_copy_keeps_original_facts", async () => {
