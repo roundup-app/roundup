@@ -8,6 +8,7 @@ import { showEverything, withScopeRow } from "../testing/showEverything";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { Capture } from "../todos/Capture";
+import { DrawerHost } from "../drawer/DrawerHost";
 import { Todos } from "../todos/Todos";
 import { todo, todoCallsTo as callsTo } from "../todos/testHarness";
 import { Help } from "./Help";
@@ -31,6 +32,7 @@ const mount = async (path = `/test-capture/${crypto.randomUUID()}`, onFile?: () 
     <ConnectedProjectContext.Provider value={connected}>
       <button data-testid="before">before</button>
       <Todos />
+      <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <Leader />
       <Capture onFile={onFile} />
       <Help />
@@ -328,4 +330,25 @@ it("u3787f_global_capture_registers_and_releases_through_the_shell_event_adapter
     await emit("capture-requested");
     expect(requests.filter(request => JSON.stringify(request) === '{"request":{"kind":"show"}}')).toHaveLength(shows);
   } finally { clearMocks(); vi.restoreAllMocks(); }
+});
+
+
+it("t4905_opening_a_pending_capture_sends_no_item_rpc", async () => {
+  const { app } = await mount();
+  let answer!: () => void;
+  app.handlers["todo.create"] = () => new Promise(resolve => { answer = () => resolve(todo(9)); });
+  const input = await openField();
+  type(input, "pending capture");
+  press(input);
+  await waitFor(() => expect(answer).toBeTypeOf("function"));
+  const row = document.querySelector<HTMLElement>("[data-todo]")!;
+  const open = row.querySelector<HTMLElement>(".todo-open");
+  if (open) fireEvent.click(open);
+  const button = row.querySelector<HTMLElement>(".todo-row-button");
+  if (button) fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
+  expect(app.calls.filter(call => ["pad.listRefs", "todo.listComments", "todo.getHistory"].includes(call.method))).toEqual([]);
+  expect(app.calls.filter(call => JSON.stringify(call.params).includes(row.dataset.todo!))).toEqual([]);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
+  answer();
 });
