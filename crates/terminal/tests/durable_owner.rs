@@ -4,7 +4,7 @@ use contracts::terminal::SpawnParams;
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::process::{Command, Stdio};
-use terminal::TerminalOwner;
+use terminal::{TerminalOwner, Terminals};
 
 #[test]
 fn x8_reconnecting_keeps_the_original_program() {
@@ -67,6 +67,10 @@ fn x8_client() {
     let owner: TerminalOwner = serde_json::from_slice(&std::fs::read(&record).unwrap()).unwrap();
     let project = std::path::Path::new(&record).parent().unwrap();
     tokio::runtime::Runtime::new().unwrap().block_on(async {
+        let terminals = Terminals::open(project, rpc::Bus::new()).unwrap();
+        let attached = terminals.attach_owner(project, &owner).await.unwrap();
+        assert_eq!(terminals.list()[0].incarnation, owner.info.incarnation);
+        assert!(terminals.program_pid(&attached.id).is_some());
         let mut connection = owner.connect(project).await.unwrap();
         let id = &owner.info.id;
         let first = std::env::var("OWNER_STAGE").unwrap() == "first";
