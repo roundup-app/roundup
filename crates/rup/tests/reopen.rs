@@ -11,7 +11,7 @@ use contracts::Kind;
 use contracts::agent::RailNode;
 use serde_json::{Value, json};
 
-use daemon::{rail_tree, signal, wait_until_idle};
+use daemon::{rail_tree, wait_until_idle};
 
 /// U4547e, A12a, D6: a moved running Agent survives a killed Daemon with its identity, parent and
 /// one running Terminal, and its retained hooks still reach the reopened Project.
@@ -53,6 +53,7 @@ async fn u4547e_reparenting_survives_reopen() {
     )
     .await
     .unwrap();
+    let mut events = project.subscribed().await;
     let into_workstream = project.spawn_agent(&c).await;
     let into_mode = project.spawn_agent(&c).await;
     for (id, parent) in [
@@ -63,11 +64,7 @@ async fn u4547e_reparenting_survives_reopen() {
             .await
             .unwrap();
     }
-    let mut events = project.subscribed().await;
     let ids = [into_workstream.id.clone(), into_mode.id.clone()];
-    for id in &ids {
-        signal(&c, id, json!({ "hook_event_name": "SessionStart" })).await;
-    }
     wait_until_idle(
         &mut events,
         &ids,
