@@ -96,6 +96,7 @@ import type { ImportListParams as project_ImportListParams } from "./project/Imp
 import type { ImportResult as project_ImportResult } from "./project/ImportResult";
 import type { Mcp as project_Mcp } from "./project/Mcp";
 import type { ModelList as project_ModelList } from "./project/ModelList";
+import type { NamingSettings as project_NamingSettings } from "./project/NamingSettings";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
 import type { PrepareParams as project_PrepareParams } from "./project/PrepareParams";
 import type { Prepared as project_Prepared } from "./project/Prepared";
@@ -268,6 +269,8 @@ export type RpcMethods = {
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
+  "daemon.getNaming": { params: null; result: project_NamingSettings };
+  "daemon.setNaming": { params: project_NamingSettings; result: null };
   "rail.deletion": { params: agent_DeletionParams; result: agent_Removal | null };
   "rail.restore": { params: agent_DeletionParams; result: agent_Removal };
   "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };

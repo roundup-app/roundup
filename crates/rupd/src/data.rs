@@ -167,6 +167,56 @@ fn move_file(old: &Path, new: &Path) -> Result<(), String> {
     fs::remove_file(old).map_err(|err| failed(old, err))
 }
 
+/// Global preferences live beside `projects/`, never in a selected Project's database.
+pub(crate) fn naming_path(project_data: &Path) -> PathBuf {
+    let parent = project_data.parent();
+    let root = match parent {
+        Some(parent) if parent.file_name().is_some_and(|name| name == "projects") => {
+            parent.parent().unwrap_or(parent)
+        }
+        _ => return project_data.join("preferences/preferences.db"),
+    };
+    root.join("preferences.db")
+}
+
+/// SQLite owns atomic commits and cross-process visibility for all Project Daemons.
+pub(crate) fn open_naming(path: &Path) -> rusqlite::Result<rusqlite::Connection> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+    }
+    let db = rusqlite::Connection::open(path)?;
+    db.execute_batch("CREATE TABLE IF NOT EXISTS naming (id INTEGER PRIMARY KEY CHECK(id = 1), automatic_renaming INTEGER NOT NULL, naming_guide TEXT NOT NULL)")?;
+    Ok(db)
+}
+
+pub(crate) fn read_naming(
+    db: &rusqlite::Connection,
+) -> rusqlite::Result<contracts::project::NamingSettings> {
+    use rusqlite::OptionalExtension;
+    db.query_row(
+        "SELECT automatic_renaming, naming_guide FROM naming WHERE id = 1",
+        [],
+        |row| {
+            Ok(contracts::project::NamingSettings {
+                automatic_renaming: row.get(0)?,
+                naming_guide: row.get(1)?,
+            })
+        },
+    )
+    .optional()
+    .map(Option::unwrap_or_default)
+}
+
+pub(crate) fn write_naming(
+    db: &rusqlite::Connection,
+    settings: &contracts::project::NamingSettings,
+) -> rusqlite::Result<()> {
+    db.execute("INSERT INTO naming VALUES (1, ?1, ?2) ON CONFLICT(id) DO UPDATE SET automatic_renaming = excluded.automatic_renaming, naming_guide = excluded.naming_guide",
+        rusqlite::params![settings.automatic_renaming, settings.naming_guide])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
