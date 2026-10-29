@@ -233,9 +233,19 @@ export const App = (props: {
   const projects = createProjectsState(props.app);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
-  registerKeys({ kind: "app" }, [{ chords: ["Meta+KeyZ"],
-    when: event => !event.shiftKey && !(document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]")),
-    run: event => { if (!event.repeat && projects.active()) void drafts(projects.active()!).todoUndo.undo(); },
+  registerKeys({ kind: "app" }, [{
+    action: CHORDS.find(row => row.keys === "⌘Z")!,
+    when: () => !document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
+    capture: focus => {
+      const path = projects.active();
+      const undo = path ? drafts(path).todoUndo : null;
+
+      return {
+        available: () => path !== null && projects.active() === path && undo !== null && undo.available() && !undo.pending()
+          && !focus?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
+        invoke: () => { void undo!.undo(); },
+      };
+    },
   }]);
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
@@ -472,11 +482,11 @@ export const App = (props: {
 
     return [
       ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "ask-history" || id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => row.keys !== "T" && taskKeys.has(row.keys))].map(row => {
+      ...[...CHORDS.filter(row => !row.inShelf && row.keys !== copy.leaderChord), ...LEADER.filter(row => row.keys !== "T")].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
         const action = actions.find(action => action.value === id && action.available());
 
-        const item: MenuItem = { id, label: row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
+        const item: MenuItem = { id, label: row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
 
         if (!("inRail" in row && row.inRail && row.keys === "R")) item.shortcut = "press" in row ? `⌘K ${row.keys}` : row.keys;
 
