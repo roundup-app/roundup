@@ -17,4 +17,11 @@ fn a12a_the_app_names_the_terminal_owner_beside_its_executable() {
         Config::locate(None, &exe, tmp, 1).unwrap().terminal_owner,
         Some(app.path().join("terminal-owner"))
     );
+    if let Some(dir) = std::env::var_os("ROUNDUP_TEST_APP_BIN") {
+        let dir = std::path::PathBuf::from(dir);
+        let config = Config::locate(None, &dir.join("roundup"), tmp, 1).unwrap();
+        assert!(config.rupd_bin.is_file());
+        assert_eq!(config.rupd_bin, dir.join("rupd"));
+        assert_eq!(config.terminal_owner, Some(dir.join("terminal-owner")));
+    }
 }

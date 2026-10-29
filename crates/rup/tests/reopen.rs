@@ -17,7 +17,11 @@ use daemon::{rail_tree, wait_until_idle};
 /// one running Terminal, and its retained hooks still reach the reopened Project.
 #[tokio::test]
 async fn u4547e_reparenting_survives_reopen() {
-    let owner = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner");
+    let owner = std::env::var_os("ROUNDUP_TEST_APP_BIN")
+        .map(|dir| PathBuf::from(dir).join("terminal-owner"))
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner")
+        });
     assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
     let logs = tempfile::tempdir().unwrap();
     let launches = logs.path().join("launches");
@@ -114,7 +118,11 @@ async fn u4547e_reparenting_survives_reopen() {
 /// D1/D5/S3, A12a: App exit stops independently owned programs, including recovered ones.
 #[tokio::test]
 async fn d5_attached_shutdown_stops_owner_held_agents_after_reopen() {
-    let owner = PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner");
+    let owner = std::env::var_os("ROUNDUP_TEST_APP_BIN")
+        .map(|dir| PathBuf::from(dir).join("terminal-owner"))
+        .unwrap_or_else(|| {
+            PathBuf::from(env!("CARGO_BIN_EXE_rup")).with_file_name("terminal-owner")
+        });
     assert!(owner.is_file(), "run `cargo build -p terminal --bins`");
     for reopen in [false, true] {
         let logs = tempfile::tempdir().unwrap();
