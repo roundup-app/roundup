@@ -111,13 +111,15 @@
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   gap: var(--space-6);
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .settings-sections .app-tabs-list {
   flex-direction: column;
   align-items: stretch;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .settings-sections .app-tabs-trigger {
@@ -168,4 +170,118 @@
 
 .settings-recording-mark {
   color: var(--red);
+}
+
+/* App Settings owns two full-height columns; Project settings keeps the shared shell. */
+.settings-view:has(.settings-sections) {
+  overflow: hidden;
+}
+
+.settings-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: var(--rail-menu-min-width);
+  padding-right: var(--space-4);
+  border-right: var(--hairline-width) solid var(--hairline);
+}
+
+.settings-back {
+  align-self: start;
+}
+
+.settings-category {
+  margin: var(--space-4) 0 var(--space-1);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--grey);
+}
+
+.settings-sections .app-tabs-trigger {
+  position: relative;
+  border-radius: 0;
+}
+
+.settings-sections .app-tabs-trigger::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: var(--stroke-width);
+  background: var(--transparent);
+}
+
+.settings-sections .app-tabs-trigger[data-selected]::before {
+  background: var(--accent);
+}
+
+.settings-content {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: var(--space-6);
+}
+
+.settings-content .settings-group-name {
+  font-size: var(--text-title);
+  color: var(--text);
+}
+
+.settings-content .settings-field,
+.settings-content .app-select {
+  width: 100%;
+}
+
+.settings-content .settings-field,
+.settings-content [data-scope="select"][data-part="root"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--space-4);
+  align-items: baseline;
+}
+
+.settings-caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.settings-content :is([data-part="label"], .settings-field-caption),
+.settings-content .app-select-label {
+  font-size: var(--text-body);
+  color: var(--text);
+}
+
+.settings-hint,
+.settings-content [data-part="helper-text"],
+.settings-content .app-select-hint {
+  font-size: var(--text-caption);
+  color: var(--grey);
+  white-space: nowrap;
+}
+
+.settings-content .app-select-label,
+.settings-content .app-select-hint {
+  grid-column: 1;
+}
+
+.settings-content [data-scope="select"][data-part="control"] {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.settings-field .reserved-line {
+  grid-column: 1 / -1;
+}
+
+.settings-content .reserved-line {
+  block-size: auto;
+  max-block-size: none;
+  overflow: visible;
+}
+
+.settings-content .ink[data-kind="error"] {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
 }

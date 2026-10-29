@@ -23,6 +23,8 @@ const failedRemove = async (pane = false) => {
   const mounted = await mountRail(tree, [], undefined, undefined, pane ? { pane: fakeEmulators().factory } : {});
   mounted.app.handlers["rail.tree"] = () => tree;
   mounted.app.handlers["rail.remove"] = refuse;
+  mounted.app.handlers["terminal.snapshot"] = () => ({ data: "", cols: 100, rows: 30, after: 0 });
+  mounted.app.handlers["terminal.resize"] = () => null;
   mounted.rail.select("a");
   rowOf("a").focus();
   fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true });

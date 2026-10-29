@@ -47,7 +47,7 @@ it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_s
   else openProjectPage(command, "/p");
   const name = command === "project-settings" ? "Project settings" : command === "import-work" ? "Import Claude Code work" : "Settings";
   const view = await screen.findByRole("region", { name });
-  fireEvent.click(within(view).getByRole("button", { name: "Close" }));
+  fireEvent.click(within(view).getByRole("button", { name: command === "app-settings" ? "← Back" : "Close" }));
   await waitFor(() => expect(screen.queryByRole("region", { name })).toBeNull());
 });
 

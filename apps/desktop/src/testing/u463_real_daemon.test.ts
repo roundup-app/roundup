@@ -592,14 +592,19 @@ it("u4590_visible_launch_params_match_first_pty_grid", async () => {
       expect({ cols: trace.params.cols, rows: trace.params.rows }).toEqual(trace.fitted);
       expect(await read("window.__sizingWrites")).toEqual([]);
       const id = trace.outcome.result.terminal_id;
-      let first: Awaited<ReturnType<typeof app.rpc<"terminal.snapshot">>>;
-      await expect.poll(async () => { first = await app.rpc("terminal.snapshot", { id });
+      const incarnation = (await app.rpc("terminal.list", null)).find(terminal => terminal.id === id)!.incarnation;
+      let before = "";
+      // A resize redraw clears the screen; the output log retains the program's first frame.
+      await expect.poll(async () => {
+        const output = await app.rpc("terminal.catchUp", { id, incarnation, after: 0 });
+        expect(output.kind).toBe("contiguous");
 
- return Buffer.from(first.data, "base64").toString(); }).toContain("first ");
-      const before = Buffer.from(first!.data, "base64").toString();
+        if (output.kind === "contiguous") before = Buffer.from(output.data, "base64").toString();
+
+        return before;
+      }).toContain("first ");
       expect(before).toContain(`first ${trace.fitted.cols} ${trace.fitted.rows}`);
       const pid = /pid=(\d+)/.exec(before)![1];
-      const incarnation = (await app.rpc("terminal.list", null)).find(terminal => terminal.id === id)!.incarnation;
       await browser("set", "viewport", "1412", "850");
 
       if (action === "shell" || action === "quick") await browser("dblclick", ".bubble:not([hidden]) .bubble-header");
