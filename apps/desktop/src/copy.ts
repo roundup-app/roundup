@@ -129,6 +129,7 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  find: "Find…",
   terminalDestinationUnavailable: "Terminal could not open: its font or layout was not ready. Retry.",
   terminalPreparationUnavailable: "Terminal could not open: its renderer was not available. Retry.",
   terminalPreparationCancelled: "Terminal preparation cancelled",
