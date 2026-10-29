@@ -13,7 +13,7 @@ import { showEverythingInApp } from "../testing/showEverything";
 import { createProjectDrafts } from "../state/connectedProject";
 import { gate, rpcCalls } from "../testing/appFixture";
 
-const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"], withWorktree = false) => {
+const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"], withWorktree = false, tab: "Todos" | "Pads" = copy.todos) => {
   const controls = seedApp(seed, 0);
 
   if (seed === "tree-40") {
@@ -26,7 +26,7 @@ const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["back
   const drafts = createProjectDrafts();
   const emulators = fakeEmulators();
   const view = render(() => <App app={controls.app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
-  await showEverythingInApp();
+  await showEverythingInApp(undefined, tab);
 
   return { ...controls, view, drafts, emulators };
 };
@@ -36,9 +36,7 @@ const cases = ["todo-shelf", "pad-shelf", "workstream", "agent"] as const;
 type RowCase = typeof cases[number];
 
 const target = async (kind: RowCase, rows: readonly string[] = ["backend", "auth", "tokens", "payments", "agent-4"]) => {
-  const controls = await open("tree-40", rows);
-
-  if (kind === "pad-shelf") await showEverythingInApp(undefined, copy.pads);
+  const controls = await open("tree-40", rows, false, kind === "pad-shelf" ? copy.pads : copy.todos);
 
   const selector = {
     "todo-shelf": '.todos-tab [data-todo="1"] .todo-row-button',
@@ -306,9 +304,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
   await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${project.path}`)!).drafts.find((draft: { value: { text?: string } }) => draft.value.text === text)?.selection).toMatchObject({ start: 2, end: 5 }));
   controls.view.unmount();
   render(() => <App app={controls.app} drafts={createProjectDrafts()} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-  await showEverythingInApp();
-
-  if (kind === "pad-shelf") await showEverythingInApp(undefined, copy.pads);
+  await showEverythingInApp(undefined, kind === "pad-shelf" ? copy.pads : copy.todos);
 
   const selector = kind === "todo-shelf" ? '.todos-tab [data-todo="1"] .todo-row-button' : '.pads-tab [data-incarnation="fixture-1"] .pad-name';
 
