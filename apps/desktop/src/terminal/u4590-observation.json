@@ -1,0 +1,9 @@
+{
+  "issue": 4596,
+  "base": "af68f191e5516fd69e6a90c9442d4d0838ed2c1d",
+  "failure": "At emulated DPR 2, WebGL canvas width/height were 884/858 while its viewport and renderer device dimensions were 1768/1716. Buffer rows existed; only later rows painted.",
+  "cause": "WebglRenderer._setCanvasDevicePixelDimensions receives scale-1 devicePixelContentBoxSize from Chromium ResizeObserver under scale-2 device emulation.",
+  "experiment": "Launching isolated Chromium with --force-device-scale-factor=2 and keeping viewport DPR 2 paints all prompt rows and the later marker on the unchanged head.",
+  "production_changes": false,
+  "remaining": "Persist observer setup repair and collect paired captures, affected guards and readiness."
+}
