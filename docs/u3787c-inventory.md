@@ -35,3 +35,8 @@ Agent-owned Pad names retain their ownership restriction. `pads/u3789a_pad_renam
 | Resource summaries / Terminal output | Read-only measurements / vendor-owned input and output; `resources/u408_strip.test.tsx`, Terminal typing observers |
 
 Gates: P3/P9 forbid attention or starts from selection; P6/P11 preserve original identities, exact drafts, recovery and Terminal input ownership; P14 forbids usage/cost data. Observers assert focus, selection, call counts and contracts. Rendered captures judge D2/D5/D6/D9; behavioral tests make no layout assertions. All keyboard/pointer feedback remains instant, using existing Tokens and controls.
+
+The inventory's new App observers pass 18 cases. Full acceptance remains blocked by
+#4733: retained Shelf Pad reload and reaction-acknowledgement observers time out,
+and the real-Terminal restoration observer fails during Vite preparation. None is
+counted as a restoration pass; #4306 and #3843 remain open.
