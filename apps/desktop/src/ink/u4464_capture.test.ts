@@ -119,6 +119,10 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`document.activeElement.matches('.app-select-trigger:focus-visible')`);
       await snap(`${theme}-form-ring`);
       await load("empty-project");
+      if (await read(`!!document.querySelector('.window[data-shelf="open"]')`)) {
+        await browser("click", '[aria-label="Close work items"]');
+        await wait(`!document.querySelector('.window[data-shelf="open"]')`);
+      }
       await snap(`${theme}-overview`);
 
       if (theme === "dark") {

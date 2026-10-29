@@ -183,7 +183,8 @@ p.ink[role="alert"] {
 /* U38: the empty list sits centred in the room under the add button, in `--grey` only. */
 .empty-state {
   flex: 1;
-  display: flex;
+  display: grid;
+  align-content: safe center;
   overflow: auto;
   overscroll-behavior: contain;
   min-width: 0;
@@ -196,9 +197,7 @@ p.ink[role="alert"] {
 }
 
 .empty-state-content {
-  flex: none;
   width: 100%;
-  margin: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
