@@ -11,7 +11,7 @@ import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
-import { leaderChord, SWITCHER_CLOSE } from "../keys/chords";
+import { LEADER, SWITCHER_CLOSE } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
@@ -218,7 +218,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     setOpen(true);
   };
 
-  registerKeys({ kind: "leader" }, [{ chords: leaderChord("K"), run: show }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, capture: () => ({ available: () => !open(), invoke: show }) }]);
   registerKeys({ kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
   ]);
