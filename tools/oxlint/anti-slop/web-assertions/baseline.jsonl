@@ -341,7 +341,6 @@
 {"file":"apps/desktop/src/testing/u176_agent_names.test.tsx","test":"u2773 Rail task destinations > u2773c_rail_external_change_keeps_original_removed_parent","identity":"5c840c9e4bcdb01315cfdf2b1f35255350bc9f6f1baa6480b716b47004158405"}
 {"file":"apps/desktop/src/testing/u176_agent_names.test.tsx","test":"u2773 Rail persisted edits > u2773c_rail_real_external_rename_and_removal_keep_original_edit","identity":"2cbbea485a4d821cc66be64938fc507f598315457189b2a2dc7a4cdd347fb25b"}
 {"file":"apps/desktop/src/testing/u176_agent_names.test.tsx","test":"u2773 Rail persisted edits > u2773c_rail_real_external_rename_and_removal_keep_original_edit","identity":"a939e7e925cda2933d51ee51da5d8f91f1a2ec258d436c163ce23ef6d5ab476a"}
-{"file":"apps/desktop/src/testing/u176_agent_names.test.tsx","test":"u2773 Rail persisted edits > u2773a_rail_real_names_keep_original_project_and_object_on_reopen","identity":"d6a9c730aa50f1f8a3f4aa86ce0cd3c7301908b6990ccb30a19050f7426626e4"}
 {"file":"apps/desktop/src/testing/u2580a_key_layers.test.tsx","test":"u2580a_instant_actions_release_slide_and_fit_once","identity":"ce4900c9bb8c11d2bf23d959e972532cabb6dbe95d804f77fc7d0cfd1271d37e"}
 {"file":"apps/desktop/src/testing/u2580a_key_layers.test.tsx","test":"u2580a_instant_actions_release_slide_and_fit_once","identity":"3d38e9f1fd30840bafaaafce3cebc025a51f8668f6cade44c0737bf076343834"}
 {"file":"apps/desktop/src/testing/u26_chromePage.test.ts","test":"u26_later_page_loads_keep_their_own_reply_budget","identity":"55162670d5d8a18b3f75bc024dcb73a1bc25370597f465c520204952df6e55c5"}
