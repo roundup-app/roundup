@@ -83,15 +83,13 @@
   --crepe-shadow-2: none;
 }
 
-.pad-readonly .milkdown-top-bar {
-  display: none;
-}
-
 .pad-rich-editor .milkdown-top-bar {
   background: var(--ground);
   border-bottom: var(--hairline-width) solid var(--hairline);
-  padding: 0;
+  padding-block: 0;
   min-height: 0;
+  display: flex;
+  align-items: center;
 }
 
 /* U4698b: the toolbar content shares the document's left edge and sticks while the body scrolls. */
@@ -388,3 +386,14 @@ li[aria-selected="true"] svg {
   color: var(--text-selection-ink);
 }
 
+
+.pad-rich-editor .top-bar-inner {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.pad-toolbar-expand {
+  flex-shrink: 0;
+  margin-left: var(--space-2);
+}
