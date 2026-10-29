@@ -218,6 +218,13 @@ it.each(["M", "W"].flatMap(keys => (["key", "pointer"] as const).map(source => (
 it.each(["M", "D", "E", "Esc", "O", "T"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690_each_hint_runs_its_key_action_once: Shelf $keys $source", async ({ keys, source }) => {
     const seeded = seedApp("tree-40", 0);
+
+    if (keys === "M") {
+      // Maximise needs one focused Todo, not the dense Rail's forty independent rows.
+      seeded.app.handlers["rail.tree"] = () => [];
+      seeded.app.handlers["todo.list"] = () => [todo(1)];
+    }
+
     const mounted = keys === "T" ? await mountTodos([todo(1, { title: "item 1" })]) : null;
     const app = mounted?.app ?? seeded.app;
 
