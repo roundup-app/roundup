@@ -18,19 +18,23 @@ export const shelfRowKeys = <Id,>(props: {
   remove: (id: Id) => void;
   exportPad?: (id: Id) => void;
 }) => {
-  registerKeys(shelfKeyScope, ["D", "E"].map(keys => ({
+  registerKeys(shelfKeyScope, ["D", "E"].map(keys => {
+    const capture = (focus: Element | null) => {
+      const id = props.focused();
+
+      const available = () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]")
+        && id !== undefined && props.focused() === id && (keys !== "E" || props.exportPad !== undefined);
+
+      return { available, invoke: () => { if (id !== undefined) { if (keys === "D") props.remove(id);
+        else props.exportPad?.(id); } } };
+    };
+
+    return {
       action: CHORDS.find(row => row.keys === keys)!, searchable: false as const,
-      when: canShelfKey,
-      capture: (focus: Element | null) => {
-        const id = props.focused();
-
-        const available = () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]")
-          && id !== undefined && props.focused() === id && (keys !== "E" || props.exportPad !== undefined);
-
-        return { available, invoke: () => { if (id !== undefined) { if (keys === "D") props.remove(id);
-          else props.exportPad?.(id); } } };
-      },
-    })));
+      when: (event: KeyboardEvent) => canShelfKey(event) && capture(event.target instanceof Element ? event.target : null).available(),
+      capture,
+    };
+  }));
 };
 
 /** U370: leader `S` toggles, `esc` from inside; focus goes to the open tab on opening and back to where it was on closing. */
