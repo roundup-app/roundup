@@ -50,7 +50,7 @@ export const HintLine = () => {
     // The Shelf's own hints follow its state: Restore while maximised, and Export only where `e` acts, on a Pad row.
     const maximised = focus()?.closest(".window")?.getAttribute("data-shelf-maximised") === "true";
     const focused = focus();
-    const rowButton = focused?.matches(".todo-row-button") === true;
+    const rowButton = focused?.matches(".todo-row-button, .pad-name") === true;
     const onPad = rowButton && focused?.closest(".pad-inset") != null;
     const canAssign = rowButton && !focused?.closest(".todo-done-fold");
     const editing = focused?.closest("input,textarea,select,[contenteditable]") != null;

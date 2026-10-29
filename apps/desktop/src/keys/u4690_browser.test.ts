@@ -38,6 +38,12 @@ beforeAll(async () => {
   if (!ready.ok) throw new Error(await ready.text());
   await browser("--profile", profile, "open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
 
+  const dir = captureDir("U4690");
+
+  if (dir) {
+    mkdirSync(join(dir, "head"), { recursive: true });
+    await browser("record", "start", join(dir, "head/interaction.webm"));
+  }
 }, 90_000);
 
 afterAll(async () => {
@@ -83,6 +89,8 @@ it("u4690b_pointer_down_keeps_the_leader_choice", async () => {
   await capture("U4690", "head/switcher");
   await browser("press", "Escape");
   await wait(`!document.querySelector('.switcher')`);
+
+  if (captureDir("U4690")) await browser("record", "stop");
 }, 60_000);
 
 it("u4690a_pointer_keeps_source_focus_and_action_destinations", async () => {
@@ -164,4 +172,45 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
     await browser("press", "Tab");
     expect(await read(`document.activeElement?.closest('.hint-line [hidden]') !== null`)).toBe(false);
   }
+}, 60_000);
+
+it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
+  await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="agent-2"]')`);
+
+  if (place === "pad") {
+    await read(`[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(tab => tab.textContent.includes('Pads')).click()`);
+    await wait(`!!document.querySelector('.pads-tab [data-part=branch-control]')`);
+    await read(`document.querySelector('.pads-tab [data-part=branch-control]').click()`);
+    await wait(`!!document.querySelector('.shelf .pad-name')`);
+    await browser("click", ".shelf .pad-name");
+    await read(`document.querySelector('.shelf .pad-name').focus()`);
+    await browser("press", "Enter");
+    await wait(`!!document.querySelector('.pad-body button')`);
+    await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
+  } else {
+    await browser("click", '.rail-row[data-id="agent-2"]');
+    await wait(`!!document.querySelector('.pane-screen textarea')`);
+
+    if (place === "bubble") {
+      await browser("click", ".terminal-new");
+      await wait(`!!document.querySelector('.bubble textarea')`);
+    }
+
+    await read(`window.__source = document.querySelector(${JSON.stringify(place === "bubble" ? ".bubble textarea" : ".pane-screen textarea")}); window.__source.focus()`);
+  }
+
+  await wait(`!!document.querySelector('.hint-line [data-hint="⌘K"]:enabled')`);
+  const target = await point('.hint-line [data-hint="⌘K"]');
+  await browser("mouse", "move", String(target.x), String(target.y));
+  await browser("mouse", "down", "left");
+  expect(await read(`document.activeElement === window.__source`)).toBe(true);
+  await browser("mouse", "up", "left");
+  await wait(`!!document.querySelector('.hint-line.leader')`);
+  expect(await read(`document.activeElement === window.__source`)).toBe(true);
+
+
+  expect(await read(`window.__fake.app.calls.filter(call => call.method === 'terminal.write')`)).toEqual([]);
+  await capture("U4690a", `head/${place}-focus`);
 }, 60_000);
