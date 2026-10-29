@@ -38,6 +38,10 @@ it.skipIf(!captureDir("A4899a"))("a4899a_a_blocked_door_takes_the_named_ask_in_t
     const door = await app.rpc("rail.createWorkstream", { name: "Feedback", parent: null, order: { kind: "work", title: "Feedback", ask: "Review feedback", limits: [] } });
     await app.rpc("rail.startDoor", { id: door.id });
     await vi.waitFor(async () => { expect((await app.rpc("rail.tree", null)).find(node => node.id === door.id)?.status?.kind).toBe("idle"); });
+    const ready = (await app.rpc("rail.tree", null)).find(node => node.id === door.id)!;
+    const prompt = await app.rpc("terminal.read", { id: ready.terminal_id!, after: 0, reader: null, max: null });
+
+    expect(prompt.text).toBe("");
     const blocker = await app.rpc("todo.create", { title: "Await review", body: null, blockers: null });
 
     // A33 follows the creator, so create through the Door's public CLI identity.
