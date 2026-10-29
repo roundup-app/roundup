@@ -111,32 +111,25 @@ async fn p1_create_makes_the_caller_owner_and_logs_a_write() {
 }
 
 #[tokio::test]
-async fn p2_owner_rewrites_and_others_only_append() {
-    let rig = Rig::new();
-    let (a, b) = (agent("a"), agent("b"));
-    rig.ok(&a, "pad.create", json!({"name": "notes", "text": "one"}))
-        .await;
-
-    rig.ok(&a, "pad.write", json!({"name": "notes", "text": "two"}))
-        .await;
-    let mut events = rig.bus.subscribe();
-    let denied = rig
-        .fail(&b, "pad.write", json!({"name": "notes", "text": "x"}))
-        .await;
-    assert_eq!(denied.code, code::FORBIDDEN);
-    assert!(events.try_recv().is_err());
-    rig.ok(&b, "pad.append", json!({"name": "notes", "text": "+b"}))
-        .await;
-
-    let pad = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
-    assert_eq!(pad["text"], "two+b");
-    assert!(matches!(
-        events.try_recv().unwrap().data,
-        EventData::PadChanged(_)
-    ));
-    let by_b: Vec<_> = rig.touches.touched("b").unwrap();
-    assert_eq!(by_b.len(), 1);
-    assert_eq!(by_b[0].verb, Verb::Wrote);
+async fn p2_any_actor_rewrites_and_appends() {
+    for caller in [user(), agent("a"), agent("b")] {
+        let rig = Rig::new();
+        rig.ok(&agent("a"), "pad.create", json!({"name": "notes", "text": "one"})).await;
+        let mut events = rig.bus.subscribe();
+        rig.ok(&caller, "pad.write", json!({"name": "notes", "text": "two"})).await;
+        rig.ok(&caller, "pad.append", json!({"name": "notes", "text": "+more"})).await;
+        let pad = rig.ok(&caller, "pad.read", json!({"name": "notes"})).await;
+        assert_eq!(pad["text"], "two+more");
+        assert_eq!(pad["revision"], 3);
+        for _ in 0..2 {
+            assert!(matches!(events.try_recv().unwrap().data, EventData::PadChanged(_)));
+        }
+        let history = rig.touches.history("pad:notes").unwrap();
+        assert_eq!(history[1].actor, caller);
+        assert_eq!(history[2].actor, caller);
+        assert_eq!(history[1].verb, Verb::Wrote);
+        assert_eq!(history[2].verb, Verb::Wrote);
+    }
 }
 
 #[tokio::test]
