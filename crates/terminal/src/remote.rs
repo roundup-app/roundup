@@ -129,13 +129,9 @@ impl Remote {
                     let mut event_client = owner.connect(&project).await?;
                     let output = event_client.take_output().ok_or_else(|| RpcError::internal("owner output"))?;
                     let selected = event_client.request("terminal.output", json!({"id":owner.info.id})).await?;
-                    // A final live lookup refuses a program that exited during stream setup.
-                    let infos: Vec<TerminalInfo> = params(client.request("terminal.list", json!({})).await?)?;
-                    if infos.len() != 1 || !infos[0].running || infos[0].incarnation != owner.info.incarnation {
-                        return Err(RpcError::not_found("live Terminal incarnation"));
-                    }
                     let cut = selected["offset"].as_u64().ok_or_else(|| RpcError::internal("owner offset"))?;
                     let catch_up: contracts::terminal::CatchUp = params(client.request("terminal.catchUp", json!({"id":owner.info.id,"incarnation":owner.info.incarnation,"after":0})).await?)?;
+                    {
                     let mut state = pushed.lock().expect("remote output");
                     if let contracts::terminal::CatchUp::Contiguous { data, .. } = catch_up {
                         let mut bytes = STANDARD.decode(data).map_err(RpcError::internal)?;
@@ -143,6 +139,12 @@ impl Remote {
                         if !bytes.is_empty() { let _ = state.1.as_ref().expect("output sender").send(Chunk { offset: 0, bytes: Arc::from(bytes) }); }
                     }
                     state.0 = cut;
+                    }
+                    // Refuse an exit during stream selection or catch-up before publishing attachment.
+                    let infos: Vec<TerminalInfo> = params(client.request("terminal.list", json!({})).await?)?;
+                    if infos.len() != 1 || !infos[0].running || infos[0].incarnation != owner.info.incarnation {
+                        return Err(RpcError::not_found("live Terminal incarnation"));
+                    }
                     Ok((client, input_client, event_client, output))
                 };
                 let (client, input_client, mut event_client, mut output) = match tokio::time::timeout(DEADLINE, setup).await {
