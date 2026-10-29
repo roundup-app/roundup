@@ -42,7 +42,7 @@ type Row = {
   selected: string;
   origin: string;
   method: string;
-  params: SpawnParams | OpenParams | { id: string } | undefined;
+  params: SpawnParams | OpenParams | { name: string; parent: null } | { id: string } | undefined;
   /** Installs the pending handler for this row's method; `entered` runs as the call arrives. */
   hold: (app: FakeApp, entered: () => void) => Pending;
   confirms: boolean;
@@ -111,23 +111,25 @@ const BUBBLE_ROWS: Row[] = [
     } },
 ];
 
-const mountApp = async (capture?: import("../app/seam").CapturePort) => {
+const mountApp = async (capture?: import("../app/seam").CapturePort, empty = false) => {
   useBrowserStorage(localStorage);
   const app = createFakeApp();
   app.capture = capture;
   app.add(path("first"));
   app.add(path("second"));
-  app.of(path("first")).handlers["rail.tree"] = () => [workstream("ops"), workstream("elsewhere", { order: 1 })];
+  app.of(path("first")).handlers["rail.tree"] = () => empty ? [] : [workstream("ops"), workstream("elsewhere", { order: 1 })];
   app.of(path("second")).handlers["rail.tree"] = () => [workstream("other")];
-  app.of(path("first")).handlers["terminal.list"] = () => [info("7", { owner: "ops", title: "original" })];
+  app.of(path("first")).handlers["terminal.list"] = () => empty ? [] : [info("7", { owner: "ops", title: "original" })];
   let original: ConnectedProject | undefined;
   const emulators = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { if (open.project.path === path("first")) original = open; }} />);
   await screen.findByRole("tab", { name: /^first/ });
   fireEvent.click(tab("first"));
   await waitFor(() => expect(original).toBeDefined());
-  await screen.findByText("ops", { selector: ".name" });
-  fireEvent.click(rowOf("ops"));
+  if (!empty) {
+    await screen.findByText("ops", { selector: ".name" });
+    fireEvent.click(rowOf("ops"));
+  }
   original!.showView("terminal-tabs");
   await settled();
 
@@ -140,7 +142,18 @@ const CAPTURE_ROW: Row = {
   hold: () => { throw new Error("Native Capture uses its configured port"); },
 };
 
-const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS, CAPTURE_ROW].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
+const WORKSTREAM_ROW: Row = {
+  owner: "App", label: "New Workstream", selected: "", origin: ".rail-actions", method: "rail.createWorkstream",
+  params: { name: "workstream", parent: null }, confirms: false, removes: "",
+  hold: (app, entered) => {
+    const reply = pending(entered, workstream("created"));
+    app.handlers["rail.createWorkstream"] = reply.handler;
+
+    return reply.gate;
+  },
+};
+
+const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS, CAPTURE_ROW, WORKSTREAM_ROW].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
   (row === CAPTURE_ROW ? ["dismiss", "resolve", "reject"] as const : row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
@@ -155,7 +168,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
   } : undefined;
 
-  const mounted = row.owner !== "Rail" ? await mountApp(native) : await mountSwitcher(row.selected);
+  const mounted = row.owner !== "Rail" ? await mountApp(native, row === WORKSTREAM_ROW) : await mountSwitcher(row.selected);
   const { app, connected } = mounted;
 
   if (native) {
@@ -186,7 +199,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     },
   });
 
-  document.querySelector<HTMLElement>(row.origin)!.focus();
+  const origin = document.querySelector<HTMLElement>(row.origin)!;
+  origin.focus();
   openSwitcher();
   await waitFor(() => expect(field()).not.toBeNull());
   fireEvent.input(field()!, { target: { value: row.label } });
@@ -232,7 +246,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
     if (outcome === "confirmation-accept" || outcome === "confirmation-cancel") {
       fireEvent.click(tab("second"));
-      await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
+      await waitFor(() => row === WORKSTREAM_ROW ? expect(origin.isConnected).toBe(false) : expect(document.querySelector(row.origin)).toBeNull());
     }
 
     await answerQuestion(outcome !== "cancel" && outcome !== "confirmation-cancel");
@@ -263,7 +277,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     }
 
     fireEvent.click(tab("second"));
-    await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
+    await waitFor(() => row === WORKSTREAM_ROW ? expect(origin.isConnected).toBe(false) : expect(document.querySelector(row.origin)).toBeNull());
   } else {
     // Changing the tree and selection must not retarget the pending action.
     const tree = app.handlers["rail.tree"]!;
@@ -274,6 +288,63 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   }
 
   expect(ofMethod()).toHaveLength(1);
+
+  if (row === WORKSTREAM_ROW) {
+    await connected.drafts.edit({ surface: "rail-task", object: path("first"), recipient: null }, { text: " newer\ne\u0301 🧭 " }, null, "ordinary").retained;
+    const drafts = connected.drafts.list();
+    const complete = () => {
+      app.handlers["rail.tree"] = () => [workstream("created")];
+      app.handlers["rail.startDoor"] = () => workstream("created");
+    };
+
+    if (outcome === "resolve") {
+      complete();
+      reply.resolve();
+      await waitFor(() => expect(connected.rail.nodes.map(node => node.id)).toEqual(["created"]));
+      expect(document.querySelector('[data-id="created"]')).toBeNull();
+    } else {
+      reply.reject(outcome === "unknown" ? new Error("connection lost") : new RpcError(-32003, "database locked"));
+      await waitFor(() => expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes(row.label) && alert.textContent.includes(outcome === "unknown" ? "connection lost" : "database locked"))).toBe(true));
+      const recovery = connected.rail.commandFailure.retry();
+      expect(recovery).not.toBeNull();
+      expect(connected.drafts.list()).toEqual(drafts);
+      fireEvent.click(screen.getByRole("button", { name: "Open first" }));
+      await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
+      expect(ofMethod()).toHaveLength(1);
+      // New facts must not change the name captured by the empty-Rail activation.
+      app.handlers["rail.tree"] = () => [workstream("elsewhere", { name: "workstream" })];
+      await connected.rail.refresh();
+      connected.rail.select("elsewhere");
+      complete();
+      app.handlers["rail.createWorkstream"] = () => workstream("created");
+      fireEvent.click(document.querySelector(".rail-command-notice button")!);
+
+      if (outcome === "unknown") {
+        await questionDialog();
+        expect(ofMethod()).toHaveLength(1);
+        await answerQuestion(false);
+        await waitFor(() => expect(connected.rail.workstreamCreating()).toBe(false));
+        expect(ofMethod()).toHaveLength(1);
+        expect(connected.rail.commandFailure.retry()).toBe(recovery);
+        fireEvent.click(document.querySelector(".rail-command-notice button")!);
+        await questionDialog();
+        expect(ofMethod()).toHaveLength(1);
+        await answerQuestion(true);
+      }
+
+      await waitFor(() => expect(ofMethod()).toHaveLength(2));
+      expect(ofMethod().map(call => call.params)).toEqual([row.params, row.params]);
+      await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
+    }
+
+    expect(connected.drafts.list()).toEqual(drafts);
+    expect(drafts.filter(entry => entry.destination.surface === "switcher")).toEqual(queryDraft);
+    expect("other" in mounted && mounted.other.calls.filter(call => [row.method, "rail.startDoor", "agent.prompt", "terminal.write", "message.send"].includes(call.method))).toEqual([]);
+    expect(app.calls.slice(before).filter(call => ["agent.prompt", "terminal.write", "message.send"].includes(call.method))).toEqual([]);
+    expect(app.badges.filter(count => count > 0)).toEqual([]);
+
+    return;
+  }
 
   if (native) {
     const drafts = connected.drafts.list();
