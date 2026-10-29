@@ -65,7 +65,7 @@
   justify-content: center;
 }
 
-.pane-door .empty-state {
+.pane-door .empty-state-content {
   background: var(--ground);
 }
 
