@@ -35,6 +35,24 @@ impl Terminals {
             .collect()
     }
 
+    /// The persistable owner record behind client Terminal `id`; `None` for a Terminal this
+    /// client owns directly.
+    pub fn terminal_owner(&self, id: &str) -> Option<TerminalOwner> {
+        let number = id.parse().ok()?;
+        self.remotes
+            .lock()
+            .expect("remote table")
+            .get(&number)
+            .map(|remote| remote.owner.clone())
+    }
+
+    /// Attach a persisted owner record of this Terminals' own Project, launching nothing and
+    /// sending no input (X8). The record's incarnation is verified before it gets a client id.
+    pub async fn reattach_owner(&self, owner: &TerminalOwner) -> Result<Spawned, RpcError> {
+        let project = self.integration_dir.parent().expect("Project data");
+        self.attach_owner(project, owner).await
+    }
+
     pub(super) async fn start_owner(
         &self,
         helper: &Path,
