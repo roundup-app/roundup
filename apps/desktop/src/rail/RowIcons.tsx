@@ -40,7 +40,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
       )}
     </Show>
     <Show when={props.actions.kind === "workstream" ? props.actions.restart : undefined}>{restart => <>
-      <IconButton {...ownKeys} aria-label={copy.restart} aria-disabled={restart().pending} onClick={click => { click.stopPropagation(); restart().run(); }}>↻</IconButton>
+      <IconButton {...ownKeys} aria-label={copy.restart} aria-disabled={restart().pending} onClick={click => { click.stopPropagation(); restart().run(); }}>{copy.restartMark}</IconButton>
       <RowIcon name="more" label={copy.rowActions} onClick={restart().menu} />
     </>}</Show>
     {props.children}
