@@ -67,6 +67,7 @@ type Stream = {
   /** The offset the emulator has been written up to; null until the first screen. */
   after: number | null;
   restoring: boolean;
+  parsing: boolean;
   lost: boolean;
 };
 
@@ -269,7 +270,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   createEffect(reconcile);
 
   const drain = (id: string, holder: Holder, stream: Stream): void => {
-    if (stream.restoring || stream.after === null || !stream.open) return;
+    if (stream.restoring || stream.parsing || stream.after === null || !stream.open) return;
 
     while (stream.queue.length > 0) {
       const chunk = stream.queue[0];
@@ -290,17 +291,31 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         return;
       }
 
+      const bytes = chunk.bytes.subarray(stream.after - chunk.offset, stream.after - chunk.offset + 8192);
+
+      stream.after += bytes.length;
+      if (stream.after === end) takeFirst(stream);
+      stream.parsing = true;
+
       try {
-        holder.emulator.write(chunk.bytes.subarray(stream.after - chunk.offset));
+        holder.emulator.write(bytes, () => {
+          holder.retain();
+          // R21: xterm's default write loop can parse for 12 ms. Keep its backlog
+          // in our bounded stream and yield between chunks for input and drawing.
+          if (stream.queue.length > 0) setTimeout(() => {
+            stream.parsing = false;
+            if (stream.open && holder.stream === stream) settle(id, holder, stream);
+          }, 0);
+          else stream.parsing = false;
+        });
       } catch (thrown) {
         if (!(thrown instanceof Error)) throw thrown;
 
+        stream.parsing = false;
         setFailure(id, "output", `terminal.output: ${thrown.message}`);
       }
 
-      stream.after = end;
-      holder.retain();
-      takeFirst(stream);
+      if (stream.parsing) return;
     }
   };
 
@@ -405,6 +420,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const settle = (id: string, holder: Holder, stream: Stream): void => {
+    if (stream.parsing) return;
+
     if (stream.lost && !stream.restoring) {
       stream.lost = false;
       void restore(id, holder, stream);
@@ -690,7 +707,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (!holder.stream) {
       const stream: Stream = {
         open: true, subscription: null, early: [], placed: false, start: null, position: 0,
-        queue: [], queued: 0, after: null, restoring: false, lost: false,
+        queue: [], queued: 0, after: null, restoring: false, parsing: false, lost: false,
       };
 
       holder.stream = stream;
