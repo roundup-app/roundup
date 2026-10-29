@@ -201,7 +201,11 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
       run: (event) => {
         const captured = binding.capture(event.target instanceof Element ? event.target : document.activeElement);
 
-        if (!event.repeat && captured.available()) captured.invoke();
+        if (!event.repeat && captured.available()) {
+          captured.invoke();
+
+          if (armed()) kept = event.code;
+        }
       },
     };
 

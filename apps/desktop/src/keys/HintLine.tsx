@@ -84,7 +84,8 @@ export const HintLine = () => {
 
   createEffect(() => {
     hints();
-    fit();
+    actions();
+    queueMicrotask(fit);
   });
 
   onMount(() => {
@@ -110,12 +111,16 @@ export const HintLine = () => {
   });
 
   const choices = (keys: string) => actions().filter(row => row.action.keys === keys && ("press" in row.action) === leaderArmed());
+
   const run = (action: ReturnType<typeof captureActions>[number]) => {
     if (modalOpen() || !focus()?.isConnected || !action.available()) return;
+
     if (document.activeElement instanceof HTMLElement && line?.contains(document.activeElement) && focus() instanceof HTMLElement) {
       const target = focus();
+
       if (target instanceof HTMLElement) target.focus({ preventScroll: true });
     }
+
     if (leaderArmed()) endLeader();
     action.run();
   };
@@ -124,13 +129,15 @@ export const HintLine = () => {
     <p class="hint-line" classList={{ leader: leaderArmed() }} role={leaderArmed() ? "status" : undefined} aria-label={leaderArmed() ? copy.leaderPanel : undefined} ref={line} data-place={place() ?? undefined}>
       <For each={hints()}>{(hint) => <Show when={hint.keys === "1–9"} fallback={
         <button type="button" class="hint hint-action" data-hint={hint.keys} disabled={!choices(hint.keys).some(action => action.available())}
-          onPointerDown={event => event.preventDefault()} onClick={() => { const action = choices(hint.keys)[0]; if (action) run(action); }}>
+          onPointerDown={event => event.preventDefault()} onClick={() => { const action = choices(hint.keys)[0];
+
+ if (action) run(action); }}>
           <KeyHint bare keys={hint.keys}>{hint.label}</KeyHint>
         </button>
       }>
         <span class="hint key-hint"><For each={choices(hint.keys)}>{action =>
           <button type="button" class="hint-action" data-hint={action.press} aria-label={action.label} disabled={!action.available()}
-            onPointerDown={event => event.preventDefault()} onClick={() => run(action)}><KeyHint bare keys={action.press?.replace("Digit", "") ?? ""}><span class="sr-only">{action.label}</span></KeyHint></button>
+            onPointerDown={event => event.preventDefault()} onClick={() => run(action)}><KeyHint bare keys={action.press?.replace("Digit", "") ?? ""} children={null} /></button>
         }</For><span class="key-hint-label">{hint.label}</span></span>
       </Show>}</For>
     </p>
