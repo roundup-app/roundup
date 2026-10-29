@@ -1,8 +1,6 @@
-import { currentOwner } from "../state/rail";
 import { captureFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
 import { IconButton } from "../ui/IconButton";
 import type { ActivationSource } from "../keys/registry";
