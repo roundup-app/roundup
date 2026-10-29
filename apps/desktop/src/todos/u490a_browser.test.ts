@@ -159,6 +159,7 @@ for (const list of [shelf]) {
       await page.pointer("up", first.x, first.y);
       await settled();
       expect(await state(rows)).toMatchObject({ ids: before.ids, drawer: false, reorders: [] });
+      expect(await page.call(`() => Boolean(document.querySelector(".row-name-editor"))`)).toBe(false);
 
       // Re-measure after cancellation: settling or owner groups can move rows.
       const origin = await centre(rows, before.ids.length - 1);
@@ -170,6 +171,7 @@ for (const list of [shelf]) {
       await page.pointer("up", origin.x, origin.y);
       await settled();
       expect(await state(rows)).toMatchObject({ drawer: false, reorders: [] });
+      expect(await page.call(`() => Boolean(document.querySelector(".row-name-editor"))`)).toBe(false);
     }, 60_000);
 
     it("u490a_cancel_and_noop_original_gap_makes_no_call", async () => {
