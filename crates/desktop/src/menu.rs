@@ -227,6 +227,12 @@ fn project_kind<R: Runtime>(
 ) -> tauri::Result<(MenuItemKind<R>, Option<String>)> {
     let (accelerator, hint) = match item.shortcut.as_deref() {
         Some(shortcut) if shortcut.starts_with("⌘K ") => (None, Some(shortcut.to_owned())),
+        // A plain key (a Shelf row's `D`) is control-owned: shown as a hint, never a global accelerator.
+        Some(shortcut)
+            if item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']) =>
+        {
+            (None, Some(shortcut.to_owned()))
+        }
         Some(shortcut) => (
             Some(
                 shortcut
@@ -626,6 +632,25 @@ mod tests {
             .unwrap();
             assert_eq!(plain(built).text().unwrap(), source.label);
             assert_eq!(hint, None);
+        }
+    }
+
+    #[test]
+    fn u3787b_plain_key_commands_register_no_accelerator() {
+        let app = mock_app();
+        for key in ["D", "E", "M", "J K", "⇧Tab", "Tab", "1–9", "⏎"] {
+            let source = item(&format!("action:chord:{key}"), "Run action", Some(key), None);
+            let (built, hint) = project_kind(
+                app.handle(),
+                &source,
+                |app, id, label, enabled, accelerator| {
+                    assert_eq!(accelerator, None);
+                    MenuItem::with_id(app, id, label, enabled, accelerator)
+                },
+            )
+            .unwrap();
+            assert_eq!(plain(built).text().unwrap(), source.label);
+            assert_eq!(hint.as_deref(), Some(key));
         }
     }
 

@@ -1,4 +1,4 @@
-import { questionProbe } from "../testing/menuProbe";
+import { openProjectPage, projectMenu, questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -151,4 +151,17 @@ it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async plac
   for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);
   expect(app.calls.filter(call => call.method.endsWith(".delete") || call.method === "pad.export")).toEqual([]);
   expect(questionProbe.shown).toBeNull();
+});
+
+it("u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row", async () => {
+  const { app, rows } = await open();
+  rows[0]!.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:D")?.shortcut).toBe("D"));
+  expect(projectMenu.items.find(item => item.id === "action:chord:E")).toBeUndefined();
+  expect(document.activeElement).toBe(rows[0]);
+  openProjectPage("action:chord:D");
+  await waitFor(() => expect(app.calls.filter(call => call.method === "todo.delete")).toHaveLength(1));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  screen.getByLabelText("New Todo title").focus();
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:D")).toBe(false));
 });
