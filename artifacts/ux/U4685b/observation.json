@@ -194,8 +194,8 @@
     ]
   },
   "geometry": {
-    "Terminal-Rail-Shelf-Help-return": "All five region rectangles identical across steps 02\u201308, both phases",
-    "Drawer-Terminal": "All five region rectangles identical across steps 09\u201311, both phases",
+    "Terminal-Rail-Shelf-Help-return": "Every recorded region and Terminal screen rectangle is identical across steps 02\u201308, both phases",
+    "Drawer-Terminal": "Every recorded region and Terminal screen rectangle is identical across steps 09\u201311, both phases",
     "firstLastGlyphsAndCaret": "Rendered first and last visible lines and caret remain inside indicator; no overlap",
     "scopeNote": "Shelf toggles and Drawer opening cause existing layout fits, excluded from focus-only deltas. Drawer hides Shelf in production."
   }
