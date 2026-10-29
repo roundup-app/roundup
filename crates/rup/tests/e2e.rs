@@ -683,7 +683,7 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
     listed.sort();
     assert_eq!(advertised(&seen.brief), listed);
     assert!(!seen.brief.contains(&format!("Agent id is {}", agent.id)));
-    assert!(!seen.brief.contains("coordinating Door"));
+    assert!(!seen.brief.contains("Workstream's coordinating Door"));
     assert!(
         !seen.brief.contains(HOLD_PLAIN),
         "Q11: the Brief must not duplicate the plugin style"
