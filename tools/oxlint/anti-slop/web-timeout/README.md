@@ -20,7 +20,7 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 ```
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
-file count and each diagnostic. Its App source equals merged base `41ebeb6d3`;
+file count and each diagnostic. Its App source equals merged base `9e78df15a`;
 the recorded tool hash identifies the rule used for this audit. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /
@@ -29,7 +29,7 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 
 `fixtures.jsonl` records every boundary fixture's input, diagnostic and exit code
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
-The 97 retained fixtures include 63 negatives, each with its own diagnostic and
+The 102 retained fixtures include 67 negatives, each with its own diagnostic and
 exit code. The over-limit alias fixture added during development was removed:
 `configuration default` already proves that literal-property rejection; the
 mutated and immutable alias fixtures retain the distinct binding-resolution proof.
@@ -138,6 +138,24 @@ unmeasured; neither a missing entry nor the extractor's skipped-file placeholder
 justifies a cap. File totals include hooks and multiple tests and do not establish
 an individual callback's timeout requirement. #4451 stays open until its requested
 observer evidence and exact-test cap decisions are complete.
+
+## Effective project lists
+
+Root configuration project lists use the existing effective-property resolver.
+An inline project supplied through a known spread cannot hide a computed
+`testTimeout`; unknown project lists reject at their source. Later `projects`
+properties override earlier spreads, while a later spread can replace an earlier
+safe list. The `spread project list timeout` fixture reproduced exit 0 before the
+repair and exits 1 afterward through the real `pnpm lint` command.
+
+A safe root `testTimeout` alone does not bound a project supplied by an unknown
+spread. The existing `configuration default overrides spread` and `project exported
+safe override` positive fixtures now explicitly set `projects: []`, keeping their
+safe-default override proof without authorizing unknown projects. The separate
+`safe default cannot hide unresolved projects` negative fixture checks the former
+unsafe shape. No fixture is removed. Configuration helpers and raw exports share
+this lookup. Vitest's installed `UserWorkspaceConfig.test.projects` type permits
+referenced configuration containers, so `defineProject` uses the same check.
 
 ## Reuse
 
