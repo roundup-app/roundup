@@ -174,12 +174,12 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
   }
 }, 60_000);
 
-it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
+it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
   await browser("set", "viewport", "1512", "950");
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="agent-2"]')`);
 
-  if (place === "pad") {
+  if (place.startsWith("pad-")) {
     await read(`[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(tab => tab.textContent.includes('Pads')).click()`);
     await wait(`!!document.querySelector('.pads-tab [data-part=branch-control]')`);
     await read(`document.querySelector('.pads-tab [data-part=branch-control]').click()`);
@@ -188,6 +188,11 @@ it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_actio
     await read(`document.querySelector('.shelf .pad-name').focus()`);
     await read(`document.querySelector('.shelf .pad-name').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}))`);
     await wait(`!!document.querySelector('.pad-body button')`);
+    if (place === "pad-side") {
+      await browser("click", '.drawer button[aria-label="Restore"]');
+      await wait(`document.querySelector('.drawer').dataset.maximised === 'false'`);
+    }
+    await read(`window.__padEditor = document.querySelector('.drawer .ProseMirror'); window.__padDraft = window.__padEditor.textContent`);
     await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
   } else {
     await browser("click", '.rail-row[data-id="agent-2"]');
@@ -202,6 +207,7 @@ it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_actio
   }
 
   await wait(`!!document.querySelector('.hint-line [data-hint="⌘K"]:enabled')`);
+  await capture("U4690a", `head/${place}-before`);
   const target = await point('.hint-line [data-hint="⌘K"]');
   await browser("mouse", "move", String(target.x), String(target.y));
   await browser("mouse", "down", "left");
@@ -210,6 +216,17 @@ it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_actio
   await wait(`!!document.querySelector('.hint-line.leader')`);
   expect(await read(`document.activeElement === window.__source`)).toBe(true);
 
+  if (place.startsWith("pad-")) {
+    const choice = await point('.hint-line [data-hint="M"]');
+    await browser("mouse", "move", String(choice.x), String(choice.y));
+    await browser("mouse", "down", "left");
+    expect(await read(`document.activeElement === window.__source && !!document.querySelector('.hint-line.leader')`)).toBe(true);
+    await browser("mouse", "up", "left");
+    await wait(`!document.querySelector('.hint-line.leader')`);
+    expect(await read(`document.querySelector('.drawer').dataset.maximised`)).toBe(place === "pad-filled" ? "false" : "true");
+    expect(await read(`document.activeElement === window.__source`)).toBe(true);
+    expect(await read(`document.querySelector('.drawer .ProseMirror') === window.__padEditor && window.__padEditor.textContent === window.__padDraft`)).toBe(true);
+  }
 
   expect(await read(`window.__fake.app.calls.filter(call => call.method === 'terminal.write')`)).toEqual([]);
   await capture("U4690a", `head/${place}-focus`);
