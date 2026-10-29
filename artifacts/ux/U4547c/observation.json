@@ -1,6 +1,6 @@
 {
-  "base": "b9f46caf2f2ea6414d308fef7afd67295748b068",
-  "head": "0c4b6db925a8597603607bd993556aca2c5cc12f",
+  "base": "fabcd48f96c74ce500bf5b97a9a88c5110f42fef",
+  "head": "ddc757bb32c3ab1fee016c0d123ba4933cb34643",
   "viewport": {
     "width": 1512,
     "height": 950
@@ -12,5 +12,5 @@
     "Understand",
     "Intervene"
   ],
-  "checks": "All measured Checks pass. Mode mark remains beside the name on hover and selection; blank Create Mode uses disabled ink and a neutral surface. Images and videos remain uncommitted."
+  "checks": "All measured Checks pass. At rest Reviewer is readable in full and differs from the longer Mode name. Hover and selection keep the Mode mark clear of actions. Blank Create Mode uses disabled ink on a neutral surface. Images and videos remain uncommitted."
 }
