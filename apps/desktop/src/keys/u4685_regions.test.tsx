@@ -27,13 +27,18 @@ it("u4685b_focus_changes_never_refit_or_resize_the_terminal", async () => {
 
   expect({ fits: emulator.fits - fits, resizes: callsTo(daemon, "terminal.resize").length - resizes }).toEqual({ fits: 0, resizes: 0 });
   fireEvent.click(screen.getByText("Selected work"));
+
   const drawer = await waitFor(() => {
     const node = document.querySelector<HTMLElement>('.drawer button');
+
     if (!node) throw new Error("Drawer has not opened");
+
     return node;
   });
+
   const drawerFits = emulator.fits;
   const drawerResizes = callsTo(daemon, "terminal.resize").length;
+
   for (const target of [terminal, rail, drawer, terminal]) target.focus();
   expect({ fits: emulator.fits - drawerFits, resizes: callsTo(daemon, "terminal.resize").length - drawerResizes }).toEqual({ fits: 0, resizes: 0 });
 });

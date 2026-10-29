@@ -14,36 +14,50 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
   const profile = mkdtempSync(join(tmpdir(), "u4685-"));
   const session = `u4685-${process.pid}`;
   const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 }).catch(error => { throw new Error(error.stdout || error.stderr || error.message); })).stdout;
+
   const read = async (expression: string) => {
     const reply = JSON.parse(await browser("eval", expression));
+
     if (!reply.success) throw new Error(reply.error);
+
     return reply.data.result;
   };
+
   const wait = (expression: string) => browser("wait", "--fn", expression);
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+
   const dirs = ["U4685a", "U4685b"].flatMap(id => {
     const dir = captureDir(id);
+
     if (!dir) return [];
     const destination = join(dir, phase);
     mkdirSync(destination, { recursive: true });
+
     return [destination];
   });
+
   const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: process.env.U4685_ROOT ?? process.cwd(), encoding: "utf8" }).trim();
+
   const snap = async (name: string) => {
     if (!dirs.length) return;
     const observation = await read(`({revision:${JSON.stringify(revision)}, checks:window.__checks(), focus:document.activeElement.outerHTML, regions:[...document.querySelectorAll('.pane,.rail,.shelf,.drawer,.xterm-screen')].map(el=>({selector:el.className,rect:el.getBoundingClientRect().toJSON(),focused:el.contains(document.activeElement)})), fits:window.__focusFits, resizes:window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length})`);
+
     for (const dir of dirs) {
       await browser("screenshot", join(dir, `${name}.png`));
       writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(observation, null, 2));
     }
   };
+
   const tabTo = async (selector: string) => {
     for (let n = 0; n < 30; n++) {
       await browser("press", "Tab");
+
       if (await read(`!!document.activeElement.closest(${JSON.stringify(selector)})`)) return;
     }
+
     throw new Error(`Tab never entered ${selector}`);
   };
+
   try {
     await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "open", server.resolvedUrls.local[0]!);
     await browser("set", "viewport", "1512", "950");
@@ -106,6 +120,7 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
     await snap("11-terminal-drawer-blur");
     expect(await read(`({fits:window.__focusFits,resizes:window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length})`)).toEqual(drawerCounts);
     expect(await read(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id`)).toBe("agent-4");
+
     if (dirs.length) {
       await browser("click", ".drawer .close");
       await wait(`!document.querySelector('.drawer[data-open="true"]')`);
