@@ -74,7 +74,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
 
       for (const view of ["made", "reactions"]) {
         await load("empty-project", view);
-        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : view === "reactions" ? `!!document.querySelector('.reactions .empty-state')` : `!!document.querySelector('.note-recovery .empty-state')`);
+        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : `!!document.querySelector('.reactions .empty-state')`);
         await snap(`${theme}-${view}`);
       }
 
