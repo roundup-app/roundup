@@ -326,15 +326,27 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
 describe("u2773 Rail persisted edits", () => {
   let first: StartedDaemon;
 
-  // Each probe gets a fresh Project; the cross-Project probe below owns its pair.
-  beforeEach(async () => {
+  beforeAll(async () => {
     first = await startRealDaemon({});
   }, 180_000);
 
-  afterEach(async () => {
+  afterAll(async () => {
+    await first?.stop();
+  });
+
+  beforeEach(async () => {
+    localStorage.clear();
+    const app = createServedApp(first.base);
+
+    // Reuse the authority, not prior probe objects or the acknowledged root Agent.
+    for (const node of await app.rpc("rail.tree", null)) {
+      if (node.parent === null) await app.rpc("rail.remove", { id: node.id, scope: node.kind === "workstream" ? "all" : null });
+    }
+  });
+
+  afterEach(() => {
     cleanup();
     localStorage.clear();
-    await first?.stop();
   });
 
   const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
