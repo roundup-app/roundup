@@ -26,7 +26,9 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it("u4649_registered_joiner_preserves_terminal_data", async () => {
   const spy = vi.spyOn(xterm, "Terminal");
-  const emulator = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }))("t-arabic");
+  const disposeWebgl = vi.fn();
+  const createWebgl = vi.fn(() => ({ activate() {}, dispose: disposeWebgl, onContextLoss() { return { dispose() {} }; } }));
+  const emulator = createXtermEmulators(undefined, createWebgl)("t-arabic");
   const real = spy.mock.instances[0]!;
   // xterm creates its real selection service at open; jsdom needs matchMedia only.
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
@@ -40,7 +42,12 @@ it("u4649_registered_joiner_preserves_terminal_data", async () => {
     await new Promise<void>(resolve => emulator.write(new TextEncoder().encode(text), resolve));
     const row = real.buffer.active.getLine(0)!;
     expect(registered.mock.calls.map(([join]) => join(row.translateToString(true)))).toContainEqual([[4, 18]]);
-    expect(row.translateToString(true)).toBe(text);
+    // The observed public joiner queues the supported renderer switch after its render stack.
+    await Promise.resolve();
+    expect(disposeWebgl).toHaveBeenCalledOnce();
+    emulator.setSize({ cols: 60, rows: 20 });
+    expect(createWebgl).toHaveBeenCalledOnce();
+    expect(real.buffer.active.getLine(0)!.translateToString(true)).toBe(text);
     expect(Array.from({ length: text.length }, (_, col) => row.getCell(col)!.getWidth())).toEqual(Array(22).fill(1));
     expect({ x: real.buffer.active.cursorX, y: real.buffer.active.cursorY }).toEqual({ x: 22, y: 0 });
     real.select(0, 0, text.length);

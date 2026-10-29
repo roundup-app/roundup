@@ -127,6 +127,10 @@ for (const { state, renderer } of ["agent", "door", "shell"].flatMap(state =>
         await read(`window.__terminals.get('${id}').ready`);
       }
 
+      const initialRenderer = await read<string>(`document.querySelector('${surface} .xterm-screen canvas') ? "webgl" : "dom"`);
+
+      if (arabic && initialRenderer !== renderer) throw new Error(`Requested ${renderer}, started with ${initialRenderer}`);
+
       const stream = arabic ? arabicReplay : replay;
       await read(`window.__fake.writeOutput('${id}', ${JSON.stringify(stream)})`);
       await wait(`window.__terminals.get('${id}').serialize().data.includes('${arabic ? "Ordinary English" : "unterminated input"}')`);
@@ -174,7 +178,7 @@ for (const { state, renderer } of ["agent", "door", "shell"].flatMap(state =>
       })()`);
 
       const record = { ...metrics, ...metadata, commit: execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8', cwd: base ? process.env.U500_BASE_ROOT : process.cwd()}).trim(),
-        seed, state, candidate: arabic ? 'arabic' : 'selected',
+        seed, state, initialRenderer, candidate: arabic ? 'arabic' : 'selected',
         streamIdentity: createHash('sha256').update(stream).digest('hex'),
         claudeVersion: 'deterministic Claude Code-style replay; no live Claude process', platform: process.platform };
 
@@ -195,7 +199,7 @@ for (const { state, renderer } of ["agent", "door", "shell"].flatMap(state =>
         writeFileSync(join(dir, `${step}.metrics.json`), JSON.stringify(record, null, 2));
 
         if (scenario === "U4649") {
-          if (metrics.renderer !== "dom") throw new Error(`Arabic must use the unclipped DOM renderer; requested ${renderer}, painted ${metrics.renderer}`);
+          if (!base && metrics.renderer !== "dom") throw new Error(`Arabic must use the unclipped DOM renderer; requested ${renderer}, painted ${metrics.renderer}`);
 
           if (metadata.fontStatus !== "loaded") throw new Error("Terminal fonts have not loaded");
 
