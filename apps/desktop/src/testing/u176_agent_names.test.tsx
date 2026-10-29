@@ -63,25 +63,28 @@ describe("u176 Agent names", () => {
 
 });
 
+// Reuse both Project authorities across the Rail probes; each probe still creates fresh objects.
+let first: StartedDaemon;
+
+let second: StartedDaemon;
+
+beforeAll(async () => {
+  first = await startRealDaemon({});
+  second = await startRealDaemon({});
+}, 180_000);
+
+afterAll(async () => {
+  await first?.stop();
+  await second?.stop();
+});
+
 // The public Daemon owns identities and mutations; only reply timing is controlled here.
 describe("u2773 Rail task destinations", () => {
-  let first: StartedDaemon;
-  let second: StartedDaemon;
   let app: AppSeam;
   let left: AppSeam;
   let right: AppSeam;
   let home: string;
   let other: string;
-
-  beforeAll(async () => {
-    first = await startRealDaemon({});
-    second = await startRealDaemon({});
-  }, 120_000);
-
-  afterAll(async () => {
-    await first?.stop();
-    await second?.stop();
-  });
 
   beforeEach(async () => {
     localStorage.clear();
@@ -324,23 +327,16 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
 
 // Rail continuity probes share the audited real-Daemon launch site.
 describe("u2773 Rail persisted edits", () => {
-  let first: StartedDaemon;
-
-  beforeAll(async () => {
-    first = await startRealDaemon({});
-  }, 180_000);
-
-  afterAll(async () => {
-    await first?.stop();
-  });
-
   beforeEach(async () => {
     localStorage.clear();
-    const app = createServedApp(first.base);
 
-    // Reuse the authority, not prior probe objects or the acknowledged root Agent.
-    for (const node of await app.rpc("rail.tree", null)) {
-      if (node.parent === null) await app.rpc("rail.remove", { id: node.id, scope: node.kind === "workstream" ? "all" : null });
+    // Reuse authorities, not prior probe objects or the acknowledged root Agent.
+    for (const real of [first, second]) {
+      const app = createServedApp(real.base);
+
+      for (const node of await app.rpc("rail.tree", null)) {
+        if (node.parent === null) await app.rpc("rail.remove", { id: node.id, scope: node.kind === "workstream" ? "all" : null });
+      }
     }
   });
 
@@ -407,7 +403,7 @@ describe("u2773 Rail persisted edits", () => {
 
   it("u2773a_rail_real_names_keep_original_project_and_object_on_reopen", async () => {
     const one = first;
-    const two = await startRealDaemon({});
+    const two = second;
 
     try {
       const records = [];
@@ -448,7 +444,6 @@ describe("u2773 Rail persisted edits", () => {
       }
     } finally {
       cleanup();
-      await two.stop();
     }
   }, 120_000);
 });
