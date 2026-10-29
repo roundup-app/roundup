@@ -65,19 +65,23 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     if (opening) queueFocus(() => selectedTab()?.focus({ preventScroll: true }));
   };
 
-  const canEscapeFrom = (focus: Element | null) => {
-    if (!props.frame.open() || !focus?.isConnected) return false;
+  const canEscape = (press: KeyboardEvent) => {
+    if (press.defaultPrevented || press.key !== "Escape" || !props.frame.open() || !(press.target instanceof Element)) return false;
 
     const shelf = props.shelf();
 
     if (shelf?.getAttribute("data-triage") === "on") return false;
 
-    const inside = (shelf !== null && shelf.contains(focus)) || focus.closest(".shelf-tabs") !== null;
+    // A naming field can remove itself while handling Escape; its original path
+    // still belongs to the Shelf, so that same key must not close the fallback.
+    const inside = (shelf !== null && press.composedPath().includes(shelf)) || press.target.closest(".shelf-tabs") !== null;
     const overlay = props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") === "overlay";
 
-    if (!inside && (!overlay || !focus.closest(".centre"))) return false;
+    if (!inside && (!overlay || !press.target.closest(".centre"))) return false;
 
-    return !inside || focus.closest("input, textarea, [contenteditable]") === null;
+    if ((inside && press.target.closest("input, textarea, [contenteditable]")) || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]')) return false;
+
+    return true;
   };
 
   const moveFocus = (event: KeyboardEvent) => {
@@ -100,9 +104,10 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
       run: () => selectedTab()?.focus({ preventScroll: true }),
     }, { action: CHORDS.find(row => row.keys === "M")!, searchable: false,
       when: canShelfKey, capture: focus => ({ available: () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]") && props.frame.open() && props.shelf()?.contains(focus) === true && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", invoke: () => props.frame.toggleMaximise("key") }) }]);
-    registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "Esc" && !row.inTriage)!, searchable: false, when: press => !press.defaultPrevented && canEscapeFrom(press.target instanceof Element ? press.target : null)
-        && !document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]'),
-      capture: focus => ({ available: () => canEscapeFrom(focus), invoke: () => toggle("key") }) }]);
+    registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "Esc" && !row.inTriage)!, searchable: false, when: canEscape,
+      capture: focus => ({ available: () => focus?.isConnected === true && props.frame.open() && props.shelf()?.getAttribute("data-triage") !== "on" && (props.shelf()?.contains(focus) === true || focus.closest(".shelf-tabs") !== null
+        ? !focus.closest("input,textarea,[contenteditable]")
+        : props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") === "overlay" && focus.closest(".centre") !== null), invoke: () => toggle("key") }) }]);
 
     return dispose;
   });
