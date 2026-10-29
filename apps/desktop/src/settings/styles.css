@@ -198,12 +198,21 @@
 }
 
 .settings-sections .app-tabs-trigger {
-  border-left: var(--stroke-width) solid var(--transparent);
+  position: relative;
   border-radius: 0;
 }
 
-.settings-sections .app-tabs-trigger[data-selected] {
-  border-left-color: var(--accent);
+.settings-sections .app-tabs-trigger::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: var(--stroke-width);
+  background: var(--transparent);
+}
+
+.settings-sections .app-tabs-trigger[data-selected]::before {
+  background: var(--accent);
 }
 
 .settings-content {
@@ -223,7 +232,7 @@
 }
 
 .settings-content .settings-field,
-.settings-content .app-select > [data-part="root"] {
+.settings-content [data-scope="select"][data-part="root"] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: var(--space-4);
@@ -237,7 +246,7 @@
   min-width: 0;
 }
 
-.settings-content .settings-field :is([data-part="label"], .settings-field-caption),
+.settings-content :is([data-part="label"], .settings-field-caption),
 .settings-content .app-select-label {
   font-size: var(--text-body);
   color: var(--text);
@@ -256,12 +265,12 @@
   grid-column: 1;
 }
 
-.settings-content .app-select [data-part="control"] {
+.settings-content [data-scope="select"][data-part="control"] {
   grid-column: 2;
   grid-row: 1 / span 2;
 }
 
-.settings-content .settings-field > .reserved-line {
+.settings-field .reserved-line {
   grid-column: 1 / -1;
 }
 
@@ -271,7 +280,7 @@
   overflow: visible;
 }
 
-.settings-content .reserved-line :is(.error-line, .reserved-text) {
+.settings-content :is(.error-line, .reserved-text) {
   white-space: normal;
   overflow: visible;
   overflow-wrap: anywhere;
