@@ -22,6 +22,7 @@ import "./styles.css";
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
   const { app, rail, project, drafts } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
+  const [dispatching, setDispatching] = createSignal(false);
   trackSurface(open);
 
   const destination = { surface: "switcher", object: project.path, recipient: null };
@@ -48,14 +49,18 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   let panel: HTMLElement | undefined;
 
   let chosenPane = false;
+  let chosenAction = false;
+  let actionFocus: HTMLElement | null = null;
   let chosenTerminal: string | null = null;
 
   const dialog = useDialog(() => ({
-    open: open(), modal: false, trapFocus: true, preventScroll: false,
+    open: open() && !dispatching(), modal: false, trapFocus: true, preventScroll: false,
     restoreFocus: true, closeOnInteractOutside: true,
     "aria-label": copy.switcherLabel,
     initialFocusEl: () => openingFocus.target(() => input),
-    finalFocusEl: () => chosenPane
+    finalFocusEl: () => chosenAction && actionFocus?.isConnected
+      ? actionFocus
+      : chosenPane
       ? chosenTerminal
         ? document.querySelector<HTMLElement>(`[data-bubble="${chosenTerminal}"] textarea`)
         : document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
@@ -173,9 +178,19 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
     if (action) {
       if (!openingSurvives() || !action.available()) return;
-      close(true);
-      // Let the dialog release its focus trap before the command requests its destination.
-      queueMicrotask(action.run);
+      // Release modal ownership before invoking native/modal actions, while their
+      // originating surface and captured owner are still mounted.
+      chosenAction = true;
+      setDispatching(true);
+
+      try { action.run(); }
+      finally {
+        close(true);
+        setDispatching(false);
+        const target = actionFocus;
+
+        if (target) queueFocus(() => { if (target.isConnected) target.focus(); });
+      }
 
       return;
     }
@@ -185,13 +200,15 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (entry) choose(entry);
   };
 
-  createEffect(() => { if (open() && modalOutside(panel)) close(false); });
+  createEffect(() => { if (open() && !dispatching() && modalOutside(panel)) close(false); });
 
   let openingFocus = captureFocus();
 
   const show = (): void => {
     if (modalOpen()) return;
     chosenPane = false;
+    chosenAction = false;
+    actionFocus = null;
     chosenTerminal = null;
     openingFocus = captureFocus(true);
     setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement) });
@@ -202,7 +219,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   };
 
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("K"), run: show }]);
-  registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
+  registerKeys({ kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
   ]);
 
@@ -224,6 +241,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {
+            // Zag can retain its trap until the selecting Combobox batch ends.
+            // Keep only the focus destination requested by this synchronous action.
+            if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel?.contains(event.relatedTarget)) actionFocus = event.relatedTarget;
             // A recovery action must run before blur can retry storage and remove its target.
             if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
             retain();
