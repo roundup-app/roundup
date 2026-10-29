@@ -14,6 +14,7 @@ const exception = {
 };
 
 const cases = [
+  ["spread project list timeout", 'const key = "testTimeout"; const options = { projects: [{ test: { [key]: 60_001 } }] }; defineConfig({ test: { ...options } });', 1, "60001"],
   ["test describe cannot grant suite exception", 'test.describe("group", { timeout: 90_000 }, () => { test("t3779a_child", () => {}); });', 1, "group > t3779a_child", [{ ...exception, test: "group" }]],
   ["test suite exact child exception", 'test.suite("group", { timeout: 90_000 }, () => { test("t3779a_real_clock", () => {}); });', 0, null, [{ ...exception, test: "group > t3779a_real_clock" }]],
   ["mutated project list", 'const projects = []; projects.push(externalProject); defineConfig({ test: { projects } });', 1, "unresolved"],
