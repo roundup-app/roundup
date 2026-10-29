@@ -1,14 +1,14 @@
 # Terminal typography (U4456)
 
 Terminal output uses Fira Code 6.2, replacing the JetBrains Mono font files.
-The unmodified regular (400) and bold (700) WOFF2 files, OFL notice, upstream
+The unmodified Light (300) and bold (700) WOFF2 files, OFL notice, upstream
 release URL and SHA-256 hashes are in
 `apps/desktop/public/fonts/fira-code/`. The original JetBrains Mono licence
 notice remains alongside it. Fira Code supplies no italic files: browser font
 synthesis renders italic and bold italic from the bundled faces. The emulator
-requests all four style/weight combinations before its first authoritative fit.
+requests normal and italic at both bundled weights before its first authoritative fit.
 Local App URLs have no `local()` or remote font source; other App typography
-keeps its existing stack. xterm's normal/bold defaults already select 400/700.
+keeps its existing stack. U4592 selects regular weight 300 through `--weight-terminal`; bold retains xterm's 700 default.
 
 ## Metrics
 
@@ -18,6 +18,7 @@ keeps its existing stack. xterm's normal/bold defaults already select 400/700.
 | `--text-terminal` | `fontSize` | 11 CSS px |
 | `--line-terminal` | `lineHeight` | 1.7, unitless (22 CSS px rows) |
 | `--letter-terminal` | `letterSpacing` | 0 CSS px (U4592 / #4627) |
+| `--weight-terminal` | `fontWeight` | 300 (Light); bold remains 700 |
 
 Solo's `terminalFontScale` 0.846 multiplies its 13 px base, giving 11 px;
 its 1.23 interface scale does not apply to Terminal text. The real rendered
@@ -149,7 +150,7 @@ published packages and the bundled unmodified Fira Code 6.2 regular face:
 
 ```sh
 python3 - <<'PYTHON'
-import io, json, pathlib, shutil, tarfile, urllib.request
+import io, json, pathlib, subprocess, tarfile, urllib.request
 root = pathlib.Path('/tmp/xterm-spacing-audit')
 root.mkdir(exist_ok=True)
 for name, version in [('@xterm/xterm', '6.0.0'),
@@ -163,7 +164,11 @@ for name, version in [('@xterm/xterm', '6.0.0'),
     archive = urllib.request.urlopen(metadata['dist']['tarball']).read()
     with tarfile.open(fileobj=io.BytesIO(archive), mode='r:gz') as package:
         package.extractall(target, filter='data')
-shutil.copy('apps/desktop/public/fonts/fira-code/FiraCode-Regular.woff2', root)
+# The historical control uses 400; retrieve its unmodified face from the recorded main.
+(root / "FiraCode-Regular.woff2").write_bytes(subprocess.check_output([
+    "git", "show",
+    "e9c92247cebb9b6a42dc2e830592556e6aa4fec0:apps/desktop/public/fonts/fira-code/FiraCode-Regular.woff2",
+]))
 PYTHON
 ```
 
@@ -401,3 +406,93 @@ those logs outside the source tree repaired the observation; no rule, baseline
 or source check changed. The final logs are retained in `validation.tar.gz`.
 `loop/rules.sh vocab`, `ci-trailers local`, `frozen local` and `merge-loss` also
 exit 0. No PNG or video is committed.
+
+## Lighter regular strokes (U4592, #4619)
+
+The controlled investigation recorded on #4619 held Fira Code 11px, weights
+400/700, tracking 0.95px, colours, content and DPR 1 fixed. Installed WebGL
+retained continuous boxes; built-in DOM left gaps at the required row pitch.
+Host `-webkit-font-smoothing: antialiased` produced a byte-identical regular
+text crop on Linux. xterm's TextureAtlas rasterizes into a detached 2D canvas,
+so inherited host CSS is no canvas-smoothing control. The public WebGL addon
+offers no antialiasing option. These observations establish no WebKit fact.
+
+The one-variable Light 300 comparison visibly reduced regular strokes with
+unchanged cell metrics and bold 700. Select the unmodified upstream Fira Code
+6.2 Light face through xterm's public `fontWeight` option. Font readiness loads
+normal/italic 300 and 700 before fitting; existing custom-family and zoom
+paths remain. No palette or glyph-rendering code changes. The main-side official
+ligatures 0.10.0 addon, disposal order, fallback and context-loss paths remain.
+
+Main already delivers 0px tracking, 22px rows and joined operators under #4627.
+This continuation of #4624 adds the lighter face to that supported rendering
+path. Fresh main/head captures therefore isolate the weight change; the
+whole-pixel pairs above retain the narrower-cell comparison to the older 0.95px
+tracking baseline. The current renderer is unchanged from main, so this change
+does not trigger another renderer-change performance observation. The complete
+main-side performance report above remains renderer evidence; historical failed
+#4624 performance attempts are not claimed as passes. K1–K3 and native timing
+policy remain unchanged.
+
+### Matched Light comparison, 2026-10-28
+
+Main `e9c92247cebb9b6a42dc2e830592556e6aa4fec0` and rendering head
+`648db0561223d66e9503847c273d6b33e65c71a6` replay the same SHA-256
+`5884dab79050166104654bc5077dabfa61991c1eb36d57aee7fa3d046c281449`,
+Dark 1512×950, DPR 2, through the existing capture path. Both use WebGL with
+matched canvas backing scale. Head records the loaded 300/400/700 faces and
+requested regular/bold 300/700; base requests 400/700. Agent and Door retain
+136×38 cells; shell retains 108×29, all 6.5×22 CSS px. Both already request 0px
+tracking. This pair isolates thinner regular strokes; it does not claim another
+tracking reduction beyond main's whole-pixel integration. Bold remains distinct,
+operators join, table edges/intersections remain continuous, and dense Door and
+shell failure feedback remains visible. The independent critic judges the pairs.
+
+The existing observer passes all three behavioral cases and all three matched
+capture cases. D2/D5/D6 pass on all six screens; `loop/rules.sh delta` exits 0.
+D8 and aggregate D10 fail equally on both sides as before. Images are uncommitted
+under `artifacts/ux/U4592/{base,head}/`; metrics and Check readings are committed.
+113 focused checks pass, retaining all six scale guards, readiness, resize,
+fallback, context loss, input, scrollback and K1/K2 opt-in/timing boundaries.
+No new geometry, palette or copied-value test is added.
+
+The first workspace `just capture U4592` exits 1 during its reporting preflight:
+shared dependency symlinks crossed Vite's worktree boundary. Separate frozen
+installs repair that setup. A subsequent isolated browser launch with the
+system Chromium also failed; closing only that run's session and selecting
+the bundled headless Chrome repairs it. The successful observer command is
+`ROUNDUP_CAPTURES=U4592 U500_BASE_ROOT=/tmp/roundup-u4592-base/apps/desktop
+pnpm --filter desktop exec vitest run src/terminal/u3517_browser.test.ts`,
+with `AGENT_BROWSER_EXECUTABLE_PATH` selecting bundled Chrome 156.0.8078.73 and
+`AGENT_BROWSER_ARGS='--no-sandbox,--disable-gpu,--enable-unsafe-swiftshader,--force-device-scale-factor=2'`.
+All failures remain observer failures, never visual evidence.
+
+Latest completed main CI [40781133074](https://github.com/roundup-app/roundup/actions/runs/40781133074)
+passed `mac` and `mac-clippy` on `1d224d7e0e3374e3f6fc1a3325f6cfb27c3f7ab8`.
+No native appearance or WKWebView timing is inferred; the owner reports native
+appearance after merge under the unchanged observation policy.
+
+The capture selects the replay's newest Turn after the refused paste, then waits
+for xterm's selection render frame. Pasting clears selection even when the
+Daemon refuses input; selecting before that failure left no painted selection.
+The refreshed six paired/continuity cases pass with the selected first line
+visible, preserving the same replay bytes, sizes and Check delta.
+
+Final `just ready` exits 0 after the selection correction, including lints,
+Token/type checks, proofs, trailer/frozen guards, workflow tests and N7. An
+intermediate aggregate was interrupted (143) during proof setup; both the
+standalone remaining guards and the final complete aggregate pass.
+
+## U4592 release size
+
+The unused Regular 400 face and its preload are removed after selecting Light
+300. Both shipped faces remain unmodified upstream files, with their hashes and
+OFL notice beside them. Terminal normal/italic use 300 and bold/bold italic use
+700; no other App surface uses this family. C9c keeps its exclusive 18 MB cap.
+
+The production build after merging main is 17,951,428 bytes (379 files), passing
+C9c and its module inventory. `release-size.json` records the failed CI size,
+retained font hashes and focused checks. Fresh screenshots on both the previous PR
+head and this fix have blank WebGL canvases, including a software-rendering
+retry: this is an observer failure, not new visual evidence. The prior reviewed
+capture readings above remain unchanged.
