@@ -12,6 +12,7 @@ async fn a2693a_missing_data_does_not_stop_the_target() {
     let terminal = f
         .terminals
         .list()
+        .await
         .into_iter()
         .find(|t| Some(&t.id) == node.terminal_id.as_ref())
         .unwrap();
@@ -85,7 +86,7 @@ async fn a2693a_running_and_exited_targets_continue_once_in_each_mode() {
                 assert_eq!(resumed.order, node.order);
                 assert_eq!(resumed.worktree, node.worktree);
                 assert_ne!(resumed.terminal_id, node.terminal_id);
-                let terminals = f.terminals.list();
+                let terminals = f.terminals.list().await;
                 assert_eq!(terminals.len(), 2, "exactly one next launch");
                 assert_eq!(terminals.iter().filter(|t| t.running).count(), 1);
                 assert!(
@@ -174,7 +175,15 @@ async fn a2693a_concurrent_actions_never_launch_twice() {
         .await
         .unwrap();
     pending.await.unwrap().unwrap();
-    assert_eq!(f.terminals.list().iter().filter(|t| t.running).count(), 1);
+    assert_eq!(
+        f.terminals
+            .list()
+            .await
+            .iter()
+            .filter(|t| t.running)
+            .count(),
+        1
+    );
 }
 
 #[tokio::test]
@@ -348,7 +357,7 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
     assert_eq!(after.terminal_id, old_node.terminal_id);
     assert_eq!(after.name, node.name);
     assert!(!after.yolo);
-    assert!(f.terminals.list().iter().all(|t| !t.running));
+    assert!(f.terminals.list().await.iter().all(|t| !t.running));
     assert_eq!(
         f.terminals
             .snapshot(node.terminal_id.as_deref().unwrap())

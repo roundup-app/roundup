@@ -316,7 +316,7 @@ async fn m7_a_run_outside_reach_starts_nothing() {
         } else {
             &w.child
         };
-        let before = serde_json::to_value(w.f.terminals.list()).unwrap();
+        let before = serde_json::to_value(w.f.terminals.list().await).unwrap();
         let mut events = w.f.bus.subscribe();
         let err = w
             .call(
@@ -337,7 +337,10 @@ async fn m7_a_run_outside_reach_starts_nothing() {
                 .unwrap()
                 .name;
         assert!(err.message.contains(&target_name) && !err.message.contains(target));
-        assert_eq!(serde_json::to_value(w.f.terminals.list()).unwrap(), before);
+        assert_eq!(
+            serde_json::to_value(w.f.terminals.list().await).unwrap(),
+            before
+        );
         assert!(w.touches_of(&format!("agent:{target}")).is_empty());
         assert!(events.try_recv().is_err());
         assert!(!w.f.dir.path().join("forbidden-run").exists());
@@ -359,6 +362,7 @@ async fn m7_a_run_is_allowed_for_self_descendants_and_the_user() {
         assert!(
             w.f.terminals
                 .list()
+                .await
                 .iter()
                 .any(|t| t.id == opened["terminal_id"].as_str().unwrap()
                     && t.owner.as_deref() == Some(w.child.as_str())

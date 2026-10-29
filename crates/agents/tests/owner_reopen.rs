@@ -96,7 +96,12 @@ async fn a12a_a_surviving_owner_keeps_its_agent_across_reopen() {
     let id = node
         .terminal_id
         .expect("a Terminal of the new client table");
-    let running: Vec<TerminalInfo> = terminals.list().into_iter().filter(|t| t.running).collect();
+    let running: Vec<TerminalInfo> = terminals
+        .list()
+        .await
+        .into_iter()
+        .filter(|t| t.running)
+        .collect();
     assert_eq!(running.len(), 1);
     assert_eq!(running[0].id, id);
 
