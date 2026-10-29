@@ -70,7 +70,7 @@ it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_th
   if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')?.getAttribute("aria-pressed")).toBe("true"));
-  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{workstream: "w"}]);
+  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "w", cols: 100, rows: 30 }]);
   expect(mounted.connected.rail.selected()).toBeNull();
 });
 
@@ -120,9 +120,9 @@ it.each(["plus", "chord"])("u469_plus_and_cmd_t_share_one_opening_path_and_show_
   if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')?.getAttribute("aria-pressed")).toBe("true"));
-  expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
-  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{workstream: "w"}]);
   await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("9"));
+  expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
+  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "w", cols: 100, rows: 30 }]);
 });
 
 it("u469_selection_and_reload_restore_at_most_one_bubble", async () => {
@@ -270,6 +270,7 @@ it("u469_a_late_open_keeps_the_new_workstreams_shown_bubble", async () => {
     finish = () => { mounted.setListed([...initial,info("9",{owner:"w"})]); resolve({terminal_id:"9"}); };
   });
   fireEvent.click(document.querySelector('.terminal-new')!);
+  await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.open")).toHaveLength(1));
   mounted.connected.rail.select("other");
   finish();
   await waitFor(() => expect(mounted.app.calls.filter(call => call.method === "terminal.list").length).toBeGreaterThan(1));
