@@ -72,9 +72,9 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`!!document.querySelector('.inbox .empty-state')`);
       await snap(`${theme}-inbox`);
 
-      for (const view of ["made", "reactions", "ask-history"]) {
+      for (const view of ["made", "reactions"]) {
         await load("empty-project", view);
-        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : view === "reactions" ? `!!document.querySelector('.reactions .empty-state')` : view === "ask-history" ? `!!document.querySelector('.ask-history .empty-state')` : `!!document.querySelector('.note-recovery .empty-state')`);
+        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : `!!document.querySelector('.reactions .empty-state')`);
         await snap(`${theme}-${view}`);
       }
 
@@ -91,6 +91,10 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await browser("press", "Enter");
       await wait(`!!document.querySelector('.pane-door .empty-state')`);
       await snap(`${theme}-stopped-door`);
+      await load("door-stopped");
+      await wait(`!!document.querySelector('.pane-door .empty-state') && !!document.querySelector('.xterm-screen')`);
+      await read(`(async () => { const emulator = window.__terminals.get('t-first-workstream'); await emulator.ready; const output = Array.from({length:60}, (_, index) => 'Retained output line ' + (index + 1) + ' — completed work remains available across the stopped Door pane.').join('\\r\\n') + '\\r\\n'; await new Promise(resolve => emulator.write(new TextEncoder().encode(output), resolve)); })()`);
+      await snap(`${theme}-stopped-door-output`);
       await load("resources", "resources");
       await read(`window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[]})`);
       await browser("click", '.rail-row[data-id="worktree-agent"]');
@@ -118,6 +122,24 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await browser("focus", '.app-select-trigger');
       await wait(`document.activeElement.matches('.app-select-trigger:focus-visible')`);
       await snap(`${theme}-form-ring`);
+      await load("empty-project");
+
+      if (await read(`!!document.querySelector('.window[data-shelf="open"]')`)) {
+        await browser("click", '[aria-label="Close work items"]');
+        await wait(`!document.querySelector('.window[data-shelf="open"]')`);
+      }
+
+      await snap(`${theme}-overview`);
+
+      if (theme === "dark") {
+        await browser("set", "viewport", "800", "600");
+        await snap("dark-narrow");
+        await browser("set", "viewport", "640", "320");
+        await snap("dark-short");
+        await browser("eval", `document.querySelectorAll('.empty-state').forEach(el => { el.scrollTop = el.scrollHeight; })`);
+        await snap("dark-short-scrolled");
+        await browser("set", "viewport", "1512", "950");
+      }
     }
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
