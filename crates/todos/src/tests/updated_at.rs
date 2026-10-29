@@ -45,7 +45,10 @@ async fn t30_each_of_title_body_done_owner_and_blockers_moves_updated_at() {
         assert_eq!(reply["updated_at"], after);
         assert_eq!(h.event_data()["updated_at"], after);
         let changes = changes(&h, 1).await["changes"].clone();
-        assert_eq!(changes.as_array().unwrap().last().unwrap()["changed_at"], after);
+        assert_eq!(
+            changes.as_array().unwrap().last().unwrap()["changed_at"],
+            after
+        );
     }
 }
 
@@ -75,7 +78,11 @@ async fn t30_reads_and_no_op_writes_keep_updated_at() {
     ] {
         let _ = h.call(method, params).await;
     }
-    assert_eq!(stamp(&h, 2).await, second, "a dependent that unblocks keeps it");
+    assert_eq!(
+        stamp(&h, 2).await,
+        second,
+        "a dependent that unblocks keeps it"
+    );
     h.call("todo.complete", json!({"id": 1})).await.unwrap();
     assert!(stamp(&h, 1).await >= first);
     let done = stamp(&h, 1).await;
@@ -118,8 +125,7 @@ async fn t30_an_old_todos_db_reads_its_latest_change_time() {
     ] {
         db.execute_batch(sql).unwrap();
     }
-    db.pragma_update(None, "user_version", 9)
-        .unwrap();
+    db.pragma_update(None, "user_version", 9).unwrap();
     for id in 1..=2 {
         db.execute(
             "INSERT INTO todos (title, body, created_at) VALUES ('old', '', 10)",

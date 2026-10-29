@@ -83,8 +83,11 @@ impl Store {
             if previous != &after {
                 let at = now_ms();
                 todo.updated_at = at;
-                db.execute("UPDATE todos SET updated_at = ?2 WHERE id = ?1", params![todo.id, at])
-                    .map_err(RpcError::internal)?;
+                db.execute(
+                    "UPDATE todos SET updated_at = ?2 WHERE id = ?1",
+                    params![todo.id, at],
+                )
+                .map_err(RpcError::internal)?;
                 let after_touch: i64 = db
                     .query_row("SELECT COALESCE(MAX(seq), 0) FROM touches", [], |row| {
                         row.get(0)
@@ -178,8 +181,18 @@ impl Store {
             )
             .optional()
             .map_err(RpcError::internal)?;
-        let (title, body, done, created_at, updated_at, creator, home, owner, estimate_minutes, blocked) =
-            row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
+        let (
+            title,
+            body,
+            done,
+            created_at,
+            updated_at,
+            creator,
+            home,
+            owner,
+            estimate_minutes,
+            blocked,
+        ) = row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
         Ok(Todo {
             id,
             title,
@@ -620,7 +633,10 @@ impl Store {
         // T30: creation keeps `updated_at` equal to `created_at`; every later Change moves it.
         if !created {
             self.db
-                .execute("UPDATE todos SET updated_at = ?2 WHERE id = ?1", params![id, at])
+                .execute(
+                    "UPDATE todos SET updated_at = ?2 WHERE id = ?1",
+                    params![id, at],
+                )
                 .map_err(RpcError::internal)?;
         }
         Ok(())
