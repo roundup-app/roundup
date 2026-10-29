@@ -719,9 +719,9 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await browser("press", "Meta+=");
         await wait(`window.__fake.app.calls.some(c=>c.method==='terminal.resize' && c.params.id==='${id}')`);
         await capture("project-zoom");
-        await browser("set", "viewport", "1412", "850");
+        await browser("set", "viewport", "1412", "850", String(scale));
         await wait("innerWidth===1412 && innerHeight===850");
-        await browser("set", "viewport", "1512", "950");
+        await browser("set", "viewport", "1512", "950", String(scale));
         await wait("innerWidth===1512 && innerHeight===950");
         await capture("window-resize");
         await select("agent-4", "t-agent-4");
@@ -765,6 +765,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await read(`document.querySelector('button.terminal-tab[data-bubble="${id}"]')?.click()`);
         await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
         await capture("reopen");
+        await browser("dblclick", ".bubble:not([hidden]) .bubble-header");
         const header = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.bubble:not([hidden]) .bubble-header').getBoundingClientRect(); return {x:box.x+box.width/2,y:box.y+box.height/2}; })()");
         await browser("mouse", "move", String(header.x), String(header.y));
         await browser("mouse", "down");
