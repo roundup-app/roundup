@@ -1,0 +1,24 @@
+{
+  "source_sha": "6708b7eff27d6ec66867d28f9ca22898753479dd",
+  "command": [
+    "python3",
+    "loop/app-data.py",
+    "pnpm",
+    "--filter",
+    "desktop",
+    "exec",
+    "vitest",
+    "run",
+    "src/header/u475_browser.test.ts",
+    "src/inbox/u3770_browser.test.ts",
+    "src/orders/u3078i_rendered.test.ts",
+    "src/ask/dv5_rendered.test.ts",
+    "src/importer/u2875d_import_panel.test.tsx",
+    "src/settings/u3799_app_settings.test.tsx",
+    "--maxWorkers=3"
+  ],
+  "ROUNDUP_CAPTURES": "DV6,U3021c,U3049a,U3299a,U3813,U3814,U3799,U4277c,U3741,U3760,P3557c,U3774,U3776,U461,U462,U461a,U461b,U3728,U3295a,U3295b,U3517f",
+  "run": "https://github.com/roundup-app/roundup/actions/runs/40792366171",
+  "start_utc": "2026-10-29T00:28:02Z",
+  "exit_code": 1
+}

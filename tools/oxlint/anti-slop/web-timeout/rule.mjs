@@ -222,13 +222,9 @@ export const boundedTestTimeoutRule = defineRule({
     }
 
     function rootConfiguration(node) {
-      const options = resolved(source, configuration(node));
-      if (options?.type !== "ObjectExpression") return;
-      for (const property of options.properties) {
-        if (property.type !== "Property") continue;
-        const key = property.computed ? value(source, property.key) : property.key.name ?? property.key.value;
-        if (key === "projects") projectList(property.value);
-      }
+      const options = configuration(node);
+      const projects = objectProperty(source, options, "projects");
+      if (projects) projectList(projects);
     }
 
     function projectList(node, seen = new Set()) {

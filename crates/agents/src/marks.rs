@@ -448,7 +448,7 @@ impl Agents {
                 let rail = self.shared.rail();
                 let runs = self.shared.runs();
                 rail.conversation(&mark.agent)?.as_ref() == Some(&(copy.clone(), mark.cwd.clone()))
-                    && matches!(runs.get(&mark.agent), Some(crate::Slot::Running(run)) if run.session_started)
+                    && matches!(runs.get(&mark.agent), Some(crate::Slot::Running(run)) if run.session_started.is_some())
             };
             if acknowledged {
                 let node = self.shared.node(&mark.agent)?;

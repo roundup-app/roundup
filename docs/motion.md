@@ -327,3 +327,8 @@ U3787c's final mounted inventory (`docs/u3787c-inventory.md`) includes the Shelf
 owner-control opening, both changed-file openings and native Rail Rename. These
 share the existing immediate selection/navigation/cancellation behavior; no
 animation, timer or additional motion owner is introduced by the App observers.
+
+U3787c Shelf name restoration keeps the exact saved caret range after Ark focuses
+the input. NameField already owns initial and restored selection, so it disables
+Ark’s deferred select-all through `selectOnFocus`. Focus and selection remain
+instant, with no motion, layout or Token changes; D2/D5/D6/D9 remain unchanged.
