@@ -72,6 +72,35 @@ exit "$CARGO_STATUS"
                 self.assertEqual(cargo, [])
                 self.assertNotIn("clippy skipped", result.stdout + result.stderr)
 
+    def z4505_empty_selection_skips_clippy(self):
+        result, selector, cargo = self.run_recipe()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("no Rust crate reaches the diff since origin/main: clippy skipped", result.stdout)
+        self.assertEqual(selector, ["loop/affected.py", "rust", "origin/main"])
+        self.assertEqual(cargo, [])
+
+    def z4505_rust_selection_runs_clippy(self):
+        for output in ("rupd\n", "all\n"):
+            for status in (0, 17):
+                with self.subTest(output=output, cargo_status=status):
+                    result, selector, cargo = self.run_recipe(output=output, cargo_status=status)
+                    self.assertEqual(result.returncode, status, result.stdout + result.stderr)
+                    self.assertEqual(selector, ["loop/affected.py", "rust", "origin/main"])
+                    self.assertEqual(cargo, ["clippy", "--all-targets", "--", "-D", "warnings"])
+                    self.assertNotIn("clippy skipped", result.stdout + result.stderr)
+
+    def z4505_without_a_base_runs_clippy(self):
+        for status in (0, 17):
+            with self.subTest(cargo_status=status):
+                result, selector, cargo = self.run_recipe(
+                    base=None, selector_status=23, diagnostic="unexpected-selector-call\n",
+                    cargo_status=status,
+                )
+                self.assertEqual(result.returncode, status, result.stdout + result.stderr)
+                self.assertEqual(selector, [])
+                self.assertEqual(cargo, ["clippy", "--all-targets", "--", "-D", "warnings"])
+                self.assertNotIn("clippy skipped", result.stdout + result.stderr)
+
 
 if __name__ == "__main__":
     loader = unittest.TestLoader()
