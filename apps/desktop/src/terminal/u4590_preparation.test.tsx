@@ -57,6 +57,7 @@ it("u4590_failed_shell_can_retry_opening", async () => {
   const { app, container } = await mountBubbles("w", [], [workstream("w")]);
   const open = app.handlers["terminal.open"]!;
   app.handlers["terminal.open"] = () => { throw new Error("Terminal font did not load"); };
+
   bubbleChord("t");
   await waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
   app.handlers["terminal.open"] = open;
