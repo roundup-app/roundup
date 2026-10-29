@@ -17,10 +17,11 @@ postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")
   if (declaration.prop.startsWith("--query-")) queryTokens.set(declaration.prop, declaration.value);
 });
 
-const captures = captureTests(process.env.ROUNDUP_CAPTURES);
+const selectedCaptures = captureTests(process.env.ROUNDUP_CAPTURES);
+const captures = selectedCaptures?.files;
 
 
-const captureIds = process.env.ROUNDUP_CAPTURES?.split(",").map(id => id.trim());
+const captureIds = selectedCaptures?.ids;
 
 // This shared file also owns logged-in Claude observers; U4590 uses only its deterministic PTY observer.
 const startupOnly = captureIds?.includes("U4590") && !captureIds.some(id => ["U463", "U2773g", "U2875d", "U3037d"].includes(id));

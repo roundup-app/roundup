@@ -174,8 +174,8 @@ test.each(["", "U999999", "U4590, U999999"])("u4590_capture_selection_refuses_un
 });
 
 test("u4590_capture_selection_unions_existing_observers_once", () => {
-  expect(captureTests("U4590, U3707, U4590")).toEqual([
-    ...captureTests("U4590")!, "src/terminal/u3707_browser.test.ts",
+  expect(captureTests("U4590, U3707, U4590")?.files).toEqual([
+    ...captureTests("U4590")!.files, "src/terminal/u3707_browser.test.ts",
   ]);
 });
 
@@ -190,4 +190,12 @@ test("u4590_mixed_capture_ids_do_not_start_unrelated_Claude_observers", async ()
   expect("u4590_visible_launch_params_match_first_pty_grid").toMatch(config.testNamePattern!);
   expect("u3707_terminal_controls").toMatch(config.testNamePattern!);
   expect(process.env.ROUNDUP_CAPTURES).toBe("U4590,U3707");
+});
+
+test("u4590_capture_selection_activates_a_shared_observer_for_an_individual_id", async () => {
+  named("U3299b");
+  const { loadConfigFromFile } = await import("vite");
+
+  await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
+  expect(process.env.ROUNDUP_CAPTURES?.split(",")).toEqual(expect.arrayContaining(["U3299a", "U3299b"]));
 });
