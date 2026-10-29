@@ -77,10 +77,10 @@ ATTEMPTS = 3
 REVIVE = '<!-- fix-revive -->'
 STRIKE_CAUSE_CAP = 200
 # L82: causes about a PR's plumbing, not its work, start a fix run that posts no comment and counts no attempt: a conflict
-# with `main`, and a `rules` failure whose every failed step checks PR shape (a base, `Author-Agent` trailers, scenario ids).
+# with `main`, and a `rules` failure whose every failed step checks PR shape (scenario ids).
 # Actions history counts these runs, and past PLUMBING_RUNS of them on one PR the next such cause counts as any other.
 PLUMBING = ('conflict', 'rules')
-PLUMBING_STEPS = re.compile(r'rules\.sh (?:base|ci-trailers|scenario-ids)\b')
+PLUMBING_STEPS = re.compile(r'rules\.sh scenario-ids\b')
 PLUMBING_RUNS = 6
 # L82: conflict fix runs on one PR since it opened or was last reopened; the next conflict closes the PR and its Issue is rebuilt.
 CONFLICT_RUNS = 3
