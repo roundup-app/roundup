@@ -4,7 +4,7 @@ Module: `apps/desktop` (webview). Acceptance for Issue #4708, Decisions 2 and 3 
 
 **U4708 Pad rows carry the Pad icon and group heads align to the row columns.** Policy (rendered acceptance, design-critic observer): given the Shelf's `Todos` and `Pads` lists on `tree-40` and `agents-10`, with root, child, grandchild and great-grandchild rows (depths 0–3), a 300-character Todo title, a 120-character Pad name, ten blockers and a 60-character group name, when reading them dark at 1280×820 and 1512×950, then:
 
-- **Pad icon.** Each Pad row draws, in the glyph slot, the Pad icon the `PADS` tab uses (`sticky-note`, as amended by U4908) (one shared icon component, not a copy), in the muted text colour. The icon is not a state: a Pad row gains no state glyph, badge or colour (U4275a), and its open, rename and drag paths are unchanged.
+- **Pad icon.** Each Pad row draws, in the glyph slot, the Pad icon the `PADS` tab uses (`sticky-note`, as amended by U4908; one shared icon component, not a copy), in the muted text colour. The icon is not a state: a Pad row gains no state glyph, badge or colour (U4275a), and its open, rename and drag paths are unchanged.
 - **Group head.** A group head puts its chevron in the glyph column, its name on the title edge, and its count after the name in the grey secondary colour. A 60-character group name is cut with `…` and its count stays visible. The head's expand, collapse and focus behaviour is unchanged.
 - **Shared x.** At every depth, in both lists, glyphs (Todo state glyphs and Pad icons) and group chevrons share one x, and titles and group names share one x, each within 1 CSS px. Pad and Todo titles at the same depth share one x. Hover, focus and selection move none of them.
 - **Tokens.** Colours, sizes and spacing read existing Tokens; add no literal. The Pad rows' `glyph={null}` is replaced, not worked around with padding.
@@ -24,7 +24,6 @@ Regression (policy): keep the Pad and Todo row observers, naming U4708 where the
 
 Specification validation: `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Issue #4708 stays open for implementation.
 
-
 **U4908 Pad marks, shared Open action and no empty leading slot.** Acceptance for Issue #4908; implementation remains in Issue #4708. This serves the first journey's Review stage: find a Pad among the work items and open its contents. Given the Shelf's Pads and Todos tabs, when reading and opening their rows, then:
 
 - **Pad mark (policy).** Each Pad row carries Lucide `sticky-note`, muted and decorative, in the leading slot under its group's chevron. Add that icon to `apps/desktop/src/ink/Icon.tsx`; the shared Pad icon in `apps/desktop/src/shelf/frame.ts` supplies both the tab and its rows. Work orders retain `file-text`; a Pad gains no invented state, badge or state colour. This supersedes U4708's file-icon choice only.
@@ -37,7 +36,7 @@ Policy — precedence and scope: U4908 adds the Pad Open button and replaces onl
 
 Policy — rendered observer: compare the same `origin/main` baseline and implementation head in dedicated isolated headless `agent-browser` sessions with fresh profiles, dark, at 1512×950, using U26's harness. Capture both tabs on `tree-40` and `agents-10`, with visible group heads and root/child/grandchild rows where supported, a 120-character Pad name, a 300-character Todo title, a 60-character group name and ten blockers. Include every audited absent-mark path, the add field and done summary where present. Capture rest, hover, keyboard focus, selection and each opened Drawer, plus actionable failure text fully visible on the densest seed. Read `window.__checks()` for matching main/head states. Layout, spacing, icon shape/colour, truncation and reveal are judged by the design critic; add no layout, colour or exact-copy unit/browser test (AGENTS.md rule 10).
 
-Run `just capture U4908` in the implementation run. Leave paired PNGs, interaction video and Check readings under `artifacts/ux/U4908/{base,head}/`, following `.agents/data/harness.md`, **Captures**; record the baseline/head SHAs and seed/state with each pair. Commit no image or video. The spec PR claims no rendered implementation result. Linux/Chromium observes the webview; the user reports what they meet on the Mac.
+Run `just capture U4908` in the implementation run. Leave paired images, interaction video and Check readings under `artifacts/ux/U4908/{base,head}/`, following `.agents/data/harness.md`, **Captures**; record the baseline/head SHAs and seed/state with each pair. Commit no image or video. The spec PR claims no rendered implementation result. Linux/Chromium observes the webview; the user reports what they meet on the Mac.
 
 The implementation moves these Checks, held on main by `docs/design-system.md`, **The checks**, and breaks none passing on its paired main baseline:
 
