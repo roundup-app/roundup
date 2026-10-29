@@ -250,7 +250,19 @@ impl Pads {
                     "Redo requires the restored Pad creation",
                 ));
             }
-            let current = get(&store, &prior.pad.name)?;
+            let incarnation = prior
+                .pad
+                .incarnation
+                .parse::<i64>()
+                .map_err(RpcError::internal)?;
+            let PadSourceState::Live(source) =
+                source_state(&store.db, incarnation).map_err(RpcError::internal)?
+            else {
+                return Err(RpcError::conflict(
+                    "The restored Pad creation is unavailable",
+                ));
+            };
+            let current = source.pad;
             require_owner_or_user(&ctx.actor, &current, "delete")?;
             if current.incarnation != prior.pad.incarnation
                 || current.name != prior.pad.name
