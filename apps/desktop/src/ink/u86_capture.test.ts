@@ -6,11 +6,12 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
 import { captureDir } from "../testing/captures";
+import { progressSeed } from "../testing/progressSeed";
 
 const exec = promisify(execFile);
 
 // U86's optical observer records pixels for the critic; it asserts no layout.
-it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
+it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", { retry: 0, timeout: 480_000 }, async () => {
   const server = await appServer();
   const profile = mkdtempSync(join(tmpdir(), "u86-profile-"));
   const session = `u86-${process.pid}`;
@@ -47,9 +48,16 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
     await browser("hover", selector);
     await snap(`${name}-hover`);
     await browser("focus", selector);
-    await browser("press", "Tab");
-    await browser("press", "Shift+Tab");
+    const popupItem = await read(`document.querySelector(${JSON.stringify(selector)})?.matches('[role=option], [role=menuitem]')`);
+    await browser("press", popupItem ? "ArrowDown" : "Tab");
+    await browser("press", popupItem ? "ArrowUp" : "Shift+Tab");
     await snap(`${name}-focus`);
+  };
+
+  const controls = async (name: string, surface: string) => {
+    const ids: string[] = await read(`[...document.querySelectorAll(${JSON.stringify(surface)})].flatMap(root => [...root.querySelectorAll('button, [role=tab], [role=menuitem], [role=option]')]).filter(el => el.querySelector('svg') && el.textContent.trim() && !el.disabled && el.getBoundingClientRect().width > 0).map((el, i) => {el.dataset.u86Control=${JSON.stringify(name)}+'-'+i; return String(i)})`);
+
+    for (const id of ids) await states(`${name}-${id}`, `[data-u86-control="${name}-${id}"]`);
   };
 
   try {
@@ -57,7 +65,6 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "color-scheme", "dark");
 
-    if (!process.env.U86_EXTRA_ONLY) {
     await load("tree-40");
     await wait("!!document.querySelector('.shelf-done-line')");
     await states("todo-summary-rail", ".shelf-done-line button[data-button=quiet]");
@@ -69,11 +76,13 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
     await browser("click", '.todo-row[data-todo="1"] .todo-open');
     await wait("!!document.querySelector('.todo-detail')");
     await snap("todo-drawer");
+    await controls("todo-drawer-control", ".todo-detail");
     const pickers = await read("[...document.querySelectorAll('.todo-detail button[aria-haspopup]')].map((el, i) => {el.dataset.u86Picker=String(i);return String(i)})");
 
     for (const id of pickers) {
       await browser("click", `[data-u86-picker="${id}"]`);
       await snap(`todo-picker-${id}`);
+      await controls(`todo-picker-${id}-control`, "[role=listbox], [role=menu]");
       await browser("press", "Escape");
     }
 
@@ -81,6 +90,7 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
     await browser("click", '[role=tab][data-value=pads]');
     await wait("!!document.querySelector('.pads-tab')");
     await snap("pads-shelf");
+    await controls("pads-shelf-control", ".pads-tab");
     await load("agents-10");
     await states("all-kinds", '.rail-row[data-id="agent-1"]');
     await browser("click", '.rail-row[data-id="agent-1"]');
@@ -101,11 +111,14 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
     await snap("conflict-failure");
     await load("tabs-8");
     await snap("project-tabs");
+    await controls("project-tabs-control", ".strip");
     await load("bubbles");
     await browser("click", '.rail-row[data-id="runner"]');
     await snap("floating-terminal");
+    await controls("floating-terminal-control", ".bubble");
     await load("resources", "&view=resources");
     await snap("resources");
+    await controls("resources-control", ".resource-strip");
     await browser("press", "Meta+k");
     await browser("press", "k");
     await wait("!!document.querySelector('.switcher')");
@@ -121,13 +134,14 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
     await browser("press", "Meta+Comma");
     await wait("!!document.querySelector('.app-select-trigger')");
     await snap("settings-controls");
+    await controls("settings-control", ".app-dialog");
     const settings = await read("[...document.querySelectorAll('.app-select-trigger')].map((el,i)=>{el.dataset.u86Select=String(i);return String(i)})");
 
     for (const id of settings) {
       await browser("click", `[data-u86-select="${id}"]`);
       await snap(`settings-menu-${id}`);
+      await controls(`settings-menu-${id}-control`, "[role=listbox]");
       await browser("press", "Escape");
-    }
     }
 
     await load("tree-40");
@@ -146,18 +160,37 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
     await browser("press", "Enter");
     await wait("!!document.querySelector('.pad-body')");
     await snap("pad-drawer");
+    await controls("pad-drawer-control", ".drawer");
     await load("resources", "&view=resources");
     await browser("click", '.rail-row[data-id="worktree-agent"]');
     await snap("worktree-control");
+    await controls("worktree-control-control", ".worktree-control");
     await load("import-candidates");
     await read("(async () => { const {openProjectPage} = await import('/src/testing/menuProbe.ts'); openProjectPage('import-work', window.__fake.app.opened.project.path); })()");
     await wait("!!document.querySelector('.import-panel')");
     await snap("import-controls");
+    await controls("import-controls-control", ".import-panel");
+    await load("agents-10");
+    await read(`(() => {
+      const seed = ${JSON.stringify(progressSeed({ project: "/Users/you/project", agent: "agent-1" }))};
+      window.__fake.app.handlers['message.progress'] = () => seed.progress;
+      window.__fake.app.handlers['message.reconcileWork'] = () => seed.plan;
+    })()`);
+    await browser("focus", '.rail-row[data-id="agent-1"]');
+    await browser("press", "Shift+F10");
+    await wait("!!document.querySelector('[role=menuitem]')");
+    await browser("find", "role", "menuitem", "click", "--name", "Work progress", "--exact");
+    await wait("!!document.querySelector('.progress-row')");
+    await browser("click", '.progress-earlier [data-part=trigger]');
+    await snap("work-progress-results");
+    await controls("work-progress-control", ".progress-section");
     await load("tree-40", "&view=made");
     await snap("made-controls");
+    await controls("made-controls-control", ".made");
     await load("tree-40", "&view=reactions");
     await snap("reaction-controls");
+    await controls("reaction-controls-control", ".reactions");
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
   }
-}, 240_000);
+});
