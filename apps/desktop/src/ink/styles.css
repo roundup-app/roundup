@@ -231,7 +231,7 @@ p.ink[role="alert"] {
   width: var(--space-4);
 }
 .entry-row .todo-tick::before { right: 0; }
-.entry-row .todo-tick::after { right: var(--hairline-width); }
+.entry-row .todo-tick:not(:checked)::after { right: var(--hairline-width); }
 
 /* U3807: message text and actions share a fixed edge; neither determines its size. */
 .reserved-line {
