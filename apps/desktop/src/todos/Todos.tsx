@@ -714,14 +714,14 @@ export const Todos = (props: {
       run: () => (triageButtons()[0] ?? triageButton())?.focus(),
     },
     {
-      chords: chordsFor("T"),
+      action: CHORDS.find(row => row.keys === "T")!, searchable: false,
       when: event => !triage.on() && canTriage(event) && !rowTypeahead(event),
-      run: enterTriage,
+      capture: focus => ({ available: () => !triage.on() && section?.isConnected === true && focus?.isConnected === true && (focus === document.body || !!focus.closest(".shelf, .shelf-tabs")) && !focus.closest("input,textarea,select,[contenteditable]") && (!tabs || tabs().value === "todos"), invoke: enterTriage }),
     },
     {
-      chords: chordsOf(CHORDS.find(row => row.inTriage && row.keys === "Esc")),
+      action: CHORDS.find(row => row.inTriage && row.keys === "Esc")!, searchable: false,
       when: event => triage.on() && canTriage(event),
-      run: leaveTriage,
+      capture: focus => ({ available: () => triage.on() && focus?.isConnected === true && (focus === document.body || !!focus.closest(".shelf, .shelf-tabs")) && !focus.closest("input,textarea,select,[contenteditable]"), invoke: leaveTriage }),
     },
     triageKey("J K", (_todo, button, event) => {
       const buttons = triageButtons();

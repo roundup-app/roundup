@@ -159,6 +159,32 @@ describe("u2230 shortcut hints", () => {
       }
   });
 
+  it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u4690_each_hint_runs_its_key_action_once_in_%s", async (place, go) => {
+      for (const hint of hintsFor(place)) {
+        // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
+        cleanup();
+        endLeader();
+        const app = await open();
+
+        await go();
+
+        const chord = CHORDS.find((row) => row.keys === hint.keys);
+
+        const button = document.querySelector<HTMLButtonElement>(`.hint-line [data-hint="${chord!.keys}"]`)!;
+        expect(button.disabled).toBe(false);
+        fireEvent.pointerDown(button);
+        fireEvent.click(button);
+
+        if (hint.keys === "⌘⌫") await answerQuestion(true);
+
+        if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
+        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
+        else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
+        else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
+        expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+      }
+  });
+
   it("u2230a_hints_follow_focus", async () => {
     await open();
     await toRail();
