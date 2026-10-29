@@ -144,12 +144,12 @@ async fn d5_attached_shutdown_stops_owner_held_agents_after_reopen() {
         let listed: Vec<contracts::terminal::TerminalInfo> =
             serde_json::from_value(c.request("terminal.list", Value::Null).await.unwrap()).unwrap();
         let pid = listed[0].program_pid.unwrap();
-        assert!(alive(pid));
-        assert!(alive(child_pid));
         drop(c);
         if reopen {
             project.restart(&fake);
         }
+        assert!(alive(pid), "original Agent is live before App exit");
+        assert!(alive(child_pid), "its child is live before App exit");
         project.close().await;
         for pid in [pid, child_pid] {
             assert!(
