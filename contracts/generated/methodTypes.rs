@@ -58,6 +58,7 @@
     Method { name: "todo.reorder", params: "todo_ReorderParams", result: "todo_Todo" },
     Method { name: "todo.delete", params: "todo_DeleteParams", result: "todo_Deletion" },
     Method { name: "todo.deletion", params: "todo_DeletionParams", result: "todo_Deletion | null" },
+    Method { name: "todo.redo", params: "todo_RedoParams", result: "todo_Deletion" },
     Method { name: "todo.restore", params: "todo_DeletionParams", result: "todo_Deletion" },
     Method { name: "todo.comment", params: "todo_CommentParams", result: "todo_Comment" },
     Method { name: "todo.comments", params: "todo_TodoId", result: "todo_Comment[]" },

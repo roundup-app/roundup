@@ -89,7 +89,11 @@ async fn u3787a_daemon_restores_exact_graph_without_starting_processes() {
     call(&daemon, "todo.restore", json!({"operation":"bulk"}))
         .await
         .unwrap();
-    let redo = json!({"source":"bulk","operation":"redo-bulk"});
+    let restoration = call(&daemon, "todo.deletion", json!({"operation":"bulk"}))
+        .await
+        .unwrap()["restoration"]
+        .clone();
+    let redo = json!({"source":"bulk","operation":"redo-bulk","restoration":restoration});
     let receipt = call(&daemon, "todo.redo", redo.clone()).await.unwrap();
     assert_eq!(receipt["deleted"], json!([1, 2]));
     assert_eq!(
@@ -250,5 +254,77 @@ async fn u3787a_daemon_keeps_missing_home_restoration_retryable() {
     assert_eq!(
         call(&daemon, "todo.list", Value::Null).await.unwrap(),
         json!([])
+    );
+}
+
+#[tokio::test]
+async fn u3787a_redo_requires_original_project_restoration_and_user_authority() {
+    let dirs = [tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap()];
+    let daemons = [
+        test_daemon(dirs[0].path()).unwrap(),
+        test_daemon(dirs[1].path()).unwrap(),
+    ];
+    let mut restorations = Vec::new();
+    for daemon in &daemons {
+        call(
+            daemon,
+            "todo.create",
+            json!({"title":"same numeric identity"}),
+        )
+        .await
+        .unwrap();
+        call(
+            daemon,
+            "todo.delete",
+            json!({"operation":"same-key","ids":[1]}),
+        )
+        .await
+        .unwrap();
+        restorations.push(
+            call(daemon, "todo.restore", json!({"operation":"same-key"}))
+                .await
+                .unwrap(),
+        );
+    }
+    let redo = json!({"source":"same-key","operation":"redo","restoration":restorations[0]["restoration"]});
+    let before = call(&daemons[1], "todo.list", Value::Null).await.unwrap();
+    assert_eq!(
+        call(&daemons[1], "todo.redo", redo.clone())
+            .await
+            .unwrap_err()
+            .code,
+        code::CONFLICT
+    );
+    assert_eq!(
+        call(&daemons[1], "todo.list", Value::Null).await.unwrap(),
+        before
+    );
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "untrusted".into(),
+            parent: None,
+        },
+        peer: None,
+        events,
+        output: None,
+    };
+    assert_eq!(
+        daemons[0]
+            .route_inner(&mut conn, "todo.redo", redo.clone())
+            .await
+            .unwrap_err()
+            .code,
+        code::FORBIDDEN
+    );
+    call(&daemons[0], "todo.redo", redo).await.unwrap();
+    assert_eq!(
+        call(&daemons[0], "todo.list", Value::Null).await.unwrap(),
+        json!([])
+    );
+    assert_eq!(
+        call(&daemons[1], "todo.list", Value::Null).await.unwrap(),
+        before
     );
 }
