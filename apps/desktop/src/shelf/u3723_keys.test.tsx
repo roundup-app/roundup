@@ -165,3 +165,24 @@ it("u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row", 
   screen.getByLabelText("New Todo title").focus();
   await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:D")).toBe(false));
 });
+
+
+it.each(["key", "menu"])("u3787b_triage_commands_share_the_focused_todo: %s", async source => {
+  const { app, rows } = await open();
+  rows[0]!.focus();
+  fireEvent.click(screen.getByRole("button", { name: "Triage" }));
+  await waitFor(() => expect(document.querySelector(".shelf")?.getAttribute("data-triage")).toBe("on"));
+  const focused = document.activeElement!;
+  const id = Number(focused.closest("[data-todo]")!.getAttribute("data-todo"));
+
+  for (const key of ["A", "W", "X", "C"]) {
+    await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${key}`)?.shortcut).toBe(key));
+  }
+
+  expect(document.activeElement).toBe(focused);
+
+  if (source === "key") fireEvent.keyDown(focused, { key: "x", code: "KeyX" });
+  else openProjectPage("action:chord:X");
+
+  await waitFor(() => expect(app.calls.filter(call => call.method === "todo.complete").map(call => call.params)).toEqual([{ id }]));
+});
