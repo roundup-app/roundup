@@ -1,4 +1,3 @@
-import "../pads/PadRichEditor";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -31,6 +30,9 @@ const focusableEmulator = (): EmulatorFactory => () => {
     onInput: () => {},
     turns: () => [],
     selectTurn: () => {},
+    prepare: async host => { host.replaceChildren(field);
+
+ return { cols: 80, rows: 24 }; },
     show: (host, focus = true) => {
       host.replaceChildren(field);
 
@@ -51,12 +53,12 @@ const open = async () => {
   // Shelf loads Todos lazily; shortcut assertions must not race its module fetch.
   await import("../todos/Todos");
   const app = createFakeApp();
-  let listed = [info("1", { owner: "w", title: "zsh" }), ...["a", "b", "c"].map(id => info(`t-${id}`, { owner: id }))];
+  let listed = [info("1", { owner: "w", title: "zsh" })];
 
   app.opened.project = { name: "p", path: "/p" };
   app.handlers["rail.tree"] = () => [
     door("w", "idle", "idle", { name: "lead" }),
-    ...["a", "b", "c"].map((id) => agent(id, id === "c" ? "needs-you" : "idle", "x", { parent: "w" })),
+    ...["a", "b", "c"].map((id) => agent(id, id === "a" ? "needs-you" : "idle", "x", { parent: "w" })),
   ];
   Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", owner: { kind: "user", id: "you", parent: null }, updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
   app.handlers["terminal.list"] = () => listed;
@@ -87,10 +89,10 @@ const toRail = async () => {
 };
 
 const toPane = async () => {
-  fireEvent.click(rowOf("b"));
-  await settled();
+  rowOf("b").focus();
+  fireEvent.keyDown(rowOf("b"), { key: "Enter", code: "Enter" });
   await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
-  document.querySelector<HTMLElement>(".pane-screen textarea")!.focus();
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".pane-screen textarea")));
   await waitFor(() => expect(line()).toEqual(label("agent")));
 };
 
