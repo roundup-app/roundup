@@ -8,7 +8,7 @@ import { Field } from "../ui/Field";
 import { ReservedLine } from "../ink/ReservedLine";
 
 /** U4547b: retain the created identity before saving or starting, so retry resumes it. */
-export const CreateMode = (props: { onClose: () => void }) => {
+export const CreateMode = (props: { onClose: () => void; onCreated: (id: string, request: string) => void }) => {
   const { app, rail, drafts, project } = useConnectedProject();
   const destination = { surface: "mode-create", object: project.path, recipient: null };
   drafts.validate(destination.surface, v.strictObject({ name: v.string(), text: v.string(), id: v.nullable(v.string()), request: v.string() }));
@@ -43,12 +43,11 @@ export const CreateMode = (props: { onClose: () => void }) => {
       }
 
       await app.rpc("workstream.setOpeningPrompt", { id: saved.id, prompt: saved.text });
-      await app.rpc("workstream.restart", { id: saved.id, request: saved.request });
       await rail.refresh();
       rail.setSectionOpen("modes", true);
       rail.select(saved.id);
       await drafts.settle(submitted, "acknowledged");
-      props.onClose();
+      props.onCreated(saved.id, saved.request);
     } catch (error) {
       await drafts.settle(submitted, outcomeOf(error));
 

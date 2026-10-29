@@ -74,6 +74,10 @@ export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["
       setFailure(failed ? result.message : null);
 
       if (failed) connected.rail.commandFailure.clear();
+      else {
+        props.onClose();
+        queueFocus(() => props.finalFocus()?.focus({ preventScroll: true }));
+      }
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setFailure(error.message);
