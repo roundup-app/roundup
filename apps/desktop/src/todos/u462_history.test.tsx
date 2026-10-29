@@ -142,37 +142,17 @@ it("u3728_failed_read_retries_without_consuming_unread", async () => {
 });
 
 
-it.each([
-  { before: null, after: 45 },
-  { before: 45, after: 60 },
-  { before: 45, after: null },
-])("u3365_an_estimate_only_change_renders_one_line_%j", async ({ before, after }) => {
-  const m = await mountTodos([todo(1, { estimate_minutes: after })]);
-  const values = { title: "todo 1", body: "", done: false, blockers: [], owner: null };
-  m.app.handlers["todo.getHistory"] = () => ({ unread: 1, changes: [
-    { actor: { kind: "agent", id: "estimator", parent: null }, changed_at: null, seq: 1,
-      before: { ...values, estimate_minutes: before }, after: { ...values, estimate_minutes: after } },
-  ] });
-  await open(m); await disclose(m);
-  const entries = panel().querySelectorAll("[data-change]");
-  expect(entries).toHaveLength(1);
-
-  if (after !== null) expect(entries[0]?.textContent).toContain(String(after));
-});
-
-
-it("u3365_an_estimate_change_keeps_the_other_fields_lines", async () => {
+it("u462_a_rename_keeps_its_history_line", async () => {
   const m = await mountTodos([todo(1)]);
   const values = { title: "todo 1", body: "", done: false, blockers: [], owner: null, estimate_minutes: null };
   m.app.handlers["todo.getHistory"] = () => ({ unread: 1, changes: [
     { actor: null, changed_at: null, seq: 1, before: values,
-      after: { ...values, title: "Plan the release", estimate_minutes: 45 } },
+      after: { ...values, title: "Plan the release" } },
   ] });
   await open(m); await disclose(m);
   const entries = [...panel().querySelectorAll("[data-change]")];
-  expect(entries).toHaveLength(2);
+  expect(entries).toHaveLength(1);
   expect(entries.some(entry => entry.textContent?.includes("Plan the release"))).toBe(true);
-  expect(entries.some(entry => entry.textContent?.includes("45"))).toBe(true);
 });
 
 it("u3299a_history_copy_keeps_removed_owner_identity", async () => {

@@ -225,12 +225,11 @@ it("u3311_real_daemon_delegate_board", async () => {
     await app.rpc("rail.startDoor", { id: home.id });
     const made = [];
 
-    for (const [name, owner, estimate] of [["Prepare notes", me, 30], ["Check links", actor(agents[0]!.id), 15], ["Compile release", actor(agents[1]!.id), 20], ["Review changes", actor(agents[2]!.id), null], ["Pointer hand-off", null, 45], ["Number hand-off", me, 10], ["Arrow hand-off", me, 5], ["Automatic hand-off", null, 25]] as const) {
+    for (const [name, owner] of [["Prepare notes", me], ["Check links", actor(agents[0]!.id)], ["Compile release", actor(agents[1]!.id)], ["Review changes", actor(agents[2]!.id)], ["Pointer hand-off", null], ["Number hand-off", me], ["Arrow hand-off", me], ["Automatic hand-off", null]] as const) {
       const params: CreateParams = { title: name, body: null, blockers: null };
 
       if (owner) params.owner = owner;
 
-      if (estimate !== null) params.estimate_minutes = estimate;
       const todo = await app.rpc("todo.create", params);
 
       await app.rpc("todo.move", { id: todo.id, home: home.id });

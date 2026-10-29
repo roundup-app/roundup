@@ -252,7 +252,12 @@ export const EditableText = (props: {
         await props.commit(submittedValue, started.form.expected_change);
         connected.drafts.settle(draft.revision, "acknowledged");
 
-        if (alive) { setFailure(null); props.onSaved?.(); }
+        if (alive) {
+          setFailure(null); props.onSaved?.();
+
+          // The submitted field and its Save button unmount together; return only unclaimed focus.
+          if (document.activeElement === document.body && connected.drawer.content() === content) retryFocus(() => shown?.focus());
+        }
       } catch (error) {
         if (!(error instanceof Error)) throw error;
         connected.drafts.settle(draft.revision, outcomeOf(error));
