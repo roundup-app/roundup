@@ -188,19 +188,6 @@ const dispatch = (event: KeyboardEvent): void => {
   if (modal && event.key !== "Escape" && event.key !== "Tab" && !typesInto(event, eligible)) event.stopImmediatePropagation();
 };
 
-let releasing = false;
-
-/** Disposing an owner releases its registrations one by one; each bump would rerun every reader (the hint line walks the DOM per run) once per registration. Reads of `registrations` stay current, so one bump after the teardown is enough. */
-const releaseLayers = (): void => {
-  if (releasing) return;
-
-  releasing = true;
-  queueMicrotask(() => {
-    releasing = false;
-    setLayers((now) => now + 1);
-  });
-};
-
 /** Register within a Solid owner. Matching is tinykeys' job; guards and repeats belong to each caller.
  * The first owner installs one listener; disposing the last removes it, including across App remounts. */
 export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | ActionBinding)[]): void => {
@@ -236,7 +223,7 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
   setLayers((now) => now + 1);
   onCleanup(() => {
     registrations.delete(registration);
-    releaseLayers();
+    setLayers((now) => now + 1);
 
     if (registrations.size === 0) window.removeEventListener("keydown", dispatch, true);
   });
