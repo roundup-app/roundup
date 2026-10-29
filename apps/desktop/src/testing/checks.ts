@@ -197,7 +197,7 @@ const d2 = (page: Page): Measure =>
 
     const size = px(page.resolve(style.fontSize));
 
-    if (size !== null && !TYPE_STEPS.has(size)) return { fontSize: style.fontSize };
+    if (size !== null && ![...TYPE_STEPS].some(step => Math.abs(size - step * Number(page.token("interface-scale") ?? 1)) < 0.01)) return { fontSize: style.fontSize };
 
     const level = Number(el.getAttribute("aria-level"));
 
