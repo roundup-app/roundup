@@ -175,7 +175,10 @@ impl Shared {
                 let killed =
                     kill_or_already_gone(&*self.ending.kill, &self.terminals, &terminal_id).await;
                 if matches!(self.runs().get(id), Some(Slot::ResumeCleanup { .. })) {
-                    killed.and_then(|()| self.confirm_terminal_exit(&terminal_id))
+                    match killed {
+                        Ok(()) => self.confirm_terminal_exit(&terminal_id).await,
+                        Err(err) => Err(err),
+                    }
                 } else {
                     killed
                 }
@@ -559,6 +562,7 @@ mod tests {
         assert!(
             !terminals
                 .list()
+                .await
                 .iter()
                 .any(|t| t.id == spawned.id && t.running)
         );

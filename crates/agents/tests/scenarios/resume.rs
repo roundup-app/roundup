@@ -191,7 +191,7 @@ async fn a21_a_failed_save_while_parked_fails_the_whole_spawn() {
         "a parked conversation save failure must fail the spawn"
     );
     tokio::time::timeout(Duration::from_secs(2), async {
-        while f.terminals.list().iter().any(|t| t.running) {
+        while f.terminals.list().await.iter().any(|t| t.running) {
             tokio::task::yield_now().await;
         }
     })
@@ -517,6 +517,7 @@ async fn a22_resume_in_a_worktree_subfolder_keeps_the_saved_subfolder_not_the_wo
     let cwd = f
         .terminals
         .list()
+        .await
         .into_iter()
         .find(|t| t.id == terminal_id)
         .unwrap()
