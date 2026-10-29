@@ -1,0 +1,76 @@
+[
+  {
+    "state": "agents-10-capture.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "agents-10-selected.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "ask-hover.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "ask-row.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "capture.checks",
+    "regressions": [],
+    "baselineFailures": {
+      "D12": "fail"
+    },
+    "headFailures": []
+  },
+  {
+    "state": "failure.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "pad-editing.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "pad-selected.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "rail-selected.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "todo-editing.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "todo-hover.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  },
+  {
+    "state": "todo-selected.checks",
+    "regressions": [],
+    "baselineFailures": {},
+    "headFailures": []
+  }
+]
