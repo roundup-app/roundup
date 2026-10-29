@@ -44,7 +44,12 @@ async fn a16_a_running_agent_is_stopped_and_removed() {
 
     assert!(f.tree().await.is_empty());
     let terminal_id = agent.terminal_id.unwrap();
-    let terminal = f.terminals.list().into_iter().find(|t| t.id == terminal_id);
+    let terminal = f
+        .terminals
+        .list()
+        .await
+        .into_iter()
+        .find(|t| t.id == terminal_id);
     assert!(terminal.is_none_or(|t| !t.running));
 }
 

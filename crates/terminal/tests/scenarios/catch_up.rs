@@ -17,6 +17,7 @@ async fn z3788a_raw_catch_up_and_subscription_overlap_keep_binary_bytes_once() {
     )).await.unwrap();
     let info = terminals
         .list()
+        .await
         .into_iter()
         .find(|t| t.id == spawned.id)
         .unwrap();
@@ -125,7 +126,7 @@ async fn z3788a_eviction_is_a_gap_and_future_offsets_are_refused() {
         .await
         .unwrap();
     until_exit(&mut spawned).await;
-    let info = terminals.list().remove(0);
+    let info = terminals.list().await.remove(0);
     let request =
         |after| json!({"id": spawned.id, "incarnation": info.incarnation, "after": after});
     let context = ctx(&dir, &bus);
@@ -172,8 +173,8 @@ async fn z3788a_catch_up_refuses_other_incarnations_projects_and_roles() {
     let mut b = foreign.spawn(sh(other.path(), "true")).await.unwrap();
     until_exit(&mut a).await;
     until_exit(&mut b).await;
-    let info = terminals.list().remove(0);
-    let foreign_info = foreign.list().remove(0);
+    let info = terminals.list().await.remove(0);
+    let foreign_info = foreign.list().await.remove(0);
     let request = |incarnation: &str| json!({"id":a.id,"incarnation":incarnation,"after":0});
     let mut context = ctx(&dir, &bus);
     assert_eq!(

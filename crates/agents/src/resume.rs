@@ -219,11 +219,14 @@ impl Agents {
             }
         };
         if let Some(terminal) = stop_terminal {
-            if let Err(err) =
+            let stopped =
                 kill_or_already_gone(&*self.shared.ending.kill, &self.shared.terminals, &terminal)
-                    .await
-                    .and_then(|()| self.shared.confirm_terminal_exit(&terminal))
-            {
+                    .await;
+            let stopped = match stopped {
+                Ok(()) => self.shared.confirm_terminal_exit(&terminal).await,
+                Err(err) => Err(err),
+            };
+            if let Err(err) = stopped {
                 self.shared.rollback_resume(id, &attempt, err.clone());
                 ctx.emit(EventData::RailChanged);
                 return Err(err);
@@ -285,13 +288,16 @@ impl Agents {
             // A14's attempt check already keeps a stop/remove from claiming a Resuming id;
             // nothing else can have. Kept so this can never leave a Terminal unaccounted for if
             // that ever changes.
-            let cleanup = kill_or_already_gone(
+            let killed = kill_or_already_gone(
                 &*self.shared.ending.kill,
                 &self.shared.terminals,
                 &terminal_id,
             )
-            .await
-            .and_then(|()| self.shared.confirm_terminal_exit(&terminal_id));
+            .await;
+            let cleanup = match killed {
+                Ok(()) => self.shared.confirm_terminal_exit(&terminal_id).await,
+                Err(err) => Err(err),
+            };
             return Err(match cleanup {
                 Ok(()) => RpcError::conflict(format!("{id}: resume no longer pending")),
                 Err(cleanup) => RpcError::unknown_outcome(format!(
@@ -351,10 +357,11 @@ impl Shared {
             .map_err(RpcError::internal)?
     }
 
-    pub(super) fn confirm_terminal_exit(&self, terminal_id: &str) -> Result<(), RpcError> {
+    pub(super) async fn confirm_terminal_exit(&self, terminal_id: &str) -> Result<(), RpcError> {
         if self
             .terminals
             .list()
+            .await
             .iter()
             .any(|t| t.id == terminal_id && t.running)
         {
@@ -434,7 +441,7 @@ impl Shared {
             let cleanup = async {
                 shared.resume_effect("cleanup", &terminal_id).await?;
                 kill_or_already_gone(&*shared.ending.kill, &shared.terminals, &terminal_id).await?;
-                shared.confirm_terminal_exit(&terminal_id)
+                shared.confirm_terminal_exit(&terminal_id).await
             }
             .await;
             let result = {
@@ -513,7 +520,7 @@ mod tests {
             .unwrap_err();
         assert!(error.message.contains("kill failed"), "{error}");
         assert_eq!(launches.load(Ordering::SeqCst), 0);
-        assert!(agents.shared.terminals.list().is_empty());
+        assert!(agents.shared.terminals.list().await.is_empty());
         let runs = agents.shared.runs();
         assert!(matches!(runs.get(&id), Some(Slot::Running(run)) if !run.yolo));
     }
@@ -572,7 +579,7 @@ mod tests {
                 agents.shared.rail().node(&id).unwrap().attempt.as_deref(),
                 Some("1")
             );
-            assert!(agents.shared.terminals.list().is_empty());
+            assert!(agents.shared.terminals.list().await.is_empty());
             release.notify_one();
             ending.await.unwrap();
             assert_eq!(agents.shared.rail().node(&id).is_err(), remove);

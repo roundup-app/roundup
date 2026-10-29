@@ -173,3 +173,26 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
   captured.run();
   expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
 });
+
+it.each(["terminal", "rail row"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
+  const { connected } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+
+  if (place === "rail row") document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
+
+  const focus = document.activeElement!;
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === (place === "rail row" ? "action:chord:⌘⌫" : "action:chord:⌘="))).toBe(true));
+  const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
+  const shown = new Map(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
+
+  expect(available.length).toBeGreaterThan(10);
+
+  for (const action of available) {
+    expect(shown.has(action.value), action.value).toBe(true);
+    expect(shown.get(action.value), action.value).toBe(action.value.startsWith("action:leader:") ? `⌘K ${action.value.slice(14)}` : action.keys);
+  }
+
+  expect([...shown.keys()].filter(id => !available.some(action => action.value === id))).toEqual([]);
+  expect(document.activeElement).toBe(focus);
+});

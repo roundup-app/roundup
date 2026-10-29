@@ -19,7 +19,7 @@ fn x8_reconnecting_keeps_the_original_program() {
         let terminals = Terminals::open(dir.path(), rpc::Bus::new())
             .unwrap()
             .with_terminal_owner(std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner")));
-        assert!(terminals.list().is_empty());
+        assert!(terminals.list().await.is_empty());
         assert!(terminals.terminal_owners().is_empty());
         let first = terminals.spawn(params.clone()).await.unwrap();
         let mut cleanup = vec![Owned {
@@ -110,7 +110,7 @@ fn x8_client() {
             let frame = tokio::time::timeout(std::time::Duration::from_secs(3), output.next()).await.unwrap().unwrap();
             assert!(matches!(frame, terminal::Output::Bytes { .. }));
             assert!(terminals.snapshot(id).unwrap().after > 0);
-            let info = terminals.list().into_iter().find(|info| &info.id == id).unwrap();
+            let info = terminals.list().await.into_iter().find(|info| &info.id == id).unwrap();
             assert_eq!(info.incarnation, owner.info.incarnation);
             assert_eq!(info.program, "sh");
             let pids = std::fs::read_to_string(folder.join("original")).unwrap();
@@ -128,7 +128,7 @@ fn x8_client() {
             else {
                 assert_eq!(pids, std::fs::read_to_string(folder.join("observed-pid")).unwrap());
                 terminals.kill(id).await.unwrap();
-                if index == 0 { assert!(terminals.list().iter().any(|info| info.id == "2" && info.running)); }
+                if index == 0 { assert!(terminals.list().await.iter().any(|info| info.id == "2" && info.running)); }
                 let exited = tokio::time::timeout(std::time::Duration::from_secs(3), async {
                     loop { let event = events.recv().await.unwrap(); if matches!(&*event, contracts::EventData::TerminalExited(event) if &event.id == id) { break; } }
                 }).await;
@@ -446,4 +446,70 @@ async fn x8_lost_physical_write_result_is_unknown_and_kill_remains_available() {
         .unwrap()
         .unwrap_err();
     assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME);
+}
+
+#[tokio::test]
+async fn x19_an_owner_binds_under_a_project_path_longer_than_sun_path() {
+    let base = tempfile::tempdir().unwrap();
+    let mut project = base.path().to_owned();
+    while project.as_os_str().len() <= 110 {
+        project.push("nested-project-directory");
+    }
+    std::fs::create_dir_all(&project).unwrap();
+    let terminals = Terminals::open(&project, rpc::Bus::new())
+        .unwrap()
+        .with_terminal_owner(std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner")));
+    let params = SpawnParams {
+        cwd: project.to_string_lossy().into_owned(),
+        command: Some(vec![
+            "/bin/sh".into(),
+            "-c".into(),
+            "while read l; do echo got:$l; done".into(),
+        ]),
+        env: BTreeMap::new(),
+        cols: 80,
+        rows: 24,
+    };
+    let spawned = terminals.spawn(params).await.unwrap();
+    let owner = terminals.terminal_owners()[0].clone();
+    let record = serde_json::to_value(&owner).unwrap();
+    let socket = record["socket"].as_str().unwrap().to_owned();
+    assert!(socket.len() <= 100, "{socket}");
+    let directory = std::path::PathBuf::from(record["directory"].as_str().unwrap());
+    let other = tempfile::tempdir().unwrap();
+    let client = Terminals::open(&project, rpc::Bus::new()).unwrap();
+    assert!(client.attach_owner(other.path(), &owner).await.is_err());
+    let attached = client.attach_owner(&project, &owner).await.unwrap();
+    client
+        .write_completed(&attached.id, b"hi\n".to_vec())
+        .await
+        .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    loop {
+        let text = client
+            .read(&contracts::terminal::ReadParams {
+                id: attached.id.clone(),
+                after: Some(0),
+                reader: None,
+                max: None,
+            })
+            .unwrap()
+            .text;
+        if text.contains("got:hi") {
+            break;
+        }
+        assert!(std::time::Instant::now() < deadline, "{text}");
+        tokio::task::yield_now().await;
+    }
+    terminals.kill(&spawned.id).await.unwrap();
+    drop(client);
+    drop(terminals);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while directory.exists() || std::path::Path::new(&socket).exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "owner directories remain"
+        );
+        tokio::task::yield_now().await;
+    }
 }
