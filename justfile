@@ -181,6 +181,27 @@ app-release project:
     cargo build --release -p desktop --features custom-protocol
     cargo run --release -p desktop --features custom-protocol -- "$path"
 
+# S1/A12a: assemble a host-architecture macOS App with Tauri. Ordinary Cargo builds use no bundle inputs.
+app-bundle:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ "$(uname -s)" = Darwin ] || { echo "app-bundle requires macOS" >&2; exit 2; }
+    triple=$(rustc -vV | sed -n 's/^host: //p')
+    CI=true pnpm install --frozen-lockfile
+    pnpm -r --if-present build
+    cargo build --release --target "$triple" -p rupd -p rup -p terminal
+    mkdir -p target/app-bundle-inputs
+    for bin in rupd rup terminal-owner; do
+        cp "target/$triple/release/$bin" "target/app-bundle-inputs/$bin-$triple"
+    done
+    tools/sidecar/bundle.sh target/app-bundle-inputs/sidecar
+    cd crates/desktop
+    npm exec --yes --package=@tauri-apps/cli@2.12.4 -- tauri build --ci --target "$triple" --features custom-protocol --bundles app --no-sign --config tauri.bundle.conf.json
+
+# Observe an already-built App after extraction, including the existing recovery and shutdown proofs.
+app-bundle-check bundle:
+    python3 tools/desktop/check-bundle.py {{quote(bundle)}}
+
 # S12: renders the App's 1024 px Dock icon from the approved artwork; needs macOS's sips.
 icon:
     sips -z 1024 1024 crates/desktop/icons/artwork.png --out crates/desktop/icons/icon.png >/dev/null
