@@ -224,10 +224,10 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     switcherKey("Escape", {}, prompt);
   }
 
-  // Current dispatch follows dismissal; #4439 owns initiating requests before Switcher dismissal. This guard proves the captured Bubble confirmation survives Project removal.
+  // Confirmation starts while the Switcher is mounted; its later answer survives owner removal.
   if (row.confirms) {
     await questionDialog();
-    expect(trace).toEqual(["question:closed"]);
+    expect(trace).toEqual(["question:open"]);
     expect(ofMethod()).toEqual([]);
 
     if (outcome === "confirmation-accept" || outcome === "confirmation-cancel") {
@@ -239,14 +239,14 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
     if (outcome === "cancel" || outcome === "confirmation-cancel") {
       expect(ofMethod()).toEqual([]);
-      expect(trace).toEqual(["question:closed"]);
+      expect(trace).toEqual(["question:open"]);
 
       return;
     }
   }
 
   await waitFor(() => expect(ofMethod()).toHaveLength(1));
-  expect(trace).toEqual(row.confirms ? ["question:closed", `${row.method}:closed`] : [`${row.method}:closed`]);
+  expect(trace).toEqual(row.confirms ? ["question:open", `${row.method}:closed`] : [`${row.method}:${row.label === "New Agent with a prompt" ? "closed" : "open"}`]);
   const visibleParams = row.method === "agent.spawn" || row.method === "terminal.open" ? { ...row.params, cols: 100, rows: 30 } : row.params;
   expect(ofMethod().map((call) => call.params)).toEqual([visibleParams]);
   await waitFor(() => expect(field()).toBeNull());
