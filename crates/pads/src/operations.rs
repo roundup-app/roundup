@@ -79,12 +79,7 @@ impl Pads {
         let store = self.store()?;
         let pad = store.atomically(|| {
             let pad = get(&store, &p.name)?;
-            if pad.owner != ctx.actor {
-                return Err(RpcError::forbidden(format!(
-                    "only {} may rewrite pad {}",
-                    pad.owner.id, pad.name
-                )));
-            }
+            require_owner_or_user(&ctx.actor, &pad, "rewrite")?;
             if let Some(expected) = &p.expected_incarnation
                 && expected != &pad.incarnation
             {
