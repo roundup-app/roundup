@@ -85,7 +85,10 @@ async fn a12a_a_surviving_owner_keeps_its_agent_across_reopen() {
         tree(&agents, &bus).await[0].status.as_ref().map(|s| s.kind),
         Some(Kind::Done)
     );
-    assert_eq!(agents.reattach_owners().await, std::slice::from_ref(&spawned.id));
+    assert_eq!(
+        agents.reattach_owners().await,
+        std::slice::from_ref(&spawned.id)
+    );
 
     let node = tree(&agents, &bus).await.remove(0);
     assert_eq!(node.id, spawned.id);
