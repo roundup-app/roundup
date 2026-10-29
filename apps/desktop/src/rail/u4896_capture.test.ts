@@ -14,7 +14,7 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
   const root = resolve("../..");
   const base = mkdtempSync(join(tmpdir(), "u4896-base-"));
   const baseRevision = execFileSync("git", ["rev-parse", "origin/main"], { encoding: "utf8" }).trim();
-  execFileSync("tar", ["-x", "-C", base], { input: execFileSync("git", ["archive", baseRevision], { maxBuffer: 64 * 1024 * 1024 }) });
+  execFileSync("tar", ["-x", "-C", base], { input: execFileSync("git", ["-C", root, "archive", baseRevision, "apps/desktop", "contracts/generated", "tsconfig.json"], { maxBuffer: 64 * 1024 * 1024 }) });
   symlinkSync(join(root, "node_modules"), join(base, "node_modules"));
   symlinkSync(join(root, "apps/desktop/node_modules"), join(base, "apps/desktop/node_modules"));
 
@@ -78,6 +78,12 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
             const agents=nodes.filter(n=>n.kind==='agent');
             for (const [index,agent] of agents.slice(0,3).entries()) await app.rpc('rail.move',{id:agent.id,parent:index<2?plain.id:mode.id,index});
             await app.rpc('rail.createWorkstream',{name:'Empty workstream',parent:null});
+            const all=await app.rpc('rail.tree',{});
+            const ids=new Set([plain.id,mode.id,...agents.slice(0,5).map(n=>n.id)]);
+            const done=all.find(n=>n.kind==='agent'&&n.status?.kind==='done'); if(done) ids.add(done.id);
+            const fixture=all.filter(n=>ids.has(n.id)||n.name==='Empty workstream').map(n=>({...n,parent:ids.has(n.parent)?n.parent:null}));
+            app.handlers['rail.tree']=()=>fixture;
+            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
             return true;
           })()`);
           await wait("document.querySelectorAll('.rail-tree .section-head').length===3");
