@@ -131,6 +131,8 @@ export const createFakeApp = (): FakeApp => {
 
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
+  let naming = { automaticRenaming: true, namingGuide: "Use three hyphen-separated words: role-verb-object, within 32 characters." };
+
   const app: FakeApp = {
     recentProjects: async () => [],
     claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
@@ -141,7 +143,15 @@ export const createFakeApp = (): FakeApp => {
     },
     nativeOpen: request => nativeListeners.forEach(listener => listener(request)),
     calls: [],
-    handlers: { ...emptyReads },
+    handlers: { ...emptyReads,
+      "daemon.getNaming": () => ({ ...naming }),
+      "daemon.setNaming": params => {
+        if (!params.namingGuide.trim()) throw new RpcError(-32602, "Enter a naming guide before saving.");
+        naming = { ...params };
+
+        return null;
+      },
+    },
     chooser: { path: null, savePath: null, suggestedNames: [] },
     badges: [],
     windowOperations: [],
@@ -266,6 +276,8 @@ export const createFakeApp = (): FakeApp => {
       if (existing) return existing;
 
       const other = createFakeApp();
+      other.handlers["daemon.getNaming"] = () => app.rpc("daemon.getNaming", null);
+      other.handlers["daemon.setNaming"] = params => app.rpc("daemon.setNaming", params);
 
       // The Project-wide calls are the one App's; only the Daemon's own calls, events are this Project's.
       Object.assign(other, {

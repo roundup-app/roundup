@@ -285,3 +285,17 @@
   overflow: visible;
   overflow-wrap: anywhere;
 }
+
+.settings-naming button {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.settings-naming [data-part="helper-text"] {
+  white-space: normal;
+}
+
+.settings-naming [data-part="error-text"] {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
