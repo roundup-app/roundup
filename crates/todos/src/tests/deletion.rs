@@ -30,7 +30,7 @@ async fn u3787a_undo_restores_original_graph() {
     )
     .await
     .unwrap();
-    let before = h.call("todo.list", Value::Null).await.unwrap();
+    let mut before = h.call("todo.list", Value::Null).await.unwrap();
     let history = changes(&h, 1).await;
     let comments = h.call("todo.comments", json!({"id":1})).await.unwrap();
     h.call("todo.delete", json!({"operation":"chosen","ids":[1]}))
@@ -39,6 +39,10 @@ async fn u3787a_undo_restores_original_graph() {
     h.call("todo.restore", json!({"operation":"chosen"}))
         .await
         .unwrap();
+    h.call("todo.move", json!({"id":2,"home":"newer"}))
+        .await
+        .unwrap();
+    before[1]["home"] = json!("newer");
     for (source, operation) in [("chosen", "redo-1"), ("redo-1", "redo-2")] {
         let restoration = h
             .call("todo.deletion", json!({"operation":source}))
@@ -326,6 +330,34 @@ async fn u3787a_failed_delete_rolls_back_retention_with_the_entire_bulk() {
             .unwrap()["deleted"],
         json!([1, 2])
     );
+    let restored = h
+        .call("todo.restore", json!({"operation":"refused"}))
+        .await
+        .unwrap();
+    let before = h.call("todo.list", Value::Null).await.unwrap();
+    let redo = json!({"source":"refused","operation":"refused-redo","restoration":restored["restoration"]});
+    db.execute_batch("CREATE TRIGGER refuse_delete BEFORE DELETE ON todos WHEN OLD.id=2 BEGIN SELECT RAISE(ABORT,'refused'); END;").unwrap();
+    assert!(h.call("todo.redo", redo.clone()).await.is_err());
+    assert_eq!(h.call("todo.list", Value::Null).await.unwrap(), before);
+    assert_eq!(
+        h.call("todo.deletion", json!({"operation":"refused"}))
+            .await
+            .unwrap(),
+        restored
+    );
+    assert!(
+        h.call("todo.deletion", json!({"operation":"refused-redo"}))
+            .await
+            .unwrap()
+            .is_null()
+    );
+    db.execute_batch("DROP TRIGGER refuse_delete;").unwrap();
+    // Reopen before retry: rollback must leave neither source consumption nor a
+    // redo receipt, and retained authority must survive losing the connection.
+    drop(h);
+    let h = Harness::new(dir.path());
+    h.call("todo.redo", redo).await.unwrap();
+    assert_eq!(h.call("todo.list", Value::Null).await.unwrap(), json!([]));
 }
 
 #[tokio::test]
