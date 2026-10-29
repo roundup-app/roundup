@@ -58,7 +58,9 @@ const MAX_PARSE_REST_MS = 8;
 
 /** A parse cannot be interrupted, so a chunk is sized to take about this long: a typed echo waits behind at most one. */
 const TARGET_PARSE_MS = 3;
+
 const MIN_CHUNK_BYTES = 512;
+
 const MAX_CHUNK_BYTES = 8192;
 
 /** One output subscription of a displayed Terminal, and the stream state that belongs to it alone. */
