@@ -20,11 +20,11 @@ export const EmptyState = (props: { art: keyof typeof scenes; title: string; lin
 
   return <div class="empty-state" role="group" aria-labelledby={title}>
     <div class="empty-state-content">
-    <div class="empty-state-art" aria-hidden="true"><svg viewBox="0 0 240 160"><use href={`${scenes[props.art]}#scene`} width="240" height="160" /></svg></div>
-    <h3 id={title} class="empty-state-title">{props.title}</h3>
-    <p class="empty-state-line">{props.line}</p>
-    <Show when={props.actions?.length}><div class="empty-state-actions"><For each={props.actions}>{(action, index) => <button type="button" data-button={index() === 0 ? "primary" : "quiet"} aria-label={action.label} aria-disabled={props.available === false ? true : undefined} onClick={() => { if (props.available !== false) action.run(); }}>{action.label}<kbd class="empty-state-chip">{action.chip}</kbd></button>}</For></div></Show>
-    <Show when={props.action}><div class="empty-state-actions">{props.action}</div></Show>
+      <div class="empty-state-art" aria-hidden="true"><svg viewBox="0 0 240 160"><use href={`${scenes[props.art]}#scene`} width="240" height="160" /></svg></div>
+      <h3 id={title} class="empty-state-title">{props.title}</h3>
+      <p class="empty-state-line">{props.line}</p>
+      <Show when={props.actions?.length}><div class="empty-state-actions"><For each={props.actions}>{(action, index) => <button type="button" data-button={index() === 0 ? "primary" : "quiet"} aria-label={action.label} aria-disabled={props.available === false ? true : undefined} onClick={() => { if (props.available !== false) action.run(); }}>{action.label}<kbd class="empty-state-chip">{action.chip}</kbd></button>}</For></div></Show>
+      <Show when={props.action}><div class="empty-state-actions">{props.action}</div></Show>
     </div>
   </div>;
 };
