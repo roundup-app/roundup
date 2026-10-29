@@ -19,10 +19,13 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   }
 
   await lane.browser("set", "media", "dark");
+  await lane.seedTodos([], false, "agents-10");
+  await lane.capture("U4547b", "agents-10-rest");
   await lane.seedTodos([], false, "tree-40");
   await lane.capture("U4547b", "understand-before");
   await lane.browser("click", '[aria-label="New Mode"]');
   await lane.until("document.querySelector('[role=dialog]') !== null");
+  await lane.capture("U4547b", "blank-fields");
   await lane.browser("fill", '[data-part=input]', "Review changes");
   await lane.browser("fill", '.opening-prompt-field textarea', "  Review the current changes\nKeep exact spacing  ");
   await lane.capture("U4547b", "enter");
@@ -38,6 +41,8 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   const calls = await lane.calls();
   expect(calls.filter(call => call.method === "workstream.restart")).toHaveLength(1);
   const id = await lane.evaluate<string>("window.__fake.app.calls.find(call => call.method === 'workstream.restart').params.id");
+  await lane.browser("hover", '.rail-row[data-id="' + id + '"]');
+  await lane.capture("U4547b", "hovered-mode");
   await lane.browser("focus", '.rail-row[data-id="' + id + '"]');
   await lane.until(`document.activeElement?.getAttribute('data-id') === ${JSON.stringify(id)}`);
   await lane.browser("press", "Shift+F10");
