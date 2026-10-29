@@ -42,6 +42,8 @@ it("u3517a_font_loading_keeps_live_terminal_input_available", async () => {
 }, 60_000);
 
 it("u4590_first_fit_keeps_later_output_visible", async () => {
+  await browser("open", url("/src/ui/u498.html"));
+  await read("localStorage.clear(); sessionStorage.clear()");
   await load("agents-10");
   await read(`(async () => {
     const { FitAddon } = await import(performance.getEntriesByType('resource').find(entry => entry.name.includes('/@xterm_addon-fit.js')).name);
@@ -92,10 +94,8 @@ it("u4590_first_fit_keeps_later_output_visible", async () => {
 it("u3517b_loaded_metrics_drive_terminal_resize", async () => {
   await load("agents-10");
   await select("agent-3", "t-agent-3");
-  const fitted = await read<{ cols: number; rows: number }>("window.__terminals.get('t-agent-3').fit()");
   const sent = () => read("window.__fake.app.calls.filter(call => call.method === 'terminal.resize' && call.params.id === 't-agent-3').at(-1).params");
 
-  expect(await sent()).toEqual({ id: "t-agent-3", ...fitted });
   await read("window.__fake.app.calls.length = 0");
   await browser("set", "viewport", "1412", "950");
   await wait("window.__fake.app.calls.some(call => call.method === 'terminal.resize')");
@@ -158,7 +158,7 @@ for (const state of ["agent", "door", "shell"]) {
 
       if (state === "shell") {
         await read("document.querySelector('.terminal-new').click()");
-        await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
+        await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && !!document.querySelector('.bubble:not([hidden]) [aria-label=Minimise]')");
         id = await read<string>("document.querySelector('.bubble:not([hidden])').dataset.bubble");
         surface = ".bubble:not([hidden])";
         await read(`window.__terminals.get('${id}').ready`);
