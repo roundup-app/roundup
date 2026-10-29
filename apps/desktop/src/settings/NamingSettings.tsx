@@ -16,18 +16,28 @@ export const NamingSettings = (props: { app: App }) => {
   const draft = () => drafts.list().findLast(item => item.destination.object === "namingGuide");
   const [failure, setFailure] = createSignal<string | null>(null);
   const [saving, setSaving] = createSignal(false);
+
   const [settings, { mutate, refetch }] = createResource(async () => {
     try { return await calls.rpc("daemon.getNaming", null); }
-    catch (error) { if (!(error instanceof Error)) throw error; setFailure(error.message); return null; }
+    catch (error) { if (!(error instanceof Error)) throw error; setFailure(error.message);
+
+ return null; }
   });
+
   const text = () => String(draft()?.value.text ?? settings()?.namingGuide ?? "");
+
   const save = async (automaticRenaming: boolean, guide: string, revision?: string) => {
-    if (!guide.trim()) { setFailure(copy.namingGuideRefusal); return; }
+    if (!guide.trim()) { setFailure(copy.namingGuideRefusal);
+
+ return; }
+
     if (saving()) return;
     setSaving(true);
+
     try {
       await calls.rpc("daemon.setNaming", { automaticRenaming, namingGuide: guide });
       mutate({ automaticRenaming, namingGuide: guide });
+
       if (revision) drafts.discard(revision);
       setFailure(null);
     } catch (error) {
@@ -35,6 +45,7 @@ export const NamingSettings = (props: { app: App }) => {
       setFailure(error.message);
     } finally { setSaving(false); }
   };
+
   return <>
     <Show when={settings()}>{value => <>
       <Switch checked={value().automaticRenaming} disabled={saving()} description={copy.automaticRenamingHint}

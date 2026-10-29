@@ -132,6 +132,7 @@ export const createFakeApp = (): FakeApp => {
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
   let naming = { automaticRenaming: true, namingGuide: "Use three hyphen-separated words: role-verb-object, within 32 characters." };
+
   const app: FakeApp = {
     recentProjects: async () => [],
     claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
@@ -147,6 +148,7 @@ export const createFakeApp = (): FakeApp => {
       "daemon.setNaming": params => {
         if (!params.namingGuide.trim()) throw new RpcError(-32602, "Enter a naming guide before saving.");
         naming = { ...params };
+
         return null;
       },
     },
@@ -314,6 +316,7 @@ export const createFakeApp = (): FakeApp => {
     },
     forProject: (path) => {
       const project = app.of(path);
+
       return { ...project, rpc: (method, params) => method === "daemon.getNaming" || method === "daemon.setNaming"
         ? app.rpc(method, params) : project.rpc(method, params) };
     },

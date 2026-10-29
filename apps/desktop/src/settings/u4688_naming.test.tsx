@@ -5,25 +5,32 @@ import { createFakeApp } from "../testing/fakeApp";
 import { RpcError } from "../app/seam";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
+
 const saved = { automaticRenaming: true, namingGuide: "role-verb-object" };
+
 const mount = async (app = createFakeApp(), project: string | null = null) => {
   app.handlers["daemon.getNaming"] = () => ({ ...saved });
-  app.handlers["daemon.setNaming"] = params => { Object.assign(saved, params); return null; };
+  app.handlers["daemon.setNaming"] = params => { Object.assign(saved, params);
+
+ return null; };
+
   render(() => <AppSettings app={app} project={() => project} />);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("textbox", { name: "Naming guide" });
+
   return app;
 };
+
 it("u4688a_global_naming_controls", async () => {
   const app = await mount();
   const toggle = screen.getByRole("switch", { name: "Automatic renaming" });
-  expect(toggle.getAttribute("aria-describedby")).toBeTruthy();
+  expect(screen.getByRole("switch", { name: "Automatic renaming", description: /.+/ })).toBe(toggle);
   fireEvent.click(toggle);
   await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("false"));
   await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(false));
   const field = screen.getByRole("textbox", { name: "Naming guide" });
-  expect(field.getAttribute("aria-describedby")).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: "Naming guide", description: /.+/ })).toBe(field);
   fireEvent.input(field, { target: { value: "  \n " } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   expect(await screen.findByText(/Enter a naming guide/)).toBeTruthy();
@@ -34,14 +41,17 @@ it("u4688a_global_naming_controls", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(saved.namingGuide).toBe("役割\n動作-対象"));
   await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:naming-settings")!).drafts).toEqual([]));
+
   for (const project of ["/one", "/two", null]) {
     cleanup();
     await mount(app, project);
     expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Naming guide" }).value).toBe(saved.namingGuide);
     expect(screen.getByRole("switch", { name: "Automatic renaming" }).getAttribute("aria-checked")).toBe("false");
   }
+
   expect(app.calls.filter(call => !["daemon.getNaming", "daemon.setNaming", "models.list"].includes(call.method))).toEqual([]);
 });
+
 it("u4688b_guide_drafts_and_retry", async () => {
   const app = await mount();
   const committed = saved.namingGuide;
@@ -63,7 +73,10 @@ it("u4688b_guide_drafts_and_retry", async () => {
   expect(await screen.findByText(/Disk full/)).toBeTruthy();
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Naming guide" }).value).toBe(newer);
   expect(saved.namingGuide).toBe(committed);
-  app.handlers["daemon.setNaming"] = params => { Object.assign(saved, params); return null; };
+  app.handlers["daemon.setNaming"] = params => { Object.assign(saved, params);
+
+ return null; };
+
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(saved.namingGuide).toBe(newer));
   expect(app.calls.filter(call => call.method === "daemon.setNaming" && JSON.stringify(call.params).includes(JSON.stringify(newer)))).toHaveLength(1);
