@@ -186,7 +186,7 @@ async fn x14_lag_recovers_only_the_affected_terminal() {
     // `slow` is not read while its program prints far more than its backlog; `other` is unaffected.
     let (printed, _) = until_exit(&mut other).await;
     assert!(printed.contains("b050"), "{printed:?}");
-    while terminals.list().iter().any(|t| t.running) {
+    while terminals.list().await.iter().any(|t| t.running) {
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
 
