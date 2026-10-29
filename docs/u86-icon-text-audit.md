@@ -21,7 +21,7 @@ No SVG paths, Token values, horizontal columns or action targets change.
 | ui/Select, Combobox, Form, Checkbox, Disclosure, Menu | installed Ark / Lucide controls | settings-controls, settings-menu, todo-picker, rail-menu |
 | shelf/Shelf, ScopeAction, BulkDelete; drawer/DrawerHost, DraftRecovery | Icon / shared controls | todo-summary-rail, todo-drawer, pads-shelf, pad-drawer |
 | header/Strip, ProjectTab; bubbles/Bubbles, Bubble; terminal/Pane | Icon / KindGlyph / shared flat tabs | project-tabs, floating-terminal |
-| switcher/Switcher; changes/WorktreeControl; resources/ResourceStrip; app/Layout | shared Icon / KindGlyph | resources, worktree-control, switcher |
+| switcher/Switcher; changes/WorktreeControl; resources/ResourceStrip; app/Layout | shared Icon / KindGlyph | resources, worktree-trigger, switcher |
 | ink/OwnerMark | Icon | pads-shelf, pad-drawer |
 
 Standalone icon actions (IconButton, sortable grip, maximise/restore, close,
@@ -50,3 +50,16 @@ Standalone icon buttons retain their existing 24 px hit area.
 D8 retains the row-local horizontal inset check. Its old SVG-bottom/font-baseline
 measurement is retired under U86; D12's x-height reading belongs to the critic.
 The observer adds no geometry assertion and changes no product behaviour.
+
+Validation on this branch: 62 U137/vector cases and 79 U6/U9/U15/U20/U80
+cases pass. The main observer passes with 75 paired captures; supplementary
+passes cover all ten Kind rows (including the unfolded done Agent) and the
+nonempty Worktree trigger, for 108 paired views. Worktree capture supplies the
+existing fake-Daemon changed-file response; it does not infer alignment from
+an absent control. Check delta has no regressions. Appearance remains the
+independent critic's decision, not a layout assertion.
+
+The broad related run was stopped after two Shelf failures and one flaky pass;
+all three cases pass directly with retries disabled after removing concurrent
+load. CI's lanes judge the full suite. The source lint's missing blank line was
+repaired and rechecked; its 164 fixtures passed unchanged.
