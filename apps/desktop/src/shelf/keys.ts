@@ -105,7 +105,9 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     }, { action: CHORDS.find(row => row.keys === "M")!, searchable: false,
       when: canShelfKey, capture: focus => ({ available: () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]") && props.frame.open() && props.shelf()?.contains(focus) === true && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", invoke: () => props.frame.toggleMaximise("key") }) }]);
     registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "Esc" && !row.inTriage)!, searchable: false, when: canEscape,
-      capture: focus => ({ available: () => focus?.isConnected === true && props.frame.open() && props.shelf()?.contains(focus) === true && !focus.closest("input,textarea,[contenteditable]") && props.shelf()?.getAttribute("data-triage") !== "on", invoke: () => toggle("key") }) }]);
+      capture: focus => ({ available: () => focus?.isConnected === true && props.frame.open() && props.shelf()?.getAttribute("data-triage") !== "on" && (props.shelf()?.contains(focus) === true || focus.closest(".shelf-tabs") !== null
+        ? !focus.closest("input,textarea,[contenteditable]")
+        : props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") === "overlay" && focus.closest(".centre") !== null), invoke: () => toggle("key") }) }]);
 
     return dispose;
   });
