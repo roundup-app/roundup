@@ -709,10 +709,20 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       void copy(id);
     };
 
+    // The standard Edit > Copy reaches the webview as a `copy` event, not a key press; a key press that did arrive was consumed by onKey, so exactly one runs.
+    const onCopy = (event: ClipboardEvent) => {
+      if (editor(event.target) || !emulatorFor(id).selection()) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void copy(id);
+    };
+
     host.addEventListener("paste", onPaste, true);
+    host.addEventListener("copy", onCopy, true);
     host.addEventListener("keydown", onKey, true);
     holder.stopClipboard = () => {
       host.removeEventListener("paste", onPaste, true);
+      host.removeEventListener("copy", onCopy, true);
       host.removeEventListener("keydown", onKey, true);
     };
 
