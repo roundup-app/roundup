@@ -93,7 +93,7 @@ export const todoRowOf = (id: number): HTMLElement => {
   return found;
 };
 
-export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done", drawing: "ring" | "dashed" | "check") => {
+export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done", drawing: "ring" | "barred" | "check") => {
   const row = button.closest<HTMLElement>(".shelf-row") ?? button;
   const mark = within(row).getByRole("img", { name: { idle: "Idle", blocked: "Blocked", done: "Done" }[kind] });
 

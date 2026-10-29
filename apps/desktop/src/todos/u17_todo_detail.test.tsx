@@ -66,7 +66,7 @@ describe("u17 Todo detail", () => {
     await openDrawerOf(/#5/);
 
     expect(within(drawer()).getByText("Blocks").nextElementSibling?.textContent).toBe(" #10  session tests");
-    assertKind(within(drawer()).getByText("Blocks").nextElementSibling?.closest("p")!, "blocked", "dashed");
+    assertKind(within(drawer()).getByText("Blocks").nextElementSibling?.closest("p")!, "blocked", "barred");
   });
 
   it("u17_a_todo_with_no_blockers_has_no_waits_on_and_no_blocks_sections", async () => {

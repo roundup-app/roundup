@@ -16,7 +16,7 @@ describe("u4 ink", () => {
   it.each([
     ["needs-you", "disc", "amber"],
     ["error", "cross", "red"],
-    ["blocked", "dashed", "grey"],
+    ["blocked", "barred", "grey"],
     ["working", "quarter", "accent"],
     ["idle", "ring", "grey"],
     ["done", "check", "grey"],
@@ -46,7 +46,7 @@ describe("u401 ring-fill", () => {
   });
 
   it("u401_every_kind_has_its_ring_fill_drawing", () => {
-    expect(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).toEqual(["cross", "disc", "dashed", "quarter", "ring", "check"]);
+    expect(kinds.map((kind) => markOf(kind)?.dataset["drawing"])).toEqual(["cross", "disc", "barred", "quarter", "ring", "check"]);
   });
 
   it("u401_the_six_glyphs_have_distinct_markup", () => {
