@@ -1,3 +1,4 @@
+import { captureFocus } from "../keys/focus";
 import type { Place } from "./places";
 import type { Screens } from "../terminal/screens";
 
@@ -17,4 +18,23 @@ export const focusItem = (id: string, place: Place | undefined, screens: Screens
 
 export const focusedId = (active: Element | null = document.activeElement): string | null => {
   return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
+};
+
+/** Closing from a Bubble returns focus only while that action still owns it; a tab keeps its own focus. */
+export const closeFocused = (focus: Element | null, back: Element | null, close: (id: string) => Promise<boolean>): void => {
+  const id = focusedId(focus);
+
+  if (id === null) return;
+
+  const focusReturn = captureFocus();
+  const fromTab = focus?.closest(".terminal-tabs") !== null;
+
+  void close(id).then(removed => {
+    if (!removed || fromTab) return;
+
+    focusReturn(() => {
+      if (back instanceof HTMLElement && back.isConnected) back.focus();
+      else focusPane();
+    });
+  });
 };
