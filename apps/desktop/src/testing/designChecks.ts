@@ -1,4 +1,4 @@
-type Alignment = { row: string; inset: number; baseline: number | null };
+type Alignment = { row: string; inset: number };
 
 type Reading = string | { pressFeedback: string } | { controls: number; feedback: string } | { rows: number; cue?: string } | { cue: string; rule: string } | { expected: number; readings: Alignment[] };
 
@@ -69,7 +69,7 @@ export function rowCueCheck(doc: Document, rules: CSSStyleRule[]) {
   return result({ rows: rows.length, cue: "one selected wash; Kind ink retained" });
 }
 
-/** U131: local title offsets and visible Glyph edge against the first-line font baseline. */
+/** U131 horizontal inset; U86 delegates optical x-height centring to the critic. */
 export function rowAlignmentCheck(doc: Document) {
   const view = doc.defaultView!;
   const names = [...doc.querySelectorAll('.rail-row .name, .rail-fold-name, .shelf-row .shelf-title, .terminal-tab-name')].filter(el => !el.closest('[hidden], [aria-hidden=true]'));
@@ -78,15 +78,11 @@ export function rowAlignmentCheck(doc: Document) {
   if (names.length && !laidOut.length) return result("not measurable", "", false);
 
   if (!laidOut.length) return result({ rows: 0 });
-  const context = doc.createElement("canvas").getContext("2d");
-
-  if (!context) return result("not measurable", "", false);
   const expected = parseFloat(view.getComputedStyle(doc.documentElement).getPropertyValue("--row-text-inset"));
   const readings: Alignment[] = [];
 
   for (const name of laidOut) {
     const row = name.closest('.rail-row, .rail-fold, .shelf-row, .terminal-tab-pair')!;
-    const style = view.getComputedStyle(name);
     const rowStyle = view.getComputedStyle(row);
     const rail = row.matches(".rail-row, .rail-fold");
 
@@ -94,29 +90,9 @@ export function rowAlignmentCheck(doc: Document) {
       : row.matches('.todo-list [role=treeitem]') ? Math.max(0, Number(row.getAttribute("aria-level")) - 1) * parseFloat(rowStyle.getPropertyValue("--tree-step")) : 0;
 
     const inset = name.getBoundingClientRect().left - row.getBoundingClientRect().left - indent;
-    const range = doc.createRange();
-    range.selectNodeContents(name);
-    const first = range.getClientRects()[0];
-    const glyph = row.querySelector<SVGGraphicsElement>(".glyph[data-drawing] svg");
-    let delta: number | null = null;
+    readings.push({ row: nameOf(row), inset });
 
-    if (glyph && first) {
-      context.font = style.font;
-      const metrics = context.measureText(name.textContent ?? "");
-      const baseline = first.top + (first.height - metrics.fontBoundingBoxAscent - metrics.fontBoundingBoxDescent) / 2 + metrics.fontBoundingBoxAscent;
-      const mark = glyph.querySelector("circle") ?? glyph;
-      const box = mark.getBBox();
-      const matrix = mark.getScreenCTM();
-
-      if (!matrix) return result("not measurable", nameOf(row), false);
-      const stroke = parseFloat(view.getComputedStyle(mark).strokeWidth) / 2;
-      const edge = new DOMPoint(box.x, box.y + box.height + stroke).matrixTransform(matrix).y;
-      delta = edge - baseline;
-    }
-
-    readings.push({ row: nameOf(row), inset, baseline: delta });
-
-    if (!Number.isFinite(inset) || !Number.isFinite(expected) || Math.abs(inset - expected) > 1 || (delta !== null && (!Number.isFinite(delta) || Math.abs(delta) > 1))) return result({ expected, readings }, nameOf(row), false);
+    if (!Number.isFinite(inset) || !Number.isFinite(expected) || Math.abs(inset - expected) > 1) return result({ expected, readings }, nameOf(row), false);
   }
 
   return result({ expected, readings });
