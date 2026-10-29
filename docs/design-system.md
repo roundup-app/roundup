@@ -180,12 +180,20 @@ Each check is measured from computed style and the DOM of the running App, never
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0; duration membership alone proves neither movement nor smoothness (U3010a, `scenarios/ui-motion.md`) | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 1280 by 800 | U197 |
-| D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px | U360, U3726 |
+| D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px; across the App, every icon beside text meets U86's x-height centring policy below | U360, U3726, U86 |
 | D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 | D15 | all App-authored text and accessible names come from the App copy catalogue; its entries and formatter branches use sentence case and `GLOSSARY.md` user labels, with explicit section-head, acronym and authored-value exemptions | U471, U472 |
 | D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
 | D17 | A tooltip sits against the element under the pointer that owns it. | U2749 |
+
+## Icon and text centring (U86)
+
+D12's vertical clause is specification policy until implemented. The design critic rejects any icon/text pair whose visible mark centre is more than 1 CSS px above or below the first line's x-height centre. Measure the mark between its topmost and bottommost painted strokes, excluding its hit area; measure the text between its baseline and the top of a lowercase `x` in the label's resolved font, size and weight, including for headings, digits and wrapped labels. In the Todo done summary, the check centres on the count/`done`; `Clear done` shares the text baseline within 1 CSS px.
+
+One shared rule using Token-defined icon boxes and line heights covers status/name pairs, Rail rows and section heads, icon-labelled buttons, Todo and Ask rows, and menus throughout `apps/desktop/src`. No per-row, per-surface or per-icon vertical compensation is allowed. Row heights, horizontal columns, selection alignment, vector shapes, accessible names and D6 hit areas remain. This replaces only the optical-baseline clause of D8 under “Design-system pass requirements (U130–U137)” below; its inset requirement remains.
+
+The critic uses U86's call-site inventory and paired main/head dark 1512×950 captures, including Todo done summary, Rail, Ask, every Kind, opened menus and visible failure feedback. Rest, hover, keyboard focus and selection all meet the same tolerance. This optical clause is judged on rendering, an exception to the computed-style-only measurement above; no unit or browser layout assertion is added. Existing automated Check readings supplement the capture comparison; no Check passing on main may regress, including D2, D5 and D6.
 
 ## Text case
 
