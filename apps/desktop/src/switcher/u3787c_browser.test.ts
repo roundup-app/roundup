@@ -139,6 +139,7 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
   const session = `switcher-name-${process.pid}`;
   const profile = mkdtempSync(join(tmpdir(), "switcher-name-"));
   const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
+
   const read = async <T,>(expression: string): Promise<T> => {
     // SAFETY: agent-browser wraps these constant DOM expressions in its JSON envelope.
     const result = JSON.parse(await browser("eval", expression)) as { success: boolean; data: { result: T }; error?: string };
@@ -147,17 +148,22 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
 
     return result.data.result;
   };
+
   const active = async (value: string) => {
     await browser("wait", "--fn", `(() => { const f=document.querySelector('.switcher input'); const rows=[...document.querySelectorAll('.switcher [data-highlighted]')]; return rows.length===1 && rows[0].dataset.value===${JSON.stringify(value)} && f?.getAttribute('aria-activedescendant')===rows[0].id; })()`);
   };
+
   const options = () => read<string[]>("[...document.querySelectorAll('.switcher [role=option]')].map(e=>e.dataset.value)");
+
   const open = async () => {
     await browser("press", "Meta+k");
     await browser("press", "k");
     await browser("wait", "--fn", "document.activeElement?.matches('.switcher input')");
     await active((await options())[0]!);
   };
+
   const directory = captureDir("U4682");
+
   const capture = async (name: string) => {
     if (!directory) return;
     const head = join(directory, "head");
@@ -183,6 +189,7 @@ const observeName = async (run: (observer: NameObserver) => Promise<void>) => {
 
 // Normal reads may continue while Name is focused; only effects would violate navigation.
 const effects = "window.__fake.app.calls.filter(c=>/\\.(spawn|create|open|write|remove|delete|send|assign|setAuto)$/.test(c.method))";
+
 const selection = "[...document.querySelectorAll('.rail-row[data-selected=true]')].map(e=>e.dataset.id)";
 
 it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async () => {
@@ -203,7 +210,9 @@ it("u4682_name_opens_with_the_first_row_and_navigates_without_selection", async 
         await browser("press", key);
         await active(value);
         expect(await read(`({ focused: document.activeElement?.matches('.switcher input'), selected: ${selection}, content: document.querySelectorAll('.switcher [aria-selected=true]').length, effects: ${effects} })`)).toEqual({ focused: true, selected: ["backend"], content: 0, effects: before });
+
         if (key === "ArrowDown" && value === values[boundary]) await capture("boundary");
+
         if (key === "ArrowDown" && value === values.at(-1)) await capture("last-action");
       }
     }
@@ -227,17 +236,20 @@ it.each(["destination", "action"] as const)("u4682_enter_activates_only_the_row_
     const target = choice === "destination" ? "agent-1" : "action:chord:⌘N";
     const index = values.indexOf(target);
     expect(index).toBeGreaterThan(0);
+
     // Approach from both directions, so Enter cannot accidentally use a stale down-arrow row.
     for (const value of values.slice(1, index + 2)) {
       await browser("press", "ArrowDown");
       await active(value);
     }
+
     await browser("press", "ArrowUp");
     await active(target);
     expect(await read(selection)).toEqual(["backend"]);
     expect(await read(effects)).toEqual(before);
     await browser("press", "Enter");
     await browser("wait", "--fn", "!document.querySelector('.switcher')");
+
     if (choice === "destination") {
       await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=agent-1]')?.dataset.selected==='true' && !!document.activeElement?.closest('.pane-screen')");
       expect(await read(selection)).toEqual(["agent-1"]);
@@ -264,6 +276,7 @@ it("u4682_pointer_preserves_keyboard_highlight_and_query_caret", async () => {
     const before = await read("[document.activeElement.value,document.activeElement.selectionStart,document.activeElement.selectionEnd]");
     expect(before).toEqual(["agent", 3, 3]);
     const calls = await read(effects);
+
     for (const [key, value] of [["ArrowDown", values[1]!], ["ArrowUp", values[0]!]]) {
       await browser("press", key!);
       await active(value!);
