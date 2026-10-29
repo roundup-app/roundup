@@ -132,3 +132,40 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Bubble minimise 
   await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="shell"]')?.hidden).toBe(true));
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
 });
+
+
+it.each([
+  { chord: "⌘=", key: "=", code: "Equal", size: 18 },
+  { chord: "⌘-", key: "-", code: "Minus", size: 16 },
+  { chord: "⌘0", key: "0", code: "Digit0", size: 13 },
+].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Terminal font $chord from $source", async ({ chord, key, code, size, source }) => {
+  localStorage.setItem("roundup:terminal-font:/p", "17");
+  const { connected, daemon, emulators } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  const terminal = document.activeElement!;
+  const emulator = emulators.made.get("t-a1")!;
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)?.shortcut).toBe(chord));
+  const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
+  expect(document.activeElement).toBe(terminal);
+  expect(emulator.fontSize).toBe(17);
+
+  if (source === "key") fireEvent.keyDown(terminal, { key, code, metaKey: true });
+  else openProjectPage(`action:chord:${chord}`, "/p");
+
+  expect(emulator.fontSize).toBe(size);
+  expect(document.activeElement).toBe(terminal);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
+});
+
+it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async () => {
+  const { connected, emulators } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  const captured = captureActions(document.activeElement).find(action => action.keys === "⌘=")!;
+  connected().rail.select("a2");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
+  const size = emulators.made.get("t-a2")!.fontSize;
+  captured.run();
+  expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
+});
