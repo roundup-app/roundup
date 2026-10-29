@@ -46,14 +46,14 @@ impl Terminals {
             TerminalOwner::start_with(helper, project, params, &self.shared.clean_env)
                 .map_err(RpcError::internal)?;
         let result = self.attach_owner(project, &owner).await;
-        if result.is_err() {
-            if let Ok(client) = owner.connect(project).await {
-                let _ = tokio::time::timeout(
-                    DEADLINE,
-                    client.request("terminal.kill", json!({"id":owner.info.id})),
-                )
-                .await;
-            }
+        if result.is_err()
+            && let Ok(client) = owner.connect(project).await
+        {
+            let _ = tokio::time::timeout(
+                DEADLINE,
+                client.request("terminal.kill", json!({"id":owner.info.id})),
+            )
+            .await;
         }
         std::thread::spawn(move || {
             let _ = child.wait();

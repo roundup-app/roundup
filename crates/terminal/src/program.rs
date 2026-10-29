@@ -14,8 +14,9 @@ impl Terminals {
     /// As with `program_ended`, a failure to observe the child is treated as ended.
     pub async fn wait_program_ended(&self, id: &str) {
         if let Ok(Some(remote)) = self.remote(id) {
+            let mut observe = tokio::time::interval(REAP_POLL);
             while remote.info().is_ok_and(|info| info.running) {
-                tokio::time::sleep(REAP_POLL).await;
+                observe.tick().await;
             }
             return;
         }
