@@ -21,7 +21,7 @@ export function readCapture(id: string, name: string): string {
 
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
 // and scheduling; this table only names the existing observer files.
-const observers: Record<string, readonly string[]> = {
+const observers = {
   "src/app/u3560_browser.test.ts": ["U3560c", "U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],
@@ -104,7 +104,7 @@ const observers: Record<string, readonly string[]> = {
   "src/ui/u3512_rendered.test.ts": ["U3512d"],
   "src/ui/u474_browser.test.ts": ["U477"],
   "src/ui/u484_browser.test.ts": ["U3800a", "U3800b", "U3800c"],
-};
+} satisfies Record<string, readonly string[]>;
 
 /** U4590: fail closed before App setup when any requested capture has no observer. */
 export function captureTests(selection: string | undefined): string[] | undefined {
