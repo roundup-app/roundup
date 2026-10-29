@@ -1,7 +1,7 @@
 import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
-import { chordsFor } from "../keys/chords";
+import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import type { ActivationSource, KeyScope } from "../keys/registry";
 import type { ShelfFrame } from "./frame";
@@ -19,16 +19,17 @@ export const shelfRowKeys = <Id,>(props: {
   exportPad?: (id: Id) => void;
 }) => {
   registerKeys(shelfKeyScope, [
-    { chords: chordsFor("D"), when: event => canShelfKey(event) && props.focused() !== undefined, run: () => {
-      const id = props.focused();
+    ...["D", "E"].map(keys => ({
+      action: CHORDS.find(row => row.keys === keys)!, searchable: false as const,
+      when: canShelfKey,
+      capture: (focus: Element | null) => {
+        const id = props.focused();
+        const available = () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]")
+          && id !== undefined && props.focused() === id && (keys !== "E" || props.exportPad !== undefined);
 
-      if (id !== undefined) props.remove(id);
-    } },
-    { chords: chordsFor("E"), when: event => canShelfKey(event) && props.exportPad !== undefined && props.focused() !== undefined, run: () => {
-      const id = props.focused();
-
-      if (id !== undefined) props.exportPad?.(id);
-    } },
+        return { available, invoke: () => { if (id !== undefined) { if (keys === "D") props.remove(id); else props.exportPad?.(id); } } };
+      },
+    })),
   ]);
 };
 
@@ -97,8 +98,10 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
       chords: ["Shift+Tab"],
       when: event => props.frame.open() && event.target === firstControl() && selectedTab() !== undefined,
       run: () => selectedTab()?.focus({ preventScroll: true }),
-    }, { chords: chordsFor("M"), when: event => canShelfKey(event) && props.frame.open() && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", run: () => props.frame.toggleMaximise("key") }]);
-    registerKeys({ kind: "app" }, [{ chords: chordsFor("Esc"), when: canEscape, run: () => toggle("key") }]);
+    }, { action: CHORDS.find(row => row.keys === "M")!, searchable: false,
+      when: canShelfKey, capture: focus => ({ available: () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]") && props.frame.open() && props.shelf()?.contains(focus) === true && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", invoke: () => props.frame.toggleMaximise("key") }) }]);
+    registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "Esc" && !row.inTriage)!, searchable: false, when: canEscape,
+      capture: focus => ({ available: () => focus?.isConnected === true && props.frame.open() && props.shelf()?.contains(focus) === true && !focus.closest("input,textarea,[contenteditable]") && props.shelf()?.getAttribute("data-triage") !== "on", invoke: () => toggle("key") }) }]);
 
     return dispose;
   });
