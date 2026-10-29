@@ -2,6 +2,7 @@ import { globSync, existsSync, readFileSync, readdirSync, mkdtempSync, rmSync, m
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
+import type { TestProjectInlineConfiguration } from "vitest/config";
 import { afterEach, expect, test } from "vitest";
 import { captureDir, readCapture, captureTests } from "./captures";
 
@@ -135,10 +136,14 @@ test("u4590_capture_selection_keeps_all_policy_observers_and_guards", async () =
   const loaded = await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
   const config = loaded!.config.test!;
 
-  const excludes = config.projects!.flatMap(project => typeof project === "object" && "test" in project && project.test?.name === "app" ? project.test.exclude ?? [] : []);
+  // SAFETY: loadConfigFromFile widens our literal inline projects to Vitest's string/function/project union.
+  const projects = config.projects! as TestProjectInlineConfiguration[];
+  const files = projects.flatMap(project => globSync(project.test!.include!).filter(file => !project.test!.exclude!.includes(file)));
 
-  expect(globSync("src/**/*.test.{ts,tsx}").filter(file => !excludes.includes(file)).sort()).toEqual([
+  expect([...new Set(files)].sort()).toEqual([
+    "src/terminal/s3806c_scale.test.ts",
     "src/terminal/u3517_browser.test.ts",
+    "src/terminal/u3517_type.test.ts",
     "src/terminal/u4590_preparation.test.tsx",
     "src/terminal/u59_real_daemon.test.ts",
     "src/testing/u463_real_daemon.test.ts",
