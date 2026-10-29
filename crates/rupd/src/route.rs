@@ -70,7 +70,9 @@ impl Daemon {
             )
             || matches!(
                 method,
-                "rail.rename"
+                "daemon.getNaming"
+                    | "daemon.setNaming"
+                    | "rail.rename"
                     | "workstream.setAuto"
                     | "agent.spawn"
                     | "agent.stop"

@@ -134,6 +134,7 @@ impl Agents {
                 scan: Scan::new(scan_interval_from_env()),
                 strays: Mutex::new(HashMap::new()),
                 context: None,
+                automatic_renaming: None,
                 coordination: None,
                 waits: Mutex::new(HashMap::new()),
             }),
@@ -184,6 +185,15 @@ impl Agents {
             shared
         });
         self
+    }
+
+    /// Read the global switch at the first submitted prompt, including parked startup Signals.
+    #[must_use]
+    pub fn with_automatic_renaming(
+        self,
+        read: impl Fn() -> Result<bool, RpcError> + Send + Sync + 'static,
+    ) -> Self {
+        self.configure(|shared| shared.automatic_renaming = Some(Arc::new(read)))
     }
 
     /// E3: supply the Context text kept by the Daemon, without giving Agents a Todos dependency.
@@ -563,6 +573,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            automatic_renaming: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
@@ -621,6 +632,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            automatic_renaming: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
         })
@@ -715,6 +727,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             context: None,
+            automatic_renaming: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
