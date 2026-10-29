@@ -200,16 +200,19 @@ it("u3311_real_daemon_delegate_board", async () => {
   const key = (key: string, code = key) => lane.evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:${JSON.stringify(key)},code:${JSON.stringify(code)},bubbles:true,cancelable:true}))`);
   const point = (selector: string) => lane.evaluate<{ x: number; y: number }>(`(() => {const el=document.querySelector(${JSON.stringify(selector)});el.scrollIntoView({block:'nearest'});const b=el.getBoundingClientRect();return {x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2)};})()`);
   const expected = new Map<number, string>();
+  const saved = new Map<number, { title: string; body: string }>();
+  let homeId: string;
 
   const observe = async (id: number, to: string) => {
     await lane.until(`document.querySelector('${row(id)}')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(to)}`);
-    expect((await app.rpc("todo.list", null)).find(todo => todo.id === id)?.owner).toEqual(to === "me" ? me : actor(to));
+    expect((await app.rpc("todo.list", null)).find(todo => todo.id === id)).toMatchObject({ id, home: homeId, title: saved.get(id)?.title, body: saved.get(id)?.body, owner: to === "me" ? me : actor(to) });
     expect(await lane.evaluate("document.activeElement === document.body")).toBe(false);
     expected.set(id, to);
   };
 
   try {
     const home = await app.rpc("rail.createWorkstream", { name: "Release", parent: null });
+    homeId = home.id;
     const agents: { id: string }[] = [];
 
     for (const name of ["Writer", "Builder", "Reviewer"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: home.id, name }));
@@ -227,6 +230,7 @@ it("u3311_real_daemon_delegate_board", async () => {
 
       await app.rpc("todo.move", { id: todo.id, home: home.id });
       made.push(todo);
+      saved.set(todo.id, { title: todo.title, body: todo.body });
     }
 
     await lane.browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
@@ -238,6 +242,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
     await lane.until(`!!document.querySelector('${group("unassigned")}')`);
     await lane.evaluate(`(() => {const g=document.querySelector('${group("unassigned")}');if(g.dataset.state==='closed')g.querySelector('[data-part=branch-control]').click();return true;})()`);
+    await lane.evaluate(`(() => { window.__assignCalls = []; const fetch = window.fetch.bind(window); window.fetch = (url, options) => { if (String(url).endsWith('/__daemon/rpc')) { const call = JSON.parse(options.body); if (call.method === 'todo.assign') window.__assignCalls.push(call); } return fetch(url, options); }; return true; })()`);
     await lane.capture("delegate-board", "board");
 
     await lane.evaluate(`(() => {
@@ -273,11 +278,14 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.browser("mouse", "move", String(to.x), String(to.y));
     await lane.until(`!!document.querySelector('${group(agents[0]!.id)}[data-drop-target]')`);
     expect(await busy()).not.toBe(original);
-    expect((await app.rpc("todo.get", { id: moved.id })).owner).toBeNull();
+    expect(await lane.evaluate("window.__assignCalls.length")).toBe(0);
+    expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: null, ...saved.get(moved.id) });
     await lane.capture("delegate-board", "drag-preview");
     await lane.browser("press", "Escape");
     await lane.browser("mouse", "up");
-    await lane.until(`document.querySelector('${group(agents[0]!.id)} .todo-busy').textContent === ${JSON.stringify(original)}`);
+    await lane.until("!document.querySelector('[data-dnd-placeholder]')");
+    expect(await lane.evaluate("window.__assignCalls.length")).toBe(0);
+    expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: null, ...saved.get(moved.id) });
 
     await lane.browser("mouse", "move", String(from.x), String(from.y));
     await lane.browser("mouse", "down");
@@ -332,6 +340,27 @@ it("u3311_real_daemon_delegate_board", async () => {
       await mkdir(captures, { recursive: true });
       await writeFile(join(captures,"hand-offs-frames.json"), JSON.stringify(await lane.evaluate("window.__glides")) + "\n");
     }
+
+    await focus(moved.id);
+    await lane.browser("press", "Enter");
+    await lane.until("!!document.querySelector('.todo-detail-title .todo-editable')");
+    await lane.browser("dblclick", ".todo-detail-title .todo-editable");
+    await lane.until("!!document.querySelector('textarea[aria-label=Title]')");
+    await lane.browser("fill", "textarea[aria-label=Title]", "Release notes revised");
+    await lane.browser("press", "Tab");
+    await lane.until("!document.querySelector('textarea[aria-label=Title]')");
+    saved.set(moved.id, { title: "Release notes revised", body: "" });
+    await observe(moved.id, agents[0]!.id);
+    await lane.browser("dblclick", ".todo-detail-body .todo-editable");
+    await lane.until("!!document.querySelector('textarea[aria-label=Body]')");
+    await lane.browser("fill", "textarea[aria-label=Body]", "Exact body é 🧪\n次の行");
+    await lane.browser("press", "Tab");
+    await lane.until("!document.querySelector('textarea[aria-label=Body]')");
+    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪\n次の行" });
+    await observe(moved.id, agents[0]!.id);
+    await lane.browser("click", ".todo-history-line");
+    await lane.until("document.querySelector('.todo-history-line')?.getAttribute('aria-expanded') === 'true'");
+    await lane.capture("delegate-board", "drawer-changes");
 
     const totals = (await app.rpc("todo.list", null)).filter(todo => !todo.done && todo.owner?.id === agents[0]!.id).reduce((sum, todo) => sum + (todo.estimate_minutes ?? 0), 0);
     const time = new Date(Date.now() + totals * 60_000);
