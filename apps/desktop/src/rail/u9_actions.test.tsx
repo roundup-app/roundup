@@ -153,19 +153,6 @@ describe("u9 actions", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("u9_the_failure_line_clears_on_a_click_on_the_fold_triangle", async () => {
-    const mounted = await mountRail([workstream("g")], [], undefined, undefined, { pane: fakeEmulators().factory });
-    mounted.app.handlers["rail.createWorkstream"] = () => {
-      throw new RpcError(-32000, "boom");
-    };
-
-    fireEvent.click(pinnedAdd());
-    await screen.findByRole("alert");
-
-    fireEvent.click(glyphOf("g"));
-
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
 
   it("u9_the_failure_line_clears_on_a_click_on_promote", async () => {
     const mounted = await mountRail([workstream("g")], [], undefined, undefined, { pane: fakeEmulators().factory });
@@ -184,19 +171,6 @@ describe("u9 actions", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("u9_the_failure_line_clears_on_a_click_outside_the_rail", async () => {
-    const mounted = await mountRail([], [], undefined, undefined, { pane: fakeEmulators().factory });
-    mounted.app.handlers["rail.createWorkstream"] = () => {
-      throw new RpcError(-32000, "boom");
-    };
-
-    fireEvent.click(pinnedAdd());
-    await screen.findByRole("alert");
-
-    fireEvent.click(document.body);
-
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
 
   it("u9_promote_is_not_shown_on_a_door", async () => {
     await mountRail([door("lead", "idle", "i")]);

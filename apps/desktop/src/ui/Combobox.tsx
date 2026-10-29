@@ -1,4 +1,5 @@
 import "./Field.css";
+import { Field } from "./Field";
 import { createRowCollection } from "./RowCollection";
 import { focusActions } from "./focusActions";
 import * as combobox from "@zag-js/combobox";
@@ -172,8 +173,9 @@ const Picker = (props: { label: string; value: string; savedLabel?: string; item
       <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
     </Popover.Trigger>
     <Portal><Popover.Positioner><Popover.Content ref={element => { content = element; }} class="choice-picker" aria-label={props.label} onKeyDown={event => { if (event.key === "Escape") event.stopPropagation(); }}>
-      <Root focusScope={() => content} onDismiss={() => setOpen(false)} items={items()} highlightedValue={highlight()} onHighlightChange={setHighlight} inputValue={query()} inputRef={element => { input = element; }} onInput={setQuery}
-        onSelect={value => { props.onSelect(value); setOpen(false); }} label={props.label} placeholder={props.label} empty={copy.noMatch} row={item => <>{item.label}{item.value === props.value && <Check class="app-choice-check" aria-hidden="true" size={16} />}</>} />
+      {/* A separate Field keeps the query label from naming the trigger with the same control ID. */}
+      <Field.Root><Root focusScope={() => content} onDismiss={() => setOpen(false)} items={items()} highlightedValue={highlight()} onHighlightChange={setHighlight} inputValue={query()} inputRef={element => { input = element; }} onInput={setQuery}
+        onSelect={value => { props.onSelect(value); setOpen(false); }} label={props.label} placeholder={props.label} empty={copy.noMatch} row={item => <>{item.label}{item.value === props.value && <Check class="app-choice-check" aria-hidden="true" size={16} />}</>} /></Field.Root>
     </Popover.Content></Popover.Positioner></Portal>
   </Popover.Root></div>;
 };
