@@ -50,7 +50,7 @@ export const observers = {
   "src/inbox/u3770_browser.test.ts": ["P3557c", "U3770a", "U3770b", "U3770e"],
   "src/inbox/u3787c_browser.test.ts": ["U3787c"],
   "src/ink/u4464_capture.test.ts": ["U4464"],
-  "src/keys/u3714_browser.test.ts": ["U3713", "U3714", "U3715", "U3716"],
+  "src/keys/u3714_browser.test.ts": ["U3713", "U3714", "U3715", "U3716", "T4905"],
   "src/keys/u4685_browser.test.ts": ["U4685a", "U4685b"],
   "src/keys/u4692_attention.test.tsx": ["U4692", "U4692a"],
   "src/keys/u4690_browser.test.ts": ["U4690", "U4690a", "U4690b", "U4690c", "U4690d", "U4690e"],

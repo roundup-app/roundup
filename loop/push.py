@@ -39,7 +39,7 @@ def save(branch, account):
 def land(remote, branch, account):
     """Push `branch` to `remote`. When the remote head moved during the run (a non-fast-forward rejection), merge it
     into the run's head without a checkout (`git merge-tree`), as `account`, and push that merge once more: the history
-    keeps its merges, so a rebase would rewrite it. The merge carries an `Author-Agent` trailer, which `rules` requires.
+    keeps its merges, so a rebase would rewrite it.
     A conflict, or any other failed push, raises SystemExit naming it."""
     ref = f'refs/heads/{branch}'
 
