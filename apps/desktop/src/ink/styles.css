@@ -1,4 +1,7 @@
-.icon {
+/* U86: inline boxes use the font's x-height centre; flex/grid slots centre
+   the same Token box on the first line without moving the vector inside it. */
+.icon,
+.glyph {
   width: var(--space-4);
   height: var(--space-4);
   flex: none;
@@ -8,10 +11,8 @@
 .glyph {
   position: relative;
   display: inline-flex;
-  width: var(--space-4);
-  height: var(--space-4);
-  flex: none;
-  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
 }
 
 /* U3566d: an Agent, folded Workstream or Project whose latest finish is unread. U3704's mark in the accent; passive, so no cursor or action. */
@@ -314,12 +315,6 @@ p.ink[role="alert"] {
   block-size: 100%;
 }
 
-/* U131: align the visible Kind mark to the title's first baseline without moving its slot or the tick. */
-.shelf .shelf-glyph {
-  --glyph-optical-transform: translateY(calc(var(--space-1) * -0.75));
-}
-
-.kind-mark { transform: var(--glyph-optical-transform, none); }
 .kind-mark-leaving { position: absolute; inset: 0; display: inline-flex; align-items: center; justify-content: center; pointer-events: none; }
 .kind-mark-leaving[data-tone="accent"] { color: var(--accent); }
 .kind-mark-leaving[data-tone="grey"] { color: var(--grey); }
