@@ -63,8 +63,8 @@
 }
 
 .reading pre {
-  overflow: auto;
-  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   padding: var(--space-3);
   background: var(--sunken);
   border-radius: var(--radius-control);
