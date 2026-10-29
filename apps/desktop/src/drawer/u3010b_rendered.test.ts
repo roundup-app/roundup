@@ -268,6 +268,13 @@ it("u430_terminal_gets_one_resize_per_slide", { retry: 0 }, async () => {
   await browser("wait", ".shelf [data-todo] .todo-row-button");
   await browser("click", ".shelf [data-todo] .todo-row-button");
   await settle();
+  // U4698a: a Todo opens filled; U430's narrowing, and so its resize, belongs to the side state, which the Project keeps once chosen.
+  await browser("press", "Enter");
+  await settle();
+  await browser("click", '.drawer button[aria-label="Restore"]');
+  await settle();
+  await browser("click", ".drawer .close");
+  await settle();
   await evaluate(`(async () => {
     const { drawerSliding } = await import('/src/drawer/sliding.ts');
     const app = window.__fake.app;
@@ -535,6 +542,8 @@ it("u3010b_panel_edge_press_preserves_the_open_todo", { retry: 0 }, async () => 
   await settle();
   await browser("click", '.shelf [data-todo="5"] .todo-row-button');
   await browser("press", "Enter");
+  await settle();
+  await browser("click", '.drawer button[aria-label="Restore"]');
   await settle();
   await evaluate(`(() => {
     const panel = document.querySelector('.drawer');

@@ -12,6 +12,9 @@ it("u4458_maximise_button_and_m_toggle_a_pad_and_a_todo_drawer", () => {
 
   for (const kind of ["pad", "todo"]) {
     drawer.open(() => <input aria-label="body" />, "key", { kind, project: "/one" });
+    expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
     const restore = screen.getByRole("button", { name: "Restore" });
     restore.focus();
@@ -40,19 +43,21 @@ it("u4458_the_state_is_kept_per_kind_and_project", async () => {
   const mount = () => render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
   const first = mount();
   drawer.open(() => <p>first Pad</p>, "key", { kind: "pad", project: "/one" });
-  fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
+  fireEvent.click(screen.getByRole("button", { name: "Restore" }));
   drawer.close("key");
   drawer.open(() => <p>Todo</p>, "key", { kind: "todo", project: "/one" });
-  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
-  drawer.open(() => <p>other Project</p>, "key", { kind: "pad", project: "/two" });
-  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
-  drawer.open(() => <p>another Pad</p>, "key", { kind: "pad", project: "/one" });
   expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
+  drawer.open(() => <p>other Project</p>, "key", { kind: "pad", project: "/two" });
+  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
+  drawer.open(() => <p>another Pad</p>, "key", { kind: "pad", project: "/one" });
+  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
+  drawer.open(() => <p>work order</p>, "key", { kind: "work-order", project: "/one" });
+  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
   // A new host restores from the same stored frame, rather than its previous in-memory state.
   await waitFor(() => expect(localStorage.getItem("roundup:shelf:/one:pad")).not.toBeNull());
   first.unmount();
   mount();
-  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
+  expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("false");
 });
 
 it("u4458_drawer_maximise_keeps_the_shelf_state", () => {
@@ -65,7 +70,30 @@ it("u4458_drawer_maximise_keeps_the_shelf_state", () => {
   });
   shelf.toggleMaximise("key");
   drawer.open(() => <p>Pad</p>, "key", { kind: "pad", project: "/one" });
-  fireEvent.click(screen.getByRole("button", { name: "Maximise" }));
+  fireEvent.click(screen.getByRole("button", { name: "Restore" }));
   drawer.close("key");
   expect(shelf.maximised()).toBe(true);
+});
+
+it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
+  const drawer = createDrawer();
+  render(() => <DrawerHost drawer={drawer} reducedMotion={() => true} />);
+
+  for (const kind of ["todo", "pad"]) {
+    drawer.open(() => <input aria-label="draft" />, "key", { kind, project: "/one" });
+    const field = screen.getByLabelText("draft") as HTMLInputElement;
+    fireEvent.input(field, { target: { value: "unsent" } });
+
+    for (const press of [false, true]) {
+      const control = screen.getByRole("button", { name: /^(Maximise|Restore)$/ });
+      expect(screen.getAllByRole("button", { name: /^(Maximise|Restore)$/ })).toHaveLength(1);
+
+      if (press) { control.focus(); fireEvent.keyDown(control, { key: "m", code: "KeyM" }); } else fireEvent.click(control);
+      expect(screen.getByLabelText("draft")).toBe(field);
+      expect(field.value).toBe("unsent");
+    }
+
+    expect(screen.getByLabelText("Drawer").dataset.maximised).toBe("true");
+    drawer.close("key");
+  }
 });
