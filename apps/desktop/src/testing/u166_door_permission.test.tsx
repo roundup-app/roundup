@@ -24,7 +24,7 @@ it("u166_selecting_a_requesting_door_keeps_the_other_workstream_idle_after_reope
   const rail = await screen.findByRole("region", { name: "Rail" });
 
   const row = await waitFor(() => {
-    const found = rail.querySelector<HTMLElement>(`[data-id="${requesting.id}"]`);
+    const found = rail.querySelector<HTMLElement>(`.rail-row[data-id="${requesting.id}"]`);
 
     if (!found) throw new Error("the requesting Door row has not arrived");
 
@@ -34,15 +34,15 @@ it("u166_selecting_a_requesting_door_keeps_the_other_workstream_idle_after_reope
   fireEvent.click(row.querySelector(".name")!);
   await waitFor(() => expect(rail.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id")).toBe(requesting.id));
   expect(row.getAttribute("data-kind")).toBe("needs-you");
-  expect(rail.querySelector(`[data-id="${other.id}"]`)?.getAttribute("data-kind")).toBe("idle");
+  expect(rail.querySelector(`.rail-row[data-id="${other.id}"]`)?.getAttribute("data-kind")).toBe("idle");
   expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
 
   cleanup();
   mount();
   const reopened = await screen.findByRole("region", { name: "Rail" });
 
-  await waitFor(() => expect(reopened.querySelector(`[data-id="${requesting.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"));
-  expect(reopened.querySelector(`[data-id="${other.id}"]`)?.getAttribute("data-kind")).toBe("idle");
+  await waitFor(() => expect(reopened.querySelector(`.rail-row[data-id="${requesting.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"));
+  expect(reopened.querySelector(`.rail-row[data-id="${other.id}"]`)?.getAttribute("data-kind")).toBe("idle");
   expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
   expect(app.calls.filter(({ method }) => ["message.send", "agent.prompt", "terminal.write", "rail.startDoor"].includes(method))).toEqual([]);
 });
