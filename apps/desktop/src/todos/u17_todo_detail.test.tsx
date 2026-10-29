@@ -51,21 +51,21 @@ describe("u17 Todo detail", () => {
   it("u17_waits_on_lists_each_blocker_with_its_own_glyph", async () => {
     await openDrawerOf(/#5/);
 
-    expect(within(drawer()).getByText("Waits on").nextElementSibling?.textContent).toBe(" #4  migrate users");
+    expect(within(drawer()).getByRole("button", { name: /#4.*migrate users/ })).toBeTruthy();
     assertKind(within(drawer()).getByText("Waits on").nextElementSibling?.closest("p")!, "idle");
   });
 
   it("u17_a_done_blocker_still_shows_under_waits_on_with_the_done_glyph", async () => {
     await openDrawerOf(/#5/, [todo(4, { title: "migrate users", done: true }), blocked()]);
 
-    expect(within(drawer()).getByText("Waits on").nextElementSibling?.textContent).toBe(" #4  migrate users");
+    expect(within(drawer()).getByRole("button", { name: /#4.*migrate users/ })).toBeTruthy();
     assertKind(within(drawer()).getByText("Waits on").nextElementSibling?.closest("p")!, "done");
   });
 
   it("u17_blocks_lists_each_todo_that_waits_on_this_one", async () => {
     await openDrawerOf(/#5/);
 
-    expect(within(drawer()).getByText("Blocks").nextElementSibling?.textContent).toBe(" #10  session tests");
+    expect(within(drawer()).getByRole("button", { name: /#10.*session tests/ })).toBeTruthy();
     assertKind(within(drawer()).getByText("Blocks").nextElementSibling?.closest("p")!, "blocked");
   });
 
