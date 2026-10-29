@@ -30,12 +30,14 @@ it("u4688b_rendered_naming_typing_and_recovery", async () => {
     const dir = join(videoRoot, base ? "base" : "head");
     mkdirSync(dir, { recursive: true });
     await lane.browser("record", "start", join(dir, "settings.webm"));
+    await lane.browser("set", "media", "dark");
   }
 
   try {
     for (const seed of ["first-run", "agents-10", "tree-40"]) {
       await lane.browser("open", `${origin}/harness.html?seed=${seed}`);
       await lane.until("!!window.__fake && !!document.querySelector('.window')");
+      await lane.browser("set", "media", "dark");
       await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
       await lane.until("!!document.querySelector('.settings-view')");
 
