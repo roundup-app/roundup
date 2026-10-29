@@ -213,7 +213,7 @@ impl Sidecar {
         {
             let repair = if cfg!(debug_assertions) {
                 // Shell quoting keeps the repair usable for checkout paths containing spaces.
-                let dir = self.dir.to_string_lossy().replace("'", "'\"'\"'");
+                let dir = self.dir.to_string_lossy().replace('\'', "'\"'\"'");
                 format!(
                     "from the checkout root run `pnpm install` then `tools/sidecar/bundle.sh '{dir}' --local-node`"
                 )
