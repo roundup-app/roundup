@@ -7,7 +7,7 @@ import { floatingControl } from "./Dialog";
 
 type Mention = { value: string; label: string };
 
-/** A textarea suggestion list: Ark owns navigation, pointer highlight and the input's active descendant. */
+/** A textarea suggestion list: Ark owns keyboard navigation and the input's active descendant; hover preserves the keyboard choice. */
 const Root = (props: {
   items: readonly Mention[];
   highlightedValue: string | null;
@@ -61,7 +61,9 @@ const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onK
 };
 
 const List = (props: { label: string; items: readonly Mention[]; row: (item: Mention) => JSX.Element }) => (
-  <Show when={props.items.length > 0}><Portal><Combobox.Positioner><Combobox.Content class="app-popover app-mentions-panel app-mentions app-combobox-list" aria-label={props.label}>
+  <Show when={props.items.length > 0}><Portal><Combobox.Positioner><Combobox.Content class="app-popover app-mentions-panel app-mentions app-combobox-list" aria-label={props.label}
+    on:pointermove={{ handleEvent: event => event.stopPropagation(), capture: true }}
+    on:pointerleave={{ handleEvent: event => event.stopPropagation(), capture: true }}>
     <For each={props.items}>{item => <Combobox.Item item={item} class="app-combobox-item"><Combobox.ItemText>{props.row(item)}</Combobox.ItemText></Combobox.Item>}</For>
   </Combobox.Content></Combobox.Positioner></Portal></Show>
 );
