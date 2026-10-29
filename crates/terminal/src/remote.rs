@@ -385,7 +385,7 @@ impl Terminals {
         Ok(!entries.is_empty())
     }
 
-    pub(super) fn make_remote_room(&self, home: &str) -> Result<bool, RpcError> {
+    pub(super) fn make_remote_space(&self, home: &str) -> Result<bool, RpcError> {
         let entries: Vec<_> = self
             .remotes
             .lock()

@@ -428,7 +428,7 @@ impl Terminals {
     /// Forget `owner`'s oldest exited Terminal when it holds [`OWNED_CAP`]; true when one went.
     fn make_room(&self, owner: &str) -> Result<bool, RpcError> {
         if self.owner_helper.is_some() {
-            return self.make_remote_room(owner);
+            return self.make_remote_space(owner);
         }
         let mut table = self.shared.table();
         let parked: Vec<(u64, bool)> = table
