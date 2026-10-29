@@ -7,7 +7,7 @@ How the App looks. `docs/wireframes.md` says what each screen holds and where; t
 
 The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
 
-Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
+Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137). D18 is the critic-only visual exception: its contact sheet and approval are required for U401’s Blocked-mark implementation, with no automated visual assertion or owner Mac observation.
 
 ## Six rules
 
@@ -102,12 +102,12 @@ Kind has two carriers, a Glyph shape and a tone. The shape is enough on its own:
 
 | Kind | Glyph | Tone | Ink |
 |---|---|---|---|
-| `error` | `✕` | `--red` | yes |
-| `needs-you` | `●` | `--amber` | yes |
-| `working` | `○` | `--accent` | no |
-| `blocked` | `⏸` | `--grey` | no |
-| `idle` | `·` | `--grey` | no |
-| `done` | `✓` | `--grey` | no |
+| `error` | `⊗` (cross in a disc; U401) | `--red` | yes |
+| `needs-you` | `◉` (disc in a ring; U401) | `--amber` | yes |
+| `working` | `◔` (turning quarter; U401, U446) | `--accent` | no |
+| `blocked` | `⊖` (ring with horizontal centre bar; U401) | `--grey` | no |
+| `idle` | `○` (empty ring; U401) | `--grey` | no |
+| `done` | `✓` (check in a disc; U401) | `--grey` | no |
 
 Outside U4464’s decorative scene and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
 
@@ -165,7 +165,7 @@ Three user settings change the look. Each has a rule in `tokens.css`:
 
 ## The checks
 
-Each check is measured from computed style and the DOM of the running App, never from pixels, on every visible element of the screen, in light and in dark. A check that cannot measure fails; it never passes by default.
+Except D18, each check is measured from computed style and the DOM of the running App, never from pixels, on every visible element of the screen, in light and in dark. A check that cannot measure fails; it never passes by default.
 
 | Id | Passes when | Scenario |
 |---|---|---|
@@ -186,6 +186,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D15 | all App-authored text and accessible names come from the App copy catalogue; its entries and formatter branches use sentence case and `GLOSSARY.md` user labels, with explicit section-head, acronym and authored-value exemptions | U471, U472 |
 | D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
 | D17 | A tooltip sits against the element under the pointer that owns it. | U2749 |
+| D18 | The design critic approves a greyscale contact sheet of all six production Kind Glyphs side by side at 16 px in both light and dark: idle/open ring, Blocked ring with a horizontal centre bar (⊖) in the same stroke and colour as the ring, working quarter, needs-you disc in a ring, error cross in a disc, done check in a disc. Every pair is distinguishable by shape without labels or colour; include three working-arc angles (U446). This is a critic-only visual Check, not a DOM or pixel-difference test. | U401 |
 
 ## Icon and text centring (U86)
 
@@ -338,7 +339,7 @@ U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales.
 
 U4382a supersedes the no-box and no-focus-ring rules above only for shared form controls: Field input/textarea, NumberInput, civil-date input, Select/Combobox picker, Checkbox, Switch and RadioGroup. Ark owns their behavior. Screens arrange fields; `ui/Field.css` and each control stylesheet own their paint. Frames use `--hairline-width` and `--form-border` (Radix gray 8); fields use `--form-ground`, Token padding and `--radius-control`. Checkbox marks use `--radius-chip`; radio and switch marks are round. Switch off uses `--form-off`, on uses `--accent`, and the thumb uses `--form-thumb` and checkbox checks use `--form-on-ink`.
 
-Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons are the sole exception to dark-only evidence.
+Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons and U401’s D18 contact sheet are the exceptions to dark-only evidence.
 
 U4464: empty-view actions reuse shared primary/quiet buttons in one centred horizontal row, with shortcuts inside. Rail order is New Agent ⌘N, New Workstream ⇧⌘N. Single-action and actionless views retain their behavior. Open Doodles use `--doodle-line` (#5a4a3e light, #e6cfbb dark), `--doodle-patch` (#2f8f80), `--doodle-offset` (+14/+10 scene units) and `--doodle-blend` (multiply light, screen dark), with unchanged geometry. These decorative inks and the fixed primary fill/key ink are named D3 exceptions.
 

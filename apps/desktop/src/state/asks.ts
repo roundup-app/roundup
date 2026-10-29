@@ -1,10 +1,12 @@
-import { batch, createSignal } from "solid-js";
+import { batch, createEffect, createSignal } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
 import { outcomeOf, RpcError, type AppSeam } from "../app/seam";
 import type { SendParams } from "@contracts/ask/SendParams";
 import type { Events } from "../app/events";
+import * as v from "valibot";
+import { storageSchema, storedValue } from "./storage";
 import { copy } from "../copy";
 
 /** U505: one Ask as the App shows it; `pending` is the optimistic entry between Enter and the Daemon's answer. */
@@ -26,6 +28,8 @@ export type IntakeFailure = AskFailure & { kind: "refused" | "unknown"; submissi
 export type AsksState = {
   /** Newest first; an Ask still being sent comes before every other. */
   entries(): readonly AskEntry[];
+  /** U505: exact Sent parts already viewed at their destination. */
+  acknowledged(entry: AskEntry, index: number): boolean;
   /** Fetches `ask.list` once; later changes arrive as `ask.changed`. */
   load(): void;
   loadState(): "loading" | "ready" | "failed";
@@ -53,7 +57,18 @@ export type AsksState = {
 /** The part an Ask holds until the Daemon's answer replaces it (A40). */
 const placing = (text: string): AskPart => ({ text, placement: { kind: "unclear", question: "", candidates: [] }, state: "placing" });
 
-export const createAsks = (app: AppSeam, events: Events): AsksState => {
+const acknowledgedSchema = storageSchema("roundup:ask-acknowledged", v.array(v.string()));
+
+const partKey = (entry: Pick<AskEntry, "key" | "parts">, index: number): string => {
+  const part = entry.parts[index];
+  const placement = part?.placement;
+
+  return JSON.stringify([entry.key, index, part?.text, placement?.kind, placement?.kind === "unclear" ? placement.question : placement?.workstream]);
+};
+
+export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string; target(): string | null }): AsksState => {
+  const storage = storedValue(`roundup:ask-acknowledged:${viewed?.path ?? ""}`, acknowledgedSchema);
+  const [acknowledged, setAcknowledged] = createSignal<readonly string[]>(storage.read() ?? []);
   const [asks, setAsks] = createSignal<readonly Ask[]>([]);
   const [pending, setPending] = createSignal<readonly AskEntry[]>([]);
   const [picking, setPicking] = createSignal<ReadonlySet<string>>(new Set());
@@ -66,11 +81,38 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
   const [loadState, setLoadState] = createSignal<"loading" | "ready" | "failed">("loading");
 
   const upsert = (ask: Ask): void => {
+    const invalid = new Set(ask.parts.flatMap((part, index) => part.state !== "typed" ? [partKey({ key: ask.id, parts: ask.parts }, index)] : []));
+    const kept = acknowledged().filter(key => !invalid.has(key));
+
+    if (kept.length !== acknowledged().length) {
+      setAcknowledged(kept);
+      void storage.write(kept);
+    }
+
     setAsks((all) => [ask, ...all.filter((each) => each.id !== ask.id)].sort((a, b) => Number(b.at) - Number(a.at)));
   };
 
   events.subscribe((event) => {
     if (event.name === "ask.changed") upsert(event.data.ask);
+  });
+
+  createEffect(() => {
+    const target = viewed?.target();
+
+    if (!target) return;
+
+    const keys = asks().flatMap(ask => ask.parts.flatMap((part, index) => {
+      const destination = part.placement.kind === "unclear" ? null : part.placement.workstream;
+
+      return part.state === "typed" && destination === target ? [partKey({ key: ask.id, parts: ask.parts }, index)] : [];
+    }));
+
+    const next = [...new Set([...acknowledged(), ...keys])];
+
+    if (next.length === acknowledged().length) return;
+
+    setAcknowledged(next);
+    void storage.write(next);
   });
 
   type Outcome<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -86,6 +128,7 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
   };
 
   return {
+    acknowledged: (entry, index) => !entry.pending && entry.parts[index]?.state === "typed" && acknowledged().includes(partKey(entry, index)),
     entries: () => [...pending(), ...asks().map((ask) => ({ key: ask.id, text: ask.text, parts: ask.parts, pending: false }))],
 
     loadState,

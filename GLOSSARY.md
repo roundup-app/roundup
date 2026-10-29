@@ -113,7 +113,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Help | same | — |
 | Todo | same | task, ticket |
 | Reopen (`todo.reopen`, `todo_reopen`) | same | — |
-| Owner (`owner`) | same | assignee |
+| Owner (`owner`, Todos only; Pads use Home) | same | assignee |
 | Estimate (`estimate_minutes`) | same | — |
 | Updated at (`updated_at`) | a Todo's last-change time | — |
 | Delegate Board | same | — |
@@ -303,6 +303,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ask submission (`AskSubmission`, `submission`) | same | — |
 | Ask outcome (`AskOutcome`) | same | — |
 | Ask part (`AskPart`, `ask::State`) | same | — |
+| Ask acknowledgement (`AsksState.acknowledged`) | none | — |
 | Placement (`Placement`, `Destination`, `Target`) | same | — |
 | Placement request (`placement::Request`, `EarlierAsk`) | same | — |
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |

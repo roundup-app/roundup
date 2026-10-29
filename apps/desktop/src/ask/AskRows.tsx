@@ -1,4 +1,4 @@
-import { EmptyState } from "../ink/EmptyState";
+import { Disclosure } from "../ui/Disclosure";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { AskPart } from "@contracts/ask/AskPart";
@@ -8,7 +8,6 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
-import { queueFocus } from "../keys/focus";
 import { registerKeys, type KeyScope } from "../keys/registry";
 import { Tip, type TriggerProps } from "../ui/Tip";
 import { Select } from "../ui/Select";
@@ -32,7 +31,7 @@ const focusPane = (): void => {
 
 /** U505, U506: one row for each part of each Ask, newest first. */
 export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
-  const { asks, rail, hideView } = useConnectedProject();
+  const { asks, rail } = useConnectedProject();
 
   const parts = createMemo(() => {
     const shown = new Set<string>();
@@ -65,18 +64,20 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
     focusPane();
   };
 
-  return (
-    <section class="ask-history" aria-label={copy.askHistory}>
-    <div class="made-heading"><h2 class="overview-heading">{copy.askHistory}</h2><button type="button" data-button="quiet" onClick={() => { hideView("ask-history"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.askHistory)}</button></div>
-    <Show when={parts().length === 0 && asks.loadState() === "loading"}><ReservedLine class="ask-history-status" status={copy.askHistoryLoading} /></Show>
-    <Show when={parts().length === 0 && asks.loadState() === "ready"}><EmptyState art="reading" {...{ title: copy.askHistoryEmpty }} line={copy.emptyAskLine} /></Show>
-    <ul class="ask-rows" aria-label={copy.askRows} aria-busy={asks.loadState() === "loading"}>
-      <For each={parts()}>
-        {({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
-      </For>
-    </ul>
-    </section>
-  );
+  const live = () => parts().filter(row => !asks.acknowledged(row.entry, row.index));
+  const earlier = () => parts().filter(row => asks.acknowledged(row.entry, row.index));
+
+  const rows = (items: ReturnType<typeof parts>) => <ul class="ask-rows" aria-label={copy.askRows}>
+    <For each={items}>{({ entry, part, index, live }) => <AskRow live={live} keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}</For>
+  </ul>;
+
+  return <Show when={parts().length > 0}><div class="ask-content">
+    <Show when={live().length > 0}><section class="ask-parts" aria-label={copy.askRows}>
+      <h2 class="overview-heading">{copy.askRows}</h2>
+      {rows(live())}
+    </section></Show>
+    <Show when={earlier().length > 0}><Disclosure class="ask-earlier" label={copy.askEarlier(earlier().length)}>{rows(earlier())}</Disclosure></Show>
+  </div></Show>;
 };
 
 const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
@@ -105,7 +106,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
     chords: ["ArrowUp", "ArrowDown"],
     when: (event: KeyboardEvent) => event.target === button,
     run: (event: KeyboardEvent) => {
-      const rows = [...(button?.closest(".ask-rows")?.querySelectorAll<HTMLButtonElement>("button.ask-line") ?? [])];
+      const rows = [...(button?.closest(".ask-content")?.querySelectorAll<HTMLButtonElement>("button.ask-line") ?? [])];
       const index = rows.findIndex((row) => row === button);
       rows[index + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
     },
