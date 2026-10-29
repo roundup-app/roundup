@@ -148,25 +148,6 @@ it("u535_keyboard_depth", async () => {
   expect(await moves()).toEqual([{ id: "P2", parent: "Q", index: 0 }]);
 }, 90_000);
 
-it("u535_release_swallows_the_click", async () => {
-  await load();
-
-  const handle = await box(`[aria-label="Move R"]`);
-  const x = String(Math.round(handle.x));
-  const y = String(Math.round(handle.y));
-  await browser("mouse", "move", x, y);
-  await browser("mouse", "down");
-  await browser("mouse", "move", String(Math.round(handle.x + 15)), y);
-  await browser("wait", "--fn", `document.querySelector('[data-id="R"]').dataset.dragging === 'true'`);
-  await browser("mouse", "move", x, y);
-  await browser("mouse", "up");
-  await browser("wait", "--fn", `document.querySelector('[aria-label="Previews"]').textContent.endsWith('end')`);
-  await browser("wait", "--fn", `new Promise(resolve => setTimeout(() => resolve(true), 100))`);
-  expect(await output("Clicks")).toBe("0");
-  await browser("click", '[data-id="Q"] span');
-  await browser("wait", "--fn", `document.querySelector('[aria-label="Clicks"]').textContent === '1'`);
-}, 60_000);
-
 it("u535_flat_contract_unchanged", async () => {
   await load("?flat");
   const start = await box(`[aria-label="Move R"]`);

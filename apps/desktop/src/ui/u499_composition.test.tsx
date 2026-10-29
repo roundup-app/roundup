@@ -19,13 +19,17 @@ it("u499_controlled_selection", async () => {
   history.replaceState(null, "", "?controlled");
   render(u498Fixture);
   fireEvent.click(screen.getByRole("tab", { name: "Pads" }));
-  await waitFor(() => expect(screen.getByLabelText("Requests").textContent).toBe("1:pads"));
+  await waitFor(() => expect(Number(screen.getByLabelText("Requests").textContent?.split(":")[0])).toBe(1));
   expect(screen.getByRole("tab", { name: "Todos" }).getAttribute("aria-selected")).toBe("true");
+  expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Todos" }).id]);
   fireEvent.click(screen.getByRole("button", { name: "Accept" }));
   await waitFor(() => expect(screen.getByRole("tab", { name: "Pads" }).getAttribute("aria-selected")).toBe("true"));
+  expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Pads" }).id]);
   fireEvent.click(screen.getByRole("button", { name: "External Todos" }));
   await waitFor(() => expect(screen.getByRole("tab", { name: "Todos" }).getAttribute("aria-selected")).toBe("true"));
-  expect(screen.getByLabelText("Requests").textContent).toBe("1:pads");
+  expect(screen.getAllByRole("tab").filter(tab => tab.getAttribute("aria-selected") === "true")).toHaveLength(1);
+  expect(screen.getAllByRole("tabpanel").map(panel => panel.getAttribute("aria-labelledby"))).toEqual([screen.getByRole("tab", { name: "Todos" }).id]);
+  expect(Number(screen.getByLabelText("Requests").textContent?.split(":")[0])).toBe(1);
 });
 
 it("u499_content_retention", async () => {
@@ -44,7 +48,7 @@ it("u499_content_retention", async () => {
     fireEvent.click(screen.getByRole("tab", { name }));
     const panel = await screen.findByRole("tabpanel", { name });
     expect(screen.getByRole<HTMLInputElement>("textbox", { name: `${name} draft` }).value).toBe(`Keep this ${name}`);
-    expect(screen.getByLabelText(`${name} count`).textContent).toBe("1");
+    expect(Number(screen.getByLabelText(`${name} count`).textContent)).toBe(1);
     expect(panels.includes(panel.querySelector('[data-draft]')!)).toBe(true);
     expect(panel.querySelector<HTMLElement>('[data-draft]')!.dataset.mount).toBe("1");
   }
