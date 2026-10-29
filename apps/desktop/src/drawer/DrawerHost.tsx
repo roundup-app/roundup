@@ -39,6 +39,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   };
 
   const [expandHost, setExpandHost] = createSignal<HTMLElement>();
+
   const expand = () => (
     <IconButton chord={CHORDS.find(row => row.keys === "M")} aria-label={frame.maximised() ? copy.restore : copy.maximise} onClick={event => toggleMaximise(activationSource(event))}>
       <Show when={frame.maximised()} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>

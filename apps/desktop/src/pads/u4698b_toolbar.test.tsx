@@ -37,6 +37,7 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
 
     field.setSelectionRange(1, 5, "forward");
     fireEvent.pointerDown(screen.getByRole("button", { name }));
+
     if (name === "Heading") fireEvent.pointerDown(await screen.findByRole("button", { name: "Heading 1" }));
 
     if (name === "Link") {
@@ -57,7 +58,7 @@ describe("u4698b the Pad toolbar is exactly the eleven formats", () => {
 
     await waitFor(() => expect(state.pads[0]?.text.trim()).toBe(source));
     connected.drawer.close();
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("textbox")).toBeNull());
     const reopened = await openPad("note");
 
     expect(reopened.querySelector(semantic)).not.toBeNull();
