@@ -37,7 +37,6 @@ import { TodoDraftRecovery } from "../todos/EditableText";
 import { TodoDrawer } from "../todos/TodoDrawer";
 import { openShelf, openPad, padOf } from "../pads/padsFixture";
 import { Switcher } from "../switcher/Switcher";
-import { Keys } from "../keys/Keys";
 import { leaderKey } from "../keys/leaderFixture";
 
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
@@ -240,7 +239,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Bubbles", async () =
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Switcher", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Keys /><Switcher onFailure={() => {}} onOpen={() => {}} /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Switcher onFailure={() => {}} onOpen={() => {}} /></ConnectedProjectContext.Provider>);
   leaderKey("KeyK");
   await within(document.body).findByRole("combobox");
   const surface = document.querySelector<HTMLElement>(".switcher")!;
