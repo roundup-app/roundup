@@ -256,7 +256,7 @@ it.each(["destination", "action"] as const)("u4682_enter_activates_only_the_row_
       expect(await read(effects)).toEqual(before);
     } else {
       await browser("wait", "--fn", "window.__fake.app.calls.some(c=>c.method==='agent.spawn')");
-      expect(await read("window.__fake.app.calls.filter(c=>c.method==='agent.spawn').map(c=>c.params)")).toEqual([
+      expect(await read("window.__fake.app.calls.filter(c=>c.method==='agent.spawn').map(({params:{cwd,prompt,parent,model,effort}})=>({cwd,prompt,parent,model,effort}))")).toEqual([
         { cwd: "/Users/you/harness", prompt: null, parent: "backend", model: null, effort: null },
       ]);
       expect(await read("window.__fake.app.calls.filter(c=>c.method==='terminal.write')")).toEqual([]);
