@@ -696,7 +696,6 @@ export const Bubbles = (props: {
     return id !== null && document.querySelector(".pane-screen textarea, .pane-screen [tabindex]") ? id : null;
   };
 
-
   const switchPair = (focus: Element | null) => {
     const selected = rail.selected();
     const main = mainTerminal();
