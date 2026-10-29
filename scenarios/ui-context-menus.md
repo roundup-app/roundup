@@ -12,7 +12,7 @@ Acceptance for #4322. Journey: Understand and Intervene, finding an action on th
 | Project tab | copy: Copy (the existing Project-path copy); edit: Rename; close: Close |
 | Terminal tab / Bubble | open/share: Send to Agent, Copy link; edit: Rename; close: Close |
 | Pad in the Rail | open/share: Send to Agent, Copy link; delete: Delete |
-| Pad in work items | open/share: Send to Agent, Copy link; edit: Assign, Make yours; delete: Delete |
+| Pad in work items | open/share: Send to Agent, Copy link; delete: Delete |
 | Todo in the Rail or work items | status: Complete; open/share: Send to Agent, Copy link; edit: Assign, Move, Move up, Move down; delete: Delete |
 | Ask's published-output row | open/share: Send to Agent, Copy (the existing published-output copy) |
 
