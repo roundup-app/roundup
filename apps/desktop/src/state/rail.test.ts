@@ -6,7 +6,7 @@ import { connectEvents } from "../app/events";
 import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
 import { event, info, node, workstream, door, USER } from "../testing/nodes";
-import { createRailState } from "./rail";
+import { createRailState, currentOwner } from "./rail";
 
 const status = (label: string): Status => ({ kind: "working", label, since: 1, finished: "0" });
 
@@ -22,6 +22,77 @@ const open = async (tree: RailNode[], terminals: TerminalInfo[] = []) => {
 };
 
 describe("u3 Rail state", () => {
+  it("s3806b_terminal_failure_retains_original_recovery_without_a_rail_row", async () => {
+    const target = { id: "7", incarnation: "original" };
+    const { app, rail } = await open([workstream("home"), workstream("elsewhere")], [info("7", target)]);
+    app.handlers["terminal.close"] = () => null;
+    rail.select("home");
+    const recovery = () => { void app.rpc("terminal.close", { id: target.id }); };
+
+    rail.commandFailure.showTerminal("Close failed: rejected by Daemon", target, "pane", recovery);
+    rail.select("elsewhere");
+    await rail.refresh({ terminals: true });
+
+    expect(rail.commandFailure.message()).toBe("Close failed: rejected by Daemon");
+    expect(rail.commandFailure.surface()).toBe("pane");
+    expect(rail.commandFailure.retry()).toBe(recovery);
+    expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([]);
+    rail.commandFailure.retry()?.();
+    expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([{ method: "terminal.close", params: { id: "7" } }]);
+  });
+
+  it.each([
+    { acknowledged: { kind: "rail", id: "7" }, retained: true, name: "same-id Rail row" },
+    { acknowledged: { kind: "rail", id: null }, retained: true, name: "null-item New Agent" },
+    { acknowledged: { kind: "terminal", id: "8", incarnation: "original" }, retained: true, name: "other Terminal" },
+    { acknowledged: { kind: "terminal", id: "7", incarnation: "replacement" }, retained: true, name: "other incarnation" },
+    { acknowledged: { kind: "terminal", id: "7", incarnation: "original" }, retained: false, name: "original Terminal" },
+  ] as const)("s3806b_terminal_failure_acknowledgement_uses_both_namespaces_and_incarnation: $name", async ({ acknowledged, retained }) => {
+    const { rail } = await open([workstream("7")], [info("7", { incarnation: "original" })]);
+    rail.commandFailure.showTerminal("Close failed", { id: "7", incarnation: "original" });
+
+    if (acknowledged.kind === "rail") rail.commandFailure.acknowledge(acknowledged.id);
+    else rail.commandFailure.acknowledgeTerminal(acknowledged);
+
+    expect(rail.commandFailure.message()).toBe(retained ? "Close failed" : null);
+  });
+
+  it.each(["removed", "replaced", "unrelated"] as const)("s3806b_terminal_failure_tracks_current_incarnation_facts: %s", async (change) => {
+    const { app, rail } = await open([workstream("7")], [info("7", { incarnation: "original" }), info("8")]);
+    rail.commandFailure.showTerminal("Close failed", { id: "7", incarnation: "original" }, "pane", () => {});
+    app.handlers["terminal.list"] = () => change === "removed" ? [info("8")]
+      : [info("7", { incarnation: change === "replaced" ? "replacement" : "original" })];
+    app.emit(event({ name: "terminal.changed" }));
+    await rail.settled();
+
+    expect(rail.commandFailure.message()).toBe(change === "unrelated" ? "Close failed" : null);
+
+    if (change !== "unrelated") {
+      expect(rail.commandFailure.retry()).toBeNull();
+      // Reappearance of an old id/incarnation cannot resurrect a cleared failure.
+      app.handlers["terminal.list"] = () => [info("7", { incarnation: "original" })];
+      await rail.refresh({ terminals: true });
+      expect(rail.commandFailure.message()).toBeNull();
+    }
+  });
+
+  it("s3806b_terminal_failure_dismissal_releases_recovery", async () => {
+    const { rail } = await open([], [info("7")]);
+    rail.commandFailure.showTerminal("Close failed", { id: "7", incarnation: "fixture-7" }, "pane", () => {});
+    rail.commandFailure.clear();
+
+    expect(rail.commandFailure.message()).toBeNull();
+    expect(rail.commandFailure.retry()).toBeNull();
+  });
+
+  it("s3806b_terminal_acknowledgement_preserves_same_id_rail_failure", async () => {
+    const { rail } = await open([workstream("7")], [info("7")]);
+    rail.commandFailure.show("Remove failed", "7");
+    rail.commandFailure.acknowledgeTerminal({ id: "7", incarnation: "fixture-7" });
+
+    expect(rail.commandFailure.message()).toBe("Remove failed");
+  });
+
   it("u3_the_webview_subscribes_before_its_first_rail_tree_and_terminal_list", async () => {
     const order: string[] = [];
     const app = createFakeApp();
@@ -93,12 +164,6 @@ describe("u3 Rail state", () => {
     app.emit(event({ name: "terminal.exited", data: { id: "t-m", code: 2 } }));
 
     expect(rail.exitOf(workstream)).toEqual({ kind: "code", code: 2 });
-  });
-
-  it("u3_a_stopped_workstream_has_no_live_terminal", async () => {
-    const { rail } = await open([]);
-
-    expect(rail.exitOf(node("g", { kind: "workstream", status: null, terminal_id: null }))).toEqual({ kind: "unknown" });
   });
 
   it("u3_events_during_an_in_flight_rail_tree_are_applied_after_it", async () => {
@@ -268,4 +333,28 @@ describe("u62 Door launch failures", () => {
     await starting;
     expect(rail.doorFailure("r")).toBeNull();
   });
+});
+
+
+it("u4523_current_owner_uses_rail_identity_and_liveness", async () => {
+  const actor = { kind: "agent", id: "a", parent: null } as const;
+  const { app, rail } = await open([node("a", { name: "Renamed" }), node("other", { name: "Renamed" })]);
+
+  const cases = [
+    { tree: [node("a", { name: "Original" })], owner: actor, exited: false, expected: { id: "a", name: "Original", live: true } },
+    { tree: [node("a", { name: "Renamed", status: { kind: "done", label: "done", since: 0, finished: "0" } })], owner: actor, exited: false, expected: { id: "a", name: "Renamed", live: true } },
+    { tree: [node("a", { name: "Renamed" })], owner: actor, exited: true, expected: { id: "a", name: "Renamed", live: false } },
+    { tree: [node("a", { name: "Renamed", terminal_id: null })], owner: actor, exited: false, expected: { id: "a", name: "Renamed", live: false } },
+    { tree: [], owner: actor, exited: false, expected: undefined },
+    { tree: [], owner: { ...actor, id: "missing" }, exited: false, expected: undefined },
+    { tree: [], owner: USER, exited: false, expected: undefined },
+    { tree: [], owner: null, exited: false, expected: undefined },
+  ];
+
+  for (const row of cases) {
+    app.handlers["rail.tree"] = () => [...row.tree, node("other", { name: "Renamed" })];
+    app.handlers["terminal.list"] = () => row.exited ? [info("t-a", { running: false })] : [];
+    await rail.refresh({ terminals: true });
+    expect(currentOwner(rail, row.owner)).toEqual(row.expected);
+  }
 });

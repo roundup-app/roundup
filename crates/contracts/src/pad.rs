@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use crate::common::Actor;
+use crate::common::{Actor, Owner};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Pad {
@@ -73,7 +73,7 @@ pub struct AppendSectionParams {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SetOwnerParams {
     pub name: String,
-    pub owner: Actor,
+    pub owner: Owner,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
@@ -144,4 +144,15 @@ pub struct Deletion {
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct GetDeletionParams {
     pub operation: String,
+}
+
+/// Put this creation before another Pad of the same owner, or last with null `before`.
+/// User only. A replaced creation, self target or other owner is CONFLICT;
+/// a missing name is NOT_FOUND. Text, Revision, Home and owner remain unchanged.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ReorderParams {
+    pub name: String,
+    pub before: Option<String>,
+    pub expected_incarnation: String,
 }

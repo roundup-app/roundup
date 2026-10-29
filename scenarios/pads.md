@@ -4,6 +4,8 @@ Module: `crates/pads`. Ids: every `P` heading in the file.
 
 **P1 create.** Given an empty Project, when an Agent `a` calls `pad.create {name: "notes", text}`, then the Pad's owner is `a`; creating `notes` again fails with `CONFLICT`, and so does `Notes` (names are unique ignoring case, because the macOS file system is case-insensitive and file-backed Pads would otherwise share one file); `pad.changed {name}` is emitted and a `wrote` Touch on `pad:notes` is logged.
 
+**Pad**: A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). It has a Revision (P15): a number that starts at 1 and rises with each change to its text, which `pad.write` and `pad.appendSection` can require atomically (`expectedRevision`) so two writers never interleave blindly. "Scratchpad" is the product word in prose only.
+
 **P2 owner rewrites, others append.** Given Pad `notes` owned by `a`, when `a` calls `pad.write`, then the text is replaced. When another Actor `b` calls `pad.write`, then it fails with `FORBIDDEN` and nothing changes. When `b` calls `pad.append`, then the text is added at the end, `pad.changed` is emitted and a `wrote` Touch by `b` is logged.
 
 **P3 read and list.** Given three Pads, when `pad.list` is called, then all three come back ordered by name; `pad.read {name}` returns one and logs a `read` Touch; an unknown name is `NOT_FOUND`.

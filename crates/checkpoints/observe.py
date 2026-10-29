@@ -37,7 +37,7 @@ def capture(source):
         else:
             raise ValueError(f"unsupported selected file {relative!r}")
         files.append({"path": list(relative), "content": content})
-    return {"iteration": 3, "agents": [{"agent": "door", "cwd": "/project", "worktree": "/project", "conversation": [0, 255, 10], "files": files}]}
+    return {"agents": [{"agent": "door", "cwd": "/project", "worktree": "/project", "conversation": [0, 255, 10], "files": files}]}
 
 
 def main():

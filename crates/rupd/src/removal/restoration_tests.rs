@@ -3,6 +3,112 @@ use super::*;
 use serde_json::json;
 
 #[tokio::test]
+async fn u3787a_rail_undo_preserves_unrelated_changes() {
+    for kind in ["agent", "workstream"] {
+        for change in ["immediate", "reorder", "new-agent", "legacy-reorder"] {
+            let dir = tempfile::tempdir().unwrap();
+            let daemon = crate::test_daemon(dir.path()).unwrap();
+            let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+            for (kind, name, order) in [
+                ("workstream", "first", 0),
+                (kind, "chosen", 1),
+                ("workstream", "following", 2),
+                ("workstream", "last", 3),
+            ] {
+                db.execute(
+                    "INSERT INTO nodes(kind,name,ord) VALUES(?,?,?)",
+                    params![kind, name, order],
+                )
+                .unwrap();
+            }
+            let original = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+            let deletion = call(
+                &daemon,
+                "rail.remove",
+                json!({"id":"2","operation":"independent"}),
+            )
+            .await
+            .unwrap()["deletion"]
+                .clone();
+            // These are the normal refresh reads after the removal event.
+            call(&daemon, "rail.tree", Value::Null).await.unwrap();
+            call(&daemon, "todo.list", Value::Null).await.unwrap();
+            call(&daemon, "pad.list", Value::Null).await.unwrap();
+            if change == "legacy-reorder" {
+                db.execute("UPDATE rail_deletions SET boundary=(SELECT json_group_array(json_array(json_extract(value,'$.id'),json_extract(value,'$.parent'),json_extract(value,'$.order'))) FROM json_each(json_extract(boundary,'$.after')))", []).unwrap();
+            }
+            if change.ends_with("reorder") {
+                call(
+                    &daemon,
+                    "rail.move",
+                    json!({"id":"4","parent":null,"index":0}),
+                )
+                .await
+                .unwrap();
+            } else if change == "new-agent" {
+                db.execute(
+                    "INSERT INTO nodes(kind,name,parent,ord) VALUES('agent','new',4,0)",
+                    [],
+                )
+                .unwrap();
+            }
+            let changed = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+            call(&daemon, "rail.restore", deletion.clone())
+                .await
+                .unwrap_or_else(|e| panic!("{kind}/{change}: {e}"));
+            let restored = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+            let chosen = restored
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == "2")
+                .unwrap();
+            let mut expected = original[1].clone();
+            expected["order"] = chosen["order"].clone();
+            assert_eq!(chosen, &expected);
+            let root: Vec<_> = restored
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|n| n["parent"].is_null())
+                .map(|n| n["id"].clone())
+                .collect();
+            assert_eq!(
+                root,
+                if change.ends_with("reorder") {
+                    vec![json!("4"), json!("1"), json!("2"), json!("3")]
+                } else {
+                    vec![json!("1"), json!("2"), json!("3"), json!("4")]
+                }
+            );
+            if change == "new-agent" {
+                assert_eq!(
+                    restored
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|n| n["name"] == "new"),
+                    changed
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find(|n| n["name"] == "new")
+                );
+            }
+            assert_eq!(
+                call(&daemon, "terminal.list", Value::Null).await.unwrap(),
+                json!([])
+            );
+            call(&daemon, "rail.restore", deletion).await.unwrap();
+            assert_eq!(
+                call(&daemon, "rail.tree", Value::Null).await.unwrap(),
+                restored
+            );
+        }
+    }
+}
+
+#[tokio::test]
 async fn u3787a_reversible_rail_removal_restores_original_identity() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = crate::test_daemon(dir.path()).unwrap();
@@ -155,15 +261,6 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
     let queue = call(&daemon, "workstream.queue", Value::Null)
         .await
         .unwrap();
-    let value=json!({"kind":"interval","category":"tool","clock":"retained","start_unix_ns":"1","end_unix_ns":"4"}).to_string();
-    db.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES('retained','original','fixture',?,'1',?,'Original maker',1000,?,'[]')",params![owner.id,home.as_str().unwrap(),value]).unwrap();
-    db.execute("UPDATE measurement_state SET revision=revision+1", [])
-        .unwrap();
-    let measurements = call(&daemon, "project.measurements", Value::Null)
-        .await
-        .unwrap()["contributions"]
-        .clone();
-    assert!(!measurements.as_array().unwrap().is_empty());
     let publication=call(&daemon,"deliverable.publish",json!({"key":"retained","title":"Original result","target":{"kind":"external","url":"https://example.test/original"}})).await.unwrap();
     let publication_id = json!({"project":publication["project"],"id":publication["id"]});
     call(
@@ -228,12 +325,6 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
             .await
             .unwrap(),
         queue
-    );
-    assert_eq!(
-        call(&daemon, "project.measurements", Value::Null)
-            .await
-            .unwrap()["contributions"],
-        measurements
     );
     assert_eq!(
         call(&daemon, "deliverable.get", publication_id)
@@ -379,6 +470,108 @@ async fn u3787a_conflict_rolls_back_graph_and_mirrors_and_allows_retry() {
             .unwrap(),
         touches
     );
+    for cause in ["parent", "identity"] {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+        let parent = call(&daemon, "rail.createWorkstream", json!({"name":"Planning"}))
+            .await
+            .unwrap()["id"]
+            .clone();
+        db.execute(
+            "INSERT INTO nodes(kind,name,parent,ord) VALUES('agent','Research',?,0)",
+            [parent.as_str().unwrap()],
+        )
+        .unwrap();
+        let chosen = db.last_insert_rowid().to_string();
+        call(
+            &daemon,
+            "todo.create",
+            json!({"title":"kept work","owner":{"kind":"agent","id":chosen,"parent":parent}}),
+        )
+        .await
+        .unwrap();
+        call(
+            &daemon,
+            "pad.create",
+            json!({"name":"notes","text":"keep exact bytes"}),
+        )
+        .await
+        .unwrap();
+        let receipt = call(
+            &daemon,
+            "rail.remove",
+            json!({"id":chosen,"operation":"retained"}),
+        )
+        .await
+        .unwrap()["deletion"]
+            .clone();
+        let blocking = if cause == "parent" {
+            Some(
+                call(
+                    &daemon,
+                    "rail.remove",
+                    json!({"id":parent,"operation":"blocking"}),
+                )
+                .await
+                .unwrap()["deletion"]
+                    .clone(),
+            )
+        } else {
+            let config = rusqlite::config::DbConfig::SQLITE_DBCONFIG_ENABLE_TRIGGER;
+            db.set_db_config(config, false).unwrap();
+            db.execute(
+                "INSERT INTO nodes(id,kind,name,parent,ord) VALUES(?,'agent','Replacement',?,0)",
+                params![chosen, parent.as_str().unwrap()],
+            )
+            .unwrap();
+            db.set_db_config(config, true).unwrap();
+            None
+        };
+        let rail = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+        let todos = call(&daemon, "todo.list", Value::Null).await.unwrap();
+        let pads = call(&daemon, "pad.list", Value::Null).await.unwrap();
+        let error = call(&daemon, "rail.restore", receipt.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::CONFLICT);
+        assert!(
+            matches!(error.data, Some(contracts::RpcErrorData::UndoParent { ref id, .. }) if cause == "parent" && id == parent.as_str().unwrap())
+                || matches!(error.data, Some(contracts::RpcErrorData::UndoIdentity { ref id, .. }) if cause == "identity" && id == &chosen)
+        );
+        assert_eq!(call(&daemon, "rail.tree", Value::Null).await.unwrap(), rail);
+        assert_eq!(
+            call(&daemon, "todo.list", Value::Null).await.unwrap(),
+            todos
+        );
+        assert_eq!(call(&daemon, "pad.list", Value::Null).await.unwrap(), pads);
+        assert_eq!(
+            call(&daemon, "rail.deletion", receipt.clone())
+                .await
+                .unwrap()["deletion"]["restored"],
+            false
+        );
+        if let Some(blocking) = blocking {
+            call(&daemon, "rail.restore", blocking).await.unwrap();
+        } else {
+            call(
+                &daemon,
+                "rail.remove",
+                json!({"id":chosen,"operation":"free-identity"}),
+            )
+            .await
+            .unwrap();
+        }
+        call(&daemon, "rail.restore", receipt.clone())
+            .await
+            .unwrap();
+        let restored = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+        call(&daemon, "rail.restore", receipt).await.unwrap();
+        assert_eq!(
+            call(&daemon, "rail.tree", Value::Null).await.unwrap(),
+            restored
+        );
+    }
 }
 
 #[tokio::test]
@@ -561,7 +754,6 @@ async fn u3787a_promoted_child_conflict_preserves_placement_for_retry() {
     )
     .unwrap();
     let child = db.last_insert_rowid().to_string();
-    let before = call(&daemon, "rail.tree", Value::Null).await.unwrap();
     let deletion = call(
         &daemon,
         "rail.remove",
@@ -577,29 +769,23 @@ async fn u3787a_promoted_child_conflict_preserves_placement_for_retry() {
     )
     .await
     .unwrap();
-    let changed = call(&daemon, "rail.tree", Value::Null).await.unwrap();
-    assert_eq!(
-        call(&daemon, "rail.restore", deletion.clone())
-            .await
-            .unwrap_err()
-            .code,
-        rpc::code::CONFLICT
-    );
-    assert_eq!(
-        call(&daemon, "rail.tree", Value::Null).await.unwrap(),
-        changed
-    );
-    call(
-        &daemon,
-        "rail.move",
-        json!({"id":child,"parent":a,"index":0}),
-    )
-    .await
-    .unwrap();
     call(&daemon, "rail.restore", deletion).await.unwrap();
+    let tree = call(&daemon, "rail.tree", Value::Null).await.unwrap();
     assert_eq!(
-        call(&daemon, "rail.tree", Value::Null).await.unwrap(),
-        before
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == child)
+            .unwrap()["parent"],
+        b
+    );
+    assert_eq!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == chosen)
+            .unwrap()["parent"],
+        a
     );
 }
 

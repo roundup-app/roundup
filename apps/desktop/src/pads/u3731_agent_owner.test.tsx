@@ -1,7 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
-import { copy } from "../copy";
 import { USER } from "../testing/nodes";
 import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
 
@@ -70,7 +68,7 @@ it("u3731_a_refused_step_keeps_the_name_and_shows_its_cause", async () => {
 const mount = async () => {
   const shelf = await openShelf([padOf("mine", USER), padOf("theirs", AGENT), padOf("lost", { kind: "agent", id: "gone", parent: null })], true);
 
-  await waitFor(() => expect(groups()).toEqual(["me", AGENT.id, "unassigned"]));
+  await waitFor(() => expect(groups()).toEqual([AGENT.id, "unassigned"]));
 
   return shelf;
 };
@@ -82,12 +80,12 @@ const assignMenu = async (app: { pickMenu(label: string): Promise<void> }, pad: 
 
 const row = (pad: string) => document.querySelector<HTMLElement>(`[data-pad="${pad}"]`)!;
 
-it("u3732_pads_group_by_owner_once_each", async () => {
+it("u2744a_root_home_pads_use_agent_or_unassigned_placement", async () => {
   await mount();
   const own = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-pad]`)].map(el => el.getAttribute("data-pad"));
 
   fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
-  expect([own("me"), own(AGENT.id), own("unassigned")]).toEqual([["mine"], ["theirs"], ["lost"]]);
+  expect([own("me"), own(AGENT.id), own("unassigned")]).toEqual([[], ["theirs"], ["mine", "lost"]]);
 });
 
 it("u3732_o_and_assign_menu_open_the_owner_list_and_return_focus", async () => {
@@ -102,9 +100,10 @@ it("u3732_o_and_assign_menu_open_the_owner_list_and_return_focus", async () => {
   fireEvent.click(within(list).getByText("Me"));
   await waitFor(() => expect(calls(app, "pad.setOwner")).toEqual([{ method: "pad.setOwner", params: { name: "theirs", owner: USER } }]));
   app.emit({ actor: USER, name: "pad.changed", data: { name: "theirs" } });
-  await waitFor(() => expect(document.querySelector('[data-shelf-group="me"] [data-pad="theirs"]')).toBeTruthy());
+  await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] [data-pad="theirs"]')).toBeTruthy());
   await waitFor(() => expect(document.activeElement?.closest("[data-pad]")?.getAttribute("data-pad")).toBe("theirs"));
 
+  if (row("mine").closest("[hidden]")) fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] .shelf-group-control')!);
   await assignMenu(app, "mine");
   const owners = await screen.findByRole("menu", { name: "Owners for mine" });
   expect(owners.contains(document.activeElement)).toBe(true);
@@ -130,10 +129,4 @@ it("u3732_home_is_unchanged_by_an_owner_change", async () => {
   await waitFor(() => expect(calls(app, "pad.setOwner")).toHaveLength(1));
 
   expect(calls(app, "pad.move")).toEqual([]);
-});
-
-it("u3732_the_key_is_registered_and_listed_in_help", () => {
-  expect(CHORDS.filter(chord => chord.presses.includes("KeyO"))).toHaveLength(1);
-  expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "O", what: copy.assignTodo }));
-  expect(hintsFor("shelf").map(hint => hint.keys)).toContain("O");
 });

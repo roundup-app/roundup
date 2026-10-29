@@ -25,3 +25,183 @@ async fn c4_wire_envelope_bytes_match_before_migration() {
         );
     }
 }
+
+#[tokio::test]
+async fn u4593_agent_inputs_resolve_before_dispatch() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Peer',0)",
+        [],
+    )
+    .unwrap();
+    let actor = Actor {
+        kind: ActorKind::Agent,
+        id: "1".into(),
+        parent: None,
+    };
+    db.execute_batch("INSERT INTO nodes(id,kind,name,ord) VALUES(2,'agent','me',1),(3,'agent','1',2),(4,'agent','name:Peer',3);").unwrap();
+    for (selector, expected) in [
+        ("me", "1"),
+        ("name:me", "2"),
+        ("1", "1"),
+        ("name:1", "3"),
+        ("name:name:Peer", "4"),
+        ("Peer", "1"),
+    ] {
+        for (method, params, pointer) in [
+            ("agent.instructions", json!({"id":selector}), "/id"),
+            (
+                "rail.rename",
+                json!({"id":selector,"name":"New name"}),
+                "/id",
+            ),
+            ("rail.move", json!({"parent":selector}), "/parent"),
+            ("agent.spawn", json!({"parent":selector}), "/parent"),
+            ("todo.hand", json!({"agent":selector}), "/agent"),
+            ("route.set", json!({"from":selector,"to":"you"}), "/from"),
+            ("message.send", json!({"to":selector}), "/to"),
+            ("message.list", json!({"to":selector}), "/to"),
+            ("message.progress", json!({"id":selector}), "/id"),
+            ("message.report", json!({"id":selector}), "/id"),
+            ("deliverable.list", json!({"maker":selector}), "/maker"),
+            (
+                "provenance.touched",
+                json!({"actor_id":selector}),
+                "/actor_id",
+            ),
+            ("terminal.read", json!({"reader":selector}), "/reader"),
+            ("workstream.rewindPlan", json!({"agent":selector}), "/agent"),
+            ("agent.wake", json!({"ids":[selector]}), "/ids/0"),
+            (
+                "reaction.create",
+                json!({"target":selector,"condition":{"kind":"agents","ids":[selector]}}),
+                "/condition/ids/0",
+            ),
+        ] {
+            let caller = if method == "agent.spawn" && selector != "me" {
+                Actor::user()
+            } else {
+                actor.clone()
+            };
+            let resolved = daemon
+                .resolve_agent_inputs(&caller, method, params)
+                .await
+                .unwrap();
+            assert_eq!(
+                resolved.pointer(pointer).unwrap(),
+                expected,
+                "{method} {selector}"
+            );
+        }
+    }
+    for owner in [
+        json!("Peer"),
+        json!({"kind":"agent","id":"Peer"}),
+        json!("1"),
+    ] {
+        let response = tests::ask(
+            &daemon,
+            &json!({"id":1,"method":"todo.create","params":{"title":"Selected", "owner":owner}})
+                .to_string(),
+        )
+        .await;
+        assert!(response.get("error").is_none(), "{response}");
+        assert_eq!(
+            response["result"]["owner"],
+            json!({"kind":"agent","id":"1","parent":null})
+        );
+    }
+}
+
+#[tokio::test]
+async fn u4593_unknown_and_ambiguous_agents_leave_no_trace() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch("INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Peer',0),(2,'agent','Peer',1),(3,'workstream','Not an Agent',2);").unwrap();
+    let before = daemon.touches.sequence().unwrap();
+    let mut events = daemon.bus.subscribe();
+    for (owner, code) in [
+        (json!("Missing"), code::NOT_FOUND),
+        (json!("peer"), code::NOT_FOUND),
+        (json!("Peer"), code::CONFLICT),
+        (json!("Not an Agent"), code::NOT_FOUND),
+        (json!("me"), code::INVALID_PARAMS),
+    ] {
+        let result = tests::ask(&daemon, &json!({"id":1,"method":"todo.create","params":{"title":"Must not exist","owner":owner}}).to_string()).await;
+        assert_eq!(result["error"]["code"], code, "{result}");
+        if owner == "Missing" {
+            assert!(
+                result["error"]["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("Peer")
+            );
+        }
+    }
+    let result = tests::ask(
+        &daemon,
+        &json!({"id":1,"method":"agent.wake","params":{"ids":["1","Missing"]}}).to_string(),
+    )
+    .await;
+    assert_eq!(result["error"]["code"], code::NOT_FOUND);
+    assert_eq!(daemon.touches.sequence().unwrap(), before);
+    assert!(events.try_recv().is_err());
+    assert_eq!(
+        tests::ask(&daemon, r#"{"id":1,"method":"todo.list"}"#).await["result"],
+        json!([])
+    );
+}
+
+#[tokio::test]
+async fn u4593_selection_preserves_authority() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Caller',0),(2,'agent','Peer',1);",
+    )
+    .unwrap();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "1".into(),
+            parent: None,
+        },
+        peer: None,
+        events,
+        output: None,
+    };
+    for (method, params) in [
+        ("agent.stop", json!({"id":"me"})),
+        ("agent.prompt", json!({"id":"Peer","text":"No authority"})),
+    ] {
+        let error = daemon.route(&mut conn, method, params).await.unwrap_err();
+        assert_eq!(error.code, code::FORBIDDEN, "{error:?}");
+    }
+}
+
+#[tokio::test]
+async fn u4593_reaction_keeps_resolved_identities() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Target',0),(2,'agent','Watched',1);",
+    )
+    .unwrap();
+    let created = tests::ask(&daemon, &json!({"id":1,"method":"reaction.create","params":{"operation":"names","name":"Observe","target":"Target","instruction":"Continue","condition":{"kind":"agents","ids":["Watched"]},"expires_at":"2099-01-01T00:00:00Z"}}).to_string()).await;
+    assert!(created.get("error").is_none(), "{created}");
+    db.execute_batch("UPDATE nodes SET name='Renamed' WHERE id=1; UPDATE nodes SET name='Also renamed' WHERE id=2; INSERT INTO nodes(id,kind,name,ord) VALUES(3,'agent','Target',2),(4,'agent','Watched',3);").unwrap();
+    let read = tests::ask(
+        &daemon,
+        &json!({"id":1,"method":"reaction.get","params":{"id":created["result"]["id"]}})
+            .to_string(),
+    )
+    .await;
+    assert_eq!(read["result"]["target"], "1");
+    assert_eq!(read["result"]["condition"]["ids"], json!(["2"]));
+}

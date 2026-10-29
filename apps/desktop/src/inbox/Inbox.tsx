@@ -1,3 +1,4 @@
+import { EmptyState } from "../ink/EmptyState";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
@@ -29,7 +30,8 @@ const sectionTitle = (title: string, count: () => number, live = false, ref?: (e
  * Todo marks it read (the Todo Drawer), and the row leaves.
  */
 export const Inbox = () => {
-  const { app, events, drawer, rail, reducedMotion } = useConnectedProject();
+  const { app, events, drawer, rail, reducedMotion, project } = useConnectedProject();
+  const [loaded, setLoaded] = createSignal(false);
   const [rows, setRows] = createSignal<readonly UnreadComment[]>([]);
   const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -53,6 +55,7 @@ export const Inbox = () => {
     if (message === null) setRows(unread);
 
     setFailure(message);
+    setLoaded(true);
   };
 
   void refresh();
@@ -101,7 +104,7 @@ export const Inbox = () => {
       const comment = rows().find(row => `c:${row.comment.id}` === key);
 
       if (agent) toggle(key);
-      else if (comment) drawer.open(() => <TodoHost id={comment.todo} />, "key");
+      else if (comment) drawer.open(() => <TodoHost id={comment.todo} />, "key", { kind: "todo", project: project.path });
     },
   });
 
@@ -188,7 +191,8 @@ export const Inbox = () => {
     <div class="inbox-title"><h2>{copy.inbox}</h2>
       <Show when={selectedText() !== ""}><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></Show>
     </div>
-    <ReservedLine message={copyFailure() ?? failure()} status={total() === 0 ? copy.inboxEmpty : null}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
+    <ReservedLine message={copyFailure() ?? failure()}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
+    <Show when={loaded() && total() === 0 && !failure() && !copyFailure()}><EmptyState art="laying" {...{ title: copy.inboxEmpty }} line={copy.emptyInboxLine} /></Show>
     <Show when={needsCount() > 0 || needsKeys().length > 0}>
       <section class="inbox-group" aria-label={copy.needsYou}>
         {sectionTitle(copy.needsYou, needsCount, true)}
@@ -196,7 +200,7 @@ export const Inbox = () => {
           <For each={needsKeys()}>{agentRow}</For>
           <For each={rows()}>{(row) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id}
             ref={element => head(`c:${row.comment.id}`, element)} data-selected={content.selection.isSelected(`c:${row.comment.id}`)}
-            onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event))}>
+            onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event), { kind: "todo", project: project.path })}>
             <KindGlyph kind="needs-you" />
             <span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
             <span class="inbox-row-line">{row.comment.body}</span>

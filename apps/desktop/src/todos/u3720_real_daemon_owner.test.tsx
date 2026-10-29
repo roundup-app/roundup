@@ -37,7 +37,7 @@ it("u3720_real_daemon_owner_assign", async () => {
   const evaluate = async (source: string) => (await browser("eval", source)).result;
   const until = (source: string) => browser("wait", "--fn", source);
   const group = (id: string) => `.shelf [data-shelf-group="${id}"]`;
-  const row = (id: number) => `.shelf [data-todo="${id}"] .shelf-title`;
+  const row = (id: number) => `.shelf [data-todo="${id}"] .sortable-handle`;
   const point = (selector: string) => evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({block:'center'}); const b = el.getBoundingClientRect(); return {x: Math.round(b.left + b.width/2), y: Math.round(b.top + b.height/2)}; })()`);
   const app = createServedApp(real.base);
   const me: Actor = { kind: "user", id: "you", parent: null };
@@ -60,7 +60,7 @@ it("u3720_real_daemon_owner_assign", async () => {
   };
 
   const lift = async (id: number) => {
-    const from = await point(row(id));
+    const from = await point(`.shelf [data-todo="${id}"] .sortable-handle`);
     await browser("mouse", "move", String(from.x), String(from.y));
     await browser("mouse", "down");
     await browser("mouse", "move", String(from.x), String(from.y - 6));
@@ -262,7 +262,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     })()`);
 
     const moved = made[4]!;
-    const from = await point(row(moved.id));
+    const from = await point(`.shelf [data-todo="${moved.id}"] .sortable-handle`);
     const to = await point(`${group(agents[0]!.id)} .shelf-group-head`);
     const busy = () => lane.evaluate<string>(`document.querySelector('${group(agents[0]!.id)} .todo-busy').textContent`);
     const original = await busy();

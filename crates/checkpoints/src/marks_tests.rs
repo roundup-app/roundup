@@ -3,7 +3,6 @@ use std::{path::Path, process::Command};
 
 fn marks() -> Marks {
     Marks {
-        iteration: 3,
         agents: vec![Mark {
             agent: "door".into(),
             cwd: "/project".into(),
@@ -85,7 +84,7 @@ fn n12_equal_contents_share_git_objects() {
         .filter(|line| line.windows(6).any(|w| w == b" blob "))
         .collect();
     assert_eq!(blobs.len(), 2, "only shared contents and empty blob");
-    assert_eq!(store.marks("door", 1, 3).unwrap(), input);
+    assert_eq!(store.marks("door", 1).unwrap(), input);
 }
 
 #[test]
@@ -108,7 +107,7 @@ fn n12_metadata_does_not_change_blob_identity() {
         &["cat-file", "blob", files[0].content.object().name()],
     );
     assert_eq!(blob, b"same\0bytes");
-    assert_eq!(store.marks("door", 1, 3).unwrap(), input);
+    assert_eq!(store.marks("door", 1).unwrap(), input);
 }
 
 #[test]
@@ -126,8 +125,8 @@ fn n12_stored_marks_survive_git_gc() {
     drop(store);
     git(dir.path(), &["gc", "--prune=now"]);
     let store = Checkpoints::open(dir.path()).unwrap();
-    assert_eq!(store.marks("door", 1, 3).unwrap(), marks());
-    assert!(store.marks("door", 2, 3).is_err());
+    assert_eq!(store.marks("door", 1).unwrap(), marks());
+    assert!(store.marks("door", 2).is_err());
     // Invalidation changes eligibility, never retention or the stored file contents.
     let content: String = store
         .db()
@@ -158,8 +157,8 @@ fn n12_workstreams_do_not_collide() {
     drop(store);
     git(dir.path(), &["gc", "--prune=now"]);
     let store = Checkpoints::open(dir.path()).unwrap();
-    assert_eq!(store.marks("a/b", 1, 3).unwrap(), first);
-    assert_eq!(store.marks("a-b", 1, 3).unwrap(), second);
+    assert_eq!(store.marks("a/b", 1).unwrap(), first);
+    assert_eq!(store.marks("a-b", 1).unwrap(), second);
     assert_eq!(
         git(
             dir.path(),
@@ -185,7 +184,7 @@ fn n13_object_marks_round_trip_after_reopen() {
     assert_eq!(
         Checkpoints::open(dir.path())
             .unwrap()
-            .marks("door", 1, 3)
+            .marks("door", 1)
             .unwrap(),
         input
     );
@@ -247,7 +246,7 @@ fn n12_save_and_load_leave_project_git_state_unchanged() {
     input.agents[0].worktree = input.agents[0].cwd.clone();
     let before = project_state(project.path());
     store.save_marks("unborn", 1, &input).unwrap();
-    assert_eq!(store.marks("unborn", 1, 3).unwrap(), input);
+    assert_eq!(store.marks("unborn", 1).unwrap(), input);
     assert_eq!(project_state(project.path()), before);
     project_git(project.path(), &["commit", "-qm", "initial"]);
     let linked = project.path().join("linked");
@@ -263,7 +262,7 @@ fn n12_save_and_load_leave_project_git_state_unchanged() {
     let before = project_state(&linked);
     let original = project_state(project.path());
     store.save_marks("linked", 1, &input).unwrap();
-    assert_eq!(store.marks("linked", 1, 3).unwrap(), input);
+    assert_eq!(store.marks("linked", 1).unwrap(), input);
     assert_eq!(project_state(&linked), before);
     assert_eq!(project_state(project.path()), original);
     assert_eq!(
@@ -313,7 +312,7 @@ fn n13_objects_preserve_bytes_despite_attributes() {
     assert_eq!(
         Checkpoints::open(data.path())
             .unwrap()
-            .marks("door", 1, 3)
+            .marks("door", 1)
             .unwrap(),
         input
     );
@@ -359,8 +358,8 @@ fn n14_failed_publication_preserves_existing_marks() {
         assert!(store.save_marks("door", 2, &input).is_err(), "{failure}");
         drop(store);
         let store = Checkpoints::open(dir.path()).unwrap();
-        assert_eq!(store.marks("door", 1, 3).unwrap(), marks(), "{failure}");
-        assert!(store.marks("door", 2, 3).is_err(), "{failure}");
+        assert_eq!(store.marks("door", 1).unwrap(), marks(), "{failure}");
+        assert!(store.marks("door", 2).is_err(), "{failure}");
         match failure {
             "object" => {
                 let (prefix, backup) = restore.unwrap();
@@ -384,8 +383,8 @@ fn n14_failed_publication_preserves_existing_marks() {
         drop(store);
         git(dir.path(), &["gc", "--prune=now"]);
         let store = Checkpoints::open(dir.path()).unwrap();
-        assert_eq!(store.marks("door", 1, 3).unwrap(), marks());
-        assert_eq!(store.marks("door", 2, 3).unwrap(), input);
+        assert_eq!(store.marks("door", 1).unwrap(), marks());
+        assert_eq!(store.marks("door", 2).unwrap(), input);
     }
 }
 
@@ -420,7 +419,7 @@ fn n14_missing_or_corrupt_object_fails_before_restore() {
         }
         drop(store);
         let store = Checkpoints::open(dir.path()).unwrap();
-        let error = store.marks("door", 1, 3).unwrap_err().to_string();
+        let error = store.marks("door", 1).unwrap_err().to_string();
         assert!(
             error.contains("Checkpoint door:1") && error.contains(object.name()),
             "{error}"
@@ -482,10 +481,10 @@ fn n14_interrupted_write_preserves_existing_marks() {
     );
     git(dir.path(), &["gc", "--prune=now"]);
     let store = Checkpoints::open(dir.path()).unwrap();
-    assert_eq!(store.marks("door", 1, 3).unwrap(), marks());
-    assert!(store.marks("door", 2, 3).is_err());
+    assert_eq!(store.marks("door", 1).unwrap(), marks());
+    assert!(store.marks("door", 2).is_err());
     store.save_marks("door", 2, &marks()).unwrap();
-    assert_eq!(store.marks("door", 2, 3).unwrap(), marks());
+    assert_eq!(store.marks("door", 2).unwrap(), marks());
 }
 
 #[cfg(unix)]
@@ -521,7 +520,7 @@ async fn restore_loaded(repeat: bool, keep: bool) {
     store.save_marks("door", 1, &input).unwrap();
     drop(store);
     let store = Checkpoints::open(data.path()).unwrap();
-    let loaded = store.marks("door", 1, 3).unwrap();
+    let loaded = store.marks("door", 1).unwrap();
     // Cargo compiles the library separately for this dev-dependency cycle.
     let restored_mark =
         serde_json::from_value(serde_json::to_value(&loaded.agents[0]).unwrap()).unwrap();
@@ -611,7 +610,7 @@ fn n13_large_binary_objects_do_not_block_pipes() {
     assert_eq!(
         Checkpoints::open(dir.path())
             .unwrap()
-            .marks("door", 1, 3)
+            .marks("door", 1)
             .unwrap(),
         input
     );
@@ -626,13 +625,13 @@ fn n14_legacy_and_object_marks_coexist() {
     )
     .unwrap();
     let store = Checkpoints::open(dir.path()).unwrap();
-    assert_eq!(store.marks("door", 1, 3).unwrap(), marks());
-    assert!(store.marks("door", 2, 3).is_err());
-    let original: Vec<(String, String, u32, bool)> = {
+    assert_eq!(store.marks("door", 1).unwrap(), marks());
+    assert!(store.marks("door", 2).is_err());
+    let original: Vec<(String, String, bool)> = {
         let db = store.db().unwrap();
-        let mut query = db.prepare("SELECT c.title,c.blocks,m.iteration,m.usable FROM checkpoints c JOIN marks m ON c.workstream=m.workstream AND c.id=m.checkpoint ORDER BY c.id").unwrap();
+        let mut query = db.prepare("SELECT c.title,c.blocks,m.usable FROM checkpoints c JOIN marks m ON c.workstream=m.workstream AND c.id=m.checkpoint ORDER BY c.id").unwrap();
         query
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
             .unwrap()
             .map(Result::unwrap)
             .collect()
@@ -643,10 +642,9 @@ fn n14_legacy_and_object_marks_coexist() {
             (
                 "legacy title".into(),
                 "[{\"kind\":\"text\",\"text\":\"legacy block\"}]".into(),
-                3,
                 true
             ),
-            ("invalidated title".into(), "[]".into(), 3, false)
+            ("invalidated title".into(), "[]".into(), false)
         ]
     );
     let legacy: String = store
@@ -662,9 +660,9 @@ fn n14_legacy_and_object_marks_coexist() {
     drop(store);
     for _ in 0..2 {
         let store = Checkpoints::open(dir.path()).unwrap();
-        assert_eq!(store.marks("door", 1, 3).unwrap(), marks());
-        assert_eq!(store.marks("door", 3, 3).unwrap(), new);
-        assert!(store.marks("door", 2, 3).is_err());
+        assert_eq!(store.marks("door", 1).unwrap(), marks());
+        assert_eq!(store.marks("door", 3).unwrap(), new);
+        assert!(store.marks("door", 2).is_err());
         let content: String = store
             .db()
             .unwrap()
@@ -673,11 +671,11 @@ fn n14_legacy_and_object_marks_coexist() {
             })
             .unwrap();
         assert_eq!(content, legacy);
-        let preserved: Vec<(String, String, u32, bool)> = {
+        let preserved: Vec<(String, String, bool)> = {
             let db = store.db().unwrap();
-            let mut query = db.prepare("SELECT c.title,c.blocks,m.iteration,m.usable FROM checkpoints c JOIN marks m ON c.workstream=m.workstream AND c.id=m.checkpoint ORDER BY c.id").unwrap();
+            let mut query = db.prepare("SELECT c.title,c.blocks,m.usable FROM checkpoints c JOIN marks m ON c.workstream=m.workstream AND c.id=m.checkpoint ORDER BY c.id").unwrap();
             query
-                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
                 .unwrap()
                 .map(Result::unwrap)
                 .collect()

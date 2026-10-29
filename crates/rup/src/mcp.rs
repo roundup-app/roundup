@@ -27,7 +27,7 @@ pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 mod agent_tools;
 use agent_tools::{
     agent_context, agent_digest, agent_extras, agent_extras_add, agent_set_order, agent_spawn,
-    agent_wake, checkpoint_write, workstream_handoff, workstream_rewind, workstream_rewind_plan,
+    agent_wake, checkpoint_write, workstream_rewind, workstream_rewind_plan,
 };
 
 const TOOLS_TTL_MS: u64 = 3_600_000;
@@ -113,7 +113,13 @@ fn offer(
 ) -> Offered {
     Offered {
         method,
-        tool: Tool::new(method.replace('.', "_"), description, schema),
+        tool: Tool::new(
+            method.replace('.', "_"),
+            format!(
+                "{description} Agent references accept `me` (you), an exact case-sensitive Rail name, `name:<Rail name>` for collisions, or a canonical id. Owner fields also accept explicit Actors; omitted/null Todo owners remain Unassigned."
+            ),
+            schema,
+        ),
         takes_params,
         own_id: false,
         own_reader: false,
@@ -259,7 +265,7 @@ pub(crate) async fn display_params(
     method: &str,
     params: &Value,
 ) -> Result<Value, RpcError> {
-    if !matches!(method, "agent.discard" | "rail.move" | "workstream.handoff") {
+    if !matches!(method, "agent.discard" | "rail.move") {
         return Ok(params.clone());
     }
     let nodes = rail_nodes(client).await?;
@@ -359,7 +365,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
         "project.open" => format!("requested opening Project {}", field("path")),
         "project.rename" => format!("requested renaming Project to {}", field("name")),
         "terminal.show" => format!("showing Terminal {id}"),
-        "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),
     }
 }

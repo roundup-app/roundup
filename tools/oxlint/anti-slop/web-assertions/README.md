@@ -88,7 +88,3 @@ exact manifest reads and the merge-base comparison.
   and types 7.29.8 for expressions Oxlint sees only as strings. Maintenance:
   [8.0.9, October 23](https://github.com/babel/babel/releases/tag/v8.0.9).
   Python reuses its built-in AST.
-
-## Timeout re-key
-
-`rekey.jsonl` maps 59 baseline entries from the identity that included the timeout argument to the current one. The head's entry count cannot exceed the merge base's, and a new key passes the subset check only through a row whose `from` key the base holds (once). It adds no assertion; once the new keys are on `main` the rows are inert.

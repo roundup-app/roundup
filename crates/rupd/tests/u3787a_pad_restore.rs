@@ -475,13 +475,15 @@ async fn u3787a_missing_original_home_refuses_without_consuming_the_operation() 
     )
     .await;
     call(&w, "rail.remove", json!({"id":home["id"]})).await;
+    let error = w
+        .client
+        .request("pad.restore", deletion_id(&receipt))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::CONFLICT);
     assert_eq!(
-        w.client
-            .request("pad.restore", deletion_id(&receipt))
-            .await
-            .unwrap_err()
-            .code,
-        rpc::code::NOT_FOUND
+        serde_json::to_value(error.data).unwrap(),
+        json!({"kind":"undo-parent","id":home["id"],"name":"Home"})
     );
     assert_eq!(
         call(&w, "pad.getDeletion", json!({"operation":"missing-home"})).await["restored"],

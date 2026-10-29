@@ -71,11 +71,52 @@ pub fn retain(db: &Connection, actor: &Actor, p: &DeleteParams) -> Result<Deleti
         pad: pad.clone(),
         restored: false,
     };
+    let mut record = serde_json::to_value(&receipt).map_err(RpcError::internal)?;
+    let has_nodes: bool = db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='nodes')",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(RpcError::internal)?;
+    if has_nodes {
+        let names: String = db
+            .query_row(
+                "SELECT json_group_object(CAST(id AS TEXT),name) FROM nodes WHERE CAST(id AS TEXT) IN (?1,?2)",
+                rusqlite::params![pad.home, pad.owner.id],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        record["targetNames"] = serde_json::from_str(&names).map_err(RpcError::internal)?;
+    }
     db.execute("INSERT INTO pad_deletions(operation,actor,request,record,incarnation,pad_key) VALUES(?1,?2,?3,?4,?5,(SELECT key FROM pads WHERE key=?6))",
         rusqlite::params![receipt.operation, serde_json::to_string(actor).map_err(RpcError::internal)?,
-            serde_json::to_string(p).map_err(RpcError::internal)?, serde_json::to_string(&receipt).map_err(RpcError::internal)?,
+            serde_json::to_string(p).map_err(RpcError::internal)?, serde_json::to_string(&record).map_err(RpcError::internal)?,
             pad.incarnation.parse::<i64>().map_err(RpcError::internal)?, store::key(&pad.name)]).map_err(RpcError::internal)?;
     Ok(receipt)
+}
+
+fn validate_targets(
+    db: &Connection,
+    home: Option<&str>,
+    owner: &Actor,
+    names: &str,
+) -> Result<(), RpcError> {
+    let names: serde_json::Value = serde_json::from_str(names).map_err(RpcError::internal)?;
+    for (identity, is_home) in home
+        .map(|id| (id, true))
+        .into_iter()
+        .chain((owner.kind == ActorKind::Agent).then_some((owner.id.as_str(), false)))
+    {
+        let exists: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=? AND (?=0 OR kind='workstream'))",rusqlite::params![identity,is_home],|r|r.get(0)).map_err(RpcError::internal)?;
+        if !exists {
+            return Err(RpcError::undo_parent(
+                identity,
+                names[identity].as_str().unwrap_or("Original Home or owner"),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Restore rows and consume the operation in an existing Project write transaction.
@@ -95,14 +136,27 @@ pub fn restore(
     }
     require_owner_or_user(actor, &receipt.pad, "restore")?;
     let pad = &receipt.pad;
+    let has_nodes: bool = db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='nodes')",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(RpcError::internal)?;
+    if has_nodes {
+        let names: String = db.query_row("SELECT COALESCE(json_extract(record,'$.targetNames'),'{}') FROM pad_deletions WHERE operation=?",[&id.operation],|r|r.get(0)).map_err(RpcError::internal)?;
+        validate_targets(db, pad.home.as_deref(), &pad.owner, &names)?;
+    }
     let incarnation = pad.incarnation.parse::<i64>().map_err(RpcError::internal)?;
     let state = source_state(db, incarnation).map_err(RpcError::internal)?;
-    if !matches!(state, PadSourceState::Deleted(_))
-        || source(db, &pad.name).map_err(RpcError::internal)?.is_some()
-    {
-        return Err(RpcError::conflict(
-            "original Pad is unavailable or its name is in use; retry after resolving the conflict",
-        ));
+    if source(db, &pad.name).map_err(RpcError::internal)?.is_some() {
+        return Err(RpcError::undo_pad_name(&pad.name));
+    }
+    if !matches!(state, PadSourceState::Deleted(_)) {
+        return Err(RpcError::conflict(format!(
+            "Can't undo: the original Pad \"{}\" is unavailable. This Undo cannot currently be completed; the deletion is retained.",
+            pad.name
+        )));
     }
     let original_key: String = db
         .query_row(
@@ -287,33 +341,28 @@ impl Pads {
         let mut events = Vec::new();
         for (kind, name, home, owner, incarnation, participant) in rows {
             let original_owner: Actor = serde_json::from_str(&owner).map_err(RpcError::internal)?;
-            for (identity, kind) in home
-                .as_deref()
-                .map(|id| (id, "workstream"))
-                .into_iter()
-                .chain(
-                    (original_owner.kind == ActorKind::Agent)
-                        .then_some((original_owner.id.as_str(), "agent")),
-                )
-            {
-                let exists:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=? AND (kind=? OR ?='agent'))",rusqlite::params![identity,kind,kind],|r|r.get(0)).map_err(RpcError::internal)?;
-                if !exists {
-                    return Err(RpcError::conflict(
-                        "original Pad Home or owner is unavailable",
-                    ));
-                }
-            }
             if kind == "pad-home" {
                 let current = source(db, &name)
                     .map_err(RpcError::internal)?
-                    .ok_or_else(|| RpcError::conflict("kept Pad no longer exists"))?
+                    .ok_or_else(|| {
+                        RpcError::conflict(format!(
+                            "Can't undo: Pad \"{name}\" was removed too. Undo that removal first."
+                        ))
+                    })?
                     .pad;
-                if current.incarnation != incarnation
-                    || current.home.is_some()
+                if current.incarnation != incarnation {
+                    return Err(RpcError::conflict(format!(
+                        "Can't undo: the original Pad \"{}\" was replaced. This Undo cannot currently be completed; the deletion is retained.",
+                        current.name
+                    )));
+                }
+                if current.home.is_some()
                     || serde_json::to_string(&current.owner).map_err(RpcError::internal)? != owner
                 {
-                    return Err(RpcError::conflict("kept Pad changed Home or owner"));
+                    continue;
                 }
+                let names: String = db.query_row("SELECT json_group_object(json_extract(value,'$.id'),json_extract(value,'$.name')) FROM rail_deletions,json_each(json_extract(boundary,'$.before')) WHERE operation=?",[operation],|r|r.get(0)).map_err(RpcError::internal)?;
+                validate_targets(db, home.as_deref(), &original_owner, &names)?;
                 db.execute(
                     "UPDATE pads SET home=? WHERE key=?",
                     rusqlite::params![home, store::key(&name)],

@@ -1,3 +1,4 @@
+import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -21,7 +22,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { agentKindsBelow, isWorkstream } from "./layout";
 import { Trunks } from "../ui/TreeView";
 import type { NodeRow } from "./layout";
-import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
+import { createAgentPads, PadsControl } from "./pads/AgentPads";
 import { draftsOf } from "./persist/storage";
 
 /** What Ark's item and branch control take for the row's own element. */
@@ -111,7 +112,9 @@ export const RailRowView = (props: {
   editing: boolean; onEditing: (editing: boolean) => void; onToggle: () => void;
   onRename: (name: string) => Promise<void>; onFailure: (message: string) => void;
   lifted: boolean; sortRef: (element: HTMLElement | undefined) => void;
-  onOpenMenu: (x: number, y: number) => void; onOpen: () => void;
+  handleRef: (element: HTMLButtonElement | undefined) => void;
+  draggable: boolean;
+  onOpenMenu: (x: number, y: number) => void;
 }) => {
   const connected = useConnectedProject();
   const pads = createAgentPads(() => props.row.node);
@@ -174,7 +177,7 @@ export const RailRowView = (props: {
   </Show>;
 
   const row = (mine: (extra: RowProps) => RowProps) => <div {...mine(rowProps())} ref={el => { element = el; props.sortRef(el); }}>
-    <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
+    <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children} />
     <p class="line">
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={copy.collapse} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
@@ -189,13 +192,10 @@ export const RailRowView = (props: {
       </span></Show>
       <span class="row-tail">
         <RowIcons actions={props.actions}>{props.doorAction}</RowIcons>
-        <span class="row-controls">
-          <IconButton aria-label={copy.openDraft} {...ownKeys} onClick={event => { event.stopPropagation(); props.onOpen(); }}><Icon name="right" /></IconButton>
-          <Show when={!workstream()}><span class="row-control-slot" inert={pads.failure.message() !== null}><PadsControl pads={pads} /></span></Show>
-        </span>
+        <Show when={!workstream()}><span class="row-controls"><span class="row-control-slot"><PadsControl pads={pads} agent={props.row.node.id} /></span></span></Show>
+        <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
       </span>
     </p>
-    <ReservedLine overlay message={pads.failure.message()}><button type="button" data-button="quiet" onClick={pads.failure.clear}>{copy.close}</button></ReservedLine>
   </div>;
 
   return <>
@@ -204,6 +204,5 @@ export const RailRowView = (props: {
         <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
       </TreeView.Branch>
     </Show>
-    <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
   </>;
 };

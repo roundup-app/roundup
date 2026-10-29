@@ -13,6 +13,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ImageAddon } from "@xterm/addon-image";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
+import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { IMarker, ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
@@ -131,8 +132,11 @@ export const xtermOptions: ITerminalOptions = {
   // xterm needs resolved values rather than CSS var references.
   fontFamily: /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
+  fontWeight: Number.parseInt(/--weight-terminal:\s*([^;]+);/.exec(tokens)![1]!, 10),
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
+  // WebGL draws box borders across the full cell even with extra line height.
+  customGlyphs: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
@@ -167,6 +171,14 @@ const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void
   observer.observe(scroller, { attributes: true, attributeFilter: ["style"] });
   disposers.push(() => observer.disconnect());
 };
+
+const ARABIC = "\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF";
+
+const ARABIC_RUN = new RegExp(`[${ARABIC}]+(?:[ \\-.,!?:;'"()0-9]+[${ARABIC}]+)*[.,!?:]?`, "g");
+
+/** Each Arabic run, spaces between words included, so the renderer draws it as one shaped string. */
+export const arabicRuns = (text: string): [number, number][] =>
+  [...text.matchAll(ARABIC_RUN)].map(match => [match.index, match.index + match[0].length]);
 
 /** The real emulators (xterm.js). WebGL is tried until the webview first refuses it, then every later Terminal goes straight to the DOM renderer. */
 export const createXtermEmulators = (
@@ -205,7 +217,7 @@ export const createXtermEmulators = (
 
     // Load every bundled style even with a custom preference, so clearing it never fits a fallback face.
     const ready = document.fonts ? Promise.all(
-      ["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
+      ["normal 300", "normal 700", "italic 300", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
     ).catch((failure: Error) => {
       // A damaged/missing local asset still leaves the existing fallback stack usable.
       console.warn("Terminal font unavailable; using the fallback face", failure);
@@ -442,19 +454,28 @@ export const createXtermEmulators = (
       return dispose;
     });
 
+    const loadRenderer = () => {
+      if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
+        loadedWebgl = createWebgl();
+
+        return loadedWebgl;
+      }, console.warn, () => probe?.renderer(false, id));
+
+      probe?.renderer(!webglDenied, id);
+    };
+
     const open = () => {
       if (!opened) {
         terminal.open(element);
+        const ligatures = new LigaturesAddon();
+        terminal.loadAddon(ligatures);
+        // Deregister while the renderer is alive: addon disposal requests a final refresh.
+        disposers.push(() => ligatures.dispose());
         opened = true;
+        terminal.registerCharacterJoiner(arabicRuns);
         dropInlineGround(element, disposers);
 
-        if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
-          loadedWebgl = createWebgl();
-
-          return loadedWebgl;
-        }, console.warn, () => probe?.renderer(false, id));
-
-        probe?.renderer(!webglDenied, id);
+        loadRenderer();
       }
     };
 
@@ -473,6 +494,9 @@ export const createXtermEmulators = (
         }
 
         terminal.resize(cols, rows);
+
+        // Recreate after the snapshot resize so the old renderer never reads the reflowing buffer.
+        if (opened && !loadedWebgl) loadRenderer();
       },
       setFontSize: (size) => {
         if (terminal.options.fontSize === size) return;

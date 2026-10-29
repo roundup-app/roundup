@@ -10,8 +10,6 @@ use crate::{agent, checkpoint, message, pad, project, terminal, todo, workstream
 pub enum EventData {
     #[serde(rename = "workstream.updated")]
     WorkstreamUpdated(workstream::AutoParams),
-    #[serde(rename = "project.measurementsChanged")]
-    MeasurementsChanged { revision: String },
     #[serde(rename = "ask.changed")]
     AskChanged { ask: Box<crate::ask::Ask> },
     #[serde(rename = "terminal.title")]
@@ -85,10 +83,6 @@ pub enum EventData {
     WorkstreamRewound(workstream::Rewound),
     #[serde(rename = "project.requested")]
     ProjectRequested(project::Requested),
-    #[serde(rename = "workstream.cleared")]
-    WorkstreamCleared(workstream::WorkstreamClearedEvent),
-    #[serde(rename = "workstream.clearFailed")]
-    WorkstreamClearFailed(workstream::WorkstreamClearFailedEvent),
     /// A3195: the Queue or the Project's cap changed; read `workstream.queue`.
     #[serde(rename = "workstream.queueChanged")]
     WorkstreamQueueChanged,

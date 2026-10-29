@@ -204,12 +204,13 @@ async fn u3787a_daemon_keeps_missing_home_restoration_retryable() {
     call(&daemon, "rail.remove", json!({"id":home}))
         .await
         .unwrap();
+    let error = call(&daemon, "todo.restore", json!({"operation":"home"}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::CONFLICT);
     assert_eq!(
-        call(&daemon, "todo.restore", json!({"operation":"home"}))
-            .await
-            .unwrap_err()
-            .code,
-        code::NOT_FOUND
+        serde_json::to_value(error.data).unwrap(),
+        json!({"kind":"undo-parent","id":home,"name":"Home"})
     );
     assert_eq!(
         call(&daemon, "todo.deletion", json!({"operation":"home"}))

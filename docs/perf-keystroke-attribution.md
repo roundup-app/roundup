@@ -1,6 +1,6 @@
 # R20 hop attribution
 
-Recorder mechanics and window-free proofs for R20. The [retained native observations](perf.md#r20-observations-retained-from-3550) include failed recorder attempts and the [first valid full-chain idle baseline](perf.md#valid-full-chain-idle-baseline-2026-10-25).
+Recorder mechanics and window-free proofs for R20. The [retained native observations](perf-keystroke.md#r20-observations-retained-from-3550) include failed recorder attempts and the [first valid full-chain idle baseline](perf-keystroke.md#valid-full-chain-idle-baseline-2026-10-25).
 
 The opt-in report carries every hop's p50/p95 and sample count. Webview marks
 use `performance.now()`; receipt (before decoding), physical `write_all` plus
@@ -167,3 +167,39 @@ regression stops frames once the producer starts. The run must still reach
 input and report positive flood bytes and all 1100 keys as dropped, rather than
 fail at the display setup wait. This repairs the observer only; native timing,
 the production repair and R21's final acceptance remain outstanding on #3550.
+
+### Flood duplicates and scheduling repair (2026-10-29)
+
+The [Mac observation at `04bafbf18`](https://github.com/roundup-app/roundup/issues/3550#issuecomment-6483287948)
+completed all three runs with 1000 measured keys and zero drops at about
+8.5 MB/s. Every run exited 2 because the runner rejected repeated producer
+samples; end-to-end p95 was 43–45 ms. Run 2's largest hop p95 values were
+`dispatch_to_daemon` 16 ms, `parsed_to_frame` 15 ms and `echo_read_to_event`
+14 ms; all remaining hops were at most 1 ms. The original JSON, load and
+calibration evidence remain in that comment. These nearby hop values do not
+establish a single dominant transport operation beyond the report's uncertainty.
+
+The runner now accepts non-decreasing counters and timestamps, including exact
+duplicates, while requiring positive growth in both across the whole window.
+Producer identity, command, visible/folded state and positive finite rate checks
+remain. Regressing or stationary windows still fail. The duplicate-pattern
+regression failed before this repair without starting a window.
+
+The production repair yields between buffered Terminal output deliveries in
+Tokio and between incoming RPC output frames. Screens submits at most one
+8 KiB live chunk per Terminal to xterm until its public parse callback completes;
+queued chunks resume on a browser task so input and drawing can run. The
+existing 1 MiB recovery queue and gap/snapshot semantics remain. Input still
+uses one ordered write in flight; this repair removes no ordering guard and
+changes no vendor launch or saved-data path. The Agent/shell regression keeps
+one Terminal's parser busy while consecutive input and delayed replies pass
+through the other, then verifies queued output is delivered in order.
+
+These tests prove scheduling and recorder behavior, not a native latency pass.
+After the repair merges, one quiet-Mac observation of
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood --out target/perf-keystroke-flood.json`
+collects three runs with the same hop chain. Keep its JSON, console exit and
+per-run diagnostics even on failure. Only three p95 values below 16 ms with
+zero dropped keys satisfy the flood budget; a remaining miss selects the next
+repair from the new attribution. R20/R21 and #3550 remain open until all native
+and comparative acceptance holds.

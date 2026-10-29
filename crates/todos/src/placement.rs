@@ -22,15 +22,20 @@ impl Todos {
 
     /// T17: the Daemon has checked the Agent against the Rail. The owner it has changes nothing.
     pub(super) fn assign(&self, ctx: &Ctx, p: AssignParams) -> Result<Value, RpcError> {
+        let owner = p
+            .owner
+            .map(contracts::common::Owner::into_actor)
+            .transpose()
+            .map_err(|e| RpcError::new(rpc::code::INVALID_PARAMS, e))?;
         let store = self.store()?;
         let todo = store.get(p.id)?;
-        if todo.owner == p.owner {
+        if todo.owner == owner {
             store.require_change(p.id, p.expected_change)?;
             return reply(&todo);
         }
         let todo = store.set_owner(
             p.id,
-            p.owner.as_ref(),
+            owner.as_ref(),
             p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
             &ctx.actor,

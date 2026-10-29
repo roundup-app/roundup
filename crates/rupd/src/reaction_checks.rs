@@ -477,9 +477,9 @@ mod tests {
             wake_gate: Default::default(),
             sender,
             attachments: crate::attachment::Attachments::open(&dir),
-            clears: Default::default(),
             checkpoints: Arc::new(checkpoints::Checkpoints::open(&dir).unwrap()),
             rewinding: Default::default(),
+            restarting: Default::default(),
             queue: Default::default(),
             auto: crate::auto::Auto::new(&bus),
         };

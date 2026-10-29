@@ -38,26 +38,12 @@
   --button-surface: var(--ground);
 }
 
-.pane .pane-empty {
+.pane-body .empty-state {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  white-space: nowrap;
-  transform: translate(-50%, -50%);
-  text-align: center;
+  inset: 0;
 }
 
-/* U524: a Terminal opened from the Project root replaces the placeholder. */
-[data-root-terminal] .pane-empty {
-  display: none;
-}
-
-/* The earlier-run line wraps in a narrow pane instead of leaving it. */
-.pane .pane-empty.light {
-  width: max-content;
-  max-width: calc(100% - var(--space-4) * 2);
-  white-space: normal;
-}
+[data-root-terminal] .empty-state { display: none; }
 
 .pane .pane-action {
   display: inline-flex;
@@ -70,13 +56,16 @@
 
 /* Over a stopped Door's last output, so the state and the way out stay readable. */
 .pane .pane-door {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  max-width: calc(100% - var(--space-4) * 2);
-  white-space: normal;
+  justify-content: center;
+}
+
+.pane-door .empty-state {
+  position: static;
+  flex: 0 1 auto;
   background: var(--ground);
 }
 
@@ -144,7 +133,7 @@
 
 
 
-.pane-empty-keys {
+.pane-shortcuts {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -154,7 +143,7 @@
   color: var(--grey);
 }
 
-.pane-empty-keys li {
+.pane-shortcuts li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -166,10 +155,6 @@
   overscroll-behavior: contain;
 }
 
-.pane-navigation { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); padding-inline: var(--space-4); height: var(--space-6); flex: none; box-sizing: border-box; white-space: nowrap; }
-.pane-identity { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.pane-name { font: inherit; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 .pane-origin {
   display: flex;
   flex: 1;
@@ -177,9 +162,4 @@
   flex-direction: column;
 }
 
-.pane-origin-hidden {
-  display: none;
-}
 
-
-.pane .pane-view { display: flex; flex: 1; min-height: 0; padding: 0; }
