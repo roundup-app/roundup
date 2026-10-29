@@ -122,7 +122,7 @@ A click target is any element with a click, press or key handler, a `button`, `a
 | rest | its resting surface; a button also has a label in `--text` or `--grey` and a hit height of at least 24 px | always |
 | hover | `--hover` surface, cursor `pointer` | pointer over it |
 | pressed | unchanged background; existing ink feedback only | from `pointerdown`, before `pointerup` |
-| focus | no outline or focus shadow; fields keep their caret | every input path (U3528) |
+| focus | controls keep no outline or focus shadow except shared forms (U4382a); Terminal, Rail, Shelf and Drawer mark actual region focus with an inset accent outline (U4685a/b) | pointer and keyboard |
 | disabled | `--disabled` text, cursor `default`, `aria-disabled`, no hover or pressed change | when it cannot act |
 
 A `textarea` is a text field, not a pressed surface: D6 and D7 skip it, because it answers with a text cursor while focused (U3528) instead of a hover surface, a pointer and a pressed style.
@@ -174,7 +174,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer item row (not editor menu categories or commands) shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
-| D6 | every click target except a `textarea` retains hover feedback, keyboard reachability and a hit area at least 24 px high; no focus ring (U3528) | U133, U3528 |
+| D6 | every click target except a `textarea` retains hover feedback, keyboard reachability and a hit area at least 24 px high; control rings only on shared forms (U4382a); Terminal, Rail, Shelf and Drawer show actual region focus without moving content (U4685a/b) | U133, U3528, U4685a, U4685b |
 | D7 | every click target adds no pressed background at `pointerdown`; ink feedback may remain (U3528) | U133 |
 | D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer, the Terminal bubble, the Shelf, the Terminal's control overlay (U375) and floating menus have a shadow (menus use `--elevation` on their surface only), and a list's scroll shadow is `--shadow-scroll`; no `backdrop-filter` element contains another | U134, U371 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0; duration membership alone proves neither movement nor smoothness (U3010a, `scenarios/ui-motion.md`) | U5, U135 |
@@ -333,3 +333,5 @@ U4382a supersedes the no-box and no-focus-ring rules above only for shared form 
 Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons are the sole exception to dark-only evidence.
 
 U4464: empty-view actions reuse shared primary/quiet buttons in one centred horizontal row, with shortcuts inside. Rail order is New Agent ⌘N, New Workstream ⇧⌘N. Single-action and actionless views retain their behavior. Open Doodles use `--doodle-line` (#5a4a3e light, #e6cfbb dark), `--doodle-patch` (#2f8f80), `--doodle-offset` (+14/+10 scene units) and `--doodle-blend` (multiply light, screen dark), with unchanged geometry. These decorative inks and the fixed primary fill/key ink are named D3 exceptions.
+
+U4685a/b: `tokens.css` paints an inward `--hairline-width` outline in `--accent` on the focused Terminal, Rail, Shelf or Drawer. CSS `:focus-within` follows actual focus immediately; Shelf also follows its tabs in the shared header. It changes no border, padding or dimensions and requests no fit or resize. A hidden Shelf paints nothing. Help and other dialogs take focus away, clearing the region indicator, and existing focus return restores it. Controls retain U3528 and shared forms retain U4382a. D2, D5 and D6 hold; region geometry and unobscured Terminal glyphs/caret are judged through the rendered U4685 observer.
