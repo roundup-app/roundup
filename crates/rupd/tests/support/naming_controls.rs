@@ -211,3 +211,93 @@ async fn b2704a_first_prompt_rename_notifies() {
     assert!(messages.as_array().unwrap().is_empty(), "{messages}");
     assert!(run.entries().is_empty());
 }
+
+#[tokio::test]
+async fn a4688b_manual_rename_while_off_notifies() {
+    let mut run = Run::start().await;
+    run.user
+        .request(
+            "daemon.setNaming",
+            json!({"automaticRenaming":false,"namingGuide":"Use role-verb-object"}),
+        )
+        .await
+        .unwrap();
+    let id = run.rename("reviewer-checks-tests").await;
+    run.assert_rename_delivery(&[id], &["reviewer-checks-tests"])
+        .await;
+}
+
+#[tokio::test]
+async fn a4688a_prompt_while_off_produces_no_rename_note_or_delayed_rename() {
+    let mut run = Run::open(1, false).await;
+    let node = run
+        .user
+        .request("agent.spawn", json!({"cwd":run.dir.path()}))
+        .await
+        .unwrap();
+    run.child = node["id"].as_str().unwrap().into();
+    run.terminal = node["terminal_id"].clone();
+    run.attempt = node["attempt"].clone();
+    run.ready().await;
+    run.user
+        .request(
+            "daemon.setNaming",
+            json!({"automaticRenaming":false,"namingGuide":"Use role-verb-object"}),
+        )
+        .await
+        .unwrap();
+    run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Fix the refresh race"}))
+        .await;
+    run.user
+        .request(
+            "daemon.setNaming",
+            json!({"automaticRenaming":true,"namingGuide":"Use role-verb-object"}),
+        )
+        .await
+        .unwrap();
+    run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Now write the docs"}))
+        .await;
+    let context = run
+        .user
+        .request("agent.context", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(context["self"]["name"], node["name"]);
+    let messages = run
+        .user
+        .request("message.list", json!({"to":run.child}))
+        .await
+        .unwrap();
+    assert!(messages.as_array().unwrap().is_empty(), "{messages}");
+    assert!(run.entries().is_empty());
+}
+
+#[tokio::test]
+async fn a4688a_persisted_off_governs_the_first_prompt_after_daemon_restart() {
+    let mut run = Run::start().await;
+    run.user
+        .request(
+            "daemon.setNaming",
+            json!({"automaticRenaming":false,"namingGuide":"Use role-verb-object"}),
+        )
+        .await
+        .unwrap();
+    run.restart().await;
+    let node = run
+        .user
+        .request("agent.spawn", json!({"cwd":run.dir.path()}))
+        .await
+        .unwrap();
+    run.child = node["id"].as_str().unwrap().into();
+    run.terminal = node["terminal_id"].clone();
+    run.attempt = node["attempt"].clone();
+    run.ready().await;
+    run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"Fix the refresh race"}))
+        .await;
+    let context = run
+        .user
+        .request("agent.context", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(context["self"]["name"], node["name"]);
+}
