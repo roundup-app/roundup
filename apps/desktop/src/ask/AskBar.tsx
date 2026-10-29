@@ -378,7 +378,7 @@ const ProjectOverview = () => {
 
   return <section class="project-overview" aria-label={copy.projectOverview} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
     <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
-    <Show when={attention().length > 0} fallback={<EmptyState art="check" {...{ title: emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0) }} line={emptyWorkstreams() ? copy.emptyWorkstreamsLine : copy.emptyCentreLine} />}>
+    <Show when={attention().length > 0} fallback={<EmptyState art="meditating" {...{ title: emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0) }} line={emptyWorkstreams() ? copy.emptyWorkstreamsLine : copy.emptyCentreLine} />}>
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
     </Show>
     <ul class="overview-list">
@@ -553,7 +553,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables>; onC
         <div class="made-actions"><button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button><Show when={props.onClose}><button type="button" data-button="quiet" onClick={() => props.onClose?.()}>{copy.closeView(copy.deliverables)}</button></Show></div>
       </div>
       <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} />
-      <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><EmptyState art="diamond" {...{ title: copy.deliverablesEmpty }} line={copy.emptyMadeLine} /></Show>
+      <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><EmptyState art="unboxing" {...{ title: copy.deliverablesEmpty }} line={copy.emptyMadeLine} /></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
         <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {

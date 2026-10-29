@@ -22,7 +22,6 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
         model: None,
         effort: None,
         work: None,
-        iteration: None,
         inbox: None,
         tool_call: None,
         overview: None,

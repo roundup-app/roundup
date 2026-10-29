@@ -46,7 +46,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Queue | same | — |
 | Workstream cap | same | — |
 | Running | same | — |
-| Iteration | same | — |
 | Home | same | — |
 | Contract methods (`daemon.methods`) | same | — |
 | Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`) | same | — |
@@ -324,7 +323,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
 | Native integration (`native`, `Preferences`, `Missing`) | same | — |
-| Todo deletion (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_targets`, `Todos::restore_homes`, `Todos::restore_with`) | same | — |
+| Todo deletion (`DeleteParams`, `Deletion`, `DeletionParams`, `DeletionState`, `todo.deletion`, `todo.restore`, `todo.restored`, `deleteTodos`, `Todos::delete_in`, `Todos::restore_with`) | same | — |
 | RPC error data (`RpcErrorData`) | same | — |
 | Thrown outcome (`outcomeOf`) | same | — |
 
@@ -347,3 +346,5 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 |---|---|---|
 | Recent Projects (`recent_projects`, `recentProjects`) | Recent folders | — |
 | Claude binary (`claude_binary`, `claudeBinary`, `ClaudeBinary`, `claudeBinarySchema`) | claude | — |
+
+| Undo refusal (`RpcErrorData::UndoParent`, `UndoIdentity`, `UndoPadName`, `RpcError::undo_parent`, `undo_identity`, `undo_pad_name`) | same | — |

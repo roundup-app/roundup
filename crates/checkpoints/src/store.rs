@@ -92,22 +92,17 @@ impl Checkpoints {
     }
 
     pub(super) fn list(&self, p: ListParams) -> Result<Value, RpcError> {
-        let iteration = self
-            .recorder
-            .as_ref()
-            .map(|recorder| recorder.iteration(&p.workstream))
-            .transpose()?;
         let db = self.db()?;
         let mut statement = db
             .prepare(
                 "SELECT c.id, c.at, c.title, c.blocks,
                         EXISTS(SELECT 1 FROM marks m WHERE m.workstream = c.workstream
-                            AND m.checkpoint = c.id AND m.usable = 1 AND m.iteration = ?2)
+                            AND m.checkpoint = c.id AND m.usable = 1)
                  FROM checkpoints c WHERE c.workstream = ?1 ORDER BY c.id",
             )
             .map_err(RpcError::internal)?;
         let rows = statement
-            .query_map(params![p.workstream, iteration], |row| {
+            .query_map(params![p.workstream], |row| {
                 Ok((
                     row.get(0)?,
                     row.get(1)?,

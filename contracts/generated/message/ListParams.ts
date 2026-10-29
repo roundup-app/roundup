@@ -3,7 +3,7 @@
 import type * as message$MessageStatus from "./MessageStatus";
 export type ListParams = {
 	to: string | null,
-	/**  A32: every Message sent to or by this Door, of every Iteration, each carrying its `iteration`. */
+	/**  Every Message sent to or by this Door, in order. */
 	id?: string,
 	status: message$MessageStatus.MessageStatus | null,
 };
