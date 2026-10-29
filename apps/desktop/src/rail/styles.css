@@ -436,12 +436,6 @@
   --button-inline: 0;
 }
 
-/* U362: a Todo drop destination keeps one placement wash. */
-.rail-row[data-todo-drop],
-.rail-row[data-todo-drop]:hover {
-  --row-wash: var(--hover);
-}
-
 /* Each content row owns its inset independently of the shared wash. */
 .rail-fold,
 .rail-leaf,
