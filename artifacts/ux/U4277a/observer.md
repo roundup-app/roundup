@@ -33,4 +33,4 @@ Product baseline: `514edfafcb07396b4eceecba084d1b2d83261396` (full SHA in `base/
 
 Scoped behavioral verification passes with retries disabled: 16 App Settings tests, 12 preference tests, five Terminal settings tests and the shared-control semantics test. The existing real Tab observer replaces the former simulated focus assertion; no test was removed. The Back test now checks that its original view unmounts, retiring its old copy-assertion exemption. The runner's missing ffmpeg was installed before the passing paired video runs.
 
-Captures use the existing U4277 observer with `ROUNDUP_CAPTURE_SCREENS=settings` and `ROUNDUP_CAPTURES=U4277a`. PNGs and interaction videos remain untracked. No native macOS observation is claimed; the user reports what they meet on the Mac.
+Captures use the existing U4277 observer with `ROUNDUP_CAPTURE_SCREENS=settings` and `ROUNDUP_CAPTURES=U4277a`. Images and interaction videos remain untracked. No native macOS observation is claimed; the user reports what they meet on the Mac.

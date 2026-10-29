@@ -320,6 +320,7 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
       await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tab.id));
     }
   }
+
   fireEvent.click(within(view).getByRole("tab", { name: "Appearance" }));
   const panel = await within(view).findByRole("tabpanel", { name: "Appearance" });
   const appearanceChoice = within(panel).getByRole("combobox", { name: "Appearance" });

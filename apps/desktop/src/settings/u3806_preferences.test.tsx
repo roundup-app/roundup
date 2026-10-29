@@ -167,7 +167,7 @@ it("u4686d_controls_have_labels_and_descriptions", async () => {
     ["Agents", [["combobox", "Permission mode"], ["button", /^Engine /], ["button", /^Model /]]],
     ["Terminal", [["textbox", "Font family"], ["spinbutton", "Font size"]]],
     ["Shortcuts", [["button", /^Quick add a Todo /]]],
-    ["Appearance", [["combobox", "Mode"]]],
+    ["Appearance", [["combobox", "Appearance"]]],
   ] as const) {
     await section(page);
 
