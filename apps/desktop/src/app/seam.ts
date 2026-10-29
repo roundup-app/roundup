@@ -32,14 +32,6 @@ export type Project = v.InferOutput<typeof projectSchema>;
 
 export type DaemonExit = v.InferOutput<typeof daemonExitSchema>;
 
-export const systemAccentSchema = v.nullable(v.tuple([
-  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
-  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
-  v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
-]));
-
-export type SystemAccent = v.InferOutput<typeof systemAccentSchema>;
-
 /** Native requests are delivered once after the main consumer is ready; links remain opaque. */
 export const nativeOpenSchema = v.variant("kind", [
   v.object({ kind: v.literal("project"), path: v.string() }),
@@ -90,7 +82,6 @@ export type ProjectCalls = {
 export const SEAM_COMMANDS = [
   "ask_removal",
   "plugin:capture-panel|control",
-  "system_accent",
   "native_open",
   "projects",
   "recent_projects",
@@ -162,7 +153,6 @@ export type App = {
   recentProjects(): Promise<string[]>;
   claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
   /** Initial macOS accent and later preference changes; null selects the Radix fallback. */
-  onSystemAccent(listener: (accent: SystemAccent) => void): Promise<Unsubscribe>;
   capture?: CapturePort | undefined;
   onNativeOpen?: ((listener: (request: NativeOpen) => void) => Promise<Unsubscribe>) | undefined;
   /** R24 measurement builds alone provide this bounded native evidence sink. */

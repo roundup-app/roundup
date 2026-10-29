@@ -8,7 +8,7 @@ import { storageProblems, retainedStorage } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
-import { appSettings, applySystemAccent, applyAppAppearance } from "./settings/preferences";
+import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
 import { CHORDS, LEADER } from "./keys/chords";
@@ -230,7 +230,6 @@ export const App = (props: {
   });
 
   applyAppAppearance();
-  applySystemAccent(props.app);
   const projects = createProjectsState(props.app);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();

@@ -23,6 +23,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |
 | Agent | same | bot, worker; and session for an Agent. |
 | Terminal | same | process, console |
+| Terminal preparation (`TerminalPreparation`, `prepareTerminal`, `prepare`, `bind`) | none | — |
 | Terminal dimensions (`cols`, `rows`, `terminal::window`) | same | — |
 | Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
 | Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
@@ -33,6 +34,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal owner (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
+| Bubble focus (`closeFocused`) | none | — |
 | Pull | same | summon, fling |
 | Run | same | — |
 | Show request (`terminal.show`, event `terminal.shown`) | same | — |
@@ -231,7 +233,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
-| Token | same | — |
+| Token (`--button-accent-fill`, `--button-key-ink`, `--doodle-line`, `--doodle-patch`, `--doodle-offset`, `--doodle-blend`) | same | — |
 | Text selection Token (`--text-selection`, `--text-selection-ink`) | same | — |
 | Section head | same | — |
 | Signifier | same | — |
@@ -333,7 +335,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Storage recovery (`StorageRecovery`, `storageRecovery`, `retainedStorage`) | same | — |
 | Capture panel (`CapturePanel`, `CapturePanelState`, `register_capture`) | same | — |
 | Capture presentation (`CapturePort`, `CaptureState`, `CaptureAction`, `captureStateSchema`, `captureActionSchema`, `CapturePanel` in the App, `control` in the capture-panel plugin) | same | — |
-| System accent (`SystemAccent`, `systemAccentSchema`, `onSystemAccent`, `system_accent`, `watch_accent`, `applySystemAccent`, `--system-accent-channels`, `--system-accent-light-channels`, `--system-accent-dark-channels`) | same | — |
 | Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |
 | Native open (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`) | same | — |
 | Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | — (not a name: same-name recreation) |
