@@ -75,6 +75,7 @@ mod tests {
             blockers: blockers.to_vec(),
             blocked: false,
             created_at: 0,
+            updated_at: 0,
             creator: Actor {
                 kind: ActorKind::Agent,
                 id: creator.into(),

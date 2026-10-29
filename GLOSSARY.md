@@ -115,6 +115,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Reopen (`todo.reopen`, `todo_reopen`) | same | — |
 | Owner (`owner`) | same | assignee |
 | Estimate (`estimate_minutes`) | same | — |
+| Updated at (`updated_at`) | a Todo's last-change time | — |
 | Delegate Board | same | — |
 | Busy until | "free now", "busy until <HH:MM>" | — |
 | Comment (`todo.comment`, `todo_comment`) | same | — |

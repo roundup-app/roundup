@@ -786,7 +786,7 @@ export type todo_SetBlockersParams = { id: number, blockers: Array<number>, expe
 
 export type todo_Todo = { id: number, title: string, body: string, done: boolean, blockers: Array<number>, 
 
-blocked: boolean, created_at: number, 
+blocked: boolean, created_at: number, updated_at: number, 
 
 creator: Actor, 
 

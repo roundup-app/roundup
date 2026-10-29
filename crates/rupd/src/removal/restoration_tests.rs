@@ -2,6 +2,19 @@ use super::tests::call;
 use super::*;
 use serde_json::json;
 
+/// T30: restoring a Todo's owner or blockers is a Change, so `updated_at` moves; the rest returns.
+fn without_updated_at(mut value: Value) -> Value {
+    if let Some(todos) = value.as_array_mut() {
+        todos.iter_mut().for_each(|todo| {
+            todo.as_object_mut()
+                .map(|object| object.remove("updated_at"));
+        });
+    } else if let Some(object) = value.as_object_mut() {
+        object.remove("updated_at");
+    }
+    value
+}
+
 #[tokio::test]
 async fn u3787a_rail_undo_preserves_unrelated_changes() {
     for kind in ["agent", "workstream"] {
@@ -160,10 +173,12 @@ async fn u3787a_reversible_rail_removal_restores_original_identity() {
         .await
         .unwrap();
     assert_eq!(
-        call(&daemon, "todo.get", json!({"id":todo["id"]}))
-            .await
-            .unwrap(),
-        todo
+        without_updated_at(
+            call(&daemon, "todo.get", json!({"id":todo["id"]}))
+                .await
+                .unwrap()
+        ),
+        without_updated_at(todo)
     );
     assert_eq!(
         call(&daemon, "agent.spawnPrompt", node.clone())
@@ -334,8 +349,8 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
     );
     assert_eq!(call(&daemon, "rail.tree", Value::Null).await.unwrap(), rail);
     assert_eq!(
-        call(&daemon, "todo.list", Value::Null).await.unwrap(),
-        todos
+        without_updated_at(call(&daemon, "todo.list", Value::Null).await.unwrap()),
+        without_updated_at(todos)
     );
     assert_eq!(call(&daemon, "pad.list", Value::Null).await.unwrap(), pads);
     assert_eq!(
