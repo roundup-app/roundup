@@ -20,7 +20,7 @@ import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } fr
 
 type ComboboxItem = { value: string; label: string };
 
-/** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; Ark owns the highlight and `↑` `↓`; form choices wrap and follow the pointer, while content search preserves its keyboard position. `onSelect` hears the highlighted value on `⏎`. */
+/** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; Ark owns the highlight and `↑` `↓`; form choices wrap, and the pointer preserves the keyboard position. `onSelect` hears the highlighted value on `⏎`. */
 const Root = (props: {
   items: readonly ComboboxItem[];
   /** Opt in only owned content rows; commands and form choices keep single activation. */
@@ -49,7 +49,7 @@ const Root = (props: {
 
   const groups = createMemo(() => collection().group());
 
-  // Content search preserves its keyboard position under a resting pointer (U4682); form choices use Ark's pointer highlight.
+  // Typing and arrows own the highlight; a resting pointer must not move the selection wash.
   let pointerEvent = false;
 
   const notePointer = (): void => {
@@ -86,7 +86,7 @@ const Root = (props: {
     collection: collection(), multiple: props.items.some(item => props.contentRow?.(item)), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: !props.contentRow, autoFocus: false,
     onFocusOutside: event => { if (!(event.detail.target instanceof Node && props.focusScope?.()?.contains(event.detail.target))) dismiss?.(); },
     inputValue: props.inputValue, value: [], highlightedValue: props.contentRow ? props.highlightedValue ?? undefined : props.items.find(item => item.value === props.highlightedValue)?.value ?? props.items[0]?.value,
-    onHighlightChange: details => { if (!pointerEvent || !props.contentRow) props.onHighlightChange(details.highlightedValue); },
+    onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
     onInputValueChange: details => props.onInput(details.inputValue),
     onOpenChange: details => { if (!details.open && details.reason === "escape-key") dismiss?.(); },
     onValueChange: details => { const [value] = details.value;
