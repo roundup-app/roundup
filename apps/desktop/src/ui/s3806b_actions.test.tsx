@@ -271,8 +271,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     }
 
     expect(connected.drafts.list()).toEqual(drafts);
-    expect("other" in mounted && mounted.other.calls.filter(call => [row.method, "message.send", "agent.spawn", "terminal.write"].includes(call.method))).toEqual([]);
-    expect(app.calls.slice(before).filter(call => ["message.send", "agent.spawn", "terminal.write"].includes(call.method))).toEqual([]);
+    expect("other" in mounted && mounted.other.calls.filter(call => [row.method, "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
+    expect(app.calls.slice(before).filter(call => ["message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
     expect(app.badges.filter(count => count > 0)).toEqual([]);
 
     if (outcome === "resolve" || outcome === "confirmation-accept") {
