@@ -212,14 +212,15 @@ test("u4590_capture_selection_activates_a_shared_observer_for_an_individual_id",
 
 test("u4590_every_captureDir_id_in_an_observer_file_has_a_table_entry", () => {
   const missing: string[] = [];
+  const table: Record<string, readonly string[] | undefined> = observers;
 
   for (const file of globSync("src/**/*.test.{ts,tsx}")) {
     if (file.endsWith("captures.test.ts")) continue;
 
-    for (const [, id] of readFileSync(file, "utf8").matchAll(/captureDir\("([A-Za-z0-9]+)"/g)) {
+    for (const [, id = ""] of readFileSync(file, "utf8").matchAll(/captureDir\("([A-Za-z0-9]+)"/g)) {
       if (id.startsWith("J")) continue;
 
-      if (!(observers as Record<string, readonly string[]>)[file]?.includes(id)) missing.push(`${file} ${id}`);
+      if (!table[file]?.includes(id)) missing.push(`${file} ${id}`);
     }
   }
 
