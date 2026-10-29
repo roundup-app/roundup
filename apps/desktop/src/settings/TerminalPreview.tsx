@@ -18,6 +18,8 @@ export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }
 
   const repaint = () => {
     fit.fit();
+    // Keep the complete sample visible at every font metric; xterm owns the five-row height.
+    terminal.resize(terminal.cols, copy.terminalPreviewSample.split("\r\n").length);
     // With no scrollback, resizing can discard sample rows. Rebuild the complete sample after fitting.
     // Queue the reset with its text so an earlier asynchronous write cannot append after it.
     terminal.write(`\x1bc${copy.terminalPreviewSample}`);
