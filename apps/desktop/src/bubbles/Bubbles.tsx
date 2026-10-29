@@ -1,4 +1,4 @@
-import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble } from "./focus";
+import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble, onBubbleFocus as trackBubbleFocus, hasTerminalFocus } from "./focus";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
@@ -696,7 +696,6 @@ export const Bubbles = (props: {
     return id !== null && document.querySelector(".pane-screen textarea, .pane-screen [tabindex]") ? id : null;
   };
 
-  const hasTerminalFocus = (focus: Element | null): boolean => focus?.isConnected === true && focus.closest(".bubble, button.terminal-tab, .pane-screen") !== null;
 
   const switchPair = (focus: Element | null) => {
     const selected = rail.selected();
@@ -753,16 +752,7 @@ export const Bubbles = (props: {
     before = event.target;
   };
 
-  const onBubbleFocus = (event: FocusEvent): void => {
-    if (!(event.target instanceof Element)) return;
-
-    const id = event.target.closest<HTMLElement>("[data-bubble]")?.dataset.bubble;
-
-    if (id !== undefined) {
-      lastFocused = id;
-      document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${id}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    }
-  };
+  const onBubbleFocus = (event: FocusEvent): void => trackBubbleFocus(event, id => { lastFocused = id; });
 
   // Focus landing on a control outside the bubbles (⌘K's Switcher, ⌘/'s Ask bar) minimises every open bubble, so the focused control is never under the top layer, whether or not focus began inside a bubble.
   const onFocusLeave = (event: FocusEvent): void => {
