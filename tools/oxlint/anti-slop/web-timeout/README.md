@@ -7,7 +7,7 @@ This PR does not complete T3779a, enable the repository gate, or authorize cuts.
 ```text
 pnpm lint --config tools/oxlint/anti-slop/web-timeout/audit.json
   -> existing rules + bounded-test-timeout
-  -> 162 timeout observations in 54 files require review
+  -> 163 timeout observations in 55 files require review
   -> justify exact exceptions or repair each observation
   -> enable the rule in .oxlintrc.json in a subsequent PR
 ```
@@ -20,7 +20,7 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 ```
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
-file count and each diagnostic. Its App source equals merged base `ff965f46b`;
+file count and each diagnostic. Its App source equals merged base `41ebeb6d3`;
 the recorded tool hash identifies the rule used for this audit. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /
@@ -29,7 +29,7 @@ Dynamic titles cannot receive an exception. No existing timeout or retry changes
 
 `fixtures.jsonl` records every boundary fixture's input, diagnostic and exit code
 through `pnpm lint --no-ignore --config <isolated-config> --format json <fixture>`.
-The 95 retained fixtures include 62 negatives, each with its own diagnostic and
+The 97 retained fixtures include 63 negatives, each with its own diagnostic and
 exit code. The over-limit alias fixture added during development was removed:
 `configuration default` already proves that literal-property rejection; the
 mutated and immutable alias fixtures retain the distinct binding-resolution proof.
@@ -82,6 +82,15 @@ spreads. The project fixtures reject computed over-limit and unresolved defaults
 an exported alias with an explicit safe override passes. Existing fixtures remain:
 the project cases exercise recognition of another installed configuration API.
 Project-wide defaults cannot claim an exact-test exception.
+
+Vitest 5.0.3's installed `createTaskCollector` also exposes `test.describe` and
+`test.suite` as suite collectors. The rule preserves their full containing-suite
+names and inherited timeout: a suite-only exception cannot authorize its children,
+while an exact full child-title exception applies normally. The two actual-command
+fixtures reproduced an unauthorized exit 0 and a false exit 1 before repair; both
+now have the required result. Existing fixtures remain because direct suites do
+not exercise the test API's suite members. The same registration resolver handles
+aliases, computed members and fixture-builder results.
 
 Vitest 5.0.3's installed `createTaskCollector` implements `test.override` as a
 fixture builder returning the test API. Its own fixture options are not test
