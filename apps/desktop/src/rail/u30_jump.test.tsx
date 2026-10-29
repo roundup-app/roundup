@@ -111,15 +111,16 @@ describe.each(["leader", "direct"])("u30 jump via %s", (route) => {
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent)).toEqual(["first", "last"]);
   });
 
-  describe("u48 after the Daemon exited", () => {
-  it("u48_after_daemon_exited_leader_j_still_selects", async () => {
+});
+
+describe("u48 after the Daemon exited", () => {
+  it.each(["leader", "direct"])("u48_after_daemon_exited_leader_j_still_selects: %s", async route => {
     const [exit] = createSignal({ code: 1 });
     const { rail } = await mountRail([since("a", "needs-you", 1)], [], exit);
 
-    jump();
+    if (route === "leader") leaderKey("KeyJ");
+    else fireEvent.keyDown(document.activeElement ?? document.body, { key: "j", code: "KeyJ", ctrlKey: true, metaKey: true });
 
     expect(rail.selected()).toBe("a");
   });
-});
-
 });
