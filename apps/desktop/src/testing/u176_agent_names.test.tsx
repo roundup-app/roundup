@@ -265,7 +265,7 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
       const open = `document.dispatchEvent(new KeyboardEvent('keydown', {key:'n',metaKey:true,shiftKey:true,bubbles:true}))`;
       await lane.browser("open", url);
       await lane.until(`!!document.querySelector('[data-id="${target.id}"] .name')`);
-      await lane.browser("click", `.rail-row[data-id="${target.id}"] .row-state`);
+      await lane.browser("click", `.rail-row[data-id="${target.id}"] .name`);
       await lane.until(`document.querySelector('.rail-row[data-id="${target.id}"]').dataset.selected === 'true'`);
       await lane.evaluate(open);
       await lane.until(`!!${field}`);
