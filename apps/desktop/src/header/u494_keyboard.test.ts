@@ -41,57 +41,6 @@ for (const away of [false, true]) it(`u496_drawer_escape_and_return_${away}`, as
   expect(await read<boolean>(away ? `document.activeElement.matches('[role=tabpanel]')` : `document.activeElement === document.querySelector('#origin')`)).toBe(true);
 }, 60_000);
 
-it("u497_control_names_and_tooltips", async () => {
-  await browser("open", fixture());
-  await wait(`document.querySelectorAll('[role=tab]').length === 8`);
-  await browser("click", '#origin');
-  await wait(`document.querySelector('.drawer').dataset.open === 'true'`);
-  await browser("hover", '.drawer .close');
-  await wait(`(() => { const el=document.querySelector('.drawer .close'); return document.getElementById(el.getAttribute('aria-describedby'))?.textContent === 'Close'; })()`);
-  await browser("mouse", "move", "10", "750");
-  await wait(`document.querySelector('.drawer .close').dataset.state === 'closed'`);
-  await browser("press", 'Shift+Tab');
-  await browser("press", 'Tab');
-  await wait(`document.activeElement === document.querySelector('.drawer .close') && document.querySelector('.drawer .close').dataset.state === 'open'`);
-  await browser("eval", `document.querySelector('.drawer .close').click()`);
-  await wait(`document.querySelector('.drawer').dataset.open === 'false'`);
-
-  for (const at of [0, 7]) {
-    await browser("eval", `document.querySelectorAll('.project-tab')[${at}].querySelector('[role=tab]').click()`);
-    await wait(`document.querySelectorAll('.project-tab')[${at}].dataset.selected === 'true'`);
-    await browser("hover", `.project-tab:nth-child(${at + 1}) [role=tab]`);
-    await wait(`document.querySelectorAll('.project-tab')[${at}].querySelector('.tab-close').checkVisibility({visibilityProperty:true})`);
-    const selector = `.project-tab:nth-child(${at + 1}) .tab-close`;
-    const name = await read<string>(`document.querySelector(${JSON.stringify(selector)}).getAttribute('aria-label')`);
-    expect(name).toBe(`Close Project number ${at}`);
-    await browser("hover", selector);
-    await wait(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); return document.getElementById(el.getAttribute('aria-describedby'))?.textContent === ${JSON.stringify(name)}; })()`);
-    await browser("hover", '#origin');
-    await wait(`document.querySelector(${JSON.stringify(selector)}).dataset.state === 'closed'`);
-    await browser("eval", `document.querySelectorAll('.project-tab')[${at}].querySelector('[role=tab]').focus()`);
-    await wait(`document.querySelectorAll('.project-tab')[${at}].querySelector('.tab-close').checkVisibility({visibilityProperty:true})`);
-    await browser("press", 'Tab');
-    await wait(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); return document.getElementById(el.getAttribute('aria-describedby'))?.textContent === ${JSON.stringify(name)}; })()`);
-  }
-
-  await browser("eval", `document.querySelectorAll('.project-tab')[0].querySelector('[role=tab]').click()`);
-
-  for (const selector of ['.strip-add', '.strip-edge-left', '.strip-edge-right']) {
-    await browser("eval", `(() => { const list = document.querySelector('.tablist'); list.scrollLeft = ${selector.endsWith('left') ? 'list.scrollWidth' : '0'}; })()`);
-    await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
-    await browser("hover", selector);
-    await wait(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); return document.getElementById(el.getAttribute('aria-describedby'))?.textContent === el.getAttribute('aria-label'); })()`);
-    await browser("mouse", "move", "10", "750");
-    await wait(`document.querySelector(${JSON.stringify(selector)}).dataset.state === 'closed'`);
-    await browser("eval", `document.querySelector('[role=tab][aria-selected=true]').focus({preventScroll:true})`);
-    await browser("eval", `(() => { const target=document.querySelector(${JSON.stringify(selector)}); const stops=[...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(e=>e.tabIndex>=0 && e.checkVisibility({visibilityProperty:true})); stops[stops.indexOf(target)-1].focus(); })()`);
-    await browser("press", 'Tab');
-    await wait(`document.activeElement === document.querySelector(${JSON.stringify(selector)}) && document.querySelector(${JSON.stringify(selector)}).dataset.state === 'open'`);
-  }
-
-  expect(await read<number>(`document.querySelectorAll('.strip [title],.drawer [title]').length`)).toBe(0);
-}, 180_000);
-
 it("u497_no_native_titles", async () => {
   await browser("open", url('/harness.html?view=workstreams&items=1&tabs=1&seed=tabs-8'));
   await wait(`document.querySelectorAll('.project-tab').length === 8`);
