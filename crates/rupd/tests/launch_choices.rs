@@ -24,6 +24,8 @@ impl Run {
                     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                         .join("../rup/tests/e2e/fake_claude.py"),
                 )
+                // Launch choices use fabricated identities, without SDK conversations.
+                .env("ROUNDUP_SIDECAR_DIR", dir.path().join("unused-sidecar"))
                 .env("CLAUDE_CONFIG_DIR", dir.path().join("config"))
                 .env("FAKE_CLAUDE_LAUNCH_LOG", dir.path().join("launches"));
         });

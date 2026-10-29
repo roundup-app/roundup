@@ -42,12 +42,6 @@
     "reason": "Filesystem pruning test uses a reference clock to set fixture mtimes."
   },
   {
-    "telltale": "polling-wait",
-    "file": "crates/desktop/tests/app.rs",
-    "symbol": "s4_just_app_refuses_to_start_when_something_already_answers_on_the_dev_port",
-    "reason": "Native launcher integration test bounds the just-app child lifetime while checking dev-port refusal."
-  },
-  {
     "telltale": "system-time",
     "file": "crates/provenance/src/store.rs",
     "symbol": "Touches::record_revision",

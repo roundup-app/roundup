@@ -187,3 +187,97 @@ async fn m2706a_a_failed_name_lookup_sends_no_action() {
     }
     assert_eq!(reads, 2, "startup and the action each read the Rail");
 }
+
+#[tokio::test]
+async fn a4700a_a_new_workstream_starts_by_rail_name() {
+    for selector in ["todo-pad-views", "name:todo-pad-views"] {
+        start_workstream_door(Some(selector)).await;
+    }
+}
+
+#[tokio::test]
+async fn a4700b_a_new_workstream_starts_by_id() {
+    start_workstream_door(None).await;
+}
+
+async fn start_workstream_door(selector: Option<&str>) {
+    let fake = format!(
+        "#!/bin/sh\nexec python3 '{}/tests/e2e/fake_claude.py' \"$@\"\n",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let served = Served::start(&fake, &[("FAKE_CLAUDE_PROMPT_LOG", "/dev/null")]).await;
+    let user = client_as(&served.socket(), Actor::user()).await;
+    let shim = spawn_shim(&served.socket(), "").await;
+    let made = shim
+        .call(
+            "rail_createWorkstream",
+            json!({"name":"todo-pad-views","parent":null}),
+        )
+        .await;
+    assert_eq!(made.is_error, Some(false), "{made:?}");
+    let made = text(&made);
+    let id = made["id"].as_str().unwrap();
+    assert!(made["attempt"].is_null());
+    assert!(
+        user.request("terminal.list", ())
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let mut events = rpc::Client::connect(&served.socket()).await.unwrap();
+    events.request("events.subscribe", ()).await.unwrap();
+    let started = shim
+        .call("rail_startDoor", json!({"id":selector.unwrap_or(id)}))
+        .await;
+    assert_eq!(started.is_error, Some(false), "{selector:?}: {started:?}");
+    let started = text(&started);
+    assert_eq!(started["id"], id);
+    tokio::time::timeout(
+        Duration::from_secs(4),
+        common::NamedRail::idle(&mut events, id),
+    )
+    .await
+    .expect("fake vendor launched and became idle");
+    let tree = user.request("rail.tree", ()).await.unwrap();
+    let nodes = tree.as_array().unwrap();
+    assert_eq!(nodes.len(), 1, "no replacement Workstream");
+    assert_eq!(nodes[0]["id"], id);
+    assert_eq!(nodes[0]["attempt"], started["attempt"]);
+    assert!(!nodes[0]["attempt"].is_null());
+    let terminals = user.request("terminal.list", ()).await.unwrap();
+    let terminals = terminals.as_array().unwrap();
+    assert_eq!(terminals.len(), 1);
+    assert_eq!(terminals[0]["id"], started["terminal_id"]);
+    assert_eq!(nodes[0]["terminal_id"], started["terminal_id"]);
+    assert_eq!(terminals[0]["running"], true);
+    user.request("agent.stop", json!({"id":id})).await.unwrap();
+}
+
+#[tokio::test]
+async fn a4700c_an_unknown_workstream_name_is_named_without_starting() {
+    for selector in ["missing-workstream", "name:missing-workstream"] {
+        let served = Served::start("#!/bin/sh\nexit 1\n", &[]).await;
+        let user = client_as(&served.socket(), Actor::user()).await;
+        let shim = spawn_shim(&served.socket(), "").await;
+        let made = shim
+            .call(
+                "rail_createWorkstream",
+                json!({"name":"todo-pad-views","parent":null}),
+            )
+            .await;
+        assert_eq!(made.is_error, Some(false), "{made:?}");
+        let before = user.request("rail.tree", ()).await.unwrap();
+        let terminals = user.request("terminal.list", ()).await.unwrap();
+        let refused = shim.call("rail_startDoor", json!({"id":selector})).await;
+        assert_eq!(refused.is_error, Some(true), "{refused:?}");
+        let error = text(&refused);
+        assert_eq!(error["code"], rpc::code::NOT_FOUND);
+        let message = error["message"].as_str().unwrap();
+        assert!(message.contains("missing-workstream"), "{message}");
+        assert!(!message.contains("an Agent that is gone"), "{message}");
+        assert_eq!(user.request("rail.tree", ()).await.unwrap(), before);
+        assert_eq!(user.request("terminal.list", ()).await.unwrap(), terminals);
+    }
+}

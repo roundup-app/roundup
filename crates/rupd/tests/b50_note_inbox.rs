@@ -1,7 +1,6 @@
 //! B50, B51, B52: a `note` goes through Claude Code's messaging socket and never to the Terminal.
-//! A real Daemon, the fake `claude` (it listens on the socket it is launched with, lists its
-//! session as Claude Code does, and records every byte written to its Terminal) and the fake
-//! transcript the test appends to.
+//! A real Daemon and fake `claude` with a live messaging socket, session listing, recorded
+//! Terminal input and a transcript the test appends to. Saved identities need no SDK storage.
 #[path = "support/rename_delivery.rs"]
 mod rename_delivery;
 #[path = "support/rupd_harness.rs"]
@@ -138,6 +137,7 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
                 .env("ROUNDUP_RUP_BIN", rup)
+                .env("ROUNDUP_SIDECAR_DIR", project.join("unused-sidecar"))
                 .env("CLAUDE_CONFIG_DIR", project.join("config"))
                 .stderr(
                     std::fs::OpenOptions::new()
