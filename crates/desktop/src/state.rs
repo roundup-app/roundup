@@ -279,7 +279,7 @@ impl AppState {
             let root = self.store.dir().ok_or_else(|| {
                 RpcError::internal("App data folder is unavailable; reopen Settings to retry.")
             })?;
-            return rupd::data::naming_settings(root, method, params);
+            return daemon::naming_settings(root, method, params);
         }
         let client = self.open_ref(path, |open| Arc::clone(&open.client))?;
         self.bounded(method, client.request(method, params)).await
