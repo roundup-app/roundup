@@ -20,7 +20,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
   // The connection already owns App/Rail recovery; removed Bubble owners hand their failure to it.
   const reportFailure = (error: Error, action: string, terminal: TerminalInfo | undefined, recover: () => void) => {
-    const message = `${action}: ${outcomeOf(error) === "unknown" ? "Outcome unknown. " : ""}${error.message}`;
+    const message = `${action}: ${outcomeOf(error) === "unknown" ? copy.terminalOutcomeUnknown : ""}${error.message}`;
 
     const publish = () => {
       if (terminal) rail.commandFailure.showTerminal(message, terminal, "rail", recover);

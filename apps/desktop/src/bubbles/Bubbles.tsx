@@ -423,13 +423,13 @@ export const Bubbles = (props: {
 
       reportFailure(thrown, copy.newTerminal, undefined, () => {
         if (workstream !== null && !rail.nodes.some(node => node.id === workstream && node.kind === "workstream")) {
-          rail.commandFailure.show(`${copy.newTerminal}: original Workstream unavailable`);
+          rail.commandFailure.show(copy.terminalOriginalWorkstreamUnavailable);
 
           return;
         }
 
         if (outcomeOf(thrown) === "failed") void openTerminal(() => false, false, workstream);
-        else void app.ask({ title: copy.newTerminal, message: "The earlier opening may have succeeded. Open another Terminal in the original Workstream?", okLabel: copy.newTerminal, cancelLabel: copy.keep }).then(accepted => { if (accepted) void openTerminal(() => false, false, workstream); });
+        else void app.ask({ title: copy.newTerminal, message: copy.terminalOpenAgainQuestion, okLabel: copy.newTerminal, cancelLabel: copy.keep }).then(accepted => { if (accepted) void openTerminal(() => false, false, workstream); });
       });
 
       return null;
