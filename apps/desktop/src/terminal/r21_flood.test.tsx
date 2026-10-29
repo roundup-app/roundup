@@ -1,0 +1,58 @@
+import { expect, it, vi } from "vitest";
+import { node, info, terminal } from "../testing/nodes";
+import { fromBase64 } from "./base64";
+import { connectFakeProject, fakeEmulators, subscribed } from "./paneHarness";
+import { createScreens } from "./screens";
+
+it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_input_path ($status)", async (item) => {
+  const { app, connected } = await connectFakeProject([item, node("flood")], [info("t-a"), info("t-flood")]);
+  const { factory, made } = fakeEmulators();
+  const parsed: (() => void)[] = [];
+  const screens = createScreens(connected, (id) => {
+    const emulator = factory(id);
+    const write = emulator.write;
+
+    return { ...emulator, write: (bytes, done) => {
+      write(bytes);
+      if (bytes.length && id === "t-flood") parsed.push(() => done?.());
+      else done?.();
+    } };
+  });
+  const host = () => document.body.appendChild(document.createElement("div"));
+
+  try {
+    screens.show("t-flood", host());
+    screens.show("t-a", host());
+    await subscribed(app, "t-a");
+    await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(2));
+    const replies: (() => void)[] = [];
+    const input: string[] = [];
+
+    app.handlers["terminal.write"] = ({ id, data }) => {
+      const text = new TextDecoder().decode(fromBase64(data));
+
+      input.push(text);
+      app.emitOutput(id, text);
+
+      return new Promise<null>(resolve => replies.push(() => resolve(null)));
+    };
+    app.emitOutput("t-flood", "first");
+    app.emitOutput("t-flood", "second");
+    app.emitOutput("t-flood", "third");
+    made.get("t-a")!.type(new TextEncoder().encode("a"));
+    made.get("t-a")!.type(new TextEncoder().encode("bc"));
+    expect(input).toEqual(["a"]);
+    replies.shift()!();
+    await vi.waitFor(() => expect(input).toEqual(["a", "bc"]));
+    expect(made.get("t-a")!.written.map(bytes => new TextDecoder().decode(bytes))).toEqual(["a", "bc"]);
+    expect(made.get("t-flood")!.written.map(bytes => new TextDecoder().decode(bytes))).toEqual(["first"]);
+    parsed.shift()!();
+    await vi.waitFor(() => expect(made.get("t-flood")!.written).toHaveLength(2));
+    parsed.shift()!();
+    await vi.waitFor(() => expect(made.get("t-flood")!.written.map(bytes => new TextDecoder().decode(bytes))).toEqual(["first", "second", "third"]));
+    replies.shift()!();
+  } finally {
+    screens.dispose();
+    document.body.replaceChildren();
+  }
+});
