@@ -22,7 +22,7 @@ export const SpawnPromptField = (props: {
   onCancel: () => void;
   ref: (field: HTMLTextAreaElement) => void;
 }) => (
-  <textarea
+  <textarea spellcheck={false} autocorrect="off" autocapitalize="off"
     aria-label={copy.task}
     placeholder={copy.taskHint}
     rows={1}
