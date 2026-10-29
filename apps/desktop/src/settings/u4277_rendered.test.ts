@@ -33,6 +33,15 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
       await lane.evaluate("window.dispatchEvent(new Event('open-app-settings'))");
       await lane.until("!!document.querySelector('.settings-view')");
 
+      await lane.browser("focus", '[role=tab][data-value="Agents"]');
+
+      for (const [key, pages] of [["ArrowDown", ["Terminal", "Shortcuts", "Appearance"]], ["ArrowUp", ["Shortcuts", "Terminal", "Agents"]]] as const) {
+        for (const page of pages) {
+          await lane.browser("press", key);
+          await lane.until(`document.activeElement?.dataset.value === "${page}" && document.activeElement?.getAttribute('aria-selected') === 'true'`);
+        }
+      }
+
       for (const section of ["Agents", "Terminal", "Shortcuts", "Appearance"]) {
         await lane.browser("click", `[role=tab][data-value="${section}"]`);
         await lane.until(`!!document.querySelector('[role=tab][data-value="${section}"][aria-selected=true]')`);
@@ -50,6 +59,7 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
           await lane.until("!!document.querySelector('.settings-shortcut [aria-invalid=true]')");
           await capture("U4277a", "tree-40-shortcut-refusal");
           await lane.browser("press", "Escape");
+          await lane.until("!!document.querySelector('.settings-view') && !!document.querySelector('.settings-shortcut [aria-pressed=false]')");
         }
 
         if (section === "Terminal" && seed === "tree-40") {
@@ -58,6 +68,24 @@ it.skipIf(!captureDir("U4277a"))("u4277a_u4277b_u4277c_requested_screens_dark", 
           await capture("U4277a", "tree-40-size-refusal");
         }
       }
+
+      await lane.browser("click", ".settings-back");
+      await lane.until("!document.querySelector('.settings-view')");
+      await lane.evaluate(`(() => {
+        window.__fake.app.handlers['models.list'] = () => { throw new Error('Models could not be loaded because the configured engine is unavailable. Check the engine installation and reopen Settings to retry.'); };
+        window.dispatchEvent(new Event('open-app-settings'));
+        return true;
+      })()`);
+      await lane.until("!!document.querySelector('.settings-view')");
+      await lane.browser("click", '[role=tab][data-value="Agents"]');
+
+      if (seed === "tree-40") {
+        await lane.until("document.querySelector('.settings-view').textContent.includes('Models could not be loaded')");
+        await capture("U4277a", "tree-40-models-failure");
+      }
+
+      await lane.browser("press", "Escape");
+      await lane.until("!document.querySelector('.settings-view')");
     }
 
     for (const [state, seed] of [["empty", "empty-project"], ["filled", "tree-40"]]) {

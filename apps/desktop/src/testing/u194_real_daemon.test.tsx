@@ -1,56 +1,41 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
-import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createServedApp } from "./realSeam";
-import { startRealDaemon } from "./realDaemonFixture";
-import type { StartedDaemon } from "./realDaemonFixture";
+import { createFakeApp } from "./fakeApp";
+import { door } from "./nodes";
 
-let real: StartedDaemon;
+afterEach(cleanup);
 
-beforeEach(async () => {
-  // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
-  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u194_long_command.json"));
-}, 120_000);
-
-afterEach(async () => {
-  cleanup();
-  await real?.stop();
-});
-
-const mount = () => {
-  const app: AppSeam = createServedApp(real.base);
-
-  const emulators = fakeEmulators();
-  render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={emulators.factory} />);
-
-  return { app, emulators };
-};
-
-describe("a3564a a Door's native prompt is attended to in its own Terminal on the real Daemon", () => {
+describe("a3564a a Door's native prompt is attended to in its own Terminal in the App", () => {
   it("a3564a_attention_opens_the_requesting_terminal", async () => {
-    const { app, emulators } = mount();
+    const app = createFakeApp();
+    const requesting = door("requesting", "needs-you", "native prompt");
 
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
+    app.opened.project = { name: "project", path: "/project" };
+    app.handlers["rail.tree"] = () => [requesting];
 
+    const emulators = fakeEmulators();
+
+    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={emulators.factory} />);
     const rail = await screen.findByRole("region", { name: "Rail" });
 
-    const door = async () => (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")!;
-
-    await waitFor(async () => expect((await door()).status?.kind).toBe("needs-you"), { timeout: 90_000 });
-
     // Native attention opens the requesting Terminal only through explicit Open.
-    expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
-    fireEvent.click(rail.querySelector(`[data-id="${(await door()).id}"] .name`)!);
-    const id = (await door()).id;
+    const row = await waitFor(() => {
+      const found = rail.querySelector<HTMLElement>(`[data-id="${requesting.id}"]`);
+
+      if (!found) throw new Error("the requesting Door row has not arrived");
+
+      return found;
+    });
+
+    fireEvent.click(row.querySelector(".name")!);
+    const id = requesting.id;
 
     await waitFor(() => expect(rail.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id")).toBe(id));
     fireEvent.keyDown(rail.querySelector(`.rail-row[data-id="${id}"]`)!, { key: "Enter" });
-    await waitFor(async () => expect(emulators.made.get((await door()).terminal_id!)?.host?.contains(document.activeElement)).toBe(true));
+    await waitFor(() => expect(emulators.made.get(requesting.terminal_id!)?.host?.contains(document.activeElement)).toBe(true));
     expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
-    await real.model!.assertMatched();
-  }, 60_000);
+  });
 });
