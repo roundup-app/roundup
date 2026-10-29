@@ -8,8 +8,6 @@ mod auto_tests;
 mod builtin;
 mod connection;
 mod context;
-#[cfg(test)]
-mod naming_tests;
 mod contract_handlers;
 #[cfg(test)]
 mod contract_tests;
@@ -20,6 +18,8 @@ mod event_log;
 mod evidence;
 mod guards;
 mod link;
+#[cfg(test)]
+mod naming_tests;
 mod observers;
 mod open;
 mod output;
@@ -69,6 +69,7 @@ use tokio::sync::mpsc;
 const STOP_ROUNDS: usize = 5;
 
 pub struct Daemon {
+    naming: Arc<std::sync::Mutex<rusqlite::Connection>>,
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
     todos: Arc<todos::Todos>,

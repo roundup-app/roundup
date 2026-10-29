@@ -156,6 +156,8 @@ declarations! { $;
         "ask.pick": contracts::ask::PickParams => contracts::ask::Ask, rpc_ask_pick, none();
     }
     daemon_methods["daemon"] {
+        "daemon.getNaming": () => contracts::project::NamingSettings, rpc_naming, none();
+        "daemon.setNaming": contracts::project::NamingSettings => (), rpc_naming, none();
         "rail.deletion": contracts::agent::DeletionParams => Option<contracts::agent::Removal>, rail_deletion_call, none();
         "rail.restore": contracts::agent::DeletionParams => contracts::agent::Removal, rail_deletion_call, none();
         "deliverable.publish": contracts::deliverable::PublishParams => contracts::deliverable::Deliverable, deliverable_call, all(schema(contracts::deliverable::PublishParams,"Deliberately publish a file, expected Pad incarnation and Revision or current external URL. Replay the same key and request after an unknown reply; conflicting replay refuses."));
