@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../copy";
 import { showScrollbars } from "../scrollHover";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
@@ -21,10 +22,19 @@ import "@xterm/xterm/css/xterm.css";
 
 export type Size = { cols: number; rows: number };
 
+/** An attached, fitted destination owned by one launch until it binds or is disposed. */
+export type TerminalPreparation = {
+  size: Size;
+  bind(id: string): void;
+  dispose(): void;
+};
+
 /** One Terminal's screen. It exists before it is shown: bytes written to it wait for the first `show`. */
 export type Emulator = {
   /** When present, wait before sending a fitted size to the Daemon. Output can be parsed while faces load. */
   readonly ready?: Promise<void> | undefined;
+  bind?: (id: string) => void;
+  prepare?(host: HTMLElement, settled?: () => boolean, signal?: AbortSignal): Promise<Size>;
   write(bytes: Uint8Array, parsed?: () => void): void;
   /** Restores the Daemon's screen at its recorded size before later output is written. */
   setSize(size: Size): void;
@@ -242,6 +252,7 @@ export const createXtermEmulators = (
     const disposers: (() => void)[] = [];
 
     element.style.height = "100%";
+    element.style.gridArea = "1 / 1";
     terminal.loadAddon(fitter);
     terminal.onRender(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
@@ -479,7 +490,74 @@ export const createXtermEmulators = (
       }
     };
 
+    const show = (host: HTMLElement, focus = true): Size => {
+      host.replaceChildren(element);
+      focusOnShow = focus;
+      open();
+      const fitted = size();
+
+      if (focusOnShow) terminal.focus();
+
+      return fitted;
+    };
+
+    const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<Size> => {
+      signal?.throwIfAborted();
+      // Share the actual host's grid cell while its current Terminal remains on top and usable.
+      host.prepend(element);
+      focusOnShow = false;
+      open();
+      await ready;
+      signal?.throwIfAborted();
+
+      // The selected face may have changed while the bundled faces were loading.
+      if (document.fonts) {
+        await Promise.all(["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${terminal.options.fontSize}px ${terminal.options.fontFamily}`)));
+        await document.fonts.ready;
+
+        if (!disposed) {
+          prepareFontChange();
+          const family = terminal.options.fontFamily!;
+          terminal.options.fontFamily = /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+          terminal.options.fontFamily = family;
+        }
+      }
+
+      signal?.throwIfAborted();
+
+      return new Promise<Size>((resolve, reject) => {
+        let observed = false;
+        let frame = 0;
+        const observer = new ResizeObserver(() => { observed = true; });
+        const stop = () => { observer.disconnect(); cancelAnimationFrame(frame); signal?.removeEventListener("abort", abort); };
+
+        const abort = () => { stop(); reject(signal?.reason ?? new Error(appCopy.terminalPreparationCancelled)); };
+
+        const fit = () => {
+          if (disposed || signal?.aborted || !host.isConnected) { abort();
+
+ return; }
+
+          if (observed && settled() && host.checkVisibility() && host.clientWidth > 0 && host.clientHeight > 0) {
+            const fitted = size();
+
+            if (fitted.cols > 0 && fitted.rows > 0) { stop(); resolve(fitted);
+
+ return; }
+          }
+
+          frame = requestAnimationFrame(fit);
+        };
+
+        observer.observe(host);
+        signal?.addEventListener("abort", abort, { once: true });
+        frame = requestAnimationFrame(fit);
+      });
+    };
+
     return {
+      prepare,
+      bind: next => { id = next; },
       ready,
       write: (bytes, parsed) => {
         terminal.write(bytes, () => {
@@ -528,19 +606,7 @@ export const createXtermEmulators = (
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),
-      show: (host, focus = true) => {
-        host.replaceChildren(element);
-
-        focusOnShow = focus;
-
-        open();
-
-        const fitted = size();
-
-        if (focusOnShow) terminal.focus();
-
-        return fitted;
-      },
+      show,
       fit: size,
       onResize: (listener) => { resized = listener; },
       focus: () => terminal.focus(),
@@ -568,6 +634,7 @@ export const createXtermEmulators = (
         shellTurns.dispose();
         fontViewport?.dispose();
         terminal.dispose();
+        element.remove();
       },
     };
   };

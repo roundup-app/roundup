@@ -85,6 +85,44 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   });
 
   const [screen, setScreen] = createSignal<HTMLDivElement>();
+  const [preparing, setPreparing] = createSignal(false);
+  let preparation: AbortController | undefined;
+  rail.prepareTerminal = async () => {
+    preparation?.abort();
+    const controller = new AbortController();
+    preparation = controller;
+    setPreparing(true);
+    const host = screen();
+
+    try {
+      if (!host) throw new Error(copy.terminalDestinationUnavailable);
+      const prepared = await screens.prepare(host, () => !resizeDragging() && !drawerSliding() && !shelfSliding(), controller.signal);
+
+      return { ...prepared, dispose: () => {
+        prepared.dispose();
+
+        if (preparation === controller) {
+          preparation = undefined;
+          setPreparing(false);
+        }
+      } };
+    } catch (error) {
+      if (preparation === controller) {
+        preparation = undefined;
+        setPreparing(false);
+      }
+
+      controller.signal.throwIfAborted();
+
+      // A host that cannot be prepared must not block the launch: the Terminal fits to it once shown.
+      console.warn(error);
+
+      return undefined;
+    }
+  };
+
+  createEffect(on(rail.selected, () => preparation?.abort(), { defer: true }));
+  onCleanup(() => { preparation?.abort(); rail.prepareTerminal = undefined; });
   let pendingFrame: number | null = null;
 
   const refit = () => {
@@ -116,7 +154,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     const host = screen();
     const id = terminalId();
 
-    if (!host) return;
+    if (!host || preparing()) return;
 
     if (id === null) {
       host.replaceChildren();
@@ -259,7 +297,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
         }}
       >
         <div class="pane-screen" ref={setScreen} />
-        <Show when={selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
+        <Show when={!preparing() && selected()?.kind === "agent" && terminalId() === null && (notice() === null || notice()?.kind === "command")}>
           <EmptyState art="sitting-reading" {...{ title: copy.noOutputKeptFromAnEarlierRun }} line={copy.emptyOutputLine} />
         </Show>
         <Show when={doorState()}>
