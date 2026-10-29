@@ -571,3 +571,91 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   openSwitcher();
   await waitFor(() => expect(field()?.value).toBe(query));
 });
+
+const reviewCases = (["pointer", "enter"] as const).flatMap(how =>
+  (["project", "selection"] as const).flatMap(removal =>
+    (["resolve", "reject", "dismiss", "stale-selection", "identity", "missing"] as const).map(outcome => ({ how, removal, outcome }))));
+
+it.each(reviewCases)("s3806b_action_survives_surface_close: Review changes by $how, $removal, $outcome", async ({ how, removal, outcome }) => {
+  const { app, connected, other } = await mountApp();
+  const reviewed = agent("reviewed", "idle", "ready", { parent: "ops", worktree: { path: "/first/.roundup/reviewed", branch: "reviewed", base: "main" } });
+  let tree = [workstream("ops"), reviewed];
+  app.handlers["rail.tree"] = () => tree;
+  app.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
+  app.handlers["agent.changedFiles"] = () => ({ files: [{ path: "a.ts", status: "modified", line: 1 }] });
+  await connected.rail.refresh();
+  connected.rail.select("reviewed");
+  const origin = await screen.findByRole("button", { name: "1 changed file" });
+  const retained = connected.drafts.edit({ surface: "rail-task", object: "ops", recipient: "reviewed" }, { text: "  é 🧭\n unfinished  " }, null, "ordinary");
+  await retained.retained;
+  const reply = Promise.withResolvers<{ ahead: number; behind: number; dirty: boolean }>();
+  const trace: string[] = [];
+  app.handlers["agent.worktreeState"] = () => { trace.push(field() ? "receipt:open" : "receipt:closed"); return reply.promise; };
+  rowOf("reviewed").focus();
+  const captures = vi.spyOn(registry, "captureActions");
+  openSwitcher();
+  await waitFor(() => expect(field()).not.toBeNull());
+  const query = "Review changes";
+  fireEvent.input(field()!, { target: { value: query } });
+  const option = await waitFor(() => {
+    const option = options().find(row => row.textContent?.includes(query));
+    expect(option).toBeDefined();
+    return option!;
+  });
+  const before = app.calls.length;
+  const reads = () => app.calls.slice(before).filter(call => call.method === "agent.worktreeState");
+  if (outcome === "dismiss") {
+    switcherKey("Escape", {}, field()!);
+    await waitFor(() => expect(field()).toBeNull());
+    expect(reads()).toEqual([]);
+    return;
+  }
+  if (outcome === "stale-selection") {
+    const action = captures.mock.results.flatMap(result => result.type === "return" ? result.value : []).findLast(action => action.value === option.dataset.value)!;
+    connected.rail.select("ops");
+    await waitFor(() => expect(origin.isConnected).toBe(false));
+    action.run();
+    activate(option, how);
+    expect(reads()).toEqual([]);
+    expect(field()?.value).toBe(query);
+    return;
+  }
+  activate(option, how);
+  await waitFor(() => expect(reads()).toHaveLength(1));
+  expect(trace).toEqual(["receipt:open"]);
+  expect(reads().map(call => call.params)).toEqual([{ id: "reviewed" }]);
+  await waitFor(() => expect(field()).toBeNull());
+  const drafts = connected.drafts.list();
+  expect(drafts.find(draft => draft.destination.surface === "switcher")).toMatchObject({ destination: { object: path("first"), recipient: null }, value: { query } });
+  if (removal === "project") fireEvent.click(tab("second"));
+  else connected.rail.select("ops");
+  await waitFor(() => expect(origin.isConnected).toBe(false));
+  if (outcome === "resolve") reply.resolve({ ahead: 8, behind: 0, dirty: false });
+  else reply.reject(new RpcError(-32003, "Review changes rejected: worktree unavailable"));
+  if (outcome !== "resolve") {
+    await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("Review changes rejected: worktree unavailable"))).toBe(true));
+    expect(reads()).toHaveLength(1);
+    expect(connected.drafts.list()).toEqual(drafts);
+    if (outcome === "identity" || outcome === "missing") {
+      tree = outcome === "missing" ? [workstream("ops")] : [workstream("ops"), { ...reviewed, worktree: { ...reviewed.worktree!, branch: "replacement" } }];
+      await connected.rail.refresh();
+    }
+    if (removal === "project") {
+      fireEvent.click(screen.getByRole("button", { name: /Open draft first/ }));
+      await screen.findByText("ops", { selector: ".name" });
+    }
+    const retryBefore = app.calls.length;
+    app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
+    fireEvent.click(await screen.findByRole("button", { name: "Retry", exact: true }));
+    if (outcome === "identity" || outcome === "missing") {
+      await waitFor(() => expect(screen.queryAllByRole("alert").some(alert => alert.textContent?.includes("unavailable"))).toBe(true));
+      expect(app.calls.slice(retryBefore).filter(call => call.method === "agent.worktreeState")).toEqual([]);
+    } else {
+      await waitFor(() => expect(app.calls.slice(retryBefore).filter(call => call.method === "agent.worktreeState").map(call => call.params)).toEqual([{ id: "reviewed" }]));
+      await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
+    }
+  } else await waitFor(() => expect(connected.rail.commandFailure.message()).toBeNull());
+  expect(connected.drafts.list()).toEqual(drafts);
+  expect(other.calls.filter(call => call.method === "agent.worktreeState")).toEqual([]);
+  expect(app.calls.slice(before).filter(call => ["terminal.write", "agent.prompt"].includes(call.method))).toEqual([]);
+});
