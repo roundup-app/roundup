@@ -1,5 +1,6 @@
 /* U4698b: the reading style Pad and Todo bodies share: one column at the reading-width Token, one left edge for title, toolbar and body. */
 .reading {
+  font-size: var(--text-title);
   box-sizing: border-box;
   width: 100%;
   max-width: var(--reading-width);
@@ -47,7 +48,7 @@
 .reading blockquote {
   margin-inline: 0;
   padding-inline-start: var(--space-4);
-  border-inline-start: var(--space-1) solid var(--hairline);
+  border-inline-start: var(--hairline-width) solid var(--hairline);
   color: var(--grey);
 }
 

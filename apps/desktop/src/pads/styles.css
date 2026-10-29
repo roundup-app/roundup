@@ -7,6 +7,7 @@
 
 /* U4698b: the head is the document title (large, wrapping) with the Pad's actions at its right; the Drawer's close row sits above it. */
 .pad-head {
+  font-size: var(--text-title);
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
@@ -391,6 +392,7 @@ li[aria-selected="true"] svg {
   flex: 1;
   min-width: 0;
   overflow-x: auto;
+  overscroll-behavior: contain;
 }
 
 .pad-toolbar-expand {
