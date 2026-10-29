@@ -237,7 +237,7 @@ export const Todos = (props: {
 
   let pickAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
   let commentAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
-  const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null }>();
+  const pickFails = new Map<number, { show: (message: string | null) => void; message: () => string | null; rename: () => void }>();
 
   const targets = todoDropTargets(connected, todos, board);
 
@@ -763,6 +763,7 @@ export const Todos = (props: {
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
       { id: "open", label: copy.openDraft, run: () => show(todo, "pointer") },
       ...(pickFails.get(todo.id)?.message() ? [{ id: "dismiss", label: copy.dismissFailure, run: () => pickFails.get(todo.id)?.show(null) }] : []),
+      { id: "rename", label: copy.rename, run: () => pickFails.get(todo.id)?.rename() },
       { id: "assign", label: copy.assign, run: () => { const anchor = rowButtonOf(todo.id);
 
  if (anchor) setPicking({ id: todo.id, anchor }); } },
@@ -850,7 +851,7 @@ export const Todos = (props: {
               onOpen={show}
               onToggle={todo => toggle(todo, tree().map(row => row.todo.id))}
               onAssign={(item, anchor) => { setPicking({ id: item.id, anchor }); pickAdvance = captureAdvance(item.id); }}
-              failWith={(show, message) => pickFails.set(todo.id, { show, message })}
+              failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row} connections={<Trunks depth={row.level - 1} trail={row.trail} stem={members().length > 0 && dependency.expanded(todo.id)} />}
               nest={nestOf(todo, row.parent, tree().slice(0, at()).findLast(row => !row.todo.done)?.todo ?? null, at() === 0)}
@@ -949,7 +950,7 @@ export const Todos = (props: {
                   known={todos.byId()}
                   onOpen={show}
                   onToggle={todo => toggle(todo, foldedDone().map(candidate => candidate.id))}
-                  failWith={(show, message) => pickFails.set(todo.id, { show, message })}
+                  failWith={(show, message, rename) => pickFails.set(todo.id, { show, message, rename })}
                   selected={shown()?.id === todo.id}
                   pressed={selection.selected().includes(todo.id)}
                   selectionActive={selection.selected().length > 0}
