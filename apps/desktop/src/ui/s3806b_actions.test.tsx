@@ -146,11 +146,13 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   const nativeCalls: undefined[] = [];
   const states: import("../app/seam").CaptureState[] = [];
   const nativeReply = pending(() => { nativeCalls.push(undefined); trace.push(`capture.show:${field() === null ? "closed" : "open"}`); }, undefined);
+
   const native = row === CAPTURE_ROW ? {
     configure: async () => {}, show: nativeReply.handler, dismiss: async () => {},
     publish: async (state: import("../app/seam").CaptureState) => { states.push(state); }, act: async () => {},
     onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
   } : undefined;
+
   const mounted = row.owner !== "Rail" ? await mountApp(native) : await mountSwitcher(row.selected);
   const { app, connected } = mounted;
 
@@ -158,6 +160,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     const draft = connected.drafts.edit({ surface: "capture", object: "todo-capture", recipient: null }, {
       text: "  native draft e\u0301 🧭\n  ", targetCaptured: true, targetOwner: null, targetOwnerName: null, targetHome: "ops", targetHomeName: "ops",
     }, null, "ordinary");
+
     await draft.retained;
   }
 
@@ -288,6 +291,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(ofMethod()).toHaveLength(1);
       connected.rail.select("elsewhere");
       native.show = async () => { nativeCalls.push(undefined); };
+
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
       await waitFor(() => expect(ofMethod()).toHaveLength(2));
       await waitFor(() => expect(states.at(-1)).toMatchObject({ text: "  native draft e\u0301 🧭\n  ", owner: "Unassigned", home: "In ops" }));
