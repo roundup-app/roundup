@@ -14,6 +14,7 @@ stubDialogLayout();
 
 it("u460_pending_delete_stays_with_its_project", async () => {
   const { app } = seedApp("tree-40", 0);
+  app.handlers["rail.tree"] = () => [];
   app.of("/Users/you/harness");
   app.add("/other", "other");
   const other = app.of("/other");
@@ -40,6 +41,7 @@ it("u460_pending_delete_stays_with_its_project", async () => {
 
 it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", async () => {
   const { app } = seedApp("tree-40", 0);
+  app.handlers["rail.tree"] = () => [];
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
   const row = document.querySelector<HTMLButtonElement>(".todo-row-button[aria-pressed]")!;
