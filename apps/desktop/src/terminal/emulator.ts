@@ -230,13 +230,15 @@ export const createXtermEmulators = (
     const loadEffectiveFont = async () => {
       if (!document.fonts) return;
 
-      let font: string;
+      let fontSize: number | undefined;
+      let fontFamily: string | undefined;
 
       do {
-        font = `${terminal.options.fontSize}px ${terminal.options.fontFamily}`;
-        await Promise.all([`normal ${terminal.options.fontWeight}`, `normal ${terminal.options.fontWeightBold}`, `italic ${terminal.options.fontWeight}`, `italic ${terminal.options.fontWeightBold}`].map(style => document.fonts.load(`${style} ${font}`)));
+        fontSize = terminal.options.fontSize;
+        fontFamily = terminal.options.fontFamily;
+        await Promise.all([`normal ${terminal.options.fontWeight}`, `normal ${terminal.options.fontWeightBold}`, `italic ${terminal.options.fontWeight}`, `italic ${terminal.options.fontWeightBold}`].map(style => document.fonts.load(`${style} ${fontSize}px ${fontFamily}`)));
         await document.fonts.ready;
-      } while (!disposed && font !== `${terminal.options.fontSize}px ${terminal.options.fontFamily}`);
+      } while (!disposed && (fontSize !== terminal.options.fontSize || fontFamily !== terminal.options.fontFamily));
     };
 
     // Load every bundled style even with a custom preference, so clearing it never fits a fallback face.
