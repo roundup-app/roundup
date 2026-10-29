@@ -12,6 +12,12 @@ const noFocusRing = stylelint.createPlugin(focusRingRule, () => (root, result) =
           /(?:\[data-scope="(?:field|number-input|date-picker)"\]|\.app-(?:select-trigger|combobox-input|checkbox|switch|radio|dialog-form)|\.(?:import-prompt|note-form))/.test(selector))) return;
 
     if (root.source?.input.file?.endsWith('/apps/desktop/src/ui/Field.css') && declaration.prop === 'outline-offset' && declaration.value === 'var(--stroke-width)') return;
+    // U4685 allows paint on these region owners only; descendants keep U3528.
+    if (root.source?.input.file?.endsWith('/apps/desktop/src/tokens.css') &&
+        declaration.parent?.type === 'rule' && declaration.parent.selector ===
+          '.rail:focus-within,\n.pane:focus-within,\n.drawer:focus-within,\n.shelf:focus-within,\n.window:has(.shelf-tabs:focus-within) .shelf' &&
+        ((declaration.prop === 'outline' && declaration.value === 'var(--hairline-width) solid var(--accent)') ||
+         (declaration.prop === 'outline-offset' && declaration.value === 'calc(-1 * var(--hairline-width))'))) return;
     let focused = false;
 
     for (let parent = declaration.parent; parent; parent = parent.parent) {
@@ -23,7 +29,7 @@ const noFocusRing = stylelint.createPlugin(focusRingRule, () => (root, result) =
     if (/^(?:none|0(?:px)?)$/.test(declaration.value)) return;
     stylelint.utils.report({
       ruleName: focusRingRule, result, node: declaration,
-      message: 'Focus rings are forbidden on every surface (U3528)',
+      message: 'Control rings are forbidden except shared forms (U4382a); region paint is U4685',
     });
   });
 });
