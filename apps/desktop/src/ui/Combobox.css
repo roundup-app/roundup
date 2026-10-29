@@ -23,7 +23,7 @@
 
 .app-combobox-item[data-highlighted],
 .app-combobox-item[data-row-selected=true] {
-  background-color: var(--sunken);
+  background-color: var(--selected);
 }
 
 /* A resting pointer moves no highlight: only typing and the arrows do, and a hovered row changes its text colour alone. */

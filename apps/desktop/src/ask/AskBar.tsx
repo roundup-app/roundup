@@ -194,7 +194,7 @@ export const AskBar = (props: {
   const [treeReady, setTreeReady] = createSignal(false);
   void rail.settled().then(() => setTreeReady(true));
 
-  const names = createMemo(() => rail.nodes.filter((node) => node.kind === "workstream").map((node) => ({ value: node.name, label: node.name })));
+  const names = createMemo(() => rail.nodes.filter((node) => node.kind === "workstream").map((node) => ({ value: node.id, label: node.name })));
 
   const matching = createMemo(() => {
     const typed = mentionOf(text());
@@ -271,9 +271,16 @@ export const AskBar = (props: {
     });
   };
 
-  const complete = (name: string): void => {
-    setText(`@${name} `, rail.nodes.find(node => node.kind === "workstream" && node.name === name)?.id);
-    field?.focus();
+  const complete = (id: string): void => {
+    const node = rail.nodes.find(node => node.kind === "workstream" && node.id === id);
+
+    if (!node) return;
+    const value = `@${node.name} `;
+
+    setText(value, id);
+    field?.focus({ preventScroll: true });
+    field?.setSelectionRange(value.length, value.length);
+    retainSelection();
   };
 
   const onKey = (event: KeyboardEvent): void => {
@@ -291,8 +298,7 @@ export const AskBar = (props: {
 
     const picked = matching().length > 0 ? highlighted() : null;
 
-    if (picked !== null) complete(picked);
-    else send();
+    if (picked === null) send();
   };
 
   return (<>
@@ -305,11 +311,19 @@ export const AskBar = (props: {
         onFocusIn={(event) => { if (event.target === field && opening() === null && rail.workstreamCreating() && rail.selected() === null) { selectedPane = true; homeFocus = true; openingFocus = captureFocus(); setOpening("home-focus"); } }}
         onFocusOut={(event) => { if (opening() === "home-focus" && rail.selected() === null && !(event.relatedTarget instanceof Node && panel?.contains(event.relatedTarget))) setOpening(null); }}>
         <div class="ask-compose">
-        <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
+        <Mentions.Root inputValue={text()} onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
-          <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
+          <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} row={item => {
+            const node = () => rail.nodes.find(node => node.id === item.value);
+            const parent = () => names().filter(other => other.label === item.label).length > 1
+              ? (rail.nodes.find(other => other.id === node()?.parent)?.name ?? connected.project.name) : undefined;
+            const start = () => item.label.toLowerCase().indexOf((mentionOf(text()) ?? "").toLowerCase());
+            const end = () => start() + (mentionOf(text())?.length ?? 0);
+
+            return <><KindGlyph kind={node()?.status?.kind ?? "idle"} /><span>{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show></>;
+          }} /></Show>
         </Mentions.Root>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
           status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null}>
