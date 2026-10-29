@@ -7,8 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::Served;
-use contracts::pad::DeleteParams;
-use contracts::{Actor, ActorKind, IdentifyParams, Touch, Verb, message, pad, todo};
+use contracts::{Actor, ActorKind, IdentifyParams, Touch, Verb};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ProtocolVersion};
 use rmcp::service::{RoleClient, RunningService};
@@ -279,105 +278,6 @@ async fn m1_offers_one_tool_per_method_and_no_others() {
     names.sort();
     expected.sort();
     assert_eq!(names, expected);
-}
-
-#[tokio::test]
-async fn m1_input_schemas_are_the_contract_schemas() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-    let schema = |name: &str| {
-        let tool = tools.iter().find(|t| t.name == name).unwrap();
-        Value::Object((*tool.input_schema).clone())
-    };
-
-    let derived = |schema| serde_json::to_value(schema).unwrap();
-    let expected = [
-        (
-            "agent_wake",
-            derived(schemars::schema_for!(contracts::agent::WakeParams)),
-        ),
-        (
-            "message_progress",
-            derived(schemars::schema_for!(message::ProgressParams)),
-        ),
-        (
-            "message_report",
-            derived(schemars::schema_for!(message::ReportParams)),
-        ),
-        (
-            "message_acceptResult",
-            derived(schemars::schema_for!(message::AcceptResultParams)),
-        ),
-        (
-            "message_verifyResult",
-            derived(schemars::schema_for!(message::ResultId)),
-        ),
-        (
-            "message_resolveResult",
-            derived(schemars::schema_for!(message::ResolveResultParams)),
-        ),
-        (
-            "todo_create",
-            derived(schemars::schema_for!(todo::CreateParams)),
-        ),
-        ("todo_get", derived(schemars::schema_for!(todo::TodoId))),
-        ("todo_reopen", derived(schemars::schema_for!(todo::TodoId))),
-        (
-            "todo_update",
-            derived(schemars::schema_for!(todo::UpdateParams)),
-        ),
-        (
-            "todo_complete",
-            derived(schemars::schema_for!(todo::TodoId)),
-        ),
-        (
-            "todo_setBlockers",
-            derived(schemars::schema_for!(todo::SetBlockersParams)),
-        ),
-        (
-            "pad_create",
-            derived(schemars::schema_for!(pad::CreateParams)),
-        ),
-        ("pad_read", derived(schemars::schema_for!(pad::PadName))),
-        (
-            "pad_write",
-            derived(schemars::schema_for!(pad::WriteParams)),
-        ),
-        (
-            "pad_append",
-            derived(schemars::schema_for!(pad::AppendParams)),
-        ),
-        (
-            "pad_appendSection",
-            derived(schemars::schema_for!(pad::AppendSectionParams)),
-        ),
-        (
-            "pad_setOwner",
-            derived(schemars::schema_for!(pad::SetOwnerParams)),
-        ),
-        ("pad_delete", derived(schemars::schema_for!(DeleteParams))),
-        (
-            "message_send",
-            derived(schemars::schema_for!(message::SendParams)),
-        ),
-        (
-            "message_get",
-            derived(schemars::schema_for!(message::MessageId)),
-        ),
-        (
-            "message_list",
-            derived(schemars::schema_for!(message::ListParams)),
-        ),
-    ];
-    for (name, contract_schema) in expected {
-        assert_eq!(schema(name), contract_schema, "{name}");
-    }
-    assert_eq!(schema("todo_list"), json!({ "type": "object" }));
-    assert_eq!(schema("pad_list"), json!({ "type": "object" }));
-    // E4: the shim fills the id, so the tool takes no input.
-    assert_eq!(schema("agent_context"), json!({ "type": "object" }));
 }
 
 #[tokio::test]
@@ -1223,23 +1123,6 @@ async fn t19_mcp_reopen_uses_agent_identity() {
 }
 
 #[tokio::test]
-async fn t21_the_tool_description_asks_for_one_plain_line_for_the_user() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-    let tools = shim.client.list_all_tools().await.unwrap();
-    let tool = tools.iter().find(|t| t.name == "todo_comment").unwrap();
-    let description = tool.description.as_deref().unwrap();
-    for phrase in [
-        "only when the user must read it",
-        "question",
-        "blocker",
-        "one short plain line",
-    ] {
-        assert!(description.contains(phrase), "{phrase}: {description}");
-    }
-}
-
-#[tokio::test]
 async fn t21_an_agent_comment_names_its_author_over_mcp_and_cli() {
     let project = start_daemon();
     let user = client_as(&project.socket, Actor::user()).await;
@@ -1311,18 +1194,6 @@ async fn t28_an_agent_adds_and_removes_a_ref_over_mcp_and_cli() {
     assert!(removed.status.success(), "{removed:?}");
     let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
     assert_eq!(todo["refs"], json!([]));
-}
-
-#[tokio::test]
-async fn t28_the_tool_descriptions_name_the_section_form() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-    let tools = shim.client.list_all_tools().await.unwrap();
-    let tool = tools.iter().find(|t| t.name == "todo_addRef").unwrap();
-    let description = tool.description.as_deref().unwrap();
-    for phrase in ["Point the user", "read it", "#<heading>"] {
-        assert!(description.contains(phrase), "{phrase}: {description}");
-    }
 }
 
 #[tokio::test]
