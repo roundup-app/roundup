@@ -128,7 +128,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   };
 
   createEffect(on(() => state()?.failure, (next, before) => {
-    if (next === null && typeof before === "string" && rail.commandFailure.message()?.startsWith(title)) rail.commandFailure.clear();
+    if (next === null && Boolean(before) && rail.commandFailure.message()?.startsWith(title)) rail.commandFailure.clear();
   }, { defer: true }));
 
   const openPanel = () => {
