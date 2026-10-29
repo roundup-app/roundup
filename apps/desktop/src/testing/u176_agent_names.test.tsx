@@ -307,13 +307,9 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
 describe("u2773 Rail persisted edits", () => {
   let first: StartedDaemon;
 
-  let second: StartedDaemon;
-
-  // Each probe gets a fresh Project. The first two use different handles, never
-  // both; the cross-Project probe below owns its own independent pair.
+  // Each probe gets a fresh Project; the cross-Project probe below owns its pair.
   beforeEach(async () => {
     first = await startRealDaemon({});
-    second = first;
   }, 180_000);
 
   afterEach(async () => {
@@ -327,7 +323,7 @@ describe("u2773 Rail persisted edits", () => {
   const task = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
 
   it("u2773b_rail_real_acknowledgement_consumes_only_submitted_revision", async () => {
-    const app = createServedApp(second.base);
+    const app = createServedApp(first.base);
     await app.rpc("rail.createWorkstream", { name: "Prompt destination", parent: null });
     const before = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent").length;
     const starts: string[] = [];
@@ -351,7 +347,7 @@ describe("u2773 Rail persisted edits", () => {
     fireEvent.keyDown(task(), { key: "Enter" });
     await waitFor(() => expect(submitted.isConnected).toBe(false));
     expect((await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(before + 1);
-    expect(starts.map(value => JSON.parse(value))).toMatchObject([{ cwd: second.dir, prompt: "B\n😀", parent: null, model: null, effort: null }]);
+    expect(starts.map(value => JSON.parse(value))).toMatchObject([{ cwd: first.dir, prompt: "B\n😀", parent: null, model: null, effort: null }]);
     cleanup();
     await mount();
     open();
