@@ -9,7 +9,7 @@ Owner direction: shorten Rust build and cache-restore time; retain a tool only w
 3. Spawn-to-first-ping measurement (`crates/perf/src/measure.rs`, `one_run` and `first_ping`; `justfile`, `perf`). The timer already starts before spawning `rupd` and stops after its first successful `daemon.ping` reply; it is not just RPC latency.
 4. Absolute and regression gates (`crates/perf/tests/budget.rs`, `r8_the_committed_limits_are_rule_sevens_budgets`, `r8_the_committed_baselines_are_the_recorded_values`, `r9_a_value_at_a_committed_limit_passes_and_the_next_one_fails`, `r9_the_regression_ceiling_is_inclusive_and_exact_at_the_float_edge`; `crates/perf/src/budget.rs`, `judge_all`).
 5. Valid performance comparisons and retained failures (`docs/perf.md`, Perf; `scenarios/perf.md`, R13 load-aware comparison and R16 Linux Builder regression observer).
-6. Frozen machinery and tool reuse (`AGENTS.md`, The loop and Rules 7, 9 and 10; `loop/rules.sh`, `FROZEN` and `frozen_gate`). The freeze lists `.github/workflows/` except `check.yml`, not `.github/actions/`.
+6. Frozen machinery and tool reuse (`AGENTS.md`, The loop and Rules 7, 9 and 10). The freeze lists `.github/workflows/` except `check.yml`, not `.github/actions/`.
 
 ## Acceptance
 
