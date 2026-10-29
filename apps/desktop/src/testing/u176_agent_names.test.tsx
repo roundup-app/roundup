@@ -309,16 +309,16 @@ describe("u2773 Rail persisted edits", () => {
 
   let second: StartedDaemon;
 
-  // Keep the reload probe's forty Workstreams out of later probes' mount and cleanup.
+  // Each probe gets a fresh Project. The first two use different handles, never
+  // both; the cross-Project probe below owns its own independent pair.
   beforeEach(async () => {
-    first = await startRealDaemon({}, true);
-    second = await startRealDaemon({});
+    first = await startRealDaemon({});
+    second = first;
   }, 180_000);
 
   afterEach(async () => {
     cleanup();
     localStorage.clear();
-    await second?.stop();
     await first?.stop();
   });
 
