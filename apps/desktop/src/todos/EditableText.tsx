@@ -126,6 +126,13 @@ export const EditableText = (props: {
   createEffect(() => props.onFailure?.(failure(), () => setFailure(null)));
 
   let shown: HTMLElement | undefined;
+  let savedFocus: ReturnType<typeof captureFocus> | undefined;
+  createEffect(on(() => props.todo[props.name], () => {
+    const focus = savedFocus;
+    savedFocus = undefined;
+
+    if (document.activeElement === document.body && connected.drawer.content() === content) focus?.(() => queueFocus(() => shown?.focus()));
+  }, { defer: true }));
 
   const startWith = (width = shown?.getBoundingClientRect().width ?? 0) => {
     captureFocus(true);
@@ -242,7 +249,10 @@ export const EditableText = (props: {
       setEditing(null);
       const retryFocus = captureFocus();
 
-      if (restoreFocus) queueFocus(() => shown?.focus());
+      if (restoreFocus) {
+        savedFocus = captureFocus();
+        queueFocus(() => shown?.focus());
+      }
 
       if (!(await submission)) {
         setFailure(copy.draftStatus[draft.status]);
@@ -263,6 +273,7 @@ export const EditableText = (props: {
         }
       } catch (error) {
         if (!(error instanceof Error)) throw error;
+        savedFocus = undefined;
         connected.drafts.settle(draft.revision, outcomeOf(error));
 
         if (alive) {
