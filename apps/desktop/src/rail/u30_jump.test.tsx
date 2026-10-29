@@ -11,9 +11,8 @@ afterEach(cleanup);
 const since = (id: string, kind: Kind, minutesAgo: number, over = {}) =>
   agent(id, kind, "x", { status: { kind, label: "x", since: NOW - minutesAgo * MINUTE, finished: "0" }, ...over });
 
-const jump = () => leaderKey("KeyJ");
-
-describe("u30 jump", () => {
+describe.each(["leader", "direct"])("u30 jump via %s", (route) => {
+  const jump = () => route === "leader" ? leaderKey("KeyJ") : fireEvent.keyDown(document.activeElement ?? document.body, { key: "j", code: "KeyJ", ctrlKey: true, metaKey: true });
   it("u30_leader_j_selects_error_before_needs_you", async () => {
     const { rail } = await mountRail([since("ask", "needs-you", 30), since("boom", "error", 1)]);
 
@@ -111,9 +110,8 @@ describe("u30 jump", () => {
 
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent)).toEqual(["first", "last"]);
   });
-});
 
-describe("u48 leader J after the Daemon exited", () => {
+  describe("u48 after the Daemon exited", () => {
   it("u48_after_daemon_exited_leader_j_still_selects", async () => {
     const [exit] = createSignal({ code: 1 });
     const { rail } = await mountRail([since("a", "needs-you", 1)], [], exit);
@@ -122,4 +120,6 @@ describe("u48 leader J after the Daemon exited", () => {
 
     expect(rail.selected()).toBe("a");
   });
+});
+
 });
