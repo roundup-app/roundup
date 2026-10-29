@@ -1,6 +1,14 @@
-import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { seedApp } from "../testing/seeds";
+import { RequestedApp } from "../testing/requestedApp";
+import { showEverythingInApp } from "../testing/showEverything";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { mountNavigation } from "../testing/navigationFixture";
+import { mountSwitcher } from "../switcher/switcherFixture";
+import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
+import { CHORDS, LEADER } from "./chords";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { openTabs } from "../header/stripFixture";
+import { openTabs, tab } from "../header/stripFixture";
 import { agent } from "../testing/nodes";
 import { HintLine } from "./HintLine";
 import { mountTodos, todo } from "../todos/testHarness";
@@ -8,7 +16,7 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { RpcError } from "../app/seam";
 import { leaderArmed, endLeader } from "./registry";
 
-afterEach(() => { cleanup(); endLeader(); });
+afterEach(() => { cleanup(); endLeader(); localStorage.clear(); sessionStorage.clear(); });
 
 it("u4690b_leader_clicks_and_keys_share_one_wait", async () => {
   await openTabs({ api: [agent("a1", "needs-you", "x")] });
@@ -111,4 +119,186 @@ it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wa
 
   await waitFor(() => expect(document.querySelectorAll('.switcher input')).toHaveLength(1));
   expect(leaderArmed()).toBe(false);
+});
+
+// These cases use the production App owners and the existing fake Daemon seam.
+const press = (code: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement ?? document.body, {
+  key: code === "Slash" ? "/" : code.startsWith("Key") ? code.slice(3).toLowerCase() : code,
+  code, ...init,
+});
+
+const activate = async (keys: string, source: "key" | "pointer", leader = false) => {
+  if (leader) {
+    press("KeyK", { metaKey: true });
+    await waitFor(() => expect(leaderArmed()).toBe(true));
+  }
+
+  const button = await waitFor(() => {
+    const found = document.querySelector<HTMLButtonElement>(`.hint-line [data-hint="${keys}"]`);
+    expect(found?.disabled).toBe(false);
+
+    return found!;
+  });
+
+  if (source === "pointer") { fireEvent.pointerDown(button); fireEvent.click(button); }
+  else {
+    const row = leader ? LEADER.find(row => row.keys === keys)! : CHORDS.find(row => row.keys === keys)!;
+    const parts = ("press" in row ? row.press : row.presses[0]!).split("+");
+    press(parts.at(-1)!, { metaKey: parts.includes("meta"), shiftKey: parts.includes("shift") || parts.includes("Shift") });
+  }
+};
+
+it.each(["A", "P", "C", "J", "S", "T", "I"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
+  "u4690b_leader_clicks_and_keys_share_one_wait: $keys $source", async ({ keys, source }) => {
+    const { daemon, connected } = await mountNavigation(false, 1);
+    connected().showView("workstreams");
+    connected().showView("terminal-tabs");
+    connected().rail.select("a1");
+    const row = await waitFor(() => {
+      const row = document.querySelector<HTMLElement>('.rail-row[data-id="a1"]');
+      expect(row).not.toBeNull();
+
+      return row!;
+    });
+    row.focus();
+    await activate(keys, source, true);
+
+    if (keys === "A") await waitFor(() => expect(document.activeElement?.closest(".ask-bar")).not.toBeNull());
+    if (keys === "P") await waitFor(() => expect(document.querySelectorAll('.switcher input')).toHaveLength(1));
+    if (keys === "C") await screen.findByRole("dialog", { name: "Worktree" });
+    if (keys === "J") await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
+    if (keys === "S") await screen.findByRole("region", { name: "Todos" });
+    if (keys === "T") await screen.findByRole("textbox", { name: "Capture a Todo" });
+    if (keys === "I") await screen.findByRole("region", { name: "Inbox" });
+    expect(leaderArmed()).toBe(false);
+    expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+  },
+);
+
+it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wait: other Project %s", async source => {
+  const { app } = await openTabs({ api: [agent("a", "needs-you", "asks")], web: [agent("w", "idle", "idle")] });
+  document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!.focus();
+  await activate("⇧J", source, true);
+  await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
+  expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+});
+
+it.each([true, false].flatMap(accepted => (["key", "pointer"] as const).map(source => ({ accepted, source }))))(
+  "u4690_each_hint_runs_its_key_action_once: Remove $source accepted=$accepted", async ({ accepted, source }) => {
+    const { app, connected } = await mountSwitcher("ann");
+    render(() => <ConnectedProjectContext.Provider value={connected}><HintLine /></ConnectedProjectContext.Provider>);
+    const row = document.querySelector<HTMLElement>('.rail-row[data-id="ann"]')!;
+    row.focus();
+    await activate("⌘⌫", source);
+    await questionDialog();
+    expect(app.calls.filter(call => call.method === "rail.remove")).toEqual([]);
+    await answerQuestion(accepted);
+    await waitFor(() => expect(app.calls.filter(call => call.method === "rail.remove")).toHaveLength(accepted ? 1 : 0));
+    expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+  },
+);
+
+it.each(["M", "W", "⌘B"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
+  "u4690_each_hint_runs_its_key_action_once: Bubble $keys $source", async ({ keys, source }) => {
+    const { app, connected, emulators } = await mountSwitcher("ops");
+    render(() => <ConnectedProjectContext.Provider value={connected}><HintLine /></ConnectedProjectContext.Provider>);
+    await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(false));
+    emulators.made.get("7")!.focus();
+    await activate(keys, source, keys !== "⌘B");
+
+    if (keys === "W") {
+      await questionDialog();
+      expect(app.calls.filter(call => call.method === "terminal.close")).toEqual([]);
+      await answerQuestion(true);
+      await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.close").map(call => call.params)).toEqual([{ id: "7" }]));
+    } else if (keys === "M") await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(true));
+    else await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
+    expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+  },
+);
+
+it.each(["M", "D", "E", "Esc", "O", "T"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
+  "u4690_each_hint_runs_its_key_action_once: Shelf $keys $source", async ({ keys, source }) => {
+    const { app } = seedApp("tree-40", 0);
+    render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+    await showEverythingInApp(/backend/, keys === "E" ? "Pads" : "Todos");
+    const row = document.querySelector<HTMLElement>(keys === "E" ? ".shelf .pad-name" : ".shelf .todo-row-button[aria-pressed]")!;
+    row.focus();
+    await activate(keys, source);
+
+    if (keys === "M") {
+      await screen.findByRole("button", { name: "Restore" });
+      await activate(keys, source);
+      await screen.findByRole("button", { name: "Maximise" });
+    } else if (keys === "D") {
+      await waitFor(() => expect(app.calls.filter(call => call.method === "todo.delete")).toHaveLength(1));
+    } else if (keys === "E") {
+      await waitFor(() => expect(app.chooser.suggestedNames).toHaveLength(1));
+      expect(app.calls.filter(call => call.method === "pad.export")).toEqual([]);
+    } else if (keys === "Esc") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe("closed"));
+    else if (keys === "O") {
+      await waitFor(() => expect(document.querySelectorAll(".owner-picker")).toHaveLength(1));
+      press("Escape");
+      await waitFor(() => expect(document.activeElement).toBe(row));
+    } else {
+      await waitFor(() => expect(document.querySelector('.shelf')?.getAttribute("data-triage")).toBe("on"));
+      await activate("Esc", source);
+      await waitFor(() => expect(document.querySelector('.shelf')?.getAttribute("data-triage")).not.toBe("on"));
+    }
+
+    expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+  },
+);
+
+it.each(["key", "pointer"] as const)("u4690b_leader_clicks_and_keys_share_one_wait: competing A owners %s", async source => {
+  const { app } = seedApp("tree-40", 0);
+  render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  await showEverythingInApp();
+  const row = document.querySelector<HTMLElement>(".shelf .todo-row-button[aria-pressed]")!;
+  fireEvent.click(row);
+  row.focus();
+  await activate("A", source, true);
+  await waitFor(() => expect(document.querySelectorAll('.switcher input')).toHaveLength(1));
+  expect(document.querySelector('.shelf .todo-row-button[aria-pressed="true"]')).not.toBeNull();
+  expect(app.calls.filter(call => call.method === "todo.assign" || call.method === "terminal.write")).toEqual([]);
+});
+
+it.each(["modal", "project", "pending"])("u4690c_unavailable_or_stale_hints_run_nothing: %s", async state => {
+  const { app } = await openTabs({ api: [agent("a", "idle", "idle")], web: [agent("w", "idle", "idle")] });
+  const row = document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!;
+  row.focus();
+  await waitFor(() => expect(document.querySelector('.hint-line [data-hint="⌘/"]')).not.toBeNull());
+  const stale = document.querySelector<HTMLButtonElement>('.hint-line [data-hint="⌘/"]')!;
+  fireEvent.pointerDown(stale);
+
+  if (state === "project") {
+    fireEvent.click(tab("api"));
+    await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
+  } else if (state === "modal") {
+    press("KeyK", { metaKey: true });
+    press("KeyK");
+    await waitFor(() => expect(document.querySelector('.switcher input')).not.toBeNull());
+  } else {
+    press("Slash", { metaKey: true });
+    await waitFor(() => expect(document.activeElement?.closest(".ask-bar")).not.toBeNull());
+  }
+
+  const focus = document.activeElement;
+  const calls = app.calls.length;
+  fireEvent.click(stale);
+  expect(document.activeElement).toBe(focus);
+  expect(app.calls).toHaveLength(calls);
+});
+
+it.each(["owned", "done"])("u4690d_each_number_assigns_its_key_target_once: unavailable %s", async state => {
+  const { app, connected } = await mountTodos([todo(1, state === "done" ? { done: true } : { owner: { kind: "agent", id: "a1", parent: null } })], true, [agent("a1", "idle", "idle")]);
+  render(() => <ConnectedProjectContext.Provider value={connected}><HintLine /></ConnectedProjectContext.Provider>);
+  for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-part="branch-control"]')) fireEvent.click(control);
+  const row = document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button')!;
+  row.focus();
+  await waitFor(() => expect(document.querySelector('.hint-line')?.getAttribute("data-place")).toBe("shelf"));
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('.hint-line [data-hint^="Digit"]')];
+  expect(buttons.filter(button => !button.disabled)).toEqual([]);
+  press("Digit1", { key: "1" });
+  expect(app.calls.filter(call => call.method === "todo.assign" || call.method === "terminal.write")).toEqual([]);
 });
