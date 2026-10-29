@@ -293,3 +293,17 @@
 .settings-scale-small { font-size: var(--text-caption); }
 .settings-scale-default { font-size: var(--text-body); }
 .settings-scale-large { font-size: var(--text-title); }
+
+.settings-naming button {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.settings-naming [data-part="helper-text"] {
+  white-space: normal;
+}
+
+.settings-naming [data-part="error-text"] {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}

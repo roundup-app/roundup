@@ -135,6 +135,7 @@ impl Agents {
                 strays: Mutex::new(HashMap::new()),
                 context: None,
                 automatic_renaming: None,
+                naming_guide: None,
                 coordination: None,
                 waits: Mutex::new(HashMap::new()),
             }),
@@ -194,6 +195,15 @@ impl Agents {
         read: impl Fn() -> Result<bool, RpcError> + Send + Sync + 'static,
     ) -> Self {
         self.configure(|shared| shared.automatic_renaming = Some(Arc::new(read)))
+    }
+
+    /// Capture the global naming guide for each new vendor launch, including resumes.
+    #[must_use]
+    pub fn with_naming_guide(
+        self,
+        read: impl Fn() -> Result<String, RpcError> + Send + Sync + 'static,
+    ) -> Self {
+        self.configure(|shared| shared.naming_guide = Some(Arc::new(read)))
     }
 
     /// E3: supply the Context text kept by the Daemon, without giving Agents a Todos dependency.
@@ -574,6 +584,7 @@ pub(super) mod tests {
             strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
+            naming_guide: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
@@ -633,6 +644,7 @@ pub(super) mod tests {
             strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
+            naming_guide: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
         })
@@ -728,6 +740,7 @@ pub(super) mod tests {
             strays: Mutex::new(HashMap::new()),
             context: None,
             automatic_renaming: None,
+            naming_guide: None,
             coordination: None,
             waits: Mutex::new(HashMap::new()),
         });
