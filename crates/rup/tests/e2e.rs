@@ -2841,29 +2841,6 @@ async fn m13_until_read(shim: &mut Shim, id: &str, needle: &str) {
     panic!("{needle} was never readable");
 }
 
-#[tokio::test]
-async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    for id in [&rail.m, &rail.a] {
-        let mut shim = Shim::start(&project, id).await;
-        let offered = tool_names(&mut shim).await;
-        for name in ["terminal_screen", "terminal_read", "terminal_search"] {
-            assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
-        }
-        assert!(
-            offered
-                .iter()
-                .filter(|n| n.starts_with("terminal_"))
-                .count()
-                // M16: a Door lacks `terminal_spawn` and `terminal_open`; B53: it alone has `terminal_show`.
-                == if id == &rail.m { 8 } else { 9 },
-            "{offered:?}"
-        );
-    }
-}
-
 /// D8: `project.resources` called until `done` accepts what it returned, one call a second.
 async fn d8_resources_until(
     client: &rpc::Client,

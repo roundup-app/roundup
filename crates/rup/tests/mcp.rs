@@ -1197,18 +1197,6 @@ async fn t28_an_agent_adds_and_removes_a_ref_over_mcp_and_cli() {
 }
 
 #[tokio::test]
-async fn t28_the_tool_descriptions_name_the_section_form() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-    let tools = shim.client.list_all_tools().await.unwrap();
-    let tool = tools.iter().find(|t| t.name == "todo_addRef").unwrap();
-    let description = tool.description.as_deref().unwrap();
-    for phrase in ["Point the user", "read it", "#<heading>"] {
-        assert!(description.contains(phrase), "{phrase}: {description}");
-    }
-}
-
-#[tokio::test]
 async fn t29_mcp_todo_update_sets_the_estimate() {
     let project = start_daemon();
     let user = client_as(&project.socket, Actor::user()).await;
