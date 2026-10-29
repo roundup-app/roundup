@@ -276,7 +276,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(ofMethod()).toHaveLength(1);
       await answerQuestion(true);
       await waitFor(() => expect(ofMethod()).toHaveLength(2));
-      expect(ofMethod().map(call => call.params)).toEqual([visibleParams, visibleParams]);
+      expect(ofMethod().map(call => call.params)).toEqual([visibleParams, row.params]);
     }
 
     expect(connected.drafts.list()).toEqual(drafts);

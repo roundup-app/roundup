@@ -379,13 +379,13 @@ export const Bubbles = (props: {
     controller.signal.addEventListener("abort", cancelled, { once: true });
 
     try {
-      const { host, settled } = await destination.promise;
+      const target = mounted() ? await destination.promise : null;
 
-      if (focus && focusReturn(() => host.closest(".bubble")?.querySelector<HTMLElement>(".bubble-controls button")?.focus({ preventScroll: true }))) focusReturn = captureFocus();
-      prepared = await props.screens.prepare(host, settled, controller.signal);
+      if (focus && target && focusReturn(() => target.host.closest(".bubble")?.querySelector<HTMLElement>(".bubble-controls button")?.focus({ preventScroll: true }))) focusReturn = captureFocus();
+      prepared = target ? await props.screens.prepare(target.host, target.settled, controller.signal) : undefined;
 
       if ((focus && !current()) || rail.selected() !== selection) return null;
-      const opened = await app.rpc("terminal.open", { workstream, ...prepared.size });
+      const opened = await app.rpc("terminal.open", { workstream, ...prepared?.size });
 
       if (controller.signal.aborted && controller.signal.reason?.message === copy.terminalPreparationCancelled) {
         await app.rpc("terminal.close", { id: opened.terminal_id });
@@ -394,7 +394,7 @@ export const Bubbles = (props: {
         return null;
       }
 
-      prepared.bind(opened.terminal_id);
+      prepared?.bind(opened.terminal_id);
       setPlaces(prior => ({ ...prior, [opened.terminal_id]: placeOf(key) }));
       const available = () => mounted() && !controller.signal.aborted && current() && rail.selected() === selection;
 
