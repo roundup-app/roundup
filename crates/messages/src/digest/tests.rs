@@ -25,7 +25,7 @@ fn todo(id: u32, creator: &str, done: bool) -> Todo {
     let creator = serde_json::json!({"kind": "agent", "id": creator, "parent": null});
     serde_json::from_value(serde_json::json!({
         "id": id, "title": format!("todo {id}"), "body": "", "done": done, "blockers": [],
-        "blocked": false, "created_at": 0, "creator": creator, "home": "m", "owner": null,
+        "blocked": false, "created_at": 0, "updated_at": 0, "creator": creator, "home": "m", "owner": null,
     }))
     .unwrap()
 }

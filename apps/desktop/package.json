@@ -6,8 +6,9 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc",
-    "test": "node --test reporting/*.test.mjs budgets/*.test.mjs && vitest run",
-    "check:startup": "node budgets/startup.mjs"
+    "test": "pnpm run test:support && vitest run",
+    "check:startup": "node budgets/startup.mjs",
+    "test:support": "if [ -z \"${ROUNDUP_CAPTURES+x}\" ]; then node --test reporting/*.test.mjs budgets/*.test.mjs; fi"
   },
   "dependencies": {
     "@ark-ui/solid": "^5.39.3",

@@ -105,3 +105,19 @@ Neither CI nor Chromium observes native font key equivalents or combined
 AppKit/webview dispatch. Existing #4278 native evidence is retained; the remaining
 complete inventory, clipboard, scoped lists/triage/Help/settings/Rail rename,
 responder Find and final native observations keep #4308 open.
+
+## Terminal clipboard continuation
+
+Terminal Copy and Paste stay the standard responder commands of Tauri's default
+Edit menu; no Project-menu accelerator is added, because one would take ⌘C/⌘V from
+every editor. Paste already arrives as the webview `paste` event. The Terminal
+screen now also takes the `copy` event the Edit menu sends, writing the selection
+through the same `copy` as the ⌘C key. A key press is consumed before the event
+exists, so either path acts once; an empty selection or an editor leaves the event
+to the browser. `u3787b_edit_menu_copy_event_copies_the_terminal_selection_once`
+proves it; the U101 key proofs are unchanged and no test is removed or retired.
+
+Still open on #4308: scoped Shelf/list/triage, Rail rename, Help and settings
+inventory, the complete real-registration inventory observer, and the native
+displayed-key, responder Find and combined-dispatch observations against the
+final implementation SHA. No native result is claimed here.

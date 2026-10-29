@@ -131,6 +131,7 @@ const todosAt = (now: number): Todo[] =>
     blockers: index === 3 ? [3, 5] : [],
     blocked: index === 3,
     created_at: now,
+    updated_at: now,
     creator: index % 2 === 0 ? RUNNING : USER,
     home: null,
     owner: null,
