@@ -228,9 +228,7 @@ fn project_kind<R: Runtime>(
     let (accelerator, hint) = match item.shortcut.as_deref() {
         Some(shortcut) if shortcut.starts_with("⌘K ") => (None, Some(shortcut.to_owned())),
         // A plain key (a Shelf row's `D`) is control-owned: shown as a hint, never a global accelerator.
-        Some(shortcut)
-            if item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']) =>
-        {
+        Some(shortcut) if item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']) => {
             (None, Some(shortcut.to_owned()))
         }
         Some(shortcut) => (
@@ -639,7 +637,12 @@ mod tests {
     fn u3787b_plain_key_commands_register_no_accelerator() {
         let app = mock_app();
         for key in ["D", "E", "M", "J K", "⇧Tab", "Tab", "1–9", "⏎"] {
-            let source = item(&format!("action:chord:{key}"), "Run action", Some(key), None);
+            let source = item(
+                &format!("action:chord:{key}"),
+                "Run action",
+                Some(key),
+                None,
+            );
             let (built, hint) = project_kind(
                 app.handle(),
                 &source,
