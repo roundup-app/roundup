@@ -14,7 +14,7 @@ import { tab, path } from "../header/stripFixture";
 import { rowOf, settled } from "../rail/railFixture";
 import type { ConnectedProject } from "../state/connectedProject";
 import { useBrowserStorage } from "../state/storage";
-import { agent, event, workstream } from "../testing/nodes";
+import { agent, event, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "../switcher/switcherFixture";
 
 afterEach(() => { Object.defineProperty(questionProbe, "shown", { configurable: true, writable: true, value: null }); cleanup(); localStorage.clear(); sessionStorage.clear(); });
@@ -92,6 +92,13 @@ const activate = (row: HTMLElement, how: "enter" | "pointer"): void => {
 // App owns the surviving notice; the real Rail captures each original spawn contract.
 const APP_ROWS: Row[] = ROWS.flatMap(row => row.method === "agent.spawn" ? [{ ...row, owner: "App", params: { cwd: path("first"), prompt: row.label === "New Agent" ? null : "A\ne\u0301 🧭", parent: "ops", model: null, effort: null } }] : []);
 
+const BUBBLE_ROWS: Row[] = [
+  { owner: "Bubble", label: "New Terminal", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.open", params: { workstream: "ops" }, confirms: false, removes: "7",
+    hold: (app, entered) => { const reply = pending(entered, { terminal_id: "9" }); app.handlers["terminal.open"] = reply.handler; return reply.gate; } },
+  { owner: "Bubble", label: "Close the Bubble", selected: "ops", origin: '.terminal-tab[data-bubble="7"]', method: "terminal.close", params: { id: "7" }, confirms: true, removes: "7",
+    hold: (app, entered) => { const reply = pending(entered, null); app.handlers["terminal.close"] = reply.handler; return reply.gate; } },
+];
+
 const mountApp = async () => {
   useBrowserStorage(localStorage);
   const app = createFakeApp();
@@ -99,6 +106,7 @@ const mountApp = async () => {
   app.add(path("second"));
   app.of(path("first")).handlers["rail.tree"] = () => [workstream("ops")];
   app.of(path("second")).handlers["rail.tree"] = () => [workstream("other")];
+  app.of(path("first")).handlers["terminal.list"] = () => [info("7", { owner: "ops", title: "original" })];
   let original: ConnectedProject | undefined;
   const emulators = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} prepareIdle={open => { if (open.project.path === path("first")) original = open; }} />);
@@ -107,16 +115,17 @@ const mountApp = async () => {
   await waitFor(() => expect(original).toBeDefined());
   await screen.findByText("ops", { selector: ".name" });
   fireEvent.click(rowOf("ops"));
+  original!.showView("terminal-tabs");
   await settled();
 
   return { app: app.of(path("first")), connected: original!, other: app.of(path("second")) };
 };
 
-const cases = [...ROWS, ...APP_ROWS].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
+const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
   (row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : ["dismiss", "resolve", "reject", "unknown"] as const)).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
-  const mounted = row.owner === "App" ? await mountApp() : await mountSwitcher(row.selected);
+  const mounted = row.owner !== "Rail" ? await mountApp() : await mountSwitcher(row.selected);
   const { app, connected } = mounted;
   const trace: string[] = [];
   const reply = row.hold(app, () => trace.push(`${row.method}:${field() === null ? "closed" : "open"}`));
@@ -192,7 +201,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
 
   const queryDraft = connected.drafts.list().filter(entry => entry.destination.surface === "switcher");
 
-  if (row.owner === "App") {
+  if (row.owner !== "Rail") {
     expect(queryDraft).toHaveLength(1);
     expect(queryDraft[0]).toMatchObject({ destination: { surface: "switcher", object: path("first"), recipient: null }, value: { query } });
     fireEvent.click(tab("second"));
@@ -207,6 +216,15 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   }
 
   expect(ofMethod()).toHaveLength(1);
+
+  if (row.owner === "Bubble" && outcome !== "resolve") {
+    const drafts = connected.drafts.list();
+    reply.reject(new RpcError(-32000, `${row.label} late rejection`));
+    await waitFor(() => expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes(`${row.label} late rejection`))).toBe(true));
+    expect(connected.drafts.list()).toEqual(drafts);
+    expect(ofMethod()).toHaveLength(1);
+    return;
+  }
 
   if (outcome === "resolve") {
     if (row.owner === "App") {
