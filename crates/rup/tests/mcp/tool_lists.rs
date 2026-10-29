@@ -505,7 +505,7 @@ async fn p16_shared_pad_access_over_public_seams() {
                         .unwrap()
                         .iter()
                         .filter(|touch| touch["verb"] == "wrote")
-                        .last()
+                        .next_back()
                         .unwrap()["actor"],
                     json!(caller)
                 );
