@@ -41,6 +41,54 @@ it("u3517a_font_loading_keeps_live_terminal_input_available", async () => {
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write' && call.params.id === 't-agent-4').map(call => atob(call.params.data))")).toEqual(["x"]);
 }, 60_000);
 
+it("u4590_first_fit_keeps_later_output_visible", async () => {
+  await load("agents-10");
+  await read(`(async () => {
+    const { FitAddon } = await import(performance.getEntriesByType('resource').find(entry => entry.name.includes('/@xterm_addon-fit.js')).name);
+    const activate = FitAddon.prototype.activate;
+    FitAddon.prototype.activate = function(terminal) {
+      window.__fitter = this;
+      FitAddon.prototype.activate = activate;
+      return activate.call(this, terminal);
+    };
+    const fonts = document.fonts;
+    const load = fonts.load.bind(fonts);
+    const ready = fonts.ready;
+    let releaseLoad, releaseReady;
+    const loading = new Promise(resolve => { releaseLoad = resolve; });
+    const layout = new Promise(resolve => { releaseReady = resolve; });
+    fonts.load = async (...args) => { await loading; const result = await load(...args); window.__faceLoaded = true; return result; };
+    Object.defineProperty(fonts, 'ready', { configurable: true, value: Promise.all([ready, layout]) });
+    window.__releaseFaces = releaseLoad;
+    window.__releaseReady = () => { fonts.load = load; releaseReady(); };
+    window.__fake.app.calls.length = 0;
+    document.querySelector('.rail-row[data-id="agent-4"]').click();
+  })()`);
+  await wait("!!window.__fitter && !!document.querySelector('.pane .xterm-screen')");
+  await read("window.__releaseFaces()");
+  await wait("window.__faceLoaded === true");
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.resize' && call.params.id === 't-agent-4')")).toEqual([]);
+  await read(`(async () => {
+    window.__host = document.querySelector('.pane-screen');
+    window.__screen = window.__host.querySelector('.xterm-screen');
+    window.__emulator = window.__terminals.get('t-agent-4');
+    window.__releaseReady();
+    await document.fonts.ready;
+    // U4590's deliberate late-layout stimulus, one frame after font readiness.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    window.__host.style.width = '73%';
+    window.__host.style.height = '81%';
+    window.__finalGrid = window.__fitter.proposeDimensions();
+  })()`);
+  await wait("(() => { const sent = window.__fake.app.calls.filter(call => call.method === 'terminal.resize' && call.params.id === 't-agent-4').at(-1)?.params; const grid = window.__finalGrid; return sent?.cols === grid.cols && sent?.rows === grid.rows; })()");
+  const fitted = await read<object>("window.__fitter.proposeDimensions()");
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.resize' && call.params.id === 't-agent-4').at(-1).params")).toEqual({ id: "t-agent-4", ...fitted });
+  await read("window.__fake.writeOutput('t-agent-4', '\\r\\nU4590 later subscription output\\r\\n')");
+  await wait("window.__emulator.serialize().data.includes('U4590 later subscription output') && window.__host.querySelector('.xterm-rows')?.textContent.includes('U4590 later subscription output')");
+  expect(await read("window.__host === document.querySelector('.pane-screen') && window.__screen === window.__host.querySelector('.xterm-screen') && window.__emulator === window.__terminals.get('t-agent-4')")).toBe(true);
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write')")).toEqual([]);
+}, 60_000);
+
 it("u3517b_loaded_metrics_drive_terminal_resize", async () => {
   await load("agents-10");
   await select("agent-3", "t-agent-3");
