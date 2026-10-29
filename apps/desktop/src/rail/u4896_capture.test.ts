@@ -56,7 +56,7 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
             sources: {inset:'rail/styles.css: .rail-tree --rail-edge / --rail-inset',slot:'rail/styles.css: --rail-slot, section indicator and sortable-handle',gap:'rail/styles.css: .rail-section + .rail-section',depth:'ui/Tree.css: --tree-step; Rail.tsx drag probe'},
             heads:heads.map(el => ({name:el.textContent,box:box(el),icon:el.querySelector('svg') ? box(el.querySelector('svg')) : null,chevron:el.querySelector('[data-part=branch-indicator] svg') ? box(el.querySelector('[data-part=branch-indicator] svg')):null})),
             rows:rows.map(el => ({id:el.dataset.id,kind:el.className,section:el.closest('.rail-section')?.getAttribute('aria-label'),box:box(el),mark:el.querySelector('.row-state,.glyph,.kind-mark') ? box(el.querySelector('.row-state,.glyph,.kind-mark')):null,grip:el.querySelector('.sortable-handle svg') ? box(el.querySelector('.sortable-handle svg')):null,connectors:[...el.querySelectorAll('.tree-pass,.tree-stem,.tree-branch')].map(box),selected:el.dataset.selected,hover:el.matches(':hover'),focus:el.matches(':focus-within'),actions:[...el.querySelectorAll('.row-icons,.row-controls')].map(a=>({opacity:getComputedStyle(a).opacity,buttons:[...a.querySelectorAll('button')].map(b=>b.getAttribute('aria-label'))}))})),
-            focus:document.activeElement?.getAttribute('aria-label'), selected:[...document.querySelectorAll('.rail-row[data-selected=true]')].map(el=>el.dataset.id),calls:window.__fake.app.calls,alerts:[...document.querySelectorAll('[role=alert]')].map(el=>el.textContent),
+            focus:document.activeElement?.getAttribute('aria-label'), selected:[...document.querySelectorAll('.rail-row[data-selected=true]')].map(el=>el.dataset.id),calls:window.__fake.app.calls,questions:window.__fake.app.questions,alerts:[...document.querySelectorAll('[role=alert]')].map(el=>el.textContent),
             clauses:{1:'critic: compare row marks and connector paint with each head icon',2:'critic: compare rendered grip and chevron centres',3:'critic: compare section gaps with adjacent row gaps and paired heights',4:'compare baseline Checks; failure and keyboard evidence',5:'critic: action opacity, hover/focus/selection and keyboard calls in state captures'} };
         })()`);
 
@@ -142,6 +142,12 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
               await snap(`${prefix}-${kind}-${selected}-focus`);
 
               if (selected && theme === "dark" && width === 252) {
+                if (kind === "workstream") {
+                  await browser("press", "Meta+Shift+n");
+                  await wait("!!document.querySelector('.spawn-prompt-field')");
+                  await browser("focus", row);
+                }
+
                 const buttons=await read(`document.querySelector(${JSON.stringify(row)}).querySelectorAll('button').length`);
                 const walk=[];
 
@@ -159,7 +165,27 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
                     expect(await read(`document.querySelector(${JSON.stringify(row)}).dataset.selected`)).toBe("true");
                   }
 
+                  if (action.label === 'Add Agent') {
+                    await browser("press", "Space");
+                    await wait("document.activeElement.matches('.spawn-prompt-field')");
+                    expect(await read(`document.querySelector(${JSON.stringify(row)}).dataset.selected`)).toBe("true");
+                    await browser("focus", `${row} .rail-add`);
+                  }
+
                   walk.push(action);
+                }
+
+                if (kind === "workstream") {
+                  await browser("focus", ".spawn-prompt-field");
+                  await browser("press", "Escape");
+                  await wait("!document.querySelector('.spawn-prompt-field')");
+                } else {
+                  await browser("focus", `${row} .row-icons [aria-label="Stop"]`);
+                  await browser("press", "Enter");
+                  await wait("window.__fake.app.questions.length>0 && typeof window.__fake.app.answerQuestion==='function'");
+                  await read("window.__fake.app.answerQuestion(true)");
+                  await wait("window.__fake.app.calls.some(call=>call.method==='agent.stop')");
+                  expect(await read(`document.querySelector(${JSON.stringify(row)}).dataset.selected`)).toBe("true");
                 }
 
                 writeFileSync(join(dir,`${prefix}-${kind}-keyboard.json`),JSON.stringify(walk,null,2));
