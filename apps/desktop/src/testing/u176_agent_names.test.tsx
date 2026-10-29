@@ -265,7 +265,12 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
       const open = `document.dispatchEvent(new KeyboardEvent('keydown', {key:'n',metaKey:true,shiftKey:true,bubbles:true}))`;
       await lane.browser("open", url);
       await lane.until(`!!document.querySelector('[data-id="${target.id}"] .name')`);
-      await lane.browser("click", `.rail-row[data-id="${target.id}"] .row-state`);
+      // U4707: hover icons overlay the name's middle, so select by the name's first pixels.
+      // SAFETY: the evaluated expression returns an object with numeric x and y.
+      const point = await lane.evaluate(`(() => { const box = document.querySelector('.rail-row[data-id="${target.id}"] .name').getBoundingClientRect(); return {x:box.x + 4,y:box.y + box.height / 2}; })()`) as {x:number;y:number};
+      await lane.browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
+      await lane.browser("mouse", "down");
+      await lane.browser("mouse", "up");
       await lane.until(`document.querySelector('.rail-row[data-id="${target.id}"]').dataset.selected === 'true'`);
       await lane.evaluate(open);
       await lane.until(`!!${field}`);
