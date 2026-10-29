@@ -211,7 +211,9 @@ it.runIf(process.env.ROUNDUP_CAPTURES?.split(',').includes('U4590'))("u4590_rest
     await browser("dblclick", ".bubble:not([hidden]) .bubble-header");
     await wait(`(() => { const emulator = window.__terminals.get('${id}'); const rows = document.querySelector('.bubble:not([hidden]) .xterm-rows'); return emulator.serialize().data.includes('later ') && rows.textContent.includes('later ') && rows.textContent.includes('pid=${pid}'); })()`);
     let snapshot = before;
-    await expect.poll(async () => { snapshot = await app.rpc("terminal.snapshot", { id }); return { cols: snapshot.cols, rows: snapshot.rows }; }).not.toEqual({ cols: before.cols, rows: before.rows });
+    await expect.poll(async () => { snapshot = await app.rpc("terminal.snapshot", { id });
+
+ return { cols: snapshot.cols, rows: snapshot.rows }; }).not.toEqual({ cols: before.cols, rows: before.rows });
     const fitted = await read<{ cols: number; rows: number }>(`(() => { const s = window.__terminals.get('${id}').serialize(); return {cols:s.cols,rows:s.rows}; })()`);
     expect(fitted).toEqual({ cols: snapshot.cols, rows: snapshot.rows });
     expect((await app.rpc("terminal.list", null)).find(t => t.id === id)!.incarnation).toBe(incarnation);

@@ -683,6 +683,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
           window.__fake.writeOutput('${id}', '\\x1b[9;1H' + ${JSON.stringify(marker)} + '\\x1b[' + rows + ';1H[Enter] Answer  [Esc] Stop');
         })()`);
         await wait(`window.__terminals.get('${id}').serialize().data.includes(${JSON.stringify(marker)})`);
+
         if (renderer === "dom") await wait(`[...document.querySelectorAll('.xterm-rows')].some(rows => rows.checkVisibility() && rows.textContent.includes(${JSON.stringify(marker)}))`);
         // emulator.ts schedules xterm painting after the subscription's parse callback.
         await read("new Promise(resolve => requestAnimationFrame(resolve))");
