@@ -1,3 +1,4 @@
+import { nextTick } from "@zag-js/dom-query";
 import { copy } from "../copy";
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { showShelfTab } from "../testing/shelfTabs";
@@ -38,7 +39,7 @@ type RowCase = typeof cases[number];
 const target = async (kind: RowCase) => {
   const controls = await open();
 
-  if (kind === "pad-shelf") showShelfTab(copy.pads);
+  if (kind === "pad-shelf") await showEverythingInApp(undefined, copy.pads);
 
   const selector = {
     "todo-shelf": '.todos-tab [data-todo="1"] .todo-row-button',
@@ -288,6 +289,8 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
   fireEvent.keyDown(controls.row, {key:"F2"});
   const field = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
+  // @zag-js/editable focusInput selects on raf; dom-query nextTick runs after that frame.
+  await new Promise<void>(resolve => nextTick(resolve));
   const text = "  composed 日本語 🌱  ";
   fireEvent.input(field, {target:{value:text}});
   field.setSelectionRange(2, 5);
@@ -299,7 +302,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
   render(() => <App app={controls.app} drafts={createProjectDrafts()} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
 
-  if (kind === "pad-shelf") showShelfTab(copy.pads);
+  if (kind === "pad-shelf") await showEverythingInApp(undefined, copy.pads);
 
   const selector = kind === "todo-shelf" ? '.todos-tab [data-todo="1"] .todo-row-button' : '.pads-tab [data-incarnation="fixture-1"] .pad-name';
 
@@ -313,6 +316,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
 
   const restored = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(document.activeElement).toBe(restored));
+  await new Promise<void>(resolve => nextTick(resolve));
   expect(restored.value).toBe(text);
   expect([restored.selectionStart, restored.selectionEnd]).toEqual([2,5]);
   expect(controls.app.calls.filter(call => ["todo.update","pad.rename","pad.read","todo.readHistory"].includes(call.method))).toEqual([]);
