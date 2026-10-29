@@ -52,15 +52,44 @@ describe("u504 the Ask bar", () => {
 
     input()!.focus();
     type("@");
-    await waitFor(() => expect([...document.querySelectorAll(".app-mentions [role=option]")].map((item) => item.textContent)).toEqual(["lead", "ops", "docs"]));
+    const list = await screen.findByRole("listbox");
+    const options = within(list).getAllByRole("option");
+    const active = () => document.getElementById(input()!.getAttribute("aria-activedescendant") ?? "");
+
+    expect(active()).toBe(options[0]);
+    expect(input()!.getAttribute("aria-controls")).toBe(list.id);
+    press("ArrowUp", {}, input()!);
+    expect(active()).toBe(options[2]);
+    press("ArrowDown", {}, input()!);
+    expect(active()).toBe(options[0]);
+    press("ArrowDown", {}, input()!);
+    expect(active()).toBe(options[1]);
+    expect(document.activeElement).toBe(input());
 
     type("@OP");
     await waitFor(() => expect([...document.querySelectorAll(".app-mentions [role=option]")].map((item) => item.textContent)).toEqual(["ops"]));
 
     press("Enter", {}, input()!);
     await waitFor(() => expect(input()!.value).toBe("@ops "));
+    expect([input()!.selectionStart, input()!.selectionEnd]).toEqual([5, 5]);
     expect(sent(app)).toEqual([]);
     expect(document.querySelector(".app-mentions")).toBeNull();
+  });
+
+  it("u504_tab_accepts_the_hovered_match_without_leaving_the_input", async () => {
+    const { app } = await mountAskBar();
+    input()!.focus();
+    type("@");
+    const list = await screen.findByRole("listbox");
+    const option = within(list).getAllByRole("option")[2]!;
+    fireEvent.pointerMove(option, { pointerType: "mouse" });
+    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(option.id));
+    expect(press("Tab", {}, input()!).defaultPrevented).toBe(true);
+    expect(input()!.value).toBe("@docs ");
+    expect([input()!.selectionStart, input()!.selectionEnd]).toEqual([6, 6]);
+    expect(document.activeElement).toBe(input());
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(sent(app)).toEqual([]);
   });
 
   it.each(["home", "over"])("u504_escape_closes_mentions_and_keeps_the_draft_in_%s", async (mode) => {
