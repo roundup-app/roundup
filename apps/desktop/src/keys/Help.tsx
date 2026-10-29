@@ -46,7 +46,10 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
     if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus({ preventScroll: true });
   };
 
-  registerKeys({ kind: "app" }, [{ chords: HELP_KEYS, when: (press) => opensFrom(press.target), run: show }]);
+  registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "?")!, chords: HELP_KEYS, when: press => opensFrom(press.target), capture: focus => ({
+    available: () => !open() && !!focus?.isConnected && opensFrom(focus),
+    invoke: show,
+  }) }]);
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
     { chords: [...HELP_KEYS, "Escape"], run: close },
   ]);

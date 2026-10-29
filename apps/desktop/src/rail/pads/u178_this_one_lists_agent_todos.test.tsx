@@ -6,7 +6,6 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import { DrawerHost } from "../../drawer/DrawerHost";
-import { Keys } from "../../keys/Keys";
 import { Pads } from "../../pads/Pads";
 import { ConnectedProjectContext, connectProject } from "../../state/connectedProject";
 import { createFakeApp } from "../../testing/fakeApp";
@@ -36,7 +35,6 @@ const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <Keys />
       <Rail />
       <Pads />
       <Todos />

@@ -13,6 +13,7 @@ import { createBulkDelete } from "../shelf/BulkDelete";
 import { failureOf } from "../todos/failureOf";
 import { OwnerMark } from "../ink/OwnerMark";
 import { Icon } from "../ink/Icon";
+import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
@@ -511,7 +512,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.incarnation]); props.bulk.ask(); } },
             ], x, y))}
             class="pad-inset"
-            glyph={null}
+            glyph={<Icon name={PAD_ICON} />}
           >
             <div class="pad-row-head">
             <Show when={!editing()} fallback={<NameField object={`pad:${pad.incarnation}`} name={pad.name}
