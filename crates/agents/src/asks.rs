@@ -458,6 +458,18 @@ impl Intake {
             let Some((id, ord, mut part)) = pending else {
                 return Ok(());
             };
+            // Removal settles its Rail deletion before a queued part reports its cause.
+            // A closing Attempt never grants input admission.
+            if self
+                .agents
+                .shared
+                .runs()
+                .get(workstream)
+                .is_some_and(Slot::closing)
+            {
+                observed.await;
+                continue;
+            }
             let node = self.agents.shared.node(workstream);
             let result: Result<(), String> = match node {
                 Err(_) => Err("the Workstream was removed".to_owned()),

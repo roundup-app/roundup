@@ -117,6 +117,15 @@ async fn a4899a_readiness_at_the_wait_boundary_is_not_lost() {
                 )
                 .unwrap();
         }
+        let refused = w
+            .shared
+            .prompt("7013", "stale input", Some("earlier"), true, None)
+            .await;
+        assert!(matches!(
+            refused,
+            Err(SteerError::Refused(PromptError::NotFound { .. }))
+        ));
+        assert!(input.try_recv().is_err());
         let shared = w.shared.clone();
         *asks.shared.before_wait.lock().unwrap() = Some(Box::new(move || {
             if first_pending {
