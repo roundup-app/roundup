@@ -14,6 +14,12 @@ const exception = {
 };
 
 const cases = [
+  ["mutated project list", 'const projects = []; projects.push(externalProject); defineConfig({ test: { projects } });', 1, "unresolved"],
+  ["inline project computed timeout", 'const key = "testTimeout"; defineConfig({ test: { projects: [{ test: { [key]: 60_001 } }] } });', 1, "60001"],
+  ["inline project unresolved options", 'defineConfig({ test: { projects: [{ test: { ...externalOptions } }] } });', 1, "unresolved"],
+  ["unresolved project list", 'defineConfig({ test: { projects: externalProjects } });', 1, "unresolved"],
+  ["inline project safe override and paths", 'const projects = ["./packages/*", { test: { ...externalOptions, testTimeout: 60_000 } }]; defineConfig({ test: { projects } });', 0],
+  ["exported inline project timeout", 'const key = "testTimeout"; export default { test: { projects: [{ test: { [key]: 60_001 } }] } };', 1, "60001", [], "vitest.config.ts"],
   ["project aliased unresolved default", 'import { defineProject as project } from "vitest/config"; project({ test: { ...externalOptions } });', 1, "unresolved"],
   ["project namespace default", 'import * as config from "vitest/config"; const method = "defineProject"; config[method]({ test: { ...externalOptions } });', 1, "unresolved"],
   ["project destructured default", 'import * as config from "vitest/config"; const { defineProject: project } = config; project({ test: { ...externalOptions } });', 1, "unresolved"],
