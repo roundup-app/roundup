@@ -118,6 +118,18 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await browser("focus", '.app-select-trigger');
       await wait(`document.activeElement.matches('.app-select-trigger:focus-visible')`);
       await snap(`${theme}-form-ring`);
+      await load("empty-project");
+      await snap(`${theme}-overview`);
+
+      if (theme === "dark") {
+        await browser("set", "viewport", "800", "600");
+        await snap("dark-narrow");
+        await browser("set", "viewport", "640", "320");
+        await snap("dark-short");
+        await browser("eval", `document.querySelectorAll('.empty-state').forEach(el => { el.scrollTop = el.scrollHeight; })`);
+        await snap("dark-short-scrolled");
+        await browser("set", "viewport", "1512", "950");
+      }
     }
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
