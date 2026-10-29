@@ -109,7 +109,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
             <Dialog.Title>{copy.newWorkstreamTitle}</Dialog.Title>
             <label class="app-dialog-name">
               <span class="app-dialog-label">{copy.workstreamNameLabel}</span>
-              <textarea rows={1} value={name()} onInput={event => setName(event.currentTarget.value)}
+              <textarea spellcheck={false} autocorrect="off" autocapitalize="off" rows={1} value={name()} onInput={event => setName(event.currentTarget.value)}
                 onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} />
             </label>
             <RadioGroup label={copy.startChoiceLabel} value={start()} onValueChange={setStart}
