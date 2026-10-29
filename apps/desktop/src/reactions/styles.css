@@ -230,6 +230,6 @@
   gap: var(--space-1);
 }
 
-.reaction-list > li { display: flex; align-items: baseline; gap: var(--space-4); }
+.reaction-list-item { display: flex; align-items: baseline; gap: var(--space-4); }
 .reaction-summary { display: flex; flex-direction: column; min-width: 0; }
 .reaction-reason { color: var(--grey); white-space: normal; overflow-wrap: anywhere; }

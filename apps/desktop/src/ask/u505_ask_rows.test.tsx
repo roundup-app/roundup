@@ -265,6 +265,7 @@ const earlierOverview = async (browser: Browser, origin: string) => {
   await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
   await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.ask-input')");
   await browser("eval", `window.__fake.emit({actor: {kind: "user", id: "you", parent: null}, name: "ask.changed", data: {ask: {id: "fold", at: "1", text: "sent", parts: [{text: "sent", placement: {kind: "routed", workstream: "payments"}, state: "typed"}]}}})`);
+  await browser("click", ".overview-sections [data-part=item]:nth-child(2) [data-part=item-trigger]");
   await browser("wait", "--fn", "!!document.querySelector('button.ask-line')");
   await browser("click", "button.ask-line");
   await browser("wait", "--fn", "!!document.querySelector('.pane-screen') && !document.querySelector('.ask-input')");
@@ -333,7 +334,7 @@ it("u505_expanded_earlier_retains_row_navigation", async () => {
     await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.dataset.selected === 'true' && !!document.querySelector('.pane-screen')");
     expect((await browser("eval", "window.__fake.app.calls.slice(window.__calls).filter(c => ['ask.send','rail.startDoor','agent.spawn','terminal.write'].includes(c.method)).length")).result).toBe(0);
     await browser("open", new URL("/harness.html?seed=empty-project", origin).href);
-    await browser("wait", "--fn", "!!document.querySelector('.ask-input') && !!document.querySelector('.project-overview')");
+    await browser("wait", "--fn", "!!document.querySelector('.ask-input') && document.querySelectorAll('.overview-section-trigger').length === 4");
     await capture("empty-project");
   });
 }, 60_000);
