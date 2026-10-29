@@ -7,7 +7,7 @@ const root = () => resolve(process.cwd(), "../..", "artifacts/ux");
 export function captureDir(id: string): string | null {
   const named = (process.env.ROUNDUP_CAPTURES ?? "").split(",").map((part) => part.trim());
 
-  const target = named.includes(id) ? id : id === "U4275b" && named.includes("U4708") ? "U4708" : null;
+  const target = named.includes(id) ? id : id === "U4275a" && named.includes("U4708") ? "U4708" : null;
 
   if (target === null) return null;
 

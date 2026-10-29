@@ -19,11 +19,20 @@
   --row-wash: var(--hover);
 }
 
-.row-wash:is([data-selected]:not([data-selected="false"]), [data-row-selected="true"], [data-requested="true"], [data-editing="true"], :focus, :has(:focus-visible)) {
+.row-wash[data-selected="true"],
+.row-wash[data-selected=""],
+.row-wash[data-row-selected="true"],
+.row-wash[data-requested="true"],
+.row-wash[data-editing="true"],
+.row-wash:focus,
+.row-wash:has(:focus-visible) {
   --row-wash: var(--selected);
 }
 
-.row-wash:is([data-selected]:not([data-selected="false"]), [data-row-selected="true"], [data-editing="true"]):hover {
+.row-wash[data-selected="true"]:hover,
+.row-wash[data-selected=""]:hover,
+.row-wash[data-row-selected="true"]:hover,
+.row-wash[data-editing="true"]:hover {
   --row-wash: var(--selected-hover);
 }
 
