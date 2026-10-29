@@ -587,3 +587,51 @@ async fn u3787a_consumed_restore_does_not_reverse_a_later_rename() {
     assert_eq!(call(&w, "pad.read", json!({"name":"Moved"})).await, renamed);
     assert_eq!(call(&w, "pad.list", Value::Null).await, json!([renamed]));
 }
+
+#[tokio::test]
+async fn u3787a_redo_retains_the_acknowledged_creation_for_another_undo() {
+    let w = world().await;
+    let (pad, receipt) = deleted(&w, "notes").await;
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    let redo = json!({"project":receipt["project"],"restoredOperation":receipt["operation"],
+        "operation":"redo-one","expectedIncarnation":pad["incarnation"],
+        "expectedRevision":pad["revision"],"expectedHome":pad["home"]});
+    let acknowledged = call(&w, "pad.redoDelete", redo.clone()).await;
+    assert_eq!(acknowledged["pad"], pad);
+    assert_eq!(acknowledged["operation"], "redo-one");
+    assert_eq!(call(&w, "pad.list", Value::Null).await, json!([]));
+    assert_eq!(
+        call(&w, "pad.getDeletion", json!({"operation":"redo-one"})).await,
+        acknowledged
+    );
+    assert_eq!(call(&w, "pad.redoDelete", redo.clone()).await, acknowledged);
+    assert_eq!(
+        call(&w, "pad.restore", deletion_id(&acknowledged)).await["pad"],
+        pad
+    );
+    // A lost redo reply replayed after Undo cannot delete again.
+    assert_eq!(call(&w, "pad.redoDelete", redo).await["restored"], true);
+    assert_eq!(call(&w, "pad.read", json!({"name":"notes"})).await, pad);
+    // The original deletion key remains a readback, too.
+    call(
+        &w,
+        "pad.delete",
+        json!({"name":"notes","operation":"delete-notes",
+        "expectedIncarnation":pad["incarnation"]}),
+    )
+    .await;
+    assert_eq!(call(&w, "pad.read", json!({"name":"notes"})).await, pad);
+    let second = call(
+        &w,
+        "pad.redoDelete",
+        json!({"project":receipt["project"],
+        "restoredOperation":"redo-one","operation":"redo-two",
+        "expectedIncarnation":pad["incarnation"],"expectedRevision":pad["revision"],
+        "expectedHome":pad["home"]}),
+    )
+    .await;
+    assert_eq!(
+        call(&w, "pad.restore", deletion_id(&second)).await["pad"],
+        pad
+    );
+}
