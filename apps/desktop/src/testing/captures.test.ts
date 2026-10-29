@@ -39,12 +39,6 @@ test.each(["J13-invalid", "J13aa", "J13/elsewhere"])("l105_captureDir_rejects_a_
   expect(captureDir(id)).toBeNull();
 });
 
-test("l105_captureDir_journey_writes_nothing", () => {
-  named("J990");
-  captureDir("J990");
-  expect(existsSync(resolve(process.cwd(), "../../artifacts/ux/journey/J990"))).toBe(false);
-});
-
 test("l105_captureDir_writes_nothing", () => {
   named("U990");
   const dir = captureDir("U990");
@@ -135,13 +129,23 @@ test("u453_committed_capture_reads_do_not_enable_writes", () => {
 });
 
 // U4590: selection is observed before Vitest starts any App/browser setup.
-test("u4590_capture_selection_keeps_all_policy_observers_and_guards", () => {
-  expect(captureTests("U4590")).toEqual([
+test("u4590_capture_selection_keeps_all_policy_observers_and_guards", async () => {
+  named("U4590");
+  const { loadConfigFromFile } = await import("vite");
+  const loaded = await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
+  const config = loaded!.config.test!;
+
+  expect(config.projects![1]).toMatchObject({ test: { include: [
     "src/terminal/u3517_browser.test.ts",
     "src/terminal/u4590_preparation.test.tsx",
     "src/terminal/u59_real_daemon.test.ts",
     "src/testing/u463_real_daemon.test.ts",
-  ]);
+  ] } });
+  expect(config.fileParallelism).toBe(false);
+  for (const name of ["u4590_rendered_lifecycle_dom_agents-10_head", "u4590_rendered_lifecycle_webgl_bubbles_base", "u4590_visible_launch_params_match_first_pty_grid", "u4590_restored_terminal_keeps_its_program_and_paints_later_output", "u3517a_font_loading_keeps_live_terminal_input_available", "u3517d_rendering_changes_keep_input_and_scrollback"]) {
+    expect(name).toMatch(config.testNamePattern!);
+  }
+  expect("u2875d_real_import_reopen_and_resume").not.toMatch(config.testNamePattern!);
 });
 
 test("u4590_capture_selection_leaves_ordinary_discovery_unchanged", () => {

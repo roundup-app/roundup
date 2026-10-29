@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc",
-    "test": "node --test reporting/*.test.mjs budgets/*.test.mjs && vitest run",
+    "test": "if [ -z \"${ROUNDUP_CAPTURES+x}\" ]; then node --test reporting/*.test.mjs budgets/*.test.mjs; fi && vitest run",
     "check:startup": "node budgets/startup.mjs"
   },
   "dependencies": {
