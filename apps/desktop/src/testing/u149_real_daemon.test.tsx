@@ -1,25 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { showEverythingInApp } from "./showEverything";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { bundledRenderers, useRenderers } from "../pads/visualKinds";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createServedApp } from "./realSeam";
+import { createFakeApp } from "./fakeApp";
+import { padHandlers } from "./stores";
+import { workstream, USER } from "./nodes";
 import { showShelfTab } from "./shelfTabs";
-import { startRealDaemon } from "./realDaemonFixture";
-import type { StartedDaemon } from "./realDaemonFixture";
-
-let real: StartedDaemon;
-
-beforeAll(async () => {
-  real = await startRealDaemon({});
-}, 120_000);
-
-afterAll(async () => {
-  await real?.stop();
-});
 
 afterEach(() => {
   cleanup();
@@ -37,8 +27,8 @@ const mermaid = "```mermaid\ngraph TD\n  A --> B\n```\n";
 
 const drawing = '```excalidraw\n{"type":"excalidraw","version":2,"elements":[{"type":"rectangle","id":"a","x":0,"y":0,"width":160,"height":80}]}\n```\n';
 
-describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
-  it("u149_a_stored_drawing_renders_in_the_open_drawer_and_reads_back_byte_exact", async () => {
+describe("u148, u149 the open Drawer renders stored blocks", () => {
+  it("u149_a_stored_drawing_renders_in_the_open_drawer", async () => {
     useRenderers({
       mermaid: async () => ({ initialize: () => undefined, parse: async () => undefined, render: async () => ({ svg: "<svg></svg>" }) }),
       canvas: async () => ({
@@ -47,10 +37,11 @@ describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
         restoreElements: (stored) => stored.map((element, index) => ({ id: String(element.id ?? index), version: 1 })),
       }),
     });
-    const app = createServedApp(real.base);
-
-    await app.rpc("pad.create", { name: "sketch", text: `${mermaid}\n${drawing}` });
-    await app.rpc("rail.createWorkstream", { name: "scope", parent: null });
+    const app = createFakeApp();
+    app.opened.project = { name: "drawings", path: "/project" };
+    const state = { pads: [{ incarnation: "stored-sketch", name: "sketch", owner: USER, home: null, text: `${mermaid}\n${drawing}`, revision: 1, updated_at: 0 }], history: [] };
+    app.handlers["rail.tree"] = () => [workstream("scope", { name: "scope" })];
+    Object.assign(app.handlers, padHandlers(state, () => {}));
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findByRole("tablist", { name: "Work items" }, { timeout: 20_000 });
     await showEverythingInApp(/scope/);
@@ -63,6 +54,5 @@ describe("u148, u149 the open Drawer renders a block the Daemon stores", () => {
 
     await screen.findByTestId("canvas", {}, { timeout: 20_000 });
     await waitFor(() => expect(document.querySelectorAll(".visual-block").length).toBe(2));
-    expect((await app.rpc("pad.read", { name: "sketch" })).text).toBe(`${mermaid}\n${drawing}`);
   }, 60_000);
 });

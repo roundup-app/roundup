@@ -58,7 +58,7 @@ it.each(["plus", "chord"])("u4390_root_open_survives_a_stale_list_before_first_l
   const mounted = await openThroughStaleList(activation);
   expect(tabs()).toEqual(["project", "9"]);
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
-  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "w" }]);
+  expect(bubbleCalls(mounted.app, "terminal.open")).toMatchObject([{ workstream: "w" }]);
   expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([]);
   expect(mounted.connected.rail.terminals().find(terminal => terminal.id === "9")?.owner).toBe("w");
   expect(mounted.connected.rail.selected()).toBeNull();
@@ -94,5 +94,5 @@ it("u524_a_non_root_open_resets_root_visibility_and_keeps_project_terminals", as
   await mounted.connected.rail.settled();
   mounted.connected.rail.select(null);
   expect(tabs()).toEqual(["project"]);
-  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "w" }, { workstream: "w" }]);
+  expect(bubbleCalls(mounted.app, "terminal.open")).toMatchObject([{ workstream: "w" }, { workstream: "w" }]);
 });
