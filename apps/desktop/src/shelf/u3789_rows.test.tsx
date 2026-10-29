@@ -285,6 +285,9 @@ it.each(["overview", "workstream", "agent", "terminal"].flatMap(scope => ["key",
 
 it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_keeps_original_identity_%s", async kind => {
   const controls = await target(kind);
+  const owner = controls.row.closest('[data-shelf-group]');
+
+  if (owner?.getAttribute("aria-expanded") === "false") fireEvent.click(owner.querySelector<HTMLElement>('[data-part="branch-control"]')!);
   fireEvent.keyDown(controls.row, {key:"F2"});
   const field = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
@@ -311,6 +314,9 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
 
  return row;});
 
+  const restoredOwner = row.closest('[data-shelf-group]');
+
+  if (restoredOwner?.getAttribute("aria-expanded") === "false") fireEvent.click(restoredOwner.querySelector<HTMLElement>('[data-part="branch-control"]')!);
   fireEvent.keyDown(row, {key:"F2"});
 
   const restored = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});

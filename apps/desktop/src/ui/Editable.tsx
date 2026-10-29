@@ -92,7 +92,7 @@ export const NameField = (props: {
     if (problem && (!problem.destination || problem.destination.object === destination.object)) props.fail(copy.draftRetention(project.name, copy.name, problem.cause));
   });
 
-  return <Editable.Root edit value={text()} submitMode="none" class="row-name-editor" onValueChange={({ value }) => setText(value)}>
+  return <Editable.Root edit selectOnFocus={false} value={text()} submitMode="none" class="row-name-editor" onValueChange={({ value }) => setText(value)}>
     <Editable.Input type="text" class="shelf-title" aria-label={copy.name} aria-invalid={conflict() || undefined} aria-busy={!ready() || pending()} ref={field => queueMicrotask(() => {
       if (!field.isConnected) return;
       field.focus();
