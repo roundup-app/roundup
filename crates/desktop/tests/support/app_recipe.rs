@@ -61,11 +61,13 @@ fn app_recipe(pnpm: &str, curl: &str) -> std::process::Output {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     std::fs::copy(root.join("justfile"), dir.path().join("justfile")).unwrap();
     for (name, body) in [
+        ("tools/sidecar/bundle.sh", "exit 0"),
         ("curl", curl),
         ("pnpm", pnpm),
         ("cargo", "echo cargo \"$*\" >&2"),
     ] {
         let path = dir.path().join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
     }
