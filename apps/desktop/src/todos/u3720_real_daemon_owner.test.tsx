@@ -378,6 +378,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.until("!!document.querySelector('.todo-detail [role=alert]')");
     expect(await app.rpc("todo.get", { id: moved.id })).toMatchObject({ id: moved.id, home: home.id, owner: actor(agents[0]!.id), ...saved.get(moved.id) });
     await capture("save-failure");
+    await lane.until("!!document.querySelector('.todo-detail-title textarea[aria-label=Title]')");
     await lane.browser("click", ".todo-detail-title .todo-editable button:last-child");
     await lane.until("!document.querySelector('textarea[aria-label=Title]')");
     await lane.until("document.querySelector('.todo-detail-title .todo-editable p')?.textContent === 'Release notes revised' && document.activeElement !== document.body");
