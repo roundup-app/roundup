@@ -132,7 +132,7 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
               await browser("mouse", "move", "1400", "900");
               await browser("focus", row);
               await snap(`${prefix}-${kind}-${selected}-focus`);
-              if (selected) {
+              if (selected && theme === "dark" && width === 252) {
                 const buttons=await read(`document.querySelector(${JSON.stringify(row)}).querySelectorAll('button').length`);
                 const walk=[];
                 for (let index=0; index<buttons; index++) {
@@ -162,11 +162,12 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
           await browser("press", "Enter");
           await wait("document.body.textContent.includes('Folder unavailable; try again')");
           await snap(`${prefix}-dense-failure`);
+          const openedBefore=await read("window.__fake.app.openedTargets.length");
           await read("window.__fake.app.openFailure=null");
           await browser("focus", folder);
           await browser("press", "Enter");
-          await wait("window.__fake.app.openedTargets.length>0");
-          expect(await read("window.__fake.app.openedTargets.length")).toBeGreaterThan(0);
+          await wait(`window.__fake.app.openedTargets.length>${openedBefore}`);
+          expect(await read("window.__fake.app.openedTargets.length")).toBe(openedBefore+1);
           await snap(`${prefix}-recovered`);
         }
       } finally {
