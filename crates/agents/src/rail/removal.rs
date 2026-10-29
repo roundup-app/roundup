@@ -499,33 +499,8 @@ impl Rail {
     }
 }
 
-/// M7: whether `id` is in Agent `agent`'s Reach, as `Shared::reach` decides, read inside the
-/// restoring transaction so the refusal copy follows the authority `rail.remove` applies.
+/// M7: whether `id` is in Agent `agent`'s Reach, read inside the restoring transaction.
 fn in_reach(db: &Connection, nodes: &[RailNode], agent: &str, id: &str) -> Result<bool, RpcError> {
-    let mut query = db
-        .prepare("SELECT id FROM nodes WHERE creator = ?")
-        .map_err(sql)?;
-    let created: Vec<String> = query
-        .query_map(params![agent], |row| Ok(row.get::<_, i64>(0)?.to_string()))
-        .map_err(sql)?
-        .collect::<Result<_, _>>()
-        .map_err(sql)?;
-    let mut reach = std::collections::HashSet::new();
-    let mut frontier = vec![agent.to_owned()];
-    for created in created {
-        if created != agent && reach.insert(created.clone()) {
-            frontier.push(created);
-        }
-    }
-    while let Some(parent) = frontier.pop() {
-        for node in nodes
-            .iter()
-            .filter(|n| n.parent.as_deref() == Some(&parent))
-        {
-            if node.id != agent && reach.insert(node.id.clone()) {
-                frontier.push(node.id.clone());
-            }
-        }
-    }
-    Ok(reach.contains(id))
+    let created = Rail::created_by_in(db, agent)?;
+    Ok(crate::reach::reach_of(nodes, created, agent).contains(id))
 }
