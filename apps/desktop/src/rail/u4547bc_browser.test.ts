@@ -36,6 +36,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
   await lane.browser("click", 'button[type=submit]');
   await lane.until("!document.querySelector('[role=dialog]')");
   await lane.until("[...document.querySelectorAll('.rail-tree .section-head')].some(head => head.textContent.includes('MODES'))");
+  await lane.until("document.activeElement?.closest('[data-id]')?.getAttribute('data-id') === window.__fake.app.calls.find(call => call.method === 'workstream.restart').params.id");
   await lane.capture("U4547b", "selected-mode");
 
   const calls = await lane.calls();
