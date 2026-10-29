@@ -782,7 +782,7 @@ export const copy = {
   addTerminalMenu: "Terminal",
   copyLink: "Copy link",
   restartModeInRail: "Restart Mode (R · Rail row)",
-  restart: "Restart",
+  restart: "Restart", restartMark: "↻",
   startYolo: "Start YOLO",
   creatingWorkstream: "Creating Workstream…",
   noWorkstreamYet: "No Workstream yet",
