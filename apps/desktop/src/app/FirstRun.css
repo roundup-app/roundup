@@ -17,5 +17,4 @@
   justify-content: center;
 }
 
-.choose-project .empty-state { flex: 0 0 auto; }
 .choose-project ul { text-align: center; }
