@@ -59,7 +59,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
         if (spacingCaptures) {
           const directory = join(spacingCaptures, process.env.ROUNDUP_CAPTURE_PHASE ?? "head");
           mkdirSync(directory, { recursive: true });
-          writeFileSync(join(directory, "revision.json"), JSON.stringify({ revision: process.env.ROUNDUP_CAPTURE_REVISION, seed: "tree-40", theme, renderer: await read("navigator.userAgent"), scale: await read("devicePixelRatio") }, null, 2));
+          writeFileSync(join(directory, "revision.json"), JSON.stringify({ revision: process.env.ROUNDUP_CAPTURE_REVISION ?? (await exec("git", ["rev-parse", "HEAD"])).stdout.trim(), seed: "tree-40", theme, renderer: await read("navigator.userAgent"), scale: await read("devicePixelRatio") }, null, 2));
           await browser("record", "start", join(directory, "switcher.webm"));
           await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
           await browser("set", "media", "dark");
