@@ -27,11 +27,12 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal dimensions (`cols`, `rows`, `terminal::window`) | same | — |
 | Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
 | Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
+| Original Terminal program (`TerminalInfo.program_pid`, `Terminals::program_pid`) | none | — |
 | Terminal incarnation (`TerminalInfo.incarnation`) | same | — |
 | Shell mark | same | shell integration (as a name; it is the means) |
 | Turn | command | — |
 | ReservedLine | none | — |
-| Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
+| Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`, `TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |
@@ -222,7 +223,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Daemon | same | — |
-| Naming settings (`NamingSettings`, `daemon.getNaming`, `daemon.setNaming`, `automatic_renaming`, `with_automatic_renaming`, `naming_guide`) | Automatic renaming, Naming guide | — |
+| Naming settings (`NamingSettings`, `daemon.getNaming`, `daemon.setNaming`, `automatic_renaming`, `with_automatic_renaming`, `with_naming_guide`, `naming_guide`, `naming_settled`, `naming_settings`) | Automatic renaming, Naming guide | — |
 | Link (`link.read`) | same | — |
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |

@@ -146,3 +146,49 @@ async fn h17_a_later_star_is_still_folded_as_a2_says() {
     f.until(|tree| status_of(tree, &id).kind == Kind::Idle)
         .await;
 }
+
+/// An `AskUserQuestion` open: `needs-you`, the Terminal title untouched.
+async fn asking(bound: Duration) -> (Arc<Fixture>, String) {
+    let (f, id) = working(IGNORES, bound).await;
+    let attempt = f.attempt(&id).await;
+    let payload = json!({
+        "hook_event_name": "PermissionRequest",
+        "tool_name": "AskUserQuestion",
+        "tool_input": {"questions": [{"question": "which?"}]},
+    });
+    f.call(
+        "agent.signal",
+        json!({"id": id, "attempt": attempt, "payload": payload}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(status_of(&f.tree().await, &id).kind, Kind::NeedsYou);
+    (f, id)
+}
+
+#[tokio::test]
+async fn h4702a_a_question_kind_change_acknowledges_without_a_title_change() {
+    for (event, kind) in [("Stop", Kind::Idle), ("PostToolUse", Kind::Working)] {
+        let (f, id) = asking(Duration::from_secs(30)).await;
+        let call = interrupt(&f, &id);
+        until_file(&typed(&f)).await;
+        assert_eq!(read(&typed(&f)), b"\x1b");
+        signal(&f, &id, event).await;
+
+        assert_eq!(call.await.unwrap().unwrap(), Value::Null);
+        assert_eq!(status_of(&f.tree().await, &id).kind, kind);
+        assert_eq!(read(&typed(&f)), b"\x1b");
+    }
+}
+
+#[tokio::test]
+async fn h4702a_an_unobserved_question_outcome_remains_uncertain() {
+    let (f, id) = asking(BOUND).await;
+    let err = interrupt(&f, &id).await.unwrap().unwrap_err();
+
+    assert_eq!(err.code, code::NOT_ACKED);
+    assert!(err.message.contains("outcome uncertain"), "{}", err.message);
+    assert_eq!(status_of(&f.tree().await, &id).kind, Kind::NeedsYou);
+    tokio::time::sleep(BOUND).await;
+    assert_eq!(read(&typed(&f)), b"\x1b", "a second byte was written");
+}
