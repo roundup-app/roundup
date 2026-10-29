@@ -209,6 +209,7 @@ mod tests {
             blockers,
             blocked,
             created_at: 0,
+            updated_at: 0,
             creator: Actor {
                 kind: ActorKind::Agent,
                 id: creator.into(),
