@@ -385,6 +385,7 @@ mod tests {
             blocked: !blockers.is_empty(),
             blockers,
             created_at: 0,
+            updated_at: 0,
             creator: Actor::user(),
             home: None,
             owner,

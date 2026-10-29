@@ -1,6 +1,19 @@
 //! U3787a observes the production router, authority guards and shared Project store.
 use super::*;
 
+/// T30: restoring a Todo's owner or blockers is a Change, so `updated_at` moves; the rest returns.
+fn without_updated_at(mut value: Value) -> Value {
+    if let Some(todos) = value.as_array_mut() {
+        todos.iter_mut().for_each(|todo| {
+            todo.as_object_mut()
+                .map(|object| object.remove("updated_at"));
+        });
+    } else if let Some(object) = value.as_object_mut() {
+        object.remove("updated_at");
+    }
+    value
+}
+
 async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, RpcError> {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
@@ -77,8 +90,8 @@ async fn u3787a_daemon_restores_exact_graph_without_starting_processes() {
         .await
         .unwrap();
     assert_eq!(
-        call(&daemon, "todo.list", Value::Null).await.unwrap(),
-        before
+        without_updated_at(call(&daemon, "todo.list", Value::Null).await.unwrap()),
+        without_updated_at(before)
     );
     assert_eq!(
         call(&daemon, "todo.getHistory", json!({"id":2}))
