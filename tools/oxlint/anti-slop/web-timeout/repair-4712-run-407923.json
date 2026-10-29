@@ -244,5 +244,296 @@
         }
       ]
     }
+  },
+  "retention_green": {
+    "source_sha": "edf11112f35e64d6d54a4c94b6b5c7d376326cb1",
+    "command": [
+      "python3",
+      "loop/app-data.py",
+      "pnpm",
+      "--filter",
+      "desktop",
+      "exec",
+      "vitest",
+      "run",
+      "src/importer/u2875d_import_panel.test.tsx",
+      "-t",
+      "rendered_audit_retention"
+    ],
+    "ROUNDUP_CAPTURES": "U3299a",
+    "concurrent_work": "just ready and normal-workload diagnosis; not isolated cap evidence",
+    "exit_code": 0,
+    "retry_markers": 0,
+    "report": {
+      "numTotalTestSuites": 1,
+      "numPassedTestSuites": 1,
+      "numFailedTestSuites": 0,
+      "numPendingTestSuites": 0,
+      "numTotalTests": 23,
+      "numPassedTests": 1,
+      "numFailedTests": 0,
+      "numPendingTests": 22,
+      "numTodoTests": 0,
+      "snapshot": {
+        "added": 0,
+        "failure": false,
+        "filesAdded": 0,
+        "filesRemoved": 0,
+        "filesRemovedList": [],
+        "filesUnmatched": 0,
+        "filesUpdated": 0,
+        "matched": 0,
+        "total": 0,
+        "unchecked": 0,
+        "uncheckedKeysByFile": [],
+        "unmatched": 0,
+        "updated": 0,
+        "didUpdate": false
+      },
+      "startTime": 1793234317575,
+      "success": true,
+      "testResults": [
+        {
+          "assertionResults": [
+            {
+              "ancestorTitles": [],
+              "fullName": "u3814_close_restores_the_previous_center_and_focus",
+              "status": "skipped",
+              "title": "u3814_close_restores_the_previous_center_and_focus",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u2875d_period_change_clears_selection",
+              "status": "skipped",
+              "title": "u2875d_period_change_clears_selection",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u2875d_rejected_call_keeps_period_and_selection (RpcError: daemon said no)",
+              "status": "skipped",
+              "title": "u2875d_rejected_call_keeps_period_and_selection (RpcError: daemon said no)",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u2875d_rejected_call_keeps_period_and_selection (Error: daemon said no)",
+              "status": "skipped",
+              "title": "u2875d_rejected_call_keeps_period_and_selection (Error: daemon said no)",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u2875a_discovery_exclusions_remain_visible_after_partial_failure",
+              "status": "skipped",
+              "title": "u2875a_discovery_exclusions_remain_visible_after_partial_failure",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3815_cancel_keeps_the_exact_current_choices (empty: false)",
+              "status": "skipped",
+              "title": "u3815_cancel_keeps_the_exact_current_choices (empty: false)",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3815_cancel_keeps_the_exact_current_choices (empty: true)",
+              "status": "skipped",
+              "title": "u3815_cancel_keeps_the_exact_current_choices (empty: true)",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3049a_u3049b_rendered_conflict_recovery",
+              "status": "skipped",
+              "title": "u3049a_u3049b_rendered_conflict_recovery",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3037d_discovery_deadline_and_retry",
+              "status": "skipped",
+              "title": "u3037d_discovery_deadline_and_retry",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3037d_late_results_cannot_replace_current_state (timeout)",
+              "status": "skipped",
+              "title": "u3037d_late_results_cannot_replace_current_state (timeout)",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3037d_late_results_cannot_replace_current_state (period)",
+              "status": "skipped",
+              "title": "u3037d_late_results_cannot_replace_current_state (period)",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3037d_late_results_cannot_replace_current_state (dismiss)",
+              "status": "skipped",
+              "title": "u3037d_late_results_cannot_replace_current_state (dismiss)",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3037d_late_results_cannot_replace_current_state (project)",
+              "status": "skipped",
+              "title": "u3037d_late_results_cannot_replace_current_state (project)",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3083b_excluded_rows_absent_until_the_disclosure_opens",
+              "status": "skipped",
+              "title": "u3083b_excluded_rows_absent_until_the_disclosure_opens",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3083b_no_line_without_excluded",
+              "status": "skipped",
+              "title": "u3083b_no_line_without_excluded",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3083c_failed_import_preserves_failed_row",
+              "status": "skipped",
+              "title": "u3083c_failed_import_preserves_failed_row",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3299d_copy_uses_selected_item_import",
+              "status": "skipped",
+              "title": "u3299d_copy_uses_selected_item_import",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3299d_named_rows_keep_recorded_targets_import",
+              "status": "skipped",
+              "title": "u3299d_named_rows_keep_recorded_targets_import",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3299a_u3299b_u3299c_u3299d_rendered_audit_names",
+              "status": "skipped",
+              "title": "u3299a_u3299b_u3299c_u3299d_rendered_audit_names",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3299a_u3299b_u3299c_u3299d_rendered_audit_retention",
+              "status": "passed",
+              "title": "u3299a_u3299b_u3299c_u3299d_rendered_audit_retention",
+              "duration": 35469.003607,
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3817_closing_a_page_keeps_a_pending_import",
+              "status": "skipped",
+              "title": "u3817_closing_a_page_keeps_a_pending_import",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3791b_copy_depends_on_codes_not_messages_import_exclusions",
+              "status": "skipped",
+              "title": "u3791b_copy_depends_on_codes_not_messages_import_exclusions",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            },
+            {
+              "ancestorTitles": [],
+              "fullName": "u3791b_copy_depends_on_codes_not_messages_import_refusals",
+              "status": "skipped",
+              "title": "u3791b_copy_depends_on_codes_not_messages_import_refusals",
+              "failureMessages": [],
+              "meta": {},
+              "tags": [],
+              "benchmarks": []
+            }
+          ],
+          "startTime": 1793234352809,
+          "endTime": 1793234388278.0037,
+          "status": "passed",
+          "message": "",
+          "name": "/tmp/roundup-timeout-repair/apps/desktop/src/importer/u2875d_import_panel.test.tsx"
+        }
+      ]
+    }
   }
 }
