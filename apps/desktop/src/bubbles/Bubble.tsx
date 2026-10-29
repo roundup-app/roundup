@@ -80,7 +80,9 @@ export const Bubble = (props: {
     body = host;
 
     props.hostRef?.(host, () => restoreResize === undefined);
-    createEffect(() => { if (!props.preparing) props.screens.resize(id(), props.screens.show(id(), host, false)); });
+    createEffect(on(() => props.preparing ? null : id(), terminal => {
+      if (terminal !== null) props.screens.resize(terminal, props.screens.show(terminal, host, false));
+    }));
 
     if (typeof ResizeObserver !== "undefined") {
       const watched = makeResizeObserver(refitNextFrame);

@@ -385,7 +385,7 @@ export const Bubbles = (props: {
       if (!current() || rail.selected() !== selection) return null;
       const opened = await app.rpc("terminal.open", { workstream, ...prepared.size });
 
-      if (controller.signal.aborted) {
+      if (controller.signal.aborted && controller.signal.reason?.message === copy.terminalPreparationCancelled) {
         await app.rpc("terminal.close", { id: opened.terminal_id });
         await rail.refresh({ terminals: true });
 
@@ -959,7 +959,7 @@ export const Bubbles = (props: {
       <For each={[...Object.keys(reserved()).filter(key => reserved()[key] === null), ...shownIds().map(id => Object.keys(reserved()).find(key => reserved()[key] === id) ?? id)]}>{key => {
         const id = () => reserved()[key] ?? key;
 
-        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => destinations.get(key)?.({ host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : ""} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={async terminal => { if (reserved()[key] === null) openingController?.abort(); else await close(terminal); }} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) openingController?.abort(); else toggleMinimised(terminal); }} />;
+        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => destinations.get(key)?.({ host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : ""} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={async terminal => { if (reserved()[key] === null) openingController?.abort(new DOMException(copy.terminalPreparationCancelled)); else await close(terminal); }} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) openingController?.abort(); else toggleMinimised(terminal); }} />;
       }}</For>
       {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
       <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); element.setAttribute("data-flat-bar", ""); }}>
