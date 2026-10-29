@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, mkdtempSync, rmSync, mkdirSync, copyFileSync } from "node:fs";
+import { globSync, existsSync, readFileSync, readdirSync, mkdtempSync, rmSync, mkdirSync, copyFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
@@ -135,17 +135,20 @@ test("u4590_capture_selection_keeps_all_policy_observers_and_guards", async () =
   const loaded = await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
   const config = loaded!.config.test!;
 
-  expect(config.projects![1]).toMatchObject({ test: { include: [
+  const excludes = config.projects!.flatMap(project => typeof project === "object" && "test" in project && project.test?.name === "app" ? project.test.exclude ?? [] : []);
+
+  expect(globSync("src/**/*.test.{ts,tsx}").filter(file => !excludes.includes(file)).sort()).toEqual([
     "src/terminal/u3517_browser.test.ts",
     "src/terminal/u4590_preparation.test.tsx",
     "src/terminal/u59_real_daemon.test.ts",
     "src/testing/u463_real_daemon.test.ts",
-  ] } });
+  ].sort());
   expect(config.fileParallelism).toBe(false);
-  expect(config.projects![2]).toMatchObject({ test: { name: "terminal-startup", include: ["src/testing/u463_real_daemon.test.ts"], testNamePattern: /^u4590_/i } });
-  for (const name of ["u4590_rendered_lifecycle_dom_agents-10_head", "u4590_rendered_lifecycle_webgl_bubbles_base", "u4590_visible_launch_params_match_first_pty_grid", "u4590_restored_terminal_keeps_its_program_and_paints_later_output", "u3517a_font_loading_keeps_live_terminal_input_available", "u3517d_rendering_changes_keep_input_and_scrollback"]) {
+
+  for (const name of ["u4590_rendered_lifecycle_dom_agents-10_head", "u4590_rendered_lifecycle_webgl_bubbles_base", "u4590_visible_launch_params_match_first_pty_grid", "u4590_restored_terminal_keeps_its_program_and_paints_later_output", "u3517a_font_loading_keeps_live_terminal_input_available", "u3517d_rendering_changes_keep_input_and_scrollback", "u3517b_loaded_metrics_drive_terminal_resize"]) {
     expect(name).toMatch(config.testNamePattern!);
   }
+
   expect("u2875d_real_import_reopen_and_resume").not.toMatch(config.testNamePattern!);
 });
 
@@ -177,7 +180,9 @@ test("u4590_mixed_capture_ids_do_not_start_unrelated_Claude_observers", async ()
   const loaded = await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
   const config = loaded!.config.test!;
 
-  expect(config.projects![1]).toMatchObject({ test: { exclude: expect.arrayContaining(["src/testing/u463_real_daemon.test.ts"]) } });
-  expect(config.projects![2]).toMatchObject({ test: { testNamePattern: /^u4590_/i } });
+
+  for (const name of ["u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal", "u2773g_journey_retains_unfinished_work", "u2773a_changes_real_project_reopen_and_reload_restore_exact_form", "u2875d_real_import_reopen_and_resume"]) expect(name).not.toMatch(config.testNamePattern!);
+  expect("u4590_visible_launch_params_match_first_pty_grid").toMatch(config.testNamePattern!);
+  expect("u3707_terminal_controls").toMatch(config.testNamePattern!);
   expect(process.env.ROUNDUP_CAPTURES).toBe("U4590,U3707");
 });

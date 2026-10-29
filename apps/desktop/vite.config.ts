@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import postcss from "postcss";
 import valueParser from "postcss-value-parser";
 import { fileURLToPath } from "node:url";
@@ -19,12 +19,24 @@ postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")
 
 const captures = captureTests(process.env.ROUNDUP_CAPTURES);
 
+
 const captureIds = process.env.ROUNDUP_CAPTURES?.split(",").map(id => id.trim());
+
 // This shared file also owns logged-in Claude observers; U4590 uses only its deterministic PTY observer.
 const startupOnly = captureIds?.includes("U4590") && !captureIds.some(id => ["U463", "U2773g", "U2875d", "U3037d"].includes(id));
-const startupObserver = "src/testing/u463_real_daemon.test.ts";
 
 if (captureIds) process.env.ROUNDUP_CAPTURES = captureIds.join(",");
+
+const captureSelection: { fileParallelism?: boolean; testNamePattern?: RegExp } = {};
+
+if (captures) {
+  captureSelection.fileParallelism = false;
+
+  if (captureIds?.every(id => id === "U4590")) captureSelection.testNamePattern = /^(u4590_|u3517[abd]_|u3529)/i;
+  else if (startupOnly) captureSelection.testNamePattern = /^(?!u463_|u2773[ag]_|u2875d_real_import_)/i;
+}
+
+const captureExcludes = captures ? globSync("src/**/*.test.{ts,tsx}").filter(file => !captures.includes(file)) : [];
 
 const served = realDaemonFromEnv(process.env);
 
@@ -194,11 +206,7 @@ export default defineConfig({
   server: { port: 5173, strictPort: true },
   test: {
     environment: "jsdom",
-    ...(captures ? {
-      fileParallelism: false,
-      ...(process.env.ROUNDUP_CAPTURES?.split(",").every(id => id.trim() === "U4590")
-        ? { testNamePattern: /^(u4590_|u3517[ad]_|u3529)/i } : {}),
-    } : {}),
+    ...captureSelection,
     // A shard's real-Claude and Chromium files starve the first test of a file past vitest's 5 s (owner's choice, 2026-10-17); a test that sets its own longer limit keeps it.
     testTimeout: 15_000,
     // L122: a flaky test runs twice before it fails; the lane lists a pass on the retry as flaky.
@@ -213,21 +221,15 @@ export default defineConfig({
     setupFiles: ["src/testing/domStubs.ts"],
     // Inline projects inherit jsdom, stubs, transforms and resolution. Only queued App tests start their global setup.
     projects: [
-      { test: { name: "webkit-guards", include: captures ? captures.filter(file => webkitGuards.includes(file)) : webkitGuards } },
+      { test: { name: "webkit-guards", include: webkitGuards, exclude: captureExcludes } },
       {
         test: {
           name: "app",
-          include: captures ?? ["src/**/*.test.{ts,tsx}"],
-          exclude: [...configDefaults.exclude, ...webkitGuards, ...(startupOnly ? [startupObserver] : [])],
+          include: ["src/**/*.test.{ts,tsx}"],
+          exclude: [...configDefaults.exclude, ...webkitGuards, ...captureExcludes],
           globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
         },
       },
-      ...(startupOnly ? [{ test: {
-        name: "terminal-startup",
-        include: [startupObserver],
-        testNamePattern: /^u4590_/i,
-        globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
-      } }] : []),
     ],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
     server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
