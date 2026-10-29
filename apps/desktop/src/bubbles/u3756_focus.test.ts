@@ -103,7 +103,7 @@ const newer = async (choice: string) => {
     await wait(`document.activeElement?.matches('.ask-field') || !!document.activeElement?.closest('.ask-bar')`);
   } else if (choice === "drawer") {
     if (await read(`!!document.querySelector('.rail-row[data-id=backend]')`)) {
-      await browser("click", ".rail-row[data-id=backend] .row-state");
+      await browser("click", ".rail-row[data-id=backend] .name");
       await wait(`document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true'`);
     }
 
