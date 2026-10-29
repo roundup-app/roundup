@@ -69,6 +69,10 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
           await browser("press", "k");
           await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
 
+          await browser("fill", ".switcher input", "new");
+          await browser("press", "ArrowDown");
+          await browser("record", "stop");
+
           for (const [width, height] of [[1280, 800], [1512, 950]]) {
             await browser("set", "viewport", String(width), String(height));
 
@@ -88,9 +92,12 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
             await browser("press", "ArrowDown");
             await browser("screenshot", join(directory, `${width}-actions-boundary.png`));
             writeFileSync(join(directory, `${width}-actions-boundary.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+            await browser("press", "ArrowDown");
+            await browser("press", "ArrowDown");
+            await browser("press", "ArrowDown");
+            await browser("screenshot", join(directory, `${width}-last-action.png`));
+            writeFileSync(join(directory, `${width}-last-action.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
           }
-
-          await browser("record", "stop");
         }
 
         for (const [name, query] of [["empty", ""], ["new", "new"], ["action-only", "New Agent with a prompt"], ["no-match", "zzzz-no-match"]]) {
