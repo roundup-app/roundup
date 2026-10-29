@@ -1,3 +1,4 @@
+import "../pads/PadRichEditor";
 import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -140,20 +141,27 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
-  it.each(([ ["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")] ] as const).flatMap(([place, go]) => hintsFor(place).map(hint => ({ place, go, hint }))))("u2230_every_hint_names_a_bound_chord_in_$place: $hint.keys", async ({ place, go, hint }) => {
-    const app = await open();
-    await go();
-    const chord = CHORDS.find((row) => row.keys === hint.keys);
+  it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
+      for (const hint of hintsFor(place)) {
+        // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
+        cleanup();
+        endLeader();
+        const app = await open();
 
-    expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
+        await go();
 
-    if (hint.keys === "⌘⌫") await answerQuestion(true);
+        const chord = CHORDS.find((row) => row.keys === hint.keys);
 
-    if (hint.keys === "⌃⌘J") await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".pane-screen textarea")));
-    else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
-    else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
-    else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
-    else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
+        expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
+
+        if (hint.keys === "⌘⌫") await answerQuestion(true);
+
+        if (hint.keys === "⌃⌘J") await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".pane-screen textarea")));
+        else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
+        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
+        else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
+        else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
+      }
   });
 
   it("u2230a_hints_follow_focus", async () => {
