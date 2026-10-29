@@ -1,7 +1,7 @@
 {
-  "cellHeight": 19.511627906976745,
-  "cellWidth": 7,
-  "cols": 126,
+  "cellHeight": 22,
+  "cellWidth": 6.5,
+  "cols": 136,
   "dpr": 2,
   "fonts": [
     {
@@ -19,12 +19,12 @@
   ],
   "renderer": "webgl",
   "resources": [],
-  "rows": 43,
+  "rows": 38,
   "canvas": {
-    "cssHeight": 839,
-    "cssWidth": 882,
-    "height": 1678,
-    "width": 1764
+    "cssHeight": 836,
+    "cssWidth": 884,
+    "height": 1672,
+    "width": 1768
   },
   "fontStatus": "loaded",
   "host": {
@@ -36,16 +36,16 @@
   "requested": {
     "bold": 700,
     "family": "\"Fira Code\", ui-monospace, \"SF Mono\", Menlo, monospace",
-    "lineHeight": 1.5,
+    "lineHeight": 1.7,
     "size": 11,
-    "tracking": 0.95,
+    "tracking": 0,
     "weight": 400
   },
   "smoothing": "auto",
   "tokens": {
     "--font-terminal": "\"Fira Code\", ui-monospace, \"SF Mono\", Menlo, monospace",
-    "--letter-terminal": "0.95px",
-    "--line-terminal": "1.5",
+    "--letter-terminal": "0px",
+    "--line-terminal": "1.7",
     "--text-terminal": "11px",
     "--weight-terminal": ""
   },
@@ -53,7 +53,7 @@
     "height": 950,
     "width": 1512
   },
-  "commit": "c0ab5e0d24beccc11faddd3759fd73ba2657cdce",
+  "commit": "e9c92247cebb9b6a42dc2e830592556e6aa4fec0",
   "seed": "agents-10",
   "state": "agent",
   "candidate": "selected",

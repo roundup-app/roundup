@@ -5,13 +5,13 @@ import { goesLine, staysLine, judgeRemoval, removalQuestion } from "./removal";
 import { todo } from "../../todos/testHarness";
 import { padOf } from "../../pads/padsFixture";
 import { RpcError } from "../../app/seam";
-import { agent, workstream } from "../../testing/nodes";
+import { agent, info, workstream } from "../../testing/nodes";
 import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
 
 it("u4601_buttons_follow_what_stays_nonempty", async () => {
-  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })]);
+  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.removalQuestions).toHaveLength(1));
@@ -25,7 +25,7 @@ it("u4601_the_native_request_uses_the_plan", async () => {
     agent("running", "working", "busy", { parent: "chosen" }),
     agent("dirty", "done", "finished", { parent: "chosen", worktree: { path: "/p/dirty", branch: "dirty", base: "main" } }),
     agent("ahead", "done", "finished", { parent: "chosen", worktree: { path: "/p/ahead", branch: "ahead", base: "main" } }),
-  ]);
+  ], [info("live-shell", { owner: "chosen" })]);
 
   app.handlers["agent.worktreeState"] = ({ id }) => ({ dirty: id === "dirty", ahead: id === "ahead" ? 2 : 0, behind: 0 });
   app.handlers["todo.list"] = () => [todo(1, { home: "chosen" })];
@@ -41,7 +41,7 @@ it("u4601_the_native_request_uses_the_plan", async () => {
 });
 
 it.each(["this", "all"] as const)("u4461_remove_this_and_remove_all_each_call_once_with_their_scope_%s", async answer => {
-  const { app } = await mountRail([workstream("chosen"), workstream("other"), agent("running", "working", "busy", { parent: "chosen" })]);
+  const { app } = await mountRail([workstream("chosen"), workstream("other"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
   app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
   fireEvent.click(rowOf("chosen"));
   await settled();
@@ -59,7 +59,7 @@ it.each(["this", "all"] as const)("u4461_remove_this_and_remove_all_each_call_on
 });
 
 it("u4461_cancel_and_escape_call_nothing", async () => {
-  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })]);
+  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.answerRemoval).toBeTypeOf("function"));
@@ -69,7 +69,7 @@ it("u4461_cancel_and_escape_call_nothing", async () => {
 });
 
 it.each([false, true])("u4601_buttons_follow_what_stays_empty_answer_%s", async answer => {
-  const { app } = await mountRail([workstream("chosen"), agent("finished", "done", "finished", { parent: "chosen" })]);
+  const { app } = await mountRail([workstream("chosen"), agent("finished", "done", "finished", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.questions).toHaveLength(1));
@@ -82,7 +82,7 @@ it.each([false, true])("u4601_buttons_follow_what_stays_empty_answer_%s", async 
 });
 
 it("u4461_a_failed_removal_shows_the_message", async () => {
-  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })]);
+  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
   app.handlers["rail.remove"] = () => { throw new RpcError(-32603, "Cannot remove: stop the process and retry"); };
 
   fireEvent.contextMenu(rowOf("chosen"));
@@ -94,7 +94,7 @@ it("u4461_a_failed_removal_shows_the_message", async () => {
 });
 
 it("u4461_a_failed_native_question_authorizes_nothing_and_retries", async () => {
-  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })]);
+  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
   app.questionFailure = new RpcError(-32603, "Alert unavailable; retry");
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");

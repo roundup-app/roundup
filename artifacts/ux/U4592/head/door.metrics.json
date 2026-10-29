@@ -8,6 +8,12 @@
       "family": "Fira Code",
       "status": "loaded",
       "style": "normal",
+      "weight": "300"
+    },
+    {
+      "family": "Fira Code",
+      "status": "loaded",
+      "style": "normal",
       "weight": "400"
     },
     {
@@ -39,7 +45,7 @@
     "lineHeight": 1.7,
     "size": 11,
     "tracking": 0,
-    "weight": 400
+    "weight": 300
   },
   "smoothing": "auto",
   "tokens": {
@@ -47,13 +53,13 @@
     "--letter-terminal": "0px",
     "--line-terminal": "1.7",
     "--text-terminal": "11px",
-    "--weight-terminal": ""
+    "--weight-terminal": "300"
   },
   "viewport": {
     "height": 950,
     "width": 1512
   },
-  "commit": "e88f5b85b9cd3a623541f9af7dd48a5f221d1e0c",
+  "commit": "648db0561223d66e9503847c273d6b33e65c71a6",
   "seed": "tree-40",
   "state": "door",
   "candidate": "selected",

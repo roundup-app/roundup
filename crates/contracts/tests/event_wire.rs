@@ -35,9 +35,8 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         status: MessageStatus::Dropped,
         reason: Some(Reason::NotAccepted),
         at: 456,
-        iteration: Some(2),
     };
-    let message_wire = json!({"id":9,"from":{"kind":"agent","id":"a1","parent":"door"},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"dropped","reason":"not accepted","at":456,"iteration":2});
+    let message_wire = json!({"id":9,"from":{"kind":"agent","id":"a1","parent":"door"},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"dropped","reason":"not accepted","at":456});
     let status = contracts::agent::StatusEvent {
         ended: true,
         id: "a1".into(),

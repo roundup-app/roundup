@@ -40,59 +40,6 @@ impl Todos {
         retain(tx, actor, p, after_touch, true)
     }
 
-    /// Retained Home/owner identities for Daemon validation; no replacement data is accepted.
-    pub fn restore_targets(
-        &self,
-        actor: &Actor,
-        operation: &str,
-    ) -> Result<Vec<contracts::todo::AssignParams>, RpcError> {
-        let store = self.store()?;
-        receipt(&store.db, actor, operation)?.ok_or_else(|| RpcError::not_found("deletion"))?;
-        store
-            .db
-            .prepare("SELECT id, owner FROM deleted_todos WHERE operation = ?")
-            .map_err(RpcError::internal)?
-            .query_map([operation], |r| {
-                Ok((r.get::<_, u32>(0)?, r.get::<_, Option<String>>(1)?))
-            })
-            .map_err(RpcError::internal)?
-            .map(|row| {
-                let (id, owner) = row.map_err(RpcError::internal)?;
-                Ok(contracts::todo::AssignParams {
-                    id,
-                    owner: owner
-                        .map(|v| serde_json::from_str(&v))
-                        .transpose()
-                        .map_err(RpcError::internal)?,
-                    expected_change: None,
-                })
-            })
-            .collect()
-    }
-
-    /// Retained Homes for the same authorized operation, validated before restoring.
-    pub fn restore_homes(
-        &self,
-        actor: &Actor,
-        operation: &str,
-    ) -> Result<Vec<contracts::todo::MoveParams>, RpcError> {
-        let store = self.store()?;
-        receipt(&store.db, actor, operation)?.ok_or_else(|| RpcError::not_found("deletion"))?;
-        store
-            .db
-            .prepare("SELECT id, home FROM deleted_todos WHERE operation = ?")
-            .and_then(|mut q| {
-                q.query_map([operation], |r| {
-                    Ok(contracts::todo::MoveParams {
-                        id: r.get(0)?,
-                        home: r.get(1)?,
-                    })
-                })?
-                .collect()
-            })
-            .map_err(RpcError::internal)
-    }
-
     pub(super) fn delete(&self, ctx: &Ctx, p: DeleteParams) -> Result<Value, RpcError> {
         let store = self.store()?;
         let tx = store
@@ -147,16 +94,33 @@ impl Todos {
             return Ok((result, Vec::new()));
         }
         coordinate(&tx)?;
+        let has_nodes: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='nodes')",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        if has_nodes {
+            Self::validate_rail_targets_in(&tx, operation)?;
+        }
         let before = store.list()?;
+        let occupied: Option<(String,String)> = tx.query_row("SELECT CAST(t.id AS TEXT),t.title FROM todos t JOIN deleted_todos d ON d.id=t.id WHERE d.operation=? LIMIT 1", [operation], |r| Ok((r.get(0)?,r.get(1)?))).optional().map_err(RpcError::internal)?;
+        if let Some((id, title)) = occupied {
+            return Err(RpcError::undo_identity(id, title));
+        }
         // Plain INSERT refuses collisions; the transaction rolls every insertion back.
         for (live, retained, columns) in TABLES {
             tx.execute(&format!("INSERT INTO {live} ({columns}) SELECT {columns} FROM {retained} WHERE operation = ?"), [operation])
-                .map_err(|e| RpcError::conflict(format!("cannot restore {live}: {e}")))?;
+                .map_err(|_| RpcError::conflict("Can't undo these Todos because retained relationships are unavailable. Undo the later deletion first; this deletion is retained."))?;
         }
         let edges = store.edges()?;
         for (id, blockers) in &edges {
             if crate::cycle::creates_cycle(&edges, *id, blockers) {
-                return Err(RpcError::conflict("restored blockers would make a cycle"));
+                return Err(RpcError::conflict(format!(
+                    "Can't undo: dependencies for \"{}\" would form a cycle. Remove the later dependency, then try Undo again.",
+                    store.get(*id)?.title
+                )));
             }
         }
         let mut restored = result
@@ -309,13 +273,31 @@ fn retain(
         )
         .map_err(RpcError::internal)?;
     }
+    let mut record = serde_json::to_value(&result).map_err(RpcError::internal)?;
+    let has_nodes: bool = db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='nodes')",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(RpcError::internal)?;
+    if has_nodes {
+        let names: String = db
+            .query_row(
+                "SELECT json_group_object(CAST(id AS TEXT),name) FROM nodes WHERE CAST(id AS TEXT) IN (SELECT home FROM deleted_todos WHERE operation=?1 UNION SELECT json_extract(owner,'$.id') FROM deleted_todos WHERE operation=?1)",
+                [&p.operation],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        record["targetNames"] = serde_json::from_str(&names).map_err(RpcError::internal)?;
+    }
     db.execute(
         "INSERT INTO todo_deletions(operation,actor,chosen,result) VALUES (?,?,?,?)",
         params![
             p.operation,
             actor_json,
             chosen_json,
-            serde_json::to_string(&result).map_err(RpcError::internal)?
+            serde_json::to_string(&record).map_err(RpcError::internal)?
         ],
     )
     .map_err(RpcError::internal)?;
@@ -401,7 +383,7 @@ impl Todos {
     }
 
     /// Reconnect retained Homes only when the surviving Todo still has the placement
-    /// produced by this removal. Changed placements refuse and leave the operation intact.
+    /// produced by this removal. Explicit later moves keep their newer placement.
     pub fn restore_workstream_homes_in(
         db: &Connection,
         operation: &str,
@@ -424,9 +406,26 @@ impl Todos {
                 .map_err(RpcError::internal)?
                 != 1
             {
-                return Err(RpcError::conflict(
-                    "kept Todo changed Home or no longer exists",
-                ));
+                let exists: bool = db
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM todos WHERE id=?)",
+                        [&id],
+                        |r| r.get(0),
+                    )
+                    .map_err(RpcError::internal)?;
+                if exists {
+                    continue;
+                }
+                let title: String = db
+                    .query_row(
+                        "SELECT title FROM deleted_todos WHERE CAST(id AS TEXT)=? LIMIT 1",
+                        [id.to_string()],
+                        |r| r.get(0),
+                    )
+                    .optional()
+                    .map_err(RpcError::internal)?
+                    .unwrap_or_else(|| "Retained Todo".into());
+                return Err(RpcError::undo_parent(id.to_string(), title));
             }
             ids.push(id.parse().map_err(RpcError::internal)?);
         }
@@ -484,9 +483,24 @@ impl Todos {
                 )
                 .map_err(RpcError::internal)?;
             if !vacant {
-                return Err(RpcError::conflict(
-                    "Todo no longer exists or its owner changed",
-                ));
+                let exists: bool = db
+                    .query_row("SELECT EXISTS(SELECT 1 FROM todos WHERE id=?)", [id], |r| {
+                        r.get(0)
+                    })
+                    .map_err(RpcError::internal)?;
+                if exists {
+                    continue;
+                }
+                let title: String = db
+                    .query_row(
+                        "SELECT title FROM deleted_todos WHERE CAST(id AS TEXT)=? LIMIT 1",
+                        [id.to_string()],
+                        |r| r.get(0),
+                    )
+                    .optional()
+                    .map_err(RpcError::internal)?
+                    .unwrap_or_else(|| "Retained Todo".into());
+                return Err(RpcError::undo_parent(id.to_string(), title));
             }
             change_owner_in(db, actor, id, Some(&owner))?;
             ids.push(id);
@@ -530,11 +544,9 @@ impl Todos {
     /// Rail insertion precedes this check in the same transaction. An unrelated missing
     /// original Home/owner is a retryable conflict, never permission to substitute one.
     pub fn validate_rail_targets_in(db: &Connection, operation: &str) -> Result<(), RpcError> {
-        let missing:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM deleted_todos t WHERE operation=? AND ((home IS NOT NULL AND NOT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=t.home AND kind='workstream')) OR (json_extract(owner,'$.kind')='agent' AND NOT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=json_extract(t.owner,'$.id')))))",[operation],|r|r.get(0)).map_err(RpcError::internal)?;
-        if missing {
-            return Err(RpcError::conflict(
-                "original Todo Home or owner is unavailable",
-            ));
+        let missing: Option<(String, String)> = db.query_row("SELECT target,COALESCE((SELECT value FROM todo_deletions d,json_each(json_extract(d.result,'$.targetNames')) WHERE d.operation=?1 AND key=target),title) FROM (SELECT home AS target,title,'workstream' AS target_kind FROM deleted_todos WHERE operation=?1 AND home IS NOT NULL UNION ALL SELECT json_extract(owner,'$.id'),title,'agent' FROM deleted_todos WHERE operation=?1 AND json_extract(owner,'$.kind')='agent') WHERE NOT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=target AND (target_kind='agent' OR nodes.kind='workstream')) LIMIT 1", [operation], |r| Ok((r.get(0)?,r.get(1)?))).optional().map_err(RpcError::internal)?;
+        if let Some((id, name)) = missing {
+            return Err(RpcError::undo_parent(id, name));
         }
         Ok(())
     }
