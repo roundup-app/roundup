@@ -720,6 +720,9 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     const cancellation = AbortSignal.any(signal ? [signal, deadline] : [deadline]);
     const cancelled = Promise.withResolvers<never>();
 
+    // The race below reports a rejection; this keeps one that lands before or after it from going unhandled.
+    cancelled.promise.catch(() => {});
+
     const abort = () => {
       dispose();
       cancelled.reject(deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : cancellation.reason);
