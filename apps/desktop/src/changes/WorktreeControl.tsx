@@ -105,6 +105,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
   const id = props.id;
   const worktree = { ...props.worktree };
+  const title = `${copy.reviewChanges} · ${props.name}: `;
   const originalAvailable = () => {
     const current = rail.nodes.find(node => node.id === id)?.worktree;
 
@@ -112,17 +113,17 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   };
 
   // Keep the request's result outside the panel's render lifetime, using the existing Project failure holder.
-  const review = async () => {
+  const review = async (shared = Boolean(state())) => {
     if (!originalAvailable()) {
-      rail.commandFailure.show(`${copy.reviewChanges}: ${copy.worktreeReadUnavailable}`, null, "rail", () => { void review(); });
+      rail.commandFailure.show(`${title}${copy.worktreeReadUnavailable}`, null, "rail", () => { void review(shared); });
 
       return;
     }
 
-    const failure = state() ? (await worktrees.refresh(id)).failure : await refresh();
+    const failure = shared ? (await worktrees.refresh(id)).failure : await refresh();
 
-    if (failure) rail.commandFailure.show(`${copy.reviewChanges}: ${failure}`, null, "rail", () => { void review(); });
-    else if (rail.commandFailure.message()?.startsWith(`${copy.reviewChanges}: `)) rail.commandFailure.clear();
+    if (failure) rail.commandFailure.show(`${title}${failure}`, null, "rail", () => { void review(shared); });
+    else if (rail.commandFailure.message()?.startsWith(title)) rail.commandFailure.clear();
   };
 
   const openPanel = () => {
