@@ -15,30 +15,31 @@ fn x8_reconnecting_keeps_the_original_program() {
         env: BTreeMap::new(), cols: 80, rows: 24,
     };
     let runtime = tokio::runtime::Runtime::new().unwrap();
-    let records = runtime.block_on(async {
+    let (records, _owned) = runtime.block_on(async {
         let terminals = Terminals::open(dir.path(), rpc::Bus::new())
             .unwrap()
             .with_terminal_owner(std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner")));
         assert!(terminals.list().is_empty());
         assert!(terminals.terminal_owners().is_empty());
         let first = terminals.spawn(params.clone()).await.unwrap();
+        let mut cleanup = vec![Owned {
+            owner: terminals.terminal_owners()[0].clone(),
+            child: None,
+        }];
         let second_dir = dir.path().join("second");
         std::fs::create_dir(&second_dir).unwrap();
         let mut second_params = params;
         second_params.cwd = second_dir.to_string_lossy().into_owned();
         let second = terminals.spawn(second_params).await.unwrap();
+        cleanup.push(Owned {
+            owner: terminals.terminal_owners()[1].clone(),
+            child: None,
+        });
         assert_ne!(first.id, second.id);
         let owners = terminals.terminal_owners();
         assert_eq!(owners[0].info.id, owners[1].info.id);
-        owners
+        (owners, cleanup)
     });
-    let _owned: Vec<_> = records
-        .iter()
-        .map(|owner| Owned {
-            owner: owner.clone(),
-            child: None,
-        })
-        .collect();
     let record = dir.path().join("record");
     std::fs::write(&record, serde_json::to_vec(&records).unwrap()).unwrap();
     for stage in ["first", "second"] {
@@ -127,6 +128,7 @@ fn x8_client() {
             else {
                 assert_eq!(pids, std::fs::read_to_string(folder.join("observed-pid")).unwrap());
                 terminals.kill(id).await.unwrap();
+                if index == 0 { assert!(terminals.list().iter().any(|info| info.id == "2" && info.running)); }
                 let exited = tokio::time::timeout(std::time::Duration::from_secs(3), async {
                     loop { let event = events.recv().await.unwrap(); if matches!(&*event, contracts::EventData::TerminalExited(event) if &event.id == id) { break; } }
                 }).await;
