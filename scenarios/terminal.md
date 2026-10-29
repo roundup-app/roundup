@@ -1,6 +1,6 @@
 # Terminals
 
-Module: `crates/terminal`. Ids: X1–X10, X13, X17.
+Module: `crates/terminal`. Ids: X1–X10, X13, X17–X19.
 
 **X1 output.** Given a Project, when `terminal.spawn {command: ["/bin/sh","-c","echo hi"]}` is called and a client is subscribed, then a `terminal.output` event whose base64 `data` decodes to bytes containing `hi` is emitted.
 
@@ -44,4 +44,12 @@ Tests (`x13_`, Rust, in `crates/terminal/tests/` and `crates/rup/tests/`), plus 
 
 Tests are `x17_`. Observer: `just check`, and a real `claude` on the mock model whose palette is read from its first screen in each scheme and after a live switch (artifacts in `artifacts/ux/terminal-colour-query/`). Policy: the reply format and DA1's answer are chosen here; a later scenario changes them.
 
-**X18 an owner starts under a deeply nested Project.** Found by the review of PR #4809: the owner's socket sat at `<Project data directory>/terminal-XXXX/owner.sock`, and `bind` fails once that path exceeds the platform `sun_path` limit (104 bytes on macOS), so no Terminal started under a long Project path. Given a Project data directory whose path is longer than 104 bytes (and one of exactly 103 and 104), when `Terminals::serve_owner` starts, then it binds, publishes its owner record, and a client attaches through `attach_owner` and reaches the original program (X8). The socket's bound path is at most 100 bytes whatever the Project path; the Project and incarnation checks of X8 (`attach_owner` refuses another Project) still hold, and the owner's directory stays mode 0700 and is removed when the owner exits. Test: `x18_an_owner_binds_under_a_project_path_longer_than_sun_path`, in `crates/terminal/tests/durable_owner.rs`, against a Project directory nested past 104 bytes. Policy: the short path's location (a short private directory, or a bind relative to the owner's directory) is an engineering choice of the implementation; #4802 wires the owner and keeps this clause.
+**X18 a hung owner never blocks the calling thread.** Given a Terminal held by an owner whose helper is stopped (SIGSTOP) or dead, then `Terminals::list` and `Terminals::program_ended`, called from an async task, return within `PATIENCE`, however many owners are hung, and the runtime's other tasks keep running meanwhile. Decided here:
+1. **List.** `list` omits a Terminal whose owner did not answer; it still lists every Terminal of the owners that answered and every in-process Terminal, and the owners are asked together, so the wait does not grow with their number. Test: `x18_list_over_hung_owners_returns_within_patience_with_the_live_ones`.
+2. **Program ended.** `program_ended` of a Terminal whose owner did not answer is `true`, as for a failed answer today. Test: `x18_program_ended_of_a_hung_owner_returns_within_patience`.
+3. **Recovery.** After the helper continues (SIGCONT), `list` shows its Terminal again. Test: `x18_a_resumed_owner_is_listed_again`.
+
+Tests are `x18_`, Rust, in `crates/terminal/tests/`; each isolates and reaps its own processes. Observer: `just check`. Policy: `PATIENCE` as X9 uses it; a hung owner is shown by absence, never by an error.
+
+**X19 an owner starts under a deeply nested Project.** Found by the review of PR #4809: the owner's socket sat at `<Project data directory>/terminal-XXXX/owner.sock`, and `bind` fails once that path exceeds the platform `sun_path` limit (104 bytes on macOS), so no Terminal started under a long Project path. Given a Project data directory whose path is longer than 104 bytes (and one of exactly 103 and 104), when `Terminals::serve_owner` starts, then it binds, publishes its owner record, and a client attaches through `attach_owner` and reaches the original program (X8). The socket's bound path is at most 100 bytes whatever the Project path; the Project and incarnation checks of X8 (`attach_owner` refuses another Project) still hold, and the owner's directory stays mode 0700 and is removed when the owner exits. Test: `x19_an_owner_binds_under_a_project_path_longer_than_sun_path`, in `crates/terminal/tests/durable_owner.rs`, against a Project directory nested past 104 bytes. Policy: the short path's location (a short private directory, or a bind relative to the owner's directory) is an engineering choice of the implementation; #4802 wires the owner and keeps this clause.
+

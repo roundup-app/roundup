@@ -386,8 +386,12 @@ impl Rail {
 
     /// M7: the ids of the Workstreams Agent `creator` created and that still exist.
     pub fn created_by(&self, creator: &str) -> Result<Vec<String>, RpcError> {
-        let mut query = self
-            .db
+        Self::created_by_in(&self.db, creator)
+    }
+
+    /// `created_by` read inside a caller's own transaction.
+    pub(crate) fn created_by_in(db: &Connection, creator: &str) -> Result<Vec<String>, RpcError> {
+        let mut query = db
             .prepare("SELECT id FROM nodes WHERE creator = ?")
             .map_err(sql)?;
         let rows = query
