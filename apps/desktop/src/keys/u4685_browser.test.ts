@@ -98,12 +98,29 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
     await wait(`!!document.querySelector('.drawer[data-open="true"]')`);
     await tabTo(".drawer");
     await snap("09-keyboard-drawer");
+    const drawerCounts = await read(`({fits:window.__focusFits,resizes:window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length})`);
     await browser("press", "Tab");
     await snap("10-within-drawer");
     await browser("click", ".pane .xterm-screen");
     await wait(`document.activeElement.matches('.pane textarea')`);
     await snap("11-terminal-drawer-blur");
-    if (dirs.length) await browser("record", "stop");
+    expect(await read(`({fits:window.__focusFits,resizes:window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length})`)).toEqual(drawerCounts);
+    expect(await read(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id`)).toBe("agent-4");
+    if (dirs.length) {
+      await browser("click", ".drawer .close");
+      await wait(`!document.querySelector('.drawer[data-open="true"]')`);
+      await read(`window.__fake.failNext(-32003,'Focus observer failure')`);
+      await browser("click", ".shelf .todo-tick");
+      await wait(`document.body.textContent.includes('Focus observer failure')`);
+      await snap("12-dense-failure");
+      await browser("open", new URL('/harness.html?seed=conflict&view=workstreams&items=1&tabs=1', server.resolvedUrls.local[0]!).href);
+      await wait(`!!document.querySelector('.rail-row[data-id="agent-4"]')`);
+      await browser("click", '.rail-row[data-id="agent-4"]');
+      await wait(`!!document.querySelector('.pane .xterm-screen')`);
+      await browser("click", ".pane .xterm-screen");
+      await snap("13-conflict-terminal");
+      await browser("record", "stop");
+    }
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
   }
