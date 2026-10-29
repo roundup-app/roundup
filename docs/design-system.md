@@ -23,7 +23,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections resolve this Token in both schemes and increased contrast. U3517c's Terminal cells instead use their Solo/Tomorrow selection Tokens. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
+`--text-selection` uses `--button-accent-fill` and `--text-selection-ink` uses `--button-accent-ink` in both schemes and increased contrast. Row/tab selection uses the green `--selected` wash; existing shared-form focus rings use `--accent`. U3517c’s Terminal cells retain their Solo/Tomorrow selection Tokens.
 
 All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 
@@ -34,8 +34,8 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--ground` | `var(--gray-1)` | `var(--terminal-background)` | the pane and the Drawer |
 | `--sunken` | `var(--gray-2)` | `var(--terminal-background)` | the Rail and the Shelf |
 | `--hover` | `rgba(0,0,0,.04)` | `rgba(255,255,255,.06)` | a row or button under the pointer |
-| `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.08)` | the selected row |
-| `--selected-hover` | `rgba(0,0,0,.08)` | `rgba(255,255,255,.10)` | the selected row under the pointer |
+| `--selected` | `rgba(31,107,98,.07)` | `rgba(92,199,181,.08)` | the selected row |
+| `--selected-hover` | `rgba(31,107,98,.10)` | `rgba(92,199,181,.10)` | the selected row under the pointer |
 | `--scrim` | `rgba(0,0,0,.40)` | same | darkens the centre beneath an overlay Shelf |
 | `--text` | `var(--gray-12)` | `var(--gray-12)` | body text |
 | `--grey` | `var(--gray-11)` | `var(--gray-11)` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
@@ -214,8 +214,8 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 |---|---|---|---|
 | header backdrop and bare header controls | `--ground` | root `--sunken` | root `--ground` |
 | unselected tab base | `--sunken` | root `--sunken` | root `--sunken` |
-| tab selected base | `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.08)` |
-| tab selected under pointer | `--selected-hover` | `rgba(0,0,0,.08)` | `rgba(255,255,255,.10)` |
+| tab selected base | `--selected` | `rgba(31,107,98,.07)` | `rgba(92,199,181,.08)` |
+| tab selected under pointer | `--selected-hover` | `rgba(31,107,98,.10)` | `rgba(92,199,181,.10)` |
 | header rule and tab borders | `--hairline` | opaque `--gray-11` | opaque `--gray-10` |
 | header and tabs | `--text` | root `--text` | root `--text` |
 | bare header controls | `--grey` / `--disabled` | root `--grey` / `--disabled` | root `--grey` / `--disabled` |
@@ -271,11 +271,11 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 | --- | --- | --- | --- |
 | `--surface` | `#ffffff` | `var(--gray-3)` | Opaque floating surface |
 | `--button-neutral` | `var(--gray-4)` | `var(--gray-4)` | Secondary/action button fill |
-| `--button-accent-fill` | `#1f6b62` | `#1f6b62` | Primary fill |
-| `--button-key-ink` | `#d4e6e2` | `#d4e6e2` | Dimmer readable key on primary fill |
+| `--button-accent-fill` | `#1f6b62` | same | Primary fill |
+| `--button-key-ink` | `#d4e6e2` | same | Dimmer readable key on primary fill |
 | `--doodle-line` | `#5a4a3e` | `#e6cfbb` | Decorative scene lines |
-| `--doodle-patch` | `#2f8f80` | `#2f8f80` | Decorative scene patch |
-| `--doodle-offset` | `translate(14px, 10px)` | `translate(14px, 10px)` | Scene patch offset |
+| `--doodle-patch` | `#2f8f80` | same | Decorative scene patch |
+| `--doodle-offset` | `translate(14px, 10px)` | same | Scene patch offset |
 | `--doodle-blend` | `multiply` | `screen` | Scene patch blend |
 | `--button-accent-ink` | `#ffffff` | `#ffffff` | Label on accent fill |
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
