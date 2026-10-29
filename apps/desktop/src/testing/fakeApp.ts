@@ -276,6 +276,8 @@ export const createFakeApp = (): FakeApp => {
       if (existing) return existing;
 
       const other = createFakeApp();
+      other.handlers["daemon.getNaming"] = () => app.rpc("daemon.getNaming", null);
+      other.handlers["daemon.setNaming"] = params => app.rpc("daemon.setNaming", params);
 
       // The Project-wide calls are the one App's; only the Daemon's own calls, events are this Project's.
       Object.assign(other, {
@@ -314,12 +316,7 @@ export const createFakeApp = (): FakeApp => {
 
       return other;
     },
-    forProject: (path) => {
-      const project = app.of(path);
-
-      return { ...project, rpc: (method, params) => method === "daemon.getNaming" || method === "daemon.setNaming"
-        ? app.rpc(method, params) : project.rpc(method, params) };
-    },
+    forProject: (path) => app.of(path),
     removalQuestions: [],
     answerRemoval: undefined,
     askRemoval: async question => {
