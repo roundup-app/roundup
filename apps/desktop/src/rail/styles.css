@@ -821,3 +821,5 @@
 .rail-row:has(.mode-mark) .row-tail {
   margin-left: var(--space-4);
 }
+
+.rail:has(.empty-state) .rail-scroll { flex: none; }

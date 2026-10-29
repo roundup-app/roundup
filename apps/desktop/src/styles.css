@@ -431,6 +431,12 @@ code {
   user-select: text;
 }
 
+.draft-recovery:has(.empty-state) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
 .draft-recovery {
   min-height: 0;
   overflow: auto;
