@@ -37,6 +37,8 @@ const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1
 
 export const Bubble = (props: {
   id: string;
+  preparing?: boolean;
+  hostRef?: (host: HTMLElement, settled: () => boolean) => void;
   screens: Screens;
   name: string;
   place: Place;
@@ -48,7 +50,7 @@ export const Bubble = (props: {
   menu(event: MouseEvent): void;
   toggleMinimised(id: string): void;
 }) => {
-  const id = props.id;
+  const id = () => props.id;
   let body: HTMLDivElement | undefined;
   let frame: number | null = null;
 
@@ -57,7 +59,7 @@ export const Bubble = (props: {
   const refit = () => {
     frame = null;
 
-    if (body && !place().min && !props.readOnly()) props.screens.resize(id, props.screens.emulatorFor(id).fit(), true);
+    if (body && !props.preparing && !place().min && !props.readOnly()) props.screens.resize(id(), props.screens.emulatorFor(id()).fit(), true);
   };
 
   const refitNextFrame = () => {
@@ -67,17 +69,20 @@ export const Bubble = (props: {
   onCleanup(() => {
     if (frame !== null) cancelAnimationFrame(frame);
 
-    props.screens.viewing(id, false);
-    props.screens.hide(id);
+    props.screens.viewing(id(), false);
+    props.screens.hide(id());
   });
 
   // A Terminal is viewed while its Bubble is open; a folded or closed one gathers unseen output.
-  createEffect(() => props.screens.viewing(id, !place().min));
+  createEffect(() => { if (!props.preparing) props.screens.viewing(id(), !place().min); });
 
   const mount = (host: HTMLDivElement) => {
     body = host;
 
-    props.screens.resize(id, props.screens.show(id, host, false));
+    props.hostRef?.(host, () => restoreResize === undefined);
+    createEffect(on(() => props.preparing ? null : id(), terminal => {
+      if (terminal !== null) props.screens.resize(terminal, props.screens.show(terminal, host, false));
+    }));
 
     if (typeof ResizeObserver !== "undefined") {
       const watched = makeResizeObserver(refitNextFrame);
@@ -93,7 +98,7 @@ export const Bubble = (props: {
 
   let restoreResize: (() => void) | undefined;
 
-  registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
+  registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => props.preparing || restoreResize !== undefined, run: () => { if (props.preparing) void props.close(id()); else restoreResize?.(); } }]);
   onCleanup(() => restoreResize?.());
 
   // Move and resize share settlement; listeners exist before capture can cause an early blur.
@@ -111,7 +116,7 @@ export const Bubble = (props: {
 
     const apply = () => {
       pending = null;
-      props.setPlace(id, change(from, pointer.x - start.clientX, pointer.y - start.clientY));
+      props.setPlace(id(), change(from, pointer.x - start.clientX, pointer.y - start.clientY));
     };
 
     const move = (event: PointerEvent) => {
@@ -130,7 +135,7 @@ export const Bubble = (props: {
 
       if (pending !== null) cancelAnimationFrame(pending);
 
-      if (restore) props.setPlace(id, from);
+      if (restore) props.setPlace(id(), from);
       else if (pending !== null) apply();
       pending = null;
 
@@ -172,7 +177,7 @@ export const Bubble = (props: {
       const arrow = ARROWS.get(press.key)!;
       const from = place();
 
-      props.setPlace(id, clamped(press.shiftKey ? { ...from, w: from.w + arrow[0] * STEP, h: from.h + arrow[1] * STEP } : { ...from, x: from.x + arrow[0] * STEP, y: from.y + arrow[1] * STEP }, props.extent()));
+      props.setPlace(id(), clamped(press.shiftKey ? { ...from, w: from.w + arrow[0] * STEP, h: from.h + arrow[1] * STEP } : { ...from, x: from.x + arrow[0] * STEP, y: from.y + arrow[1] * STEP }, props.extent()));
     },
   }]);
 
@@ -195,7 +200,8 @@ export const Bubble = (props: {
 
     if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
 
-    if (!place().min) props.setPlace(id, { ...place(), min: true });
+    if (props.preparing) props.toggleMinimised(id());
+    else if (!place().min) props.setPlace(id(), { ...place(), min: true });
   };
 
   return (
@@ -203,25 +209,25 @@ export const Bubble = (props: {
       <Portal>
         <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
           style={{ display: place().min ? "none" : "block", left: `${props.origin.left}px`, top: `${props.origin.top}px` }}>
-          <section class="bubble" data-bubble={id} role="group" aria-label={props.name} hidden={place().min}
+          <section class="bubble" data-bubble={id()} role="group" aria-label={props.name || copy.newTerminal} hidden={place().min}
             style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
             <header class="bubble-header" tabindex="0" ref={header} onContextMenu={props.menu} onPointerDown={(event) => {
                 // SAFETY: a pointer event on the header always targets an Element.
                 if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => clamped({ ...from, x: from.x + dx, y: from.y + dy }, props.extent()));
               }} onDblClick={(event) => {
                 // SAFETY: a mouse event on the header always targets an Element.
-                if (!(event.target as Element).closest("button")) props.setPlace(id, toggledFill(place(), props.extent()));
+                if (!(event.target as Element).closest("button")) props.setPlace(id(), toggledFill(place(), props.extent()));
               }}>
               <span class="bubble-controls">
-                <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void props.close(id)}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
-                <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => props.toggleMinimised(id)}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
+                <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void props.close(id())}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
+                <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => props.toggleMinimised(id())}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
               </span>
               <span class="bubble-name">{props.name}</span>
             </header>
-            <div class="bubble-body" ref={mount} /><ReservedLine overlay class={props.screens.failure(id) ? "bubble-failure" : undefined} message={props.screens.failure(id)} />
+            <div class="bubble-body" tabindex="-1" ref={mount} /><ReservedLine overlay class={props.screens.failure(id()) ? "bubble-failure" : undefined} message={props.screens.failure(id())} />
           </section>
           <For each={ZONES}>{(zone) => (
-            <span class="bubble-zone" data-zone={zone.name} data-zone-of={id} aria-hidden="true" hidden={place().min}
+            <span class="bubble-zone" data-zone={zone.name} data-zone-of={id()} aria-hidden="true" hidden={place().min}
               style={{ cursor: zone.cursor, ...zoneBox(place(), zone) }} onPointerDown={(event) => resize(event, zone)} />
           )}</For>
         </Panel.Content>

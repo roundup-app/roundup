@@ -64,8 +64,6 @@ pub fn build<R: Runtime>(
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
         .setup(move |app| {
-            #[cfg(target_vendor = "apple")]
-            native::watch_accent(app.handle().clone());
             let state = app.state::<AppState>();
             match app.path().app_data_dir() {
                 Ok(dir) => state.use_data_dir(dir),
@@ -95,7 +93,6 @@ pub fn build<R: Runtime>(
 fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
     let handler: fn(tauri::ipc::Invoke<R>) -> bool = tauri::generate_handler![
         launch::native_open,
-        system_accent,
         ask_removal,
         projects,
         recent_projects,
@@ -276,19 +273,6 @@ fn save_pasted_image(request: tauri::ipc::Request<'_>) -> Result<String, RpcErro
         .unwrap_or_default();
 
     paste::save_in_cache(media_type, bytes).map(|path| path.display().to_string())
-}
-
-/// Current native accent, unavailable on hosts without AppKit.
-#[tauri::command]
-fn system_accent() -> Option<[f64; 3]> {
-    #[cfg(target_vendor = "apple")]
-    {
-        native::system_accent()
-    }
-    #[cfg(not(target_vendor = "apple"))]
-    {
-        None
-    }
 }
 
 /// The three removal answers have distinct authority; a native failure grants none.

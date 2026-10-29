@@ -25,6 +25,15 @@ export const MIN_HEIGHT = 6 * 17 + 2 * PADDING + HEADER;
 
 export type Extent = { width: number; height: number };
 
+const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
+
+/** The laid-out Bubble layer's extent, with the initial pane extent until it mounts. */
+export const extentOf = (host: HTMLElement | undefined): Extent => {
+  const box = host?.getBoundingClientRect();
+
+  return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : FALLBACK_EXTENT;
+};
+
 const between = (low: number, high: number, value: number): number => Math.max(low, Math.min(high, value));
 
 /** `place` kept inside `extent`, never smaller than the minimum nor larger than the extent. */
