@@ -798,9 +798,51 @@
 }
 .opening-prompt-dialog .opening-prompt-field { gap: var(--space-2); }
 .opening-prompt-dialog .app-dialog-actions { align-items: center; }
-.opening-prompt-dialog .reserved-line { flex: 1; }
+.opening-prompt-dialog .reserved-line {
+  block-size: auto;
+  max-block-size: none;
+}
+.opening-prompt-dialog .reserved-content { align-items: baseline; }
+.opening-prompt-dialog .ink[role="alert"],
+.opening-prompt-dialog .reserved-status {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
 
 .rail-section + .rail-section { margin-top: var(--space-2); }
 .rail-section [data-part="branch-content"] { padding-inline-start: 0; }
 .rail .section-head[data-part="branch-control"] { color: var(--grey); }
 .rail .section-head:is(:hover, :focus-visible) { color: var(--text); }
+
+.opening-prompt-dialog form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+/* Mode marks keep a trailing slot; quick actions overlay the name, as on Workstreams. */
+.mode-name {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.mode-name .name {
+  flex: 1;
+}
+
+.mode-mark {
+  display: inline-flex;
+  flex: none;
+  cursor: default;
+}
+
+.rail-row:has(.mode-mark) .row-icons {
+  inset-inline-end: calc(100% + var(--rail-gap) + var(--space-4) * 3);
+}
+
+.rail-row:has(.mode-mark) .row-tail {
+  margin-left: var(--space-4);
+}

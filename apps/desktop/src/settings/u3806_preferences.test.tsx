@@ -32,7 +32,7 @@ const section = async (name: string) => {
 };
 
 const select = async (label: string, value: string) => {
-  await section(label === "Mode" ? "Appearance" : "Agents");
+  await section(label === "Appearance" ? "Appearance" : "Agents");
   fireEvent.click(screen.getByRole("combobox", { name: label }));
   fireEvent.click(await screen.findByRole("option", { name: value }));
 };
@@ -90,19 +90,20 @@ it.each(["300", "2", "not a number"])("u3803_a_bad_size_is_refused_and_changes_n
   expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Font size" }).value).toBe(invalid);
 });
 
-it("u3806_a_change_survives_a_reload", async () => {
-  await mount();
+it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
+  const app = await mount();
   await select("Permission mode", "Plan");
   await pick("Engine", "Engine One");
   await pick("Model", "Model One");
   await commit("Font family", "Menlo");
   await commit("Font size", "16");
-  await select("Mode", "Dark");
+  await select("Appearance", "Dark");
   await section("Shortcuts");
   fireEvent.click(screen.getByRole("button", { name: /^Quick add a Todo / }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAdd).toBe("ctrl+shift+KeyY"));
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
+  expect(app.calls.filter(call => ["workstream.setOpeningPrompt", "workstream.restart", "rail.startDoor"].includes(call.method))).toEqual([]);
   cleanup();
   await mount();
   expect(appSettings()).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
