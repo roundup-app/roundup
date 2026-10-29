@@ -203,7 +203,6 @@ it.runIf(process.env.ROUNDUP_CAPTURES?.split(',').includes('U4590'))("u4590_rest
     const before = await app.rpc("terminal.snapshot", { id });
     const pid = /pid=(\d+)/.exec(Buffer.from(before.data, "base64").toString())![1];
     const incarnation = (await app.rpc("terminal.list", null)).find(t => t.id === id)!.incarnation;
-    await read(`window.__retained = window.__terminals.get('${id}')`);
     // Reload reconstructs the App and uses the normal subscription/snapshot restoration path.
     await browser("reload");
     await wait(`window.__terminals?.has('${id}') && !!document.querySelector('.bubble:not([hidden]) .xterm-rows')`);
@@ -218,8 +217,11 @@ it.runIf(process.env.ROUNDUP_CAPTURES?.split(',').includes('U4590'))("u4590_rest
     expect((await app.rpc("terminal.list", null)).find(t => t.id === id)!.incarnation).toBe(incarnation);
     expect(Buffer.from(snapshot.data, "base64").toString()).toContain(`pid=${pid}`);
     expect(await read(`window.__restored === window.__terminals.get('${id}') && window.__host === document.querySelector('.bubble:not([hidden]) .bubble-body')`)).toBe(true);
+    await wait(`window.__host.querySelector('.xterm-rows').textContent.includes('later ${snapshot.cols} ${snapshot.rows} pid=${pid}') && window.__restored.serialize().data.includes('later ${snapshot.cols} ${snapshot.rows} pid=${pid}')`);
     const record = await read(`({visibleRows:window.__host.querySelector('.xterm-rows').textContent, snapshot:window.__restored.serialize()})`);
-    await writeFile(join(dir, "real-restored.trace.json"), JSON.stringify({ id, pid, incarnation, before, after: snapshot, fitted, record }, null, 2));
+    const { execFileSync } = await import("node:child_process");
+    const commit = execFileSync("git", ["rev-parse", "HEAD"], {encoding:"utf8"}).trim();
+    await writeFile(join(dir, "real-restored.trace.json"), JSON.stringify({ commit, renderer: "dom", seed: "real-restored-shell", id, pid, incarnation, before, after: snapshot, fitted, record }, null, 2));
     await writeFile(join(dir, "real-restored.checks.json"), JSON.stringify(await read("window.__checks()"), null, 2));
     await browser("screenshot", join(dir, "real-restored.png"));
   } finally { await real.stop(); await rm(scratch, { recursive: true, force: true }); }
