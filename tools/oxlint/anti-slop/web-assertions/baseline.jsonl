@@ -307,8 +307,6 @@
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 and u370 on one mounted App > u373_the_other_tab_switches","identity":"d38e5e88e7eb20939886a2263c35cd2a858c134dee025776c9185800e72c29e3"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 and u370 on one mounted App > u373_the_other_tab_switches","identity":"10a8d3b16817473a1b803f75f55e1b127009d29d9598fe86ff6ccf0409b4d8b1"}
 {"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_a_bad_stored_value_means_todos","identity":"56c8616a8efafac079066bc243dab21c8c5c3c11d59ccf075da4eff12dead7f8"}
-{"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_add_keeps_its_path","identity":"058ee5b3c74df7930aacd7a0efe7824b7d3b69ac87859a8eb0caf40de2bf94ee"}
-{"file":"apps/desktop/src/shelf/u373_frame.test.tsx","test":"u373 the Shelf has two tabs > u373_add_keeps_its_path","identity":"1274d269781f49d20f40d7cd358acef49343ef4d7ac1b73c46b709c86509d00d"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending","identity":"fc6dcd68ee23e2c7f00a6e147c3fb2c0f66a0fa9b67808b045cfa9876384318a"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending","identity":"2016467997b2bd0630149bfbd7223bfa191ce90cb9efb698e059098466fa44fa"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream","identity":"bbfebd0880b738782f784e166ae02f8606b58e838295b534816d2c2481cafbed"}

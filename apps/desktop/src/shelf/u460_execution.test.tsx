@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
@@ -6,7 +7,7 @@ import { RpcError } from "../app/seam";
 import { USER } from "../testing/nodes";
 import { stubDialogLayout, askToDelete, questionClosed } from "./bulkQuestionHarness";
 
-afterEach(cleanup);
+afterEach(() => batch(cleanup));
 
 stubDialogLayout();
 

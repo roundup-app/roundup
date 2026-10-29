@@ -93,6 +93,22 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
 }
 
 impl Project {
+    /// D1/D5: close the App's lifetime pipe and require a clean, bounded shutdown.
+    pub async fn close(&mut self) {
+        drop(self.daemon.stdin.take());
+        tokio::time::timeout(Duration::from_secs(15), async {
+            loop {
+                if let Some(status) = self.daemon.child.try_wait().unwrap() {
+                    assert!(status.success(), "attached shutdown failed: {status}");
+                    return;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("attached Daemon exits within D1's 15-second bound");
+    }
+
     pub fn crash(&mut self) {
         if self.daemon.child.try_wait().unwrap().is_none() {
             self.daemon.child.kill().unwrap();
