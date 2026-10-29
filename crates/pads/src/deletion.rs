@@ -4,6 +4,16 @@ use contracts::pad::{DeleteParams, Deletion, DeletionId, GetDeletionParams, Redo
 use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
 
+pub(super) fn cause(actor: &Actor) -> PadDeletion {
+    if actor.kind == ActorKind::User {
+        PadDeletion::User
+    } else if *actor == Actor::daemon() {
+        PadDeletion::Cleanup
+    } else {
+        PadDeletion::Owner
+    }
+}
+
 fn project(db: &Connection) -> Result<String, RpcError> {
     db.query_row("SELECT id FROM deliverable_project", [], |r| r.get(0))
         .map_err(RpcError::internal)
@@ -297,15 +307,8 @@ impl Pads {
                     rusqlite::params![request, p.operation],
                 )
                 .map_err(RpcError::internal)?;
-            let cause = if ctx.actor.kind == ActorKind::User {
-                PadDeletion::User
-            } else if ctx.actor == Actor::daemon() {
-                PadDeletion::Cleanup
-            } else {
-                PadDeletion::Owner
-            };
             store
-                .record_deletion(&current.name, cause)
+                .record_deletion(&current.name, cause(&ctx.actor))
                 .map_err(RpcError::internal)?;
             found(store.delete(&current.name), &current.name)?;
             if store.files().map_err(RpcError::internal)? {
