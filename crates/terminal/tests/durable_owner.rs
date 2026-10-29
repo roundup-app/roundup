@@ -510,6 +510,6 @@ async fn x19_an_owner_binds_under_a_project_path_longer_than_sun_path() {
             std::time::Instant::now() < deadline,
             "owner directories remain"
         );
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        tokio::task::yield_now().await;
     }
 }
