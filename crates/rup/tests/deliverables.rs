@@ -791,6 +791,11 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
     db.execute_batch("ALTER TABLE nodes ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
         ALTER TABLE marks ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
         CREATE TABLE iterations (door TEXT NOT NULL, iteration INTEGER NOT NULL, upto INTEGER NOT NULL, PRIMARY KEY (door, iteration));").unwrap();
+    // ... and the `updated_at` columns of 0036-todo-updated-at.sql.
+    db.execute_batch(
+        "ALTER TABLE todos DROP COLUMN updated_at; ALTER TABLE deleted_todos DROP COLUMN updated_at;",
+    )
+    .unwrap();
     db.pragma_update(None, "user_version", 42).unwrap();
     std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
     p.restart(&[]);
