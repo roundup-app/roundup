@@ -6,6 +6,7 @@ import solid from "vite-plugin-solid";
 import { visualizer } from "rollup-plugin-visualizer";
 import { configDefaults, defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
+import { captureTests } from "./src/testing/captures.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
 import { buildModules } from "./budgets/build.ts";
@@ -15,6 +16,8 @@ const queryTokens = new Map<string, string>();
 postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")).walkDecls(declaration => {
   if (declaration.prop.startsWith("--query-")) queryTokens.set(declaration.prop, declaration.value);
 });
+
+const captures = captureTests(process.env.ROUNDUP_CAPTURES);
 
 const served = realDaemonFromEnv(process.env);
 
@@ -184,6 +187,11 @@ export default defineConfig({
   server: { port: 5173, strictPort: true },
   test: {
     environment: "jsdom",
+    ...(captures ? {
+      fileParallelism: false,
+      ...(process.env.ROUNDUP_CAPTURES?.split(",").every(id => id.trim() === "U4590")
+        ? { testNamePattern: /^(u4590_|u3517[ad]_|u3529)/i } : {}),
+    } : {}),
     // A shard's real-Claude and Chromium files starve the first test of a file past vitest's 5 s (owner's choice, 2026-10-17); a test that sets its own longer limit keeps it.
     testTimeout: 15_000,
     // L122: a flaky test runs twice before it fails; the lane lists a pass on the retry as flaky.
@@ -198,11 +206,11 @@ export default defineConfig({
     setupFiles: ["src/testing/domStubs.ts"],
     // Inline projects inherit jsdom, stubs, transforms and resolution. Only queued App tests start their global setup.
     projects: [
-      { test: { name: "webkit-guards", include: webkitGuards } },
+      { test: { name: "webkit-guards", include: captures ? captures.filter(file => webkitGuards.includes(file)) : webkitGuards } },
       {
         test: {
           name: "app",
-          include: ["src/**/*.test.{ts,tsx}"],
+          include: captures ?? ["src/**/*.test.{ts,tsx}"],
           exclude: [...configDefaults.exclude, ...webkitGuards],
           globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
         },
