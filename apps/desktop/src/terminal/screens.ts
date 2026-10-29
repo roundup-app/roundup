@@ -718,23 +718,22 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     // Include lazy loading, fonts and layout in the same finite preparation budget.
     const deadline = AbortSignal.timeout(5_000);
     const cancellation = AbortSignal.any(signal ? [signal, deadline] : [deadline]);
-    const cancelled = Promise.withResolvers<never>();
+    const listening = new AbortController();
 
-    // The race below reports a rejection; this keeps one that lands before or after it from going unhandled.
-    cancelled.promise.catch(() => {});
+    // Created inside the race, so the race handles a rejection that lands before or after it settles.
+    const cancelled = () => new Promise<never>((_, reject) => {
+      const abort = () => {
+        dispose();
+        reject(deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : cancellation.reason);
+      };
 
-    const abort = () => {
-      dispose();
-      cancelled.reject(deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : cancellation.reason);
-    };
-
-    cancellation.addEventListener("abort", abort, { once: true });
-
-    if (cancellation.aborted) abort();
+      if (cancellation.aborted) abort();
+      else cancellation.addEventListener("abort", abort, { once: true, signal: listening.signal });
+    });
 
     try {
       if (!emulator.prepare) throw new Error(appCopy.terminalPreparationUnavailable);
-      const size = await Promise.race([emulator.prepare(host, settled, cancellation), cancelled.promise]);
+      const size = await Promise.race([emulator.prepare(host, settled, cancellation), cancelled()]);
 
       return { size, bind: id => {
         if (!owned) return;
@@ -743,7 +742,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         holderFor(id, emulator);
         owned = false;
       }, dispose };
-    } catch (error) { dispose(); throw error; } finally { cancellation.removeEventListener("abort", abort); }
+    } catch (error) { dispose(); throw error; } finally { listening.abort(); }
   };
 
   return {
