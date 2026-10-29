@@ -61,7 +61,7 @@ it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
   await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal="t-other"]')).not.toBeNull());
 });
 
-it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
+it.each(["resources", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
   const { connected } = await mount();
 
   if (view === "resources") {
@@ -229,8 +229,8 @@ it("u2539b_hiding_optional_views_preserves_original_drafts", async () => {
   const text = "  unfinished\nexact work 🐈  ";
   fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: text } });
   const original = connected().drafts.list().find(draft => draft.destination.surface === "ask")!;
-  openProjectPage("view:ask-history", "/p");
-  openProjectPage("view:ask-history", "/p");
+  openProjectPage("view:made", "/p");
+  openProjectPage("view:made", "/p");
   connected().rail.select("a1");
   connected().rail.select(null);
   const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
@@ -330,15 +330,15 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
 
 it.each([false, true].flatMap(reverse => [false, true].map(closeReactions => ({ reverse, closeReactions }))))("u4276a_requested_screens_close_independently: $reverse $closeReactions", async ({ reverse, closeReactions }) => {
   const { connected, daemon } = await mount();
-  const order = reverse ? ["ask-history", "reactions"] : ["reactions", "ask-history"];
+  const order = reverse ? ["made", "reactions"] : ["reactions", "made"];
 
   for (const view of order) openProjectPage(`view:${view}`, "/p");
   await screen.findByRole("button", { name: "Close Named reactions" });
-  await screen.findByRole("button", { name: "Close Ask history" });
+  await screen.findByRole("button", { name: "Close Made" });
   const selection = connected().rail.selected();
-  fireEvent.click(screen.getByRole("button", { name: closeReactions ? "Close Named reactions" : "Close Ask history" }));
-  expect(connected().hasView(closeReactions ? "ask-history" : "reactions")).toBe(true);
-  expect(connected().hasView(closeReactions ? "reactions" : "ask-history")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: closeReactions ? "Close Named reactions" : "Close Made" }));
+  expect(connected().hasView(closeReactions ? "made" : "reactions")).toBe(true);
+  expect(connected().hasView(closeReactions ? "reactions" : "made")).toBe(false);
   expect(connected().rail.selected()).toBe(selection);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".ask-input")));
   expect(daemon.calls.filter(call => ["terminal.close", "reaction.stop", "reaction.run", "reaction.create"].includes(call.method))).toHaveLength(0);
