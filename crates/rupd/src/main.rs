@@ -64,6 +64,18 @@ async fn run(runtime_ms: f64) -> io::Result<()> {
         begun.elapsed().as_secs_f64() * 1e3
     );
     let daemon = Arc::new(daemon);
+    // A12a, S1: retained programs still call the socket of the run that started them.
+    for old in daemon.reattach_owners().await {
+        if old == path {
+            continue;
+        }
+        if old.exists() && UnixStream::connect(&old).await.is_err() {
+            let _ = std::fs::remove_file(&old);
+        }
+        if let Ok(extra) = UnixListener::bind(&old) {
+            tokio::spawn(rupd::serve(extra, Arc::clone(&daemon)));
+        }
+    }
     if !attached {
         return rupd::serve(listener, daemon).await;
     }
