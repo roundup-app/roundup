@@ -922,7 +922,7 @@ export const Bubbles = (props: {
                 let cancelling = false;
                 onMount(() => api().edit());
 
-                return <Editable.Area><Editable.Preview /><Editable.Input aria-label={copy.terminalName}
+                return <Editable.Area><Editable.Preview /><Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" aria-label={copy.terminalName}
                 on:keydown={event => {
                   if (event.key !== "Escape" || event.isComposing) return;
 

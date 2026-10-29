@@ -94,7 +94,7 @@ export const NameField = (props: {
 
   // This editor restores its own selection; Ark's deferred select-all would overwrite it.
   return <Editable.Root edit selectOnFocus={false} value={text()} submitMode="none" class="row-name-editor" onValueChange={({ value }) => setText(value)}>
-    <Editable.Input type="text" class="shelf-title" aria-label={copy.name} aria-invalid={conflict() || undefined} aria-busy={!ready() || pending()} ref={field => queueMicrotask(() => {
+    <Editable.Input spellcheck={false} autocorrect="off" autocapitalize="off" type="text" class="shelf-title" aria-label={copy.name} aria-invalid={conflict() || undefined} aria-busy={!ready() || pending()} ref={field => queueMicrotask(() => {
       if (!field.isConnected) return;
       field.focus();
 
