@@ -46,6 +46,7 @@ it.each(["Close", "Escape"])("u4590_preparing_shell_cancel_closes_pending_launch
   bubbleChord("t");
   await waitFor(() => expect(bubbleCalls(app, "terminal.open")).toHaveLength(1));
   const preparing = document.querySelector<HTMLElement>('.bubble:not([hidden])')!;
+
   if (cancel === "Close") fireEvent.click(preparing.querySelector<HTMLElement>('[aria-label="Close"]')!);
   else fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(opener));
