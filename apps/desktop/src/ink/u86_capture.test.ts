@@ -138,6 +138,8 @@ it.skipIf(!captureDir("U86"))("u86_capture_icon_text_pairs", async () => {
     await load("tree-40");
     await browser("click", '[role=tab][data-value=pads]');
 
+    await wait("!!document.querySelector('.pads-tab .shelf-group-control')");
+
     if (await read("document.querySelector('.pads-tab .shelf-group-control').getAttribute('data-state') === 'closed'")) await browser("click", '.pads-tab .shelf-group-control');
     const pad = await read("document.querySelector('.pads-tab [data-pad]')?.getAttribute('data-pad')");
     await browser("focus", `[data-pad=${JSON.stringify(pad)}] .pad-name`);
