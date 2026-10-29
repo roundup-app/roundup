@@ -44,7 +44,19 @@ def hook(event, fields):
     for group in settings['hooks'][event]:
         for item in group['hooks']:
             subprocess.run(item['command'], shell=True, input=json.dumps(fields), text=True, check=True, stdout=subprocess.DEVNULL)
-hook('SessionStart', {'session_id':'00000000-0000-4000-8000-000000000006','source':'resume' if '--resume' in sys.argv else 'startup'})
+# A4665: record actual launches and overlapping live programs, before any hook.
+agent = settings['hooks']['Stop'][0]['hooks'][0]['command'].split()[-1].strip("'")
+launches = 'launches-' + agent + '.jsonl'
+live = []
+if os.path.isfile(launches):
+    for line in open(launches):
+        pid = json.loads(line)['pid']
+        try: os.kill(pid, 0); live.append(pid)
+        except ProcessLookupError: pass
+with open(launches, 'a') as out:
+    out.write(json.dumps({'pid':os.getpid(), 'live':live}) + '\n')
+if not os.path.isfile('missing-session-start'):
+    hook('SessionStart', {'session_id':'00000000-0000-4000-8000-000000000006','source':'resume' if '--resume' in sys.argv else 'startup'})
 # B50: Claude Code listens on its messaging socket, lists its session with a token, records each
 # message it takes up in its transcript and takes a turn on it.
 def flag(name): return sys.argv[sys.argv.index(name) + 1]

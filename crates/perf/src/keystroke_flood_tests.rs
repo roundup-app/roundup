@@ -29,6 +29,37 @@ fn r20_runner_rejects_workload_mismatch_and_inactive_flood() {
     assert!(Args::try_parse_from(["perf-keystroke", "--flood", "--frames"]).is_err());
 }
 
+#[test]
+fn r20_flood_repeated_observations_keep_window_growth() {
+    let report = serde_json::json!({"workload":"flood", "terminal_id":"measured", "flood":{
+        "id":"flood", "opened":true, "command":"/usr/bin/yes roundup-flood",
+        "samples":[
+            {"at_ms":100,"bytes":8192,"state":"visible"},
+            {"at_ms":100,"bytes":8192,"state":"visible"},
+            {"at_ms":100.2,"bytes":8192,"state":"folded"},
+            {"at_ms":1100,"bytes":8508192,"state":"folded"},
+            {"at_ms":1100.1,"bytes":8508192,"state":"folded"}
+        ], "bytes_per_second":8500000
+    }});
+    assert!(checked_workload(&report, true).is_ok());
+}
+
+#[test]
+fn r20_flood_rejects_regression_and_stationary_windows() {
+    for samples in [
+        serde_json::json!([{"at_ms":100,"bytes":20,"state":"visible"},{"at_ms":1100,"bytes":10,"state":"folded"}]),
+        serde_json::json!([{"at_ms":1100,"bytes":10,"state":"visible"},{"at_ms":100,"bytes":20,"state":"folded"}]),
+        serde_json::json!([{"at_ms":100,"bytes":10,"state":"visible"},{"at_ms":1100,"bytes":10,"state":"folded"}]),
+        serde_json::json!([{"at_ms":100,"bytes":10,"state":"visible"},{"at_ms":100,"bytes":20,"state":"folded"}]),
+    ] {
+        let report = serde_json::json!({"workload":"flood", "terminal_id":"measured", "flood":{
+            "id":"flood", "opened":true, "command":"/usr/bin/yes roundup-flood",
+            "samples":samples, "bytes_per_second":1000
+        }});
+        assert!(checked_workload(&report, true).is_err(), "{report}");
+    }
+}
+
 #[tokio::test]
 async fn r20_unending_unrelated_output_cannot_evict_or_starve_the_report() {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
