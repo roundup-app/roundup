@@ -61,7 +61,7 @@ exit "$CARGO_STATUS"
         return result, selector_log.read_text().splitlines(), cargo_log.read_text().splitlines()
 
     def z4505_selection_failure_fails_the_recipe(self):
-        for output in ("", "rupd\n"):
+        for output in ("", "agents\n"):
             with self.subTest(output=output):
                 result, selector, cargo = self.run_recipe(
                     output=output, selector_status=23, diagnostic="selector-fixture-failed\n",
@@ -80,7 +80,7 @@ exit "$CARGO_STATUS"
         self.assertEqual(cargo, [])
 
     def z4505_rust_selection_runs_clippy(self):
-        for output in ("rupd\n", "all\n"):
+        for output in ("agents\n", "all\n"):
             for status in (0, 17):
                 with self.subTest(output=output, cargo_status=status):
                     result, selector, cargo = self.run_recipe(output=output, cargo_status=status)
