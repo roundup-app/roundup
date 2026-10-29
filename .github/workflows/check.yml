@@ -155,6 +155,8 @@ jobs:
           path: target/release-evidence/
           if-no-files-found: error
           retention-days: 30
+      - name: A4691 debug runtime preparation
+        run: just build-debug
       - name: U4251 raw SDK storage capability
         if: matrix.partition == 1
         timeout-minutes: 1

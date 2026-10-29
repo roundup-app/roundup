@@ -264,6 +264,7 @@ def brief_report(report, source="startup", exercise=False):
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         text=True,
+        env={**os.environ, **config.get("env", {})},
     )
 
     def send(message):
@@ -310,7 +311,8 @@ def brief_report(report, source="startup", exercise=False):
     server.stdin.close()
     server.wait(timeout=5)
     if report:
-        with open(report, "w") as out:
+        agent = json.load(open(flag("--settings")))["env"]["ROUNDUP_AGENT_ID"]
+        with open(report.replace("{agent}", agent), "w") as out:
             json.dump(seen, out)
     return seen
 
