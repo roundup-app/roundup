@@ -28,14 +28,27 @@ const openShelf = async (tab: typeof shelf[number]) => {
   await screen.findByRole("region", { name: "Project overview" });
   openProjectPage("view:workstreams", path("p"));
 
-  const control = await waitFor(() => {
-    const found = document.querySelector<HTMLElement>('[data-id="a"] [data-pads-control]');
-    expect(found).not.toBeNull();
+  if (tab === "Todos") {
+    const control = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>('[data-id="a"] [data-pads-control]');
+      expect(found).not.toBeNull();
 
-    return found!;
-  });
+      return found!;
+    });
 
-  fireEvent.click(control);
+    fireEvent.click(control);
+  } else {
+    showShelfTab("Pads");
+
+    const group = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="unassigned"]');
+      expect(found).not.toBeNull();
+
+      return found!;
+    });
+
+    if (group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector(".shelf-group-control")!);
+  }
 
   const rows = await waitFor(() => {
     const found = [...document.querySelectorAll<HTMLElement>(tab === "Todos" ? ".shelf .todo-row-button" : ".shelf .pad-name")];
@@ -49,7 +62,7 @@ const openShelf = async (tab: typeof shelf[number]) => {
   return { app: daemon, rows };
 };
 
-it.each(shelf)("u3787c_each_list_navigates_visible_rows owner control %s", async tab => {
+it.each(shelf)("u3787c_each_list_navigates_visible_rows Shelf navigation %s", async tab => {
   const { app, rows } = await openShelf(tab);
   const before = app.calls.length;
   rows[0]!.focus();
@@ -64,7 +77,7 @@ it.each(shelf)("u3787c_each_list_navigates_visible_rows owner control %s", async
   expect(app.calls.slice(before)).toEqual([]);
 });
 
-it.each(shelf)("u3787c_each_list_selects_only_visible_rows owner control %s", async tab => {
+it.each(shelf)("u3787c_each_list_selects_only_visible_rows Shelf navigation %s", async tab => {
   const { app, rows } = await openShelf(tab);
   const before = app.calls.length;
   const selected = () => rows.filter(row => row.getAttribute("aria-pressed") === "true");
