@@ -46,7 +46,14 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
     await screen.findByRole("tablist", { name: "Work items" }, { timeout: 20_000 });
     await showEverythingInApp(/scope/);
     showShelfTab("Pads");
-    const group = await waitFor(() => { const branch = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]'); expect(branch).not.toBeNull(); return branch!; });
+
+    const group = await waitFor(() => {
+      const branch = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+
+      expect(branch).not.toBeNull();
+
+      return branch!;
+    });
 
     if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") === "false") fireEvent.click(group.closest('[data-part="branch-control"]')!);
     const row = await screen.findByRole("button", { name: "sketch" }, { timeout: 20_000 });
