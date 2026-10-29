@@ -130,6 +130,17 @@ Policy/rendered observer: during implementation, use isolated headless Chromium 
 
 **U3787i an unmatched key or Space on a tree row reaches the App.** Extends U3787c. Given a list rendered by the patched `@pierre/trees` with `typeahead: "name-prefix"` and a row focused, when the user presses a printable key matching no visible row name and no typeahead buffer is active, then the tree selects nothing and calls neither `preventDefault` nor `stopPropagation`, so the key reaches the App's registry (U3721, U3723, U3720 and triage entry run on it). When the user presses plain Space on a focused row with no typeahead buffer active, then the tree leaves the event unhandled and the row's own activation runs. A key matching a visible row name still selects it and is consumed (U3787c); Space while a buffer is active extends the prefix. Test: planned `u3787i_unmatched_key_and_space_reach_the_app` in `apps/desktop/src/shelf/u3787c_selection.test.tsx`, asserting `defaultPrevented` and a registry command's call count on a fixture with no row beginning with the key. The fix lives in `patches/@pierre__trees@1.0.0-beta.6.patch` (policy, diff inspection).
 
+## Occupied-identity refusal wording (#4713)
+
+Extends the genuine-refusal clause of Rail Undo independence (#4667). Implementation is separate.
+
+**U3787j an occupied-identity refusal directs removal only when removal can free the identity.** Given a retained deletion whose Undo is refused because another item now occupies a removed item's identity (Rail node or Todo), then:
+
+- When the Daemon authorizes the user's existing removal action for the blocking item, the message is `Can't undo: "<blocker>" already occupies the removed item's identity. Remove that item before trying Undo again.`; the blocking name is the user-visible name.
+- When no existing removal action is authorized for the blocking item, the message is `Can't undo: "<blocker>" already occupies the removed item's identity. This Undo cannot currently be completed; the deletion is retained.` and does not tell the user to remove the item.
+- In both cases the retained operation is neither consumed nor changed, Undo stays available, and no SQL, table name or internal id appears. Authorization is decided by the owning Daemon at refusal time, never by the webview.
+- Tests: planned `u3787j_occupied_identity_refusal_matches_removal_authority`, parameterized in the formatter's unit-test area in `crates/rpc/src/error.rs` for exact copy of both cases; planned `u3787j_unremovable_blocker_refusal_retains_the_deletion`, through the real Daemon in `crates/rupd/src/removal/restoration_tests.rs`, asserting the blocker's removal authority selects the copy and receipt state is unchanged after refusal. A contract change to carry the authority fact follows the Contract recipe and keeps `u3787a_undo_refusal_names_cause_and_recovery` passing.
+
 ## Gates and observers
 
 These numbered checks cite existing holders on `origin/main`; planned `u3787*` tests above are added by implementation, never claimed present here.
