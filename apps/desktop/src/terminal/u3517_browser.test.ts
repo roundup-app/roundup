@@ -652,3 +652,117 @@ it.each(["close", "minimise", "Escape"])("u4590_preparing_shell_cancels_with_%s"
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.open')")).toEqual([]);
   expect(await read("!!document.querySelector('[role=alert]')")).toBe(false);
 }, 60_000);
+
+// U4590's opt-in policy observer; the single startup guard above remains the CI guard.
+for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-40", "bubbles"]) {
+  it.skipIf(!captureDir("U4590"))(`u4590_rendered_lifecycle_${renderer}_${seed}`, async () => {
+    for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+      await browser("open", url("/src/ui/u498.html", base));
+      await read("localStorage.clear(); sessionStorage.clear()");
+      await load(seed, base, renderer);
+      let id = seed === "agents-10" ? "t-agent-3" : seed === "tree-40" ? "t-payments" : "t-runner";
+      await select(seed === "agents-10" ? "agent-3" : seed === "tree-40" ? "payments" : "runner", id);
+      const dir = join(captureDir("U4590")!, base ? "base" : "head");
+      mkdirSync(dir, { recursive: true });
+      const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", cwd: base ? process.env.U500_BASE_ROOT : process.cwd() }).trim();
+      const capture = async (step: string) => {
+        const marker = `U4590 ${step} later output`;
+        await read(`(() => {
+          const emulator = window.__terminals.get('${id}');
+          window.__observedEmulator ??= emulator;
+          const rows = emulator.serialize().rows;
+          window.__fake.writeOutput('${id}', '\\x1b[2J\\x1b[HReady to continue?\\r\\n1. Continue\\r\\n2. Review changes\\r\\n3. Stop\\r\\nNext: choose an answer\\r\\nInput: unfinished work\\r\\nStatus: waiting for you\\r\\n');
+          window.__fake.writeOutput('${id}', '\\x1b[9;1H' + ${JSON.stringify(marker)} + '\\x1b[' + rows + ';1H[Enter] Answer  [Esc] Stop');
+        })()`);
+        await wait(`window.__terminals.get('${id}').serialize().data.includes(${JSON.stringify(marker)})`);
+        // emulator.ts schedules xterm painting after the subscription's parse callback.
+        await read("new Promise(resolve => requestAnimationFrame(resolve))");
+        const record = await read(`(() => {
+          const emulator = window.__terminals.get('${id}');
+          const input = [...document.querySelectorAll('.xterm-helper-textarea')].find(e => e.checkVisibility());
+          const host = input?.closest('.pane-screen, .bubble-body');
+          const snapshot = emulator.serialize();
+          return { id: '${id}', fontStatus: document.fonts.status, snapshot,
+            sameEmulator: emulator === window.__observedEmulator,
+            renderer: host?.querySelector('.xterm-screen canvas') ? 'webgl' : 'dom',
+            host: host?.getBoundingClientRect().toJSON(),
+            visibleRows: host?.querySelector('.xterm-rows')?.textContent,
+            calls: window.__fake.app.calls.filter(c => ['terminal.resize', 'terminal.snapshot', 'terminal.catchUp', 'terminal.open', 'agent.spawn', 'rail.startDoor', 'terminal.write'].includes(c.method)) };
+        })()`);
+        const name = `${seed}-${renderer}-${step}`;
+        writeFileSync(join(dir, `${name}.trace.json`), JSON.stringify({ commit, seed, step, requestedRenderer: renderer, record }, null, 2));
+        writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+        await browser("screenshot", join(dir, `${name}.png`));
+      };
+      await capture("existing");
+
+      if (seed === "agents-10") {
+        await read("window.__settings = await import('/src/settings/preferences.ts'); window.__settings.saveAppSettings({fontFamily:'monospace',fontSize:15})");
+        await wait(`window.__fake.app.calls.some(c=>c.method==='terminal.resize' && c.params.id==='${id}') && document.fonts.status==='loaded'`);
+        await capture("custom-font");
+        await read("window.__settings.saveAppSettings({fontFamily:'',fontSize:11})");
+        await wait("document.fonts.status==='loaded'");
+        await capture("bundled-font");
+        await read(`window.__terminals.get('${id}').focus(); window.__fake.app.calls.length=0`);
+        await browser("press", "Meta+=");
+        await wait(`window.__fake.app.calls.some(c=>c.method==='terminal.resize' && c.params.id==='${id}')`);
+        await capture("project-zoom");
+        await browser("set", "viewport", "1412", "850");
+        await wait("innerWidth===1412 && innerHeight===850");
+        await browser("set", "viewport", "1512", "950");
+        await wait("innerWidth===1512 && innerHeight===950");
+        await capture("window-resize");
+        await browser("click", '.rail-actions [aria-label="New Agent"]');
+        await wait("window.__fake.app.calls.some(c=>c.method==='agent.spawn') && !!document.querySelector('.pane .xterm-screen')");
+        id = await read<string>("[...window.__terminals.keys()].at(-1)");
+        await read("window.__observedEmulator=null");
+        await capture("new-agent");
+      } else if (seed === "tree-40") {
+        await read("document.querySelector('.shelf [aria-label=Close]').click()");
+        await wait("document.querySelector('.window')?.dataset.shelf==='closed'");
+        await capture("shelf-closed");
+        await browser("press", "Meta+k");
+        await browser("press", "s");
+        await wait("!!document.querySelector('.shelf')");
+        await capture("shelf-open");
+        await read("for(const control of document.querySelectorAll('[data-shelf-group] [data-part=branch-control]')) if(control.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false') control.click()");
+        await wait("[...document.querySelectorAll('.todo-row-button')].some(e=>e.checkVisibility())");
+        await read("[...document.querySelectorAll('.todo-row-button')].find(e=>e.checkVisibility()).focus()");
+        await browser("press", "Enter");
+        await wait("!!document.querySelector('.drawer[data-open=true]')");
+        await capture("drawer-open");
+        await browser("press", "Escape");
+        await wait("!document.querySelector('.drawer[data-open=true]')");
+        await capture("drawer-closed");
+        await browser("click", '[aria-label="Add Workstream"]');
+        await wait("window.__fake.app.calls.some(c=>c.method==='rail.startDoor')");
+        id = await read<string>("[...window.__terminals.keys()].at(-1)");
+        await read("window.__observedEmulator=null");
+        await capture("new-door");
+        await read(`window.__fake.app.handlers['terminal.write']=()=>{throw new Error('Output unavailable. Retry.');}; window.__terminals.get('${id}').paste('retry')`);
+        await wait("!!document.querySelector('.pane-failure')");
+        await capture("dense-failure");
+      } else {
+        await browser("click", ".terminal-new");
+        await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && window.__fake.app.calls.some(c=>c.method==='terminal.open')");
+        id = await read<string>("document.querySelector('.bubble:not([hidden])').dataset.bubble");
+        await read("window.__observedEmulator=null");
+        await capture("shell");
+        await browser("dblclick", ".bubble:not([hidden]) .bubble-header");
+        await capture("maximise");
+        await browser("click", '.bubble:not([hidden]) [aria-label=Minimise]');
+        await wait("!document.querySelector('.bubble:not([hidden])')");
+        await read(`document.querySelector('[data-terminal="${id}"]')?.click()`);
+        await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
+        await capture("reopen");
+        await browser("click", '.rail-row[data-id=runner]');
+        await wait("!document.querySelector('.bubble:not([hidden])')");
+        await browser("press", "Meta+t");
+        await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen')");
+        id = await read<string>("document.querySelector('.bubble:not([hidden])').dataset.bubble");
+        await read("window.__observedEmulator=null");
+        await capture("quick-terminal");
+      }
+    }
+  }, 120_000);
+}
