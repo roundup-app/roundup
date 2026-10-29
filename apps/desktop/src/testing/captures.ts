@@ -109,12 +109,29 @@ const observers = {
 } satisfies Record<string, readonly string[]>;
 
 /** U4590: fail closed before App setup when any requested capture has no observer. */
-export function captureTests(selection: string | undefined): string[] | undefined {
+export function captureTests(selection: string | undefined) {
   if (selection === undefined) return undefined;
 
   const files = new Set<string>();
 
-  for (const id of selection.split(",").map(part => part.trim())) {
+  const ids = selection.split(",").map(part => part.trim());
+  // Shared observers gate on a lead id or write each member's directory. Activate
+  // the complete group so an individually requested member cannot silently skip.
+  const groups = [
+    ["U3295a", "U3295b"],
+    ["U3299a", "U3299b", "U3299c", "U3299d"],
+    ["U4277a", "U4277b", "U4277c"],
+    ["U3813", "U3814", "U3815"],
+    ["U4453a", "U4453b"],
+    ["U3529", "U3529a", "U3529b", "U3529c", "U3529d"],
+    ["U3049a", "U3049b"],
+  ];
+
+  for (const group of groups) {
+    if (group.some(id => ids.includes(id))) ids.push(...group.filter(id => !ids.includes(id)));
+  }
+
+  for (const id of ids) {
     const found = Object.entries(observers).filter(([, ids]) => ids.includes(id));
 
     if (found.length === 0) throw new Error(`Unsupported capture id: ${id || "(empty)"}`);
@@ -122,5 +139,5 @@ export function captureTests(selection: string | undefined): string[] | undefine
     for (const [file] of found) files.add(file);
   }
 
-  return [...files];
+  return { ids: [...new Set(ids)], files: [...files] };
 }
