@@ -95,6 +95,8 @@ const replay = [
   "unterminated input",
 ].join("\r\n");
 
+const arabic = Boolean(captureDir("U4649"));
+
 const arabicReplay = [
   "\x1b[2J\x1b[H  أنا جاهز. قولّي عايز نشتغل على إيه؟",
   'Noted: my Rail name is "عامل-إيه-في". Done.',
@@ -104,15 +106,15 @@ const arabicReplay = [
 ].join("\r\n");
 
 for (const { state, renderer } of ["agent", "door", "shell"].flatMap(state =>
-  (captureDir("U4649") ? ["webgl", "dom"] : ["webgl"]).map(renderer => ({ state, renderer })))) {
-  it.skipIf(captureIds.length === 0)(`${captureDir("U4649") ? "u4649" : "u3517f"}_rendered_terminal_reference_${state}_${renderer}`, async () => {
+  (arabic ? ["webgl", "dom"] : ["webgl"]).map(renderer => ({ state, renderer })))) {
+  it.skipIf(captureIds.length === 0)(`${arabic ? "u4649" : "u3517f"}_rendered_terminal_reference_${state}_${renderer}`, async () => {
     for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
       const seed = state === "agent" ? "agents-10" : "tree-40";
 
       // Reset preferences on the target origin before mounting its App.
       await browser("open", url("/src/ui/u498.html", base));
       await read("localStorage.clear(); sessionStorage.clear()");
-      await load(seed, base, renderer, captureDir("U4649") ? 1 : 2);
+      await load(seed, base, renderer, arabic ? 1 : 2);
       await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
       let id = state === "agent" ? "t-agent-3" : "t-payments";
       let surface = ".pane";
@@ -125,9 +127,9 @@ for (const { state, renderer } of ["agent", "door", "shell"].flatMap(state =>
         await read(`window.__terminals.get('${id}').ready`);
       }
 
-      const stream = captureDir("U4649") ? arabicReplay : replay;
+      const stream = arabic ? arabicReplay : replay;
       await read(`window.__fake.writeOutput('${id}', ${JSON.stringify(stream)})`);
-      await wait(`window.__terminals.get('${id}').serialize().data.includes('${captureDir("U4649") ? "Ordinary English" : "unterminated input"}')`);
+      await wait(`window.__terminals.get('${id}').serialize().data.includes('${arabic ? "Ordinary English" : "unterminated input"}')`);
       await read(`(async () => {
         const emulator = window.__terminals.get('${id}');
         // xterm schedules painting after its parser callback; the next animation frame drains that render.
@@ -166,13 +168,13 @@ for (const { state, renderer } of ["agent", "door", "shell"].flatMap(state =>
 
       await read(`(async () => {
         const emulator = window.__terminals.get('${id}');
-        if (!${Boolean(captureDir("U4649"))}) emulator.selectTurn(emulator.turns().length - 1, false);
+        if (!${arabic}) emulator.selectTurn(emulator.turns().length - 1, false);
         // selectLines schedules xterm's next render frame; paint selection after the failed paste clears it.
         await new Promise(resolve => requestAnimationFrame(resolve));
       })()`);
 
       const record = { ...metrics, ...metadata, commit: execFileSync('git', ['rev-parse','HEAD'], {encoding:'utf8', cwd: base ? process.env.U500_BASE_ROOT : process.cwd()}).trim(),
-        seed, state, candidate: captureDir("U4649") ? 'arabic' : 'selected',
+        seed, state, candidate: arabic ? 'arabic' : 'selected',
         streamIdentity: createHash('sha256').update(stream).digest('hex'),
         claudeVersion: 'deterministic Claude Code-style replay; no live Claude process', platform: process.platform };
 
@@ -193,7 +195,7 @@ for (const { state, renderer } of ["agent", "door", "shell"].flatMap(state =>
         writeFileSync(join(dir, `${step}.metrics.json`), JSON.stringify(record, null, 2));
 
         if (scenario === "U4649") {
-          if (metrics.renderer !== renderer) throw new Error(`Requested ${renderer}, painted ${metrics.renderer}`);
+          if (metrics.renderer !== "dom") throw new Error(`Arabic must use the unclipped DOM renderer; requested ${renderer}, painted ${metrics.renderer}`);
 
           if (metadata.fontStatus !== "loaded") throw new Error("Terminal fonts have not loaded");
 
