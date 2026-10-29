@@ -2,6 +2,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 import { captureDir } from "./captures";
 import { join } from "node:path";
+import { mkdirSync } from "node:fs";
 
 let lane: LaneBrowser;
 
@@ -11,6 +12,7 @@ afterAll(async () => { await lane?.close(); }, 60_000);
 
 it.skipIf(!captureDir("U3787d")).each(["tree-40", "tabs-8", "conflict"])("u3787d_rendered_literal_fields %s", async seed => {
   const dir = captureDir("U3787d")!;
+  mkdirSync(dir, { recursive: true });
   await lane.browser("record", "start", join(dir, `${seed}-literal-fields.webm`));
 
   try {
@@ -27,13 +29,11 @@ it.skipIf(!captureDir("U3787d")).each(["tree-40", "tabs-8", "conflict"])("u3787d
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.row-name-editor input')");
 
-      if (seed === "conflict") {
+      if (seed !== "tabs-8") {
         await lane.browser("focus", `.shelf [data-todo="${id}"] .todo-row-button`);
         await lane.browser("press", "o");
         await lane.until("!!document.querySelector('[role=menu]')");
-        await lane.browser("press", "End");
-        await lane.browser("press", "ArrowUp");
-        await lane.browser("press", "Enter");
+        await lane.browser("click", "[role=menuitem][data-value=new-workstream]");
         await lane.until("!!document.querySelector('.new-workstream textarea')");
         await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Storage unavailable. Retry.'); return true; })()");
         await lane.browser("click", ".new-workstream button[type=submit]");
