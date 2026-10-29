@@ -462,3 +462,24 @@ button, file-tree-container, diffs-container {
 @media (prefers-reduced-motion: reduce) {
   :root { --duration-vendor: 0s; }
 }
+
+/* U4456c: floating labels and disabled controls keep a distinct dark fill;
+   Light retains its sunken fill. Root aliases prevent a local self-reference. */
+.app-tooltip,
+.tab-tip,
+:is([data-scope="field"], [data-scope="number-input"], [data-scope="date-picker"]):is([data-part="input"], [data-part="textarea"]):disabled,
+.app-dialog-form textarea:disabled,
+.import-prompt:disabled,
+.note-form input:disabled,
+.note-form textarea:disabled,
+.app-select-trigger:disabled,
+.app-combobox-input:disabled,
+.app-switch-track[data-disabled],
+.app-checkbox-box[data-disabled] {
+  --sunken: light-dark(var(--root-sunken), var(--surface));
+}
+
+/* Both flat tab bars retain a lighter selected base without changing the pane. */
+[data-flat-tab][data-selected="true"] {
+  --ground: light-dark(var(--root-ground), var(--surface));
+}
