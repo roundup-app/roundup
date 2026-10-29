@@ -98,6 +98,8 @@ impl OutputStream {
 
     /// The next output, or `None` once the Terminal's program has exited and every byte was delivered.
     pub async fn next(&mut self) -> Option<Output> {
+        // R21: a buffered flood must give another Terminal's input and echo a runtime turn.
+        tokio::task::yield_now().await;
         let chunk = match self.after_gap.take() {
             Some(chunk) => chunk,
             None => loop {
