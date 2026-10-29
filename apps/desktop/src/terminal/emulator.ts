@@ -186,9 +186,11 @@ const ARABIC = "\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF";
 
 const ARABIC_RUN = new RegExp(`[${ARABIC}]+(?:[ \\-.,!?:;'"()0-9]+[${ARABIC}]+)*[.,!?:]?`, "g");
 
-/** Each Arabic run, spaces between words included, so the renderer draws it as one shaped string. */
+/** Each Arabic string needing shaping, spaces between words included. */
 export const arabicRuns = (text: string): [number, number][] =>
-  [...text.matchAll(ARABIC_RUN)].map(match => [match.index, match.index + match[0].length]);
+  // WebGL gives joined cells a fake codepoint but rasterizes one-character strings as ordinary glyphs.
+  // Leaving single characters unjoined avoids a missing glyph and the joined-cell redraw cache leak.
+  [...text.matchAll(ARABIC_RUN)].flatMap<[number, number]>(match => match[0].length > 1 ? [[match.index, match.index + match[0].length]] : []);
 
 /** The real emulators (xterm.js). WebGL is tried until the webview first refuses it, then every later Terminal goes straight to the DOM renderer. */
 export const createXtermEmulators = (
