@@ -79,7 +79,7 @@ describe("u143 empty Project", () => {
     const created = app.handlers["rail.createWorkstream"]!;
     app.handlers["rail.createWorkstream"] = () => {
       app.handlers["rail.createWorkstream"] = created;
-      throw new RpcError(-32000, "no space");
+      throw new RpcError(-32003, "no space");
     };
 
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");

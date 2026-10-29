@@ -13,6 +13,7 @@ export const ShortcutSetting = (props: { capture?: CapturePort | undefined; onFa
   const [failure, setFailure] = createSignal<string | null>(null);
   const caption = createUniqueId();
   const value = createUniqueId();
+  const hint = createUniqueId();
   let button: HTMLButtonElement | undefined;
   const save = async (press: string, key = "") => { setFailure(null); props.onFailure(await saveAppSettings({ quickAdd: press, quickAddKey: key }, props.capture)); setRecording(false); };
 
@@ -38,9 +39,9 @@ export const ShortcutSetting = (props: { capture?: CapturePort | undefined; onFa
 
   return <>
     <div class="settings-field">
-      <span id={caption} class="settings-field-caption">{copy.quickAddTodo}</span>
+      <div class="settings-caption"><span id={caption} class="settings-field-caption">{copy.quickAddTodo}</span><span id={hint} class="settings-hint">{copy.quickAddHint}</span></div>
       <div class="settings-shortcut">
-      <button ref={button} aria-pressed={recording()} aria-invalid={!!failure()} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
+      <button ref={button} aria-describedby={hint} aria-pressed={recording()} aria-invalid={!!failure()} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
         <span id={value}><Show when={recording()} fallback={<KeyChip keys={shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)} />}><span class="settings-recording-mark" aria-hidden="true">{copy.recordingMark}</span> {copy.recordShortcut}</Show></span>
       </button>
       <Show when={appSettings().quickAdd !== "meta+shift+KeyT"}><button data-button="quiet" type="button" onClick={() => save("meta+shift+KeyT")}>{copy.reset}</button></Show>
