@@ -1,3 +1,4 @@
+import { batch } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -8,7 +9,7 @@ import { deferred } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
 import { askToDelete, stubDialogLayout } from "./bulkQuestionHarness";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 stubDialogLayout();
 
