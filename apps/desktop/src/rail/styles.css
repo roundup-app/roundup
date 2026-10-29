@@ -738,7 +738,9 @@
 
 .rail-row .line::before { content: ""; width: var(--length-zero); margin-inline-end: calc(-1 * var(--rail-inset)); flex: none; }
 .rail-row .row-state { position: static; margin-inline-start: 0; }
-.rail-row .rail-chevron { left: calc(var(--space-1) + var(--tree-depth) * var(--tree-step)); transform: none; }
+/* U4707: the 32px Token leaves no column left of the glyph, so the shown chevron takes the glyph's place. */
+.rail-row .rail-chevron { left: calc(var(--rail-inset) * 2 + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
+.rail-row:is(:focus-within, [data-selected="true"]):has(.rail-chevron) .row-state { opacity: 0; pointer-events: none; }
 .rail-row .row-icons {
   display: inline-flex;
   align-items: center;
