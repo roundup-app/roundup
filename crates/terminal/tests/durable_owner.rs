@@ -19,7 +19,7 @@ fn x8_reconnecting_keeps_the_original_program() {
         let terminals = Terminals::open(dir.path(), rpc::Bus::new())
             .unwrap()
             .with_terminal_owner(std::path::Path::new(env!("CARGO_BIN_EXE_terminal-owner")));
-        assert!(terminals.list().is_empty());
+        assert!(terminals.list().await.is_empty());
         assert!(terminals.terminal_owners().is_empty());
         let first = terminals.spawn(params.clone()).await.unwrap();
         let mut cleanup = vec![Owned {
@@ -110,7 +110,7 @@ fn x8_client() {
             let frame = tokio::time::timeout(std::time::Duration::from_secs(3), output.next()).await.unwrap().unwrap();
             assert!(matches!(frame, terminal::Output::Bytes { .. }));
             assert!(terminals.snapshot(id).unwrap().after > 0);
-            let info = terminals.list().into_iter().find(|info| &info.id == id).unwrap();
+            let info = terminals.list().await.into_iter().find(|info| &info.id == id).unwrap();
             assert_eq!(info.incarnation, owner.info.incarnation);
             assert_eq!(info.program, "sh");
             let pids = std::fs::read_to_string(folder.join("original")).unwrap();
@@ -128,7 +128,7 @@ fn x8_client() {
             else {
                 assert_eq!(pids, std::fs::read_to_string(folder.join("observed-pid")).unwrap());
                 terminals.kill(id).await.unwrap();
-                if index == 0 { assert!(terminals.list().iter().any(|info| info.id == "2" && info.running)); }
+                if index == 0 { assert!(terminals.list().await.iter().any(|info| info.id == "2" && info.running)); }
                 let exited = tokio::time::timeout(std::time::Duration::from_secs(3), async {
                     loop { let event = events.recv().await.unwrap(); if matches!(&*event, contracts::EventData::TerminalExited(event) if &event.id == id) { break; } }
                 }).await;
