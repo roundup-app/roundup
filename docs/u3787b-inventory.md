@@ -132,3 +132,18 @@ is shown). Building the menu leaves focus where it was. This is the real-registr
 inventory for those two foci; Shelf, triage and Help foci, Rail rename, and the
 native displayed-key, responder Find and combined-dispatch observations stay open.
 No test is removed or retired, and no native result is claimed.
+
+## Shelf row commands
+
+The Shelf's registered row commands (`D`, `E`, `M`, the triage keys) now join the
+Project menu from the same `captureActions` inventory, so a focused row's command has
+a menu item and an editor focus has none. A plain key is control-owned, so
+`menu::project_kind` shows it as a hint and registers no native accelerator
+(`u3787b_plain_key_commands_register_no_accelerator`); the key keeps working in the
+webview. `u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row`
+proves item, hint, one `todo.delete` by menu, unchanged focus and omission in a text
+field. Two rows sharing an id (`Esc`) yield one item. No test is removed or retired.
+
+Still open on #4308: Rail rename and Help in the inventory observer, responder Find,
+and the native displayed-key, responder and combined-dispatch observations against the
+final implementation SHA. No native result is claimed.
