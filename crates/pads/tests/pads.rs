@@ -950,3 +950,49 @@ async fn u149_a_drawing_survives_files_export_and_reopening_byte_exact() {
         text
     );
 }
+
+#[tokio::test]
+async fn p16_the_user_rewrites_an_agent_owned_pad() {
+    let rig = Rig::new();
+    let a = agent("a");
+    rig.ok(&a, "pad.create", json!({"name": "notes", "text": "one"}))
+        .await;
+    let before = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
+    let written = rig
+        .ok(
+            &user(),
+            "pad.write",
+            json!({"name": "notes", "text": "two"}),
+        )
+        .await;
+    assert_eq!(written["text"], "two");
+    assert_eq!(written["owner"]["id"], "a");
+    assert!(written["revision"].as_u64() > before["revision"].as_u64());
+    let by_user = rig.touches.touched("you").unwrap();
+    assert_eq!(by_user.last().unwrap().verb, Verb::Wrote);
+}
+
+#[tokio::test]
+async fn p16_another_agent_still_cannot_rename_or_rewrite() {
+    let rig = Rig::new();
+    let (a, b) = (agent("a"), agent("b"));
+    let pad = rig
+        .ok(&a, "pad.create", json!({"name": "notes", "text": "one"}))
+        .await;
+    let write = rig
+        .fail(&b, "pad.write", json!({"name": "notes", "text": "x"}))
+        .await;
+    let rename = rig
+        .fail(
+            &b,
+            "pad.rename",
+            json!({"name": "notes", "newName": "plan", "expectedIncarnation": pad["incarnation"]}),
+        )
+        .await;
+    assert_eq!(
+        (write.code, rename.code),
+        (code::FORBIDDEN, code::FORBIDDEN)
+    );
+    let after = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
+    assert_eq!(after["text"], "one");
+}
