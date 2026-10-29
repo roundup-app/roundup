@@ -51,10 +51,6 @@ pub struct Message {
     pub reason: Option<Reason>,
     #[specta(type = specta_typescript::Number)]
     pub at: i64,
-    /// A32: the Iteration of the Door a `message.list {id}` answer was made for; absent elsewhere.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = u32)]
-    pub iteration: Option<u32>,
 }
 
 /// `from` is never a parameter: it is always the calling Actor.
@@ -75,7 +71,7 @@ pub struct MessageId {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ListParams {
     pub to: Option<String>,
-    /// A32: every Message sent to or by this Door, of every Iteration, each carrying its `iteration`.
+    /// Every Message sent to or by this Door, in order.
     #[serde(default)]
     #[specta(optional, type = String)]
     pub id: Option<String>,
