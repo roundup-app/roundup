@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { createRoot, createSignal } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
+import { info } from "../testing/nodes";
 import { CHORDS } from "./chords";
 import { captureActions, registerKeys } from "./registry";
 
@@ -81,4 +82,53 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
   if (state !== "editor") captured.run();
 
   expect(find.calls).toEqual([]);
+});
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: row Switcher from %s", async source => {
+  const { connected, daemon } = await mountNavigation();
+  connected().rail.select("a1");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  const terminal = document.activeElement!;
+  const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:K")?.shortcut).toBe("⌘K K"));
+  expect(document.activeElement).toBe(terminal);
+  expect(screen.queryByRole("combobox")).toBeNull();
+
+  if (source === "key") {
+    fireEvent.keyDown(terminal, { code: "KeyK", key: "k", metaKey: true });
+    fireEvent.keyDown(terminal, { code: "KeyK", key: "k" });
+  } else openProjectPage("action:leader:K", "/p");
+
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("combobox")));
+  expect(screen.getAllByRole("combobox")).toHaveLength(1);
+  expect(connected().rail.selected()).toBe("a1");
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
+});
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Bubble minimise from %s", async source => {
+  const { connected, daemon, shells } = await mountNavigation();
+  connected().rail.select("home");
+  daemon.handlers["terminal.open"] = () => {
+    shells.push(info("shell", { owner: "home" }));
+
+    return { terminal_id: "shell" };
+  };
+
+  openProjectPage("action:chord:⌘T", "/p");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
+  const terminal = document.activeElement!;
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:M")?.shortcut).toBe("⌘K M"));
+  expect(projectMenu.items.find(item => item.id === "action:leader:W")?.shortcut).toBe("⌘K W");
+  const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
+  expect(document.activeElement).toBe(terminal);
+
+  if (source === "key") {
+    fireEvent.keyDown(terminal, { code: "KeyK", key: "k", metaKey: true });
+    fireEvent.keyDown(terminal, { code: "KeyM", key: "m" });
+  } else openProjectPage("action:leader:M", "/p");
+
+  await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="shell"]')?.hidden).toBe(true));
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
 });
