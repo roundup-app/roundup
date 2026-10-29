@@ -403,6 +403,7 @@ it("u4590_visible_shell_waits_for_destination_fonts_before_launch", async () => 
     writeFileSync(join(captures, "shell-preparing.checks.json"), JSON.stringify(await read("window.__checks()"), null, 2));
     await read("window.__releaseLaunch()");
   }
+
   const params = await read<{ cols: number; rows: number }>("window.__fake.app.calls.find(call => call.method === 'terminal.open').params");
   expect(params.cols).toBeGreaterThan(0);
   expect(params.rows).toBeGreaterThan(0);
