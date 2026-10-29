@@ -13,6 +13,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["restartSession"]>; id: string; onClose: () => void; finalFocus: () => HTMLElement | null }) => {
   const connected = useConnectedProject();
   const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "workstream" && node.id === props.id));
+  const [open, setOpen] = createSignal(true);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [restarting, setRestarting] = createSignal(false);
   const [restartFailed, setRestartFailed] = createSignal(false);
@@ -74,6 +75,11 @@ export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["
       setFailure(failed ? result.message : null);
 
       if (failed) connected.rail.commandFailure.clear();
+      else {
+        setOpen(false);
+        props.onClose();
+        queueFocus(() => props.finalFocus()?.focus({ preventScroll: true }));
+      }
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setFailure(error.message);
@@ -82,7 +88,7 @@ export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["
     }
   };
 
-  return <Dialog.Root open onOpenChange={({ open }) => { if (!open) { props.onClose(); queueFocus(() => props.finalFocus()?.focus({ preventScroll: true })); } }} finalFocusEl={props.finalFocus}>
+  return <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) { props.onClose(); queueFocus(() => props.finalFocus()?.focus({ preventScroll: true })); } }} finalFocusEl={props.finalFocus}>
     <Dialog.Positioner><Dialog.Content class="app-dialog-form opening-prompt-dialog">
       <Dialog.Title>{copy.openingPromptFor(current()?.name ?? "")}</Dialog.Title>
       <Field.Root class="opening-prompt-field">

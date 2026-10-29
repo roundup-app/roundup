@@ -451,11 +451,6 @@
   padding-right: var(--space-4);
 }
 
-.rail .glyph {
-  align-items: center;
-  justify-content: center;
-}
-
 .rail .kind-mark {
   width: var(--space-3);
   height: var(--space-3);

@@ -103,6 +103,7 @@ method without a measured mapping or non-empty reason fails live coverage.
   "pad.write": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.append": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
   "pad.appendSection": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.setOwner": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
   "pad.move": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.delete": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
+  "pad.redoDelete": "User-requested document deletion redo is outside the Terminal echo and Rail-read workload.",
   "pad.getDeletion": "Deletion reconciliation is outside the Terminal echo and Rail-read workload.", "pad.restore": "User-requested document restoration is outside the Terminal echo and Rail-read workload.",
   "pad.export": "Document editing and storage are outside the Terminal echo and Rail-read workload.", "pad.setStorage": "Document editing and storage are outside the Terminal echo and Rail-read workload.",
   "agent.spawn": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.extras": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",

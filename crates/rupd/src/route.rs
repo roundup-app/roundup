@@ -278,7 +278,7 @@ impl Daemon {
             self.reset_orphaned_pad_homes().await?;
             return outcome;
         }
-        if method == "pad.delete" && outcome.is_ok() {
+        if matches!(method, "pad.delete" | "pad.redoDelete") && outcome.is_ok() {
             self.publications.invalidate_revoked()?;
         }
         outcome

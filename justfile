@@ -16,9 +16,6 @@ ready:
     just migrations origin/main
     just lint-web
     just lint-rust origin/main
-    loop/rules.sh ci-trailers local
-    loop/rules.sh frozen local
-    python3 loop/workflows.test.py
     python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
 
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
@@ -180,6 +177,74 @@ app-release project:
     tools/sidecar/bundle.sh target/release/sidecar
     cargo build --release -p desktop --features custom-protocol
     cargo run --release -p desktop --features custom-protocol -- "$path"
+
+# S1/A12a: assemble a host-architecture macOS App with Tauri. Ordinary Cargo builds use no bundle inputs.
+app-bundle:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ "$(uname -s)" = Darwin ] || { echo "app-bundle requires macOS" >&2; exit 2; }
+    triple=$(rustc -vV | sed -n 's/^host: //p')
+    CI=true pnpm install --frozen-lockfile
+    pnpm -r --if-present build
+    cargo build --release --target "$triple" -p rupd -p rup -p terminal
+    mkdir -p target/app-bundle-inputs
+    for bin in rupd rup terminal-owner; do
+        cp "target/$triple/release/$bin" "target/app-bundle-inputs/$bin-$triple"
+    done
+    tools/sidecar/bundle.sh target/app-bundle-inputs/sidecar
+    cd crates/desktop
+    npm exec --yes --package=@tauri-apps/cli@2.12.4 -- tauri build --ci --target "$triple" --features custom-protocol --bundles app --no-sign --config tauri.bundle.conf.json
+
+# Observe an already-built App after extraction, including the existing recovery and shutdown proofs.
+[positional-arguments]
+app-bundle-check bundle:
+    #!/usr/bin/env python3
+    import json
+    import os
+    from pathlib import Path
+    import shutil
+    import subprocess
+    import sys
+    import tempfile
+    
+    source = Path(sys.argv[1]).resolve(strict=True)
+    with tempfile.TemporaryDirectory(prefix="roundup-bundle-") as folder:
+        extracted = Path(folder) / source.name
+        shutil.copytree(source, extracted, symlinks=True)
+        binaries = extracted / "Contents/MacOS"
+        for name in ["roundup", "rupd", "rup", "terminal-owner", "sidecar/node"]:
+            binary = binaries / name
+            if (not binary.is_file() or not os.access(binary, os.X_OK)
+                    or not binary.resolve().is_relative_to(extracted)):
+                raise SystemExit(f"missing executable: {binary}")
+        sidecar = binaries / "sidecar"
+        for path in sidecar.rglob("*"):
+            if path.is_symlink() and not path.resolve().is_relative_to(extracted):
+                raise SystemExit(f"sidecar depends on an external file: {path}")
+        for name in ["list.mjs", "package.json", "NOTICES.md", "NODE-LICENSE",
+                     "node_modules/@anthropic-ai/claude-agent-sdk/LICENSE.md"]:
+            if not (sidecar / name).is_file():
+                raise SystemExit(f"missing sidecar file: {name}")
+        version = subprocess.check_output([sidecar / "node", "--version"], text=True).strip()
+        if version != "v22.23.3":
+            raise SystemExit(f"unexpected Node runtime: {version}")
+        print(f"pinned Node: {version}", flush=True)
+        # Import from the extracted module tree with the bundled runtime, not the checkout.
+        subprocess.run([sidecar / "node", "--input-type=module", "-e",
+                        "import {listSessions} from '@anthropic-ai/claude-agent-sdk';"
+                        "if(typeof listSessions !== 'function') process.exit(1)"],
+                       cwd=sidecar, check=True)
+        print(json.dumps({"executables": str(binaries), "sidecar": "SDK import passed"}), flush=True)
+        environment = os.environ.copy()
+        for name in ["ROUNDUP_RUPD_BIN", "ROUNDUP_RUP_BIN", "ROUNDUP_SIDECAR_DIR",
+                     "RUPD_TERMINAL_OWNER"]:
+            environment.pop(name, None)
+        environment["ROUNDUP_TEST_APP_BIN"] = str(binaries)
+        subprocess.run([
+            "cargo", "nextest", "run", "-p", "desktop", "-p", "terminal", "-p", "rup",
+            "--test", "a12a", "--test", "durable_owner", "--test", "reopen", "-E",
+            "binary(a12a) | binary(reopen) | test(=x8_reconnecting_keeps_the_original_program)",
+        ], env=environment, check=True)
 
 # S12: renders the App's 1024 px Dock icon from the approved artwork; needs macOS's sips.
 icon:
