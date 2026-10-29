@@ -176,6 +176,10 @@ unsafe fn decorate_by_title(submenu: &AnyObject, hints: &[(String, String)]) {
         let mut matching = Vec::new();
         for index in 0..count {
             let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
+            let child: Option<Retained<AnyObject>> = msg_send![&*item, submenu];
+            if let Some(child) = child {
+                decorate_by_title(&child, hints);
+            }
             let title: Retained<NSString> = msg_send![&*item, title];
             if let Some((_, hint)) = hints.iter().find(|(label, _)| *label == title.to_string()) {
                 matching.push((
