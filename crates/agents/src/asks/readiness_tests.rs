@@ -162,3 +162,37 @@ async fn a4899a_readiness_at_the_wait_boundary_is_not_lost() {
         assert!(input.try_recv().is_err());
     }
 }
+
+#[tokio::test]
+async fn a4899a_an_unacknowledged_steer_releases_input_without_replay() {
+    let (w, asks, ctx, mut input) = fixture().await;
+    let agents = asks.shared.agents.clone();
+    let earlier = tokio::spawn(async move { agents.prompt("7013", Steer::User("earlier")).await });
+    assert_eq!(input.recv().await.unwrap(), b"\x1b[200~earlier\x1b[201~");
+    assert_eq!(input.recv().await.unwrap(), b"\r");
+    tokio::time::pause();
+    let (waiting, waited) = oneshot::channel();
+    *asks.shared.before_wait.lock().unwrap() = Some(Box::new(move || {
+        waiting.send(()).unwrap();
+    }));
+    asks.call(
+        &ctx,
+        "ask.send",
+        serde_json::json!({"text":"later", "workstream":"7013"}),
+    )
+    .await
+    .unwrap();
+    waited.await.unwrap();
+    tokio::time::advance(w.shared.steer_bound).await;
+    assert!(matches!(
+        earlier.await.unwrap(),
+        Err(PromptError::NotAccepted { .. })
+    ));
+    tokio::time::timeout(Duration::from_millis(500), async {
+        assert_eq!(input.recv().await.unwrap(), b"\x1b[200~later\x1b[201~");
+        assert_eq!(input.recv().await.unwrap(), b"\r");
+    })
+    .await
+    .expect("clearing the old Steer must wake queued input");
+    assert!(input.try_recv().is_err());
+}
