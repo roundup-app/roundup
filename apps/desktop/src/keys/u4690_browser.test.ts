@@ -187,7 +187,11 @@ it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_actio
     await browser("click", ".shelf .pad-name");
     await read(`document.querySelector('.shelf .pad-name').focus()`);
     await read(`document.querySelector('.shelf .pad-name').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}))`);
-    await wait(`!!document.querySelector('.pad-body button')`);
+    // PadRichEditor labels its textbox after Crepe creation; its lazy mount changes the hint position.
+    await wait(`!!document.querySelector('.pad-body [role=textbox][aria-label="Pad body"]')`);
+    // U4698a covers the centre and its Hint line; restore the side view to exercise visible hints.
+    await browser("click", '.drawer-controls [aria-label="Restore"]');
+    await wait(`!!document.querySelector('.drawer[data-fill="false"][data-settling="false"]')`);
     await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
   } else {
     await browser("click", '.rail-row[data-id="agent-2"]');
