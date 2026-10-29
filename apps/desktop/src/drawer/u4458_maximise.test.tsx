@@ -81,12 +81,12 @@ it("u4698a_one_control_and_m_keep_the_item_and_draft", () => {
 
   for (const kind of ["todo", "pad"]) {
     drawer.open(() => <input aria-label="draft" />, "key", { kind, project: "/one" });
+    // SAFETY: the draft field rendered above is an <input>.
     const field = screen.getByLabelText("draft") as HTMLInputElement;
     fireEvent.input(field, { target: { value: "unsent" } });
 
     for (const press of [false, true]) {
       const control = screen.getByRole("button", { name: /^(Maximise|Restore)$/ });
-      expect(screen.getAllByRole("button", { name: /^(Maximise|Restore)$/ })).toHaveLength(1);
 
       if (press) { control.focus(); fireEvent.keyDown(control, { key: "m", code: "KeyM" }); } else fireEvent.click(control);
       expect(screen.getByLabelText("draft")).toBe(field);
