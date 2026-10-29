@@ -15,7 +15,7 @@ let one: StartedDaemon;
 let two: StartedDaemon;
 
 beforeAll(async () => {
-  one = await startRealDaemon({}, true);
+  one = await startRealDaemon({});
   two = await startRealDaemon({});
 }, 240_000);
 

@@ -279,7 +279,6 @@ describe("u2773 Project draft integration on real Projects", () => {
   let app: AppSeam;
   let original: RailNode;
   let replacement: RailNode;
-  let otherOriginal: RailNode;
   let calls: MockInstance<AppSeam["rpc"]>[];
   const exact = "  original e\u0301 🪁\nlast line  ";
   const target = () => ({ surface: "orders", object: original.id, recipient: original.id });
@@ -323,14 +322,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     const served = createServedApp(first.base);
     original = await served.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
     replacement = await served.rpc("rail.createWorkstream", { name: `replacement ${seed}`, parent: null });
-    const other = createServedApp(second.base);
-    otherOriginal = await other.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
-
-    if (otherOriginal.id === original.id) {
-      await other.rpc("rail.remove", { id: otherOriginal.id });
-      otherOriginal = await other.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
-    }
-
     const roots = [first, second];
     const live = new Map(roots.map((root) => [root.dir, createServedApp(root.base)]));
     let opened = [first.dir];
