@@ -21,7 +21,7 @@ export function readCapture(id: string, name: string): string {
 
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
 // and scheduling; this table only names the existing observer files.
-const observers = {
+export const observers = {
   "src/app/u3560_browser.test.ts": ["U3560c", "U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],
@@ -67,6 +67,7 @@ const observers = {
   "src/reactions/nr9_rendered.test.ts": ["NR9", "P3557c", "U3787c", "U3791b", "U4276a", "U4276b", "U4276c"],
   "src/settings/u3799_app_settings.test.tsx": ["U3813", "U3814", "U3815"],
   "src/settings/u3799_rendered.test.ts": ["U3799", "U3805", "U4277c"],
+  "src/settings/u4688_rendered.test.ts": ["U4688a", "U4688b"],
   "src/settings/u4277_rendered.test.ts": ["U4277a", "U4277b", "U4277c"],
   "src/shelf/u371_reserved_modes.test.ts": ["U2892"],
   "src/shelf/u3787c_browser.test.ts": ["U3787c"],

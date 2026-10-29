@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import type { TestProjectInlineConfiguration } from "vitest/config";
 import { afterEach, expect, test } from "vitest";
-import { captureDir, readCapture, captureTests } from "./captures";
+import { captureDir, readCapture, captureTests, observers } from "./captures";
 
 const named = (value: string | undefined) => {
   if (value === undefined) delete process.env.ROUNDUP_CAPTURES;
@@ -38,6 +38,12 @@ test.each([undefined, "", "J14"])("l105_captureDir_skips_an_uncited_journey_%s",
 test.each(["J13-invalid", "J13aa", "J13/elsewhere"])("l105_captureDir_rejects_a_malformed_journey_%s", (id) => {
   named(id);
   expect(captureDir(id)).toBeNull();
+});
+
+test("l105_captureDir_journey_writes_nothing", () => {
+  named("J990");
+  captureDir("J990");
+  expect(existsSync(resolve(process.cwd(), "../../artifacts/ux/journey/J990"))).toBe(false);
 });
 
 test("l105_captureDir_writes_nothing", () => {
@@ -202,4 +208,20 @@ test("u4590_capture_selection_activates_a_shared_observer_for_an_individual_id",
 
   await loadConfigFromFile({ command: "serve", mode: "test" }, resolve("vite.config.ts"));
   expect(process.env.ROUNDUP_CAPTURES?.split(",")).toEqual(expect.arrayContaining(["U3299a", "U3299b"]));
+});
+
+test("u4590_every_captureDir_id_in_an_observer_file_has_a_table_entry", () => {
+  const missing: string[] = [];
+
+  for (const file of globSync("src/**/*.test.{ts,tsx}")) {
+    if (file.endsWith("captures.test.ts")) continue;
+
+    for (const [, id] of readFileSync(file, "utf8").matchAll(/captureDir\("([A-Za-z0-9]+)"/g)) {
+      if (id.startsWith("J")) continue;
+
+      if (!(observers as Record<string, readonly string[]>)[file]?.includes(id)) missing.push(`${file} ${id}`);
+    }
+  }
+
+  expect(missing).toEqual([]);
 });
