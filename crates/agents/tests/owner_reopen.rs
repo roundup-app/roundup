@@ -19,10 +19,17 @@ fn helper() -> PathBuf {
         PathBuf::from,
     );
     let path = target.join("debug/terminal-owner");
-    assert!(
-        path.exists(),
-        "build it: cargo build -p terminal --bin terminal-owner"
-    );
+    if !path.exists() {
+        let built =
+            std::process::Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
+                .args(["build", "-p", "terminal", "--bin", "terminal-owner"])
+                .status()
+                .unwrap();
+        assert!(
+            built.success() && path.exists(),
+            "cargo build -p terminal --bin terminal-owner"
+        );
+    }
     path
 }
 
