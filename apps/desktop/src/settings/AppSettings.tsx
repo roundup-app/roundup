@@ -109,8 +109,25 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     return text.trim() !== "" && Number.isFinite(value) && value >= range.min && value <= range.max ? value : null;
   };
 
+  const [selectedType, setSelectedType] = createSignal<{ fontFamily?: string; fontWeight?: number }>({});
+
+  const chooseType = async (patch: { fontFamily?: string; fontWeight?: number }) => {
+    setSelectedType(previous => ({ ...previous, ...patch }));
+    const failure = await saveAppSettings(patch);
+    setFailure(failure);
+    setSelectedType(previous => {
+      const remaining = { ...previous };
+
+      if (patch.fontFamily === remaining.fontFamily) delete remaining.fontFamily;
+
+      if (patch.fontWeight === remaining.fontWeight) delete remaining.fontWeight;
+
+      return remaining;
+    });
+  };
+
   const preview = createMemo((previous: ReturnType<typeof terminalType> | undefined) => {
-    const type = terminalType();
+    const type = terminalType({ ...appSettings(), ...selectedType() });
 
     for (const { name } of numericFields) type[name] = validNumber(name) ?? previous?.[name] ?? type[name];
 
@@ -177,14 +194,14 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
           choices={[{ value: "", label: copy.fontDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
-          onValueChange={value => save({ fontFamily: value })} />
+          onValueChange={value => chooseType({ fontFamily: value })} />
         <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck={false} autocorrect="off" autocapitalize="off"
           onInput={event => edit("fontFamily", event.currentTarget)}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) void commit("fontFamily", field("fontFamily")); }} /></Field.Root>}</Show>
         <SegmentGroup label={copy.fontWeight} value={String(appSettings().fontWeight)} segments={[300, 400, 500, 600].map(value => ({ value: String(value), label: String(value) }))}
           onValueChange={value => { const weight = Number(value);
 
- if (weight === 300 || weight === 400 || weight === 500 || weight === 600) void save({ fontWeight: weight }); }} />
+ if (weight === 300 || weight === 400 || weight === 500 || weight === 600) void chooseType({ fontWeight: weight }); }} />
         <For each={numericFields}>{({ name, label, hint }) => <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
           <div class="settings-caption"><Field.Label>{label}</Field.Label><Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show></div>
           <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {

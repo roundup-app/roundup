@@ -1,14 +1,17 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
-import { mkdirSync } from "node:fs";
+import { startAppServer } from "../testing/appServer";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 let lane: LaneBrowser;
 
+let headUrl: string;
+
 const ids = ["U4687a", "U4687b", "U4687c", "U4687d"];
 
-beforeAll(async () => { if (captureDir("U4687a")) lane = await openLane(1512, "dark", "u4687"); }, 60_000);
+beforeAll(async () => { if (captureDir("U4687a")) { lane = await openLane(1512, "dark", "u4687"); headUrl = await lane.evaluate<string>("location.href"); } }, 60_000);
 
 afterAll(async () => { await lane?.close(); }, 60_000);
 
@@ -65,4 +68,48 @@ it.skipIf(!captureDir("U4687a"))("u4687a_rendered_controls_and_preview", async (
     await lane.capture("U4687a", "head/refused");
     expect((await lane.calls()).slice(calls.length).filter(call => call.method === "terminal.create" || call.method === "terminal.write")).toEqual([]);
   } finally { await lane.browser("record", "stop"); }
+}, 60_000);
+
+it.skipIf(!captureDir("U4687a") || !process.env.ROUNDUP_SETTINGS_BASE)("u4687c_paired_baseline_at_the_same_viewport", async () => {
+  const root = process.env.ROUNDUP_SETTINGS_BASE;
+
+  if (!root) throw new Error("Set ROUNDUP_SETTINGS_BASE to the baseline desktop directory.");
+  const server = await startAppServer({ root });
+
+  try {
+    for (const seed of ["first-run", "agents-10", "tree-40"]) {
+      await lane.browser("open", server.resolvedUrls.local[0] + "harness.html?seed=" + seed);
+      await lane.browser("set", "media", "dark");
+      await lane.until("(() => { window.dispatchEvent(new Event('open-app-settings')); return !!document.querySelector('.settings-sections'); })()");
+
+      for (const section of ["Appearance", "Terminal"]) {
+        await lane.browser("click", "[role=tab][data-value=" + section + "]");
+
+        for (const id of ids) {
+          const dir = join(captureDir(id)!, "base");
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, seed + "-" + section + ".checks.json"), JSON.stringify(await lane.evaluate("window.__checks()")));
+          await lane.browser("screenshot", join(dir, seed + "-" + section + ".png"));
+        }
+      }
+    }
+  } finally { await server.close(); }
+}, 60_000);
+
+it.skipIf(!captureDir("U4687a"))("u4687a_controls_without_a_project_and_with_agents", async () => {
+  for (const seed of ["first-run", "agents-10"]) {
+    await lane.browser("open", headUrl.replace("seed=tree-40", "seed=" + seed));
+    await lane.browser("set", "media", "dark");
+    await lane.until("(() => { window.dispatchEvent(new Event('open-app-settings')); return !!document.querySelector('.settings-sections'); })()");
+
+    for (const section of ["Appearance", "Terminal"]) {
+      await lane.browser("click", "[role=tab][data-value=" + section + "]");
+
+      if (section === "Terminal") await lane.until("!!document.querySelector('.settings-preview .xterm')");
+
+      for (const id of ids) await lane.capture(id, "head/" + seed + "-" + section);
+    }
+  }
+
+  expect((await lane.calls()).filter(call => call.method === "agent.spawn")).toEqual([]);
 }, 60_000);

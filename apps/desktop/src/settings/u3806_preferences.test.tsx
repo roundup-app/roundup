@@ -319,3 +319,20 @@ it("u4687c_a_failed_save_keeps_its_revision_and_a_newer_edit", async () => {
   });
   expect(appSettings().lineHeight).toBe(1.7);
 });
+
+it("u4687c_saved_changes_reach_other_project_tabs", async () => {
+  await mount();
+  const other = createFakeApp();
+  render(() => <AppSettings app={other} project={() => "/other"} />);
+  await Promise.resolve();
+  window.dispatchEvent(new Event("open-app-settings"));
+
+  for (const tab of await screen.findAllByRole("tab", { name: "Terminal" })) fireEvent.click(tab);
+  const choices = await screen.findAllByRole<HTMLInputElement>("radio", { name: "500" });
+  fireEvent.click(choices[0]!);
+  await waitFor(() => expect(choices.every(choice => choice.checked)).toBe(true));
+  cleanup();
+  await mount();
+  await section("Terminal");
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "500" }).checked).toBe(true);
+});
