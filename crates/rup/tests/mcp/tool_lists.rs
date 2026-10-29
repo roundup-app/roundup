@@ -541,6 +541,8 @@ async fn p16_shared_pad_access_over_public_seams() {
         let _ = creator.client.cancel().await;
         let _ = shim.client.cancel().await;
     }
+    project.daemon.abort();
+    let _ = project.daemon.await;
     // Reopen the same authoritative Project store; no fixture data is reconstructed.
     let socket = project._dir.path().join("reopened.sock");
     let serving = super::common::serve(project._dir.path(), &socket);

@@ -91,9 +91,12 @@ it("u2744a_pads_stay_in_their_project", async () => {
   await waitFor(() => expect(document.querySelector('[role=tree] [data-id="a1"]')).not.toBeNull());
   showShelfTab("Pads");
 
-  const root = await waitFor(() => { const el = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="unassigned"]'); expect(el).not.toBeNull();
+  const root = await waitFor(() => {
+    const el = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="unassigned"]');
+    expect(el).not.toBeNull();
 
- return el!; });
+    return el!;
+  });
 
   if (root.getAttribute("aria-expanded") === "false") fireEvent.click(root.querySelector(".shelf-group-control")!);
   await waitFor(() => expect(document.querySelector('.pads-tab [data-pad="p-notes"]')).toBeTruthy());
@@ -101,9 +104,12 @@ it("u2744a_pads_stay_in_their_project", async () => {
   await waitFor(() => expect(document.querySelector('[role=tree] [data-id="q1"]')).not.toBeNull());
   showShelfTab("Pads");
 
-  const otherRoot = await waitFor(() => { const el = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="unassigned"]'); expect(el).not.toBeNull();
+  const otherRoot = await waitFor(() => {
+    const el = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="unassigned"]');
+    expect(el).not.toBeNull();
 
- return el!; });
+    return el!;
+  });
 
   if (otherRoot.getAttribute("aria-expanded") === "false") fireEvent.click(otherRoot.querySelector(".shelf-group-control")!);
   await waitFor(() => expect([...document.querySelectorAll('.pads-tab [data-pad]')].map(row => row.getAttribute("data-pad"))).toEqual(["q-notes"]));
