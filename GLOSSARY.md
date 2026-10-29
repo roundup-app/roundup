@@ -23,6 +23,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Permission mode (`PermissionMode`, `permissionMode` on launch calls) | same | — |
 | Agent | same | bot, worker; and session for an Agent. |
 | Terminal | same | process, console |
+| Terminal preparation (`TerminalPreparation`, `prepareTerminal`, `prepare`, `bind`) | none | — |
 | Terminal dimensions (`cols`, `rows`, `terminal::window`) | same | — |
 | Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
 | Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
@@ -33,6 +34,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal owner (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
+| Bubble focus (`closeFocused`) | none | — |
 | Pull | same | summon, fling |
 | Run | same | — |
 | Show request (`terminal.show`, event `terminal.shown`) | same | — |
