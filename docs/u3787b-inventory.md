@@ -201,3 +201,31 @@ unmodified U2241 Terminal sweep retains its existing boundary. No test was remov
 was redundant with U54 and the same test's focus return, and was removed. All
 U3787b menu tests use one Project: they never switch Projects, and the existing
 Tauri forwarding observer above retains the two-Project proof.
+
+## Captured triage actions
+
+Triage Assign (`A`), Move (`W`), Complete (`X`) and Comment (`C`) now
+register with the existing action holder. Their capture retains the focused Todo
+and checks that the mode, Todos tab and row remain available; Move is omitted
+without another Home. The same capture invokes the existing picker/mutation by
+menu or key. J/K remain control-owned navigation, with no native accelerator.
+
+`u3787b_triage_commands_share_the_focused_todo` covers all four commands through
+the connected App, plus exactly one completion/comment call for the captured id.
+`u3787b_triage_menu_refuses_an_owner_after_leaving_the_mode` refuses both the menu
+route and a retained capture after Escape. The Tauri forwarding observer
+`u2539b_native_menu_projects_the_task_chords` includes all four commands for both
+Projects. U3751/U3474 retain the ordinary triage, continuation and draft proofs;
+U2241 retains its unmodified Terminal modifier sweep.
+
+Retired `u3724_each_new_key_is_in_chords_and_help`: it asserted catalogue entries
+against other catalogue entries. The production Shelf menu/triage tests and U54
+Help observers retain the behavioral discovery proofs. No other proof is removed.
+
+This continues PR #4877 through its already-merged continuation #4891. Still open:
+complete Shelf/triage inventory (including assignment and nesting), library/native
+inventory and responder Find/Close availability, then native displayed-key and
+combined dispatch observations against the complete implementation SHA. No native
+completion is claimed. macOS check 40941756743 at
+`d780754c8e12a9cf4e81e25cee8ff682a8986a8c` passed mac and mac-clippy; earlier native
+records retain their original scope and SHA.
