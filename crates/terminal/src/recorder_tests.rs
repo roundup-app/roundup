@@ -226,3 +226,19 @@ async fn r20_agents_and_extensions_cannot_enable_or_read_a_recording() {
         assert_eq!(error.code, code::FORBIDDEN);
     }
 }
+
+#[tokio::test]
+async fn r21_buffered_output_yields_to_other_terminals() {
+    let (sender, receiver) = broadcast::channel(256);
+    for offset in 0..64 {
+        sender.send(Chunk { offset, bytes: Arc::from(&b"x"[..]) }).unwrap();
+    }
+    let mut stream = OutputStream { receiver, next: 0, after_gap: None };
+    let progress = Arc::new(AtomicU64::new(0));
+    let written = progress.clone();
+    let input = tokio::spawn(async move { written.store(1, Ordering::SeqCst); });
+    // A ready output backlog must leave a turn for another Terminal's runnable input.
+    for _ in 0..32 { stream.next().await.unwrap(); }
+    assert_eq!(progress.load(Ordering::SeqCst), 1);
+    input.await.unwrap();
+}
