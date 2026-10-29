@@ -35,7 +35,7 @@ export const HintLine = () => {
       return LEADER.filter(key => {
         const matches = available.filter(row => row.value === `action:leader:${key.keys}`);
 
-        return matches.length === 0 || matches.some(action => action.available());
+        return matches.some(action => action.available());
       }).map(key => ({ keys: key.keys, label: key.short }));
     }
 
@@ -59,6 +59,7 @@ export const HintLine = () => {
     if (editing || modal) return [];
 
     return shown
+      .filter((hint) => hint.keys !== "1–9" || choices(hint.keys).length > 0)
       .filter((hint) => hint.label !== copy.exportMd || onPad)
       .filter((hint) => hint.label !== copy.assign || canAssign)
       .filter((hint) => hint.label !== copy.deleteFocusedRow || rowButton)
