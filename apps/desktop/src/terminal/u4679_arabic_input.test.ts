@@ -36,7 +36,7 @@ it("u4679_incremental_arabic_preserves_input_and_grid", async () => {
     terminal.select(2, 0, prefix.length);
     expect(emulator.selection()).toBe(prefix);
     const restored = setup();
-    const snapshot = emulator.serialize();
+    const snapshot = emulator.serialize!();
     restored.emulator.setSize(snapshot);
     await restored.write(snapshot.data);
     expect(restored.terminal.buffer.active.getLine(0)?.translateToString(true)).toBe("$ " + prefix);
@@ -105,7 +105,7 @@ it("u4679_arabic_redraw_preserves_terminal_data", async () => {
   expect(terminal.buffer.active.cursorX).toBe(2);
   expect(terminal.buffer.active.cursorY).toBe(1);
   const restored = setup();
-  const snapshot = emulator.serialize();
+  const snapshot = emulator.serialize!();
   restored.emulator.setSize(snapshot);
   await restored.write(snapshot.data);
   restored.terminal.select(6, 0, 4);
@@ -117,6 +117,12 @@ it("u4679_arabic_redraw_preserves_terminal_data", async () => {
   expect([1, 2, 3].map(row => terminal.buffer.active.getLine(row)?.translateToString(true)).join("")).toBe("ASCII after Arabic");
   expect(terminal.buffer.active.cursorX).toBe(2);
   expect(terminal.buffer.active.cursorY).toBe(3);
+  await restored.write("\x1bc" + emulator.serialize!().data);
+  terminal.select(0, 1, 18);
+  restored.terminal.select(0, 1, 18);
+  expect([emulator.selection(), restored.emulator.selection()]).toEqual(["ASCII after Arabic", "ASCII after Arabic"]);
+  expect(restored.terminal.buffer.active.cursorX).toBe(2);
+  expect(restored.terminal.buffer.active.cursorY).toBe(3);
   expect(input).toEqual([[216, 185], [216, 177], [216, 168], [217, 138]]);
   expect(restored.input).toEqual([]);
 });
