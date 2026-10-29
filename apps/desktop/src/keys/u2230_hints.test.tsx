@@ -89,10 +89,10 @@ const toRail = async () => {
 };
 
 const toPane = async () => {
-  fireEvent.click(rowOf("b"));
+  rowOf("b").focus();
+  fireEvent.keyDown(rowOf("b"), { key: "Enter", code: "Enter" });
   await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
-  await waitFor(() => expect(document.activeElement).toBe(rowOf("b")));
-  document.querySelector<HTMLElement>(".pane-screen textarea")!.focus();
+  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".pane-screen textarea")));
   await waitFor(() => expect(line()).toEqual(label("agent")));
 };
 

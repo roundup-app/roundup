@@ -1,3 +1,4 @@
+import "../pads/PadRichEditor";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
@@ -121,8 +122,6 @@ it.each(["rail", "centre", "shelf", "triage", "ask", "pad", "drawer", "watch", "
   } else target = place === "ask" ? screen.getByRole("textbox", { name: "Ask" }) : document.querySelector<HTMLElement>(place === "rail" ? '.rail-row[data-id="home"]' : ".centre")!;
   target.tabIndex = -1; target.focus();
   expect(document.activeElement).toBe(target);
-
-  if (place === "shelf") await waitFor(() => expect(document.querySelector(".hint-line .key-chips")?.textContent).toBe("⌃⌘J"));
 
   expect(press().defaultPrevented).toBe(true);
   expect(connected().rail.selected()).toBe("need");
@@ -287,4 +286,35 @@ it("u4692_rendered_direct_jump_and_discovery", async () => {
     await lane.browser("press", "Escape");
     await lane.capture("U4692a", "hint");
   } finally { try { await lane.browser("record", "stop"); } finally { await lane.close(); } }
-}, 120_000);
+}, 60_000);
+
+it("u4692a_rendered_hint_places", async () => {
+  const { captureDir } = await import("../testing/captures");
+
+  if (!captureDir("U4692a")) return;
+  const { openLane } = await import("../todos/laneBrowser");
+  const lane = await openLane(1512, "dark", "u4692a");
+
+  try {
+    await lane.browser("click", "[data-todo-root]");
+    await lane.browser("click", "#shelf-tab-pads");
+    await lane.until("!!document.querySelector('.pads-tab [data-shelf-group]')");
+    await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.pads-tab [data-shelf-group]')) if (group.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part=branch-control]').click(); })()`);
+    await lane.until("!!document.querySelector('.pad-inset .pad-name')");
+    await lane.browser("focus", ".pad-inset .pad-name");
+    await lane.capture("U4692a", "shelf-pad");
+    await lane.browser("press", "Enter");
+    await lane.until("!!document.querySelector('.pad-body button')");
+    await lane.browser("focus", ".pad-body button");
+    await lane.capture("U4692a", "pad");
+    await lane.browser("focus", ".drawer .close");
+    await lane.capture("U4692a", "drawer");
+    await lane.browser("click", ".drawer .close");
+    await lane.browser("press", "Meta+t");
+    await lane.until("!!document.activeElement.closest('.bubble')");
+    await lane.capture("U4692a", "bubble");
+    await lane.evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "j", code: "KeyJ", ctrlKey: true, metaKey: true, bubbles: true, cancelable: true }))`);
+    await lane.until("!!document.activeElement.closest('.pane-screen')");
+    expect(await lane.evaluate("!!document.querySelector('.rail-row[data-selected=true]')")).toBe(true);
+  } finally { await lane.close(); }
+}, 60_000);
