@@ -12,6 +12,6 @@ export type RowActions = {
   folder: () => void;
   editor: () => void;
 } & (
-  | { kind: "workstream"; add: { disabled: boolean; shortcut?: boolean; run: () => void } }
+  | { kind: "workstream"; restart?: { pending: boolean; run: () => void; menu: (click: MouseEvent) => void }; add: { disabled: boolean; shortcut?: boolean; run: () => void } }
   | { kind: "agent"; stop?: () => void; resume?: () => void }
 );
