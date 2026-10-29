@@ -448,8 +448,7 @@
 
 /* U466: backgrounds span the Rail; each content row owns its inset. */
 .rail-fold,
-.rail-leaf,
-.rail .section-head {
+.rail-leaf {
   box-sizing: border-box;
   padding-left: 0;
   padding-right: var(--rail-edge, var(--space-4));
@@ -846,6 +845,8 @@
 .rail-row:has(.mode-mark) .row-tail {
   margin-left: var(--space-4);
 }
+
+.rail .section-head { padding-inline: var(--space-4); }
 
 /* U4896: the section icon and depth-zero mark share an edge; depth never moves the trailing slot. */
 .rail-tree .section-head {
