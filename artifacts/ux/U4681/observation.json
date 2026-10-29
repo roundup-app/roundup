@@ -35,7 +35,7 @@
   ],
   "checks": "All 16 captured base states and all 16 captured head states pass D1–D14 and D16. The head non-Switcher Model picker also passes all Checks.",
   "behavior": "All 71 tests in five U529/U2572d/U3787c files pass on the merged head, with U4681 captures enabled. The extended browser observer also passed with captures disabled.",
-  "validation": "just ready passed. The broad just capture U4681 command was stopped during unrelated Rust compilation; the focused U4681 capture observer passed without raising its timeout.",
+  "validation": "just ready passed before merging main. After the clean merge, only desktop typecheck fails: the unchanged S3806b CAPTURE_ROW on main assigns undefined to a Row.params union that excludes it. Prerequisite #4769 owns the repair and blocks #4681. Final styles, merge-loss, frozen and trailer checks pass. The broad just capture U4681 command was stopped during unrelated Rust compilation; the focused U4681 capture observer passed without raising its timeout.",
   "observerFailures": [
     "Initial video capture failed because ffmpeg was absent; installed ffmpeg and recaptured both revisions.",
     "The first head capture run timed out while the broad suite compiled Rust concurrently; stopped that suite and the isolated observer passed."
