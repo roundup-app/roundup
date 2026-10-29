@@ -2,6 +2,15 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\nWhat is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    },
+    {
+      "match": {
         "toolCallId": "toolu_u177a_0"
       },
       "response": {
@@ -69,15 +78,6 @@
             "arguments": "{\"title\": \"ship b\"}"
           }
         ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Follow this instruction: What is this Workstream for?",
-        "hasToolResult": false
-      },
-      "response": {
-        "content": "Ready for your instructions."
       }
     }
   ]

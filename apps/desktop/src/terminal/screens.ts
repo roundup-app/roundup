@@ -10,9 +10,10 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { fromBase64, toBase64 } from "./base64";
 import { absolutePath } from "./links";
 import type { Printed } from "./links";
-import type { Emulator, EmulatorFactory, Size } from "./emulator";
+import type { Emulator, EmulatorFactory, Size, TerminalPreparation } from "./emulator";
 
 export type Screens = {
+  prepare(host: HTMLElement, settled?: () => boolean, signal?: AbortSignal): Promise<TerminalPreparation>;
   /** The Terminal's emulator, created on first call; it receives output only while the Terminal is shown. */
   emulatorFor(id: string): Emulator;
   /** Opens a Terminal's emulator in the pane, records the fitted size, and subscribes to its output: the screen is restored, then output follows it. */
@@ -67,6 +68,7 @@ type Stream = {
   /** The offset the emulator has been written up to; null until the first screen. */
   after: number | null;
   restoring: boolean;
+  parsing: boolean;
   lost: boolean;
 };
 
@@ -269,7 +271,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   createEffect(reconcile);
 
   const drain = (id: string, holder: Holder, stream: Stream): void => {
-    if (stream.restoring || stream.after === null || !stream.open) return;
+    if (stream.restoring || stream.parsing || stream.after === null || !stream.open) return;
 
     while (stream.queue.length > 0) {
       const chunk = stream.queue[0];
@@ -290,17 +292,34 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         return;
       }
 
+      const bytes = chunk.bytes.subarray(stream.after - chunk.offset, stream.after - chunk.offset + 8192);
+
+      stream.after += bytes.length;
+
+      if (stream.after === end) takeFirst(stream);
+      stream.parsing = true;
+
       try {
-        holder.emulator.write(chunk.bytes.subarray(stream.after - chunk.offset));
+        holder.emulator.write(bytes, () => {
+          holder.retain();
+
+          // R21: xterm's default write loop can parse for 12 ms. Keep its backlog
+          // in our bounded stream and yield between chunks for input and drawing.
+          if (stream.queue.length > 0) setTimeout(() => {
+            stream.parsing = false;
+
+            if (stream.open && holder.stream === stream) settle(id, holder, stream);
+          }, 0);
+          else stream.parsing = false;
+        });
       } catch (thrown) {
         if (!(thrown instanceof Error)) throw thrown;
 
+        stream.parsing = false;
         setFailure(id, "output", `terminal.output: ${thrown.message}`);
       }
 
-      stream.after = end;
-      holder.retain();
-      takeFirst(stream);
+      if (stream.parsing) return;
     }
   };
 
@@ -405,6 +424,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const settle = (id: string, holder: Holder, stream: Stream): void => {
+    if (stream.parsing) return;
+
     if (stream.lost && !stream.restoring) {
       stream.lost = false;
       void restore(id, holder, stream);
@@ -529,12 +550,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
-  const holderFor = (id: string): Holder => {
+  const holderFor = (id: string, prepared?: Emulator): Holder => {
     const known = holders.get(id);
 
     if (known) return known;
 
-    const emulator = createEmulator(id, (text) => copy(id, text));
+    const emulator = prepared ?? createEmulator(id, (text) => copy(id, text));
 
     const [atBottom, setAtBottom] = createSignal(true);
     // Tauri may run two `rpc` calls out of order, so at most one write is in flight; what is typed meanwhile goes as one write.
@@ -598,7 +619,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       holder.ready = true;
 
       if (holder.shownSize && holder.stream?.open) resize(id, holder.emulator.fit());
-    });
+    }).catch(console.error);
 
     return holder;
   };
@@ -690,7 +711,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (!holder.stream) {
       const stream: Stream = {
         open: true, subscription: null, early: [], placed: false, start: null, position: 0,
-        queue: [], queued: 0, after: null, restoring: false, lost: false,
+        queue: [], queued: 0, after: null, restoring: false, parsing: false, lost: false,
       };
 
       holder.stream = stream;
@@ -708,7 +729,44 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (holder) void release(id, holder).then(reconcile);
   };
 
+  const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<TerminalPreparation> => {
+    let bound: string | null = null;
+    const emulator = createEmulator(crypto.randomUUID(), text => bound ? copy(bound, text) : Promise.resolve());
+    let owned = true;
+    const dispose = () => { if (owned) { owned = false; emulator.dispose(); } };
+
+    // Include lazy loading, fonts and layout in the same finite preparation budget.
+    const deadline = AbortSignal.timeout(5_000);
+    const cancellation = AbortSignal.any(signal ? [signal, deadline] : [deadline]);
+    const listening = new AbortController();
+
+    // Created inside the race, so the race handles a rejection that lands before or after it settles.
+    const cancelled = () => new Promise<never>((_, reject) => {
+      const abort = () => {
+        dispose();
+        reject(deadline.aborted ? new Error(appCopy.terminalDestinationUnavailable) : cancellation.reason);
+      };
+
+      if (cancellation.aborted) abort();
+      else cancellation.addEventListener("abort", abort, { once: true, signal: listening.signal });
+    });
+
+    try {
+      if (!emulator.prepare) throw new Error(appCopy.terminalPreparationUnavailable);
+      const size = await Promise.race([emulator.prepare(host, settled, cancellation), cancelled()]);
+
+      return { size, bind: id => {
+        if (!owned) return;
+        bound = id;
+        emulator.bind?.(id);
+        holderFor(id, emulator);
+        owned = false;
+      }, dispose };
+    } catch (error) { dispose(); throw error; } finally { listening.abort(); }
+  };
+
   return {
+    prepare,
     emulatorFor,
     show,
     hide,

@@ -1,3 +1,4 @@
+import { currentOwner } from "../state/rail";
 import { captureFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -464,8 +465,9 @@ const PadBody = (props: {
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name" style={cutName}>{name}</span>
-          <Show when={!ownedByUser()}>
-            <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{connected.rail.nameOf(pad().owner)}</span>
+          <Show when={currentOwner(connected.rail, pad().owner)}>{owner =>
+            <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{owner().name}</span>
+          }
           </Show>
         </span>
         <Show when={!ownedByUser()}>

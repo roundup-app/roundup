@@ -2,7 +2,67 @@
 use super::*;
 use store::FirstPrompt;
 
+/// Durable progress fenced before every non-repeatable lifecycle or input effect.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub enum SessionRestart {
+    Reserved,
+    Starting,
+    Started { attempt: String },
+    Typing { attempt: String },
+    Acknowledged { attempt: String },
+    Released { attempt: String },
+}
+
 impl Messages {
+    /// Read the immutable saved prompt and fresh-session progress of this reservation.
+    pub fn session_restart(
+        &self,
+        agent: &str,
+        key: &str,
+    ) -> Result<Option<(Option<String>, SessionRestart)>, RpcError> {
+        let store = self.store()?;
+        let Some(restart) = store.restart(agent, key)? else {
+            return Ok(None);
+        };
+        let state: Option<String> = store
+            .db
+            .query_row(
+                "SELECT session FROM message_restarts WHERE agent=? AND key=?",
+                rusqlite::params![agent, key],
+                |row| row.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        Ok(Some((
+            restart.prompt.body().map(str::to_owned),
+            state
+                .map(|s| serde_json::from_str(&s))
+                .transpose()
+                .map_err(RpcError::internal)?
+                .unwrap_or(SessionRestart::Reserved),
+        )))
+    }
+
+    /// Persist before crossing the program/input boundary. An interrupted effect is never replayed.
+    pub fn set_session_restart(
+        &self,
+        agent: &str,
+        key: &str,
+        state: SessionRestart,
+    ) -> Result<(), RpcError> {
+        self.store()?
+            .db
+            .execute(
+                "UPDATE message_restarts SET session=? WHERE agent=? AND key=?",
+                rusqlite::params![
+                    serde_json::to_string(&state).map_err(RpcError::internal)?,
+                    agent,
+                    key
+                ],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
     /// Reserve before stopping a retained Agent. `key` identifies the coordinator's durable
     /// operation; retries must use the same key and first prompt. Waits for an in-flight Message
     /// prompt to finish. Conflicts with another reservation or a stale receiver Attempt.

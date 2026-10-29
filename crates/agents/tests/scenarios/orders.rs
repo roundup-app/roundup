@@ -2,7 +2,6 @@
 //! its Terminal (as `steer.rs` does) and the test plays its hooks with `agent.signal`.
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use agents::worktree::Git;
 use contracts::agent::{Order, RailNode};
@@ -15,10 +14,6 @@ use crate::common::{Fixture, GATED, star, until_file};
 
 const RECORD: &str = GATED;
 
-fn paste(text: &str) -> String {
-    format!("{}\x1b[200~{text}\x1b[201~\r", agents::claude_code::LEAD_IN)
-}
-
 fn recording() -> Fixture {
     let mut f = Fixture::running(RECORD);
     f.agents = f.agents.with_clock(|| 0);
@@ -28,17 +23,6 @@ fn recording() -> Fixture {
 fn typed(f: &Fixture) -> String {
     let bytes = std::fs::read(f.dir.path().join("typed")).unwrap_or_default();
     String::from_utf8_lossy(&bytes).into_owned()
-}
-
-async fn until_typed(f: &Fixture, len: usize) -> String {
-    for _ in 0..500 {
-        let text = typed(f);
-        if text.len() >= len {
-            return text;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    }
-    panic!("{len} bytes were never typed: {:?}", typed(f));
 }
 
 async fn signal(f: &Fixture, id: &str, event: &str) {
@@ -152,8 +136,14 @@ async fn o2_the_first_steer_of_a_work_order_is_the_ask_then_its_limits() {
     star(f.dir.path());
     signal(&f, &node.id, "SessionStart").await;
 
-    let text = paste("fix the build\n\nLimits:\n- touch CI\n- push");
-    assert_eq!(until_typed(&f, text.len()).await, text);
+    let inbox = f.until_inbox(1).await;
+    assert!(
+        inbox[0]
+            .1
+            .contains("fix the build\n\nLimits:\n- touch CI\n- push"),
+        "{inbox:?}"
+    );
+    assert_eq!(typed(&f), "");
 }
 
 #[tokio::test]
@@ -165,7 +155,7 @@ async fn o2_the_first_steer_of_a_clarification_order_asks_to_find_elicit_and_rec
     star(f.dir.path());
     signal(&f, &node.id, "SessionStart").await;
 
-    let steer = until_typed(&f, 100).await;
+    let steer = f.until_inbox(1).await[0].1.clone();
     assert!(steer.contains("Which test fails?"), "{steer}");
     assert!(steer.contains("agent_context"), "{steer}");
     assert!(steer.contains("agent_set_order"), "{steer}");
@@ -189,8 +179,13 @@ async fn o3_a_workstream_gives_its_door_the_order_and_stopping_the_door_keeps_it
     until_file(&f.dir.path().join("ready")).await;
     star(f.dir.path());
     signal(&f, &id, "SessionStart").await;
-    let text = paste("coordinate the release\n\nLimits:\n- merge");
-    assert_eq!(until_typed(&f, text.len()).await, text);
+    let inbox = f.until_inbox(1).await;
+    assert!(
+        inbox[0]
+            .1
+            .contains("coordinate the release\n\nLimits:\n- merge"),
+        "{inbox:?}"
+    );
 
     f.call("agent.stop", json!({"id": id})).await.unwrap();
     assert_eq!(order_of(&f.tree().await, &id), Some(given));
@@ -367,8 +362,7 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it() {
     until_file(&f.dir.path().join("ready")).await;
     star(f.dir.path());
     signal(&f, &agent, "SessionStart").await;
-    let first = paste("first");
-    until_typed(&f, first.len()).await;
+    f.until_inbox(1).await;
     signal(&f, &agent, "UserPromptSubmit").await;
     signal(&f, &agent, "Stop").await;
     f.until(|tree| {
@@ -392,7 +386,7 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it() {
         )
         .await
         .unwrap();
-    assert_eq!(typed(&f), first);
+    assert_eq!(f.inbox().len(), 1);
 
     f.call(
         "agent.setOrder",
@@ -402,8 +396,9 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it() {
     .unwrap();
     // The barrier for both checks above: a Steer of `mine` or `parked` would type before
     // `sent` or leave it Busy, so only these exact bytes show neither was sent.
-    let all = format!("{first}{}", paste("sent\n\nLimits:\n- x"));
-    assert_eq!(until_typed(&f, all.len()).await, all);
+    let inbox = f.until_inbox(2).await;
+    assert!(inbox[1].1.contains("sent\n\nLimits:\n- x"), "{inbox:?}");
+    assert_eq!(typed(&f), "");
 }
 
 #[tokio::test]
@@ -468,11 +463,15 @@ async fn h20_spawn_order_with_limits_is_one_write() {
     star(f.dir.path());
     signal(&f, &node.id, "SessionStart").await;
 
-    let text = paste("reply ready\n\nLimits:\n- edit no file");
-    let typed = until_typed(&f, text.len()).await;
-    assert_eq!(typed, text);
-    assert!(typed.starts_with("Follow this instruction: \x1b[200~"));
-    assert_eq!(typed.matches('\r').count(), 1);
+    let inbox = f.until_inbox(1).await;
+    assert_eq!(inbox.len(), 1, "order and limits are one write");
+    assert!(
+        inbox[0]
+            .1
+            .contains("reply ready\n\nLimits:\n- edit no file"),
+        "{inbox:?}"
+    );
+    assert_eq!(typed(&f), "");
 }
 
 #[tokio::test]
@@ -498,8 +497,8 @@ async fn h20_a_note_queued_for_a_door_waits_behind_its_order() {
     assert!(matches!(waiting, Err(agents::PromptError::Busy { .. })));
 
     star(f.dir.path());
-    let text = paste("coordinate the release");
-    assert_eq!(until_typed(&f, text.len()).await, text);
+    let inbox = f.until_inbox(1).await;
+    assert!(inbox[0].1.contains("coordinate the release"), "{inbox:?}");
     signal(&f, &id, "UserPromptSubmit").await;
     signal(&f, &id, "Stop").await;
     f.until(|tree| crate::common::status_of(tree, &id).kind == contracts::Kind::Idle)
@@ -852,10 +851,8 @@ async fn o9_the_first_steer_carries_the_ask_done_limits_and_prompt() {
     star(f.dir.path());
     signal(&f, &child.id, "SessionStart").await;
 
-    let text = paste(
-        "port the parser\n\nDone when: the parser tests pass\n\nLimits:\n- touch no CI file\n- do not push\n\nDetails:\n1. read the file\n2. port it",
-    );
-    assert!(until_typed(&f, text.len()).await.contains(&text));
+    let text = "port the parser\n\nDone when: the parser tests pass\n\nLimits:\n- touch no CI file\n- do not push\n\nDetails:\n1. read the file\n2. port it";
+    assert!(f.until_inbox(1).await[0].1.contains(text));
 }
 
 #[tokio::test]
@@ -866,8 +863,6 @@ async fn o9_a_steer_without_a_prompt_is_o2s() {
     star(f.dir.path());
     signal(&f, &node.id, "SessionStart").await;
 
-    let text = paste(
-        "port the parser\n\nDone when: the parser tests pass\n\nLimits:\n- touch no CI file\n- do not push",
-    );
-    assert_eq!(until_typed(&f, text.len()).await, text);
+    let text = "port the parser\n\nDone when: the parser tests pass\n\nLimits:\n- touch no CI file\n- do not push";
+    assert!(f.until_inbox(1).await[0].1.contains(text));
 }

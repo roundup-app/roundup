@@ -109,7 +109,7 @@ impl Store {
     /// False when a Pad with this name already exists.
     pub fn insert(&self, pad: &Pad) -> rusqlite::Result<bool> {
         let changed = self.db.execute(
-            "INSERT OR IGNORE INTO pads (key, name, owner, text, updated_at, home, revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)",
+            "INSERT OR IGNORE INTO pads (key, name, owner, text, updated_at, home, revision, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, (SELECT MAX(position) + 1 FROM pads))",
             params![
                 key(&pad.name),
                 pad.name,
@@ -133,13 +133,24 @@ impl Store {
             .optional()
     }
 
-    /// Ordered by name.
+    /// Persisted order, initially alphabetical for existing Pads.
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
         let mut stmt = self.db.prepare(
             "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation
-             FROM pads p JOIN pad_sources s ON s.pad_key = p.key ORDER BY p.name",
+             FROM pads p JOIN pad_sources s ON s.pad_key = p.key ORDER BY p.position IS NULL, p.position, p.name",
         )?;
         stmt.query_map([], row_to_pad)?.collect()
+    }
+
+    /// Caller holds the immediate transaction, so a refetch sees the whole accepted order.
+    pub fn set_order(&self, order: &[Pad]) -> rusqlite::Result<()> {
+        let mut statement = self
+            .db
+            .prepare("UPDATE pads SET position = ?2 WHERE key = ?1")?;
+        for (position, pad) in order.iter().enumerate() {
+            statement.execute(params![key(&pad.name), position as i64])?;
+        }
+        Ok(())
     }
 
     /// Caller holds the immediate write transaction and has checked destination occupancy.
@@ -167,10 +178,23 @@ impl Store {
 
     /// Leaves `updated_at` alone: a Home is not an edit of the text.
     pub fn set_home(&self, name: &str, home: Option<&str>) -> rusqlite::Result<bool> {
+        let tx = self.db.unchecked_transaction()?;
         let changed = self.db.execute(
             "UPDATE pads SET home = ?2 WHERE key = ?1",
             params![key(name), home],
         )?;
+        let retained: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
+            [],
+            |r| r.get(0),
+        )?;
+        if retained && changed == 1 {
+            tx.execute(
+                "DELETE FROM rail_removal_items WHERE kind='pad-home' AND id=?",
+                [name],
+            )?;
+        }
+        tx.commit()?;
         Ok(changed == 1)
     }
 

@@ -81,7 +81,13 @@ async fn x15_zsh_bash_and_fish_get_the_integration_and_keep_the_users_startup_fi
         let dir = tempfile::tempdir().unwrap();
         let (terminals, _) = open(&dir);
         let mut spawned = terminals
-            .spawn_shell_owned(&dir.path().to_string_lossy(), &shell, "w", home(dir.path()))
+            .spawn_shell_owned(
+                &dir.path().to_string_lossy(),
+                &shell,
+                "w",
+                home(dir.path()),
+                (80, 24),
+            )
             .await
             .unwrap();
         let mut out = Output {
@@ -111,7 +117,13 @@ async fn x15_a_command_prints_the_four_marks_with_its_exit_code_and_the_director
         let dir = tempfile::tempdir().unwrap();
         let (terminals, _) = open(&dir);
         let mut spawned = terminals
-            .spawn_shell_owned(&dir.path().to_string_lossy(), &shell, "w", home(dir.path()))
+            .spawn_shell_owned(
+                &dir.path().to_string_lossy(),
+                &shell,
+                "w",
+                home(dir.path()),
+                (80, 24),
+            )
             .await
             .unwrap();
         let mut out = Output {
@@ -148,6 +160,7 @@ async fn x15_other_shells_and_spawned_programs_get_no_injection() {
             "/bin/sh",
             "w",
             BTreeMap::new(),
+            (80, 24),
         )
         .await
         .unwrap();

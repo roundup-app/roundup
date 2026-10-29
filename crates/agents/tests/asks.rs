@@ -1,5 +1,7 @@
 #[path = "asks/placement.rs"]
 mod placement;
+#[path = "asks/readiness.rs"]
+mod readiness;
 #[path = "asks/submission.rs"]
 mod submission;
 
@@ -166,11 +168,17 @@ impl DoorHarness {
         Self::open_with_bound(dir, ASK_BOUND)
     }
     fn open_with_bound(dir: &std::path::Path, bound: Duration) -> Self {
+        Self::open_with_program(dir, bound, None)
+    }
+    fn open_with_program(dir: &std::path::Path, bound: Duration, program: Option<&str>) -> Self {
         use std::os::unix::fs::PermissionsExt;
         let bin = dir.join("program");
         let rup = dir.join("rup");
         std::fs::write(&rup, "").unwrap();
         std::fs::write(&bin,"#!/bin/sh\nif [ \"$1\" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nstty raw -echo\nprintf '\\033]0;✳ Claude Code\\007'\nexec cat >/dev/null\n").unwrap();
+        if let Some(program) = program {
+            std::fs::write(&bin, program).unwrap();
+        }
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         let bus = Bus::new();
         let (tx, bytes) = mpsc::unbounded_channel();
@@ -205,6 +213,7 @@ impl DoorHarness {
             )
             .unwrap()
             .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) })
+            .with_coordination(|_, _| async { Ok(()) })
             .with_steer_bound(bound)
             .with_steer_effect(move |_| {
                 if gone.load(Ordering::SeqCst) {
@@ -286,16 +295,28 @@ impl DoorHarness {
         self.h.agents.call(&self.h.ctx,"rail.createWorkstream",json!({"name":"Work","order":{"kind":"work","title":"Work","ask":"initial","limits":[]}})).await.unwrap()["id"].as_str().unwrap().into()
     }
     async fn start(&mut self, id: &str) {
+        let mut events = self.h.ctx.bus.subscribe();
         let node = self
             .h
             .agents
             .call(&self.h.ctx, "rail.startDoor", json!({"id":id}))
             .await
             .unwrap();
+        // The fake's startup title must be folded before a test submits user input.
+        // Otherwise its late idle title can overtake that input's working signal.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let contracts::EventData::AgentStatus(status) = events.recv().await.unwrap().data
+                    && status.id == id
+                    && status.status.kind == contracts::Kind::Idle
+                {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap();
         self.signal(id, "SessionStart").await;
-        let initial = self.read().await;
-        assert!(String::from_utf8_lossy(&initial).contains("initial"));
-        self.signal(id, "UserPromptSubmit").await;
         assert_eq!(
             self.h
                 .agents
@@ -304,7 +325,6 @@ impl DoorHarness {
                 .unwrap(),
             agents::FirstSteerCompletion::Submitted
         );
-        self.signal(id, "Stop").await;
     }
     async fn changed(
         &self,
@@ -435,7 +455,6 @@ async fn a41_a_stopped_door_is_started_first() {
         }
     }
     f.signal(&id, "SessionStart").await;
-    assert!(String::from_utf8_lossy(&f.read().await).contains("initial"));
     f.signal(&id, "UserPromptSubmit").await;
     assert!(f.bytes.try_recv().is_err());
     f.signal(&id, "Stop").await;
@@ -448,7 +467,7 @@ async fn a41_a_stopped_door_is_started_first() {
 #[tokio::test]
 async fn a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone() {
     let dir = tempfile::tempdir().unwrap();
-    let mut f = DoorHarness::open(dir.path());
+    let mut f = DoorHarness::open_with_program(dir.path(), ASK_BOUND, Some(readiness::PROGRAM));
     let mut events = f.h.ctx.bus.subscribe();
     let ask = f.h.send("/skill café").await;
     f.h.calls
@@ -479,6 +498,7 @@ async fn a42_a_new_part_makes_and_starts_one_workstream_with_the_ask_alone() {
             }
         }
     };
+    readiness::star(&f, dir.path(), &id).await;
     f.signal(&id, "SessionStart").await;
     assert_eq!(f.read().await, paste("/skill café"));
     f.signal(&id, "UserPromptSubmit").await;

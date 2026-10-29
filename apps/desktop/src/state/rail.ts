@@ -1,3 +1,4 @@
+import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "../copy";
@@ -9,7 +10,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { defaultWorkstreamName } from "../rail/defaultName";
 import { ancestorsOf, isWorkstream } from "../rail/layout";
-import type { RailStorage } from "../rail/persist/storage";
+import type { RailSection, RailStorage } from "../rail/persist/storage";
 import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
 
@@ -17,6 +18,7 @@ import type { AppSeam } from "../app/seam";
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
 export type RailState = {
+  prepareTerminal?: (() => Promise<TerminalPreparation | undefined>) | undefined;
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
   readonly nodes: readonly RailNode[];
@@ -39,6 +41,8 @@ export type RailState = {
   terminalFocus(): ReturnType<typeof captureFocus>;
   restored(): boolean;
   collapsed(): ReadonlySet<string>;
+  closedSections(): ReadonlySet<RailSection>;
+  setSectionOpen(section: RailSection, open: boolean): void;
   toggleCollapsed(id: string): void;
   storageFailure(): string | null;
   clearStorageFailure(): void;
@@ -61,10 +65,9 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     exited: {},
   });
 
-  const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id));
-
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
+  const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id), terminals);
   const [selected, setSelected] = createSignal<string | null>(null);
   const [terminalFocus, setTerminalFocus] = createSignal(captureFocus());
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -76,11 +79,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   let workstreamSelection = 0;
 
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
+  const [closedSections, setClosedSections] = createSignal<ReadonlySet<RailSection>>(new Set());
   const [restored, setRestored] = createSignal(false);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   let firstTree = true;
 
-  const save = async () => setStorageFailure(await storage?.write({ selected: selected(), collapsed: [...collapsed()] }) ?? null);
+  const save = async () => {
+    const layout: Parameters<RailStorage["write"]>[0] = { selected: selected(), collapsed: [...collapsed()] };
+
+    if (closedSections().size > 0) layout.sections = [...closedSections()];
+    setStorageFailure(await storage?.write(layout) ?? null);
+  };
 
   const reveal = (id: string | null) => {
     if (id === null) return;
@@ -128,6 +137,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         const saved = storage?.read();
 
         if (saved) {
+          setClosedSections(new Set(saved.sections ?? []));
           setSelected(tree.some((node) => node.id === saved.selected) ? saved.selected : null);
           setCollapsed(new Set(saved.collapsed.filter((id) => tree.some((node) => node.id === id && isWorkstream(node)))));
           reveal(selected());
@@ -214,11 +224,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   };
 
   /** A24: the call's answer, or a rejection once `DOOR_START_BOUND_MS` passes without one. */
-  const boundedStart = (id: string): Promise<RailNode> => {
+  const boundedStart = (id: string, size?: Size): Promise<RailNode> => {
     const { promise: expiry, reject } = Promise.withResolvers<never>();
     const timer = setTimeout(() => reject(new Error(copy.theDoorDidNotStartInTimeRetry)), DOOR_START_BOUND_MS);
 
-    return Promise.race([app.rpc("rail.startDoor", { id }), expiry]).finally(() => clearTimeout(timer));
+    return Promise.race([app.rpc("rail.startDoor", { id, ...size }), expiry]).finally(() => clearTimeout(timer));
   };
 
   const startDoor = async (id: string, focus = true): Promise<void> => {
@@ -230,8 +240,13 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     });
     setDoors(id, { pending: true, observedLive: false, failure: null });
 
+    let prepared: TerminalPreparation | undefined;
+
     try {
-      await boundedStart(id);
+      if (selected() === id) prepared = await state.prepareTerminal?.();
+      const node = await boundedStart(id, prepared?.size);
+
+      if (node.terminal_id) prepared?.bind(node.terminal_id);
       commandFailure.acknowledge(id);
       fetching(fetchTree);
       await latest;
@@ -246,6 +261,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         commandFailure.show(error.message, id, "pane");
       }
     } finally {
+      prepared?.dispose();
       setDoors(id, "pending", false);
     }
   };
@@ -276,7 +292,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     await Promise.all([fetchTree(), fetchTerminals()]);
   });
 
-  return {
+  const state: RailState = {
     commandFailure,
     terminals,
     terminalExit: (id) => {
@@ -314,6 +330,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     terminalFocus,
     restored,
     collapsed,
+    closedSections,
+    setSectionOpen: (section, open) => {
+      if (closedSections().has(section) !== open) return;
+      setClosedSections(closed => new Set(open ? [...closed].filter(each => each !== section) : [...closed, section]));
+      void save();
+    },
     storageFailure,
     clearStorageFailure: () => setStorageFailure(null),
     toggleCollapsed: (id) => {
@@ -336,4 +358,14 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       } while (latest !== seen);
     },
   };
+
+  return state;
+};
+
+
+/** U4523: current ownership is a Rail fact; historical names keep using nameOf. */
+export const currentOwner = (rail: Pick<RailState, "nodes" | "exitOf">, actor: Actor | null | undefined) => {
+  const node = actor?.kind === "agent" ? rail.nodes.find(node => node.id === actor.id) : undefined;
+
+  return node ? { id: node.id, name: node.name, live: node.terminal_id !== null && rail.exitOf(node) === null } : undefined;
 };

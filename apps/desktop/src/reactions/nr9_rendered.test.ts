@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+import { existsSync } from "node:fs";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -8,12 +10,17 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
-import { CHECK_IDS } from "../testing/checks";
+import { CHECK_IDS, type Checks } from "../testing/checks";
 import { appServer } from "../testing/appServer";
 import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 
 const execute = promisify(execFile);
+
+// The bundled CLI avoids the npm wrapper's per-input startup (todos/laneBrowser.ts).
+const native = join(createRequire(import.meta.url).resolve("agent-browser/package.json"), "..", "bin", `agent-browser-${process.platform}-${process.arch}`);
+
+const command = existsSync(native) ? native : "agent-browser";
 
 const reactionBrowser = async () => {
   const profile = await mkdtemp(join(tmpdir(), "nr9-browser-"));
@@ -26,7 +33,7 @@ const reactionBrowser = async () => {
   const session = `nr9-${process.pid}-${profile.split("-").at(-1)}`;
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
+    const { stdout } = await execute(command, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
     const answer = JSON.parse(stdout);
 
     if (!answer.success) throw new Error(stdout);
@@ -118,13 +125,11 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=reactions&seed=agents-10`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await activate('.rail [data-todo-root]');
-    await wait("document.querySelector('.reaction-empty')?.textContent.includes('No named reactions')");
+    await wait("!!document.querySelector('.reactions .empty-state[role=group]') && !document.querySelector('.reaction-row') && !!document.querySelector('[data-reaction-opener=create]:enabled')");
     await capture("empty");
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=reactions&daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await activate('.rail [data-todo-root]');
     await wait("!!document.querySelector('.reaction-row')");
     await capture("list");
     await activate('.reaction-row', true);
@@ -153,14 +158,10 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await capture("target-options");
     await activate('.choice-picker [role="option"]:first-child');
     await wait("!document.querySelector('.choice-picker [role=option]')");
-    await evaluate(`(() => {
-      const field = (label, value) => {
-        const element = [...document.querySelectorAll('.reaction-field')].find(el => el.querySelector('label')?.textContent === label).querySelector('input,textarea');
-        element.value = value; element.dispatchEvent(new Event('input', { bubbles: true }));
-      };
-      field('Name', 'Form reaction'); field('Instruction', ' exact newer\\n words 🧭 ');
-      field('Date', ${JSON.stringify(expires.slice(0, 10))}); field('Time', ${JSON.stringify(expires.slice(11, 16))});
-    })()`);
+    await browser("find", "label", "Name", "fill", "Form reaction", "--exact");
+    await browser("find", "label", "Instruction", "fill", " exact newer\n words 🧭 ", "--exact");
+    await browser("fill", '.reaction-when[aria-label="Expires"] input[data-part="input"]', expires.slice(0, 10));
+    await browser("fill", '.reaction-when[aria-label="Expires"] [data-scope="field"] input', expires.slice(11, 16));
     await evaluate("document.querySelector('.app-checkbox input').focus()");
     await browser("press", "Space");
     await browser("press", "Tab");
@@ -506,4 +507,78 @@ esac
     await browser("press", "Enter");
     await wait(`document.activeElement?.matches('[data-reaction-opener="${saved.id}"]')`);
   } finally { await close(); await real.stop(); await rm(forge, { recursive: true, force: true }); }
+}, 60_000);
+
+it.skipIf(!captureDir("U3787c")).each(["agents-10", "tree-40", "tabs-8", "conflict"])("u3787c_reactions_list_rendered_%s", async seed => {
+  const { browser, evaluate, wait, close } = await reactionBrowser();
+  const server = await appServer();
+  const dir = captureDir("U3787c")!;
+  const daemon = "window.__fake.app.of(document.querySelector('.project-tab[data-selected=true]').dataset.path)";
+
+  await mkdir(dir, { recursive: true });
+
+  const capture = async (step: string) => {
+    const checks: Checks = await evaluate("window.__checks()");
+    await writeFile(join(dir, `reactions-${seed}-${step}.checks.json`), JSON.stringify(checks));
+    await browser("screenshot", join(dir, `reactions-${seed}-${step}.png`));
+
+    return checks;
+  };
+
+  try {
+    await browser("record", "start", join(dir, `reactions-${seed}.webm`));
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=${seed}`);
+    await wait("!!window.__fake && !!document.querySelector('.project-tab[data-selected=true]')");
+    await evaluate(`(() => {
+      const app = ${daemon};
+      const records = Array.from({ length: 5 }, (_, at) => ({
+        project:'p',id:'keys-'+at,name:at<2?'café é 🧭':'Très long é 🧭 '.repeat(8),actor:{kind:'user',id:'you',parent:null},home:null,target:'agent-1',
+        instruction:'Review changes',condition:{kind:'agents',ids:['agent-1'],any:false},max_firings:1,remaining:1,rearm:false,
+        expires_at:'2099-01-01T09:00:00Z',created_at:'2026-10-20T09:00:00Z',state:'active',
+        observation:{health:'observing',health_code:'observing',cause_code:'unknown',gap_code:'unknown',recovery_code:'unknown',cursor:null,gap:null,recovery:null,evidence:null},firings:[]
+      }));
+      app.handlers['reaction.list'] = () => records;
+      app.handlers['reaction.get'] = ({id}) => records.find(record => record.id === id);
+      window.dispatchEvent(new CustomEvent('open-project-page',{detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'view:reactions'}}));
+      window.dispatchEvent(new Event('focus'));
+      return true;
+    })()`);
+    await wait("document.querySelectorAll('.reaction-row').length === 5");
+    const before = await capture("before");
+    await evaluate(`${daemon}.calls.length = 0`);
+    await browser("focus", ".reaction-row");
+    await browser("press", "End");
+    expect(await evaluate("document.activeElement.dataset.reactionOpener")).toBe("keys-4");
+    await browser("press", "ArrowDown");
+    expect(await evaluate("document.activeElement.dataset.reactionOpener")).toBe("keys-4");
+    await browser("press", "Home");
+    expect(await evaluate("document.activeElement.dataset.reactionOpener")).toBe("keys-0");
+    await capture("focus");
+    await browser("press", "Meta+a");
+    expect(await evaluate("document.querySelectorAll('.reaction-row[data-row-selected=true]').length")).toBe(5);
+    expect(await evaluate(`${daemon}.calls`)).toEqual([]);
+    const selected = await capture("selected");
+    await browser("press", "Enter");
+    await wait("!!document.querySelector('.reaction-detail')");
+    await browser("click", ".reaction-back");
+    await wait("document.activeElement?.matches('[data-reaction-opener=keys-0]')");
+    expect(await evaluate("document.querySelectorAll('.reaction-row[data-row-selected=true]').length")).toBe(5);
+    await evaluate(`(() => {
+      ${daemon}.handlers['reaction.list'] = () => { throw new Error('Restore Project access, then Retry to load reactions.'); };
+      window.dispatchEvent(new Event('focus'));
+      return true;
+    })()`);
+    await wait("document.querySelector('.reactions [role=alert]')?.textContent.includes('Restore Project access')");
+    const failed = await capture("failure");
+
+    for (const id of CHECK_IDS) if (before[id].status === "pass") {
+      expect(selected[id].status, id).toBe("pass");
+      expect(failed[id].status, id).toBe("pass");
+    }
+  } finally {
+    try { await browser("record", "stop"); }
+    finally { await close(); }
+  }
 }, 60_000);

@@ -96,23 +96,3 @@ describe("u135 schemes", () => {
   });
 });
 
-it("u130_system_accent_updates_without_changing_kind", async () => {
-  const { app } = await mount([]);
-  const kinds = () => [...document.querySelectorAll("[data-state]")].map(mark => [mark.getAttribute("data-tone"), mark.getAttribute("data-drawing"), mark.getAttribute("aria-label")]);
-  const before = kinds();
-  expect(before.length).toBeGreaterThan(0);
-  const root = document.documentElement;
-  expect(root.hasAttribute("data-system-accent")).toBe(false);
-  app.setSystemAccent([0.2, 0.4, 0.8]);
-  expect(root.hasAttribute("data-system-accent")).toBe(true);
-  const first = root.style.getPropertyValue("--system-accent-channels");
-  app.setSystemAccent([0.7, 0.3, 0.2]);
-  expect(root.style.getPropertyValue("--system-accent-channels")).not.toBe(first);
-  expect(kinds()).toEqual(before);
-  app.setSystemAccent(null);
-  expect(root.hasAttribute("data-system-accent")).toBe(false);
-  expect(root.style.getPropertyValue("--system-accent-channels")).toBe("");
-  cleanup();
-  app.setSystemAccent([0.2, 0.4, 0.8]);
-  expect(root.hasAttribute("data-system-accent")).toBe(false);
-});

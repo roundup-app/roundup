@@ -244,7 +244,13 @@ const resolveAt = (page: Page, el: Element, value: string, depth = 0): string =>
 };
 
 const colourTokens = (page: Page, el: Element): Rgba[] | null => {
-  const read = ["red", "amber", "accent"].map((name) => parseColour(resolveAt(page, el, `var(--${name})`)));
+  const names = ["red", "amber", "accent", "selected", "selected-hover"];
+
+  if (el.closest('.empty-state-art')) names.push("doodle-line", "doodle-patch");
+
+  if (el.closest('[data-button="primary"]')) names.push("button-accent-fill", "button-key-ink");
+
+  const read = names.map((name) => parseColour(resolveAt(page, el, `var(--${name})`)));
 
   // SAFETY: `every(Boolean)` has just shown no entry is null.
   return read.every(Boolean) ? (read as Rgba[]) : null;
@@ -668,10 +674,17 @@ const d12 = (page: Page): Measure => {
   for (const list of SHELF_LISTS) {
     const own = rows.filter((one) => one.list === list);
 
-    const indent = (row: Element) => list === "todos" && row.matches('[role="treeitem"]')
-      ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("tree-step") ?? page.token("space-5") ?? "0") : 0;
+    const indent = (row: Element) => {
+      const level = list === "pads" ? row.closest("[data-shelf-group]")?.getAttribute("aria-level") : row.getAttribute("aria-level");
 
-    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
+      return (Number(level ?? 1) - 1) * parseFloat(page.token("tree-step") ?? page.token("space-5") ?? "0");
+    };
+
+    const glyphs = own.flatMap(({ row }) => {
+      const glyph = row.querySelector(".shelf-glyph")?.firstElementChild;
+
+      return glyph ? [left(glyph) - indent(row)] : [];
+    });
 
     const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
@@ -697,7 +710,7 @@ const d12 = (page: Page): Measure => {
     }
 
     own.forEach(({ row }) => {
-      found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row });
+      found.push({ diff: glyphs.length ? Math.max(...glyphs) - Math.min(...glyphs) : 0, row });
 
       for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].filter(line => line.textContent?.trim() && !line.matches(".todo-group-status"))) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
     });
@@ -781,7 +794,13 @@ const d14 = (page: Page): Measure => {
       const previous = own[index]!;
 
       // The done fold begins another list; its separation is not a gap between neighbours.
-      if (listOf(one.row) === listOf(previous.row)) between.push(one.box.top - previous.box.bottom);
+      if (listOf(one.row) === listOf(previous.row)) {
+        const slot = listOf(one.row)?.querySelector(".sortable-slot")?.getBoundingClientRect();
+        // U3800a's destination is a visible row-sized slot, not empty spacing between rows.
+        const occupied = slot && slot.top >= previous.box.bottom && slot.bottom <= one.box.top ? slot.height : 0;
+
+        between.push(one.box.top - previous.box.bottom - occupied);
+      }
     });
 
     if (head && own[0]) heads.push(own[0].box.top - head.getBoundingClientRect().bottom);

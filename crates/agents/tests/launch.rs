@@ -177,7 +177,7 @@ fn a4_an_empty_variable_counts_as_unset() {
 }
 
 #[test]
-fn a4_the_argv_runs_claude_with_a_per_agent_settings_file() {
+fn a4452a_launch_argv_has_settings_and_no_prompt_argument() {
     let s = setup();
     let argv = s.prepare("7").unwrap();
     assert_eq!(argv[..2], ["fake-claude", "--settings"]);

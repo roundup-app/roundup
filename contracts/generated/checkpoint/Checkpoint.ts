@@ -6,7 +6,7 @@ export type Checkpoint = {
 	id: number,
 	workstream: string,
 	at: number,
-	/**  Complete, usable Marks in the Workstream’s current Iteration. */
+	/**  Complete, usable Marks for this Workstream. */
 	rewindable: boolean,
 	title: string,
 	blocks: checkpoint$Block.Block[],

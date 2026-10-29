@@ -157,17 +157,17 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       document.querySelectorAll('.import-check')[2].click();
       return true;
     })()`);
-    await lane.until("!!document.querySelector('.import-recovery [role=status]')");
+    await lane.until("!!document.querySelector('.import-panel [role=status][aria-label=\"Import choices conflict\"]')");
     await lane.capture("U3049a", "conflict");
     expect(await lane.calls("project.importCommit")).toEqual([]);
-    await lane.browser("focus", ".import-recovery button");
+    await lane.evaluate("[...document.querySelectorAll('.import-recovery button')].find(button => button.textContent === 'Open choices 1').focus()");
     await lane.browser("press", "Enter");
     await lane.until("document.querySelector('.import-confirm')?.disabled && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
     await lane.capture("U3049b", "recovered");
     await lane.evaluate(`(() => {
       const read = Storage.prototype.getItem;
       Storage.prototype.getItem = function(key) { if (key === 'roundup:import:/Users/you/harness') throw new Error('unreadable'); return read.call(this, key); };
-      document.querySelector('.import-recovery button').click();
+      [...document.querySelectorAll('.import-recovery button')].find(button => button.textContent === 'Open choices 1').click();
       return true;
     })()`);
     await lane.until("document.querySelector('.import-panel').textContent.includes('could not be restored')");
@@ -335,6 +335,21 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
     for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", headUrl]] as const) {
       await lane.browser("open", `${url}/harness.html?seed=tree-40`);
       await lane.until("!!document.querySelector('.todo-project-root')");
+      let legacyRevision: string | null = null;
+
+      if (phase === "retention") {
+        legacyRevision = await lane.evaluate<string>(`(async () => {
+          const { draftStorage } = await import('/src/state/storage.ts');
+          const holder = draftStorage('/Users/you/harness');
+          const legacy = holder.edit({surface:'orders',object:'tokens',recipient:'tokens'}, {title:'Orchard release',ask:'Exact retained Order /Users/authored/path',done:'Release checked'}, null, 'ordinary');
+          if (await legacy.retained) throw new Error('Legacy fixture was not retained');
+          return legacy.draft.revision;
+        })()`);
+        // A fresh App must restore the legacy record before storage starts failing.
+        await lane.browser("open", `${url}/harness.html?seed=tree-40`);
+        await lane.until("!!document.querySelector('.todo-project-root')");
+      }
+
       await lane.evaluate(`(async () => {
         const app = window.__fake.app;
         const tree = await app.rpc('rail.tree', null);
@@ -362,7 +377,14 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         document.querySelector('.todo-project-root').click();
         return true;
       })()`);
-      await lane.evaluate("window.dispatchEvent(new Event('focus'))");
+      await lane.evaluate(`(async () => {
+        const { projectMenu } = await import('/src/testing/menuProbe.ts');
+        for (const command of ['view:reactions', 'view:made']) {
+          if (!projectMenu.items.some(item => item.id === command && item.enabled)) throw new Error('Native menu action unavailable: ' + command);
+          window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command}}));
+        }
+        window.dispatchEvent(new Event('focus'));
+      })()`);
       await lane.until("document.querySelectorAll('.reaction-row').length === 7 && document.querySelectorAll('.made-row').length === 2");
 
       if (phase === "names") {
@@ -407,6 +429,11 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       }
 
       if (phase === "retention") {
+      // Requested Ask sections become an overlay on Rail selection; close them before editing there.
+      await lane.browser("find", "role", "button", "click", "--name", "Close Made");
+      await lane.until("!document.querySelector('.made-row')");
+      await lane.browser("find", "role", "button", "click", "--name", "Close Named reactions");
+      await lane.until("!document.querySelector('.reaction-row')");
       await lane.evaluate(`(() => {
         Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
         document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
@@ -414,11 +441,12 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       })()`);
       await lane.until("!!document.querySelector('.spawn-prompt-field')");
       await lane.browser("fill", ".spawn-prompt-field", "Exact retained task /Users/authored/path");
-      await lane.until("!!document.querySelector('.rail-retention [role=alert]')");
-      await lane.browser("click", '.rail [data-id="backend"] [data-part="branch-control"]');
-      await lane.until("!!document.querySelector('.rail-task-target')");
+      await lane.until("!!document.querySelector('.rail-command-notice [role=alert]')");
+      await lane.browser("click", '.rail-row[data-id="backend"]');
+      await lane.until("!!document.querySelector('.rail-tree .reserved-line[role=status]')");
       await capture("U3299c", side!, "retained-task");
       await lane.browser("focus", ".spawn-prompt-field");
+      await lane.until("document.activeElement === document.querySelector('.spawn-prompt-field')");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.spawn-prompt-field')");
       await lane.browser("click", ".todo-project-root");
@@ -433,33 +461,47 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await capture("U3299c", side!, "retained-todo");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.capture')");
+
+      if (await lane.evaluate("document.querySelector('.window')?.dataset.shelf !== 'open'")) {
+        await lane.browser("press", "Meta+k");
+        await lane.browser("press", "s");
+      }
+
+      await lane.until("document.querySelector('.window')?.dataset.shelf === 'open'");
       await lane.browser("click", "#shelf-tab-pads");
       await lane.until("!!document.querySelector('.pads-tab')");
       await lane.browser("click", '[aria-label="Add Pad"]');
       await lane.until("!!document.querySelector('.pads-tab .entry-field')");
       await lane.browser("fill", ".pads-tab .entry-field", "Original Pad name");
-      await lane.until("!!document.querySelector('.pad-retention-shelf')");
+      await lane.until("!!document.querySelector('.pads-tab [role=alert]')");
       await capture("U3299c", side!, "retained-pad-name");
       await lane.browser("press", "Escape");
       await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) group.click(); return true; })()`);
       await lane.until("!!document.querySelector('.pad-name')");
       await lane.browser("find", "role", "button", "click", "--name", "retained-notes");
+      await lane.until("document.activeElement?.matches('.pad-name')");
+      await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer [contenteditable=true]')");
       await lane.browser("fill", ".drawer [contenteditable=true]", "Exact retained Pad body /Users/authored/path");
-      await lane.until("!!document.querySelector('.drawer .pad-retention')");
+      await lane.until("!!document.querySelector('.drawer .pad-body [role=alert]')");
       await capture("U3299c", side!, "retained-pad-body");
       await lane.browser("click", ".drawer .close");
       await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");
-      await lane.browser("click", '.rail [data-id="tokens"]');
-      await lane.until("!!document.querySelector('.order-line, [aria-label=\"Edit order\"]')");
-      await lane.evaluate(`(() => { const edit = document.querySelector('[aria-label="Edit order"]'); if (edit) edit.click(); else document.querySelector('.order-line').click(); return true; })()`);
-      await lane.until("!!document.querySelector('.order-edit, [aria-label=\"Edit order\"]')");
-      await lane.evaluate(`(() => { if (!document.querySelector('.order-edit')) document.querySelector('[aria-label="Edit order"]').click(); return true; })()`);
-      await lane.until("!!document.querySelector('.order-edit textarea[name=ask]')");
-      await lane.browser("fill", ".order-edit textarea[name=ask]", "Exact retained Order /Users/authored/path");
-      await lane.until("!!document.querySelector('.order-edit-retention')");
+      // U4453b retired Order editing; the same authored revision remains in shared recovery.
+      await lane.evaluate(`(() => {
+        window.__auditLegacy = ${JSON.stringify(legacyRevision)};
+        window.__fake.app.menuChoice = 'recover';
+        return true;
+      })()`);
+      await lane.browser("focus", ".todo-project-root");
+      await lane.browser("press", "Shift+F10");
+      await lane.until("!!document.querySelector('[aria-label=\"Unfinished work\"] [data-revision=\"' + window.__auditLegacy + '\"]')");
       await capture("U3299c", side!, "retained-order");
-      await lane.browser("press", "Escape");
+      await lane.evaluate("[...document.querySelectorAll('[data-revision=\"' + window.__auditLegacy + '\"] button')].find(button => button.textContent === 'Copy').click()");
+      await lane.until("window.__fake.app.clipboardWrites.at(-1)?.includes('Exact retained Order /Users/authored/path')");
+      expect(await lane.calls("agent.setOrder")).toEqual([]);
+      await lane.browser("click", ".drawer .close");
+      await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");
       await lane.browser("click", ".todo-project-root");
       await lane.until("!!document.querySelector('.ask-input')");
       await lane.browser("click", "#shelf-tab-todos");
@@ -474,7 +516,8 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         return true;
       })()`);
       await lane.until("!!document.querySelector('.todo-row-button')");
-      await lane.browser("click", ".todo-row-button");
+      await lane.browser("focus", ".todo-row-button");
+      await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-history-line')");
       await lane.browser("click", ".todo-history-line");
       await lane.until("document.querySelectorAll('.todo-change').length >= 2");

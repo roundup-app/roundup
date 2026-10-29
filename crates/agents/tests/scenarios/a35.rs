@@ -164,7 +164,6 @@ pub(super) async fn resumes_copy(door: bool) {
         out.stdout
     };
     let branch = git_state(&mark.worktree);
-    let tree_before = f.tree().await;
     crate::common::fake_claude(
         f.dir.path(),
         &format!(
@@ -203,21 +202,6 @@ pub(super) async fn resumes_copy(door: bool) {
     assert_eq!(after.worktree, before.worktree);
     assert_eq!(after.model, before.model);
     assert_eq!(after.effort, before.effort);
-    assert_eq!(after.iteration, before.iteration);
-    let tree_after = f.tree().await;
-    for home in tree_before
-        .iter()
-        .filter(|n| n.kind == contracts::agent::NodeKind::Workstream)
-    {
-        assert_eq!(
-            tree_after
-                .iter()
-                .find(|n| n.id == home.id)
-                .unwrap()
-                .iteration,
-            home.iteration
-        );
-    }
     assert_eq!(git_state(&cwd_from_node(&after)), branch);
     assert_eq!(after.status.unwrap().kind, Kind::Idle);
     assert_eq!(fs::read(original).unwrap(), bytes);
@@ -294,7 +278,7 @@ async fn a35_agent_resumes_a_mark_copy_without_changing_its_rail_or_files() {
     resumes_copy(false).await;
 }
 #[tokio::test]
-async fn a35_door_resumes_a_mark_copy_without_advancing_iteration() {
+async fn a35_door_resumes_a_mark_copy() {
     resumes_copy(true).await;
 }
 
@@ -453,193 +437,6 @@ async fn typed(f: &Fixture, expected: &str) -> String {
     .unwrap()
 }
 
-async fn reserved_prompt(star_before_ack: bool) {
-    let (f, before, mark) = fixture(true).await;
-    crate::common::fake_claude(f.dir.path(), crate::common::GATED);
-    // The fake lets this observer choose either order of the two readiness inputs.
-    let restarting = {
-        let f = Arc::clone(&f);
-        tokio::spawn(async move {
-            let mut progress = MarkResume::new(mark, Some("rewind note".into()));
-            f.agents.resume_mark(&f.ctx(), &mut progress).await
-        })
-    };
-    f.until_attempt_changed(&before.id, before.attempt.as_deref().unwrap())
-        .await;
-    until_file(&f.dir.path().join("ready")).await;
-    // GATED publishes ready before its background reader opens dropped. Wait for that
-    // reader before star can kill it, so the final assertion observes all early input.
-    let dropped = f.dir.path().join("dropped");
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            match fs::read(&dropped) {
-                Ok(_) => break,
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                    tokio::task::yield_now().await;
-                }
-                Err(error) => panic!("{} could not be read: {error}", dropped.display()),
-            }
-        }
-    })
-    .await
-    .unwrap_or_else(|_| panic!("{} was never written", dropped.display()));
-    assert!(matches!(
-        f.agents.prompt(&before.id, "pending Message").await,
-        Err(agents::PromptError::Busy { .. })
-    ));
-    let id = copies(&f, &conversation_cwd(&f, &before.id).await)[0]
-        .file_stem()
-        .unwrap()
-        .to_string_lossy()
-        .into_owned();
-    if star_before_ack {
-        crate::common::star(f.dir.path());
-        tokio::time::timeout(Duration::from_secs(10), async {
-            loop {
-                if f.terminals.list().iter().any(|t| {
-                    t.running && t.title.as_ref().is_some_and(|title| title.starts_with('✳'))
-                }) {
-                    break;
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
-        // Terminal's Title wakes the watcher spawned by Agents::resume_conversation
-        // (crates/agents/src/lib.rs); let that queued task consume it before the hook.
-        tokio::task::yield_now().await;
-        acknowledge(&f, &before.id, ORIGINAL, "resume")
-            .await
-            .unwrap();
-        assert!(
-            !restarting.is_finished(),
-            "a mismatched parked hook is not the ack"
-        );
-    }
-    acknowledge(&f, &before.id, &id, "resume").await.unwrap();
-    let after = restarting.await.unwrap().unwrap();
-    assert_eq!(after.status.unwrap().kind, Kind::Idle);
-    assert!(matches!(
-        f.agents.prompt(&before.id, "pending Message").await,
-        Err(agents::PromptError::Busy { .. })
-    ));
-    crate::common::star(f.dir.path());
-    let paste = |text| format!("{}\x1b[200~{text}\x1b[201~\r", agents::claude_code::LEAD_IN);
-    let first = paste("rewind note");
-    assert_eq!(typed(&f, &first).await, first);
-    assert!(matches!(
-        f.agents.prompt(&before.id, "pending Message").await,
-        Err(agents::PromptError::Busy { .. })
-    ));
-    signal(
-        &f,
-        &before.id,
-        json!({"hook_event_name": "UserPromptSubmit", "prompt": "rewind note"}),
-    )
-    .await;
-    signal(&f, &before.id, json!({"hook_event_name": "Stop"})).await;
-    let mut delivery = Box::pin({
-        let f = Arc::clone(&f);
-        let id = before.id.clone();
-        async move { f.agents.prompt(&id, "pending Message").await }
-    });
-    // Poll in the idle Signal's turn, before the first Steer's awakened task can clear
-    // its reservation. Busy here would strand a Message with no later idle to wake it.
-    std::future::poll_fn(|cx| {
-        assert!(delivery.as_mut().poll(cx).is_pending());
-        std::task::Poll::Ready(())
-    })
-    .await;
-    let delivery = tokio::spawn(delivery);
-    let both = format!("{first}{}", paste("pending Message"));
-    assert_eq!(typed(&f, &both).await, both);
-    signal(
-        &f,
-        &before.id,
-        json!({"hook_event_name": "UserPromptSubmit", "prompt": "pending Message"}),
-    )
-    .await;
-    delivery.await.unwrap().unwrap();
-    assert_eq!(fs::read(dropped).unwrap(), b"");
-}
-
-#[tokio::test]
-async fn a35_idle_after_an_early_ack_waits_for_the_reserved_physical_write() {
-    let (arrived, mut arrival) = tokio::sync::mpsc::unbounded_channel();
-    let (release, released) = std::sync::mpsc::channel();
-    let released = std::sync::Mutex::new(released);
-    let first = std::sync::atomic::AtomicBool::new(true);
-    let (f, before, mark) = fixture_with_agents(true, None, |agents| {
-        agents.with_steer_effect(move |_| {
-            if first.swap(false, std::sync::atomic::Ordering::SeqCst) {
-                arrived.send(()).unwrap();
-                released.lock().unwrap().recv().unwrap();
-            }
-            Ok(())
-        })
-    })
-    .await;
-    crate::common::fake_claude(f.dir.path(), crate::common::GATED);
-    let restarting = {
-        let f = Arc::clone(&f);
-        tokio::spawn(async move {
-            let mut progress = MarkResume::new(mark, Some("rewind note".into()));
-            f.agents.resume_mark(&f.ctx(), &mut progress).await
-        })
-    };
-    f.until_attempt_changed(&before.id, before.attempt.as_deref().unwrap())
-        .await;
-    until_file(&f.dir.path().join("ready")).await;
-    let copied = selected_copy(&f, &before).await;
-    acknowledge(&f, &before.id, &copied, "resume")
-        .await
-        .unwrap();
-    restarting.await.unwrap().unwrap();
-    crate::common::star(f.dir.path());
-    arrival.recv().await.unwrap();
-    signal(
-        &f,
-        &before.id,
-        json!({"hook_event_name": "UserPromptSubmit", "prompt": "rewind note"}),
-    )
-    .await;
-    signal(&f, &before.id, json!({"hook_event_name": "Stop"})).await;
-    let attempt = f.attempt(&before.id).await;
-    let mut completion = Box::pin(f.agents.first_steer_completion(&before.id, &attempt));
-    let mut delivery = Box::pin(f.agents.prompt(&before.id, "pending Message"));
-    std::future::poll_fn(|cx| {
-        assert!(completion.as_mut().poll(cx).is_pending());
-        assert!(delivery.as_mut().poll(cx).is_pending());
-        std::task::Poll::Ready(())
-    })
-    .await;
-    assert_eq!(
-        fs::read(f.dir.path().join("typed")).unwrap_or_default(),
-        b""
-    );
-    release.send(()).unwrap();
-    let both = format!(
-        "{}\x1b[200~rewind note\x1b[201~\r{}\x1b[200~pending Message\x1b[201~\r",
-        agents::claude_code::LEAD_IN,
-        agents::claude_code::LEAD_IN
-    );
-    let (delivered, ()) = tokio::join!(delivery, async {
-        assert_eq!(typed(&f, &both).await, both);
-        signal(
-            &f,
-            &before.id,
-            json!({"hook_event_name": "UserPromptSubmit", "prompt": "pending Message"}),
-        )
-        .await;
-    });
-    delivered.unwrap();
-    assert_eq!(
-        completion.await,
-        Ok(agents::FirstSteerCompletion::Submitted)
-    );
-}
-
 async fn conversation_cwd(f: &Fixture, id: &str) -> String {
     let node = f.tree().await.into_iter().find(|n| n.id == id).unwrap();
     node.worktree.unwrap().path
@@ -707,16 +504,6 @@ async fn a35_losing_the_acknowledged_result_does_not_restart_on_retry() {
             .count(),
         1
     );
-}
-
-#[tokio::test]
-async fn a35_reserved_door_prompt_precedes_messages_through_agents_prompt() {
-    reserved_prompt(false).await;
-}
-
-#[tokio::test]
-async fn a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first() {
-    reserved_prompt(true).await;
 }
 
 async fn selected_copy(f: &Fixture, node: &RailNode) -> String {

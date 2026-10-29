@@ -14,7 +14,7 @@ those seams rather than adding a queue or another Adapter seam.
 
 | Status | Meaning | Leaves it by |
 |---|---|---|
-| `pending` | awaits transport and receipt when the current Attempt is delivery-ready (`idle` or B37's live `error`), or while its inbox check fails | acknowledged (`delivered`), `message.drop`, or the receiver exits (`dropped`) |
+| `pending` | awaits transport and receipt when the current Attempt is delivery-ready (`idle`, A33's Todo-blocked idle, or B37's live `error`), or while its inbox check fails | acknowledged (`delivered`), `message.drop`, or the receiver exits (`dropped`) |
 | `delivered` | receipt acknowledged by the Agent on the selected transport, or stored for the user (B10) | final |
 | `dropped` | ended without delivery, with a reason | final |
 
@@ -54,7 +54,9 @@ Gates and observers: P1/P11 require zero Message writes to Terminal input, so na
 ## B37 lifecycle-to-model mapping
 
 The model's `Idle` event and `World.idle` mean delivery readiness, not a literal
-Kind. For the current Attempt, a running Terminal at `idle` or at `error` after
+Kind. A33 presents an idle Terminal waiting on a Todo as `blocked`; it remains
+inbox-ready for ordinary Message delivery without Terminal input.
+For the current Attempt, a running Terminal at `idle` or at `error` after
 `StopFailure` is delivery-ready. Kind `error` alone is not evidence of ending.
 The Attempt identity and authoritative ending facts must be checked before
 projecting Status into model events; a Status observation cannot revive an ended
@@ -160,7 +162,7 @@ The coordinator must complete a successful next Attempt with the same key; a
 reopen alone never releases a reservation or repeats a prompt.
 
 `record_restart_prompt` records the exact reserved lifecycle text as one delivered
-`you`/`note`, without calling Deliver/Steer, changing Iteration or rewriting earlier
+`you`/`note`, without calling Deliver/Steer or rewriting earlier
 Thread records. The reservation and Message id commit atomically. A Touch failure
 or injected recording/publication failure can be retried: the existing note and
 user's wrote Touch are reused. Successful recording emits normal `message.sent`
@@ -337,3 +339,7 @@ refuses with the cause and only the separate `agent.resume` can start it. A succ
 delivered as an instruction revision continues the instruction: reports before it stay
 current. This guarantees one decision-to-Message identity, never exactly-once external
 effects. M1, M4–M10 and Routes are unchanged; `proofs/messages` needs no change.
+
+### A4452c fresh Door session
+
+`workstream.restart {id, request}` is user-only; retries retain `request`. It reserves A35's immutable Opening prompt before stopping only the Door. The Workstream, children, Todos and Pads remain. After matching SessionStart, only the saved Opening prompt is typed verbatim once; without one the session starts idle. Context uses the inbox. Persisted Starting and Typing fences refuse uncertain effects instead of replaying them. An acknowledged prompt is recorded through `record_restart_prompt`; recording retries never type. Plain resume and Rewind type nothing. This extends the A35 reservation without changing M1–M10 or Route, Held and Takeover semantics.

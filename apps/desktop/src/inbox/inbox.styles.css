@@ -40,3 +40,5 @@
 .inbox-row[data-button]:hover { color: var(--ink-rest-selected); }
 .inbox-row:is([data-selected="true"], :focus-visible) { background: var(--selected); color: var(--text); }
 .inbox-row:is([data-selected="true"], :focus-visible):hover { background: var(--selected-hover); color: var(--text); }
+
+.inbox { flex: 1; min-height: 0; }

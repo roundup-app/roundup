@@ -23,10 +23,10 @@ impl Fixture {
 }
 
 #[tokio::test]
-async fn a9_an_agent_is_new_agent_until_its_first_prompt_names_it() {
+async fn a4452b_first_user_message_is_the_users_words() {
     let mut f = Fixture::running("sleep 30");
     let node = f
-        .spawn(None, Some("Fix the refresh race in token.ts"))
+        .spawn(None, Some("roundup coordination must not name this agent"))
         .await
         .unwrap();
     assert_eq!(node.name, "new-agent");

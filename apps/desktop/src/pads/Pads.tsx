@@ -4,10 +4,8 @@ import { captureFocus, queueFocus } from "../keys/focus";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
-import { IconButton } from "../ui/IconButton";
 import { NameField, Editable } from "../ui/Editable";
 import { createCutTitle } from "../ui/cutTitle";
-import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
@@ -26,12 +24,12 @@ import { type ConnectedProject, useConnectedProject, useCreation } from "../stat
 import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
 import { USER } from "./owner";
-import { shownPads } from "./shownPads";
+import { padGroups, shownPads } from "./shownPads";
 import { shelfScope } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { OwnerPicker } from "../todos/OwnerPicker";
-import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
+import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { Sortable } from "../ui/sortable";
 import { CHORDS, TEXT_FIELDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -168,14 +166,18 @@ export const Pads = (props: {
   };
 
   const shown = shownPads(connected, list);
+  const groups = createMemo(() => padGroups(connected, shown()));
+  const flatGroups = () => groups().flatMap(group => [group, ...(group.children ?? [])]);
+  const requestedGroup = () => flatGroups().find(group => group.actor?.kind === "agent" && group.actor.id === connected.padsRequest() && group.items.length > 0)?.id ?? null;
 
   const selection = createSelection(() => shown().map((pad) => pad.incarnation), () => connected.rail.selected() ?? "overview", incarnation => document.querySelector<HTMLButtonElement>(`.pads-tab [data-incarnation="${CSS.escape(incarnation)}"] .pad-name`));
 
   const bulk = createBulkDelete({
     app: connected.app,
+    rail: connected.rail,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
-    targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
+    targets: () => shown().map((pad) => ({ id: pad.incarnation, label: pad.name, owner: pad.owner })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
     blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
@@ -205,6 +207,19 @@ export const Pads = (props: {
     },
     remove: name => bulk.ask(false, name),
   });
+
+  let lifted: Pad | undefined;
+
+  const reorder = async (ids: string[]) => {
+    const source = lifted;
+
+    if (!source || !pads().some(pad => pad.incarnation === source.incarnation && pad.name === source.name)) return;
+    const before = ids[ids.indexOf(source.name) + 1] ?? null;
+    const message = await failureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
+
+    reportItemFailure(source, message, copy.movePad(source.name));
+    await list.reload();
+  };
 
   const [dragging, setDragging] = createSignal(false);
   const [picking, pick] = createSignal<{ id: string; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
@@ -292,12 +307,12 @@ export const Pads = (props: {
     target: (name: string, x: number, y: number) => {
       const own = padOf(name);
 
-      for (const element of document.querySelectorAll<HTMLElement>(".pads-tab [data-shelf-group]")) {
+      for (const element of [...document.querySelectorAll<HTMLElement>(".pads-tab [data-shelf-group]")].toReversed()) {
         const box = element.getBoundingClientRect();
 
         if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
         const group = element.dataset.shelfGroup!;
-        const found = ownersOnRail(connected).find(each => each.id === group);
+        const found = flatGroups().find(each => each.id === group);
 
         // Unassigned is no owner a Pad can take, the own group is no change, and a group that left the Rail takes nothing.
         if (!found || found.actor === null || !own || sameOwner(found.actor, own.owner)) return null;
@@ -320,6 +335,13 @@ export const Pads = (props: {
     setNaming(true);
   });
 
+  const openField = () => {
+    failure.clear();
+
+    if (!revision) home = scope.home();
+    setNaming(true);
+  };
+
   const isEmpty = createMemo(() => list.loaded() && shown().length === 0);
 
   return (
@@ -332,10 +354,7 @@ export const Pads = (props: {
           class="shelf-add"
           ref={(button) => (plusButton = button)}
           onClick={() => {
-            failure.clear();
-
-            if (!revision) home = scope.home();
-            setNaming(true);
+            openField();
           }}
         >
           <Icon name="plus" />
@@ -350,10 +369,10 @@ export const Pads = (props: {
         <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
 
       </Show></ReservedLine>
-      <Show when={isEmpty() && !naming()}>
-        <EmptyState icon="order" heading={copy.noPadsYet} hint={copy.noPadsHint} />
+      <Show when={isEmpty() && !naming() && !failure.message() && !list.failure() && !itemFailure()}>
+        <EmptyState art="reading-side" {...{ title: copy.noPadsYet }} line={copy.emptyPadsLine} action={<button type="button" data-button="primary" onClick={() => openField()}>{copy.addPadWord}</button>} />
       </Show>
-      <OwnerGroups groups={() => ownerGroups(connected, shown(), pad => pad.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} reveal={() => null}>{group => <PadRows
+      <OwnerGroups groups={groups} dragging={dragging} reveal={() => null} focus={requestedGroup} onFocused={connected.finishPadsRequest}>{group => <PadRows
         selection={selection}
         bulk={bulk}
         pads={pads}
@@ -374,6 +393,8 @@ export const Pads = (props: {
           target: dropOwner.target,
           onDropOutside: (name, target) => void assign(name, target.owner, true),
         }}
+        onOrderChange={ids => void reorder(ids)}
+        onLift={pad => { lifted = { ...pad }; }}
         onDrag={setDragging}
       />}</OwnerGroups>
       <OwnerPicker label={name => copy.ownersForPad(name ?? "")} target={picking} offers={offers} choose={(name, owner) => void assign(name, owner, true)} close={stopPicking} />
@@ -429,12 +450,14 @@ const PadRows = (props: {
   clearFailure: (incarnation: string) => void;
   rowButtons: Map<string, HTMLButtonElement>;
   external: { attribute: string; target: (name: string, x: number, y: number) => OwnerTarget | null; onDropOutside: (name: string, target: OwnerTarget) => void };
+  onOrderChange: (ids: string[]) => void;
+  onLift: (pad: Pad) => void;
   onDrag: Setter<boolean>;
 }) => (
-    <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} external={props.external} onDrag={props.onDrag}>
+    <Sortable.Root class="shelf-list" plain ids={props.shown().map(pad => pad.name)} onOrderChange={props.onOrderChange} external={props.external} onDrag={props.onDrag}>
       <For each={props.shown()}>
         {(pad, at) => (
-          <Sortable.Item id={pad.name} index={at()} pressable>{parts => <PadRow pad={pad} parts={parts} {...props} />}</Sortable.Item>
+          <Sortable.Item id={pad.name} index={at()}>{parts => <PadRow pad={pad} parts={parts} {...props} />}</Sortable.Item>
         )}
       </For>
     </Sortable.Root>
@@ -456,7 +479,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
 
   const open = (source: "key" | "pointer") => {
     const name = pad.name;
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message)} onFailureCleared={() => props.onItemFailure(pad, null)} />, source);
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message)} onFailureCleared={() => props.onItemFailure(pad, null)} />, source, { kind: "pad", project: connected.project.path });
   };
 
   const rename = () => { if (pad.owner.kind === "user") setEditing(true); else props.onItemFailure(pad, copy.renamePadOwnership); };
@@ -480,6 +503,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             data-selected={props.selection.selected().includes(pad.incarnation) ? "true" : undefined}
             data-shelf-row
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+              { id: "open", label: copy.openDraft, run: () => open("pointer") },
               { id: "assign", label: copy.assign, enabled: ownersToOffer(connected, pad.owner).length > 0, run: () => { if (row) props.onAssign(pad.name, row); } },
               ...(pad.owner.kind === "user" ? [] : [{ id: "make-yours", label: copy.makeYours, run: () => props.onMakeYours(pad.name) }]),
               ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message), () => props.onItemFailure(pad, null), copied),
@@ -501,7 +525,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               ref={(element) => {
                 row = element;
                 props.selection.register(pad.incarnation, element);
-                props.parts.handleRef(element ?? undefined);
 
                 if (element) props.rowButtons.set(pad.name, element);
                 else props.rowButtons.delete(pad.name);
@@ -527,7 +550,9 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : pad.name}</span>
             </button>
             </Show>
-            <span class="row-controls"><IconButton aria-label={copy.openDraft} onClick={event => open(activationSource(event))}><Icon name="right" /></IconButton></span>
+            <Show when={!editing()}>
+              <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} onLift={() => props.onLift(pad)} />
+            </Show>
             </div>
             <ReservedLine overlay message={failed()}><button data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.dismiss}</button></ReservedLine>
           </ShelfRow>

@@ -3,6 +3,10 @@
 import type * as agent$PermissionMode from "./PermissionMode";
 /**  A36: `rail.startDoor`, with the Door's own Model and Effort when the caller sets them. */
 export type StartDoorParams = {
+	/**  U4590: initial PTY columns; absent keeps the hostless 80-column default. */
+	cols?: number,
+	/**  U4590: initial PTY rows; absent keeps the hostless 24-row default. */
+	rows?: number,
 	/**  U3801: only the user selects permissions for this launch; omission keeps vendor defaults. */
 	permissionMode?: agent$PermissionMode.PermissionMode,
 	/**  U3802: an opaque engine id from `models.list`; omission keeps the current Adapter. */
