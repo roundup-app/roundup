@@ -249,3 +249,7 @@ stream between chunks for as long as the chunk took (at most 8 ms), holding a
 flooding Terminal to half the thread. `r21_backlogged_output_rests_as_long_as_each_chunk_took`
 proves the rest. This is unmeasured natively: no <16 ms claim until one Mac
 `just perf-keystroke --flood` rerun reports.
+
+### Flood render work, adaptive chunks (#3550)
+
+At `81d638f0` the flood misses (p95 19–20 ms) with parsed→frame the largest hop (12–13 ms against 7–8 idle). A parse cannot be interrupted, so the flooding Terminal's chunk is now sized from how fast the previous one parsed, to about 3 ms (512 to 8192 bytes), instead of a fixed 8 KB that could hold the thread for 8 ms before the typed echo's frame. The rest between chunks is unchanged. Proof without a window: `r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind`. No after-repair timing is claimed until the owner's Mac run.
