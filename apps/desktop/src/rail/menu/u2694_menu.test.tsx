@@ -281,7 +281,6 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           const todo = (await app.rpc('todo.list', null))[0];
           await app.rpc('todo.assign', { id: todo.id, owner: { kind: 'user', id: 'you', parent: null } });
           const pad = (await app.rpc('pad.list', null))[0];
-          await app.rpc('pad.setOwner', { name: pad.name, owner: { kind: 'user', id: 'you', parent: null } });
           const pads = await app.rpc('pad.list', null);
           app.handlers['pad.list'] = () => pads.filter(item => item.name === pad.name);
           app.handlers['rail.tree'] = () => [];
@@ -329,11 +328,11 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       expect(screen.queryByRole("combobox")).toBeNull();
       expect(actionCalls(app)).toEqual([]);
     } },
-    { name: "Pad assignment: Me is its only owner", run: async () => {
+    { name: "Shared Pads offer no assignment", run: async () => {
       const { app, connected } = await openShelf([padOf("mine", USER)]);
       app.handlers["rail.tree"] = () => [];
       await connected.rail.refresh();
-      const me = document.querySelector<HTMLElement>('[data-shelf-group="me"] [data-part="branch-control"]');
+      const me = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
       if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
       screen.getByRole("button", { name: "mine" }).focus();
@@ -355,7 +354,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       const { app, connected } = await mountTodos([todo(1, { owner: USER, title: "review" })]);
       app.handlers["rail.tree"] = () => [];
       await connected.rail.refresh();
-      const me = document.querySelector<HTMLElement>('[data-shelf-group="me"] [data-part="branch-control"]');
+      const me = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
       if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
       const button = await screen.findByRole("button", { name: /Idle #1 / });

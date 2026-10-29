@@ -227,7 +227,7 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("wait", "--fn", `${padCalls}.length===1 && ${padOrder}[0]===${JSON.stringify(second)}`);
   const accepted = await read<string[]>(padOrder);
   expect(accepted).toEqual([second, first]);
-  expect(await read<string[]>("(async()=> (await window.__fake.app.rpc('pad.list',null)).filter(p=>p.owner.kind==='user').map(p=>p.name))()")).toEqual(accepted);
+  expect(await read<string[]>("(async()=> (await window.__fake.app.rpc('pad.list',null)).map(p=>p.name))()")).toEqual(accepted);
   expect(await read<string>(`${padCalls}[0].params.name`)).toBe(first);
   expect(await read<unknown[]>("window.__fake.app.calls.filter(c=>['pad.rename','pad.write','pad.setOwner'].includes(c.method))")).toEqual([]);
   expect(await read<number>("document.querySelectorAll('[role=dialog],.pad-body').length")).toBe(0);

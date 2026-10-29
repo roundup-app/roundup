@@ -457,7 +457,6 @@ export type pad_PadName = { name: string, };
 
 export type pad_RenameParams = { name: string, newName: string, expectedIncarnation: string, };
 
-export type pad_SetOwnerParams = { name: string, owner: Actor, };
 
 export type pad_SetStorageParams = { files: boolean, };
 
@@ -1029,7 +1028,6 @@ export type Before = {
   "pad/Pad": pad_Pad;
   "pad/PadName": pad_PadName;
   "pad/RenameParams": pad_RenameParams;
-  "pad/SetOwnerParams": pad_SetOwnerParams;
   "pad/SetStorageParams": pad_SetStorageParams;
   "pad/WriteParams": pad_WriteParams;
   "project/AgentResources": project_AgentResources;
@@ -1206,7 +1204,6 @@ export type BeforeRpcMethods = {
   "pad.write": { params: pad_WriteParams; result: pad_Pad };
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
   "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };
-  "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_DeleteParams; result: pad_Deletion };
   "pad.getDeletion": { params: pad_GetDeletionParams; result: pad_Deletion };

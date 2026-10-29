@@ -18,7 +18,7 @@ it("u3736_home_moves_regroup_the_same_pad_without_assignment", async () => {
   await lane.evaluate(`window.__fake.app.rpc('pad.move', {name:'pad-0',home:${JSON.stringify(home)}})`);
   await lane.until(`document.querySelector('.pads-tab [data-pad="pad-0"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(home)}`);
   expect(await lane.evaluate(`window.__fake.app.rpc('pad.read', {name:'pad-0'}).then(pad => ({incarnation:pad.incarnation,text:pad.text}))`)).toEqual(pad && { incarnation: pad.incarnation, text: pad.text });
-  await lane.evaluate(`window.__fake.app.failNext(-32003, 'A Pad with this name already exists. Choose another name.')`);
+  await lane.evaluate(`window.__fake.failNext(-32003, 'A Pad with this name already exists. Choose another name.')`);
   await lane.browser("click", "button[aria-label='Add Pad']");
   await lane.browser("fill", "input[aria-label='Pad name']", "pad-0");
   await lane.browser("press", "Enter");

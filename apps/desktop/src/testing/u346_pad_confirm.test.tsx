@@ -144,7 +144,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await browser("wait", "[data-state=saved]");
     const expected = `Reviewed ${visualSource}`;
 
-    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, owner: { kind: "agent" } });
+    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2 });
     await browser("click", ".drawer .close");
     await real.restart();
     await openRealPad();
