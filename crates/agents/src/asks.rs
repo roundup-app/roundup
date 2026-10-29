@@ -734,3 +734,7 @@ impl Asks {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "asks/readiness_tests.rs"]
+mod readiness_tests;
