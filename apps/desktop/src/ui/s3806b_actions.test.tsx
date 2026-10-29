@@ -227,6 +227,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   if (row.owner !== "Rail") {
     expect(queryDraft).toHaveLength(1);
     expect(queryDraft[0]).toMatchObject({ destination: { surface: "switcher", object: path("first"), recipient: null }, value: { query } });
+
     if (outcome === "reject-before-switch") {
       reply.reject(new RpcError(-32000, `${row.label} late rejection`));
       await waitFor(() => expect(document.body.textContent).toContain(`${row.label} late rejection`));
