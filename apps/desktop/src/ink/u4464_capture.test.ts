@@ -47,7 +47,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
   };
 
   try {
-    await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-prefers-contrast=more" : ""}`, "open", origin);
+    await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", `--no-sandbox${process.env.U4464_CONTRAST ? ",--force-high-contrast,--disable-blink-features=ForcedColors" : ""}`, "open", origin);
     await browser("set", "viewport", "1512", "950");
 
     for (const theme of ["light", "dark"]) {
@@ -112,6 +112,12 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Creation rejected')`);
       await snap(`${theme}-dense-failure`);
       expect(await read(`document.querySelectorAll('[role=alert]').length`)).toBe(1);
+      await load("empty-project");
+      await browser("press", "Meta+Comma");
+      await wait(`!!document.querySelector('.app-combobox-input')`);
+      await browser("focus", '.app-combobox-input');
+      await wait(`document.activeElement.matches('.app-combobox-input:focus-visible')`);
+      await snap(`${theme}-form-ring`);
     }
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
