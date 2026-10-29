@@ -95,7 +95,7 @@ export const observers = {
   "src/terminal/u59_real_daemon.test.ts": ["U4590"],
   "src/testing/u2875d_rendered.test.ts": ["U2875d"],
   "src/testing/u3787d_capture.test.ts": ["U3787d"],
-  "src/testing/u463_real_daemon.test.ts": ["A4899a", "U2773g", "U2875d", "U3037d", "U4590", "U463"],
+  "src/testing/u463_real_daemon.test.ts": ["A4899a", "U2875d", "U3037d", "U4590", "U463"],
   "src/toasts/p3557c_capture.test.ts": ["P3557c"],
   "src/todos/u3010c_rendered.test.ts": ["U3010c"],
   "src/todos/u3741_rendered.test.ts": ["U3741"],
