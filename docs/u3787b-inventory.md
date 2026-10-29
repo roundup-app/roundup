@@ -168,7 +168,8 @@ obsolete component mount. The real Tauri event proof
 `u2539b_native_menu_projects_the_task_chords` now forwards Help/F2 in two Projects;
 `u3787b_plain_key_commands_register_no_accelerator` adds both hints.
 
-The inventory observer now also visits Shelf and triage focus. Settings remains
+The Rail inventory observer now requires F2. Complete Shelf and triage inventory
+coverage remains open; the inherited Shelf menu/delete proof remains intact. Settings stays
 the standard application menu's `app-settings` event, with equivalence proved by
 `u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups`.
 Configured Capture remains covered by #4278's existing
@@ -192,3 +193,9 @@ expose predefined Close Window but no Find constructor. AppKit's
 is the responder-chain capability to investigate. A WebKit/AppKit observer must
 establish support and availability; adding a webview global search is not authorized.
 This continuation closes neither #4308 nor #3843.
+
+The U480 Help binding audit now explicitly presses `?` and F2, since its modified
+key sweep cannot see either. No test was removed. Its menu Help dismissal assertion
+was redundant with U54 and the same test's focus return, and was removed. All
+U3787b menu tests use one Project: they never switch Projects, and the existing
+Tauri forwarding observer above retains the two-Project proof.
