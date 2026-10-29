@@ -148,7 +148,7 @@ async fn u2773a_removed_original_refuses_equal_named_replacement() {
     assert_eq!(error.code, code::NOT_FOUND);
     assert!(f.h.list().await.as_array().unwrap().is_empty());
     assert!(
-        f.terminals.list().is_empty(),
+        f.terminals.list().await.is_empty(),
         "no bytes can reach replacement {replacement}"
     );
 }
@@ -192,7 +192,7 @@ async fn u2773a_removal_between_intake_and_placement_retains_original_work() {
     assert_eq!(failed["parts"][0]["placement"]["workstream"], original);
     assert_eq!(failed["parts"][0]["reason"], "the Workstream was removed");
     assert!(
-        f.terminals.list().is_empty(),
+        f.terminals.list().await.is_empty(),
         "replacement {replacement} receives no bytes"
     );
 }

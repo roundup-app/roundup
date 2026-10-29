@@ -347,7 +347,7 @@ impl DoorHarness {
         }
     }
     async fn stop(&self) {
-        for terminal in self.terminals.list() {
+        for terminal in self.terminals.list().await {
             if terminal.running {
                 self.terminals.kill(&terminal.id).await.unwrap();
             }

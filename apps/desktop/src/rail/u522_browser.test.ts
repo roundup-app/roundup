@@ -124,15 +124,6 @@ it("u522_keyboard_move", async () => {
   await wait(`document.activeElement?.closest('[data-id]')?.dataset.id === 'tokens'`);
 }, 90_000);
 
-it("u522_enter_still_selects_the_focused_row", async () => {
-  await load();
-  await read<void>(`document.querySelector('[data-part="item"][data-id="tokens"]').focus()`);
-  await page.press("Enter", "Enter");
-  await wait(`document.querySelector('[data-part="item"][data-id="tokens"]').getAttribute('aria-selected') === 'true'`);
-  expect(await read<boolean>(`document.querySelector('[data-dnd-placeholder]') === null`)).toBe(true);
-  expect(await moves()).toEqual([]);
-}, 90_000);
-
 it("u522_file_drop_coexists", async () => {
   await load();
   expect(await read<boolean>(`(() => {

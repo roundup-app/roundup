@@ -879,7 +879,7 @@ impl Terminals {
     }
 
     /// Every Terminal, running or exited, oldest first.
-    pub fn list(&self) -> Vec<TerminalInfo> {
+    pub async fn list(&self) -> Vec<TerminalInfo> {
         let remotes: Vec<_> = self
             .remotes
             .lock()
@@ -887,10 +887,14 @@ impl Terminals {
             .values()
             .cloned()
             .collect();
-        let mut infos: Vec<_> = remotes
-            .iter()
-            .filter_map(|remote| remote.info().ok())
-            .collect();
+        let mut asked = tokio::task::JoinSet::new();
+        for remote in remotes {
+            asked.spawn(async move { remote.info_within_deadline().await });
+        }
+        let mut infos = Vec::new();
+        while let Some(answer) = asked.join_next().await {
+            infos.extend(answer.ok().and_then(Result::ok));
+        }
         infos.extend(self.shared.table().values().map(|entry| entry.info.clone()));
         infos.sort_by_key(|info| info.id.parse::<u64>().expect("Terminal id"));
         infos

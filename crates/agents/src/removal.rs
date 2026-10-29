@@ -353,6 +353,7 @@ impl Agents {
         let shared = Arc::clone(shared);
         let id = id.to_owned();
         let operation = operation.to_owned();
+        let listed = shared.terminals.list().await;
         tokio::task::spawn_blocking(move || {
             let mut rail = shared.rail();
             // A node moved, born or launched during judgement is not consent to remove it.
@@ -365,7 +366,7 @@ impl Agents {
             for node in tree.iter().filter(selected) {
                 if node.worktree.is_some()
                     || runs.get(&node.id).is_some_and(|slot| !matches!(slot, Slot::Running(run) if run.ended && !run.closing))
-                    || shared.terminals.list().iter().any(|t| t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
+                    || listed.iter().any(|t| t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
                     return Err(RpcError::conflict("Removing this item would stop a running process or discard its Worktree. Confirm removal to continue."));
                 }
             }

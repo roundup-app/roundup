@@ -76,6 +76,7 @@ async fn fixture_with_agents(
     let cwd = f
         .terminals
         .list()
+        .await
         .into_iter()
         .find(|t| Some(&t.id) == node.terminal_id.as_ref())
         .unwrap()
@@ -98,6 +99,7 @@ async fn fixture_with_agents(
         let cwd = f
             .terminals
             .list()
+            .await
             .into_iter()
             .find(|t| Some(&t.id) == started.terminal_id.as_ref())
             .unwrap()
@@ -209,6 +211,7 @@ pub(super) async fn resumes_copy(door: bool) {
     let cwd = f
         .terminals
         .list()
+        .await
         .into_iter()
         .find(|t| Some(&t.id) == after.terminal_id.as_ref())
         .unwrap()
@@ -239,7 +242,7 @@ pub(super) async fn resumes_copy(door: bool) {
     crate::common::star(f.dir.path());
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            if f.terminals.list().iter().any(|t| {
+            if f.terminals.list().await.iter().any(|t| {
                 Some(&t.id) == after.terminal_id.as_ref()
                     && t.title.as_ref().is_some_and(|title| title.starts_with('✳'))
             }) {
@@ -322,6 +325,7 @@ async fn assert_stopped(f: &Fixture, node: &RailNode) {
     assert!(
         f.terminals
             .list()
+            .await
             .iter()
             .filter(|t| t.running)
             .all(|t| tree.iter().any(|n| n.terminal_id.as_ref() == Some(&t.id))),

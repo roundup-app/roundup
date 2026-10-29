@@ -294,6 +294,7 @@ it("u4275b_tab_reaches_quick_actions", async () => {
   expect(await read("window.__fake.app.openedTargets[0]")).toEqual(await read("window.__fake.app.openedTargets[1]"));
 }, 120_000);
 
+// U4707: dense rows read the 32px --row-text-inset Token; elbows and glyph columns follow it.
 it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");

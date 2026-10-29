@@ -15,7 +15,11 @@ impl Terminals {
     pub async fn wait_program_ended(&self, id: &str) {
         if let Ok(Some(remote)) = self.remote(id) {
             let mut observe = tokio::time::interval(REAP_POLL);
-            while remote.info().is_ok_and(|info| info.running) {
+            while remote
+                .info_within_deadline()
+                .await
+                .is_ok_and(|info| info.running)
+            {
                 observe.tick().await;
             }
             return;
@@ -66,9 +70,12 @@ impl Terminals {
     /// Whether Terminal `id`'s program has ended, which can be before the Terminal is exited: a
     /// descendant holding the PTY open delays `terminal.exited` on Linux. An unknown Terminal has
     /// no program running either.
-    pub fn program_ended(&self, id: &str) -> bool {
+    pub async fn program_ended(&self, id: &str) -> bool {
         if let Ok(Some(remote)) = self.remote(id) {
-            return remote.info().map_or(true, |info| !info.running);
+            return remote
+                .info_within_deadline()
+                .await
+                .map_or(true, |info| !info.running);
         }
         match self.running(id) {
             Ok(handle) => handle

@@ -113,7 +113,7 @@ async fn assert_door_positions(f: &Fixture, ids: &[String; 2]) {
         assert_eq!(node.terminal_id, None);
         assert_eq!(node.attempt, None);
     }
-    assert!(f.terminals.list().is_empty());
+    assert!(f.terminals.list().await.is_empty());
 }
 
 #[tokio::test]
@@ -266,7 +266,7 @@ async fn a8_a12_reopen_preserves_ordinal_with_reused_terminal_numbers() {
     let first = f.call("rail.startDoor", json!({"id":id})).await.unwrap();
     f.call("agent.stop", json!({"id":id})).await.unwrap();
     let f = f.reopen();
-    assert!(f.terminals.list().is_empty());
+    assert!(f.terminals.list().await.is_empty());
     let node = &f.tree().await[0];
     assert_eq!(node.terminal_id, None);
     assert_eq!(node.attempt.as_deref(), Some("1"));
@@ -665,7 +665,7 @@ async fn a2741a_workstream_changes_keep_the_door_destination_without_starting() 
             f.call("agent.stop", json!({"id":id})).await.unwrap();
         }
         let before = f.tree().await;
-        let terminals = serde_json::to_value(f.terminals.list()).unwrap();
+        let terminals = serde_json::to_value(f.terminals.list().await).unwrap();
         let mut events = f.bus.subscribe();
         for name in ["sad-2", "sad-3"] {
             f.call("rail.rename", json!({"id":id,"name":name}))
@@ -688,7 +688,10 @@ async fn a2741a_workstream_changes_keep_the_door_destination_without_starting() 
                 .map(|n| (&n.id, &n.attempt, &n.terminal_id))
                 .collect::<Vec<_>>()
         );
-        assert_eq!(serde_json::to_value(f.terminals.list()).unwrap(), terminals);
+        assert_eq!(
+            serde_json::to_value(f.terminals.list().await).unwrap(),
+            terminals
+        );
         assert_eq!(
             std::fs::read_to_string(f.dir.path().join("launches")).unwrap(),
             launches

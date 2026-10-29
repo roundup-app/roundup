@@ -162,6 +162,7 @@ impl Terminals {
         let spawned = terminals.spawn(params).await?;
         let info = terminals
             .list()
+            .await
             .into_iter()
             .find(|info| info.id == spawned.id)
             .ok_or("owner Terminal")?;
@@ -261,8 +262,8 @@ async fn dispatch(
     output: &mut Option<OutputStream>,
 ) -> Result<Value, RpcError> {
     if method == "terminal.list" {
-        let mut infos = terminals.list();
-        if terminals.program_ended(id) {
+        let mut infos = terminals.list().await;
+        if terminals.program_ended(id).await {
             for info in &mut infos {
                 info.running = false;
                 info.program_pid = None;

@@ -9,6 +9,9 @@ use terminal::TerminalOwner as OwnerRecord;
 struct Stored {
     attempt: String,
     owner: OwnerRecord,
+    /// The socket the retained program's hooks and MCP inherited as `RUPD_SOCKET`.
+    #[serde(default)]
+    socket: Option<PathBuf>,
 }
 
 impl Agents {
@@ -24,7 +27,12 @@ impl Agents {
         };
         let attempt = self.shared.rail().node(id)?.attempt.unwrap_or_default();
         let file = self.owner_file(id);
-        let body = serde_json::to_vec(&Stored { attempt, owner }).map_err(RpcError::internal)?;
+        let body = serde_json::to_vec(&Stored {
+            attempt,
+            owner,
+            socket: rpc::socket_path().ok(),
+        })
+        .map_err(RpcError::internal)?;
         std::fs::create_dir_all(file.parent().expect("owners dir")).map_err(RpcError::internal)?;
         std::fs::write(file, body).map_err(RpcError::internal)
     }
@@ -56,6 +64,23 @@ impl Agents {
             }
         }
         kept
+    }
+
+    /// The sockets the kept owners' programs inherited as `RUPD_SOCKET` (S1, S3): the reopened
+    /// Daemon also answers there, so their hooks and MCP reach the reopened Project unchanged.
+    pub fn retained_sockets(&self) -> Vec<PathBuf> {
+        let Ok(entries) = std::fs::read_dir(self.dir.join("owners")) else {
+            return Vec::new();
+        };
+        let mut sockets: Vec<PathBuf> = entries
+            .flatten()
+            .filter_map(|entry| std::fs::read(entry.path()).ok())
+            .filter_map(|body| serde_json::from_slice::<Stored>(&body).ok())
+            .filter_map(|stored| stored.socket)
+            .collect();
+        sockets.sort();
+        sockets.dedup();
+        sockets
     }
 
     async fn reattach(&self, id: &str, stored: Stored) -> bool {

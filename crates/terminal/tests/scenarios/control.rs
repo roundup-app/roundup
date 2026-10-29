@@ -82,7 +82,7 @@ async fn x6_kill_stops_the_program_and_keeps_it_listed() {
         .unwrap();
     let (_, exit) = until_exit(&mut spawned).await;
     assert_eq!(exit, None);
-    let listed = terminals.list();
+    let listed = terminals.list().await;
     assert!(listed.iter().any(|t| t.id == spawned.id && !t.running));
     let err = terminals.call(&ctx, "terminal.kill", id).await.unwrap_err();
     assert_eq!(err.code, code::NOT_FOUND);

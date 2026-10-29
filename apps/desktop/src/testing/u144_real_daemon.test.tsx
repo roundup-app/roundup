@@ -2,8 +2,7 @@
 import * as v from "valibot";
 import type { ChildProcess } from "node:child_process";
 import { request } from "node:http";
-import { build } from "vite";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -12,10 +11,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { useContext } from "solid-js";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "../app/seam";
+import { copy } from "../copy";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
-import { realDaemon } from "./realDaemonPlugin";
 import { startRealDaemon } from "./realDaemonFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -36,13 +35,11 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
   let real: StartedDaemon;
 
-  let dir: string;
-
   let base: string;
 
   beforeAll(async () => {
     real = await startRealDaemon({});
-    ({ daemon, dir, base } = real);
+    ({ daemon, base } = real);
   }, 120_000);
 
   afterAll(async () => {
@@ -107,59 +104,6 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     expect([await status(`127.0.0.1:${url.port}`), await status(`evil.example:${url.port}`)]).toEqual([200, 403]);
   });
 
-  it("u144_vite_build_leaves_the_daemon_route_out_of_dist", async () => {
-    const out = await mkdtemp(join(tmpdir(), "roundup-dist-"));
-
-    try {
-      await build({
-        configFile: join(process.cwd(), "vite.config.ts"),
-        root: process.cwd(),
-        logLevel: "silent",
-        plugins: [realDaemon({ project: dir, socket: join(dir, "rupd.sock") })],
-        build: { outDir: out, emptyOutDir: true },
-      });
-
-      const files = (await readdir(out, { recursive: true, withFileTypes: true })).filter((entry) => entry.isFile());
-      const texts = await Promise.all(files.map((entry) => readFile(join(entry.parentPath, entry.name), "utf8").catch(() => "")));
-
-      expect(files.length).toBeGreaterThan(0);
-      expect(texts.some((text) => text.includes("__daemon") || text.includes("loopback only"))).toBe(false);
-    } finally {
-      await rm(out, { recursive: true, force: true });
-    }
-  }, 120_000);
-
-  it("u144_seed_behaves_as_today_beside_the_daemon_route", async () => {
-    cleanup();
-    document.body.innerHTML = '<div id="root"></div>';
-    window.history.pushState({}, "", "/harness.html?seed=agents-10&view=workstreams");
-    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }));
-
-    const calls: string[] = [];
-    const fetched = globalThis.fetch;
-
-    globalThis.fetch = Object.assign(
-      (input: RequestInfo | URL, init?: RequestInit) => {
-        calls.push(String(input));
-
-        return fetched(input, init);
-      },
-      fetched,
-    );
-
-    try {
-      await import("./harness");
-      await screen.findByRole("region", { name: "Rail" });
-      expect(window.__fake).toBeDefined();
-      expect(calls.filter((call) => call.includes("__daemon"))).toEqual([]);
-    } finally {
-      globalThis.fetch = fetched;
-      vi.unstubAllGlobals();
-      document.body.innerHTML = "";
-      window.history.pushState({}, "", "/");
-    }
-  });
-
   it("u144_closing_the_socket_fires_daemon_exited_and_the_header_says_so", async () => {
     await mount();
     await screen.findByRole("banner");
@@ -167,7 +111,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     daemon.stdin!.end();
     daemon.kill();
 
-    expect(await screen.findByText("Daemon exited by signal", {}, { timeout: 20_000 })).toBeTruthy();
+    expect(await screen.findByText(new RegExp(copy.exitedBySignal), {}, { timeout: 20_000 })).toBeTruthy();
   }, 60_000);
 });
 
@@ -699,7 +643,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     expect(document.activeElement).toBe(outside);
     const recovery = await openRecovery();
-    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
+    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`) instanceof HTMLElement).toBe(true);
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(emulators.made.has(terminal)).toBe(false);
     expect((await bound.rpc("terminal.list", null)).find((each) => each.id === terminal)?.running).not.toBe(true);

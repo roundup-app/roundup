@@ -44,13 +44,12 @@ impl Shared {
             }
         };
         let programs = claude_code::programs();
+        let listed = self.terminals.list().await;
         let mut now: HashMap<String, Vec<Stray>> = live
             .iter()
             .map(|(id, marker)| {
-                let owned: Vec<u32> = self
-                    .terminals
-                    .list()
-                    .into_iter()
+                let owned: Vec<u32> = listed
+                    .iter()
                     .filter(|info| info.owner.as_deref() == Some(id.as_str()))
                     .filter_map(|info| self.terminals.program_pid(&info.id))
                     .collect();
@@ -166,14 +165,14 @@ impl Agents {
         };
         // A failed launch can have crossed the program boundary before its Rail attachment
         // failed. Only an authoritative Terminal snapshot can rule out that orphan.
-        let before = self.shared.terminals.list();
+        let before = self.shared.terminals.list().await;
         let node = match self
             .start_door_with(ctx, params, Some(String::new()), true)
             .await
         {
             Ok(node) => node,
             Err(error) => {
-                if self.shared.terminals.list().iter().any(|terminal| {
+                if self.shared.terminals.list().await.iter().any(|terminal| {
                     terminal.running && !before.iter().any(|old| old.id == terminal.id)
                 }) {
                     return Err(RpcError::unknown_outcome(format!(
@@ -199,16 +198,14 @@ impl Agents {
         };
         if tokio::time::timeout(bound, started).await.is_err() {
             let cause = format!("{id}: no SessionStart within {}s", bound.as_secs());
-            let cleanup = self
-                .shared
-                .stop(ctx.actor.clone(), id)
-                .await
-                .and_then(|()| {
-                    let terminal = node.terminal_id.as_deref().ok_or_else(|| {
-                        RpcError::unknown_outcome("fresh Door Terminal is unknown")
-                    })?;
-                    self.shared.confirm_terminal_exit(terminal)
-                });
+            let stopped = self.shared.stop(ctx.actor.clone(), id).await;
+            let cleanup = match stopped {
+                Ok(()) => match node.terminal_id.as_deref() {
+                    Some(terminal) => self.shared.confirm_terminal_exit(terminal).await,
+                    None => Err(RpcError::unknown_outcome("fresh Door Terminal is unknown")),
+                },
+                Err(error) => Err(error),
+            };
             if let Err(error) = cleanup {
                 return Err(RpcError::unknown_outcome(format!("{cause}; {error}")));
             }
@@ -280,6 +277,7 @@ impl Agents {
                 )
                 .await;
         }
+        let listed = self.shared.terminals.list().await;
         let attempt = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
@@ -290,13 +288,7 @@ impl Agents {
             if let Some(slot) = runs.get(id) {
                 let live = match slot {
                     Slot::Running(run) => {
-                        run.closing
-                            || self
-                                .shared
-                                .terminals
-                                .list()
-                                .iter()
-                                .any(|t| t.id == run.terminal_id && t.running)
+                        run.closing || listed.iter().any(|t| t.id == run.terminal_id && t.running)
                     }
                     _ => true,
                 };
