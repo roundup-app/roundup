@@ -327,11 +327,7 @@ async fn p9_any_actor_deletes() {
             let mut events = rig.bus.subscribe();
             rig.ok(&caller, "pad.delete", json!({"name": "notes"}))
                 .await;
-            let cause = if caller.kind == ActorKind::User {
-                PadDeletion::User
-            } else {
-                PadDeletion::User
-            };
+            let cause = PadDeletion::User;
             assert_eq!(
                 source_state(&db, original.incarnation).unwrap(),
                 PadSourceState::Deleted(cause)
