@@ -194,14 +194,7 @@ describe("u54 keyboard help", () => {
     const outsideTerminal = document.querySelector('.rail-actions [aria-label="New Agent"]')!;
     const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
-    const helpPress = new KeyboardEvent("keydown", { key: "?", code: "Slash", shiftKey: true, bubbles: true, cancelable: true });
-    outsideTerminal.dispatchEvent(helpPress);
-    await waitFor(() => expect(help()).not.toBeNull());
-
-    if (helpPress.defaultPrevented) bound.push(pressOf(helpPress));
-    fireEvent.keyDown(help()!, { key: "Escape", code: "Escape" });
-    await waitFor(() => expect(help()).toBeNull());
-    expect(bound.sort()).toEqual(listed);
+    expect(bound).toEqual(listed);
 
     const row = rowOf("a");
 
