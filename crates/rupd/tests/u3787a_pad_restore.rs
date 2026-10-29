@@ -590,7 +590,7 @@ async fn u3787a_consumed_restore_does_not_reverse_a_later_rename() {
 
 #[tokio::test]
 async fn u3787a_redo_retains_the_acknowledged_creation_for_another_undo() {
-    let w = world().await;
+    let mut w = world().await;
     let (pad, receipt) = deleted(&w, "notes").await;
     call(&w, "pad.restore", deletion_id(&receipt)).await;
     let redo = json!({"project":receipt["project"],"restoredOperation":receipt["operation"],
@@ -599,12 +599,24 @@ async fn u3787a_redo_retains_the_acknowledged_creation_for_another_undo() {
     let acknowledged = call(&w, "pad.redoDelete", redo.clone()).await;
     assert_eq!(acknowledged["pad"], pad);
     assert_eq!(acknowledged["operation"], "redo-one");
+    // Lose the reply across a Daemon restart; readback still identifies exactly
+    // the committed redo, without relying on a client-authored snapshot.
+    w.server.abort();
+    let socket = w._dir.path().join("redo-reopen.sock");
+    let daemon = Arc::new(rupd::Daemon::open(w._dir.path()).unwrap());
+    w.server = tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    w.client = Client::connect(&socket).await.unwrap();
     assert_eq!(call(&w, "pad.list", Value::Null).await, json!([]));
     assert_eq!(
         call(&w, "pad.getDeletion", json!({"operation":"redo-one"})).await,
         acknowledged
     );
+    let history = call(&w, "provenance.history", json!({"item":"pad:notes"})).await;
     assert_eq!(call(&w, "pad.redoDelete", redo.clone()).await, acknowledged);
+    assert_eq!(
+        call(&w, "provenance.history", json!({"item":"pad:notes"})).await,
+        history
+    );
     assert_eq!(
         call(&w, "pad.restore", deletion_id(&acknowledged)).await["pad"],
         pad
@@ -633,5 +645,313 @@ async fn u3787a_redo_retains_the_acknowledged_creation_for_another_undo() {
     assert_eq!(
         call(&w, "pad.restore", deletion_id(&second)).await["pad"],
         pad
+    );
+}
+
+fn redo_request(receipt: &Value, pad: &Value, operation: &str) -> Value {
+    json!({"project":receipt["project"],"restoredOperation":receipt["operation"],
+        "operation":operation,"expectedIncarnation":pad["incarnation"],
+        "expectedRevision":pad["revision"],"expectedHome":pad["home"]})
+}
+
+#[tokio::test]
+async fn u3787a_redo_refuses_stale_content_and_home_then_retains_acknowledged_edits() {
+    let w = world().await;
+    let (pad, receipt) = deleted(&w, "notes").await;
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    let home = call(&w, "rail.createWorkstream", json!({"name":"Later Home"})).await;
+    call(&w, "pad.move", json!({"name":"notes","home":home["id"]})).await;
+    let edited = call(
+        &w,
+        "pad.write",
+        json!({"name":"notes","text":"  newer 雪\n\n"}),
+    )
+    .await;
+    assert_eq!(edited["incarnation"], pad["incarnation"]);
+    assert_eq!(edited["revision"], 2);
+    for observed in [
+        &pad,
+        &json!({"incarnation":edited["incarnation"],"revision":edited["revision"],"home":null}),
+    ] {
+        assert_eq!(
+            w.client
+                .request(
+                    "pad.redoDelete",
+                    redo_request(&receipt, observed, "redo-edits")
+                )
+                .await
+                .unwrap_err()
+                .code,
+            rpc::code::CONFLICT
+        );
+        assert_eq!(call(&w, "pad.read", json!({"name":"notes"})).await, edited);
+        assert_eq!(
+            w.client
+                .request("pad.getDeletion", json!({"operation":"redo-edits"}))
+                .await
+                .unwrap_err()
+                .code,
+            rpc::code::NOT_FOUND
+        );
+    }
+    let redone = call(
+        &w,
+        "pad.redoDelete",
+        redo_request(&receipt, &edited, "redo-edits"),
+    )
+    .await;
+    assert_eq!(redone["pad"], edited);
+    assert_eq!(
+        call(&w, "pad.restore", deletion_id(&redone)).await["pad"],
+        edited
+    );
+    assert_eq!(call(&w, "pad.read", json!({"name":"notes"})).await, edited);
+}
+
+#[tokio::test]
+async fn u3787a_redo_refuses_replacement_and_retries_only_the_retained_incarnation() {
+    let w = world().await;
+    let (pad, receipt) = deleted(&w, "notes").await;
+    let request = redo_request(&receipt, &pad, "redo-original");
+    assert_eq!(
+        w.client
+            .request("pad.redoDelete", request.clone())
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::CONFLICT
+    );
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    let renamed = call(
+        &w,
+        "pad.rename",
+        json!({"name":"notes","newName":"Moved","expectedIncarnation":pad["incarnation"]}),
+    )
+    .await;
+    assert_eq!(
+        w.client
+            .request("pad.redoDelete", request.clone())
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::CONFLICT
+    );
+    assert_eq!(call(&w, "pad.read", json!({"name":"Moved"})).await, renamed);
+    call(
+        &w,
+        "pad.rename",
+        json!({"name":"Moved","newName":"notes","expectedIncarnation":pad["incarnation"]}),
+    )
+    .await;
+
+    let later = call(
+        &w,
+        "pad.delete",
+        json!({"name":"notes","operation":"later"}),
+    )
+    .await;
+    let replacement = call(
+        &w,
+        "pad.create",
+        json!({"name":"NOTES","text":"keep replacement"}),
+    )
+    .await;
+    assert_ne!(replacement["incarnation"], pad["incarnation"]);
+    assert_eq!(
+        w.client
+            .request("pad.redoDelete", request.clone())
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::CONFLICT
+    );
+    assert_eq!(
+        call(&w, "pad.read", json!({"name":"NOTES"})).await,
+        replacement
+    );
+    assert_eq!(
+        w.client
+            .request("pad.getDeletion", json!({"operation":"redo-original"}))
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::NOT_FOUND
+    );
+    call(&w, "pad.delete", json!({"name":"NOTES"})).await;
+    call(&w, "pad.restore", deletion_id(&later)).await;
+    let redone = call(&w, "pad.redoDelete", request).await;
+    assert_eq!(redone["pad"], pad);
+    assert_eq!(call(&w, "pad.list", Value::Null).await, json!([]));
+}
+
+#[tokio::test]
+async fn u3787a_redo_checks_original_project_actor_and_current_authority() {
+    let w = world().await;
+    let a = call(&w, "rail.createWorkstream", json!({"name":"Maker"})).await;
+    let b = call(&w, "rail.createWorkstream", json!({"name":"New authority"})).await;
+    identify(&w, a["id"].as_str().unwrap()).await;
+    let (pad, receipt) = deleted(&w, "notes").await;
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    let request = redo_request(&receipt, &pad, "redo-authority");
+    user(&w).await;
+    call(&w, "pad.setOwner", json!({"name":"notes","owner":b["id"]})).await;
+    identify(&w, a["id"].as_str().unwrap()).await;
+    assert_eq!(
+        w.client
+            .request("pad.redoDelete", request.clone())
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::FORBIDDEN
+    );
+    let current = call(&w, "pad.read", json!({"name":"notes"})).await;
+    assert_eq!(current["owner"]["id"], b["id"]);
+    identify(&w, b["id"].as_str().unwrap()).await;
+    assert_eq!(
+        w.client
+            .request("pad.redoDelete", request.clone())
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::FORBIDDEN
+    );
+    let other = world().await;
+    assert_eq!(
+        other
+            .client
+            .request("pad.redoDelete", request.clone())
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::FORBIDDEN
+    );
+    user(&w).await;
+    call(&w, "pad.setOwner", json!({"name":"notes","owner":a["id"]})).await;
+    identify(&w, a["id"].as_str().unwrap()).await;
+    let redone = call(&w, "pad.redoDelete", request.clone()).await;
+    let mut changed_request = request;
+    changed_request["restoredOperation"] = json!("different");
+    assert_eq!(
+        w.client
+            .request("pad.redoDelete", changed_request)
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::CONFLICT
+    );
+    assert_eq!(
+        call(&w, "pad.restore", deletion_id(&redone)).await["pad"]["owner"],
+        pad["owner"]
+    );
+}
+
+#[tokio::test]
+async fn u3787a_redo_mirror_refusal_is_atomic_and_external_edits_remain_recoverable() {
+    let w = world().await;
+    call(&w, "pad.setStorage", json!({"files":true})).await;
+    let (pad, receipt) = deleted(&w, "notes").await;
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    let file = w._dir.path().join("pads/notes.md");
+    let request = redo_request(&receipt, &pad, "redo-mirror");
+    let db = rusqlite::Connection::open(w._dir.path().join("project.db")).unwrap();
+    db.execute_batch("CREATE TRIGGER refuse_redo BEFORE DELETE ON pads BEGIN SELECT RAISE(ABORT, 'storage refusal'); END;").unwrap();
+    assert!(
+        w.client
+            .request("pad.redoDelete", request.clone())
+            .await
+            .is_err()
+    );
+    assert_eq!(call(&w, "pad.read", json!({"name":"notes"})).await, pad);
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        pad["text"].as_str().unwrap()
+    );
+    assert_eq!(
+        w.client
+            .request("pad.getDeletion", json!({"operation":"redo-mirror"}))
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::NOT_FOUND
+    );
+    db.execute_batch("DROP TRIGGER refuse_redo").unwrap();
+
+    std::fs::remove_file(&file).unwrap();
+    std::fs::create_dir(&file).unwrap();
+    assert!(
+        w.client
+            .request("pad.redoDelete", request.clone())
+            .await
+            .is_err()
+    );
+    assert!(file.is_dir());
+    assert_eq!(call(&w, "pad.read", json!({"name":"notes"})).await, pad);
+    assert_eq!(
+        w.client
+            .request("pad.getDeletion", json!({"operation":"redo-mirror"}))
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::NOT_FOUND
+    );
+    std::fs::remove_dir(&file).unwrap();
+    std::fs::write(&file, "external 雪\n").unwrap();
+    assert_eq!(
+        w.client
+            .request("pad.redoDelete", request)
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::CONFLICT
+    );
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "external 雪\n");
+    assert_eq!(call(&w, "pad.read", json!({"name":"notes"})).await, pad);
+    call(&w, "pad.setStorage", json!({"files":false})).await;
+    let imported = call(&w, "pad.read", json!({"name":"notes"})).await;
+    assert_eq!(imported["text"], "external 雪\n");
+    assert_eq!(imported["revision"], 2);
+    call(&w, "pad.setStorage", json!({"files":true})).await;
+    let redone = call(
+        &w,
+        "pad.redoDelete",
+        redo_request(&receipt, &imported, "redo-mirror"),
+    )
+    .await;
+    assert!(!file.exists());
+    assert_eq!(call(&w, "pad.list", Value::Null).await, json!([]));
+    assert_eq!(
+        call(&w, "pad.restore", deletion_id(&redone)).await["pad"],
+        imported
+    );
+    assert_eq!(std::fs::read_to_string(file).unwrap(), "external 雪\n");
+}
+
+#[tokio::test]
+async fn u3787a_redo_revokes_current_publications_without_substituting_sources() {
+    let w = world().await;
+    let (pad, receipt) = deleted(&w, "notes").await;
+    call(&w, "pad.restore", deletion_id(&receipt)).await;
+    let publication = call(&w, "deliverable.publish", json!({"key":"after-undo","title":"Result",
+        "target":{"kind":"pad","name":"notes","incarnation":pad["incarnation"],"revision":pad["revision"]}})).await;
+    let id = json!({"project":publication["project"],"id":publication["id"]});
+    assert_eq!(
+        call(&w, "deliverable.resolve", id.clone()).await["kind"],
+        "retained"
+    );
+    let redo = call(
+        &w,
+        "pad.redoDelete",
+        redo_request(&receipt, &pad, "redo-published"),
+    )
+    .await;
+    assert_eq!(
+        call(&w, "deliverable.resolve", id.clone()).await,
+        json!({"kind":"unavailable","cause":"access-revoked"})
+    );
+    call(&w, "pad.restore", deletion_id(&redo)).await;
+    assert_eq!(call(&w, "pad.read", json!({"name":"notes"})).await, pad);
+    assert_eq!(
+        call(&w, "deliverable.resolve", id).await,
+        json!({"kind":"unavailable","cause":"access-revoked"})
     );
 }
