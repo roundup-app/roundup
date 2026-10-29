@@ -136,7 +136,7 @@ new_dirs
 expect_exit 2 "L42 delta: no checks files exits 2" delta base head
 expect_exit 2 "L42 delta: a directory that does not exist exits 2" delta base nope
 
-# L54 clean-merge: a throwaway repo with `origin/main` and a PR branch.
+# merge_repo: a throwaway repo with `origin/main` and a PR branch.
 merge_repo() {
   new_repo
   git checkout -q main
