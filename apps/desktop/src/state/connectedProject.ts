@@ -258,6 +258,22 @@ export const connectProject = async (
   if (ended) stopQueue();
 
 
+  let stopAsks = () => {};
+
+  const asks = createRoot(dispose => {
+    stopAsks = dispose;
+
+    return createAsks(app, events, { path: project.path, target: () => {
+      if (!viewing() || settingsView.open() || daemonExit() !== null) return null;
+
+      const node = rail.nodes.find(node => node.id === rail.selected());
+
+      return node?.kind === "workstream" && node.terminal_id !== null ? node.id : null;
+    } });
+  });
+
+  if (ended) stopAsks();
+
   const onImported = (id: string, agent: string | null) => {
     void rail.refresh().then(() => rail.select(agent ?? id));
   };
@@ -297,7 +313,7 @@ export const connectProject = async (
 
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

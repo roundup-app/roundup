@@ -27,6 +27,7 @@ export const observers = {
   "src/app/u3791c_rendered.test.ts": ["U3791c"],
   "src/app/z3742h_browser.test.ts": ["Z3742h"],
   "src/ask/dv5_rendered.test.ts": ["DV5", "DV6", "U3021c"],
+  "src/ask/u505_ask_rows.test.tsx": ["U504", "U505"],
   "src/ask/u3787c_browser.test.ts": ["U3787c"],
   "src/bubbles/u2224_rendered.test.ts": ["U2224"],
   "src/bubbles/u2236_browser.test.ts": ["U2892", "U4459"],
