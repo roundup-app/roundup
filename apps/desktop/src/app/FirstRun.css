@@ -17,3 +17,11 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+
+.choose-project .empty-state {
+  padding-block-end: 0;
+}
+
+.choose-project p {
+  margin: var(--space-3) 0 var(--space-5);
+}
