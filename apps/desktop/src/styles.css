@@ -356,7 +356,7 @@ p {
   top: var(--space-2);
 }
 
-.drawer[data-maximised="true"] :is(.pad-editor, .todo-detail) {
+.drawer[data-maximised="true"] .todo-detail {
   width: min(100%, var(--measure));
   align-self: center;
 }
