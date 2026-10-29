@@ -26,8 +26,8 @@
   background-color: var(--selected);
 }
 
-/* Hover changes ink only, including mention choices whose active descendant follows the pointer. */
-.app-combobox-item:hover:not([data-row-selected=true]) {
+/* Keep the active-row wash visible while the pointer tracks Ark's highlight. */
+.app-combobox-item:hover:not([data-highlighted], [data-row-selected=true]) {
   background-color: var(--transparent);
   color: var(--text);
 }
