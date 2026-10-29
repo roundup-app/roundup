@@ -26,7 +26,7 @@ Observer: `u388_` in `apps/desktop/src/pads/` reading computed style with the st
 
 Observer: `agent-browser` (headless, the U26 harness) captures to `artifacts/ux/U409/` at both viewports with `window.__checks()` read. Moves D2, D5, D6 and D8. Scope: `apps/desktop/src/drawer/`, `app/Layout.tsx` and the `.overlay` and `.drawer` rules of `styles.css`; no contract, App seam command or Token changes.
 
-**U431 a Pad Drawer's head and toolbar are icons.** Found by the user's report #1110 ("too undesigned and full of fluff, needs icons"). Narrows U20, U21, U29 and U150; adds no contract, App seam command or Token. Given a Pad Drawer (U20) on `tree-40` for a Pad the user owns and for one an Agent owns, at 1280 by 820 and 700 by 800, then:
+**U431 a Pad Drawer's head and toolbar are icons.** Found by the user's report #1110 ("too undesigned and full of fluff, needs icons"). Narrows U20, U21, U29 and U150; adds no contract, App seam command or Token. Given a Pad Drawer (U20) on `tree-40` for a Pad created by the user and for one created by an Agent, at 1280 by 820 and 700 by 800, then:
 - **Kept.** `Export .md` calls U21's chooser; `Delete` asks once before it deletes (U150) and the confirm line keeps its words. Asserted in `u431_export_and_delete_keep_u21_and_u150`.
 - **Toolbar.** The editor's toolbar (U147) is one row at the Drawer's width of 560 px and of the narrowest the window gives (U24), icons only, each with a `title` naming its action. Asserted in `u431_toolbar_is_one_row_with_titles`.
 - **Tokens.** Every length is `0` or a Token step (D2) and every colour a Token (rule 8).
