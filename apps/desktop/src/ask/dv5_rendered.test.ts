@@ -28,7 +28,7 @@ it.skipIf(!captureDir("U3021c"))("u3021c_ask_selected_revision_browser_focus", a
     for (let n = 0; n < 10; n += 1) await app.rpc("rail.createWorkstream", { name: `Work ${n}`, parent: null });
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&daemon=1`);
     await browser("wait", ".ask-input");
     // Mount the owner once in an isolated document. Selection changes its props, never its lifetime.
     await browser("eval", `(async () => {
@@ -111,7 +111,7 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
     await real.restart();
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&view=ask-history&daemon=1`);
+    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&view=made&daemon=1`);
     await browser("wait", "--fn", "document.querySelectorAll('.made-row').length === 13");
     await capture("before");
     // A browser has no native host menu. Preserve its selection boundary while the App,

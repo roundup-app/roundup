@@ -63,7 +63,6 @@ it("dv5_discover_open_retained_and_current_targets_after_reopen", async () => {
 
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = await within(made).findAllByRole("listitem");
@@ -114,7 +113,6 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
 
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
   const linkButton = await within(made).findByRole("button", { name: new RegExp(`^Open Failure link ·`) });
@@ -187,7 +185,6 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   await real.restart();
   const reopened = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   reopened.showView("made");
-  reopened.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={reopened}><AskBar /></ConnectedProjectContext.Provider>);
   const catalogue = await screen.findByRole("region", { name: "Made" });
   await within(catalogue).findByRole("button", { name: new RegExp(`^Open Failure Pad ·`) });
@@ -328,7 +325,6 @@ it("u3021c_ask_removed_workstream_refuses_selected_editor_after_reopen", async (
   await app.rpc("rail.createWorkstream", { name: "Same", parent: null });
   const reopened = await connectProject(app, connected.project, () => false, () => 0);
   reopened.showView("made");
-  reopened.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={reopened}><AskBar recovery={recovery()} /></ConnectedProjectContext.Provider>);
   await reopened.rail.settled();
   await waitFor(() => expect(reopened.drafts.availability(a, reopened)).toBe("unavailable"));
@@ -360,7 +356,6 @@ it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_re
   app.showContextMenu = vi.fn(async () => "copy-link");
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
 
@@ -444,7 +439,6 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     const connected = await connectProject(app, { path: delivery.dir, name: "Project" }, () => false, () => 0);
     await connected.rail.settled();
     connected.showView("made");
-  connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
     const made = await screen.findByRole("region", { name: "Made" });
 
