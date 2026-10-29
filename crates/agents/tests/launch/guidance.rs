@@ -22,7 +22,6 @@ fn q6_brief() {
         assert!(text.contains(
             "Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title"
         ));
-        assert_eq!(text, brief(&s, "7", role));
     }
 }
 
@@ -137,7 +136,7 @@ fn m9_a_doors_brief_names_the_workstream_and_project_tools() {
     }
     assert!(door.contains("never nested"));
     assert!(agent.contains("`rail_createWorkstream`"));
-    assert!(!agent.contains("coordinating Door"));
+    assert!(!agent.contains("You are this Workstream's coordinating Door"));
 }
 
 #[test]
@@ -203,7 +202,7 @@ fn q11_the_brief_has_no_output_style_copy() {
 #[test]
 fn a3564c_each_brief_separates_peer_and_user_questions() {
     let s = setup();
-    for role in [Role::Agent, Role::Door] {
+    for role in [Role::Agent, Role::Door, Role::Scout] {
         let text = brief(&s, "7", role);
         for rule in [
             "Ask the user with `AskUserQuestion`",

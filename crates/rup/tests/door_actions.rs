@@ -741,3 +741,123 @@ async fn a41_a_leading_slash_runs_the_skill() {
         "named routing made a Placement call"
     );
 }
+
+#[tokio::test]
+async fn b4699a_real_claude_spawns_one_shaping_child_in_the_existing_workstream() {
+    const ASK: &str = "Help me shape an ask for filing Workstream behavior feedback";
+    let project = daemon::start_real("b4699a_shaping", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "feedback", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.status.kind == kind => {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
+    let before: Vec<_> = rail_tree(&client)
+        .await
+        .into_iter()
+        .filter(|node| node.kind == contracts::agent::NodeKind::Workstream)
+        .map(|node| node.id)
+        .collect();
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": ASK}),
+        )
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_b4699a_spawn").await;
+    let spawned: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
+    assert!(
+        spawned.terminal_id.is_some(),
+        "the shaping child has its own Terminal"
+    );
+    // Wait for the Door and child turns so later tool calls cannot escape the count.
+    let mut completed = std::collections::BTreeSet::new();
+    let mut working = std::collections::BTreeSet::new();
+    while completed.len() < 2 {
+        let (id, kind) = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door || status.id == spawned.id => {
+                Some((status.id.clone(), status.status.kind))
+            }
+            _ => None,
+        })
+        .await;
+        if kind == Kind::Working {
+            working.insert(id.clone());
+        }
+        if kind == Kind::Idle && working.contains(&id) {
+            completed.insert(id);
+        }
+    }
+    let context = client
+        .request("agent.context", json!({"id": spawned.id}))
+        .await
+        .unwrap();
+    assert_eq!(context["parent"]["id"], door);
+    let tree = rail_tree(&client).await;
+    let after: Vec<_> = tree
+        .iter()
+        .filter(|node| node.kind == contracts::agent::NodeKind::Workstream)
+        .map(|node| node.id.clone())
+        .collect();
+    assert_eq!(before, after);
+    assert_eq!(
+        tree.iter()
+            .filter(|node| node.parent.as_deref() == Some(&door)
+                && node.kind == contracts::agent::NodeKind::Agent)
+            .count(),
+        1
+    );
+    let calls: std::collections::BTreeMap<_, _> = model
+        .journal()
+        .iter()
+        .filter_map(|entry| entry["body"]["messages"].as_array())
+        .flatten()
+        .filter_map(|message| message["tool_calls"].as_array())
+        .flatten()
+        .map(|call| {
+            (
+                call["id"].as_str().unwrap().to_owned(),
+                call["function"]["name"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        calls
+            .values()
+            .filter(|name| name.as_str() == "mcp__roundup__agent_spawn")
+            .count(),
+        1
+    );
+    for forbidden in [
+        "mcp__roundup__rail_createWorkstream",
+        "mcp__roundup__rail_startDoor",
+    ] {
+        assert!(
+            !calls.values().any(|name| name == forbidden),
+            "unexpected {forbidden}: {calls:?}"
+        );
+    }
+    model.assert_matched();
+}

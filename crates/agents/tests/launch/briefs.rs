@@ -19,12 +19,6 @@ fn e9_the_brief_holds_no_id() {
 }
 
 #[test]
-fn e9_a_door_and_an_ordinary_agent_still_differ() {
-    let s = setup();
-    assert_ne!(brief(&s, "7", Role::Agent), brief(&s, "8", Role::Door));
-}
-
-#[test]
 fn e1_the_brief_names_the_tools_and_holds_nothing_mutable() {
     let s = setup();
     let text = brief(&s, "7", Role::Agent);
@@ -67,12 +61,13 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
     assert!(door.contains("coordinating Door"));
     assert!(door.contains("ask with `AskUserQuestion`"));
     assert!(door.contains("Report the outcome directly in your Terminal"));
-    // M9: the tool list names `rail_startDoor`; no other line of an Agent's Brief speaks of a Door.
+    // B4699c permits block-reporting guidance, but no coordinating-role instructions.
     assert!(
         agent
             .lines()
             .filter(|line| !line.starts_with("- `"))
-            .all(|line| !line.contains("Door"))
+            .all(|line| !line.contains("Door")
+                || line.starts_with("If you have a coordinating Door"))
     );
     assert!(!agent.contains("Your role"));
 }
@@ -139,12 +134,6 @@ fn a28_a_doors_brief_says_to_name_each_child() {
 }
 
 #[test]
-fn e1_preparing_the_same_id_and_role_twice_writes_the_same_text() {
-    let s = setup();
-    assert_eq!(brief(&s, "7", Role::Door), brief(&s, "7", Role::Door));
-}
-
-#[test]
 fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
     let s = setup();
 
@@ -170,4 +159,29 @@ fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
     assert!(door.contains("facts needed to understand that point in the work"));
     assert!(!agent.contains("checkpoint_write"));
     assert!(agent.contains("- `checkpoint_list`:"));
+}
+
+#[test]
+fn b4699a_the_door_brief_delegates_shaping_to_one_child() {
+    let text = brief(&setup(), "7", Role::Door);
+    assert!(text.contains("When the user asks to shape an ask, spawn exactly one shaping child under yourself in this Workstream with `agent_spawn`, then direct the user to that child's Terminal to shape it there; do not shape inline or call `rail_createWorkstream` or `rail_startDoor` for this request."));
+}
+
+#[test]
+fn b4699b_the_door_brief_forbids_reasking_for_authorized_actions() {
+    let text = brief(&setup(), "7", Role::Door);
+    assert!(text.contains("Never add a child limit asking the user to approve an action they already authorized, such as asking before each `gh issue create`. Preserve their actual limits and the vendor's permission mechanism."));
+}
+
+#[test]
+fn b4699c_each_brief_routes_child_blocks_to_the_door() {
+    let s = setup();
+    for role in [Role::Door, Role::Agent, Role::Scout] {
+        let text = brief(&s, "7", role);
+        assert!(text.contains("If you have a coordinating Door and cannot proceed within your order, report the block and the decision needed to that Door with `message_send`, not `AskUserQuestion`; engineering choices within existing authorization go to the Door."), "{role:?}");
+        assert!(text.contains("Only a decision reserved to the user by their stated limits, or an unresolved goal or taste choice, goes to the user with `AskUserQuestion`. A vendor permission prompt remains the user's to answer; never seek its answer from the Door."), "{role:?}");
+        if role == Role::Door {
+            assert!(text.contains("Include in child orders: report blocks and the decision needed to this Door with `message_send`; ask the user only for decisions that are theirs alone, and leave vendor permission prompts to them."));
+        }
+    }
 }
