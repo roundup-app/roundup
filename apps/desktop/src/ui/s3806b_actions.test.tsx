@@ -143,9 +143,9 @@ const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS, CAPTURE_ROW].flatMap((row) 
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
   const trace: string[] = [];
-  const nativeCalls: string[] = [];
+  const nativeCalls: undefined[] = [];
   const states: import("../app/seam").CaptureState[] = [];
-  const nativeReply = pending(() => { nativeCalls.push(path("first")); trace.push(`capture.show:${field() === null ? "closed" : "open"}`); }, undefined);
+  const nativeReply = pending(() => { nativeCalls.push(undefined); trace.push(`capture.show:${field() === null ? "closed" : "open"}`); }, undefined);
   const native = row === CAPTURE_ROW ? {
     configure: async () => {}, show: nativeReply.handler, dismiss: async () => {},
     publish: async (state: import("../app/seam").CaptureState) => { states.push(state); }, act: async () => {},
@@ -199,6 +199,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
     await waitFor(() => expect(field()).toBeNull());
     expect(app.calls.slice(before)).toEqual([]);
     expect(trace).toEqual([]);
+    expect(connected.drafts.list().filter(draft => draft.destination.surface === "capture")).toEqual(retainedDrafts.filter(draft => draft.destination.surface === "capture"));
 
     return;
   }
@@ -286,17 +287,24 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
       connected.rail.select("elsewhere");
-      native.show = async () => { nativeCalls.push(path("first")); };
+      native.show = async () => { nativeCalls.push(undefined); };
       fireEvent.click(document.querySelector(".rail-command-notice button")!);
       await waitFor(() => expect(ofMethod()).toHaveLength(2));
       await waitFor(() => expect(states.at(-1)).toMatchObject({ text: "  native draft e\u0301 🧭\n  ", owner: "Unassigned", home: "In ops" }));
     }
 
     expect(connected.drafts.list()).toEqual(drafts);
-    expect(nativeCalls).toEqual(outcome === "resolve" ? [path("first")] : [path("first"), path("first")]);
+    expect(nativeCalls).toHaveLength(outcome === "resolve" ? 1 : 2);
     expect(app.calls.slice(before).filter(call => ["todo.create", "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
     expect("other" in mounted && mounted.other.calls.filter(call => ["todo.create", "message.send", "agent.spawn", "agent.prompt", "terminal.write"].includes(call.method))).toEqual([]);
     expect(app.badges.filter(count => count > 0)).toEqual([]);
+    fireEvent.click(tab("first"));
+    await screen.findByText("ops", { selector: ".name" });
+    rowOf("ops").focus();
+    openSwitcher();
+    await waitFor(() => expect(field()?.value).toBe(query));
+    switcherKey("Escape", {}, field()!);
+    expect(connected.drafts.list()).toEqual(drafts);
 
     return;
   }
