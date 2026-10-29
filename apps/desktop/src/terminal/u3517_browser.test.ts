@@ -383,7 +383,7 @@ for (const state of ["agent", "door", "shell"]) for (const renderer of ["webgl",
   it.skipIf(!arabicCapture)(`u4679_rendered_incremental_arabic_${state}_${renderer}_${prompt}`, async () => {
     const dir = join(arabicCapture!, process.env.U4679_PHASE ?? "head");
     mkdirSync(dir, { recursive: true });
-    await load(state === "agent" ? "agents-10" : "tree-40", false, renderer);
+    await load(state === "agent" ? "agents-10" : "tree-40", process.env.U4679_PHASE === "base", renderer);
     await select(state === "agent" ? "agent-3" : "payments", state === "agent" ? "t-agent-3" : "t-payments");
     let id = state === "agent" ? "t-agent-3" : "t-payments";
     let surface = ".pane";
