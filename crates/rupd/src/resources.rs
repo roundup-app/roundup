@@ -520,9 +520,10 @@ mod tests {
             (
                 none.agents.len(),
                 none.total.memory_bytes,
+                none.total.cpu_percent,
                 none.total.disk_bytes
             ),
-            (0, 0, None)
+            (0, 0, 0.0, None)
         );
     }
 }

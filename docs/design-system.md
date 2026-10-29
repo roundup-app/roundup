@@ -170,7 +170,7 @@ Except D18, each check is measured from computed style and the DOM of the runnin
 | Id | Passes when | Scenario |
 |---|---|---|
 | D1 | every computed colour, background, border-color, shadow, radius and duration is the value of a Token | U130 |
-| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). This adds no general space step. | U131 |
+| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). This adds no general space step. Rail section alignment and grouping also satisfy the U4896 policy below. | U131, U4896 |
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer item row (not editor menu categories or commands) shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
@@ -195,6 +195,12 @@ D12's vertical clause is specification policy until implemented. The design crit
 One shared rule using Token-defined icon boxes and line heights covers status/name pairs, Rail rows and section heads, icon-labelled buttons, Todo and Ask rows, and menus throughout `apps/desktop/src`. No per-row, per-surface or per-icon vertical compensation is allowed. Row heights, horizontal columns, selection alignment, vector shapes, accessible names and D6 hit areas remain. This replaces only the optical-baseline clause of D8 under “Design-system pass requirements (U130–U137)” below; its inset requirement remains.
 
 The critic uses U86's call-site inventory and paired main/head dark 1512×950 captures, including Todo done summary, Rail, Ask, every Kind, opened menus and visible failure feedback. Rest, hover, keyboard focus and selection all meet the same tolerance. This optical clause is judged on rendering, an exception to the computed-style-only measurement above; no unit or browser layout assertion is added. Existing automated Check readings supplement the capture comparison; no Check passing on main may regress, including D2, D5 and D6.
+
+### Rail section edges and spacing (U4896)
+
+D2 additionally requires one Token-based leading inset rule for Rail section heads and rows: each depth-zero leading mark aligns with its section-head icon within 1 CSS px; nested marks, tree connector paint and empty/placeholder text never start more than 1 CSS px before it. Section chevrons and row drag grips share one Token-based trailing column, their rendered marks centred within 1 CSS px across depths. The Token gap before the next visible section head exceeds every within-section adjacent-row gap; a collapsed section measures from its head, and an absent section leaves no gap. Preserve existing row heights. Under U4896, row actions show only on row hover or focus-within; selection alone leaves them hidden, with just the mark, name and handle at rest. Every action remains keyboard reachable; focus-within reveals it without moving the columns.
+
+This is specification policy until U4896's implementation lands. The design critic judges all sections and row kinds in paired main/head dark/light captures at 1512×950 with 252 and 480 CSS px Rails, using the full fixture/audit in `scenarios/ui-rail.md`, U4896, including selected/unselected rows at rest, hover only, focus-within only and after both leave. Actions visible on selection alone fail U4896; actions unreachable by keyboard fail D6. A mark or connector before its head, a misaligned trailing centre, or a section gap no larger than its row gaps fails D2. Existing automated D2 readings alone do not prove this addition; no layout unit test is required or allowed. All other Checks passing on main must still pass.
 
 ## Text case
 
