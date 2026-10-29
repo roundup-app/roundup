@@ -414,6 +414,9 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       }
 
       if (phase === "retention") {
+      // Made opens the Ask overlay; dismiss its key scope before editing in the Rail.
+      await lane.browser("press", "Escape");
+      await lane.until("!document.querySelector('.ask-bar[data-mode=over]')");
       await lane.evaluate(`(() => {
         Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
         document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
