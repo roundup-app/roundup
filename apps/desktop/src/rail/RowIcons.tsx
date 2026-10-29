@@ -5,7 +5,7 @@ import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
 import { ownKeys, type RowActions } from "./rows";
 
-const RowIcon = (props: { name: "plus" | "stop" | "play" | "folder" | "editor" | "more"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
+const RowIcon = (props: { name: "rotate-cw" | "plus" | "stop" | "play" | "folder" | "editor" | "more"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
   <IconButton
     aria-label={props.label}
     aria-disabled={props.disabled ? true : undefined}
@@ -40,7 +40,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
       )}
     </Show>
     <Show when={props.actions.kind === "workstream" ? props.actions.restart : undefined}>{restart => <>
-      <IconButton {...ownKeys} aria-label={copy.restart} aria-disabled={restart().pending} onClick={click => { click.stopPropagation(); restart().run(); }}>{copy.restartMark}</IconButton>
+      <RowIcon name="rotate-cw" label={copy.restart} disabled={restart().pending} onClick={() => restart().run()} />
       <RowIcon name="more" label={copy.rowActions} onClick={restart().menu} />
     </>}</Show>
     {props.children}
