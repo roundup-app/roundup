@@ -67,7 +67,6 @@ beforeAll(async () => {
   server = await appServer();
   await browser("--profile", profile, "open", new URL("/src/changes/u2540.html", server.resolvedUrls.local[0]).href);
   await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
 }, 90_000);
 
 afterAll(async () => {
@@ -114,6 +113,7 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
     await browser("record", "start", join(recoveryCapture, "dense-retention-recovery.webm"));
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
+
     for (const state of ["dense", "dense&retention"]) {
       await open(`/src/changes/u2540.html?${state}`);
       await showDiff();
