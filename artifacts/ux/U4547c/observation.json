@@ -1,6 +1,6 @@
 {
-  "base": "fabcd48f96c74ce500bf5b97a9a88c5110f42fef",
-  "head": "ddc757bb32c3ab1fee016c0d123ba4933cb34643",
+  "base": "e3d52d0a9e15fe2d54eb96adf15434e75651905d",
+  "head": "ae9df8419b7f30006d40c9f2cf500667eba01ea6",
   "viewport": {
     "width": 1512,
     "height": 950
@@ -12,5 +12,5 @@
     "Understand",
     "Intervene"
   ],
-  "checks": "All measured Checks pass. At rest Reviewer is readable in full and differs from the longer Mode name. Hover and selection keep the Mode mark clear of actions. Blank Create Mode uses disabled ink on a neutral surface. Images and videos remain uncommitted."
+  "checks": "All ten dark 1512x950 captures pass D1\u2013D16. Mode names and marks retain their geometry through hover and selection; actions overlay names with a fixed gap before the mark. Create Mode is the sole creation recovery; the shared notice row replaces two empty rows. First prompt cause and recovery wrap in full; the empty conflict row is absent. PNGs and videos remain uncommitted."
 }
