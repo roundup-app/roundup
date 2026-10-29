@@ -117,7 +117,10 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
 
             for (const selected of [false, true]) {
               if (selected) {
-                await browser("click", `${row} .row-state`);
+                const point=await read(`(() => {const b=document.querySelector(${JSON.stringify(row+' .name')}).getBoundingClientRect();return {x:b.left+2,y:b.top+b.height/2};})()`);
+                await browser("mouse","move",String(point.x),String(point.y));
+                await browser("mouse","down");
+                await browser("mouse","up");
                 await wait(`document.querySelector(${JSON.stringify(row)}).dataset.selected==='true'`);
               }
               await browser("focus", ".rail-tree .section-head");
