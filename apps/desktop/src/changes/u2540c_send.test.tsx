@@ -191,7 +191,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" }).value).toBe(other);
   expect(app.of(path("web")).calls.filter(call => call.method === "message.send")).toHaveLength(0);
   expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1);
-});
+}, 45_000); // two Projects, two opened diffs: ~10x its peers (~3 s here), so CI shard load crossed the 15 s default.
 
 
 it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
