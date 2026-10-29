@@ -780,7 +780,13 @@ async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
         error.message.contains("O8: launched resume refused"),
         "{error}"
     );
-    assert!(f.terminals.list().iter().all(|terminal| !terminal.running));
+    assert!(
+        f.terminals
+            .list()
+            .await
+            .iter()
+            .all(|terminal| !terminal.running)
+    );
     assert_eq!(
         spawn_prompt(&f, &child).await.unwrap(),
         json!({"prompt": "the detail"})
