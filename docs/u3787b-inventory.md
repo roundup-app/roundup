@@ -132,3 +132,72 @@ is shown). Building the menu leaves focus where it was. This is the real-registr
 inventory for those two foci; Shelf, triage and Help foci, Rail rename, and the
 native displayed-key, responder Find and combined-dispatch observations stay open.
 No test is removed or retired, and no native result is claimed.
+
+## Shelf row commands
+
+The Shelf's registered row commands (`D`, `E`, `M`, the triage keys) now join the
+Project menu from the same `captureActions` inventory, so a focused row's command has
+a menu item and an editor focus has none. A plain key is control-owned, so
+`menu::project_kind` shows it as a hint and registers no native accelerator
+(`u3787b_plain_key_commands_register_no_accelerator`); the key keeps working in the
+webview. `u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row`
+proves item, hint, one `todo.delete` by menu, unchanged focus and omission in a text
+field. Two rows sharing an id (`Esc`) yield one item. No test is removed or retired.
+
+Still open on #4308: Rail rename and Help in the inventory observer, responder Find,
+and the native displayed-key, responder and combined-dispatch observations against the
+final implementation SHA. No native result is claimed.
+
+
+## Help and Rail rename continuation
+
+Continues unmerged PR #4877 from its head, preserving Shelf hint projection and
+plain-key accelerator exclusion. Help (`?`) now registers its existing opener;
+Rail rename (`F2`) registers with the owning Rail and calls its existing editing
+state directly. The obsolete `Keys` component's synthetic double-click is removed,
+along with its mounts in App and fixtures. Ark still owns tree navigation and
+Help's dialog; neither command installs a native accelerator for its plain key.
+
+`u3787b_menu_and_key_share_one_action` now exercises Help and focused Rail rename
+by both routes. Rename addresses the focused row even when another is selected;
+its editor omits menu Rename, Escape returns focus, and opening sends no rename
+RPC. Help closes back to the original row and writes no Terminal input. Existing
+U140 focused-row, U4324 Help focus exclusions and U2241 Terminal modifier observers
+remain required. No test is removed or retired; fixture edits only remove the
+obsolete component mount. The real Tauri event proof
+`u2539b_native_menu_projects_the_task_chords` now forwards Help/F2 in two Projects;
+`u3787b_plain_key_commands_register_no_accelerator` adds both hints.
+
+The Rail inventory observer now requires F2. Complete Shelf and triage inventory
+coverage remains open; the inherited Shelf menu/delete proof remains intact. Settings stays
+the standard application menu's `app-settings` event, with equivalence proved by
+`u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups`.
+Configured Capture remains covered by #4278's existing
+`u2539b_native_menu_projects_the_task_chords` observer rather
+than a duplicate test. Terminal clipboard responders remain covered by U101 and
+its Edit-menu copy event proof. Library-owned editing and list navigation stay
+with their controls.
+
+Read current main macOS CI:
+[40916673952](https://github.com/roundup-app/roundup/actions/runs/40916673952),
+`c7cf55de270fcdf9c0c2490df607b5a2113f0bc6`: `mac` and `mac-clippy` both passed.
+Earlier macOS compilation records and #4278 native evidence above remain valid
+for their recorded SHAs. This run makes no new native dispatch claim.
+
+Remaining on #4308: native responder Find integration and actual responder
+availability for Find/Close Window; complete library/native inventory validation;
+and displayed-key, alignment, responder and combined accelerator/webview dispatch
+observations against the final implementation SHA. Tauri 2.12.1 and muda 0.20.0
+expose predefined Close Window but no Find constructor. AppKit's
+[performTextFinderAction:](https://developer.apple.com/documentation/appkit/nsresponder/performtextfinderaction(_:))
+is the responder-chain capability to investigate. A WebKit/AppKit observer must
+establish support and availability; adding a webview global search is not authorized.
+This continuation closes neither #4308 nor #3843.
+
+The U480 Help binding audit now explicitly presses F2, since its modified
+key sweep cannot see it. Help retains logical `?` matching through `HELP_KEYS`,
+with no physical US-layout shortcut added to the App-scope inventory; the
+unmodified U2241 Terminal sweep retains its existing boundary. No test was removed. Its menu Help dismissal assertion
+was redundant with U54 and the same test's focus return, and was removed. All
+U3787b menu tests use one Project: they never switch Projects, and the existing
+Tauri forwarding observer above retains the two-Project proof.

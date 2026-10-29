@@ -227,6 +227,10 @@ fn project_kind<R: Runtime>(
 ) -> tauri::Result<(MenuItemKind<R>, Option<String>)> {
     let (accelerator, hint) = match item.shortcut.as_deref() {
         Some(shortcut) if shortcut.starts_with("⌘K ") => (None, Some(shortcut.to_owned())),
+        // A plain key (a Shelf row's `D`) is control-owned: shown as a hint, never a global accelerator.
+        Some(shortcut) if item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']) => {
+            (None, Some(shortcut.to_owned()))
+        }
         Some(shortcut) => (
             Some(
                 shortcut
@@ -630,6 +634,30 @@ mod tests {
     }
 
     #[test]
+    fn u3787b_plain_key_commands_register_no_accelerator() {
+        let app = mock_app();
+        for key in ["D", "E", "M", "J K", "⇧Tab", "Tab", "1–9", "⏎", "F2", "?"] {
+            let source = item(
+                &format!("action:chord:{key}"),
+                "Run action",
+                Some(key),
+                None,
+            );
+            let (built, hint) = project_kind(
+                app.handle(),
+                &source,
+                |app, id, label, enabled, accelerator| {
+                    assert_eq!(accelerator, None);
+                    MenuItem::with_id(app, id, label, enabled, accelerator)
+                },
+            )
+            .unwrap();
+            assert_eq!(plain(built).text().unwrap(), source.label);
+            assert_eq!(hint.as_deref(), Some(key));
+        }
+    }
+
+    #[test]
     fn u4278b_leader_hints_register_no_accelerator() {
         let app = mock_app();
         for key in ["P", "J", "I", "C", "A", "S"] {
@@ -681,6 +709,8 @@ mod tests {
                 Some(vec![
                     item("action:leader:C", "Review changes", Some("⌘K C"), None),
                     item("action:chord:⌘F", "Find…", Some("⌘F"), None),
+                    item("action:chord:F2", "Rename", Some("F2"), None),
+                    item("action:chord:?", "Help", Some("?"), None),
                     item("action:chord:⌘=", "Larger Terminal text", Some("⌘="), None),
                     item("action:chord:⌘-", "Smaller Terminal text", Some("⌘-"), None),
                     item(
@@ -702,6 +732,8 @@ mod tests {
             for id in [
                 "action:leader:C",
                 "action:chord:⌘F",
+                "action:chord:F2",
+                "action:chord:?",
                 "action:chord:⌘=",
                 "action:chord:⌘-",
                 "action:chord:⌘0",
@@ -715,11 +747,15 @@ mod tests {
             vec![
                 serde_json::json!({"path": "/A", "command": "action:leader:C"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘F"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:F2"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:?"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘="}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘-"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:⌘0"}),
                 serde_json::json!({"path": "/B", "command": "action:leader:C"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘F"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:F2"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:?"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘="}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘-"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘0"}),
