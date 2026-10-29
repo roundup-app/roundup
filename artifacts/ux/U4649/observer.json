@@ -82,5 +82,7 @@
       "capture": "head/shell-dom.png",
       "reference": "head/shell-dom-reference.png"
     }
-  ]
+  ],
+  "captureProcessExit": 143,
+  "captureProcessNote": "The paired capture run reported all 16 tests passing, then exited 143; retain as observer evidence, not a clean full-suite exit."
 }
