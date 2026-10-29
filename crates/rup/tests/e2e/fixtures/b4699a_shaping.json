@@ -1,0 +1,70 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Feedback\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_b4699a_spawn",
+        "toolResultContains": "\"parent\":\"1\""
+      },
+      "response": {
+        "content": "Shape the ask in the Shape feedback child's Terminal."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Help me shape an ask for filing Workstream behavior feedback",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_b4699a_spawn",
+            "name": "mcp__roundup__agent_spawn",
+            "arguments": "{\"cwd\": \".\", \"name\": \"Shape feedback\", \"order\": {\"kind\": \"work\", \"title\": \"Shape feedback\", \"ask\": \"Shape the feedback ask with the user.\", \"done\": \"The user has a clear feedback ask.\", \"limits\": [\"Change no files.\", \"Report blocks to the Door with message_send.\"]}, \"prompt\": \"Help me shape an ask for filing Workstream behavior feedback\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: Shape the feedback ask with the user."
+      },
+      "response": {
+        "content": "{\"title\":\"Shape feedback\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Shape the feedback ask with the user.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "What Workstream behavior should the feedback describe?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\n[digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    }
+  ]
+}

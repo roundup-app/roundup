@@ -171,3 +171,28 @@ fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
     assert!(!agent.contains("checkpoint_write"));
     assert!(agent.contains("- `checkpoint_list`:"));
 }
+
+#[test]
+fn b4699a_the_door_brief_delegates_shaping_to_one_child() {
+    let text = brief(&setup(), "7", Role::Door);
+    assert!(text.contains("When the user asks to shape an ask, spawn exactly one shaping child under yourself in this Workstream with `agent_spawn`, then direct the user to that child's Terminal to shape it there; do not shape inline or call `rail_createWorkstream` or `rail_startDoor` for this request."));
+}
+
+#[test]
+fn b4699b_the_door_brief_forbids_reasking_for_authorized_actions() {
+    let text = brief(&setup(), "7", Role::Door);
+    assert!(text.contains("Never add a child limit asking the user to approve an action they already authorized, such as asking before each `gh issue create`. Preserve their actual limits and the vendor's permission mechanism."));
+}
+
+#[test]
+fn b4699c_each_brief_routes_child_blocks_to_the_door() {
+    let s = setup();
+    for role in [Role::Door, Role::Agent, Role::Scout] {
+        let text = brief(&s, "7", role);
+        assert!(text.contains("If you have a coordinating Door and cannot proceed within your order, report the block and the decision needed to that Door with `message_send`, not `AskUserQuestion`; engineering choices within existing authorization go to the Door."), "{role:?}");
+        assert!(text.contains("Only a decision reserved to the user by their stated limits, or an unresolved goal or taste choice, goes to the user with `AskUserQuestion`. A vendor permission prompt remains the user's to answer; never seek its answer from the Door."), "{role:?}");
+        if role == Role::Door {
+            assert!(text.contains("Include in child orders: report blocks and the decision needed to this Door with `message_send`; ask the user only for decisions that are theirs alone, and leave vendor permission prompts to them."));
+        }
+    }
+}
