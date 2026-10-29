@@ -247,6 +247,7 @@ const colourTokens = (page: Page, el: Element): Rgba[] | null => {
   const names = ["red", "amber", "accent", "selected", "selected-hover"];
 
   if (el.closest('.empty-state-art')) names.push("doodle-line", "doodle-patch");
+
   if (el.closest('[data-button="primary"]')) names.push("button-accent-fill", "button-key-ink");
 
   const read = names.map((name) => parseColour(resolveAt(page, el, `var(--${name})`)));
