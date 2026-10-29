@@ -148,8 +148,14 @@ it("u504_form_suggestions_highlight_wrap_and_accept_without_moving_focus", async
   await waitFor(() => expect(active()).toBe(options[1]));
   fireEvent.keyDown(field, { key: "ArrowDown" });
   await waitFor(() => expect(active()).toBe(options[0]));
-  fireEvent.pointerMove(options[1]!, { pointerType: "mouse" });
-  await waitFor(() => expect(active()).toBe(options[1]));
+  fireEvent.input(field, { target: { value: "Al" } });
+  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+  await waitFor(() => expect(active()).toBe(screen.getByRole("option")));
+  fireEvent.input(field, { target: { value: "" } });
+  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+  const last = screen.getAllByRole("option")[1]!;
+  fireEvent.pointerMove(last, { pointerType: "mouse" });
+  await waitFor(() => expect(active()).toBe(last));
   expect(document.activeElement).toBe(field);
   fireEvent.keyDown(field, { key: "Tab" });
   await waitFor(() => expect(picked).toHaveBeenCalledExactlyOnceWith("b"));
