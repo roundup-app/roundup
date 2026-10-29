@@ -343,8 +343,10 @@ it("t4905_opening_a_pending_capture_sends_no_item_rpc", async () => {
   await waitFor(() => expect(answer).toBeTypeOf("function"));
   const row = document.querySelector<HTMLElement>("[data-todo]")!;
   const open = row.querySelector<HTMLElement>(".todo-open");
+
   if (open) fireEvent.click(open);
   const button = row.querySelector<HTMLElement>(".todo-row-button");
+
   if (button) fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
   expect(app.calls.filter(call => ["todo.refs", "todo.comments", "todo.getHistory"].includes(call.method))).toEqual([]);
   expect(app.calls.filter(call => JSON.stringify(call.params).includes(row.dataset.todo!))).toEqual([]);
@@ -370,25 +372,31 @@ it("t4905_a_filed_capture_opens_with_its_returned_id", async () => {
   answer();
   await waitFor(() => expect(document.querySelectorAll("[data-todo]")).toHaveLength(1));
   await waitFor(() => expect(document.querySelector('[data-todo="9"]')).not.toBeNull());
-  expect(document.querySelector("[data-pending]")).toBeNull();
+  await waitFor(() => expect(document.querySelector("[data-pending]")).toBeNull());
+  expect(document.querySelectorAll("[data-todo]")).toHaveLength(1);
   expect(field()!.value).toBe("newer draft");
   fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
   fireEvent.click(screen.getByRole("button", { name: "Open filed capture" }));
   await waitFor(() => expect(callsTo(app, "todo.getHistory").length).toBeGreaterThan(0));
   await waitFor(() => expect(callsTo(app, "todo.comments").length).toBeGreaterThan(0));
   await waitFor(() => expect(callsTo(app, "todo.refs").length).toBeGreaterThan(0));
+
   for (const method of ["todo.getHistory", "todo.comments", "todo.refs"]) {
-    expect(callsTo(app, method).every(call => call.params.id === 9)).toBe(true);
+    for (const call of callsTo(app, method)) expect(call.params).toEqual({ id: 9 });
   }
+
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it.each(["create", "move"])("t4905_a_settled_failure_removes_only_its_placeholder_%s", async (stage) => {
   const { app, connected } = await mount();
+
   if (stage === "move") connected.rail.select("w");
   let fail!: () => void;
+  const cause = new RpcError(-32602, "capture refused");
+
   app.handlers[stage === "create" ? "todo.create" : "todo.move"] = () => new Promise((_, reject) => {
-    fail = () => reject(new RpcError(-32602, "capture refused"));
+    fail = () => reject(cause);
   });
   const input = await openField();
   type(input, "  rejected capture  ");
@@ -401,7 +409,12 @@ it.each(["create", "move"])("t4905_a_settled_failure_removes_only_its_placeholde
   expect(document.querySelector("[data-pending]")).toBeNull();
   expect(field()!.value).toBe("  newer draft 雪  ");
   expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered capture draft").value).toBe("  rejected capture  ");
-  expect(screen.getByRole("alert").textContent).toContain("capture refused");
-  if (stage === "move") await waitFor(() => expect(document.querySelector('[data-todo="1"]')).not.toBeNull());
+  expect(screen.getByRole("alert").textContent).toContain(cause.message);
+
+  if (stage === "move") {
+    connected.rail.select(null);
+    await waitFor(() => expect(document.querySelector('[data-todo="1"]')).not.toBeNull());
+  }
+
   expect(app.calls.some(call => JSON.stringify(call.params).includes('"id":-'))).toBe(false);
 });
