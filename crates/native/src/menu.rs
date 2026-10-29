@@ -5,7 +5,13 @@ use objc2::{
     runtime::{AnyClass, AnyObject},
 };
 use objc2_foundation::{NSRange, NSSize, NSString};
+use std::cell::RefCell;
 use tauri::{AppHandle, Runtime};
+
+thread_local! {
+    // Replacement removes the previous registration; AppKit retains each callback block.
+    static PROJECT_OBSERVER: RefCell<Option<Retained<AnyObject>>> = const { RefCell::new(None) };
+}
 
 /// Decorate the freshly built Project submenu on the main thread; indices include separators.
 /// Plain titles and key equivalents stay untouched; attributed titles share a right-aligned hint stop.
@@ -34,38 +40,51 @@ unsafe fn decorate_project_menu(hints: Vec<(usize, String)>) {
         let Some(project) = project else { return };
         let submenu: Option<Retained<AnyObject>> = msg_send![&*project, submenu];
         let Some(submenu) = submenu else { return };
-        decorate(&submenu, hints);
+        decorate(&submenu, hints.clone());
+        let center = AnyClass::get(c"NSNotificationCenter").expect("Foundation is loaded");
+        let center: Retained<AnyObject> = msg_send![center, defaultCenter];
+        PROJECT_OBSERVER.with(|observer| {
+            if let Some(previous) = observer.borrow_mut().take() {
+                let _: () = msg_send![&*center, removeObserver: &*previous];
+            }
+            // AppKit may announce tracking on the menu bar rather than its submenu.
+            // Refresh the installed submenu for either case, without replacing muda's delegate.
+            let block = block2::RcBlock::new(move |_notification: &AnyObject| {
+                decorate(&submenu, hints.clone());
+            });
+            let name = NSString::from_str("NSMenuDidBeginTrackingNotification");
+            let token: Retained<AnyObject> = msg_send![&*center, addObserverForName: &*name, object: std::ptr::null::<AnyObject>(), queue: std::ptr::null::<AnyObject>(), usingBlock: &*block];
+            *observer.borrow_mut() = Some(token);
+        });
     }
 }
 
-/// Right edge of the hint column, from the title's left edge: where AppKit puts the widest
-/// key equivalent (or the widest hint when no item has one), one `gap` after the longest title.
-fn hint_stop(title_width: f64, key_equivalent_width: f64, hint_width: f64, gap: f64) -> f64 {
-    title_width + gap + key_equivalent_width.max(hint_width)
+/// NSTextTab locations are relative to the title, not the menu's frame.
+fn hint_stop(menu_width: f64, frame_insets: f64) -> f64 {
+    menu_width - frame_insets
 }
 
-/// Menu-font width of an item's key equivalent as AppKit draws it (modifier glyphs, then key).
-unsafe fn key_equivalent_width(item: &AnyObject, fonts: &AnyObject) -> f64 {
-    // SAFETY: `item` is a live NSMenuItem and `fonts` an attributes dictionary, on the main thread.
+/// Measure the menu's non-text width without guessing AppKit's padding. A wide title
+/// dominates minimumWidth; retaining the copied items preserves image/state/submenu gutters.
+unsafe fn text_insets(submenu: &AnyObject, fonts: &AnyObject) -> f64 {
+    // SAFETY: NSMenu implements NSCopying; the private sizing copy never tracks or dispatches.
     unsafe {
-        let key: Retained<NSString> = msg_send![item, keyEquivalent];
-        if key.is_empty() {
-            return 0.0;
+        let sizing: Retained<AnyObject> = msg_send![submenu, copy];
+        let title = NSString::from_str(&"M".repeat(256));
+        let text: NSSize = msg_send![&*title, sizeWithAttributes: fonts];
+        let count: isize = msg_send![&*sizing, numberOfItems];
+        for index in 0..count {
+            let item: Retained<AnyObject> = msg_send![&*sizing, itemAtIndex: index];
+            let separator: bool = msg_send![&*item, isSeparatorItem];
+            if separator {
+                continue;
+            }
+            let _: () = msg_send![&*item, setAttributedTitle: std::ptr::null::<AnyObject>()];
+            let _: () = msg_send![&*item, setTitle: &*title];
+            let _: () = msg_send![&*item, setKeyEquivalent: &*NSString::from_str("")];
         }
-        let mask: usize = msg_send![item, keyEquivalentModifierMask];
-        let glyphs: String = [
-            (1usize << 18, "⌃"),
-            (1 << 19, "⌥"),
-            (1 << 17, "⇧"),
-            (1 << 20, "⌘"),
-        ]
-        .iter()
-        .filter(|(flag, _)| mask & flag != 0)
-        .map(|(_, glyph)| *glyph)
-        .collect();
-        let shown = NSString::from_str(&format!("{glyphs}{}", key.to_string().to_uppercase()));
-        let size: NSSize = msg_send![&*shown, sizeWithAttributes: fonts];
-        size.width
+        let size: NSSize = msg_send![&*sizing, size];
+        size.width - text.width
     }
 }
 
@@ -73,32 +92,42 @@ unsafe fn key_equivalent_width(item: &AnyObject, fonts: &AnyObject) -> f64 {
 unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
     // SAFETY: callers supply a live NSMenu on the process main thread.
     unsafe {
+        if hints.is_empty() {
+            return;
+        }
         let count: isize = msg_send![submenu, numberOfItems];
         let font: Retained<AnyObject> = msg_send![submenu, font];
         let dictionary = AnyClass::get(c"NSDictionary").expect("Foundation is loaded");
         let font_key = NSString::from_str("NSFont");
         let fonts: Retained<AnyObject> =
             msg_send![dictionary, dictionaryWithObject: &*font, forKey: &*font_key];
-        let mut title_width = 0.0f64;
-        let mut key_width = 0.0f64;
-        let mut hint_width = 0.0f64;
-        for index in 0..count {
+        // Remove the previous stop before sizing: reopening must not feed an old width
+        // back into AppKit's next layout. Natural text reserves room for every hint.
+        let strings = AnyClass::get(c"NSMutableAttributedString").expect("Foundation is loaded");
+        for (index, hint) in &hints {
+            let Ok(index) = isize::try_from(*index) else {
+                continue;
+            };
+            if index >= count {
+                continue;
+            }
             let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
             let title: Retained<NSString> = msg_send![&*item, title];
-            let size: NSSize = msg_send![&*title, sizeWithAttributes: &*fonts];
-            title_width = title_width.max(size.width);
-            key_width = key_width.max(key_equivalent_width(&item, &fonts));
+            let display = NSString::from_str(&format!("{title}    {hint}"));
+            let attributed: Allocated<AnyObject> = msg_send![strings, alloc];
+            let attributed: Retained<AnyObject> =
+                msg_send![attributed, initWithString: &*display, attributes: &*fonts];
+            let _: () = msg_send![&*item, setAttributedTitle: &*attributed];
+            let _: () = msg_send![&*item, setTitle: &*title];
         }
-        for (_, hint) in &hints {
-            let size: NSSize = msg_send![&*NSString::from_str(hint), sizeWithAttributes: &*fonts];
-            hint_width = hint_width.max(size.width);
-        }
-        let em: f64 = msg_send![&*font, pointSize];
+        let size: NSSize = msg_send![submenu, size];
+        let stop = hint_stop(size.width, text_insets(submenu, &fonts));
         let tabs = AnyClass::get(c"NSTextTab").expect("AppKit is loaded");
         let tab: Allocated<AnyObject> = msg_send![tabs, alloc];
         let options: Retained<AnyObject> = msg_send![dictionary, dictionary];
-        // NSTextAlignmentRight = 1. Measure with the menu's font, including long titles.
-        let tab: Retained<AnyObject> = msg_send![tab, initWithTextAlignment: 1isize, location: hint_stop(title_width, key_width, hint_width, em), options: &*options];
+        // NSTextAlignmentRight = 1; use the laid-out menu width, including native columns.
+        let tab: Retained<AnyObject> =
+            msg_send![tab, initWithTextAlignment: 1isize, location: stop, options: &*options];
         let array = AnyClass::get(c"NSArray").expect("Foundation is loaded");
         let stops: Retained<AnyObject> = msg_send![array, arrayWithObject: &*tab];
         let styles = AnyClass::get(c"NSMutableParagraphStyle").expect("AppKit is loaded");
@@ -107,7 +136,6 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
         let style_key = NSString::from_str("NSParagraphStyle");
         let attributes: Retained<AnyObject> = msg_send![&*fonts, mutableCopy];
         let _: () = msg_send![&*attributes, setObject: &*style, forKey: &*style_key];
-        let strings = AnyClass::get(c"NSMutableAttributedString").expect("Foundation is loaded");
         let colors = AnyClass::get(c"NSColor").expect("AppKit is loaded");
         let color_key = NSString::from_str("NSColor");
         for (index, hint) in hints {
@@ -247,7 +275,7 @@ pub(crate) mod tests {
         // A 300pt menu starts titles at 21pt and ends equivalents 21pt from the right.
         // Widening the menu moves the stop by exactly the same amount, regardless of labels.
         for (width, expected) in [(300.0, 258.0), (420.0, 378.0)] {
-            assert_eq!(hint_stop(width, 21.0, 21.0), expected);
+            assert_eq!(hint_stop(width, 42.0), expected);
         }
     }
 
