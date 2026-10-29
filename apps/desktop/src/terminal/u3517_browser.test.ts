@@ -654,9 +654,8 @@ it.each(["close", "minimise", "Escape"])("u4590_preparing_shell_cancels_with_%s"
 }, 60_000);
 
 // U4590's opt-in policy observer; the single startup guard above remains the CI guard.
-for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-40", "bubbles"]) {
-  it.skipIf(!captureDir("U4590"))(`u4590_rendered_lifecycle_${renderer}_${seed}`, async () => {
-    for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-40", "bubbles"]) for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
+  it.skipIf(!captureDir("U4590"))(`u4590_rendered_lifecycle_${renderer}_${seed}_${base ? "base" : "head"}`, async () => {
       await browser("open", url("/src/ui/u498.html", base));
       await read("localStorage.clear(); sessionStorage.clear()");
       const scale = process.env.U4590_SCALE === "2" ? 2 : 1;
@@ -787,6 +786,5 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await read("window.__observedEmulator=null");
         await capture("quick-terminal");
       }
-    }
   }, 120_000);
 }
