@@ -13,6 +13,8 @@ pub struct Asks {
     shared: Arc<Intake>,
 }
 struct Intake {
+    #[cfg(test)]
+    before_wait: Mutex<Option<Box<dyn FnOnce() + Send>>>,
     store: Mutex<Store>,
     agents: Arc<Agents>,
     placement: Arc<dyn Placement>,
@@ -41,6 +43,8 @@ impl Asks {
     ) -> Result<Self, OpenError> {
         Ok(Self {
             shared: Arc::new(Intake {
+                #[cfg(test)]
+                before_wait: Mutex::new(None),
                 store: Mutex::new(Store::open(dir)?),
                 agents,
                 placement,
@@ -54,6 +58,13 @@ impl Asks {
 }
 
 impl Intake {
+    #[cfg(test)]
+    fn before_wait(&self) {
+        if let Some(transition) = self.before_wait.lock().unwrap().take() {
+            transition();
+        }
+    }
+
     fn store(&self) -> MutexGuard<'_, Store> {
         agent_lock(&self.store).expect("Ask store lock")
     }
@@ -504,6 +515,8 @@ impl Intake {
                         .is_none_or(|status| status.kind != Kind::Idle)
                         || node.terminal_id.is_none()
                     {
+                        #[cfg(test)]
+                        self.before_wait();
                         match events.recv().await {
                             Ok(_) | Err(RecvError::Lagged(_)) => continue,
                             Err(RecvError::Closed) => return Ok(()),
@@ -537,6 +550,8 @@ impl Intake {
                         Err(PromptError::Busy { .. }) => {
                             part.state = State::Queued;
                             self.store().update(&id, ord, &part, State::Typed)?;
+                            #[cfg(test)]
+                            self.before_wait();
                             match events.recv().await {
                                 Ok(_) | Err(RecvError::Lagged(_)) => continue,
                                 Err(RecvError::Closed) => return Ok(()),

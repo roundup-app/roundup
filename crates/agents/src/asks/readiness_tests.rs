@@ -98,3 +98,67 @@ async fn a4899a_an_already_idle_door_takes_the_queued_part_without_another_event
         // Sent precedes acceptance; no later Signal made delivery possible.
     }
 }
+
+#[tokio::test]
+async fn a4899a_readiness_at_the_wait_boundary_is_not_lost() {
+    for first_pending in [false, true] {
+        let (w, asks, ctx, mut input) = fixture().await;
+        if first_pending {
+            if let Some(Slot::Running(run)) = w.shared.runs().get_mut("7013") {
+                run.first_pending = true;
+            }
+        } else {
+            w.shared
+                .observe(
+                    Actor::daemon(),
+                    "7013",
+                    "1",
+                    Observation::Signal(serde_json::json!({"hook_event_name":"UserPromptSubmit"})),
+                )
+                .unwrap();
+        }
+        let shared = w.shared.clone();
+        *asks.shared.before_wait.lock().unwrap() = Some(Box::new(move || {
+            if first_pending {
+                if let Some(Slot::Running(run)) = shared.runs().get_mut("7013") {
+                    run.first_pending = false;
+                }
+                // Same completion boundary as steer_first_prompt: no Kind or bus Event.
+                shared.events.observed.notify_waiters();
+            } else {
+                shared
+                    .observe(
+                        Actor::daemon(),
+                        "7013",
+                        "1",
+                        Observation::Signal(serde_json::json!({"hook_event_name":"Stop"})),
+                    )
+                    .unwrap();
+            }
+        }));
+        let mut events = ctx.bus.subscribe();
+        asks.call(
+            &ctx,
+            "ask.send",
+            serde_json::json!({
+                "text":"boundary", "workstream":"7013"
+            }),
+        )
+        .await
+        .unwrap();
+        tokio::time::timeout(Duration::from_millis(500), async {
+            assert_eq!(input.recv().await.unwrap(), b"\x1b[200~boundary\x1b[201~");
+            assert_eq!(input.recv().await.unwrap(), b"\r");
+            loop {
+                if let EventData::AskChanged { ask } = events.recv().await.unwrap().data
+                    && ask.parts[0].state == State::Typed
+                {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("lost readiness with first_pending={first_pending}"));
+        assert!(input.try_recv().is_err());
+    }
+}
