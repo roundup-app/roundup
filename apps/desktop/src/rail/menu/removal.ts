@@ -25,7 +25,7 @@ const below = (nodes: readonly RailNode[], id: string): RailNode[] =>
 const unlanded = (state: WorktreeState): string | null =>
   state.ahead > 0 ? copy.unlandedWorkAhead(state.ahead) : state.dirty ? copy.unlandedWorkUncommittedChanges : null;
 
-/** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by owner. Writes nothing. */
+/** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by Home. Writes nothing. */
 export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string): Promise<Removal> => {
   const [todos, pads] = await Promise.all([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
   const removal: Removal = { affectedIds: below(nodes, id).map(node => node.id), removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
