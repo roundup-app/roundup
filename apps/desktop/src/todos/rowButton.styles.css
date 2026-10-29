@@ -519,8 +519,6 @@
   background-image: linear-gradient(var(--selected), var(--selected));
 }
 .todo-open:focus-visible { color: var(--text); }
-/* The circle follows the optical centre of the title, retaining its reserved slot. */
-.todo-row .shelf-glyph { --glyph-optical-transform: translateY(calc(var(--space-1) * -0.5)); }
 
 /* Leave room beyond the trailing grip for sideways pointer nesting. */
 .todo-list { padding-inline-end: var(--space-6); }
