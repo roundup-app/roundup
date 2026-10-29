@@ -61,8 +61,8 @@ sys.exit(7)
         }
         tokio::join!(first, second);
         terminals.wait_program_ended(&spawned.id).await;
-        assert!(terminals.program_ended(&spawned.id));
-        assert!(terminals.list()[0].running, "PTY completion remains separate");
+        assert!(terminals.program_ended(&spawned.id).await);
+        assert!(terminals.list().await[0].running, "PTY completion remains separate");
         assert!(spawned.events.try_recv().is_err(), "no premature exit event");
         drop(holder);
         while spawned.output.next().await.is_some() {}
