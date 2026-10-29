@@ -122,6 +122,14 @@ const mount = (app: AppSeam) => {
     });
   }} createEmulator={(id, copy) => {
     const emulator = createEmulator(id, copy);
+    const bind = emulator.bind;
+    emulator.bind = next => {
+      window.__terminals.delete(id);
+      id = next;
+      bind?.(next);
+      window.__terminals.set(id, emulator);
+    };
+
     window.__terminals.set(id, emulator);
 
     return emulator;

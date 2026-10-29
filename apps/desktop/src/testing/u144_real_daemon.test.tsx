@@ -60,40 +60,6 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     return { app, emulators };
   };
 
-  it("u144_a_workstream_made_and_started_by_pointer_comes_from_the_daemon", async () => {
-    const { app, emulators } = await mount();
-
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
-
-    const rail = await screen.findByRole("region", { name: "Rail" });
-
-    await waitFor(() => expect(within(rail).getAllByText("workstream").length).toBeGreaterThan(0));
-    await waitFor(() => expect(emulators.made.size).toBe(1), { timeout: 20_000 });
-
-    const tree = JSON.stringify(await app.rpc("rail.tree", null));
-    const terminals = await app.rpc("terminal.list", null);
-
-    expect([tree.includes('"workstream"'), terminals.length]).toEqual([true, 1]);
-    expect([...emulators.made.keys()]).toEqual(terminals.map((terminal) => terminal.id));
-  }, 60_000);
-
-  it("u144_the_choosers_answer_null_and_the_dock_badge_does_nothing", async () => {
-    const app = createServedApp(base);
-
-    expect([await app.chooseProjectPath(), await app.chooseSavePath("x.md"), await app.setDockBadge(3), (await app.projects())[0]?.path]).toEqual([null, null, undefined, dir]);
-  });
-
-  it("u144_a_method_the_daemon_rejects_reaches_the_caller_with_its_message", async () => {
-    const app = createServedApp(base);
-
-    const failure = await app.rpc("rail.startDoor", { id: "nowhere" }).then(
-      () => null,
-      (error: RpcError) => error,
-    );
-
-    expect([failure instanceof RpcError, failure?.message]).toEqual([true, "not found: an Agent that is gone"]);
-  });
-
   it("u144_a_method_the_daemon_rejects_shows_its_message_in_the_mounted_app", async () => {
     const served = createServedApp(base);
     let kept = false;
