@@ -35,8 +35,22 @@ impl TerminalOwner {
         project: &Path,
         params: SpawnParams,
     ) -> Result<(Self, Child), OpenError> {
+        Self::start_with(helper, project, params, &[])
+    }
+
+    pub(super) fn start_with(
+        helper: &Path,
+        project: &Path,
+        mut params: SpawnParams,
+        clean_env: &[String],
+    ) -> Result<(Self, Child), OpenError> {
+        params.env.retain(|name, _| !clean_env.contains(name));
         let project = project.canonicalize()?;
-        let mut child = Command::new(helper)
+        let mut command = Command::new(helper);
+        for marker in clean_env {
+            command.env_remove(marker);
+        }
+        let mut child = command
             .arg(&project)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -237,6 +251,7 @@ async fn dispatch(
         if terminals.program_ended(id) {
             for info in &mut infos {
                 info.running = false;
+                info.program_pid = None;
             }
         }
         return rpc::reply(&infos);
@@ -263,6 +278,14 @@ async fn dispatch(
         return Err(RpcError::not_found("owned Terminal"));
     }
     match method {
+        "terminal.write" => {
+            let params: contracts::terminal::WriteParams = rpc::params(params)?;
+            let bytes = STANDARD
+                .decode(params.data)
+                .map_err(|error| crate::invalid(error.to_string()))?;
+            terminals.write_completed(id, bytes).await?;
+            Ok(Value::Null)
+        }
         "terminal.kill" => {
             let handle = terminals.running(id)?;
             tokio::task::spawn_blocking(move || {

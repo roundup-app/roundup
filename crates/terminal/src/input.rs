@@ -9,7 +9,10 @@ impl Terminals {
         self.write_at(id, bytes, (self.shared.clock)())
     }
 
-    fn write_at(&self, id: &str, bytes: &[u8], received: f64) -> Result<(), RpcError> {
+    pub(super) fn write_at(&self, id: &str, bytes: &[u8], received: f64) -> Result<(), RpcError> {
+        if let Some(remote) = self.remote(id)? {
+            return remote.enqueue(Input::Bytes(bytes.to_vec(), Vec::new()));
+        }
         let handle = self.running(id)?;
         let samples = match handle.recorder.get() {
             Some(recorder) => recorder
@@ -57,7 +60,9 @@ impl Terminals {
     }
 
     fn enqueue(&self, id: &str, input: Input) -> Result<(), RpcError> {
+        if let Some(remote) = self.remote(id)? {
+            return remote.enqueue(input);
+        }
         self.running(id)?.enqueue(id, input)
     }
-
 }
