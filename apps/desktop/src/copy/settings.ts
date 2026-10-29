@@ -1,4 +1,9 @@
 export const settingsCopy = {
+  automaticRenaming: "Automatic renaming",
+  automaticRenamingHint: "Allow Agents to name themselves from their work.",
+  namingGuide: "Naming guide",
+  namingGuideHint: "Instructions for Agent names. Save to apply.",
+  namingGuideRefusal: "Enter a naming guide before saving.",
   settings: "Settings",
   settingsBack: "← Back",
   settingsGeneral: "General",

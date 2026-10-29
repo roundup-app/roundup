@@ -222,6 +222,15 @@ impl Shared {
 }
 
 impl Agents {
+    /// Whether this Agent's name has already been chosen explicitly or by its first prompt.
+    pub fn naming_settled(&self, id: &str) -> bool {
+        match self.shared.runs().get(id) {
+            Some(Slot::Running(run)) => run.named,
+            Some(Slot::Starting { named, .. }) => *named,
+            _ => true,
+        }
+    }
+
     /// Resolve an Agent's current Rail name for prose, preserving storage failures.
     pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
         self.shared.rail().name(id)
