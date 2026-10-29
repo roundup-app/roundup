@@ -35,7 +35,7 @@ export const settingsCopy = {
   hideApp: "Hide roundup",
   spotlight: "Spotlight",
   switchApps: "Switch apps",
-  mode: "Mode",
+  mode: "Appearance",
   modeDark: "Dark",
   modeLight: "Light",
   modeSystem: "System",
