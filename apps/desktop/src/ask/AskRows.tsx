@@ -106,7 +106,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
     chords: ["ArrowUp", "ArrowDown"],
     when: (event: KeyboardEvent) => event.target === button,
     run: (event: KeyboardEvent) => {
-      const rows = [...(button?.closest(".ask-rows")?.querySelectorAll<HTMLButtonElement>("button.ask-line") ?? [])];
+      const rows = [...(button?.closest(".ask-content")?.querySelectorAll<HTMLButtonElement>("button.ask-line") ?? [])];
       const index = rows.findIndex((row) => row === button);
       rows[index + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
     },
