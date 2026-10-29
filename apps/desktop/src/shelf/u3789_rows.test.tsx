@@ -100,6 +100,7 @@ it.each(["todo-shelf", "pad-shelf", "workstream", "agent"] as const)("u3789a_ren
   await settled();
   fireEvent.click(row);
   await settled();
+
   // U3789f: a double-click on a Todo or Pad row opens it; F2 renames.
   if (kind === "todo-shelf" || kind === "pad-shelf") {
     row.focus();
