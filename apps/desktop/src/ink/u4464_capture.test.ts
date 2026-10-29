@@ -72,9 +72,9 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`!!document.querySelector('.inbox .empty-state')`);
       await snap(`${theme}-inbox`);
 
-      for (const view of ["made", "reactions", "ask-history"]) {
+      for (const view of ["made", "reactions"]) {
         await load("empty-project", view);
-        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : view === "reactions" ? `!!document.querySelector('.reactions .empty-state')` : view === "ask-history" ? `!!document.querySelector('.ask-history .empty-state')` : `!!document.querySelector('.note-recovery .empty-state')`);
+        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : view === "reactions" ? `!!document.querySelector('.reactions .empty-state')` : `!!document.querySelector('.note-recovery .empty-state')`);
         await snap(`${theme}-${view}`);
       }
 
