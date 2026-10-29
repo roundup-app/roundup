@@ -132,7 +132,7 @@ const mountApp = async () => {
 };
 
 const cases = [...ROWS, ...APP_ROWS, ...BUBBLE_ROWS].flatMap((row) => (["pointer", "enter"] as const).flatMap((how) =>
-  (row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : ["dismiss", "resolve", "reject", "unknown"] as const)).map((outcome) => ({ row, how, outcome }))));
+  (row.owner === "Bubble" && row.confirms ? ["dismiss", "cancel", "resolve", "reject", "reject-before-switch", "unknown", "confirmation-accept", "confirmation-cancel"] as const : row.confirms ? ["dismiss", "cancel", "resolve", "reject"] as const : (row.label === "New Agent" && row.owner !== "App" ? ["dismiss", "resolve", "reject", "unknown", "missing"] as const : (row.owner === "Bubble" ? ["dismiss", "resolve", "reject", "reject-before-switch", "unknown"] as const : ["dismiss", "resolve", "reject", "unknown"] as const))).map((outcome) => ({ row, how, outcome }))));
 
 it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $how, pending reply $outcome", async ({ row, how, outcome }) => {
   const mounted = row.owner !== "Rail" ? await mountApp() : await mountSwitcher(row.selected);
@@ -227,6 +227,11 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   if (row.owner !== "Rail") {
     expect(queryDraft).toHaveLength(1);
     expect(queryDraft[0]).toMatchObject({ destination: { surface: "switcher", object: path("first"), recipient: null }, value: { query } });
+    if (outcome === "reject-before-switch") {
+      reply.reject(new RpcError(-32000, `${row.label} late rejection`));
+      await waitFor(() => expect(document.body.textContent).toContain(`${row.label} late rejection`));
+    }
+
     fireEvent.click(tab("second"));
     await waitFor(() => expect(document.querySelector(row.origin)).toBeNull());
   } else {
@@ -249,7 +254,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       reply.resolve();
       await waitFor(() => expect(connected.rail.terminals().map(terminal => terminal.id)).toEqual(row.method === "terminal.open" ? ["7", "9"] : []));
     } else {
-      reply.reject(outcome === "unknown" ? new Error(`${row.label} late rejection`) : new RpcError(-32000, `${row.label} late rejection`));
+      if (outcome !== "reject-before-switch") reply.reject(outcome === "unknown" ? new Error(`${row.label} late rejection`) : new RpcError(-32000, `${row.label} late rejection`));
       await waitFor(() => expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes(`${row.label} late rejection`))).toBe(true));
       expect(connected.drafts.list()).toEqual(drafts);
       expect(ofMethod()).toHaveLength(1);
