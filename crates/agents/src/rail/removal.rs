@@ -373,7 +373,13 @@ impl Rail {
                 .filter(|node| restored_ids.contains(&node.id.as_str()))
             {
                 if let Some(blocker) = current.iter().find(|live| live.id == node.id) {
-                    return Err(RpcError::undo_identity(&blocker.id, &blocker.name));
+                    let removable = actor.kind != contracts::ActorKind::Agent
+                        || in_reach(db, &current, &actor.id, &blocker.id)?;
+                    return Err(RpcError::undo_identity(
+                        &blocker.id,
+                        &blocker.name,
+                        removable,
+                    ));
                 }
                 if let Some(parent) = &node.parent
                     && !restored_ids.contains(&parent.as_str())
@@ -491,4 +497,10 @@ impl Rail {
             .restored = true;
         Ok(removal)
     }
+}
+
+/// M7: whether `id` is in Agent `agent`'s Reach, read inside the restoring transaction.
+fn in_reach(db: &Connection, nodes: &[RailNode], agent: &str, id: &str) -> Result<bool, RpcError> {
+    let created = Rail::created_by_in(db, agent)?;
+    Ok(crate::reach::reach_of(nodes, created, agent).contains(id))
 }
