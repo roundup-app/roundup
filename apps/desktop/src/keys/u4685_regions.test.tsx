@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { showShelfTab } from "../testing/shelfTabs";
+import { event } from "../testing/nodes";
 import { callsTo } from "../terminal/paneHarness";
 
 afterEach(cleanup);
@@ -9,6 +10,8 @@ afterEach(cleanup);
 it("u4685b_focus_changes_never_refit_or_resize_the_terminal", async () => {
   const { daemon, connected, emulators, store } = await mountNavigation(false, 0);
   store.todos[0]!.home = "home";
+  store.todos[0]!.owner = { kind: "agent", id: "a0", parent: null };
+  daemon.emit(event({ name: "todo.updated", data: store.todos[0]! }));
   connected().rail.select("a0");
   await waitFor(() => expect(emulators.made.get("t-a0")?.host).toBeTruthy());
   const emulator = emulators.made.get("t-a0")!;

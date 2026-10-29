@@ -483,3 +483,14 @@ button, file-tree-container, diffs-container {
 [data-flat-tab][data-selected="true"] {
   --ground: light-dark(var(--root-ground), var(--surface));
 }
+
+/* U4685: actual descendant focus paints each region once, without changing its box.
+   Shelf tabs belong to its existing owner even though the shared bar hosts them. */
+.rail:focus-within,
+.pane:focus-within,
+.drawer:focus-within,
+.shelf:focus-within,
+.window:has(.shelf-tabs:focus-within) .shelf {
+  outline: var(--hairline-width) solid var(--accent);
+  outline-offset: calc(-1 * var(--hairline-width));
+}
