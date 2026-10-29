@@ -1,8 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { agent, event, terminal, workstream } from "../testing/nodes";
-import { todo } from "../todos/testHarness";
-import { mountRail, railCallsTo, rowOf } from "./railFixture";
+import { agent, terminal, workstream } from "../testing/nodes";
+import { mountRail, railCallsTo, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -58,6 +57,7 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
   const { rail } = await mountRail(["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"].map((name, order) => ({ ...make(`row-${order}`), name, order })));
 
   fireEvent.click(rowOf("Beta"));
+  await settled();
 
   const press = async (name: string, key: string, expected: string) => {
     rowOf(name).focus();
@@ -65,8 +65,15 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
     await waitFor(() => expect(document.activeElement).toBe(rowOf(expected)));
   };
 
-  await press("Gamma", "Home", "Alpha");
-  await press("Alpha", "ArrowUp", "Alpha");
+  const heading = screen.getByRole("tree", { name: "Rail" }).querySelector<HTMLElement>(".section-head")!;
+  rowOf("Gamma").focus();
+  fireEvent.keyDown(rowOf("Gamma"), { key: "Home" });
+  await settled();
+  expect(document.activeElement).toBe(heading);
+  rowOf("Alpha").focus();
+  fireEvent.keyDown(rowOf("Alpha"), { key: "ArrowUp" });
+  await settled();
+  expect(document.activeElement).toBe(heading);
   await press("Alpha", "End", "終 e\u0301 😀");
   await press("終 e\u0301 😀", "ArrowDown", "終 e\u0301 😀");
   await press("終 e\u0301 😀", "ArrowUp", "Delta");
@@ -75,61 +82,6 @@ it.each(kinds)("u3787c_each_list_navigates_visible_rows_%#", async make => {
   await press("終 e\u0301 😀", "B", "Beta");
   expect([...document.querySelectorAll(".rail-row[data-selected=true] .name")].map(row => row.textContent)).toEqual(["Beta"]);
   expect(rail.selected()).toBe("row-1");
-});
-
-it("u3787c_agent_pad_inventory_opens_the_owner_disclosure", async () => {
-  const names = ["Alpha", "Beta", "Gamma", "Delta", "終 e\u0301 😀"];
-
-  const { app, connected } = await mountRail([agent("owner", "idle", "ready")], [], undefined, undefined, {}, names.map((name, index) => ({
-    incarnation: `pad-${index}`, name, owner: { kind: "agent", id: "owner", parent: null }, home: null, text: "saved", revision: 1, updated_at: 0,
-  })));
-
-  fireEvent.click(await screen.findByRole("button", { name: "5 pads" }));
-  const rows = () => [...document.querySelectorAll<HTMLButtonElement>(".rail-pad")];
-  await waitFor(() => expect(rows()).toHaveLength(5));
-  const before = app.calls.length;
-  rows()[2]!.focus();
-  fireEvent.keyDown(rows()[2]!, { key: "Home" });
-  expect(document.activeElement).toBe(rows()[0]);
-  fireEvent.keyDown(rows()[0]!, { key: "End" });
-  expect(document.activeElement).toBe(rows()[4]);
-  fireEvent.keyDown(rows()[4]!, { key: "ArrowDown" });
-  expect(document.activeElement).toBe(rows()[4]);
-  fireEvent.keyDown(rows()[4]!, { key: "B" });
-  expect(document.activeElement).toBe(rows()[1]);
-  fireEvent.click(rows()[1]!, { metaKey: true });
-  fireEvent.click(rows()[3]!, { shiftKey: true });
-  expect(rows().map(row => row.getAttribute("aria-pressed"))).toEqual(["false", "true", "true", "true", "false"]);
-  fireEvent.keyDown(rows()[3]!, { key: "a", metaKey: true });
-  expect(rows().filter(row => row.getAttribute("aria-pressed") === "true")).toHaveLength(5);
-  expect(connected.drawer.content()).toBeNull();
-  expect(app.calls.slice(before)).toEqual([]);
-});
-
-
-it.each(["F2", "double-click"])("u3787c_escape_restores_the_name_owned_todo_%s", async opening => {
-  const { app, connected } = await mountRail([agent("owner", "idle", "ready")]);
-  app.handlers["todo.list"] = () => [todo(1, { title: "Original", creator: { kind: "agent", id: "owner", parent: null } })];
-  app.emit(event({ name: "todo.created", data: todo(1) }));
-  fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-  const row = await screen.findByRole<HTMLButtonElement>("button", { name: /Original/ });
-  row.focus();
-
-  if (opening === "F2") fireEvent.keyDown(row, { key: "F2" });
-  else fireEvent.dblClick(row);
-  const field = screen.getByRole<HTMLInputElement>("textbox", { name: "Name" });
-  await waitFor(() => expect(document.activeElement).toBe(field));
-  fireEvent.input(field, { target: { value: "  e\u0301 🧭 終  " } });
-  const underlying = vi.fn();
-  document.addEventListener("keydown", underlying);
-
-  try { fireEvent.keyDown(field, { key: "Escape" }); }
-  finally { document.removeEventListener("keydown", underlying); }
-
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: row.getAttribute("aria-label")! })));
-  expect(underlying).not.toHaveBeenCalled();
-  expect(railCallsTo(app, "todo.update")).toEqual([]);
-  expect(connected.drafts.list().map(draft => draft.value.text)).toEqual(["  e\u0301 🧭 終  "]);
 });
 
 it("u3787c_ranges_have_no_implicit_anchor_and_skip_folded_rows", async () => {

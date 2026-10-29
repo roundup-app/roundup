@@ -31,6 +31,12 @@ Policy: this narrows U25 and U37 (`scenarios/ui.md`) only in automatic recovery 
 
 Policy: keep error identity from Daemon to App. If prose-only rejection causes need typed contract data, add it and migrate all producers, consumers, schemas, generated contracts and fixtures in the same contract PR; do not fabricate a code by reading the old message at either end. Message/Route/Held/Takeover changes must state touched M1–M10 laws and keep proofs and documentation agreeing; no delivery law is weakened to achieve retry.
 
+**Import failure** (`ImportFailure`, `ImportOutcome.error`): The original RPC error of one imported source, with its `code`, diagnostic `message` and Import disposition.
+
+**Import disposition** (`ImportDisposition`, `outcome`): Whether a per-source result proves refusal (`failed`) or leaves completion unconfirmed (`unknown`).
+
+**Thrown outcome** (`outcomeOf`): The App seam’s classification of a thrown value: `failed` only for a known RPC refusal; `unknown` for INTERNAL, lost replies, missing acknowledgments, foreign throws and unrecognized codes. Operation-specific authoritative reconciliation still decides what happened. Diagnostics never select the outcome.
+
 **U3791c one owned failure line, no swallowed rejection.** Given two open Projects, then:
 
 - A failure is keyed by its original Project, scope and kind. Scope is the existing owning surface: Project connection, Rail, Shelf collection, item editor/Drawer, Terminal, Ask, import, reaction, or draft recovery; item-scoped surfaces also retain the original item identity for clearing. Kind is read, local persistence, command, connection or clipboard. For the same Project/scope/kind at most one line renders across that scope's views: a later failure replaces its cause and owned target rather than appending a line or repeating it in a toast and inline. Independent scopes/kinds remain independent. Planned `u3791c_same_scope_failure_replaces` exercises two sources and two items of the same kind, then distinct scopes/kinds and Projects through connected App owners, asserting roles and failure counts, not exact prose or layout.

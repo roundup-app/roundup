@@ -192,6 +192,8 @@ async fn read_loop(
                     eprintln!("rpc: dropped output that does not match the contract: {err}")
                 }
             }
+            // R21: parsing a ready socket's flood must not monopolize the App runtime.
+            tokio::task::yield_now().await;
             continue;
         }
         if frame["method"] == "event" {

@@ -102,6 +102,10 @@ not tests claimed to exist in this specification PR.
    in `apps/desktop/src/terminal/`. Policy: preserve D2, D5 and D6 and every
    Check passing on main; retain rendered results under the harness rules.
 
+**Output stream** (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`): One Terminal's bytes with their offsets, delivered only to a connection that selected that Terminal (`scenarios/terminal-stream.md` X14). `terminal.output` selects it and answers the offset of the first byte; the Daemon then pushes `terminal.output` notifications with the bytes and, when the connection fell behind, a `terminal.gap` naming the offsets it dropped, so the App recovers with `terminal.snapshot`. `terminal.outputStop` or closing the connection releases it. Output never enters the Bus.
+
+**RPC output intake** (`Client::take_output`, `OutputFrame`): The Client's optional bounded receiver of the Output streams its connection selected, taken before selecting. It reports lag separately from replies and control events; retained frames keep their Terminal ids and byte offsets for Snapshot recovery.
+
 **X16 a reader reads only what is new, as plain text, at most 200 lines.** Narrows X13's
 `terminal.read` and adds no stream (X14 owns it). A read is never answered with output the same
 reader already received, so a Door that polls a Terminal cannot act twice on one line. Related B19

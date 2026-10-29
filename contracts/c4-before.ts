@@ -1,7 +1,7 @@
 // C4: pre-migration type shapes from main 09f5f6611149162c403fe07adf8e757190fb2bf2; frozen independently of the exporter.
 // Todo restoration contracts and Event unions also include main c8c12a4a3 (U3787a).
 // Pad deletion receipts and restoration contracts include U3787a (#3918).
-// RpcErrorData includes `other-project` from U3787f (#4225).
+// RpcErrorData includes `other-project` from U3787f (#4225) and named Undo refusals from U3787a (#4668).
 
 export type Actor = { kind: ActorKind, id: string, parent: string | null, };
 
@@ -9,9 +9,9 @@ export type ActorKind = "user" | "agent" | "ext";
 
 export type Event = { 
 
-seq?: number, actor: Actor, } & ({ "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "project.measurementsChanged", "data": { revision: string, } } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" });
+seq?: number, actor: Actor, } & ({ "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.queueChanged" });
 
-export type EventData = { "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "project.measurementsChanged", "data": { revision: string, } } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.cleared", "data": workstream_WorkstreamClearedEvent } | { "name": "workstream.clearFailed", "data": workstream_WorkstreamClearFailedEvent } | { "name": "workstream.queueChanged" };
+export type EventData = { "name": "workstream.updated", "data": workstream_AutoParams } | { "name": "ask.changed", "data": { ask: ask_Ask, } } | { "name": "terminal.title", "data": terminal_TitleEvent } | { "name": "terminal.exited", "data": terminal_ExitedEvent } | { "name": "terminal.changed" } | { "name": "terminal.shown", "data": terminal_TerminalId } | { "name": "todo.created", "data": todo_Todo } | { "name": "todo.updated", "data": todo_Todo } | { "name": "todo.restored", "data": todo_Todo } | { "name": "todo.unblocked", "data": todo_TodoId } | { "name": "todo.deleted", "data": todo_TodoId } | { "name": "todo.commented", "data": todo_TodoId } | { "name": "todo.commentsRead", "data": todo_TodoId } | { "name": "todo.refAdded", "data": todo_TodoId } | { "name": "todo.refRemoved", "data": todo_TodoId } | { "name": "pad.changed", "data": pad_PadName } | { "name": "pad.renamed", "data": { incarnation: string, name: string, previous_name: string, } } | { "name": "pad.deleted", "data": pad_PadName } | { "name": "message.sent", "data": message_Message } | { "name": "message.delivered", "data": message_Message } | { "name": "message.dropped", "data": message_Message } | { "name": "route.changed", "data": message_Route } | { "name": "agent.status", "data": agent_StatusEvent } | { "name": "agent.channel", "data": agent_ChannelEvent } | { "name": "agent.stray", "data": agent_StrayEvent } | { "name": "agent.toolCall", "data": agent_ToolCallEvent } | { "name": "rail.changed" } | { "name": "rail.renamed", "data": { id: string, name: string, } } | { "name": "checkpoint.written", "data": checkpoint_Checkpoint } | { "name": "workstream.rewound", "data": workstream_Rewound } | { "name": "project.requested", "data": project_Requested } | { "name": "workstream.queueChanged" };
 
 export type HistoryParams = { item: string, };
 
@@ -21,7 +21,7 @@ export type Kind = "error" | "needs-you" | "blocked" | "working" | "idle" | "don
 
 export type RpcErrorData = { "kind": "events-expired", 
 
-oldest: number, } | { "kind": "other-project", };
+oldest: number, } | { "kind": "other-project", } | { kind: "undo-parent", id: string, name: string } | { kind: "undo-identity", id: string, name: string } | { kind: "undo-pad-name", name: string };
 
 export type Status = { kind: Kind, label: string, 
 
@@ -168,7 +168,7 @@ model: string | null,
 
 effort: string | null, 
 
-iteration?: number, 
+
 
 inbox?: agent_Inbox, 
 
@@ -375,7 +375,7 @@ id?: string, status: message_MessageStatus | null, };
 
 export type message_Message = { id: number, from: Actor, to: string, kind: message_MessageKind, body: string, replyTo: number | null, status: message_MessageStatus, reason: message_Reason | null, at: number, 
 
-iteration?: number, };
+};
 
 export type message_MessageId = { id: number, };
 
@@ -475,9 +475,7 @@ disk_bytes: number | null, };
 
 export type project_Choice = { id: string, label: string, };
 
-export type project_ClockPoint = { unix_ms: number, monotonic_ns: string, };
 
-export type project_Execution = "agent" | "tool";
 
 export type project_ImportCandidate = { source: string, title: string, 
 
@@ -521,25 +519,16 @@ export type project_ImportSelection = { source: string, revision: string, };
 
 export type project_Mcp = { on: boolean, };
 
-export type project_Measurement = { identity: string, source: string, source_revision: string, agent: string, attempt: string | null, home: string | null, maker: string, observed: number, value: project_MeasurementValue, coverage: Array<string>, };
 
-export type project_MeasurementContributor = { agent: string, maker: string, removed: boolean, time: project_MeasurementTime, coverage: Array<string>, };
 
-export type project_MeasurementSource = { source: string, agent: string, last_good: number | null, cause: string | null, coverage: Array<string>, };
 
-export type project_MeasurementSummary = { project: string, home: string, revision: string, cause: string | null, last_observed: number | null, time: project_MeasurementTime, coverage: Array<string>, contributors: number, rows: Array<project_MeasurementContributor>, next_offset: number | null, };
 
-export type project_MeasurementSummaryParams = { home: string, offset: number, revision: string | null, };
 
-export type project_MeasurementTime = { elapsed_ns: string | null, summed_ns: string, execution_ns: string, tools_ns: string, coordination_ns: string, other_ns: string, unmeasured_ns: string, active: boolean, coverage: Array<string>, };
 
-export type project_MeasurementValue = { "kind": "observed", activity: project_TimedActivity, clock_lifetime: string, start: project_ClockPoint | null, segments: Array<project_ObservedSegment>, state: project_TimeState, } | { "kind": "interval", category: project_Execution, clock: string, start_unix_ns: string, end_unix_ns: string, };
 
-export type project_Measurements = { project: string, cause: string | null, revision: string, contributions: Array<project_Measurement>, time_evidence: Array<project_Measurement>, sources: Array<project_MeasurementSource>, };
 
 export type project_ModelList = { engines: Array<project_Choice>, models: Array<project_Choice>, efforts: Array<project_Choice>, };
 
-export type project_ObservedSegment = { start: project_ClockPoint, end: project_ClockPoint, };
 
 export type project_OpenParams = { 
 
@@ -575,9 +564,7 @@ export type project_Resources = { agents: Array<project_AgentResources>, total: 
 
 export type project_RoleModels = { role: string, model: string | null, effort: string | null, };
 
-export type project_TimeState = { "kind": "active" } | { "kind": "ended", at: project_ClockPoint, } | { "kind": "interrupted" };
 
-export type project_TimedActivity = { "kind": "attempt" } | { "kind": "startup" } | { "kind": "idle", status_revision: string, } | { "kind": "coordination", message: number, };
 
 export type project_Worktrees = { on: boolean, 
 
@@ -827,15 +814,10 @@ export type workstream_AutoParams = { id: string, auto: boolean, };
 
 export type workstream_CapParams = { cap: number | null, };
 
-export type workstream_ClearParams = { 
 
-permissionMode?: agent_PermissionMode, id: string, reason: string, without_handoff?: boolean, };
-
-export type workstream_ClearResult = { pending: boolean, };
 
 export type workstream_Files = "keep" | "restore";
 
-export type workstream_HandoffParams = { id: string, summary: string, keep_todos: Array<number>, keep_pads: Array<string>, };
 
 export type workstream_PlanAgent = { agent: string, name: string, 
 
@@ -875,9 +857,7 @@ export type workstream_StartChoice = { "kind": "now" } | { "kind": "queued" } | 
 
 export type workstream_StartWorkstreamParams = { id: number, name: string, start: workstream_StartChoice, };
 
-export type workstream_WorkstreamClearFailedEvent = { id: string, code: number, message: string, };
 
-export type workstream_WorkstreamClearedEvent = { id: string, iteration: number, };
 
 // Frozen from main c8c12a4a3, independently of the Specta outputs.
 export type todo_DeleteParams = { operation: string, ids: Array<number> };
@@ -1054,8 +1034,6 @@ export type Before = {
   "pad/WriteParams": pad_WriteParams;
   "project/AgentResources": project_AgentResources;
   "project/Choice": project_Choice;
-  "project/ClockPoint": project_ClockPoint;
-  "project/Execution": project_Execution;
   "project/ImportCandidate": project_ImportCandidate;
   "project/ImportCommitParams": project_ImportCommitParams;
   "project/ImportDiscoverParams": project_ImportDiscoverParams;
@@ -1073,16 +1051,7 @@ export type Before = {
   "project/ImportResult": project_ImportResult;
   "project/ImportSelection": project_ImportSelection;
   "project/Mcp": project_Mcp;
-  "project/Measurement": project_Measurement;
-  "project/MeasurementContributor": project_MeasurementContributor;
-  "project/MeasurementSource": project_MeasurementSource;
-  "project/MeasurementSummary": project_MeasurementSummary;
-  "project/MeasurementSummaryParams": project_MeasurementSummaryParams;
-  "project/MeasurementTime": project_MeasurementTime;
-  "project/MeasurementValue": project_MeasurementValue;
-  "project/Measurements": project_Measurements;
   "project/ModelList": project_ModelList;
-  "project/ObservedSegment": project_ObservedSegment;
   "project/OpenParams": project_OpenParams;
   "project/PrepareParams": project_PrepareParams;
   "project/Prepared": project_Prepared;
@@ -1093,8 +1062,6 @@ export type Before = {
   "project/ResourceTotal": project_ResourceTotal;
   "project/Resources": project_Resources;
   "project/RoleModels": project_RoleModels;
-  "project/TimeState": project_TimeState;
-  "project/TimedActivity": project_TimedActivity;
   "project/Worktrees": project_Worktrees;
   "reaction/Condition": reaction_Condition;
   "reaction/CreateParams": reaction_CreateParams;
@@ -1158,10 +1125,7 @@ export type Before = {
   "todo/Values": todo_Values;
   "workstream/AutoParams": workstream_AutoParams;
   "workstream/CapParams": workstream_CapParams;
-  "workstream/ClearParams": workstream_ClearParams;
-  "workstream/ClearResult": workstream_ClearResult;
   "workstream/Files": workstream_Files;
-  "workstream/HandoffParams": workstream_HandoffParams;
   "workstream/PlanAgent": workstream_PlanAgent;
   "workstream/QueueEntry": workstream_QueueEntry;
   "workstream/QueueFailure": workstream_QueueFailure;
@@ -1177,13 +1141,9 @@ export type Before = {
   "workstream/Rewound": workstream_Rewound;
   "workstream/StartChoice": workstream_StartChoice;
   "workstream/StartWorkstreamParams": workstream_StartWorkstreamParams;
-  "workstream/WorkstreamClearFailedEvent": workstream_WorkstreamClearFailedEvent;
-  "workstream/WorkstreamClearedEvent": workstream_WorkstreamClearedEvent;
 };
 
 export type BeforeRpcMethods = {
-  "project.measurements": { params: null; result: project_Measurements };
-  "project.measurementSummary": { params: project_MeasurementSummaryParams; result: project_MeasurementSummary };
   "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };
   "deliverable.list": { params: deliverable_ListParams; result: deliverable_Deliverable[] };
   "deliverable.get": { params: deliverable_DeliverableId; result: deliverable_Deliverable };
@@ -1321,10 +1281,8 @@ export type BeforeRpcMethods = {
   "rail.remove": { params: agent_NodeId; result: agent_Removal | null };
   "agent.resume": { params: agent_ResumeParams; result: agent_RailNode };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
-  "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
   "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
-  "workstream.handoff": { params: workstream_HandoffParams; result: null };
   "todo.startWorkstream": { params: workstream_StartWorkstreamParams; result: agent_RailNode };
   "workstream.queue": { params: null; result: workstream_QueueState };
   "workstream.dequeue": { params: workstream_QueuedWorkstream; result: null };

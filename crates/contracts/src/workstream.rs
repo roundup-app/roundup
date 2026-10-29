@@ -1,17 +1,33 @@
-//! Clearing a Workstream (A32): a Handoff, then the Door's next Iteration.
+//! Workstream settings, Queue and Rewind.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-/// The longest `reason` a clear takes, in characters.
-pub const REASON_MAX: usize = 2000;
 
 /// A3308: the user's Auto choice for one Workstream.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct AutoParams {
     pub id: String,
     pub auto: bool,
+}
+
+/// A4452c: the longest opening prompt a Workstream holds, in characters.
+pub const OPENING_PROMPT_MAX: usize = 4000;
+
+/// A4452c: the user's saved opening prompt for one Workstream; `None` or blank clears it.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct OpeningPromptParams {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub prompt: Option<String>,
+}
+
+/// A4452c: a user-requested fresh Door session. Retries retain `request`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RestartParams {
+    pub id: String,
+    pub request: String,
 }
 
 /// A3194: when a new Workstream's Door starts (the Start choice).
@@ -74,58 +90,6 @@ pub struct QueueMoveParams {
 pub struct CapParams {
     #[specta(type = Option<specta_typescript::Number>)]
     pub cap: Option<serde_json::Value>,
-}
-
-/// `workstream.clear`. `without_handoff` makes the Daemon write the Handoff itself.
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct ClearParams {
-    /// U3801: only the user selects permissions for this launch; omission keeps vendor defaults.
-    #[serde(
-        default,
-        rename = "permissionMode",
-        skip_serializing_if = "Option::is_none"
-    )]
-    #[specta(optional, type = crate::agent::PermissionMode)]
-    #[schemars(skip)]
-    pub permission_mode: Option<crate::agent::PermissionMode>,
-
-    pub id: String,
-    pub reason: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = bool)]
-    pub without_handoff: Option<bool>,
-}
-
-/// What `workstream.clear` returns at once: `pending` is always `true`. The clear ends with
-/// `workstream.cleared` or `workstream.clearFailed`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct ClearResult {
-    pub pending: bool,
-}
-
-/// `workstream.handoff`, called by the Door while its Workstream's clear is pending.
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct HandoffParams {
-    pub id: String,
-    pub summary: String,
-    pub keep_todos: Vec<u32>,
-    pub keep_pads: Vec<String>,
-}
-
-/// `workstream.cleared`: pushed once, after the Door's new Attempt has started.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct WorkstreamClearedEvent {
-    pub id: String,
-    pub iteration: u32,
-}
-
-/// `workstream.clearFailed`: pushed once when a pending clear ends without clearing. `code` is the
-/// RPC error code the clear would have returned and `message` its text.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct WorkstreamClearFailedEvent {
-    pub id: String,
-    pub code: i32,
-    pub message: String,
 }
 
 /// `workstream.rewindPlan`: what a rewind of the Door's own Workstream to `checkpoint` would do.

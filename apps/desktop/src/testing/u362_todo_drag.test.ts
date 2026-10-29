@@ -34,7 +34,8 @@ const setup = async (worst = false, origin = "", width = 1280, height = 820) => 
 };
 
 const point = (selector: string) => page.call<Point>(`selector => {
-  const el = document.querySelector(selector);
+  const row = document.querySelector(selector);
+  const el = row.matches('.todo-row-button') ? row.closest('.todo-row').querySelector('.sortable-handle') : row;
   el.scrollIntoView({block: 'nearest'});
   const b = el.getBoundingClientRect();
   return {x: b.left + b.width / 2, y: b.top + b.height / 2};
@@ -225,7 +226,7 @@ run('u2716a Project overview band', () => {
       fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'rail.changed'});
       document.querySelector('${band}').click();
     }`);
-    await page.until(`() => Boolean(document.querySelector('${overview} [data-state="attention"]')) && !/\\d/.test(document.querySelector('${overview} [data-state="attention"]').textContent)`);
+    await page.until(`() => Boolean(document.querySelector('${overview} .empty-state')) && !document.querySelector('${overview} [data-state="attention"]') && !/\\d/.test(document.querySelector('${band}').getAttribute('aria-label'))`);
     await page.call(`() => {
       const nodes = window.__overviewNodes;
       const door = nodes.find(n => n.kind === 'workstream' && n.status);

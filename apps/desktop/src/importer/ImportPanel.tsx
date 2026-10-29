@@ -14,7 +14,7 @@ import { Disclosure } from "../ui/Disclosure";
 const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 
 /** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
-export const ImportPanel = (props: { compact?: boolean | undefined; onClose: () => void }) => {
+export const ImportPanel = (props: { onClose: () => void }) => {
   const { app, importing: state, drafts, project, rail, daemonExit, now, events } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
@@ -67,7 +67,7 @@ export const ImportPanel = (props: { compact?: boolean | undefined; onClose: () 
   const dismiss = () => { if (!pending()) props.onClose(); };
 
   return (
-    <SettingsShell compact={props.compact} heading={copy.importTitle} onClose={dismiss}>
+    <SettingsShell heading={copy.importTitle} onClose={dismiss}>
       <div class="import-content">
       <SettingsGroup name={copy.importPrompt}>
         <div class="import-instructions">

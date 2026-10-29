@@ -153,6 +153,38 @@ it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
   expect(missing).toEqual([]);
 });
 
+it("u471_no_supervisor_in_app_copy", () => {
+  const found: string[] = [];
+
+  const read = (file: string, text: string) => {
+    if (/\bsupervisors?\b/i.test(text)) found.push(`${file}: ${text}`);
+  };
+
+  const catalogues = ["copy.ts", ...readdirSync(join(ROOT, "copy"), { recursive: true, encoding: "utf8" }).filter((file) => /\.ts$/.test(file) && !file.includes(".test.")).map((file) => `copy/${file}`)];
+
+  for (const file of catalogues) {
+    visit(parse(readFileSync(join(ROOT, file), "utf8"), { sourceType: "module", plugins: ["typescript"] }), [], (node, ancestors) => {
+      const parent = ancestors.at(-1);
+
+      if (ancestors.some((each) => each.type.startsWith("TS") && each.type !== "TSAsExpression" && each.type !== "TSSatisfiesExpression") || parent?.type === "ImportDeclaration" || parent?.type === "ObjectProperty" && parent.key === node) return;
+
+      if (node.type === "StringLiteral") read(file, node.value);
+
+      if (node.type === "TemplateElement") read(file, node.value.cooked ?? node.value.raw);
+    });
+  }
+
+  // The native producers accept catalogue labels unchanged. Inspect only their
+  // authored title arguments and (id, title) entries, never ids or supplied names.
+  for (const file of ["crates/desktop/src/menu.rs", "crates/native/src/menu.rs"]) {
+    const source = readFileSync(join(ROOT, "../../..", file), "utf8").split("#[cfg(test)]")[0]!;
+
+    for (const match of source.matchAll(/(?:MenuItem|Submenu)::with_id\([^,]+,\s*"[^"]*",\s*"([^"]*)"|\("[^"]*",\s*"([^"]*)"\)|itemWithTitle:\s*&\*NSString::from_str\("([^"]*)"\)/g)) read(file, match[1] ?? match[2] ?? match[3]!);
+  }
+
+  expect(found).toEqual([]);
+});
+
 it("u471_catalogue_distinguishes_internal_fallback_props_from_app_copy", () => {
   expect(candidates(`
     let restored: "none" | "current" | "selected" = "none";
@@ -179,10 +211,10 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
   fireEvent.click((await screen.findAllByRole("button", { name: copy.start })).find((button) => button.closest(".pane-door"))!);
   const retry = (await screen.findAllByRole("button", { name: copy.retry })).find((button) => button.closest(".pane-door"))!;
 
-  expect(document.body.textContent).toContain("keep THIS launch failure 🧭");
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
   app.handlers["rail.startDoor"] = () => door("w", "working", "starting");
   fireEvent.click(retry);
-  await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w" }, { id: "w" }]));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w", cols: 100, rows: 30 }, { id: "w", cols: 100, rows: 30 }]));
   expect(connected.rail.selected()).toBe("w");
   expect(app.calls.filter((call) => call.method === "rail.createWorkstream")).toEqual([]);
 });

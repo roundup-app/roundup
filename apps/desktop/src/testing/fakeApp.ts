@@ -3,8 +3,8 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
-import { menuProbe, probeQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, NativeOpen, SystemAccent, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
+import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -44,9 +44,10 @@ const emptyReads: Handlers = {
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
 export type FakeApp = AppSeam & {
-  setSystemAccent(accent: SystemAccent): void;
   nativeOpen(request: NativeOpen): void;
   questions: NativeQuestion[];
+  removalQuestions: RemovalQuestion[];
+  answerRemoval: ((answer: RemovalAnswer) => void) | undefined;
   answerQuestion: ((answer: boolean) => void) | undefined;
   questionFailure: Error | null;
   /** Every `rpc` call so far, in call order. */
@@ -119,7 +120,6 @@ const folderOf = (path: string): string => path.split("/").pop() ?? path;
 
 export const createFakeApp = (): FakeApp => {
   const nativeListeners = new Set<(request: NativeOpen) => void>();
-  const accentListeners = new Set<(accent: SystemAccent) => void>();
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const live = new Map<string, FakeOutputSubscription>();
   const exitListeners = new Set<(exit: DaemonExited) => void>();
@@ -132,19 +132,14 @@ export const createFakeApp = (): FakeApp => {
   const nameAt = (path: string): string => open.find((project) => project.path === path)?.name ?? folderOf(path);
 
   const app: FakeApp = {
+    recentProjects: async () => [],
+    claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
     onNativeOpen: async listener => {
       nativeListeners.add(listener);
 
       return () => { nativeListeners.delete(listener); };
     },
     nativeOpen: request => nativeListeners.forEach(listener => listener(request)),
-    onSystemAccent: async listener => {
-      accentListeners.add(listener);
-      listener(null);
-
-      return () => { accentListeners.delete(listener); };
-    },
-    setSystemAccent: accent => accentListeners.forEach(listener => listener(accent)),
     calls: [],
     handlers: { ...emptyReads },
     chooser: { path: null, savePath: null, suggestedNames: [] },
@@ -288,6 +283,7 @@ export const createFakeApp = (): FakeApp => {
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
         ask: app.ask,
+        askRemoval: app.askRemoval,
         setDockBadge: app.setDockBadge,
         setWindowTitle: app.setWindowTitle,
         dragWindow: app.dragWindow,
@@ -309,6 +305,17 @@ export const createFakeApp = (): FakeApp => {
       return other;
     },
     forProject: (path) => app.of(path),
+    removalQuestions: [],
+    answerRemoval: undefined,
+    askRemoval: async question => {
+      app.removalQuestions.push(question);
+
+      if (app.questionFailure) throw app.questionFailure;
+      const answer = probeRemovalQuestion(question);
+      app.answerRemoval = chosen => questionProbe.answer?.(chosen);
+
+      return answer;
+    },
     questions: [],
     answerQuestion: undefined,
     questionFailure: null,

@@ -111,14 +111,9 @@ impl Messages {
 }
 
 impl Messages {
-    /// A32: every Message sent to or by `door`, in order, each with its Iteration.
+    /// Every Message sent to or by `door`, in order.
     pub fn thread(&self, door: &str) -> Result<Vec<Message>, RpcError> {
         self.store()?.thread(door)
-    }
-
-    /// A32: the Iteration `door` is in ends here; returns its number.
-    pub fn end_iteration(&self, door: &str) -> Result<u32, RpcError> {
-        self.store()?.end_iteration(door)
     }
 }
 

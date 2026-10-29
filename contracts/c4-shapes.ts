@@ -166,8 +166,6 @@ type After = {
   "pad/WriteParams": import("./generated/pad/WriteParams").WriteParams;
   "project/AgentResources": import("./generated/project/AgentResources").AgentResources;
   "project/Choice": import("./generated/project/Choice").Choice;
-  "project/ClockPoint": import("./generated/project/ClockPoint").ClockPoint;
-  "project/Execution": import("./generated/project/Execution").Execution;
   "project/ImportCandidate": import("./generated/project/ImportCandidate").ImportCandidate;
   "project/ImportCommitParams": import("./generated/project/ImportCommitParams").ImportCommitParams;
   "project/ImportDiscoverParams": import("./generated/project/ImportDiscoverParams").ImportDiscoverParams;
@@ -185,16 +183,7 @@ type After = {
   "project/ImportResult": import("./generated/project/ImportResult").ImportResult;
   "project/ImportSelection": import("./generated/project/ImportSelection").ImportSelection;
   "project/Mcp": import("./generated/project/Mcp").Mcp;
-  "project/Measurement": import("./generated/project/Measurement").Measurement;
-  "project/MeasurementContributor": import("./generated/project/MeasurementContributor").MeasurementContributor;
-  "project/MeasurementSource": import("./generated/project/MeasurementSource").MeasurementSource;
-  "project/MeasurementSummary": import("./generated/project/MeasurementSummary").MeasurementSummary;
-  "project/MeasurementSummaryParams": import("./generated/project/MeasurementSummaryParams").MeasurementSummaryParams;
-  "project/MeasurementTime": import("./generated/project/MeasurementTime").MeasurementTime;
-  "project/MeasurementValue": import("./generated/project/MeasurementValue").MeasurementValue;
-  "project/Measurements": import("./generated/project/Measurements").Measurements;
   "project/ModelList": import("./generated/project/ModelList").ModelList;
-  "project/ObservedSegment": import("./generated/project/ObservedSegment").ObservedSegment;
   "project/OpenParams": import("./generated/project/OpenParams").OpenParams;
   "project/PrepareParams": import("./generated/project/PrepareParams").PrepareParams;
   "project/Prepared": import("./generated/project/Prepared").Prepared;
@@ -205,8 +194,6 @@ type After = {
   "project/ResourceTotal": import("./generated/project/ResourceTotal").ResourceTotal;
   "project/Resources": import("./generated/project/Resources").Resources;
   "project/RoleModels": import("./generated/project/RoleModels").RoleModels;
-  "project/TimeState": import("./generated/project/TimeState").TimeState;
-  "project/TimedActivity": import("./generated/project/TimedActivity").TimedActivity;
   "project/Worktrees": import("./generated/project/Worktrees").Worktrees;
   "reaction/Condition": import("./generated/reaction/Condition").Condition;
   "reaction/CreateParams": import("./generated/reaction/CreateParams").CreateParams;
@@ -270,10 +257,7 @@ type After = {
   "todo/Values": import("./generated/todo/Values").Values;
   "workstream/AutoParams": import("./generated/workstream/AutoParams").AutoParams;
   "workstream/CapParams": import("./generated/workstream/CapParams").CapParams;
-  "workstream/ClearParams": import("./generated/workstream/ClearParams").ClearParams;
-  "workstream/ClearResult": import("./generated/workstream/ClearResult").ClearResult;
   "workstream/Files": import("./generated/workstream/Files").Files;
-  "workstream/HandoffParams": import("./generated/workstream/HandoffParams").HandoffParams;
   "workstream/PlanAgent": import("./generated/workstream/PlanAgent").PlanAgent;
   "workstream/QueueEntry": import("./generated/workstream/QueueEntry").QueueEntry;
   "workstream/QueueFailure": import("./generated/workstream/QueueFailure").QueueFailure;
@@ -289,23 +273,34 @@ type After = {
   "workstream/Rewound": import("./generated/workstream/Rewound").Rewound;
   "workstream/StartChoice": import("./generated/workstream/StartChoice").StartChoice;
   "workstream/StartWorkstreamParams": import("./generated/workstream/StartWorkstreamParams").StartWorkstreamParams;
-  "workstream/WorkstreamClearFailedEvent": import("./generated/workstream/WorkstreamClearFailedEvent").WorkstreamClearFailedEvent;
-  "workstream/WorkstreamClearedEvent": import("./generated/workstream/WorkstreamClearedEvent").WorkstreamClearedEvent;
 };
+
+// U4593 widens only owner inputs; stored Actors and every other baseline field stay exact.
+type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string : T[K] };
+
+type SelectorInputs = "todo/AssignParams" | "todo/CreateParams" | "pad/SetOwnerParams";
+
+type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]> : Before[K] };
+
+type SelectorMethods = "todo.assign" | "todo.create" | "pad.setOwner";
+
+type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
+  ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }
+  : BeforeRpcMethods[K] };
 
 // Both directions retain optionality, nulls, numeric types, tags and flattened fields.
 type Assert<T extends true> = T;
 
 export type C4ExportedContractsMatchExistingContracts = Assert<
-  [After] extends [Before] ? ([Before] extends [After] ? true : false) : false
+  [After] extends [BeforeSelectors] ? ([BeforeSelectors] extends [After] ? true : false) : false
 >;
 
 
 type ExistingMethods = Pick<import("./generated/methods").RpcMethods, keyof BeforeRpcMethods>;
 
 export type C4MethodContracts = Assert<
-  [ExistingMethods] extends [BeforeRpcMethods]
-    ? ([BeforeRpcMethods] extends [ExistingMethods] ? true : false) : false
+  [ExistingMethods] extends [BeforeMethodSelectors]
+    ? ([BeforeMethodSelectors] extends [ExistingMethods] ? true : false) : false
 >;
 
 // Invalid callers must stay invalid, independently of the bidirectional comparison.

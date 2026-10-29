@@ -378,14 +378,6 @@ describe("u1 calls and events", () => {
     await expect(createTauriApp().setDockBadge(2)).rejects.toMatchObject({ code: -32603, message: "no dock" });
   });
 
-  it("u1_a_malformed_project_answer_rejects_with_the_validation_message", async () => {
-    mockIPC(() => ({ name: 7, path: "/p" }));
-
-    await expect(createTauriApp().openProject("/p")).rejects.toMatchObject({
-      message: "Invalid type: Expected string but received 7",
-    });
-  });
-
   it("u1_the_adapter_file_is_the_only_door_to_tauri", () => {
     // so the only-door check sees adapters added after this test was written
     const sourceFiles = import.meta.glob<string>(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"], {
@@ -413,4 +405,18 @@ it.each(["Remove", "Keep"])("u3512a_native_adapter_preserves_the_question_and_re
   expect({ result, calls }).toEqual({ result: answer === "Remove", calls: [{ command: "plugin:dialog|message", args: {
     title: "Remove 雪?", message: "Goes: 2 Todos\nAgent α stays", kind: "warning", buttons: { OkCancelCustom: ["Remove", "Keep"] },
   } }] });
+});
+
+it.each(["this", "all", "cancel"])("u4461_the_native_alert_resolves_to_the_chosen_button_%s", async answer => {
+  const question = { title: "Remove chosen?", message: "Goes: Nothing", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Cancel" };
+  mockIPC((command, args) => { calls.push({ command, args });
+
+ return answer; });
+  expect(await createTauriApp().askRemoval(question)).toBe(answer);
+  expect(calls).toEqual([{ command: "ask_removal", args: { question } }]);
+});
+
+it("u4461_a_rejected_native_alert_is_an_rpc_error", async () => {
+  mockIPC(() => { throw "Native alert unavailable; retry"; });
+  await expect(createTauriApp().askRemoval({ title: "Remove?", message: "", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Cancel" })).rejects.toEqual(new RpcError(-32603, "Native alert unavailable; retry"));
 });

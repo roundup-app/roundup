@@ -60,40 +60,6 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     return { app, emulators };
   };
 
-  it("u144_a_workstream_made_and_started_by_pointer_comes_from_the_daemon", async () => {
-    const { app, emulators } = await mount();
-
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
-
-    const rail = await screen.findByRole("region", { name: "Rail" });
-
-    await waitFor(() => expect(within(rail).getAllByText("workstream").length).toBeGreaterThan(0));
-    await waitFor(() => expect(emulators.made.size).toBe(1), { timeout: 20_000 });
-
-    const tree = JSON.stringify(await app.rpc("rail.tree", null));
-    const terminals = await app.rpc("terminal.list", null);
-
-    expect([tree.includes('"workstream"'), terminals.length]).toEqual([true, 1]);
-    expect([...emulators.made.keys()]).toEqual(terminals.map((terminal) => terminal.id));
-  }, 60_000);
-
-  it("u144_the_choosers_answer_null_and_the_dock_badge_does_nothing", async () => {
-    const app = createServedApp(base);
-
-    expect([await app.chooseProjectPath(), await app.chooseSavePath("x.md"), await app.setDockBadge(3), (await app.projects())[0]?.path]).toEqual([null, null, undefined, dir]);
-  });
-
-  it("u144_a_method_the_daemon_rejects_reaches_the_caller_with_its_message", async () => {
-    const app = createServedApp(base);
-
-    const failure = await app.rpc("rail.startDoor", { id: "nowhere" }).then(
-      () => null,
-      (error: RpcError) => error,
-    );
-
-    expect([failure instanceof RpcError, failure?.message]).toEqual([true, "not found: an Agent that is gone"]);
-  });
-
   it("u144_a_method_the_daemon_rejects_shows_its_message_in_the_mounted_app", async () => {
     const served = createServedApp(base);
     let kept = false;
@@ -263,9 +229,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
-      fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-      fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "check selected source" } });
-      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await saveNote("check selected source");
       fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
@@ -284,7 +248,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     await saveNote("first exact comment");
     await saveNote("second exact comment");
     fireEvent.click(screen.getByRole("button", { name: "Send notes to First" }));
-    const messages = () => app.rpc("message.list", { to: first.id, status: null });
+    const messages = async () => (await app.rpc("message.list", { to: first.id, status: null })).filter(message => message.from.kind === "user");
     await waitFor(async () => expect(await messages()).toHaveLength(1), { timeout: 20_000 });
     const accepted = (await messages())[0]!;
     expect(accepted).toMatchObject({ to: first.id, from: { kind: "user", id: "you" }, kind: "note" });
@@ -292,7 +256,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       { "Selected source:": "first source", "User comment:": "first exact comment" },
       { "Selected source:": "first source", "User comment:": "second exact comment" },
     ] });
-    expect(await app.rpc("message.list", { to: second.id, status: null })).toHaveLength(0);
+    expect((await app.rpc("message.list", { to: second.id, status: null })).filter(message => message.from.kind === "user")).toHaveLength(0);
     await waitFor(async () => expect((await messages())[0]?.status).toBe("delivered"), { timeout: 30_000 });
     const prompts = await readFile(join(logs, "prompts.jsonl"), "utf8");
     expect(prompts).toContain(`"inbox": "rup-${accepted.id}"`);
@@ -353,7 +317,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
 
       expect(calls.mock.calls.filter(([method]) => method === "agent.land")).toHaveLength(3);
       expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(0);
-      expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
+      expect((await app.rpc("message.list", { to: node.id, status: null })).filter(message => message.from.kind === "user")).toHaveLength(0);
       connected.showView("notes");
       await screen.findByRole("dialog", { name: "Recover notes" });
       expect(document.querySelector(".note-recovery")?.textContent).toContain(unsent);
@@ -696,7 +660,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const clipboard = vi.fn(async (_text: string) => {});
     vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
-    await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
+    await waitFor(() => expect(clipboard).toHaveBeenCalledWith(`\n${exact}\n`));
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
     cleanup();

@@ -15,7 +15,7 @@ afterEach(cleanup);
 
 const by = (id: string) => ({ kind: "agent" as const, id, parent: null });
 
-const mount = async () => {
+const mount = async (project = "p") => {
   const app = createFakeApp();
   const tree = [workstream("w"), node("a", { parent: "w" }), workstream("v", { order: 1 }), node("b", { parent: "v" }), node("r", { order: 2 })];
 
@@ -31,7 +31,7 @@ const mount = async () => {
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => [info("shell-w", { owner: "w", title: "work shell" }), info("shell-root", { owner: "/p", title: "root shell" })];
   Object.assign(app.handlers, todoHandlers(store, data => app.emit(event(data))), padHandlers(pads, data => app.emit(event(data))));
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+  const connected = await connectProject(app, { name: project, path: `/${project}` }, () => true, () => 0);
   await connected.rail.settled();
   render(() => {
     const frame = createShelfFrame(() => null, () => true, () => {});
@@ -73,6 +73,28 @@ const count = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${n
 
 const ownTodos = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-todo]`)].flatMap(el => el.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === id ? [Number(el.getAttribute('data-todo'))] : []);
 
+it("u2744a_pads_remain_project_wide_across_rail_selections", async () => {
+  const { connected } = await mount();
+  await tab("Pads");
+  const expected = Array.from({ length: 12 }, (_, i) => `pad-${i + 1}`).sort();
+  connected.rail.toggleCollapsed("w");
+  connected.rail.toggleCollapsed("v");
+
+  for (const selected of [null, "/p", "w", "v", "a", "b", "r"]) {
+    connected.rail.select(selected);
+    await waitFor(() => expect(names().toSorted()).toEqual(expected));
+    expect(Number(count("Pads"))).toBe(12);
+    expect(document.querySelector(".shelf-scope-name")?.textContent).toBe(connected.project.name);
+  }
+
+  for (const terminal of ["work shell", "root shell"]) {
+    await chooseTerminal(terminal);
+    await waitFor(() => expect(names().toSorted()).toEqual(expected));
+    expect(Number(count("Pads"))).toBe(12);
+    expect(document.querySelector(".shelf-scope-name")?.textContent).toBe(connected.project.name);
+  }
+});
+
 // The Todo placement clauses moved to U3717: u3717_todos_group_by_owner_once_each and u3717_group_order_is_me_agents_unassigned.
 it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   await mount();
@@ -82,8 +104,8 @@ it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   expect(ownTodos("a")).toEqual([2, 5]);
   expect(new Set(ids()).size).toBe(ids().length);
   await tab("Pads");
-  await waitFor(() => expect(names()).toEqual(["pad-1", "pad-3", "pad-4", "pad-2", "pad-5", "pad-11", "pad-6", "pad-7", "pad-8", "pad-9", "pad-10", "pad-12"]));
-  await waitFor(() => expect(groupIds()).toEqual(["me", "a", "b", "r", "unassigned"]));
+  await waitFor(() => expect(names()).toEqual(["pad-1", "pad-8", "pad-12", "pad-2", "pad-5", "pad-11", "pad-6", "pad-3", "pad-7", "pad-4", "pad-9", "pad-10"]));
+  await waitFor(() => expect(groupIds()).toEqual(["w", "w:a", "w:b", "v", "r", "unassigned"]));
 });
 
 // The Todo folding clause is proved by u3717_unassigned_starts_folded; this keeps the shared disclosure keys.
@@ -103,7 +125,7 @@ it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
     expect(connected.rail.selected()).toBeNull();
   }
 
-  expect(screen.getByRole("button", { name: /#2 / })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / })).toBeTruthy();
 });
 
 // The Todo scope clause moved to u3717_scope_still_selects_by_home_and_maker; this keeps the counts.
@@ -114,10 +136,10 @@ it("u2744a_shelf_scope_counts_follow_the_scope", async () => {
   fireEvent.click(disclosure("unassigned"));
   expect([count("Todos"), count("Pads")]).toEqual(["11", "12"]);
   connected.rail.select("w");
-  await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["5", "6"]));
+  await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["5", "12"]));
   expect(screen.getByRole("button", { name: /1 done/ })).toBeTruthy();
   connected.rail.select("a");
-  await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["2", "3"]));
+  await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["2", "12"]));
 });
 
 it("u3717_scope_still_selects_by_home_and_maker", async () => {
@@ -142,7 +164,7 @@ it("u2744a_shelf_scope_stopped_agent_items_show", async () => {
     await connected.rail.settled();
     await waitFor(() => expect(ids()).toEqual([2, 5]));
     await tab("Pads");
-    await waitFor(() => expect(names()).toEqual(["pad-2", "pad-5", "pad-11"]));
+    await waitFor(() => expect(names().toSorted()).toEqual(Array.from({ length: 12 }, (_, i) => `pad-${i + 1}`).sort()));
     await tab("Todos");
   }
 });
@@ -156,9 +178,9 @@ it("u2744a_shelf_scope_moved_item_follows_its_home", async () => {
   connected.rail.select("w");
   await waitFor(() => expect(ids()).toEqual([1, 6, 8, 12]));
   await tab("Pads");
-  await waitFor(() => expect(names()).not.toContain("pad-2"));
+  await waitFor(() => expect(document.querySelector('.pads-tab [data-pad="pad-2"]')).toBeTruthy());
   connected.rail.select("a");
-  await waitFor(() => expect(names()).toContain("pad-2"));
+  await waitFor(() => expect(document.querySelector('.pads-tab [data-pad="pad-2"]')).toBeTruthy());
   await tab("Todos");
   await waitFor(() => expect(ids()).toEqual([2, 5]));
 });
@@ -170,23 +192,27 @@ it("u2744a_shelf_scope_empty_pad_groups_are_omitted", async () => {
   await app.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [3] });
   await app.rpc("pad.delete", { name: "pad-3" });
   await tab("Pads");
-  await waitFor(() => expect(groupIds()).toEqual([]));
+  await waitFor(() => expect(groupIds()).not.toContain("v"));
   expect(screen.getByRole("button", { name: /Add Pad/ })).toBeTruthy();
 });
 
-it("u2744a_shelf_scope_events_refresh_membership", async () => {
+it("u2744a_pad_events_relocate_without_filtering", async () => {
   const { connected, tree, app } = await mount();
   connected.rail.select("a");
   await tab("Pads");
-  await waitFor(() => expect(names()).toEqual(["pad-2", "pad-5", "pad-11"]));
+  await waitFor(() => expect(names()).toHaveLength(12));
   await app.rpc("pad.setOwner", { name: "pad-2", owner: USER });
-  await waitFor(() => expect(names()).toEqual(["pad-5", "pad-11"]));
+  await waitFor(() => expect(document.querySelector('[data-pad="pad-2"]')?.closest("[data-shelf-group]")?.getAttribute("data-shelf-group")).toBe("w"));
+  await app.rpc("pad.move", { name: "pad-2", home: "v" });
+  await waitFor(() => expect(document.querySelector('[data-pad="pad-2"]')?.closest("[data-shelf-group]")?.getAttribute("data-shelf-group")).toBe("v"));
+  expect(names().toSorted()).toEqual(Array.from({ length: 12 }, (_, i) => `pad-${i + 1}`).sort());
   connected.rail.select(null);
   tree.splice(1, 1);
   app.emit(event({ name: "rail.changed" }));
   await connected.rail.settled();
-  await waitFor(() => expect(groupIds()).not.toContain("a"));
+  await waitFor(() => expect(groupIds()).not.toContain("w:a"));
   expect(names().filter(name => name === "pad-5")).toHaveLength(1);
+  expect(document.querySelector('[data-pad="pad-5"]')?.closest("[data-shelf-group]")?.getAttribute("data-shelf-group")).toBe("unassigned");
   await tab("Todos");
   await waitFor(() => expect(ownTodos("unassigned")).toEqual(expect.arrayContaining([2, 5])));
 });
@@ -222,19 +248,19 @@ it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, nul
 });
 
 
-it.each([["work shell", "w", [1, 2, 6, 8, 12], 6], ["root shell", null, [1, 2, 5, 3, 4, 6, 7, 8, 9, 10, 12], 12]] as const)("u2744a_shelf_scope_terminal_follows_its_owner %s", async (title, owner, expected, padCount) => {
+it.each([["work shell", "w", [1, 2, 6, 8, 12], 12], ["root shell", null, [1, 2, 5, 3, 4, 6, 7, 8, 9, 10, 12], 12]] as const)("u2744a_shelf_scope_terminal_follows_its_owner %s", async (title, owner, expected, padCount) => {
   const { connected } = await mount();
   connected.rail.select("a");
   await chooseTerminal(title);
   await waitFor(() => expect(connected.rail.selected()).toBe(owner));
   await waitFor(() => expect(ids()).toEqual(expected));
   await tab("Pads");
-  await waitFor(() => expect(names()).toHaveLength(padCount));
+  await waitFor(() => expect(Number(count("Pads"))).toBe(padCount));
 });
 
 it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () => {
   const { app } = await mount();
-  const row = await screen.findByRole("button", { name: /#2 / });
+  const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / });
   row.focus();
   fireEvent.keyDown(row, { key: "ArrowDown", altKey: true });
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.reorder").map(call => call.params)).toEqual([{ id: 2, before: 6 }]));
@@ -244,9 +270,9 @@ it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () 
 
 it("u458_grouped_ranges_follow_visible_order", async () => {
   await mount();
-  const first = await screen.findByRole("button", { name: /#1 / });
-  const second = await screen.findByRole("button", { name: /#2 / });
-  const fifth = await screen.findByRole("button", { name: /#5 / });
+  const first = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
+  const second = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / });
+  const fifth = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / });
   fireEvent.click(first, { metaKey: true });
   fireEvent.click(fifth, { shiftKey: true });
   expect([...document.querySelectorAll('[data-todo][data-selected=true]')].map(row => Number(row.getAttribute('data-todo')))).toEqual([1, 2, 5]);
@@ -266,4 +292,25 @@ it("u2744a_shelf_scope_unassigned_starts_folded_when_first_added_after_folding",
   await app.rpc("todo.create", { title: "unassigned arrives", body: null, blockers: null });
   await waitFor(() => expect(groupIds()).toContain("unassigned"));
   expect(disclosure("unassigned").closest('[role="treeitem"]')?.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("u2744a_pads_group_by_home_and_owner_once_each", async () => {
+  const { pads, tree, app, connected } = await mount();
+  tree.push(workstream("empty"), node("unused", { parent: "empty" }));
+  pads.pads.push({ ...pads.pads[0]!, incarnation: "root-cross", name: "root-cross", home: "v", owner: by("r") });
+  app.emit(event({ name: "rail.changed" }));
+  app.emit(event({ name: "pad.changed", data: { name: "root-cross" } }));
+  await connected.rail.settled();
+  await tab("Pads");
+  const own = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-pad]`)].flatMap(el => el.closest("[data-shelf-group]")?.getAttribute("data-shelf-group") === id ? [el.getAttribute("data-pad")] : []);
+  await waitFor(() => expect(groupIds()).toEqual(["w", "w:a", "w:b", "v", "v:r", "r", "unassigned"]));
+  expect([own("w"), own("w:a"), own("w:b"), own("v"), own("v:r"), own("r"), own("unassigned")]).toEqual([
+    ["pad-1", "pad-8", "pad-12"], ["pad-2", "pad-5", "pad-11"], ["pad-6"], ["pad-3"], ["root-cross"], ["pad-7"], ["pad-4", "pad-9", "pad-10"],
+  ]);
+  expect(new Set(names()).size).toBe(13);
+  pads.pads = [];
+  app.emit(event({ name: "pad.changed", data: { name: "root-cross" } }));
+  await waitFor(() => expect(groupIds()).toEqual([]));
+  expect(names()).toEqual([]);
+  expect(screen.getByRole("button", { name: /Add Pad/ })).toBeTruthy();
 });

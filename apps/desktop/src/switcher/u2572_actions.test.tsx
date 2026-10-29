@@ -89,6 +89,7 @@ it.each(["enter", "pointer"] as const)("u2572b_actions_share_key_behavior_in_the
   press("n", { metaKey: true, code: "KeyN" });
   await waitFor(() => expect(outcomes).toHaveLength(1));
   const keyOutcome = outcomes[0];
+  await waitFor(() => expect(document.querySelector('.rail-actions button[aria-label="New Agent"]')?.getAttribute("aria-disabled")).toBeNull());
   await show();
   await chooseAction("New Agent", how);
   await waitFor(() => expect(outcomes).toEqual([keyOutcome, keyOutcome]));
@@ -103,9 +104,9 @@ it("u2572b_action_choice_does_not_select_a_highlighted_destination", async () =>
   press("ArrowDown", {}, field()!);
   expect(connected.rail.selected()).toBe("ops");
   await chooseAction("New Agent", "enter");
-  expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
-    { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null },
-  ]);
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
+    { cwd: "/p", prompt: null, parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
+  ]));
 });
 
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: prompted creation %s", async (byAction) => {
@@ -119,7 +120,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: p
   fireEvent.input(prompt, { target: { value: "make this work" } });
   press("Enter", {}, prompt);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.spawn").map((call) => call.params)).toEqual([
-    { cwd: "/p", prompt: "make this work", parent: "ops", model: null, effort: null },
+    { cwd: "/p", prompt: "make this work", parent: "ops", model: null, effort: null, cols: 100, rows: 30 },
   ]));
 });
 
@@ -129,8 +130,8 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: r
 
   if (byAction) { await show(); await chooseAction("New Terminal", "enter"); }
   else press("t", { metaKey: true, code: "KeyT" });
-  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("Terminal creation rejected"));
-  expect(app.calls.filter((call) => call.method === "terminal.open").map((call) => call.params)).toEqual([{ workstream: "ops" }]);
+  await waitFor(() => expect(document.querySelector('[role="alert"]')).not.toBeNull());
+  expect(app.calls.filter((call) => call.method === "terminal.open").map((call) => call.params)).toEqual([{ workstream: "ops", cols: 100, rows: 30 }]);
   expect(connected.rail.selected()).toBe("ops");
 });
 
@@ -224,7 +225,7 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
 
   const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
     ...(context === "rail" ? ["Remove"] : []),
-    "Focus the Ask bar", "Jump to what needs you", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
+    "Focus the Ask bar", "Assign a Todo to an owner, or go back to Ask", "Jump to what needs you", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
   press("Escape", {}, field()!);

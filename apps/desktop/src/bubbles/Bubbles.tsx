@@ -1,3 +1,5 @@
+import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble, onBubbleFocus as trackBubbleFocus, hasTerminalFocus } from "./focus";
+import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { createCopyFeedback, CopyButton } from "../ui/CopyButton";
 import { createTerminalClose } from "./close";
@@ -14,6 +16,7 @@ import { Bubble } from "./Bubble";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
+import { HintLine } from "../keys/HintLine";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
@@ -23,22 +26,10 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, placesStorage, REVEAL_BUBBLE, shownFor, shownName,
+  clamped, defaultPlace, extentOf, placesStorage, REVEAL_BUBBLE, shownFor, shownName,
 } from "./places";
 import type { Place, Extent } from "./places";
 import "./styles.css";
-
-/** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
-
-const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
-
-const focusPane = (): void => {
-  const target = document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
-
-  target?.focus();
-
-  if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
-};
 
 const ESCAPE = "Escape".split(" ");
 
@@ -80,7 +71,6 @@ export const Bubbles = (props: {
   };
 
   const original = (draft: ReturnType<typeof drafts.list>[number]) => rail.terminals().find(terminal => terminal.incarnation === draft.destination.object && terminal.id === draft.destination.recipient && terminal.running);
-
   let recoveryPanel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => recoveryPanel, active: recovering, modal: true }, []);
 
@@ -99,6 +89,7 @@ export const Bubbles = (props: {
   const [failure, setFailure] = createSignal<{ message: string; terminal: { id: string; incarnation: string } | null } | null>(null);
 
   const clearItemFailure = (terminal: { id: string; incarnation: string }) => {
+    rail.commandFailure.acknowledgeTerminal(terminal);
     setFailure(prior => prior?.terminal?.id === terminal.id && prior.terminal.incarnation === terminal.incarnation ? null : prior);
   };
 
@@ -111,6 +102,12 @@ export const Bubbles = (props: {
     if (prior?.terminal && !terminals.some(terminal => terminal.id === prior.terminal!.id && terminal.incarnation === prior.terminal!.incarnation)) setFailure(null);
   });
   const [opening, setOpening] = createSignal(false);
+  const [reserved, setReserved] = createSignal<Record<string, string | null>>({});
+  const bubbleMenus = new Map<string, (event: MouseEvent) => void>();
+  let openingController: AbortController | undefined;
+  onCleanup(() => openingController?.abort());
+  createEffect(on(rail.selected, () => openingController?.abort(), { defer: true }));
+  const destinations = new Map<string, (destination: { host: HTMLElement; settled: () => boolean }) => void>();
   const [openingSelection, setOpeningSelection] = createSignal<string | null>();
   const [wanted, setWanted] = createSignal<{ id: string; focus: ReturnType<typeof captureFocus> } | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
@@ -123,18 +120,19 @@ export const Bubbles = (props: {
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined));
   let before: Element | null = null;
 
-  const extent = (): Extent => {
-    const box = layer()?.getBoundingClientRect();
-
-    return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : FALLBACK_EXTENT;
-  };
+  const extent = (): Extent => extentOf(layer());
 
   // U524: every Terminal opened from the Project root stays available alongside Project-owned Terminals.
   const [fromRoot, setFromRoot] = createSignal<readonly { id: string; listed: boolean }[]>([]);
+  const [openedHere, setOpenedHere] = createSignal<readonly string[]>([]);
+  createEffect(on(() => rail.selected(), () => setOpenedHere([]), { defer: true }));
 
-  const shown = createMemo(() => rail.selected() === null
-    ? rail.terminals().filter((terminal) => terminal.owner === path || fromRoot().some(root => root.id === terminal.id))
-    : shownFor(rail.terminals(), rail.nodes, rail.selected()));
+  const shown = createMemo(() => {
+    if (rail.selected() === null) return rail.terminals().filter((terminal) => terminal.owner === path || fromRoot().some(root => root.id === terminal.id));
+    const eligible = shownFor(rail.terminals(), rail.nodes, rail.selected());
+
+    return [...eligible, ...rail.terminals().filter(terminal => openedHere().includes(terminal.id) && !eligible.some(shown => shown.id === terminal.id))];
+  });
 
   // U524: the pane placeholder gives way while a Terminal opened from the root is shown.
   createEffect(() => {
@@ -252,30 +250,55 @@ export const Bubbles = (props: {
 
     if (!host || typeof ResizeObserver === "undefined") return;
 
-    // U469: the layer ends above the bar.
+    // U4459: controls can extend outside the strip; the bar and its portalled tabs own the edge.
+    const watched = new ResizeObserver(() => sync());
+    let edges: Element[] = [];
+
     const sync = (): void => {
-      setBar(host.parentElement?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
-      const stack = host.parentElement?.getBoundingClientRect();
-      const composer = host.parentElement?.querySelector(".resource-strip")?.getBoundingClientRect();
-      host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
+      const parent = host.parentElement;
+      setBar(parent?.querySelector<HTMLElement>(".resource-agent") ?? undefined);
+      const stack = parent?.getBoundingClientRect();
+
+      const controls = [...parent?.querySelectorAll(".resource-agent, .terminal-tabs") ?? []]
+        .filter(element => element.querySelector("button, input, [role=tab]"));
+
+      const boxes = controls.flatMap(element => {
+        const box = element.getBoundingClientRect();
+
+        return box.width > 0 && box.height > 0 ? [box] : [];
+      });
+
+      const siblings = boxes.length ? boxes : [...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []]
+        .flatMap(element => {
+          const box = element.getBoundingClientRect();
+
+          return box.width > 0 && box.height > 0 ? [box] : [];
+        });
+
+      const nextEdges = [...controls, ...parent?.querySelectorAll(".hint-line, .resource-strip, .thread-composer") ?? []];
+
+      for (const edge of edges) if (!nextEdges.includes(edge)) watched.unobserve(edge);
+
+      for (const edge of nextEdges) if (!edges.includes(edge)) watched.observe(edge);
+      edges = nextEdges;
+      const tops = siblings.map(box => box.top);
+      host.style.bottom = stack ? `${Math.max(0, stack.bottom - Math.min(stack.bottom, ...tops))}px` : "";
 
       const corner = host.getBoundingClientRect();
-
       setOrigin((prior) => (prior.left === corner.left && prior.top === corner.top && prior.width === corner.width && prior.height === corner.height ? prior : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
-      setMeasured(true);
-    };
 
-    const watched = new ResizeObserver(() => {
-      sync();
-
+      // Do not replace a saved rectangle with fallback geometry before layout exists.
+      if (corner.width <= 0 || corner.height <= 0) return;
       const prior = untrack(places);
       const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, extent())]));
 
-      if (JSON.stringify(next) === JSON.stringify(prior)) return;
+      if (JSON.stringify(next) !== JSON.stringify(prior)) {
+        setPlaces(next);
+        persistPlaces(next);
+      }
 
-      setPlaces(next);
-      persistPlaces(next);
-    });
+      setMeasured(true);
+    };
 
     watched.observe(host);
     window.addEventListener("resize", sync);
@@ -283,7 +306,7 @@ export const Bubbles = (props: {
 
     if (host.parentElement) watched.observe(host.parentElement);
 
-    // The composer comes and goes with the selection, which moves no size the observer sees.
+    // Portal hosts and sibling controls may mount without changing the stack's size.
     const arrivals = new MutationObserver((records) => {
       if (records.some((record) => !host.contains(record.target))) sync();
     });
@@ -298,20 +321,9 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const { close, closing, Failure: CloseFailure } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure);
+  const { close, closing, Failure: CloseFailure, reportFailure, mounted } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure, failure);
 
-  const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
-
-  const focusItem = (id: string): void => {
-    const place = places()[id];
-
-    if (place?.min) document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)?.focus();
-    else props.screens.emulatorFor(id).focus();
-  };
-
-  const focusedId = (active: Element | null = document.activeElement): string | null => {
-    return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
-  };
+  const focusItem = (id: string) => focusBubble(id, places()[id], props.screens);
 
   let generation = 0;
 
@@ -327,51 +339,76 @@ export const Bubbles = (props: {
     queueMicrotask(() => { if (generation === revision) focus(() => focusItem(id)); });
   };
 
-  const closeFocused = (focus: Element | null): void => {
-    const id = focusedId(focus);
+  const closeFocused = (focus: Element | null): void => closeBubble(focus, before, async id => {
+    await close(id);
 
-    if (id === null) return;
-
-    const focusReturn = captureFocus();
-    const back = before;
-    const fromTab = focus?.closest(".terminal-tabs") !== null;
-
-    void close(id).then(() => {
-      if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
-
-      focusReturn(() => {
-        if (back instanceof HTMLElement && back.isConnected) back.focus();
-        else focusPane();
-      });
-    });
-  };
+    return failure() === null && !shown().some(terminal => terminal.id === id);
+  });
 
   const terminalOwner = () => resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
   const openTerminal = async (current = () => true, focus = true, home = terminalOwner()): Promise<string | null> => {
-    // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
     const workstream = home;
     const selection = rail.selected();
 
     if (opening() || readOnly()) return null;
-
-    const focusReturn = captureFocus(true);
+    const opener = document.activeElement;
+    let focusReturn = captureFocus(true);
     setOpeningSelection(selection);
     setOpening(true);
+    const key = crypto.randomUUID();
+    const destination = Promise.withResolvers<{ host: HTMLElement; settled: () => boolean }>();
+    const controller = new AbortController();
+    openingController = controller;
+    destinations.set(key, destination.resolve);
+    setReserved(prior => ({ ...prior, [key]: null }));
+    let prepared: Awaited<ReturnType<Screens["prepare"]>> | undefined;
+
+    const cancelled = () => {
+      const host = bubbleElement(key);
+      const restore = focus && rail.selected() === selection && host?.contains(document.activeElement);
+      setPlace(key, { ...placeOf(key), min: true });
+
+      if (restore) captureFocus(true)(() => {
+        if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) opener.focus();
+        else document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
+      });
+    };
+
+    controller.signal.addEventListener("abort", cancelled, { once: true });
 
     try {
-      const opened = await app.rpc("terminal.open", { workstream });
+      const target = mounted() ? await destination.promise : null;
 
-      const available = () => current() && rail.selected() === selection;
+      if (focus && target && focusReturn(() => target.host.closest(".bubble")?.querySelector<HTMLElement>(".bubble-controls button")?.focus({ preventScroll: true }))) focusReturn = captureFocus();
+      prepared = target ? await props.screens.prepare(target.host, target.settled, controller.signal) : undefined;
+
+      if ((focus && !current()) || rail.selected() !== selection) return null;
+      const opened = await app.rpc("terminal.open", { workstream, ...prepared?.size });
+
+      if (controller.signal.aborted && controller.signal.reason?.message === copy.terminalPreparationCancelled) {
+        await app.rpc("terminal.close", { id: opened.terminal_id });
+        await rail.refresh({ terminals: true });
+
+        return null;
+      }
+
+      prepared?.bind(opened.terminal_id);
+      setPlaces(prior => ({ ...prior, [opened.terminal_id]: placeOf(key) }));
+      const available = () => mounted() && !controller.signal.aborted && current() && rail.selected() === selection;
 
       if (available()) {
         setFromRoot(prior => selection === null ? [...prior, { id: opened.terminal_id, listed: rail.terminals().some(terminal => terminal.id === opened.terminal_id) }] : []);
 
-        if (focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
+        if (selection !== null && (workstream === null || resolvedWorkstream(rail.nodes, selection) !== workstream)) setOpenedHere(prior => [...prior, opened.terminal_id]);
       } else setPlace(opened.terminal_id, { ...placeOf(opened.terminal_id), min: true });
       setFailure(prior => prior?.terminal === null ? null : prior);
+      rail.commandFailure.acknowledge(null);
       await rail.refresh({ terminals: true });
+      setReserved(prior => ({ ...prior, [key]: opened.terminal_id }));
+
+      if (available() && focus) setWanted({ id: opened.terminal_id, focus: focusReturn });
 
       if (available()) {
         if (!focus) show(opened.terminal_id);
@@ -384,13 +421,34 @@ export const Bubbles = (props: {
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailure({ message: thrown.message, terminal: null });
+      if (prepared || !controller.signal.aborted) reportFailure(thrown, copy.newTerminal, undefined, () => {
+        if (workstream !== null && !rail.nodes.some(node => node.id === workstream && node.kind === "workstream")) {
+          rail.commandFailure.show(copy.terminalOriginalWorkstreamUnavailable);
+
+          return;
+        }
+
+        if (outcomeOf(thrown) === "failed") void openTerminal(() => false, false, workstream);
+        else void app.ask({ title: copy.newTerminal, message: copy.terminalOpenAgainQuestion, okLabel: copy.newTerminal, cancelLabel: copy.keep }).then(accepted => { if (accepted) void openTerminal(() => false, false, workstream); });
+      });
 
       return null;
     } finally {
+      if (openingController === controller) openingController = undefined;
+      controller.signal.removeEventListener("abort", cancelled);
+      controller.abort();
+      prepared?.dispose();
+      destinations.delete(key);
+
+      if (reserved()[key] === null) setReserved(prior => {
+        const next = { ...prior };
+        delete next[key];
+
+        return next;
+      });
       setOpening(false);
 
-      if (focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
+      if (mounted() && focus && failure() !== null && shown().length === 0) focusReturn(() => document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true }));
     }
   };
 
@@ -638,8 +696,6 @@ export const Bubbles = (props: {
     return id !== null && document.querySelector(".pane-screen textarea, .pane-screen [tabindex]") ? id : null;
   };
 
-  const hasTerminalFocus = (focus: Element | null): boolean => focus?.isConnected === true && focus.closest(".bubble, button.terminal-tab, .pane-screen") !== null;
-
   const switchPair = (focus: Element | null) => {
     const selected = rail.selected();
     const main = mainTerminal();
@@ -695,13 +751,7 @@ export const Bubbles = (props: {
     before = event.target;
   };
 
-  const onBubbleFocus = (event: FocusEvent): void => {
-    if (!(event.target instanceof Element)) return;
-
-    const id = event.target.closest<HTMLElement>("[data-bubble]")?.dataset.bubble;
-
-    if (id !== undefined) lastFocused = id;
-  };
+  const onBubbleFocus = (event: FocusEvent): void => trackBubbleFocus(event, id => { lastFocused = id; });
 
   // Focus landing on a control outside the bubbles (⌘K's Switcher, ⌘/'s Ask bar) minimises every open bubble, so the focused control is never under the top layer, whether or not focus began inside a bubble.
   const onFocusLeave = (event: FocusEvent): void => {
@@ -822,9 +872,10 @@ export const Bubbles = (props: {
     };
 
     const menu = (event: MouseEvent) => openOnRelease(event, (x, y) => void tabMenu(x, y));
+    bubbleMenus.set(id, menu);
+    onCleanup(() => bubbleMenus.delete(id));
 
     return <>
-      <Bubble id={id} screens={props.screens} name={name()} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} menu={menu} toggleMinimised={toggleMinimised} />
       <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
         <Show when={editing()?.id === id ? editing() : null} keyed fallback={
           <Tip content={name()} cut={nameCut}>
@@ -905,19 +956,24 @@ export const Bubbles = (props: {
 
   const recoveryNotice = createMemo(() => shownDraft() ? !original(shownDraft()!) || readOnly() ? copy.originalUnavailable : shownDraft()!.value.base !== nameFor(original(shownDraft()!)!) ? copy.railDraftConflict : null : null);
 
-  return (
-    <div class="bubbles" ref={setLayer}>
+  return <div class="bubbles" ref={setLayer}>
+      <For each={[...Object.keys(reserved()).filter(key => reserved()[key] === null), ...shownIds().map(id => Object.keys(reserved()).find(key => reserved()[key] === id) ?? id)]}>{key => {
+        const id = () => reserved()[key] ?? key;
+
+        return <Bubble id={id()} preparing={reserved()[key] === null} hostRef={(host, settled) => destinations.get(key)?.({ host, settled })} screens={props.screens} name={shown().find(terminal => terminal.id === id()) ? nameFor(shown().find(terminal => terminal.id === id())!) : ""} place={placeOf(id())} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={async terminal => { if (reserved()[key] === null) openingController?.abort(new DOMException(copy.terminalPreparationCancelled)); else await close(terminal); }} menu={event => bubbleMenus.get(id())?.(event)} toggleMinimised={terminal => { if (reserved()[key] === null) openingController?.abort(); else toggleMinimised(terminal); }} />;
+      }}</For>
       {/* Keep Portal children alive while the tab host is absent; each Bubble portals to the document. */}
-      <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
-        <div class="terminal-tabs" data-flat-bar="" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
+      <Portal mount={bar() ?? parkedTabs} ref={(element) => { element.classList.add("terminal-tabs-host"); element.setAttribute("data-flat-bar", ""); }}>
+        <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
-          <For each={shownIds()}>{id => <Tab id={id} />}</For>
+          <div class="terminal-tab-list"><For each={shownIds()}>{id => <Tab id={id} />}</For></div>
           <div class="terminal-tabs-actions">
+            <Tip text={copy.newTerminal}>{trigger => <FlatAdd {...trigger()} data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}><Icon name="plus" /></FlatAdd>}</Tip>
             <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
-            <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
           </div>
         </div>
+        <HintLine />
       </Portal>
       <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
@@ -938,7 +994,6 @@ export const Bubbles = (props: {
           </div>
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
-      <CloseFailure message={failure()?.message ?? null}><button data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></CloseFailure>
-    </div>
-  );
+      <CloseFailure message={failure()?.message ?? null}><Show when={failure()?.terminal === null}><button data-button="quiet" class="word" type="button" onClick={() => { setFailure(null); void open(); }}>{copy.retry}</button></Show><button data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></CloseFailure>
+    </div>;
 };

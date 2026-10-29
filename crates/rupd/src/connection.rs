@@ -38,7 +38,6 @@ impl Frame {
 
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
-    daemon.agents.observe_measurements();
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);
@@ -51,7 +50,6 @@ pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()
 }
 
 pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
-    daemon.clears.me.get_or_init(|| Arc::downgrade(&daemon));
     let stream_pid = stream
         .peer_cred()
         .ok()

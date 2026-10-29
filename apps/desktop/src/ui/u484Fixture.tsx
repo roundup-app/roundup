@@ -28,9 +28,9 @@ const u484Fixture = () => {
       onDrop={(event) => { event.preventDefault(); file([...files(), ...Array.from(event.dataTransfer?.files ?? [], (entry) => entry.name)]); }}>
       <For each={ids()}>{(id, index) => <Sortable.Item id={id} index={index()}>{(parts) =>
         <div ref={parts.ref} data-id={id} class="sortable-row" data-dragging={parts.isDragging()}>
-          <button ref={parts.handleRef} data-button="quiet" data-reads="text" aria-label={`Move ${id}`} onClick={() => action(actions() + 1)}>Move {id}</button>
           <span>{id}</span>
           <button data-button="quiet" aria-label={`Inspect ${id}`} onClick={() => action(actions() + 1)}>Inspect</button>
+          <Sortable.Handle ref={parts.handleRef} label={`Move ${id}`} />
         </div>
       }</Sortable.Item>}</For>
     </Sortable.Root>

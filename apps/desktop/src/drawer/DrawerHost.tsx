@@ -1,3 +1,7 @@
+import { CHORDS } from "../keys/chords";
+import Maximize from "lucide-solid/icons/maximize";
+import Minimize from "lucide-solid/icons/minimize";
+import { createShelfFrame } from "../shelf/frame";
 import { captureFocus } from "../keys/focus";
 import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
@@ -7,17 +11,30 @@ import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { DRAWER_EASING } from "./drawer";
-import { createSlideLifetime } from "../ui/slideLifetime";
+import { createMaximiseSlide, createSlideLifetime } from "../ui/slideLifetime";
 import { setDrawerSliding } from "./sliding";
+import type { ActivationSource } from "../keys/registry";
 import type { DrawerContent, DrawerState } from "./drawer";
 
 /**
  * An overlay: absolutely positioned over the Shelf, at the window's right edge. The centre narrows by the
- * Drawer's width with the same transition (U430), so the Drawer covers none of it (GLOSSARY.md, Drawer).
+ * Drawer's width with the same transition (U430), so the Drawer covers none of it.
  */
 export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor<boolean> }) => {
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
   const [panel, setPanel] = createSignal<HTMLElement>();
+  const frame = createShelfFrame(() => props.drawer.surface()?.project ?? null, props.reducedMotion, undefined, undefined, () => props.drawer.surface()?.kind ?? "drawer");
+  const maximiseSlide = createMaximiseSlide(panel, () => props.drawer.content() !== null && !props.reducedMotion());
+
+  const toggleMaximise = (source: ActivationSource) => {
+    const host = panel();
+    const left = host?.getBoundingClientRect().left;
+    maximiseSlide.cancel();
+    frame.toggleMaximise(source);
+
+    if (host && left !== undefined && source !== "key") maximiseSlide.start(left - host.getBoundingClientRect().left);
+  };
+
   const [edgeHovered, setEdgeHovered] = createSignal(false);
   const isOpen = () => props.drawer.content() !== null;
   const instant = () => props.reducedMotion() || props.drawer.source() === "key";
@@ -82,10 +99,19 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
   onCleanup(() => { revision++; cancelAnimationFrame(settleFrame ?? 0); });
 
+  const canMaximise = (focus: Element | null) => isOpen() && !!focus && !!panel()?.contains(focus) && !focus.closest('input, textarea, select, [contenteditable], .xterm, .pane-screen, [role=dialog], [role=menu]');
+
   registerKeys({ kind: "layer", element: panel, active: isOpen, modal: false }, [{
     chords: ["Escape"],
     when: (press) => !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen')),
     run: () => { captureFocus(true); props.drawer.close("key"); },
+  }, {
+    action: CHORDS.find(row => row.keys === "M")!,
+    when: press => canMaximise(press.target instanceof Element ? press.target : null),
+    capture: focus => ({
+      available: () => canMaximise(focus),
+      invoke: () => toggleMaximise("key"),
+    }),
   }]);
 
   return (
@@ -94,6 +120,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       aria-label={copy.drawer}
       inert={!isOpen()}
       data-open={isOpen()}
+      data-maximised={frame.maximised()}
       data-mounted={mounted() !== null}
       data-motion={instant() ? "none" : "slide"}
       data-settling={settling()}
@@ -125,9 +152,14 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       }}
 
     >
-      <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
-        <Icon name="x" />
-      </IconButton>
+      <div class="drawer-controls">
+        <IconButton chord={CHORDS.find(row => row.keys === "M")} aria-label={frame.maximised() ? copy.restore : copy.maximise} onClick={event => toggleMaximise(activationSource(event))}>
+          <Show when={frame.maximised()} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>
+        </IconButton>
+        <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
+          <Icon name="x" />
+        </IconButton>
+      </div>
       <Show when={mounted()} keyed>
         {(content) => content()}
       </Show>

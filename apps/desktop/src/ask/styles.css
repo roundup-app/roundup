@@ -16,10 +16,13 @@
 .ask-bar[data-mode="home"] {
   position: absolute;
   inset: 0;
-  /* The Pane's reserved failure line sits under the home Ask and keeps its Retry reachable. */
-  bottom: var(--line);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* A current Pane failure keeps its recovery action reachable below Ask. */
+.project-center-content:has(.pane-failure) .ask-bar[data-mode="home"] {
+  bottom: var(--line);
 }
 
 .ask-bar[data-mode="over"] {
@@ -225,6 +228,8 @@
   --button-radius: 0;
 }
 
+.overview-entry[data-row-selected="true"] { background: var(--selected); }
+
 .overview-name {
   min-width: 0;
   overflow: hidden;
@@ -251,14 +256,6 @@
   display: block;
   width: var(--space-3);
   height: var(--space-3);
-}
-
-.overview-empty {
-  padding: var(--space-5) var(--space-2);
-}
-
-.overview-empty .overview-heading {
-  padding: 0;
 }
 
 .made-context {
@@ -510,4 +507,10 @@
 
 .ask-history .ask-rows {
   width: 100%;
+}
+
+.ask-bar[data-mode="home"] :is(.made, .reactions, .ask-history, .project-overview) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }

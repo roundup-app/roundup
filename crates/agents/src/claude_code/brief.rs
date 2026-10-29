@@ -1,7 +1,7 @@
 //! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what is the same
 //! for every Agent of a role (E9): that roundup supervises it, the tools `rup mcp` offers and,
 //! for a Door, B24's role guidance. A name, Terminal id, parent, peer or Todo changes, so none is
-//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest`, `workstream_handoff`, `checkpoint_write`, `workstream_rewindPlan` and `workstream_rewind` only to a Door.
+//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest`, `checkpoint_write`, `workstream_rewindPlan` and `workstream_rewind` only to a Door.
 
 /// What an Agent is to roundup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,6 +58,10 @@ const TOOLS: &[(&str, &str)] = &[
     (
         "todo_assign",
         "assign a Todo to an owner, or leave it unassigned",
+    ),
+    (
+        "todo_comments",
+        "read a Todo thread and the user’s replies without marking comments read",
     ),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
@@ -261,14 +265,6 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     ("project_get", "read the Project's settings"),
     (
-        "project_measurements",
-        "read retained measurements and collection coverage",
-    ),
-    (
-        "project_measurementSummary",
-        "read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision",
-    ),
-    (
         "project_setWorktrees",
         "turn Worktrees on or off for the Project and set the command Landing runs",
     ),
@@ -335,15 +331,11 @@ const TOOLS: &[(&str, &str)] = &[
 /// F8: keeping one rule prevents the three Terminal-start descriptions from drifting.
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
-/// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 8] = [
+/// The tools beyond `TOOLS` that only a Door is offered: B20's digest and M10's `checkpoint_write`.
+const DOOR_TOOLS_EXTRA: [(&str, &str); 7] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
-    ),
-    (
-        "workstream_handoff",
-        "answer the user clearing your Workstream: what happened and why, and the Todos and Pads to keep, only when asked to",
     ),
     (
         "checkpoint_write",
@@ -541,7 +533,7 @@ fn with_tools(role: Role, mcp: bool) -> String {
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
          Your Rail name and where you stand are in the Context you get at start. \
-         Refer to yourself and other Agents by Rail name, never by id. \
+         Refer to yourself and other Agents by Rail name, never by id. Use `me` for yourself and `name:<Rail name>` for collisions. Take a Todo with `todo_assign {{\"id\": <Todo id>, \"owner\": \"me\"}}`; delegate with a peer's Rail name as owner. \
          Your shell sets `ROUNDUP_AGENT_ID` for machine addressing, and `rup` is on your `PATH`: run `rup help` to learn its command line, {help}.\n\n\
          ## {heading}\n\n\
          {tools}{first_turn}\n\n",

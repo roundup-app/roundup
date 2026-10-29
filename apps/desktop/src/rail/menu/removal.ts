@@ -12,6 +12,7 @@ export type Stay = { name: string; reason: string };
 export type Removal = {
   /** Removed Agents and non-Agent containers, for irreversible-loss detection only. */
   removedIds: string[];
+  affectedIds: string[];
   goes: { agents: string[]; todos: number; pads: number };
   stays: { agents: Stay[]; todos: number; pads: number };
 };
@@ -27,7 +28,7 @@ const unlanded = (state: WorktreeState): string | null =>
 /** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by owner. Writes nothing. */
 export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string): Promise<Removal> => {
   const [todos, pads] = await Promise.all([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
-  const removal: Removal = { removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
+  const removal: Removal = { affectedIds: below(nodes, id).map(node => node.id), removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
   const staying = new Set<string>();
 
   for (const node of below(nodes, id)) {
@@ -64,21 +65,28 @@ export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id:
   return removal;
 };
 
-const counts = (parts: [number, string][]) => parts.flatMap(([count, noun]) => (count > 0 ? [copy.counted(count, noun)] : [])).join(", ");
+/** U4601: names precede counts; each scope's judgment is presented once. */
+export const goesLine = ({ goes }: Removal, name: string) =>
+  copy.goes([name, ...goes.agents, ...(goes.todos ? [copy.doneTodoCount(goes.todos)] : []), ...(goes.pads ? [copy.removalPadCount(goes.pads)] : [])].join(", "));
 
-/** U367: the line of what goes, `Goes: Nothing` when nothing does. */
-export const goesLine = ({ goes }: Removal) =>
-  copy.goes(counts([[goes.agents.length, copy.agentNoun], [goes.todos, copy.doneTodos], [goes.pads, copy.pads]]) || copy.nothing);
-
-/** U367: the line of what stays at the Project root; `null` when nothing does. */
+/** U4601: only work preserved by Remove this belongs in Stays. */
 export const staysLine = ({ stays }: Removal) => {
-  const list = counts([[stays.agents.length, copy.agentNoun], [stays.todos, copy.openTodoNoun], [stays.pads, copy.pads]]);
+  const list = [...stays.agents.map(agent => agent.name), ...(stays.todos ? [copy.openTodoCount(stays.todos)] : []), ...(stays.pads ? [copy.removalPadCount(stays.pads)] : [])].join(", ");
 
-  return list === "" ? null : copy.staysAtTheProjectRoot(list);
+  return list === "" ? null : copy.staysRemoveThis(list);
 };
 
-/** U367: the names of the Agents that go, one line each, then `+ <n> more`. */
-export const goingNames = ({ goes }: Removal, shown = 5) => [
-  ...goes.agents.slice(0, shown),
-  ...(goes.agents.length > shown ? [copy.moreAgents(goes.agents.length - shown)] : []),
-];
+/** The native question carries the plan and offers only distinct removal scopes. */
+export const removalQuestion = (removal: Removal, name: string) => {
+  const stays = staysLine(removal);
+
+  const summary = {
+    title: copy.removeWorkstreamQuestion(name),
+    message: [goesLine(removal, name), stays].filter(Boolean).join("\n"),
+    cancelLabel: copy.cancel,
+  };
+
+  return stays
+    ? { ...summary, thisLabel: copy.removeThis, allLabel: copy.removeAll }
+    : { ...summary, okLabel: copy.remove };
+};

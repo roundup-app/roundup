@@ -33,6 +33,7 @@ impl Store {
         home: &str,
         actor: &Actor,
         removal: &mut contracts::agent::Removal,
+        scope: contracts::agent::RemoveScope,
     ) -> Result<Vec<contracts::EventData>, RpcError> {
         use contracts::EventData;
         use contracts::agent::{KeptItem, KeptReason, RemovalKind, RemovedItem};
@@ -40,7 +41,7 @@ impl Store {
         let before = self.list()?;
         let mut events = Vec::new();
         for todo in before.iter().filter(|t| t.home.as_deref() == Some(home)) {
-            if todo.done {
+            if todo.done || scope == contracts::agent::RemoveScope::All {
                 db.execute("DELETE FROM todos WHERE id = ?", [todo.id])
                     .map_err(RpcError::internal)?;
                 removal.removed.push(RemovedItem {
@@ -63,7 +64,9 @@ impl Store {
         let before_values: HashMap<_, _> =
             before.iter().map(|todo| (todo.id, values(todo))).collect();
         for mut todo in before {
-            if todo.home.as_deref() == Some(home) && todo.done {
+            if todo.home.as_deref() == Some(home)
+                && (todo.done || scope == contracts::agent::RemoveScope::All)
+            {
                 continue;
             }
             todo.blockers = db
@@ -324,6 +327,10 @@ impl Store {
 
     /// Sets the Home. The caller has checked that a Workstream exists on the Rail.
     pub(crate) fn set_home(&self, id: u32, home: Option<&str>) -> Result<Todo, RpcError> {
+        let tx = self
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
         self.get(id)?;
         self.db
             .execute(
@@ -331,6 +338,21 @@ impl Store {
                 params![id, home],
             )
             .map_err(RpcError::internal)?;
+        let retained: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        if retained {
+            tx.execute(
+                "DELETE FROM rail_removal_items WHERE kind='todo-home' AND id=?",
+                [id.to_string()],
+            )
+            .map_err(RpcError::internal)?;
+        }
+        tx.commit().map_err(RpcError::internal)?;
         self.get(id)
     }
 
@@ -356,6 +378,20 @@ impl Store {
             )
             .map_err(RpcError::internal)?;
         self.record_change(id, Some(before), after_touch, actor)?;
+        let retained: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE name='rail_removal_items')",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        if retained {
+            tx.execute(
+                "DELETE FROM rail_removal_items WHERE kind='todo-owner' AND id=?",
+                [id.to_string()],
+            )
+            .map_err(RpcError::internal)?;
+        }
         tx.commit().map_err(RpcError::internal)?;
         self.get(id)
     }

@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../copy";
 import { showScrollbars } from "../scrollHover";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
@@ -13,6 +14,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ImageAddon } from "@xterm/addon-image";
 import { ClipboardAddon } from "@xterm/addon-clipboard";
+import { LigaturesAddon } from "@xterm/addon-ligatures";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
 import type { IMarker, ITerminalAddon, ITerminalOptions } from "@xterm/xterm";
@@ -20,10 +22,19 @@ import "@xterm/xterm/css/xterm.css";
 
 export type Size = { cols: number; rows: number };
 
+/** An attached, fitted destination owned by one launch until it binds or is disposed. */
+export type TerminalPreparation = {
+  size: Size;
+  bind(id: string): void;
+  dispose(): void;
+};
+
 /** One Terminal's screen. It exists before it is shown: bytes written to it wait for the first `show`. */
 export type Emulator = {
   /** When present, wait before sending a fitted size to the Daemon. Output can be parsed while faces load. */
   readonly ready?: Promise<void> | undefined;
+  bind?: (id: string) => void;
+  prepare?(host: HTMLElement, settled?: () => boolean, signal?: AbortSignal): Promise<Size>;
   write(bytes: Uint8Array, parsed?: () => void): void;
   /** Restores the Daemon's screen at its recorded size before later output is written. */
   setSize(size: Size): void;
@@ -131,8 +142,11 @@ export const xtermOptions: ITerminalOptions = {
   // xterm needs resolved values rather than CSS var references.
   fontFamily: /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
+  fontWeight: Number.parseInt(/--weight-terminal:\s*([^;]+);/.exec(tokens)![1]!, 10),
   lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
+  // WebGL draws box borders across the full cell even with extra line height.
+  customGlyphs: true,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
@@ -167,6 +181,14 @@ const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void
   observer.observe(scroller, { attributes: true, attributeFilter: ["style"] });
   disposers.push(() => observer.disconnect());
 };
+
+const ARABIC = "\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF";
+
+const ARABIC_RUN = new RegExp(`[${ARABIC}]+(?:[ \\-.,!?:;'"()0-9]+[${ARABIC}]+)*[.,!?:]?`, "g");
+
+/** Each Arabic run, spaces between words included, so the renderer draws it as one shaped string. */
+export const arabicRuns = (text: string): [number, number][] =>
+  [...text.matchAll(ARABIC_RUN)].map(match => [match.index, match.index + match[0].length]);
 
 /** The real emulators (xterm.js). WebGL is tried until the webview first refuses it, then every later Terminal goes straight to the DOM renderer. */
 export const createXtermEmulators = (
@@ -205,7 +227,7 @@ export const createXtermEmulators = (
 
     // Load every bundled style even with a custom preference, so clearing it never fits a fallback face.
     const ready = document.fonts ? Promise.all(
-      ["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
+      ["normal 300", "normal 700", "italic 300", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
     ).catch((failure: Error) => {
       // A damaged/missing local asset still leaves the existing fallback stack usable.
       console.warn("Terminal font unavailable; using the fallback face", failure);
@@ -230,6 +252,7 @@ export const createXtermEmulators = (
     const disposers: (() => void)[] = [];
 
     element.style.height = "100%";
+    element.style.gridArea = "1 / 1";
     terminal.loadAddon(fitter);
     terminal.onRender(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
@@ -442,23 +465,99 @@ export const createXtermEmulators = (
       return dispose;
     });
 
+    const loadRenderer = () => {
+      if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
+        loadedWebgl = createWebgl();
+
+        return loadedWebgl;
+      }, console.warn, () => probe?.renderer(false, id));
+
+      probe?.renderer(!webglDenied, id);
+    };
+
     const open = () => {
       if (!opened) {
         terminal.open(element);
+        const ligatures = new LigaturesAddon();
+        terminal.loadAddon(ligatures);
+        // Deregister while the renderer is alive: addon disposal requests a final refresh.
+        disposers.push(() => ligatures.dispose());
         opened = true;
+        terminal.registerCharacterJoiner(arabicRuns);
         dropInlineGround(element, disposers);
 
-        if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
-          loadedWebgl = createWebgl();
-
-          return loadedWebgl;
-        }, console.warn, () => probe?.renderer(false, id));
-
-        probe?.renderer(!webglDenied, id);
+        loadRenderer();
       }
     };
 
+    const show = (host: HTMLElement, focus = true): Size => {
+      host.replaceChildren(element);
+      focusOnShow = focus;
+      open();
+      const fitted = size();
+
+      if (focusOnShow) terminal.focus();
+
+      return fitted;
+    };
+
+    const prepare = async (host: HTMLElement, settled = () => true, signal?: AbortSignal): Promise<Size> => {
+      signal?.throwIfAborted();
+      // Share the actual host's grid cell while its current Terminal remains on top and usable.
+      host.prepend(element);
+      focusOnShow = false;
+      open();
+      await ready;
+      signal?.throwIfAborted();
+
+      // The selected face may have changed while the bundled faces were loading.
+      if (document.fonts) {
+        await Promise.all(["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${terminal.options.fontSize}px ${terminal.options.fontFamily}`)));
+        await document.fonts.ready;
+
+        if (!disposed) {
+          prepareFontChange();
+          const family = terminal.options.fontFamily!;
+          terminal.options.fontFamily = /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+          terminal.options.fontFamily = family;
+        }
+      }
+
+      signal?.throwIfAborted();
+
+      return new Promise<Size>((resolve, reject) => {
+        let observed = false;
+        let frame = 0;
+        const observer = new ResizeObserver(() => { observed = true; });
+        const stop = () => { observer.disconnect(); cancelAnimationFrame(frame); signal?.removeEventListener("abort", abort); };
+
+        const abort = () => { stop(); reject(signal?.reason ?? new Error(appCopy.terminalPreparationCancelled)); };
+
+        const fit = () => {
+          if (disposed || signal?.aborted || !host.isConnected) { abort();
+
+ return; }
+
+          if (observed && settled() && host.checkVisibility() && host.clientWidth > 0 && host.clientHeight > 0) {
+            const fitted = size();
+
+            if (fitted.cols > 0 && fitted.rows > 0) { stop(); resolve(fitted);
+
+ return; }
+          }
+
+          frame = requestAnimationFrame(fit);
+        };
+
+        observer.observe(host);
+        signal?.addEventListener("abort", abort, { once: true });
+        frame = requestAnimationFrame(fit);
+      });
+    };
+
     return {
+      prepare,
+      bind: next => { id = next; },
       ready,
       write: (bytes, parsed) => {
         terminal.write(bytes, () => {
@@ -473,6 +572,9 @@ export const createXtermEmulators = (
         }
 
         terminal.resize(cols, rows);
+
+        // Recreate after the snapshot resize so the old renderer never reads the reflowing buffer.
+        if (opened && !loadedWebgl) loadRenderer();
       },
       setFontSize: (size) => {
         if (terminal.options.fontSize === size) return;
@@ -504,19 +606,7 @@ export const createXtermEmulators = (
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),
-      show: (host, focus = true) => {
-        host.replaceChildren(element);
-
-        focusOnShow = focus;
-
-        open();
-
-        const fitted = size();
-
-        if (focusOnShow) terminal.focus();
-
-        return fitted;
-      },
+      show,
       fit: size,
       onResize: (listener) => { resized = listener; },
       focus: () => terminal.focus(),
@@ -544,6 +634,7 @@ export const createXtermEmulators = (
         shellTurns.dispose();
         fontViewport?.dispose();
         terminal.dispose();
+        element.remove();
       },
     };
   };

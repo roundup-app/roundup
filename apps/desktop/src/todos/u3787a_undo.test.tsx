@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { padHandlers } from "../testing/stores";
 import { padOf, AGENT, openPad } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
@@ -68,18 +69,24 @@ it("u3787a_delete_has_no_question_and_freezes_targets", async () => {
   const calls = app.of("/a").calls.filter(c => c.method === "todo.delete");
   expect(calls).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }]);
   expect([questionProbe.shown]).toEqual([null]);
-  expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]);
+  expect([screen.queryByText(DELETED)]).toEqual([null]);
   // SAFETY: the preceding exact call assertion checks this captured deletion payload.
   const operation = (calls[0]!.params as { operation: string }).operation;
   finish({ operation, deleted: [5], missing: [], state: "deleted" });
-  await screen.findByRole("button", { name: "Undo" });
+  await shown();
   expect([connections.get("/a")!.drawer.content()]).toEqual([null]);
-  const undo = screen.getByRole("button", { name: "Undo" });
+  const undo = await shown();
   expect(announcements).toContain(undo.closest('[role="status"]'));
-  fireEvent.click(undo);
-  fireEvent.click(undo);
+  pressUndo();
+  pressUndo();
   await waitFor(() => expect(app.of("/a").calls.filter(c => c.method === "todo.restore")).toEqual([{ method: "todo.restore", params: { operation } }]));
 });
+
+const DELETED = /^Deleted \d/;
+
+const shown = () => screen.findByText(DELETED);
+
+const pressUndo = () => { document.body.focus(); undoKey(); };
 
 const undoKey = () => fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
 
@@ -98,7 +105,7 @@ it("u3787a_undo_stays_with_its_project", async () => {
   // Only the active Project offers feedback; selecting A restores its own action.
   fireEvent.click(screen.getByRole("tab", { name: /^a/ }));
   await screen.findByRole("tabpanel", { name: "a" });
-  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  pressUndo();
   await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(1));
   fireEvent.click(screen.getByRole("tab", { name: /^b/ }));
   await screen.findByRole("tabpanel", { name: "b" });
@@ -131,7 +138,7 @@ it("u3787a_undo_stays_with_its_project", async () => {
 it("u3787a_editor_and_terminal_keep_undo", async () => {
   const { app, remove } = await mount();
   await remove("/a");
-  await screen.findByRole("button", { name: "Undo" });
+  await shown();
 
   for (const markup of ['<input>', '<textarea></textarea>', '<div contenteditable="true" tabindex="0"></div>', '<div class="xterm"><textarea></textarea></div>', '<div role="textbox" tabindex="0"></div>']) {
     const root = document.createElement("div");
@@ -151,15 +158,14 @@ it("u3787a_editor_and_terminal_keep_undo", async () => {
 it("u3787a_undo_failure_is_retryable", async () => {
   const { app, remove } = await mount();
   await remove("/a");
-  const button = await screen.findByRole("button", { name: "Undo" });
+  await shown();
   app.of("/a").handlers["todo.restore"] = () => { throw new Error("Original Home is unavailable. Restore the Home and retry."); };
 
-  fireEvent.click(button);
+  pressUndo();
   await screen.findByText("Original Home is unavailable. Restore the Home and retry.");
-  expect(button.hasAttribute("disabled")).toBe(false);
   app.of("/a").handlers["todo.restore"] = p => ({ operation: p.operation, deleted: [5], missing: [], state: "restored" });
-  fireEvent.click(button);
-  await waitFor(() => expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]));
+  pressUndo();
+  await waitFor(() => expect([screen.queryByText(DELETED)]).toEqual([null]));
   // SAFETY: the source call is filtered to todo.delete and its generated params contain operation.
   expect(app.of("/a").calls.filter(call => call.method === "todo.restore").map(c => c.params)).toEqual(Array(2).fill({ operation: (app.of("/a").calls.filter(call => call.method === "todo.delete")[0]!.params as { operation: string }).operation }));
   expect(app.of("/a").calls.filter(c => ["todo.create", "agent.spawn", "terminal.spawn"].includes(c.method))).toEqual([]);
@@ -168,15 +174,15 @@ it("u3787a_undo_failure_is_retryable", async () => {
 it("u3787a_unknown_restore_consumes_only_the_reconciled_receipt", async () => {
   const { app, remove } = await mount();
   await remove("/a");
-  const button = await screen.findByRole("button", { name: "Undo" });
+  await shown();
   let restored = false;
   // SAFETY: the source call is filtered to todo.delete and its generated params contain operation.
   const params = app.of("/a").calls.filter(call => call.method === "todo.delete")[0]!.params as { operation: string };
   app.of("/a").handlers["todo.deletion"] = () => ({ operation: params.operation, deleted: [5], missing: [], state: restored ? "restored" : "deleted" });
   app.of("/a").handlers["todo.restore"] = () => { restored = true; throw new Error("reply lost after restore"); };
 
-  fireEvent.click(button);
-  await waitFor(() => expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]));
+  pressUndo();
+  await waitFor(() => expect([screen.queryByText(DELETED)]).toEqual([null]));
   undoKey();
   expect(app.of("/a").calls.filter(call => call.method === "todo.restore").map(c => c.params)).toEqual([{ operation: params.operation }]);
   expect(app.of("/a").calls.filter(call => call.method === "todo.deletion").map(c => c.params)).toEqual([{ operation: params.operation }, { operation: params.operation }]);
@@ -191,7 +197,7 @@ it("u3787a_refused_delete_keeps_the_previous_success_available", async () => {
 
   await remove("/a", 7);
   await screen.findAllByText("Deletion refused. Check access.");
-  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  pressUndo();
   await waitFor(() => expect(app.of("/a").calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([
     { operation: expect.any(String) },
   ]));
@@ -209,11 +215,11 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
 
     if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
     else {
-      const first = await screen.findByRole("button", { name: /#5 / });
+      const first = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / });
 
       if (entry === "selection") {
         fireEvent.click(first, { metaKey: true });
-        fireEvent.click(screen.getByRole("button", { name: /#7 / }), { metaKey: true });
+        fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }), { metaKey: true });
         fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
       } else { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     }
@@ -222,7 +228,8 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
       { operation: expect.any(String), ids: entry === "single" ? [5] : [5, 7] },
     ]));
     expect([questionProbe.shown]).toEqual([null]);
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await shown();
+    pressUndo();
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
   });
 }
@@ -263,10 +270,10 @@ for (const entry of ["selection", "single", "drawer"] as const) {
       fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "Delete" }));
     }
 
-    const button = await screen.findByRole("button", { name: "Undo" });
+    await shown();
     expect([questionProbe.shown]).toEqual([null]);
     expect(daemon.calls.filter(c => c.method === "pad.delete").map(c => c.params)).toEqual((entry === "selection" ? ["first", "second"] : ["first"]).map(name => ({ name, expectedIncarnation: `fixture-${name}`, operation: expect.any(String) })));
-    fireEvent.click(button);
+    pressUndo();
     await screen.findByRole("button", { name: "first" });
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "pad.restore").length).toBe(1));
     expect((await daemon.rpc("pad.read", { name: "first" }))).toEqual(padOf("first", AGENT, "original"));
@@ -282,7 +289,7 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
   fireEvent.click(await screen.findByRole("button", { name: "first" }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "second" }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
-  const button = await screen.findByRole("button", { name: "Undo" });
+  await shown();
   const restore = daemon.handlers["pad.restore"]!;
   let refuse = true;
   let calls = 0;
@@ -292,13 +299,13 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
 
  return restore(p)!; };
 
-  fireEvent.click(button);
+  pressUndo();
   await screen.findByText("second: name conflict");
   await daemon.rpc("pad.setOwner", { name: "first", owner: USER });
   await daemon.rpc("pad.write", { name: "first", text: "edited after restore" });
   refuse = false;
-  fireEvent.click(button);
-  await waitFor(() => expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]));
+  pressUndo();
+  await waitFor(() => expect([screen.queryByText(DELETED)]).toEqual([null]));
   expect(calls).toBe(3);
   expect((await daemon.rpc("pad.read", { name: "first" })).text).toBe("edited after restore");
 });
@@ -318,10 +325,11 @@ it("u3787a_unknown_delete_reconciles_before_retry_pads", async () => {
   row.focus();
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   const check = await screen.findByRole("button", { name: "Check deletion" });
-  expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]);
+  expect([screen.queryByText(DELETED)]).toEqual([null]);
   daemon.handlers["pad.getDeletion"] = read;
   fireEvent.click(check);
-  fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+  await shown();
+  pressUndo();
   await screen.findByRole("button", { name: "first" });
   expect(daemon.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([
     { name: "first", expectedIncarnation: "fixture-first", operation: expect.any(String) },
@@ -346,7 +354,7 @@ it("u3787a_delete_has_no_question_and_freezes_targets_pads_pending", async () =>
   await daemon.rpc("pad.create", { name: "arrival", text: "new" });
   await screen.findByRole("button", { name: "arrival" });
   release();
-  await screen.findByRole("button", { name: "Undo" });
+  await shown();
   expect(daemon.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([
     { name: "first", expectedIncarnation: "fixture-first", operation: expect.any(String) },
   ]);
@@ -362,14 +370,14 @@ for (const entry of ["selection", "clear-done"] as const) {
 
     if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
     else {
-      fireEvent.click(await screen.findByRole("button", { name: /#5 / }), { metaKey: true });
-      fireEvent.click(screen.getByRole("button", { name: /#7 / }), { metaKey: true });
+      fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }), { metaKey: true });
+      fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }), { metaKey: true });
       fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
     }
 
     await screen.findByText("Could not delete same #7: The chosen Todo is no longer available. Refresh to check again.");
-    expect(screen.getByRole("button", { name: /#7 / }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }).getAttribute("aria-pressed")).toBe("true");
+    pressUndo();
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
     expect(daemon.calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([{ ids: [5, 7], operation: expect.any(String) }]);
   });
@@ -384,11 +392,11 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   fireEvent.input(field, { target: { value: text } });
   const connected = connections.get("/a")!;
   const retained = connected.drafts.list();
-  expect(retained.map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
+  expect(retained.filter(draft => draft.destination.surface === "pads").map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
   fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Delete" }));
-  const undo = await screen.findByRole("button", { name: "Undo" });
+  await shown();
   expect(connected.drafts.list()).toEqual(retained);
-  fireEvent.click(undo);
+  pressUndo();
   await screen.findByRole("button", { name: "second" });
   expect(connected.drafts.list()).toEqual(retained);
 });
@@ -409,7 +417,7 @@ for (const kind of ["todo", "pad"] as const) {
 
     if (kind === "pad") await showPads();
 
-    const row = await screen.findByRole("button", { name: kind === "todo" ? /#5 / : "first" });
+    const row = await screen.findByRole("button", { name: kind === "todo" ? /^(Idle|Blocked|Done) #5 / : "first" });
     fireEvent.click(row);
     fireEvent.keyDown(row, { key: "Backspace", code: "Backspace" });
     await screen.findByRole("alert", { name: new RegExp(`Could not delete .*${refusal}`) });
@@ -508,7 +516,7 @@ it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async 
   const original = deletions(daemon)[0]!;
   daemon.handlers["todo.deletion"] = p => ({ operation: p.operation, deleted: [5], missing: [], state: "deleted" });
   fireEvent.click(recovery);
-  await screen.findByRole("button", { name: "Undo" });
+  await shown();
   expect(connected.drawer.content()).toBe(opening);
   expect(field.value).toBe(draftBytes);
   expect(daemon.calls.filter(call => call.method === "todo.deletion").map(call => call.params)).toEqual([
@@ -524,7 +532,7 @@ it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async 
     { method: "todo.delete", params: original }, { method: "todo.delete", params: { operation: expect.any(String), ids: [7] } },
   ]);
   daemon.handlers["todo.restore"] = p => ({ operation: p.operation, deleted: [7], missing: [], state: "restored" });
-  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  pressUndo();
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.restore")).toEqual([
     { method: "todo.restore", params: { operation: deletions(daemon)[1]!.operation } },
   ]));
@@ -539,7 +547,7 @@ const restoring = async () => {
   const daemon = mounted.app.of("/a");
   let finish!: (value: { operation: string; deleted: number[]; missing: number[]; state: "restored" }) => void;
   daemon.handlers["todo.restore"] = () => new Promise(resolve => { finish = resolve; });
-  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  pressUndo();
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.restore")).toEqual([
     { method: "todo.restore", params: { operation: deletions(daemon)[0]!.operation } },
   ]));
@@ -578,14 +586,35 @@ it("u3787h_restore_completion_requires_a_new_delete", async () => {
   ]);
   fireEvent.click(button);
   await waitFor(() => expect(connected.drawer.content()).toBe(null));
-  const undo = await screen.findByRole("button", { name: "Undo" });
+  await shown();
   expect(daemon.calls.filter(call => call.method === "todo.delete")).toEqual([
     { method: "todo.delete", params: { operation, ids: [5] } },
     { method: "todo.delete", params: { operation: expect.any(String), ids: [7] } },
   ]);
-  fireEvent.click(undo);
+  pressUndo();
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.restore")).toEqual([
     { method: "todo.restore", params: { operation } },
     { method: "todo.restore", params: { operation: deletions(daemon)[1]!.operation } },
   ]));
+});
+
+it("u4453d_no_undo_controls_native_undo_remains", async () => {
+  const { app, remove } = await mount();
+  await remove("/a");
+  await shown();
+  expect(screen.queryAllByRole("button", { name: /redo/i })).toEqual([]);
+  expect(screen.getAllByRole("button", { name: copy.todoUndo })).toHaveLength(1);
+  const root = document.createElement("div");
+  root.innerHTML = "<textarea></textarea>";
+  document.body.append(root);
+  root.querySelector("textarea")!.focus();
+
+  for (const shiftKey of [false, true]) {
+    expect(fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true, shiftKey })).toBe(true);
+  }
+
+  expect(app.of("/a").calls.filter(call => call.method === "todo.restore")).toEqual([]);
+  root.remove();
+  pressUndo();
+  await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(1));
 });

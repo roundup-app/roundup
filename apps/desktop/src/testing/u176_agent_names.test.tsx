@@ -265,7 +265,8 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
       const open = `document.dispatchEvent(new KeyboardEvent('keydown', {key:'n',metaKey:true,shiftKey:true,bubbles:true}))`;
       await lane.browser("open", url);
       await lane.until(`!!document.querySelector('[data-id="${target.id}"] .name')`);
-      await lane.browser("click", `[data-id="${target.id}"] .name`);
+      await lane.browser("click", `.rail-row[data-id="${target.id}"] .row-state`);
+      await lane.until(`document.querySelector('.rail-row[data-id="${target.id}"]').dataset.selected === 'true'`);
       await lane.evaluate(open);
       await lane.until(`!!${field}`);
       await lane.evaluate(`(() => { const field = ${field}; field.value = ${JSON.stringify(text)}; field.dispatchEvent(new Event('input',{bubbles:true})); field.setSelectionRange(2,7,'backward'); field.dispatchEvent(new Event('select',{bubbles:true})); return true; })()`);
@@ -327,6 +328,7 @@ describe("u2773 Rail persisted edits", () => {
 
   it("u2773b_rail_real_acknowledgement_consumes_only_submitted_revision", async () => {
     const app = createServedApp(second.base);
+    await app.rpc("rail.createWorkstream", { name: "Prompt destination", parent: null });
     const before = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent").length;
     const starts: string[] = [];
     const rpc = app.rpc;
@@ -343,11 +345,13 @@ describe("u2773 Rail persisted edits", () => {
 
     await mount();
     open();
-    fireEvent.input(task(), { target: { value: " B\n😀 " } });
+    const submitted = task();
+
+    fireEvent.input(submitted, { target: { value: " B\n😀 " } });
     fireEvent.keyDown(task(), { key: "Enter" });
-    await waitFor(() => expect(screen.queryByLabelText("Task")).toBeNull());
+    await waitFor(() => expect(submitted.isConnected).toBe(false));
     expect((await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(before + 1);
-    expect(starts).toEqual([JSON.stringify({ cwd: second.dir, prompt: "B\n😀", parent: null, model: null, effort: null })]);
+    expect(starts.map(value => JSON.parse(value))).toMatchObject([{ cwd: second.dir, prompt: "B\n😀", parent: null, model: null, effort: null }]);
     cleanup();
     await mount();
     open();

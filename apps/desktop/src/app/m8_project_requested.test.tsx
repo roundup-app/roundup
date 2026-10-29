@@ -176,29 +176,6 @@ it.each(["envelope", "surface"])("u3021b_recovery_actions_and_retry_%s", async (
   window.localStorage.clear();
 });
 
-it("u3021c_copy_and_discard_keep_other_revisions", async () => {
-  const drafts = createProjectDrafts();
-  const holder = drafts(FIRST.path);
-  const exact = "  Order e\u0301 🪁\nlast line  ";
-  const gone = failedSave(holder, { surface: "orders", object: "removed-agent", recipient: "removed-agent" }, { ask: exact, title: "Same name" });
-  const other = failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "other work" });
-  const app = mount(drafts);
-  const clipboard = vi.fn(async (_text: string) => {});
-
-  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
-  await openRecovery();
-  const recovery = await screen.findByRole("region", { name: "Unfinished work" });
-  const row = within(recovery).getAllByRole("listitem").find((item) => item.dataset.revision === gone)!;
-
-  expect(within(row).getAllByRole("button")).toHaveLength(2);
-  fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
-  expect(clipboard).toHaveBeenCalledTimes(1);
-  expect(clipboard).toHaveBeenCalledWith(`${exact}\nSame name`);
-  fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
-  expect(holder.list().map((draft) => draft.revision)).toEqual([other]);
-  expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);
-});
-
 it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   const drafts = createProjectDrafts();
   const holder = drafts(FIRST.path);

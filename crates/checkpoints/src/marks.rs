@@ -31,7 +31,6 @@ pub struct Mark {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Marks {
-    pub iteration: u32,
     pub agents: Vec<Mark>,
 }
 
@@ -39,7 +38,6 @@ pub struct Marks {
 pub trait RecordMarks: Send + Sync {
     /// None until every Agent has a saved conversation; a missing saved file is an error.
     async fn record(&self, workstream: &str) -> Result<Option<Marks>, RpcError>;
-    fn iteration(&self, workstream: &str) -> Result<u32, RpcError>;
 }
 
 impl Checkpoints {
@@ -65,19 +63,20 @@ impl Checkpoints {
             git_objects: stored,
         })
         .map_err(RpcError::internal)?;
-        self.db()?.execute(
-            "INSERT INTO marks (workstream, checkpoint, iteration, content) VALUES (?1, ?2, ?3, ?4)",
-            params![workstream, id, marks.iteration, content],
-        ).map_err(RpcError::internal)?;
+        self.db()?
+            .execute(
+                "INSERT INTO marks (workstream, checkpoint, content) VALUES (?1, ?2, ?3)",
+                params![workstream, id, content],
+            )
+            .map_err(RpcError::internal)?;
         Ok(())
     }
 
-    /// Usable Marks only; historical, earlier-Iteration and invalidated Checkpoints conflict.
-    /// The caller supplies the current Rail Iteration, including after a Daemon restart.
-    pub fn marks(&self, workstream: &str, id: u32, iteration: u32) -> Result<Marks, RpcError> {
+    /// Usable Marks only; historical and invalidated Checkpoints conflict.
+    pub fn marks(&self, workstream: &str, id: u32) -> Result<Marks, RpcError> {
         let content: Option<String> = self.db()?.query_row(
-            "SELECT content FROM marks WHERE workstream = ?1 AND checkpoint = ?2 AND iteration = ?3 AND usable = 1",
-            params![workstream, id, iteration], |row| row.get(0),
+            "SELECT content FROM marks WHERE workstream = ?1 AND checkpoint = ?2 AND usable = 1",
+            params![workstream, id], |row| row.get(0),
         ).optional().map_err(RpcError::internal)?;
         let content = content
             .ok_or_else(|| RpcError::new(rpc::code::CONFLICT, "Checkpoint has no usable Marks"))?;
@@ -121,7 +120,6 @@ struct StoredMarks {
 
 #[derive(Serialize, Deserialize)]
 struct ObjectMarks {
-    iteration: u32,
     agents: Vec<ObjectMark>,
 }
 
@@ -187,10 +185,7 @@ impl ObjectMarks {
                 files,
             });
         }
-        Ok(Self {
-            iteration: marks.iteration,
-            agents,
-        })
+        Ok(Self { agents })
     }
 
     fn read(self, objects: &crate::objects::Objects) -> Result<Marks, RpcError> {
@@ -218,10 +213,7 @@ impl ObjectMarks {
                 files,
             });
         }
-        Ok(Marks {
-            iteration: self.iteration,
-            agents,
-        })
+        Ok(Marks { agents })
     }
 }
 

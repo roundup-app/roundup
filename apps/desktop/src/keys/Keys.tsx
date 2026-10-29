@@ -6,20 +6,7 @@ import { ROW } from "../rail/rows";
 const rowOf = (target: EventTarget | null): HTMLElement | null =>
   target instanceof HTMLElement && target.matches(ROW) ? target : null;
 
-/** The `◇<n>` control of a leaf Agent's row when `←` or `→` is its Pads' to take: `→` opens them, `←` folds them before the tree takes it (U41, U58). A row with children keeps `→` for the tree. */
-const padsControlFor = (row: HTMLElement, key: string): HTMLElement | null => {
-  const control = row.querySelector<HTMLElement>("[data-pads-control]");
-
-  if (!control) return null;
-
-  const shown = control.getAttribute("aria-expanded") === "true";
-
-  if (key === "ArrowLeft") return shown ? control : null;
-
-  return !shown && row.closest("[role=treeitem]")?.getAttribute("aria-expanded") === null ? control : null;
-};
-
-/** `F2`, the Rail key U31 leaves to U41, and `←`, `→` on a leaf Agent's Pads (GLOSSARY.md, Rail); the tree's own `←`, `→` come from Ark (U520). No UI of its own. */
+/** `F2`, the Rail key U31 leaves to U41 (GLOSSARY.md, Rail); the tree's own `←`, `→` come from Ark (U520). No UI of its own. */
 export const Keys = () => {
   const onRename = (row: HTMLElement): void => {
     row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
@@ -30,15 +17,14 @@ export const Keys = () => {
       when: (press) => {
         const row = rowOf(press.target);
 
-        return placeOf(press.target instanceof Element ? press.target : null) === "rail" && row !== null && !row.classList.contains("sortable-source") && (press.key === "F2" || padsControlFor(row, press.key) !== null);
+        return placeOf(press.target instanceof Element ? press.target : null) === "rail" && row !== null && !row.classList.contains("sortable-source") && press.key === "F2";
       },
       run: (press) => {
         const row = rowOf(press.target);
 
         if (!row) return;
 
-        if (press.key === "F2") onRename(row);
-        else padsControlFor(row, press.key)?.click();
+        onRename(row);
       },
     },
   ]);

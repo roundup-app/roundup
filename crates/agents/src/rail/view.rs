@@ -9,8 +9,8 @@ const NODES: &str = "WITH visible AS (
  SELECT nodes.* FROM (SELECT 1 WHERE NOT ?1 AND EXISTS (SELECT 1 FROM closed_sources)) CROSS JOIN nodes
  WHERE NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))
 ) SELECT id, kind, name, parent, ord, attempt, terminal_id,
-                worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
-                conversation_id, conversation_cwd, auto, finished FROM visible";
+                worktree_path, worktree_branch, worktree_base, work, model, effort,
+                conversation_id, conversation_cwd, auto, finished, opening_prompt FROM visible";
 
 pub(super) fn load_nodes(
     db: &Connection,
@@ -49,8 +49,13 @@ fn load_with<T>(
                 NodeKind::Agent => stored,
             };
             let node = RailNode {
+                opening_prompt: if kind == NodeKind::Workstream {
+                    row.get(17)?
+                } else {
+                    None
+                },
                 auto: (kind == NodeKind::Workstream)
-                    .then(|| row.get(16))
+                    .then(|| row.get(15))
                     .transpose()?,
                 id: row.get::<_, i64>(0)?.to_string(),
                 kind,
@@ -68,22 +73,19 @@ fn load_with<T>(
                 // R3696c: SQL null predicates cost 280 extra VM steps per forty nodes.
                 // Borrow the fields without copying conversation text; presentation gates
                 // availability on the live Attempt (R16).
-                can_resume: !matches!(row.get_ref(14)?, rusqlite::types::ValueRef::Null)
-                    && !matches!(row.get_ref(15)?, rusqlite::types::ValueRef::Null),
+                can_resume: !matches!(row.get_ref(13)?, rusqlite::types::ValueRef::Null)
+                    && !matches!(row.get_ref(14)?, rusqlite::types::ValueRef::Null),
                 yolo: false,
                 channel: None,
                 stray: Vec::new(),
                 work,
                 model: row.get(11)?,
                 effort: row.get(12)?,
-                iteration: (kind == NodeKind::Workstream)
-                    .then(|| row.get(13))
-                    .transpose()?,
                 inbox: None,
                 tool_call: None,
                 overview: None,
             };
-            Ok(map(node, row.get::<_, i64>(17)?.cast_unsigned()))
+            Ok(map(node, row.get::<_, i64>(16)?.cast_unsigned()))
         })
         .map_err(sql)?;
     let mut nodes = Vec::with_capacity(capacity);
@@ -188,6 +190,20 @@ impl Rail {
                 params![finished.cast_signed(), id],
             )
             .map(drop)
+            .map_err(sql)
+    }
+
+    pub(crate) fn set_opening_prompt(
+        &mut self,
+        id: &str,
+        prompt: Option<&str>,
+    ) -> Result<bool, RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET opening_prompt=?1 WHERE CAST(id AS TEXT)=?2 AND opening_prompt IS NOT ?1",
+                params![prompt, id],
+            )
+            .map(|changed| changed != 0)
             .map_err(sql)
     }
 

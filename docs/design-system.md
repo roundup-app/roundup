@@ -23,7 +23,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections resolve this Token in both schemes and increased contrast. U3517c's Terminal cells instead use their pinned Ghostty/Tomorrow selection Tokens. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
+`--text-selection` uses `--button-accent-fill` and `--text-selection-ink` uses `--button-accent-ink` in both schemes and increased contrast. Row/tab selection uses the green `--selected` wash; existing shared-form focus rings use `--accent`. U3517c’s Terminal cells retain their Solo/Tomorrow selection Tokens.
 
 All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 
@@ -31,18 +31,18 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--ground` | `var(--gray-1)` | `var(--gray-2)` | the pane and the Drawer |
-| `--sunken` | `var(--gray-2)` | `var(--gray-1)` | the Rail and the Shelf |
+| `--ground` | `var(--gray-1)` | `var(--terminal-background)` | the pane and the Drawer |
+| `--sunken` | `var(--gray-2)` | `var(--terminal-background)` | the Rail and the Shelf |
 | `--hover` | `rgba(0,0,0,.04)` | `rgba(255,255,255,.06)` | a row or button under the pointer |
-| `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.08)` | the selected row |
-| `--selected-hover` | `rgba(0,0,0,.08)` | `rgba(255,255,255,.10)` | the selected row under the pointer |
+| `--selected` | `rgba(31,107,98,.07)` | `rgba(92,199,181,.08)` | the selected row |
+| `--selected-hover` | `rgba(31,107,98,.10)` | `rgba(92,199,181,.10)` | the selected row under the pointer |
 | `--scrim` | `rgba(0,0,0,.40)` | same | darkens the centre beneath an overlay Shelf |
 | `--text` | `var(--gray-12)` | `var(--gray-12)` | body text |
 | `--grey` | `var(--gray-11)` | `var(--gray-11)` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
 | `--cache-write` | `var(--gray-9)` | `var(--gray-9)` | Measurement cache-write segment and swatch |
 | `--disabled` | `#707070` | `#999999` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
 | `--press-opacity` | `0.9` | same | immediate button feedback, including filled buttons and independently coloured Glyphs |
-| `--accent` | `var(--blue-11)` | `var(--blue-11)` | Glyph tone of `working`, the primary action |
+| `--accent` | `#1a6b61` | `#5cc7b5` | Glyph tone of `working`, the primary action |
 | `--amber` | `var(--amber-11)` | `var(--amber-11)` | `needs-you` |
 | `--red` | `var(--red-11)` | `var(--red-11)` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
@@ -68,7 +68,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |
 | `--radius-row` / `--radius-control` / `--radius-drawer` | `6px` / `6px` / `12px` | same | selection band, buttons, Drawer, Terminal bubble (U523) |
 | `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
-| `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
+| `--duration-drawer` | `250ms` | same | the Drawer's slide in and out (`docs/motion.md`, M3 duration target; U3010b's 250 ms spring target) |
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
 | `--duration-todo` | `150ms` | same | the Todo fold and row slide (`docs/motion.md`, ~150 ms, U3010c) |
 | `--duration-copy` | `1500ms` | same | local clipboard acknowledgement lifetime (U3010c M8); renews only after success |
@@ -109,7 +109,7 @@ Kind has two carriers, a Glyph shape and a tone. The shape is enough on its own:
 | `idle` | `·` | `--grey` | no |
 | `done` | `✓` | `--grey` | no |
 
-Three hues exist in the whole App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
+Outside U4464’s decorative scene and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
 
 ## Click targets
 
@@ -153,7 +153,7 @@ An icon toggle with `aria-pressed="true"` uses `--text` on `--selected`, `--sele
 
 ## Surfaces and depth
 
-The Rail and the Shelf sit on `--sunken`, darker than the pane in dark and shaded below it in light; floating surfaces use a distinct opaque `--surface`. Row washes are translucent so each retains the region beneath it. The disabled neutral tones lie between Radix gray 10 and 11, distinct from enabled grey labels while retaining D5. The pane and the Drawer sit on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--elevation`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--elevation` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
+The Rail and the Shelf sit on `--sunken`, sharing the Terminal’s near-black neutral base with `--ground` in both System-dark and explicit Dark (U4456c), and shaded below the pane in Light; floating surfaces retain a distinct opaque neutral `--surface`. Row washes are translucent so each retains the region beneath it. The disabled neutral tones lie between Radix gray 10 and 11, distinct from enabled grey labels while retaining D5. The pane and the Drawer sit on `--ground`. Regions are told apart by space, by the change of ground in Light, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--elevation`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--elevation` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
 
 Floating layers (U3295a): one order in `tokens.css`, lowest first: `--layer-drawer`, `--layer-popover` (Popover, the ask surface; above the Drawer it opens from), `--layer-dialog` (Dialog, the switcher), `--layer-menu` (a Menu or Select, also when opened from inside a Dialog), `--layer-tooltip` (a label on any control, Drawer and Dialog ones included), `--layer-toast`. A floating surface takes its `z-index` from one of them and sets no number.
 
@@ -214,8 +214,8 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 |---|---|---|---|
 | header backdrop and bare header controls | `--ground` | root `--sunken` | root `--ground` |
 | unselected tab base | `--sunken` | root `--sunken` | root `--sunken` |
-| tab selected base | `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.08)` |
-| tab selected under pointer | `--selected-hover` | `rgba(0,0,0,.08)` | `rgba(255,255,255,.10)` |
+| tab selected base | `--selected` | `rgba(31,107,98,.07)` | `rgba(92,199,181,.08)` |
+| tab selected under pointer | `--selected-hover` | `rgba(31,107,98,.10)` | `rgba(92,199,181,.10)` |
 | header rule and tab borders | `--hairline` | opaque `--gray-11` | opaque `--gray-10` |
 | header and tabs | `--text` | root `--text` | root `--text` |
 | bare header controls | `--grey` / `--disabled` | root `--grey` / `--disabled` | root `--grey` / `--disabled` |
@@ -271,32 +271,41 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 | --- | --- | --- | --- |
 | `--surface` | `#ffffff` | `var(--gray-3)` | Opaque floating surface |
 | `--button-neutral` | `var(--gray-4)` | `var(--gray-4)` | Secondary/action button fill |
-| `--button-accent-ink` | `var(--gray-1)` | `var(--gray-1)` | Label on accent fill |
+| `--button-accent-fill` | `#1f6b62` | same | Primary fill |
+| `--button-key-ink` | `#d4e6e2` | same | Dimmer readable key on primary fill |
+| `--doodle-line` | `#5a4a3e` | `#e6cfbb` | Decorative scene lines |
+| `--doodle-patch` | `#2f8f80` | same | Decorative scene patch |
+| `--doodle-offset` | `translate(14px, 10px)` | same | Scene patch offset |
+| `--doodle-blend` | `multiply` | `screen` | Scene patch blend |
+| `--button-accent-ink` | `#ffffff` | `#ffffff` | Label on accent fill |
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
 
-The existing primary kind uses `--accent` and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.
+The existing primary kind uses `--button-accent-fill` (#1f6b62 in both schemes) and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces and empty-view action rows; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.
 
 
 ### Terminal Tokens (U3517)
 
-Terminal defaults use bundled JetBrains Mono 2.304 (regular, bold, italic and bold
-italic, OFL in `apps/desktop/public/fonts/jetbrains-mono/`). `--font-terminal` is
-`"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
+Terminal defaults use bundled Fira Code 6.2 (Light 300 regular and bold 700, with
+browser-synthesized italic and bold italic; OFL in
+`apps/desktop/public/fonts/fira-code/`). `--font-terminal` is
+`"Fira Code", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
 uses it; the rest of the App retains its existing type.
+`--weight-terminal: 300` selects the bundled Light face through xterm’s public
+`fontWeight`; bold retains 700. Regular 400 remains bundled for explicit use.
 
-The emulator, App Settings and Project zoom reset share `--text-terminal` (14 CSS
-px). `--line-terminal` is xterm's unitless line-height multiplier (1.06) and
-`--letter-terminal` is extra cell tracking (0 CSS px). These are initial calibrated
-web values, starting from Ghostty's documented macOS 13 pt default, not a conversion
-of native points to CSS pixels. Rendered cell measurements and remaining native
-comparison are recorded in `docs/terminal-type.md`.
+The emulator, App Settings and Project zoom reset share `--text-terminal` (11 CSS
+px). `--line-terminal` is xterm's unitless line-height multiplier (1.7, calibrated to 22 CSS px rows) and
+`--letter-terminal` is extra cell tracking (0 CSS px, U4592 / #4627). U4456 uses Solo's
+0.846 Terminal scale against its 13 px base; the 1.23 interface scale does not
+apply. Rendered cell measurements are recorded in `docs/terminal-type.md`.
 
 `--terminal-background`, `--terminal-foreground`, `--terminal-cursor`,
 `--terminal-cursor-text`, `--terminal-selection`, `--terminal-selection-text`, and
 `--terminal-{black,red,green,yellow,blue,magenta,cyan,white}` with their
 `bright-` variants hold every emulator colour. CSS viewport/inset and X17 colour
-replies consume the same columns. Dark uses Ghostty's pinned unconfigured palette;
-Light uses its shipped Tomorrow companion (sources in `scenarios/ui-terminal-type.md`).
+replies consume the same columns. Dark uses U4456's neutral near-black ground, soft off-white text and dim grey
+borders; the Ghostty dark reference is retired. Light retains the Tomorrow
+companion (source in `scenarios/ui-terminal-type.md`).
 Default text and App controls retain D5; reference ANSI cells and program-authored
 colours have U3517c's explicit exception. No colour is brightened to meet a Check.
 
@@ -311,14 +320,16 @@ The elevation recipe is implemented; the remaining requirements below are specif
 | D7 | A selected, focused or dragged item row has exactly one changed cue: text colour or one selected ground; combined states reuse the cue. |
 | D8 | Rail, Todo, Pad and Terminal-tab first text uses one local inset after tree indentation; text and Glyph optical baselines agree within 1 CSS px. |
 | D9 | Stylelint rejects importance, unowned px/ms/s/colours, selectors over two compounds and child combinators; no existing-hit allowlist. Duration and reduced-motion checks remain. |
-| D10 | Floating surfaces share contact + ambient shadow layers and a 0.5 CSS px edge ring, replacing both old shadow Tokens and every consumer. App palette uses Radix light/dark scales plus the system accent. Rail and Shelf use native vibrancy, opaque under reduced transparency; centre, Terminal pixels and floating panels stay opaque. |
+| D10 | Floating surfaces share contact + ambient shadow layers and a 0.5 CSS px edge ring, replacing both old shadow Tokens and every consumer. App palette uses Radix light/dark scales plus the icon-green accent. Rail and Shelf use native vibrancy, opaque under reduced transparency; centre, Terminal pixels and floating panels stay opaque. |
 
 D10’s edge ring is not a control outline or focus ring. Native material is the sole new transparency exception for Rail/Shelf. No shader or WebGL background. Terminal ANSI remains U3517’s palette. Browser captures prove web rendering only; native material and launch cost require the implementation’s Mac observation. No new Token values, App seam names or native performance claims are established by this policy merge.
 
-U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales. Native macOS accent delivery supplies normalized sRGB channels; preference delivery uses Culori to find the closest sRGB mix toward black in light and white in dark that clears 4.7:1 against Radix neutral steps 1–5, covering labels and accent fills. It supplies plain RGB channel Tokens for both schemes, so the rendered Checks measure the same colour the App draws. Unavailable native delivery removes the override and restores Radix blue 11. Explicit App appearance choices also select the corresponding Radix scale. Terminal ANSI and program-authored colours retain U3517.
+U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales. The App accent is icon green: #1a6b61 light, #5cc7b5 dark, including explicit appearance choices and increased contrast. No native accent delivery or fallback remains. Primary fills are #1f6b62 with white ink; dimmer inline keys use #d4e6e2. Selection and existing shared-form rings use this green family. Terminal ANSI and program-authored colours retain U3517.
 
 ## Shared form controls (U4382a)
 
 U4382a supersedes the no-box and no-focus-ring rules above only for shared form controls: Field input/textarea, NumberInput, civil-date input, Select/Combobox picker, Checkbox, Switch and RadioGroup. Ark owns their behavior. Screens arrange fields; `ui/Field.css` and each control stylesheet own their paint. Frames use `--hairline-width` and `--form-border` (Radix gray 8); fields use `--form-ground`, Token padding and `--radius-control`. Checkbox marks use `--radius-chip`; radio and switch marks are round. Switch off uses `--form-off`, on uses `--accent`, and the thumb uses `--form-thumb` and checkbox checks use `--form-on-ink`.
 
 Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons are the sole exception to dark-only evidence.
+
+U4464: empty-view actions reuse shared primary/quiet buttons in one centred horizontal row, with shortcuts inside. Rail order is New Agent ⌘N, New Workstream ⇧⌘N. Single-action and actionless views retain their behavior. Open Doodles use `--doodle-line` (#5a4a3e light, #e6cfbb dark), `--doodle-patch` (#2f8f80), `--doodle-offset` (+14/+10 scene units) and `--doodle-blend` (multiply light, screen dark), with unchanged geometry. These decorative inks and the fixed primary fill/key ink are named D3 exceptions.

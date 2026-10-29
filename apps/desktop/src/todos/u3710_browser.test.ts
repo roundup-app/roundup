@@ -21,8 +21,8 @@ type Point = { x: number; y: number };
 const rows = '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button';
 
 const setup = async () => {
-  await page.scheme("light");
-  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1280, 820);
+  await page.scheme("dark");
+  await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
   await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
@@ -42,8 +42,8 @@ const setup = async () => {
 const ids = () => page.call<number[]>(`rows => [...document.querySelectorAll(rows)].map(b => Number(/#(\\d+)/.exec(b.getAttribute('aria-label'))[1]))`, rows);
 
 const centre = (n: number) => page.call<Point>(`(rows, n) => {
-  const b = document.querySelectorAll(rows)[n].getBoundingClientRect();
-  return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+  const b = document.querySelectorAll(rows)[n].closest(".todo-row").querySelector(".sortable-handle").getBoundingClientRect();
+  return {x: b.left + 1, y: b.top + b.height / 2};
 }`, rows, n);
 
 type Call = { method: string; params: { id: number; before?: number; blockers?: number[] } };
@@ -74,6 +74,27 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     await page.press("Tab", "Tab", 8);
     await page.until(`() => document.querySelectorAll('.shelf .todo-list [aria-level="2"]').length === 1`);
     expect(await page.call<number>(`() => Number(document.activeElement.closest('[data-todo]')?.dataset.todo)`)).toBe(order[1]);
+  });
+
+  it.each(["pointer", "keyboard"])("u3800c_a_%s_nest_returns_focus_to_the_moved_grip", async (input) => {
+    await setup();
+    const order = await ids();
+    const moved = order[1]!;
+
+    if (input === "pointer") {
+      const second = await centre(1);
+      await drag(second, { x: second.x + 30, y: second.y });
+    } else {
+      await page.call(`id => document.querySelector('[data-todo="' + id + '"] .sortable-handle').focus()`, moved);
+      await page.press(" ", "Space");
+      await page.until(`() => Boolean(document.querySelector('[data-dnd-placeholder]'))`);
+      await page.press("ArrowRight", "ArrowRight");
+      await page.press(" ", "Space");
+    }
+
+    await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
+    await settled();
+    expect(await page.call<number>(`() => document.activeElement.matches('.sortable-handle') ? Number(document.activeElement.closest('[data-todo]').dataset.todo) : null`)).toBe(moved);
   });
 
   it("u3710_a_sideways_drag_calls_set_blockers_and_a_vertical_one_calls_reorder", async () => {
@@ -123,7 +144,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     const order = await ids();
     const first = await centre(0);
     // Empty owner targets can add a scrollbar during the drag; leave room for it inside the list.
-    const right = await page.call<number>(`rows => document.querySelector(rows).closest('.todo-list').getBoundingClientRect().right - 32`, rows);
+    const right = await page.call<number>(`rows => document.querySelector(rows).closest('.todo-list').getBoundingClientRect().right - 1`, rows);
 
     // The first row has no row above: far right inside the list changes nothing.
     await drag(first, { x: Math.min(first.x + 200, right), y: first.y });
@@ -142,6 +163,21 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(made).toHaveLength(1);
     expect(made[0]!.params.blockers?.[0]).toBe(order[0]);
   }, 60_000);
+
+  it("u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
+    await setup();
+    const order = await ids();
+    await page.call(`async order => {
+      await window.__fake.app.rpc('todo.setBlockers', {id: order[1], blockers: [order[0]]});
+      window.__mark = window.__fake.app.calls.length;
+    }`, order);
+    await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
+    const third = await centre(2);
+    await drag(third, { x: third.x + 48, y: third.y });
+    await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
+    await settled();
+    expect(await calls()).toEqual([{ method: "todo.setBlockers", params: { id: order[2], blockers: [order[1]] } }]);
+  });
 
   it("u3711_a_refused_drop_shows_the_cause_and_changes_nothing", async () => {
     await setup();

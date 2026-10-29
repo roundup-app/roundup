@@ -12,7 +12,7 @@ export const showEverything = async (connected: ConnectedProject): Promise<void>
 };
 
 /** Select Overview and open Unassigned in a rendered App. */
-export const showEverythingInApp = async (_name = /backend/): Promise<void> => {
+export const showEverythingInApp = async (_name = /backend/, tab: "Todos" | "Pads" = "Todos"): Promise<void> => {
   const { fireEvent, screen, waitFor } = await import("@solidjs/testing-library");
   const { showShelfTab } = await import("./shelfTabs");
   const { openProjectPage, projectMenu } = await import("./menuProbe");
@@ -21,11 +21,21 @@ export const showEverythingInApp = async (_name = /backend/): Promise<void> => {
   await screen.findByRole("tree", { name: "Rail" });
   fireEvent.click(document.querySelector('[data-todo-root]')!);
 
-  showShelfTab("Todos");
+  showShelfTab(tab);
 
-  await waitFor(() => {
-    if (!document.querySelector(".shelf [data-shelf-group], .shelf .shelf-done-line, .shelf .empty-state")) throw new Error("Shelf list has not loaded");
+  const panel = await waitFor(() => {
+    const panel = document.querySelector(`.shelf .${tab.toLowerCase()}-tab`);
+
+    if (!panel?.querySelector("[data-shelf-group], .shelf-done-line, .empty-state")) throw new Error("Shelf list has not loaded");
+
+    return panel;
   });
 
-  for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+  for (const control of panel.querySelectorAll<HTMLElement>('[data-shelf-group] [data-part="branch-control"]')) {
+    if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") !== "false") continue;
+    fireEvent.click(control);
+    await waitFor(() => {
+      if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") !== "true") throw new Error("Shelf owner has not opened");
+    });
+  }
 };

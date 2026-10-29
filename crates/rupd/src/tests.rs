@@ -109,7 +109,7 @@ async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
          "parent":null, "order":0, "status":null, "attempt":null,
          "status_revision":null, "terminal_id":null, "worktree":null,
          "can_resume":false, "channel":null, "work":null, "stray":[],
-         "model":null, "effort":null, "iteration":2},
+         "model":null, "effort":null},
         {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
          "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789, "finished":"0"},
          "attempt":"9223372036854775807", "status_revision":"3",
@@ -424,6 +424,15 @@ async fn serving_a_module_that_hangs() -> (
     std::path::PathBuf,
 ) {
     let (dir, mut daemon) = daemon();
+    daemon
+        .agents
+        .call(
+            &daemon.ctx(Actor::user()),
+            "rail.createWorkstream",
+            json!({"name":"fixture"}),
+        )
+        .await
+        .unwrap();
     let (says, said) = mpsc::unbounded_channel();
     let release = Arc::new(tokio::sync::Notify::new());
     daemon.register(Arc::new(Hangs {
@@ -453,7 +462,9 @@ async fn a_half_closed_call_still_runs() {
     let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
     let mut client = UnixStream::connect(&socket).await.unwrap();
     client
-        .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\",\"params\":{\"id\":\"fixture\"}}\n")
+        .write_all(
+            b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\",\"params\":{\"id\":\"1\"}}\n",
+        )
         .await
         .unwrap();
     client.shutdown().await.unwrap();

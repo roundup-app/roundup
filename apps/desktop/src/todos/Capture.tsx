@@ -1,3 +1,4 @@
+import { currentOwner } from "../state/rail";
 import { appDark } from "../settings/preferences";
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
@@ -11,7 +12,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, LEADER } from "../keys/chords";
 import { resolvedWorkstream } from "../rail/layout";
-import { modalOpen, registerKeys } from "../keys/registry";
+import { captureActions, modalOpen, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { createCutTitle } from "../ui/cutTitle";
@@ -107,7 +108,12 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     return capturedTarget ?? selectedTarget();
   };
 
-  const ownerLine = () => target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!);
+  const ownerLine = () => {
+    const owner = currentOwner(connected.rail, target().owner);
+
+    return owner ? copy.captureFor(owner.name) : copy.unassigned;
+  };
+
   const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
   const ownerCut = createCutTitle(ownerLine);
   const homeCut = createCutTitle(homeLine);
@@ -224,7 +230,22 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     capturedTarget = selectedTarget();
     setNativeOpen(true);
     props.onNativeOpen?.(true);
-    void port?.show().then(publish).catch(error => { setFailure(String(error)); setNativeOpen(false); props.onNativeOpen?.(false); show(); });
+    void port?.show().then(publish).catch(error => {
+      const message = `${copy.captureATodo}: ${String(error)}`;
+      setFailure(message);
+      // The connection outlives this Capture. Resolve App's live registration only after
+      // the user returns to this Project and explicitly chooses recovery.
+      connected.rail.commandFailure.show(message, null, "rail", () => {
+        const action = captureActions(null).find(action => action.label === copy.captureATodo && action.value.startsWith("action:chord:"));
+
+        if (!action?.available()) return;
+        connected.rail.commandFailure.clear();
+        action.run();
+      });
+      setNativeOpen(false);
+      props.onNativeOpen?.(false);
+      show();
+    });
   };
 
   if (port) {

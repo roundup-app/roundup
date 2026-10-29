@@ -4,7 +4,7 @@ import type { LaneBrowser } from "./laneBrowser";
 
 type Point = { x: number; y: number };
 
-const ROW = (id: number) => `.shelf [data-id="${id}"] .shelf-title`;
+const ROW = (id: number) => `.shelf [data-id="${id}"] .sortable-handle`;
 
 const HEAD = `.shelf [data-shelf-group="me"] .shelf-group-head`;
 

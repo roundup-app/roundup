@@ -1,3 +1,5 @@
+import GripVertical from "lucide-solid/icons/grip-vertical";
+import { IconButton } from "./IconButton";
 import { ReducedMotionContext } from "../app/reducedMotion";
 import { clearPress } from "./pressFeedback";
 import { captureFocus } from "../keys/focus";
@@ -72,6 +74,8 @@ type SortableTree = {
   rows: readonly TreeRow[];
   /** One level of indentation in pixels: how far right of where the drag began picks the next deeper parent. */
   indent: number;
+  /** The row content's inset from its border box, in pixels, at its current depth. */
+  inset: (element: HTMLElement) => number;
   nests: (id: string) => boolean;
   onMove: (move: SortableMove) => void;
   /** The drop a release would commit, or null once the drag ends. */
@@ -81,7 +85,7 @@ type SortableTree = {
 type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElement>, "onDrag"> & {
   ids: readonly string[];
   /** The flat order after a drop; not called when `tree` is given. */
-  onOrderChange?: ((ids: string[]) => void) | undefined;
+  onOrderChange?: ((ids: string[], moved: string) => void) | undefined;
   tree?: SortableTree | undefined;
   external?: External<T> | undefined;
   /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them. */
@@ -182,6 +186,27 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
   let keyboard: { slot: number; depth: number } | null = null;
   let previewed: SortableDrop | null = null;
+  let landingRows: { id: string; element: HTMLElement }[] = [];
+
+  // Measure a real destination row at this depth, so nested DOM containers and
+  // list insets cannot add indentation a second time to the library's proxy.
+  const placeSlot = (drop: SortableDrop | null) => {
+    if (!slot || !sourceRow || !list || !local.tree) return;
+    const rows = withDepth(local.tree.rows);
+    const depth = drop?.depth ?? rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === sourceRow))?.depth ?? 0;
+    const target = landingRows.find(entry => rows.find(row => row.id === entry.id)?.depth === depth)?.element ?? sourceRow;
+    const box = target.getBoundingClientRect();
+    const targetDepth = rows.find(row => landingRows.some(entry => entry.id === row.id && entry.element === target))?.depth ?? 0;
+    const step = local.tree.indent;
+    const inset = local.tree.inset(target);
+    const indent = inset + (depth - targetDepth) * step;
+    const parent = slot.parentElement;
+
+    if (!parent) return;
+    slot.style.marginInlineStart = `${box.left + indent - parent.getBoundingClientRect().left}px`;
+    slot.style.width = `${box.width - indent}px`;
+  };
+
   let stopListening: (() => void) | undefined;
 
   const preview = (drop: SortableDrop | null) => {
@@ -189,7 +214,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     previewed = drop;
 
-    if (slot && drop && local.tree) slot.style.setProperty("--sortable-indent", `${drop.depth * local.tree.indent}px`);
+    placeSlot(drop);
     local.tree?.onPreview(drop);
   };
 
@@ -291,6 +316,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     clearPreview();
 
     if (source?.element instanceof HTMLElement) {
+      landingRows = [...source.manager?.registry.draggables ?? []].flatMap(row => row.element instanceof HTMLElement && list?.contains(row.element) ? [{id: String(row.id), element: row.element}] : []);
       sourceRow = source.element;
       const box = sourceRow.getBoundingClientRect();
       sourceRow.classList.add("sortable-source");
@@ -309,34 +335,30 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       slot.setAttribute("data-dnd-placeholder", "");
       slot.setAttribute("aria-hidden", "true");
       slot.style.height = `${box.height}px`;
-      // Until the first swap the slot stands over the row's own cell and its room trails the list, so a nudge that returns to it is no move (U490a).
-      slot.style.marginBlock = `${-box.height}px ${box.height}px`;
       slot.dataset.keyboard = String(keyboardLift);
       sourceRow.insertAdjacentElement("afterend", slot);
+      placeSlot(null);
 
       // WAAPI belongs to this lift: re-inserting the slot at another gap cannot restart its entrance.
       if (!keyboardLift && !reduced()) slot.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
       ProxiedElements.set(sourceRow, slot);
 
-      if (isSortable(source)) {
-        const target = source.sortable.target;
-        const placeholder = slot;
+      const target = isSortable(source) ? source.sortable.target : undefined;
+      const placeholder = slot;
 
-        source.sortable.target = placeholder;
-        void source.manager?.actions.setDropTarget(source.id);
-        restoreSource = () => {
-          if (source.sortable.target === placeholder) source.sortable.target = target;
-        };
-      }
+      restoreSource = () => {
+        if (isSortable(source) && source.sortable.target === placeholder) source.sortable.target = target;
+      };
 
       stopTracking = effect(() => {
         if (!isSortable(source)) return;
 
+        // Keeping the original hit target at lift prevents the new slot from selecting a neighbour.
+        source.sortable.target = source.index === source.initialIndex ? target : placeholder;
         list?.setAttribute("data-sortable-index", String(source.index));
 
-        if (source.index !== source.initialIndex) slot?.style.removeProperty("margin-block");
-
         track(source, event.operation.position);
+        placeSlot(previewed);
       });
     }
 
@@ -448,7 +470,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     if (moved === undefined) return;
     order.splice(index ?? source.initialIndex, 0, moved);
-    local.onOrderChange?.(order);
+    local.onOrderChange?.(order, String(source.id));
   }}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{local.children}</div><DragOverlay class="sortable-overlay" dropAnimation={null}>{null}</DragOverlay></DragDropProvider>;
 };
 
@@ -464,4 +486,15 @@ const Item = (props: ItemProps) => {
   return props.children(sortable);
 };
 
-export const Sortable = { Root, Item };
+/** The library binds both pointer and keyboard activation to this independent control. `onLift` fires on the presses that can start a drag: pointer down, Space and Enter. */
+const Handle = (props: { label: string; tooltip?: string; onLift?: () => void; ref: (element: HTMLButtonElement | undefined) => void }) => {
+  onCleanup(() => props.ref(undefined));
+
+  return <IconButton class="sortable-handle" data-reorderable="" aria-label={props.label} tooltip={props.tooltip} ref={props.ref} onPointerDown={() => props.onLift?.()} onClick={event => event.stopPropagation()} onKeyDown={event => {
+    event.stopPropagation();
+
+    if (event.key === " " || event.key === "Enter") props.onLift?.();
+  }}><GripVertical aria-hidden="true" /></IconButton>;
+};
+
+export const Sortable = { Root, Item, Handle };
