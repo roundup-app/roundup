@@ -4505,7 +4505,6 @@ async fn terminal_identity_facts(client: &rpc::Client) -> Value {
     .await
     .unwrap()
 }
-
 #[tokio::test]
 async fn u2773a_terminal_identity_survives_reconnect_without_effects() {
     let fixture = terminal_identity_fixture();
@@ -4549,6 +4548,7 @@ async fn u2773a_terminal_identity_survives_reconnect_without_effects() {
                 "incarnation",
                 "owner",
                 "program",
+                "program_pid",
                 "running",
                 "title"
             ]
