@@ -758,7 +758,7 @@
   mask-image: linear-gradient(to right, var(--transparent), var(--text));
   pointer-events: none;
 }
-.rail-row .row-controls { opacity: 0; pointer-events: none; }
+.rail-tree .rail-row:not(:hover, :focus-within) .row-controls { opacity: 0; pointer-events: none; }
 .rail-row:is(:hover, :focus-within) :is(.row-icons, .row-controls) {
   opacity: 1;
   pointer-events: auto;
