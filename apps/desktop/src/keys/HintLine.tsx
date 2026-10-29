@@ -113,13 +113,15 @@ export const HintLine = () => {
   const choices = (keys: string) => actions().filter(row => row.action.keys === keys && ("press" in row.action) === leaderArmed());
 
   const run = (action: ReturnType<typeof captureActions>[number]) => {
-    if (modalOpen() || !focus()?.isConnected || !action.available()) return;
+    if (modalOpen() || !focus()?.isConnected) return;
 
     if (document.activeElement instanceof HTMLElement && line?.contains(document.activeElement) && focus() instanceof HTMLElement) {
       const target = focus();
 
       if (target instanceof HTMLElement) target.focus({ preventScroll: true });
     }
+
+    if (!action.available()) return;
 
     if (leaderArmed()) endLeader();
     action.run();

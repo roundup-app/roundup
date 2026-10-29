@@ -209,7 +209,7 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
       },
     };
 
-    key.when = event => binding.when?.(event) !== false && binding.capture(event.target instanceof Element ? event.target : document.activeElement).available();
+    key.when = event => binding.when?.(event) !== false && (scope.kind !== "leader" || binding.capture(event.target instanceof Element ? event.target : document.activeElement).available());
 
     return key;
   });
