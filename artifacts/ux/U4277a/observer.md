@@ -18,3 +18,19 @@ Increased-contrast observation is unavailable through this agent-browser setup: 
 Fix verification source: `cd982c2a0` with clean merge of `2bcba5ed7`. The catalogue keeps the existing recording glyph; Settings copy is extracted by surface. The isolated U4277 rendered observer passes after installing the runner's missing ffmpeg. Refreshed head readings show no passing Check regressed; 38 PNG images and the interaction video remain untracked. Catalogue, preferences and recovery suites pass (42 tests).
 
 Final fix validation: `just ready`, TypeScript, targeted lint, trailers, frozen and merge-loss pass. All 16 Settings tests pass with retries disabled after scoping recorder lookups to Settings; together with the 42 catalogue/preferences/recovery tests, 58 behavioral tests pass. No test is removed; the recorder still proves recording state, new-chord invocation and the help chord.
+
+## U4686 categorised Settings
+
+Product baseline: `514edfafcb07396b4eceecba084d1b2d83261396` (full SHA in `base/revision.json`); product head: `3bebc508175f5837e7f43a170c2082b7f9820eb0`. Linux, isolated headless agent-browser, fresh profiles, dark 1512×950. The head observer was also run against baseline product code, selecting its existing Close action where head selects Back.
+
+| Acceptance | Evidence |
+| --- | --- |
+| U4686a/c | Existing mounted App page observer extended across both category boundaries in both directions, with pointer selection and panel association. Real browser arrows and Tab reach the active page's controls on all five existing seeds. |
+| U4686b / P11 | Existing Back/return-focus observer retains Escape. Existing preference observer closes through Back and retains the exact invalid draft across remount without applying it. |
+| U4686d | New mounted Settings observer checks accessible descriptions on permission, engine, model, font family, font size, recorder and appearance controls. Existing preference and Terminal observers retain their behavioral proofs. |
+| Rendered policy | 24 paired screens: all four pages on tree-40, tabs-8, first-run, agents-10 and conflict, plus recording, refusal, invalid size and failed model listing. Complete cause and recovery text wraps below its group. |
+| Checks | D1–D14 and D16 pass in all 24 baseline and 24 head readings. Paired delta has no regression. |
+
+Scoped behavioral verification passes with retries disabled: 16 App Settings tests, 12 preference tests, five Terminal settings tests and the shared-control semantics test. The existing real Tab observer replaces the former simulated focus assertion; no test was removed. The Back test now checks that its original view unmounts, retiring its old copy-assertion exemption. The runner's missing ffmpeg was installed before the passing paired video runs.
+
+Captures use the existing U4277 observer with `ROUNDUP_CAPTURE_SCREENS=settings` and `ROUNDUP_CAPTURES=U4277a`. PNGs and interaction videos remain untracked. No native macOS observation is claimed; the user reports what they meet on the Mac.
