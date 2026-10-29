@@ -33,7 +33,7 @@ const owner = (terminal: HTMLElement) => {
 };
 
 it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Terminal Find from %s", async source => {
-  const { connected, daemon } = await mountNavigation();
+  const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
   const terminal = document.activeElement;
@@ -57,7 +57,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Terminal Find fr
 });
 
 it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal_terminal_input: %s Find owner", async state => {
-  const { connected } = await mountNavigation();
+  const { connected } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
   const terminal = document.activeElement;
@@ -87,7 +87,7 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
 
 
 it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: row Switcher from %s", async source => {
-  const { connected, daemon } = await mountNavigation();
+  const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
   const terminal = document.activeElement!;
@@ -109,7 +109,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: row Switcher fro
 
 
 it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Bubble minimise from %s", async source => {
-  const { connected, daemon, shells } = await mountNavigation();
+  const { connected, daemon, shells } = await mountNavigation(false, 0);
   connected().rail.select("home");
   daemon.handlers["terminal.open"] = () => {
     shells.push(info("shell", { owner: "home" }));
@@ -142,7 +142,7 @@ it.each([
 ].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Terminal font $chord from $source", async ({ chord, key, code, size, source }) => {
   await saveAppSettings({ fontSize: 15 });
   localStorage.setItem("roundup:terminal-font:/p", "17");
-  const { connected, daemon, emulators } = await mountNavigation();
+  const { connected, daemon, emulators } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
   const terminal = document.activeElement!;
@@ -163,7 +163,7 @@ it.each([
 });
 
 it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async () => {
-  const { connected, emulators } = await mountNavigation();
+  const { connected, emulators } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
   const captured = captureActions(document.activeElement).find(action => action.keys === "⌘=")!;
@@ -175,14 +175,15 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
 });
 
 it.each(["terminal", "rail row"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
-  const { connected } = await mountNavigation();
+  const { connected } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
 
   if (place === "rail row") document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
 
   const focus = document.activeElement!;
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === (place === "rail row" ? "action:chord:⌘⌫" : "action:chord:⌘="))).toBe(true));
+  const expected = place === "rail row" ? "action:chord:F2" : "action:chord:⌘=";
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === expected)).toBe(true));
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
   const shown = new Map(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
 
@@ -195,4 +196,42 @@ it.each(["terminal", "rail row"])("u3787b_menu_covers_bound_commands: every avai
 
   expect([...shown.keys()].filter(id => !available.some(action => action.value === id))).toEqual([]);
   expect(document.activeElement).toBe(focus);
+});
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Rail rename from %s captures the focused row", async source => {
+  const { connected, daemon } = await mountNavigation(false, 0);
+  connected().rail.select("a2");
+  const row = document.querySelector<HTMLElement>('[data-id="a1"][data-part="item"]')!;
+  row.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: "F2", code: "F2" });
+  else openProjectPage("action:chord:F2", "/p");
+
+  const field = await screen.findByRole("textbox", { name: "Name" });
+  expect(field.closest("[data-id]")?.getAttribute("data-id")).toBe("a1");
+  expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(false);
+  expect(daemon.calls.filter(call => call.method === "rail.rename")).toHaveLength(0);
+  fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(row));
+  expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(true);
+});
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Help from %s returns focus without Terminal input", async source => {
+  const { daemon } = await mountNavigation(false, 0);
+  const row = document.querySelector<HTMLElement>('[data-part="item"]')!;
+  row.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:?")?.shortcut).toBe("?"));
+  const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: "?", code: "Slash", shiftKey: true });
+  else openProjectPage("action:chord:?", "/p");
+
+  const help = await screen.findByRole("dialog", { name: "Help" });
+  fireEvent.keyDown(help, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(row));
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
 });

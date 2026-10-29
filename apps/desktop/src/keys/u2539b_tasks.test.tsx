@@ -81,7 +81,7 @@ it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens
 
 it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "assign", "project", "changes"].flatMap(task =>
   (task === "assign" ? ["keyboard", "native-menu"] : ["keyboard", "native-menu", "terminal"]).map(source => ({ task, source, scenario: source === "native-menu" ? "u4278b_native_accelerator_runs_the_action_once" : "u2539b_top_ten_tasks_complete_within_three_presses" }))))("$scenario: $task from $source", async ({ task, source }) => {
-  const { daemon, connected, store, nodes, shells, emulators } = await mount();
+  const { daemon, connected, store, nodes, shells, emulators } = await mount(false, task === "project" ? 7 : 0);
   let presses = 0;
   const press = (code: string, options: KeyboardEventInit = {}) => { presses++; key(code, options); };
 
