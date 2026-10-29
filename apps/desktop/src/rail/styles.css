@@ -42,7 +42,7 @@
   display: grid;
   grid-template-columns: var(--indent) minmax(0, 1fr);
   gap: 0;
-  padding-left: var(--space-4);
+  padding-left: var(--length-zero);
   padding-right: var(--space-4);
 }
 
@@ -104,8 +104,7 @@
   font-weight: 600;
 }
 
-/* U131: reserve the same leading columns on branches and leaves. */
-.rail-row .row-state,
+/* U131, U4707: the fold's glyph reserves the same leading column as a row's, derived from the Token. */
 .rail-fold .glyph {
   margin-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--rail-inset) - var(--space-4) - var(--rail-gap));
 }
@@ -712,8 +711,7 @@
 .rail-row .row-state { width: var(--space-4); flex: none; }
 .rail-row .row-controls { flex: none; }
 .rail-row .rail-chevron { opacity: 0; pointer-events: none; }
-.rail-row:focus-within .rail-chevron,
-.rail-row[data-selected="true"] .rail-chevron { opacity: 1; pointer-events: auto; }
+.rail-row:has(.row-state:hover, .rail-chevron:is(:hover, :focus-visible)) .rail-chevron { opacity: 1; pointer-events: auto; }
 
 .rail-row[data-worktree="true"] { --elbow-y: calc((var(--space-6) + var(--space-2) - var(--space-3)) / 2); min-height: calc(var(--space-6) + var(--space-2)); }
 .rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
@@ -737,9 +735,11 @@
 
 /* U4335a: the state and name follow the same depth as the incoming elbow. */
 
-.rail-row .line::before { content: ""; width: var(--space-1); flex: none; }
+.rail-row .line::before { content: ""; width: var(--length-zero); margin-inline-end: calc(-1 * var(--rail-inset)); flex: none; }
 .rail-row .row-state { position: static; margin-inline-start: 0; }
-.rail-row .rail-chevron { left: calc(var(--space-1) + var(--tree-depth) * var(--tree-step)); transform: none; }
+/* U4707: the 32px Token leaves no column left of the glyph, so the chevron takes the glyph's place only while the pointer or keyboard is on it; selection and focus keep the glyph. */
+.rail-row .rail-chevron { left: calc(var(--rail-inset) * 2 + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
+.rail-row:has(.row-state:hover, .rail-chevron:is(:hover, :focus-visible)) .row-state { opacity: 0; }
 .rail-row .row-icons {
   display: inline-flex;
   align-items: center;
