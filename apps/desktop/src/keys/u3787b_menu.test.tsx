@@ -196,3 +196,41 @@ it.each(["terminal", "rail row"])("u3787b_menu_covers_bound_commands: every avai
   expect([...shown.keys()].filter(id => !available.some(action => action.value === id))).toEqual([]);
   expect(document.activeElement).toBe(focus);
 });
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Rail rename from %s captures the focused row", async source => {
+  const { connected, daemon } = await mountNavigation();
+  connected().rail.select("a2");
+  const row = document.querySelector<HTMLElement>('[data-id="a1"] [data-part="item"]')!;
+  row.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: "F2", code: "F2" });
+  else openProjectPage("action:chord:F2", "/p");
+
+  const field = await screen.findByRole("textbox", { name: "Name" });
+  expect(field.closest("[data-id]")?.getAttribute("data-id")).toBe("a1");
+  expect(daemon.calls.filter(call => call.method === "rail.rename")).toHaveLength(0);
+  fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(row));
+  expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(true);
+});
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Help from %s returns focus without Terminal input", async source => {
+  const { daemon } = await mountNavigation();
+  const row = document.querySelector<HTMLElement>('[data-part="item"]')!;
+  row.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:?")?.shortcut).toBe("?"));
+  const writes = daemon.calls.filter(call => call.method === "terminal.write").length;
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: "?", code: "Slash", shiftKey: true });
+  else openProjectPage("action:chord:?", "/p");
+
+  const help = await screen.findByRole("dialog", { name: "Help" });
+  fireEvent.keyDown(help, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(row));
+  expect(screen.queryByRole("dialog", { name: "Help" })).toBeNull();
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
+});
