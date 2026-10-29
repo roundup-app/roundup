@@ -115,12 +115,12 @@ it("u4685a_region_focus_keeps_input_and_shortcut_ownership", async () => {
     await wait(`!!document.querySelector('.drawer[data-open="true"]')`);
     await tabTo(".drawer");
     await snap("09-keyboard-drawer");
-    await browser("press", "Tab");
-    await snap("10-within-drawer");
     // U4698a fills the centre; U430 input beside the Drawer uses its restored side state.
     await browser("click", '.drawer-controls [aria-label="Restore"]');
     await wait(`!!document.querySelector('.drawer[data-fill="false"][data-settling="false"]')`);
     const drawerCounts = await read(`({fits:window.__focusFits,resizes:window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length})`);
+    await browser("press", "Tab");
+    await snap("10-within-drawer");
     await browser("click", ".pane .xterm-screen");
     await wait(`document.activeElement.matches('.pane textarea')`);
     await snap("11-terminal-drawer-blur");
