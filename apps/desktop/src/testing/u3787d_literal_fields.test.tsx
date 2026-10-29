@@ -13,6 +13,7 @@ import { captureActions } from "../keys/registry";
 import { openProjectPage } from "./menuProbe";
 import { showShelfTab } from "./shelfTabs";
 import { settled } from "../rail/railFixture";
+import { copy } from "../copy";
 
 // Actual App openings, rather than a fixture containing representative fields.
 const inventory = ["Project rename", "Agent rename", "Workstream rename", "Todo rename", "Pad rename", "Capture", "Import prompt", "Font family", "Switcher query", "Reaction name", "Reaction instruction", "Reaction repository", "Ask prompt", "Spawn prompt", "Opening prompt", "New Todo", "New Pad", "Todo title", "Todo body", "Todo comment", "Terminal rename", "New Workstream", "Project query", "Engine query", "Model query", "Reaction target query", "Owner query", "Blocker query", "Wait-for query", "Change note"] as const;
@@ -74,8 +75,8 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
     } else if (opening === "Opening prompt") {
       const row = document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!;
       fireEvent.contextMenu(row);
-      await app.pickMenu("Opening prompt…");
-      field = await screen.findByRole("textbox", { name: "Opening prompt" });
+      await app.pickMenu(copy.openingPromptMenu);
+      field = await screen.findByRole("textbox", { name: copy.openingPrompt });
     } else {
       fireEvent.keyDown(document, { key: "t", code: "KeyT", metaKey: true });
       const control = await screen.findByRole("button", { name: "Shell" });
