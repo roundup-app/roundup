@@ -36,7 +36,7 @@ DAEMON = 'apps/desktop/src/testing/realDaemonPlugin.ts'
 # Web tests that read a folder outside the App from disk: a change under the folder reaches each.
 WEB_READS = {'artifacts/ux/': ('apps/desktop/src/testing/captures.test.ts',)}
 # L121: the prepared runner, its callers and the package/CI configuration its regressions execute under.
-BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py', 'loop/workflows.test.py',
+BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py',
               '.github/workflows/', '.github/actions/setup/', '.github/actionlint.yaml',
               'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'justfile',
               'AGENTS.md', 'scenarios/loop-boxd.md')

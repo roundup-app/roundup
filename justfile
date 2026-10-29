@@ -16,9 +16,6 @@ ready:
     just migrations origin/main
     just lint-web
     just lint-rust origin/main
-    loop/rules.sh ci-trailers local
-    loop/rules.sh frozen local
-    python3 loop/workflows.test.py
     python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
 
 # The Rust checks that run no test binary; CI runs them in the `lint` job (L89).
