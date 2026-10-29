@@ -1,0 +1,224 @@
+{
+  "issue": 4596,
+  "complete": false,
+  "base": "95a6fd818",
+  "observed_head": "cb07ac81f",
+  "integration_head": "98c2ebff02da8b1aa7e8aa42550c6ba28f03c14a",
+  "implementation": "Merged #4770 and its prerequisites; #4799 supplied restore/move observers. This run changes no product or test code.",
+  "viewport": "1512x950 CSS pixels",
+  "scheme": "dark",
+  "scales": [
+    1,
+    2
+  ],
+  "renderers": [
+    "dom",
+    "webgl"
+  ],
+  "seeds": [
+    "agents-10",
+    "tree-40",
+    "bubbles"
+  ],
+  "paired_images": 86,
+  "paired_checks": 86,
+  "paired_lifecycle_traces": 160,
+  "missing_check_pairs": [],
+  "new_check_failures": [],
+  "baseline_failing_checks": [
+    "D1",
+    "D10",
+    "D2",
+    "D8"
+  ],
+  "resize_renderer_identity_trace_failures": [],
+  "visual_observer_failures": [
+    {
+      "step": "bubbles-webgl-shell-scale2",
+      "result": "fail",
+      "observation": "Only bottom key bar paints; prompt/answers and later marker are absent from the image although snapshot data contains them. Matching DOM captures paint the text. No root cause or repair is claimed.",
+      "evidence": {
+        "base": {
+          "image": "base/bubbles-webgl-shell-scale2.png",
+          "sha256": "4a419027e27e9a680f6223962fed64beca4d2b3e7dd9ba192ba15b73e2dfd2fc"
+        },
+        "head": {
+          "image": "head/bubbles-webgl-shell-scale2.png",
+          "sha256": "bae9193d31068adf94ea3ce0bee89f4b4c570b1944f0467b00896c81284862d4"
+        }
+      }
+    },
+    {
+      "step": "bubbles-webgl-pair-switch-scale2",
+      "result": "fail",
+      "observation": "Only bottom key bar paints; prompt/answers and later marker are absent from the image although snapshot data contains them. Matching DOM captures paint the text. No root cause or repair is claimed.",
+      "evidence": {
+        "base": {
+          "image": "base/bubbles-webgl-pair-switch-scale2.png",
+          "sha256": "4f8b85b3d4919591dac65eafb2aa6ac2f90e5e68583dc0789948f25e31a84d15"
+        },
+        "head": {
+          "image": "head/bubbles-webgl-pair-switch-scale2.png",
+          "sha256": "b7dfedde9adfacfdbb1cd9cca93022f206617d8438e4c303822369fb4da29af3"
+        }
+      }
+    },
+    {
+      "step": "agents-10-webgl-existing-scale2",
+      "result": "fail",
+      "observation": "Only bottom key bar paints; prompt/answers and later marker are absent from the image although snapshot data contains them. Matching DOM captures paint the text. No root cause or repair is claimed.",
+      "evidence": {
+        "base": {
+          "image": "base/agents-10-webgl-existing-scale2.png",
+          "sha256": "8633e68d651664e56e63e8092e61b3a445747ace252b89b5a51a06fb586a7021"
+        },
+        "head": {
+          "image": "head/agents-10-webgl-existing-scale2.png",
+          "sha256": "167aa9dadaa0eed50c8184a7b1cf338ed0f8d2c0964e256ce3deaeed233e837b"
+        }
+      }
+    }
+  ],
+  "principles": {
+    "P3": "The retained startup and input observers pass; attention continuation is not promoted beyond the existing proofs.",
+    "P4": "Vendor-independent kernel-size fixture; no credential, settings or Adapter code changed.",
+    "P9": "Startup observer records zero sizing writes and one requested launch; no extra starts added.",
+    "P11": "Existing font/input, selection, scrollback and snapshot guards pass; no program restart on restore."
+  },
+  "caller_audit": [
+    {
+      "actions": "Door, direct/prompted Agent",
+      "host": ".pane-screen",
+      "path": "Rail/state await Pane prepareTerminal -> Screens.prepare -> emulator.prepare -> effective font/document readiness, actual-host observer, FitAddon -> launch dimensions. Screens subscribes before restore and drains ordered output.",
+      "evidence": "real-door/agent/prompt-launch.json, real-*.png; lifecycle new-agent. Kernel first/later grids and program identity pass."
+    },
+    {
+      "actions": "Shell and quick Terminal",
+      "host": ".bubble-body",
+      "path": "Bubbles.openTerminal -> Screens.prepare -> terminal.open with prepared size -> bind retained emulator. Same subscription/restore/drain.",
+      "evidence": "real-shell/quick-launch.json and images; DOM/WebGL scale-1 painting passes; scale-2 WebGL images fail as recorded."
+    },
+    {
+      "actions": "Existing/restored Project/session",
+      "host": ".pane-screen or .bubble-body",
+      "path": "Screens attaches subscription, restores recorded snapshot grid, then fits ready host and drains queued/live offsets.",
+      "evidence": "real-restored.trace.json and image on both revisions; same PID/incarnation and host after reload/resize. Lifecycle existing and restore-after-switch images."
+    },
+    {
+      "actions": "Bubble reopen/maximise/move/pair switch",
+      "host": ".bubble-body, then retained .pane-screen when paired",
+      "path": "Bubble observes actual host; Bubbles reuses Screens/emulator while moving/revealing; reopen schedules refit.",
+      "evidence": "bubbles-* reopen/maximise/move/pair-switch images and traces; visual scale-2 WebGL failure prevents acceptance."
+    },
+    {
+      "actions": "Shelf and Drawer open/close",
+      "host": ".pane-screen (neither mounts a Terminal)",
+      "path": "Pane defers while slide flags hold; completion schedules refit and host observer catches final layout. Output uses the same holder.",
+      "evidence": "tree-40-* shelf-open/closed, drawer-open/closed and dense-failure pairs. Failure text visible in inspected dense WebGL scale-1 image."
+    },
+    {
+      "actions": "Settings family/size, Project zoom, window and display scale",
+      "host": "Existing Pane/Bubble host",
+      "path": "Effective-font loader waits document.fonts.ready, xterm options feed FitAddon; Pane/Bubble host observers and xterm render-metric refit retain output.",
+      "evidence": "agents-10-* custom-font/bundled-font/project-zoom/window-resize pairs; 6 s3806c cases pass. Scale-2 WebGL images fail; native scale acceptance unchanged."
+    },
+    {
+      "actions": "Background Agent",
+      "host": "None required",
+      "path": "spawn.rs retains optional supplied dimensions with hostless defaults; terminal start calls openpty before spawn_command.",
+      "evidence": "Source audit only; no launch or backend code changed in this run."
+    }
+  ],
+  "validation": [
+    {
+      "command": "pnpm install",
+      "exit": 0,
+      "result": "Dependencies installed in the isolated worktree."
+    },
+    {
+      "command": "cargo build -p rupd -p rup",
+      "exit": 0,
+      "result": "Cold build completed before the head Daemon observations."
+    },
+    {
+      "command": "U500_BASE_ROOT=<main>/apps/desktop ROUNDUP_CAPTURES=U4590 pnpm --filter desktop exec vitest run src/terminal/u3517_browser.test.ts -t u4590_rendered_lifecycle --retry 0 --maxWorkers 1",
+      "exit": 0,
+      "result": "12 scale-1 paired cases."
+    },
+    {
+      "command": "U4590_SCALE=2 <same lifecycle command>",
+      "exit": 0,
+      "result": "12 scale-2 paired cases. Automated receipt/buffer checks pass; visual acceptance fails below."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/terminal/u3517_browser.test.ts --retry 0 --maxWorkers 1",
+      "exit": 0,
+      "result": "9 enabled browser guards; no new or duplicate guard."
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/terminal/u3517_type.test.ts src/terminal/s3806c_scale.test.ts src/terminal/u103_snapshot.test.tsx --retry 0 --maxWorkers 1",
+      "exit": 0,
+      "result": "34 tests, including 6 scale cases."
+    },
+    {
+      "command": "ROUNDUP_CAPTURES=U4590 pnpm --filter desktop exec vitest run src/testing/u463_real_daemon.test.ts -t u4590_visible_launch_params_match_first_pty_grid --retry 0 --maxWorkers 1",
+      "exit": 0,
+      "result": "Head: Door, direct Agent, prompted Agent, shell and quick Terminal."
+    },
+    {
+      "command": "ROUNDUP_CAPTURES=U4590 pnpm --filter desktop exec vitest run src/terminal/u59_real_daemon.test.ts -t u4590_restored_terminal --retry 0 --maxWorkers 1",
+      "exit": 0,
+      "result": "Head: reload, same PID/incarnation, fitted kernel grid and later DOM painting."
+    },
+    {
+      "command": "CARGO_TARGET_DIR=<head>/target <startup observer on main>",
+      "exit": 1,
+      "result": "ENOENT for main target/debug/rupd; fixture then reached its unchanged 180-second bound."
+    },
+    {
+      "command": "CARGO_TARGET_DIR=<head>/target ROUNDUP_CAPTURES=U4590 pnpm --filter desktop exec vitest run src/testing/u463_real_daemon.test.ts src/terminal/u59_real_daemon.test.ts -t u4590_visible_launch_params_match_first_pty_grid|u4590_restored_terminal --retry 0 --maxWorkers 1",
+      "exit": 0,
+      "result": "Main: 2 cases after linking the compiled binaries into its expected local target/debug paths."
+    },
+    {
+      "command": "loop/rules.sh delta artifacts/ux/U4590/base artifacts/ux/U4590/head",
+      "exit": 0,
+      "result": "86 paired Check files; no new failures."
+    },
+    {
+      "command": "VITEST_MAX_WORKERS=1 timeout --signal=INT --kill-after=10s 180 just capture U4590",
+      "exit": 124,
+      "result": "Whole-workspace suite exceeded the run bound; no full capture-command pass claimed."
+    },
+    {
+      "command": "just ready (before merging current main)",
+      "exit": 1,
+      "result": "Only cargo fmt --check failed in crates/rup/tests/e2e.rs; #4811 owned it, #4813 fixed it."
+    },
+    {
+      "command": "cargo fmt --check (after merging main)",
+      "exit": 0,
+      "result": "Formatting repair on current main."
+    },
+    {
+      "command": "loop/rules.sh merge-loss",
+      "exit": 0,
+      "result": "Clean merge of main; no lost files."
+    },
+    {
+      "command": "just ready (integrated head)",
+      "exit": 1,
+      "result": "All steps pass except the new report image abbreviation rejected by typos. Replaced with images; targeted web scan follows."
+    },
+    {
+      "command": "python3 tools/lint/scan.py web (after the report spelling repair)",
+      "exit": 0,
+      "result": "Affected scan passes; all other integrated readiness steps passed."
+    }
+  ],
+  "remaining": [
+    "Repair or isolate the scale-2 production WebGL painting failure and rerun its visual observations; do not treat buffer/receipt success as painting.",
+    "Complete the requested whole-workspace just capture U4590 command without timeout."
+  ],
+  "artifacts": "All paired images, Check JSON and traces remain under base/head; images/videos are not committed. Main and observed head contain the same Terminal implementation."
+}
