@@ -455,7 +455,7 @@ mod tests {
         let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
         let mut daemon = crate::Daemon {
             naming: Arc::new(std::sync::Mutex::new(
-                crate::data::open_naming(&dir.join("preferences.db")).unwrap(),
+                crate::data::open_naming(&crate::data::naming_path(&dir)).unwrap(),
             )),
             terminals: terminals.clone(),
             modules: Default::default(),

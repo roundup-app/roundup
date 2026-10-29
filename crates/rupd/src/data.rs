@@ -174,13 +174,17 @@ pub(crate) fn naming_path(project_data: &Path) -> PathBuf {
         Some(parent) if parent.file_name().is_some_and(|name| name == "projects") => {
             parent.parent().unwrap_or(parent)
         }
-        _ => project_data,
+        _ => return project_data.join("preferences/preferences.db"),
     };
     root.join("preferences.db")
 }
 
 /// SQLite owns atomic commits and cross-process visibility for all Project Daemons.
 pub(crate) fn open_naming(path: &Path) -> rusqlite::Result<rusqlite::Connection> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+    }
     let db = rusqlite::Connection::open(path)?;
     db.execute_batch("CREATE TABLE IF NOT EXISTS naming (id INTEGER PRIMARY KEY CHECK(id = 1), automatic_renaming INTEGER NOT NULL, naming_guide TEXT NOT NULL)")?;
     Ok(db)
