@@ -12,6 +12,14 @@ const load = async (seed: string, width: number, scheme: "light" | "dark") => {
   await wait(`document.querySelectorAll('.rail-row').length >= 9`);
 };
 
+// U4707: hovering the Status Glyph shows the fold chevron, and the hover icons overlay the name's middle, so select by the name's first pixels.
+const clickName = async (selector: string) => {
+  const point = await read<{x:number;y:number}>(`(() => { const box = document.querySelector('${selector} .name').getBoundingClientRect(); return {x:box.x + 4,y:box.y + box.height / 2}; })()`);
+  await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
+  await browser("mouse", "down");
+  await browser("mouse", "up");
+};
+
 const rightClick = async (selector: string) => {
   const point = await read<{x:number;y:number}>(`(() => { const box = document.querySelector('${selector}').getBoundingClientRect(); return {x:box.x + box.width / 2,y:box.y + box.height / 2}; })()`);
   await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
@@ -59,7 +67,7 @@ it.each(["tree-40", "agents-10", "door-stopped", "conflict"])("u350_rendered_wor
     await wait(`document.querySelector('.rail-row')`);
     const id = await read<string>(`document.querySelector('.rail-row:has(.rail-chevron)')?.dataset.id ?? document.querySelector('.rail-row').dataset.id`);
     const selector = `.rail-row[data-id="${id}"]`;
-    await browser("click", selector + " .row-state");
+    await clickName(selector);
     await wait(`document.querySelector('${selector}').dataset.selected === 'true'`);
     await browser("focus", selector);
     await wait(`document.activeElement.matches('${selector}')`);

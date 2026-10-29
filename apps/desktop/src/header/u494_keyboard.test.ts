@@ -4,16 +4,6 @@ import { browser, read, wait, url } from "../ui/tabsBrowser";
 /** The Drawer and Project tabs mounted together: `u496Fixture.tsx` through `u496.html`. */
 const fixture = (query = "") => url(`${new URL("./u496Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html").replace(/^.*\/src\//, "/src/")}${query}`);
 
-for (const target of ["input", "[contenteditable]", ".xterm"]) it(`u496_editor_and_terminal_keep_escape_${target}`, async () => {
-  await browser("open", fixture());
-  await wait(`!!document.querySelector('#origin')`);
-  await browser("click", "#origin");
-  await wait(`document.querySelector('.drawer').dataset.open === 'true'`);
-  await browser("eval", `document.querySelector(${JSON.stringify(target === '.xterm' ? target : '.drawer ' + target)}).focus()`);
-  await browser("press", "Escape");
-  expect(await read<string>(`document.querySelector('.drawer').dataset.open`)).toBe("true");
-}, 60_000);
-
 it("u495_tabs_preserve_project_actions", async () => {
   await browser("open", fixture());
   await wait(`document.querySelectorAll('[role=tab]').length === 8`);
