@@ -218,6 +218,13 @@ it.each(["M", "W"].flatMap(keys => (["key", "pointer"] as const).map(source => (
 it.each(["M", "D", "E", "Esc", "O"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690_each_hint_runs_its_key_action_once: Shelf $keys $source", async ({ keys, source }) => {
     const seeded = seedApp("tree-40", 0);
+
+    const tree = seeded.app.handlers["rail.tree"]!;
+    // Shelf actions need their rows and one assignable Agent, not forty independent Rail rows.
+    seeded.app.handlers["rail.tree"] = async params => (await tree(params)).filter(node => node.id === "backend" || node.id === "migrate");
+
+    if (keys === "M") seeded.app.handlers["todo.list"] = () => [todo(1)];
+
     const app = seeded.app;
 
     render(() => <RequestedApp app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);

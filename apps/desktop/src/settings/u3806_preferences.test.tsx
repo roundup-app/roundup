@@ -1,5 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { Terminal } from "@xterm/xterm";
+import * as xterm from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
 import { AppSettings } from "./AppSettings";
 import { appSettings, saveAppSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
@@ -7,7 +10,12 @@ import { RpcError } from "../app/seam";
 import { CHORDS, HELP_ROWS } from "../keys/chords";
 import { copy } from "../copy";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+beforeEach(() => {
+  vi.spyOn(Terminal.prototype, "open").mockImplementation(() => {});
+  vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => {});
+});
+
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 const mount = async (fail = false) => {
   const app = createFakeApp();
@@ -32,7 +40,15 @@ const section = async (name: string) => {
 };
 
 const select = async (label: string, value: string) => {
-  await section(label === "Appearance" ? "Appearance" : "Agents");
+  if (label === "Appearance") {
+    await section("Appearance");
+    fireEvent.click(screen.getByRole("radio", { name: value }));
+    await waitFor(() => expect(appSettings().mode).toBe(value.toLowerCase()));
+
+    return;
+  }
+
+  await section("Agents");
   fireEvent.click(screen.getByRole("combobox", { name: label }));
   fireEvent.click(await screen.findByRole("option", { name: value }));
 };
@@ -46,7 +62,16 @@ const pick = async (label: string, value: string) => {
 
 const commit = async (label: string, text: string, valid = true) => {
   await section("Terminal");
-  const field = await screen.findByRole(label === "Font size" ? "spinbutton" : "textbox", { name: label });
+
+  if (label === "Font family") {
+    fireEvent.click(screen.getByRole("combobox", { name: label }));
+    fireEvent.click(await screen.findByRole("option", { name: text }));
+    await waitFor(() => expect(appSettings().fontFamily).toBe(text));
+
+    return;
+  }
+
+  const field = await screen.findByRole("spinbutton", { name: label });
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
 
@@ -108,14 +133,13 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
   await mount();
   expect(appSettings()).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
   await section("Terminal");
-  expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Font family" }).value).toBe("Menlo");
   expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("16");
 });
 
 it("u3806_an_invalid_field_falls_back_alone", async () => {
-  localStorage.setItem("roundup:app-settings", JSON.stringify({ fontSize: 1000, mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: 12, model: "kept", quickAdd: "x" }));
+  localStorage.setItem("roundup:app-settings", JSON.stringify({ fontSize: 1000, lineHeight: 10, letterSpacing: 2, fontWeight: 42, interfaceScale: "bad", focusMarkers: false, mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: 12, model: "kept", quickAdd: "x" }));
   await mount();
-  expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT" });
+  expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT", lineHeight: 1.7, letterSpacing: 2, fontWeight: 300, interfaceScale: "default", focusMarkers: false });
   await section("Terminal");
   expect(Number((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value)).toBeLessThan(22);
   cleanup();
@@ -146,16 +170,16 @@ it("u3804_reset_restores_the_default", async () => {
   expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe("⇧⌘T");
 });
 
-it("u3806_unsubmitted_fields_survive_close_and_reload_without_applying", async () => {
+it.each(["Font size", "Line height", "Letter spacing"])("u3806_unsubmitted_fields_survive_close_and_reload_without_applying %s", async label => {
   await mount();
   await commit("Font size", "17");
-  fireEvent.input(screen.getByRole("spinbutton", { name: "Font size" }), { target: { value: "too big" } });
-  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts).toContainEqual(expect.objectContaining({ value: { text: "too big" } })));
+  fireEvent.input(screen.getByRole("spinbutton", { name: label }), { target: { value: "too big" } });
+  await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts).toContainEqual(expect.objectContaining({ value: expect.objectContaining({ text: "too big" }) })));
   fireEvent.click(screen.getByRole("button", { name: "← Back" }));
   cleanup();
   await mount();
   await section("Terminal");
-  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("too big");
+  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: label })).value).toBe("too big");
   expect(appSettings().fontSize).toBe(17);
 });
 
@@ -165,12 +189,150 @@ it("u4686d_controls_have_labels_and_descriptions", async () => {
 
   for (const [page, controls] of [
     ["Agents", [["combobox", "Permission mode"], ["button", /^Engine /], ["button", /^Model /]]],
-    ["Terminal", [["textbox", "Font family"], ["spinbutton", "Font size"]]],
+    ["Terminal", [["combobox", "Font family"], ["spinbutton", "Font size"]]],
     ["Shortcuts", [["button", /^Quick add a Todo /]]],
-    ["Appearance", [["combobox", "Appearance"]]],
+
   ] as const) {
     await section(page);
 
     for (const [role, name] of controls) expect(await screen.findByRole(role, { name, description: /\S/ })).toBeTruthy();
   }
+});
+
+it("u4687a_mode_segments_keep_scheme_behavior", async () => {
+  await mount();
+  await section("Appearance");
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "System" }).checked).toBe(true);
+  fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
+  await waitFor(() => expect(appSettings().mode).toBe("dark"));
+});
+
+
+it("u4687a_family_and_weight_choices_keep_existing_values", async () => {
+  await saveAppSettings({ fontFamily: "Uninstalled custom face" });
+  await mount();
+  await section("Terminal");
+  fireEvent.click(screen.getByRole("combobox", { name: "Font family" }));
+  fireEvent.click(await screen.findByRole("option", { name: "Uninstalled custom face" }));
+  expect(appSettings().fontFamily).toBe("Uninstalled custom face");
+  fireEvent.click(screen.getByRole("radio", { name: "500" }));
+  await waitFor(() => expect(appSettings().fontWeight).toBe(500));
+});
+
+it("u4687a_interface_scale_is_independent_of_terminal_type", async () => {
+  await saveAppSettings({ fontSize: 16, lineHeight: 1.4, letterSpacing: 1, fontWeight: 400 });
+  await mount();
+  await section("Appearance");
+  fireEvent.click(screen.getByRole("radio", { name: "Large" }));
+  await waitFor(() => expect(appSettings().interfaceScale).toBe("large"));
+  expect(appSettings()).toMatchObject({ fontSize: 16, lineHeight: 1.4, letterSpacing: 1, fontWeight: 400 });
+});
+
+it.each([["Line height", "lineHeight", "1", "2"], ["Letter spacing", "letterSpacing", "0", "3"]] as const)(
+  "u4687a_numeric_controls_commit_endpoints_and_refuse_invalid_drafts %s", async (label, name, min, max) => {
+    await mount();
+    await section("Terminal");
+    const input = await screen.findByRole<HTMLInputElement>("spinbutton", { name: label });
+
+    for (const value of [min, max]) {
+      fireEvent.input(input, { target: { value } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      await waitFor(() => expect(appSettings()[name]).toBe(Number(value)));
+    }
+
+    for (const value of ["", "NaN", "Infinity", "-1", "999"]) {
+      fireEvent.input(input, { target: { value } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(await screen.findByText(new RegExp(label + " must be"))).toBeTruthy();
+      expect(input.value).toBe(value);
+      expect(appSettings()[name]).toBe(Number(max));
+    }
+});
+
+it("u4687d_marker_visibility_is_saved_and_shared", async () => {
+  await mount();
+  await section("Appearance");
+  fireEvent.click(screen.getByRole("switch", { name: "Show region focus markers" }));
+  await waitFor(() => expect(appSettings().focusMarkers).toBe(false));
+  cleanup();
+  await mount();
+  await section("Appearance");
+  expect(screen.getByRole("switch", { name: "Show region focus markers" }).getAttribute("aria-checked")).toBe("false");
+});
+
+it("u4687b_preview_follows_valid_drafts_without_committing", async () => {
+  const renderer = vi.spyOn(xterm, "Terminal");
+  const app = await mount();
+  await section("Terminal");
+  const input = await screen.findByRole("spinbutton", { name: "Line height" });
+  await screen.findByRole("region", { name: "Terminal preview" });
+  const preview = renderer.mock.instances.at(-1)!;
+  fireEvent.input(input, { target: { value: "1.2" } });
+  await waitFor(() => expect(preview.options.lineHeight).toBe(1.2));
+  expect(appSettings().lineHeight).toBe(1.7);
+  fireEvent.input(input, { target: { value: "invalid" } });
+  expect(preview.options.lineHeight).toBe(1.2);
+  expect(appSettings().lineHeight).toBe(1.7);
+  expect(app.calls.filter(call => call.method.startsWith("terminal.") || call.method === "agent.spawn")).toEqual([]);
+});
+
+it("u4687b_preview_never_creates_or_writes_a_terminal", async () => {
+  const app = await mount();
+  await section("Terminal");
+  await screen.findByRole("region", { name: "Terminal preview" });
+  fireEvent.click(screen.getByRole("radio", { name: "600" }));
+  await waitFor(() => expect(appSettings().fontWeight).toBe(600));
+  expect(app.calls.filter(call => call.method.startsWith("terminal.") || call.method === "agent.spawn")).toEqual([]);
+  expect(app.outputSubscriptions).toEqual([]);
+});
+
+it("u4687c_unfinished_settings_survive_external_changes", async () => {
+  await mount();
+  await section("Terminal");
+  const input = await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Line height" });
+  fireEvent.input(input, { target: { value: " 1.25 " } });
+  await saveAppSettings({ lineHeight: 1.5 });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(input.value).toBe(" 1.25 ");
+  expect(appSettings().lineHeight).toBe(1.5);
+  expect(screen.getAllByText(/Settings changed elsewhere/).length).toBeGreaterThan(0);
+});
+
+it("u4687c_a_failed_save_keeps_its_revision_and_a_newer_edit", async () => {
+  await mount();
+  await section("Terminal");
+  const input = await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Line height" });
+  const setItem = Storage.prototype.setItem;
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+    if (key === "roundup:app-settings") throw new Error("Cannot save settings; free disk space and retry.");
+
+    return setItem.call(this, key, value);
+  });
+  fireEvent.input(input, { target: { value: "1.25" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText(/Cannot save settings/);
+  fireEvent.input(input, { target: { value: "newer exact edit" } });
+  await waitFor(() => {
+    const drafts = JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts;
+    expect(drafts).toContainEqual(expect.objectContaining({ status: "failed", value: expect.objectContaining({ text: "1.25" }) }));
+    expect(drafts).toContainEqual(expect.objectContaining({ status: "draft", value: expect.objectContaining({ text: "newer exact edit" }) }));
+  });
+  expect(appSettings().lineHeight).toBe(1.7);
+});
+
+it("u4687c_saved_changes_reach_other_project_tabs", async () => {
+  await mount();
+  const other = createFakeApp();
+  render(() => <AppSettings app={other} project={() => "/other"} />);
+  await Promise.resolve();
+  window.dispatchEvent(new Event("open-app-settings"));
+
+  for (const tab of await screen.findAllByRole("tab", { name: "Terminal" })) fireEvent.click(tab);
+  const choices = await screen.findAllByRole<HTMLInputElement>("radio", { name: "500" });
+  fireEvent.click(choices[0]!);
+  await waitFor(() => expect(choices.every(choice => choice.checked)).toBe(true));
+  cleanup();
+  await mount();
+  await section("Terminal");
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "500" }).checked).toBe(true);
 });
