@@ -231,7 +231,6 @@
 {"file":"apps/desktop/src/pads/u3729_head.test.tsx","test":"u3729_the_pad_head_has_no_glyph_and_a_status_after_the_name","identity":"826e255e6875cd7631e1ff3b5c4e6ad477db3eda1d8f0e54d5d4ace06e1f3261"}
 {"file":"apps/desktop/src/pads/u3729_head.test.tsx","test":"u3729_the_pad_head_has_no_glyph_and_a_status_after_the_name","identity":"8eb6ed37d65f7173bf0aff0a60cb7fafd8ac2e9c57bfdf4bba781b2bb900cbe0"}
 {"file":"apps/desktop/src/pads/u3729_head.test.tsx","test":"u3729_make_yours_still_takes_the_pad","identity":"6ebb2763d45ba3ef59446cc0c50233707f9484400b43979da0eb042b04f4fe4b"}
-{"file":"apps/desktop/src/pads/u3731_agent_owner.test.tsx","test":"u3731_a_refused_step_keeps_the_name_and_shows_its_cause","identity":"1e73bfbe96d68c004d57d996e535862cae9e393aeb90f668ebf18b98f5a08089"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_no_pads_yet_disappears_once_a_pad_exists","identity":"6ca2afc95e7cdac0940c18e17982a6034db16737d2327cb41731894f124f63c1"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands","identity":"588c2da4dd780b5c38bb04f64f1b539422546f3653e345a44d407fa22e5f60d2"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands","identity":"545612ef523c6056aac9eab94612de9cdc6300f269a22a6d877fe0e778f4c214"}
