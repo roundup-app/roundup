@@ -39,6 +39,23 @@ async fn u3787a_undo_restores_original_graph() {
     h.call("todo.restore", json!({"operation":"chosen"}))
         .await
         .unwrap();
+    for (source, operation) in [("chosen", "redo-1"), ("redo-1", "redo-2")] {
+        let redo = json!({"source":source,"operation":operation});
+        h.call("todo.redo", redo.clone()).await.unwrap();
+        assert!(h.call("todo.get", json!({"id":1})).await.is_err());
+        assert_eq!(
+            h.call("todo.get", json!({"id":2})).await.unwrap()["blockers"],
+            json!([])
+        );
+        h.call("todo.restore", json!({"operation":operation}))
+            .await
+            .unwrap();
+        // Unknown-outcome replay must remain a readback even after the next undo.
+        assert_eq!(
+            h.call("todo.redo", redo).await.unwrap()["state"],
+            "restored"
+        );
+    }
     // The dependent's blocker Changes (T6) move its `updated_at` (T30); everything else returns.
     let mut restored = h.call("todo.list", Value::Null).await.unwrap();
     restored[1]["updated_at"] = before[1]["updated_at"].clone();
