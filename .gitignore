@@ -1,7 +1,7 @@
 node_modules
-target/
+target
 !.agents/skills/target/
-dist/
+dist
 .roundup/
 __pycache__/
 proofs/.tools/
