@@ -208,19 +208,23 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
     let prompts = logs.path().join("prompts.jsonl");
     let project = start(&env(&prompts));
     let user = project.client().await;
+    let mut startup = project.subscribed().await;
     let door = super::start_door(&user).await;
-    // The fake's first prompt ends with Stop. Wait for that acknowledgement before
-    // driving statuses, so a late startup Stop cannot overwrite a replayed flip.
-    h21_poll("the Door's initial turn to finish", async || {
-        let tree = super::daemon::rail_tree(&user).await;
-        tree.iter()
-            .find(|node| node.id == door)?
-            .status
-            .as_ref()
-            .filter(|status| status.kind == Kind::Idle)
-            .map(|_| ())
-    })
-    .await;
+    // SessionStart can report Idle before the opening prompt runs. Observe that
+    // prompt's Working -> Idle events before driving any replayed statuses.
+    for kind in [Kind::Working, Kind::Idle] {
+        super::daemon::next(&mut startup, |data| match data {
+            contracts::EventData::AgentStatus(status)
+                if status.id == door
+                    && status.status.kind == kind
+                    && status.status.label != "starting" =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
     let child = named(&project, &user, "alpha", Some(&door)).await;
     h21_poll("the child's startup to finish", async || {
         let tree = super::daemon::rail_tree(&user).await;
