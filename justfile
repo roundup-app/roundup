@@ -142,7 +142,7 @@ harness-real project port="5199":
 
 # Prepare debug Daemon/CLI binaries and the SDK runtime beside them (A4691a).
 build-debug:
-    cargo build -p rupd -p rup
+    cargo build -p rupd -p rup -p terminal
     tools/sidecar/bundle.sh target/debug/sidecar --local-node
 
 # Opens the development App only after its imports transform; an HTML response alone can hide a Vite error.
@@ -176,7 +176,7 @@ app-release project:
     set -euo pipefail
     path=$(cd {{quote(invocation_directory())}} && realpath -- {{quote(project)}})
     pnpm -r --if-present build
-    cargo build --release -p rupd -p rup
+    cargo build --release -p rupd -p rup -p terminal
     tools/sidecar/bundle.sh target/release/sidecar
     cargo build --release -p desktop --features custom-protocol
     cargo run --release -p desktop --features custom-protocol -- "$path"

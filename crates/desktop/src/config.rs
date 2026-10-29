@@ -16,6 +16,10 @@ pub const CALL_BOUND: Duration = Duration::from_secs(30);
 #[derive(Clone, Debug)]
 pub struct Config {
     pub rupd_bin: PathBuf,
+    /// The packaged `terminal-owner` beside the App (X8), handed to each Daemon as
+    /// `RUPD_TERMINAL_OWNER` so a Daemon lost without S3's shutdown leaves its Agents' programs
+    /// for the next one to reattach (A12a). `None` when the helper is not there.
+    pub terminal_owner: Option<PathBuf>,
     pub claude_bin: Option<OsString>,
     pub search_path: OsString,
     pub socket: PathBuf,
@@ -37,10 +41,12 @@ impl Config {
         let rupd_bin = rupd_env
             .map(PathBuf::from)
             .unwrap_or_else(|| exe.parent().unwrap_or_else(|| Path::new(".")).join("rupd"));
+        let terminal_owner = Some(exe.with_file_name("terminal-owner")).filter(|p| p.is_file());
         let socket = socket_dir.join(format!("roundup-{pid}.sock"));
         check_limit(&socket)?;
         Ok(Self {
             rupd_bin,
+            terminal_owner,
             claude_bin: None,
             search_path: OsString::new(),
             socket,
