@@ -75,6 +75,10 @@ pub struct SchemeParams {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct TerminalInfo {
+    /// Original program PID, reported only while the owner verifies it is live.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = u32)]
+    pub program_pid: Option<u32>,
     pub id: String,
     /// Opaque, non-secret identity of this original Terminal; stable until removal, never reused
     /// by another Terminal or Project, including after a Daemon restart. Confers no authority.
