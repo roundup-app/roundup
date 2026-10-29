@@ -19,12 +19,13 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
   symlinkSync(join(root, "apps/desktop/node_modules"), join(base, "apps/desktop/node_modules"));
 
   try {
-    for (const phase of ["base", "head"]) {
+    const captures=process.env.ROUNDUP_CAPTURES;
+    delete process.env.ROUNDUP_CAPTURES;
+    const servers=await Promise.all([appServer({root:join(base,"apps/desktop")}),appServer()]);
+    process.env.ROUNDUP_CAPTURES=captures;
+    await Promise.all(["base", "head"].map(async (phase,index) => {
       const revision = phase === "base" ? baseRevision : execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-      const captures=process.env.ROUNDUP_CAPTURES;
-      delete process.env.ROUNDUP_CAPTURES;
-      const server = await appServer(phase === "base" ? { root: join(base, "apps/desktop") } : {});
-      process.env.ROUNDUP_CAPTURES=captures;
+      const server=servers[index]!;
       const origin = server.resolvedUrls.local[0]!;
       const profile = mkdtempSync(join(tmpdir(), "u4896-profile-"));
       const session = `u4896-${phase}-${process.pid}`;
@@ -171,6 +172,6 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
       } finally {
         try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive:true, force:true }); }
       }
-    }
+    }));
   } finally { rmSync(base, { recursive:true, force:true }); }
 }, 300_000);
