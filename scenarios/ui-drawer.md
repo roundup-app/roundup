@@ -2,6 +2,8 @@
 
 Module: `apps/desktop` (the webview). Ids: U111, U388, U409, U430, U431, U432, U433, U4458.
 
+Todo/Pad amendment: `ui-item-view.md`, U4698a–U4698e, replaces their opening default, maximised span, expand-control location and document layout. U430 remains their minimised width; U4458 remains unchanged for Work orders and other Drawer kinds. The amendment’s “Narrowing and test retirement” table defines each retained and replaced proof.
+
 Reported by the user (screenshot): opening a Pad opened the Drawer far wider than usual, the terminal was pushed off the left edge and the Rail was covered; `Close` did not bring the layout back. This breaks U24 ("a Drawer never covers the Rail") and U5 ("the terminal pane's size never changes") as the user sees them, and no test noticed.
 
 **U111 opening and closing a Drawer leaves the layout where it was.** Given an open Project and any Drawer (a Todo, a Pad, or one opened by `⌘K`), when it opens and then closes, by `Close`, Esc (U28) or a new selection (U64), then the Rail, the Shelf and the terminal pane are at the same horizontal position they had before it opened, and the panel that holds them cannot be scrolled sideways at all, by the user, by a script or by the browser moving focus into the off-screen Drawer. One thing is observable without a display: every `focus()` that U40 makes into or out of the Drawer is called with `{preventScroll: true}`. Narrowing U40 and U5: `u40_drawer_focus` and `u5_drawer` keep their clauses and gain these.
