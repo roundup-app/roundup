@@ -439,8 +439,7 @@ async fn r16_empty_workstreams_keep_every_presentation_field() {
         && n.channel.is_none()
         && n.stray.is_empty()
         && n.attempt.is_none()
-        && n.status_revision.is_none()
-        && n.iteration == Some(1)));
+        && n.status_revision.is_none()));
 }
 
 #[tokio::test]

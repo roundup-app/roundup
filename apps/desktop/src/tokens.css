@@ -158,6 +158,7 @@
   --text-terminal: 11px;
   --line-terminal: 1.7;
   --letter-terminal: 0px;
+  --weight-terminal: 300;
   --text-caption: 11px;
   --text-small: 12px;
   --text-body: 13px;
@@ -396,9 +397,9 @@ button, file-tree-container, diffs-container {
 
 @font-face {
   font-family: "Fira Code";
-  src: url("/fonts/fira-code/FiraCode-Regular.woff2") format("woff2");
+  src: url("/fonts/fira-code/FiraCode-Light.woff2") format("woff2");
   font-style: normal;
-  font-weight: 400;
+  font-weight: 300;
   font-display: block;
 }
 

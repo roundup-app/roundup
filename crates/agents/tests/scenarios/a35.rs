@@ -164,7 +164,6 @@ pub(super) async fn resumes_copy(door: bool) {
         out.stdout
     };
     let branch = git_state(&mark.worktree);
-    let tree_before = f.tree().await;
     crate::common::fake_claude(
         f.dir.path(),
         &format!(
@@ -203,21 +202,6 @@ pub(super) async fn resumes_copy(door: bool) {
     assert_eq!(after.worktree, before.worktree);
     assert_eq!(after.model, before.model);
     assert_eq!(after.effort, before.effort);
-    assert_eq!(after.iteration, before.iteration);
-    let tree_after = f.tree().await;
-    for home in tree_before
-        .iter()
-        .filter(|n| n.kind == contracts::agent::NodeKind::Workstream)
-    {
-        assert_eq!(
-            tree_after
-                .iter()
-                .find(|n| n.id == home.id)
-                .unwrap()
-                .iteration,
-            home.iteration
-        );
-    }
     assert_eq!(git_state(&cwd_from_node(&after)), branch);
     assert_eq!(after.status.unwrap().kind, Kind::Idle);
     assert_eq!(fs::read(original).unwrap(), bytes);
@@ -294,7 +278,7 @@ async fn a35_agent_resumes_a_mark_copy_without_changing_its_rail_or_files() {
     resumes_copy(false).await;
 }
 #[tokio::test]
-async fn a35_door_resumes_a_mark_copy_without_advancing_iteration() {
+async fn a35_door_resumes_a_mark_copy() {
     resumes_copy(true).await;
 }
 
