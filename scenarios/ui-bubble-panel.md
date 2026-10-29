@@ -19,7 +19,7 @@ Engineering calls, each made here so the implementation run asks nothing:
 - **Escape is the Terminal's.** `esc` typed in the bubble goes to the Terminal (`terminal.write`, U165) and leaves the bubble open and focused; so does every other key. Test: `u2307a_escape_and_other_keys_still_reach_the_terminal`.
 - **Once.** A minimised bubble stays minimised on a later press; its Terminal runs on and its place and size survive (U164, U2236). Restoring it from its tab, chip or `⌘.` opens it again with focus, and focus returns to what held it before (U40). Test: `u2307a_a_minimised_bubble_keeps_its_place_and_size_and_restores`.
 
-Tests: `u2307a_` in Vitest (`apps/desktop/src/bubbles/`) and one real-browser test, `u2307a_browser.test.ts`, on `just harness` that drives an outside press on the Rail, on the Door terminal and on the header, and an `esc` that stays in the Terminal, reading `document.activeElement` and the bubble's state after each. Moves: D6.
+Tests: `u2307a_an_outside_press_minimises_and_still_reaches_its_target`, `u2307a_a_press_inside_or_on_its_own_tab_does_not_minimise` and `u2307a_escape_and_other_keys_still_reach_the_terminal` in `apps/desktop/src/bubbles/u2307_panel.test.tsx` drive the real Panel through jsdom. The design critic observes the rendered band/inset hit targets. Moves: D6.
 
 **U2307b the open bubble is the topmost layer.** Narrows U164 and U523. Given an open bubble, then:
 

@@ -104,7 +104,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
 | Remove all (`agent::RemoveScope::All`) | Remove all | — |
 | Hint line | same | — |
-| Shelf | work items | — |
+| Shelf | Bench | — |
 | Scrim | same | — |
 | Resize edge | same | — |
 | Inbox | same | — |
@@ -342,6 +342,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |
 | Native open (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`) | same | — |
 | Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | — (not a name: same-name recreation) |
+| Pad deletion redo (`RedoDeleteParams`, `restoredOperation`, `restored_operation`, `expectedHome`, `expected_home`, `pad.redoDelete`) | Redo Delete Pad | — |
 | Pad order (`pad.reorder`, `pad::ReorderParams`) | same | — |
 
 ### First-run facts
