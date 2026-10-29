@@ -30,6 +30,7 @@ impl Daemon {
             &data::naming_path(dir),
         )?));
         let naming_reader = Arc::clone(&naming);
+        let guide_reader = Arc::clone(&naming);
         let db = storage::open(dir)?;
         let storage_at = begun.elapsed();
         let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
@@ -55,6 +56,11 @@ impl Daemon {
             .with_automatic_renaming(move || {
                 data::read_naming(&naming_reader.lock().expect("naming preferences poisoned"))
                     .map(|settings| settings.automatic_renaming)
+                    .map_err(RpcError::internal)
+            })
+            .with_naming_guide(move || {
+                data::read_naming(&guide_reader.lock().expect("naming preferences poisoned"))
+                    .map(|settings| settings.naming_guide)
                     .map_err(RpcError::internal)
             })
             .with_context(move |nodes, id| {

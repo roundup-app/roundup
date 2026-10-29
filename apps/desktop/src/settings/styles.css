@@ -285,3 +285,25 @@
   overflow: visible;
   overflow-wrap: anywhere;
 }
+
+.settings-content .app-segments { flex-wrap: wrap; justify-content: space-between; }
+.settings-content .app-segment[data-state="checked"] { color: var(--accent); }
+.settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.settings-preview-terminal { height: auto; overflow: hidden; background: var(--terminal-background); }
+.settings-scale-small { font-size: var(--text-caption); }
+.settings-scale-default { font-size: var(--text-body); }
+.settings-scale-large { font-size: var(--text-title); }
+
+.settings-naming button {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.settings-naming [data-part="helper-text"] {
+  white-space: normal;
+}
+
+.settings-naming [data-part="error-text"] {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}

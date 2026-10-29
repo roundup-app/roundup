@@ -178,7 +178,7 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
   const { daemon, connected } = await mount();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:J")?.enabled).toBe(true));
   expect(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut])).toEqual([
-    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
+    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⌃⌘J", "⌃⌘J"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
     ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
     ["action:leader:⇧J", "⌘K ⇧J"], ["action:leader:K", "⌘K K"],
     ["action:leader:S", "⌘K S"], ["action:leader:I", "⌘K I"],
@@ -190,7 +190,7 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
   key("Escape");
   openProjectPage("action:leader:J", "/wrong-project");
   expect(connected().rail.selected()).toBeNull();
-  openProjectPage("action:leader:J", "/p");
+  openProjectPage("action:chord:⌃⌘J", "/p");
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(0);
 });

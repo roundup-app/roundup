@@ -42,6 +42,8 @@ pub const EFFORT_VARIABLE: &str = "CLAUDE_CODE_EFFORT_LEVEL";
 /// own Claude Code default applies.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Pair {
+    /// P9: fixed when this vendor session launches, never reread by its MCP server.
+    pub naming_guide: Option<String>,
     pub permission_mode: Option<contracts::agent::PermissionMode>,
     pub yolo: bool,
     pub model: Option<String>,

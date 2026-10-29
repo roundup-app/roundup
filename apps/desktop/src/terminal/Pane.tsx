@@ -12,6 +12,7 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
+import { CHORDS } from "../keys/chords";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
 import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -184,9 +185,7 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
   });
 
   /** U106: the Terminal screen's own chords, run by the registry before xterm.js sees them. */
-  const inScreen = (press: KeyboardEvent): boolean => {
-    const target = press.target;
-
+  const inScreen = (target: Element | null): boolean => {
     return target instanceof Element && screen()?.contains(target) === true
       && !(target.closest('input, textarea, [contenteditable="true"]') && !target.closest(".xterm-helper-textarea"));
   };
@@ -203,16 +202,24 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     refitNextFrame();
   };
 
-  const onScreen = (run: (id: string) => void, needsDaemon = false) => ({
-    when: (press: KeyboardEvent) => terminalId() !== null && inScreen(press) && (!needsDaemon || connected.daemonExit() === null),
-    run: () => run(terminalId()!),
-  });
-
   registerKeys({ kind: "region", element: screen }, [
-    { chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], ...onScreen(resize("grow"), true) },
-    { chords: ["Meta+-"], ...onScreen(resize("shrink"), true) },
-    { chords: ["Meta+0"], ...onScreen(resize("reset"), true) },
-  ]);
+    { chord: "⌘=", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], resize: "grow" as const },
+    { chord: "⌘-", chords: ["Meta+-"], resize: "shrink" as const },
+    { chord: "⌘0", chords: ["Meta+0"], resize: "reset" as const },
+  ].map(({ chord, chords, resize: size }) => ({
+    action: CHORDS.find(action => action.keys === chord)!,
+    chords,
+    repeat: true,
+    when: event => terminalId() !== null && inScreen(event.target instanceof Element ? event.target : null) && connected.daemonExit() === null,
+    capture: focus => {
+      const id = terminalId();
+
+      return {
+        available: () => id !== null && terminalId() === id && inScreen(focus) && focus?.isConnected === true && connected.daemonExit() === null,
+        invoke: resize(size),
+      };
+    },
+  })));
 
   /** P3557c: only a Terminal failure is the user's to dismiss; a retention, Rail or Daemon line keeps its own recovery. */
   const dismissFailure = (): (() => void) | null => {
