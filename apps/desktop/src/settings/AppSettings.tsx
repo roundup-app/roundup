@@ -14,6 +14,7 @@ import { createSettingsView } from "../state/settingsView";
 import { MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
 import { appSettings, saveAppSettings } from "./preferences";
 import { SettingsGroup, SettingsShell } from "./SettingsShell";
+import { NamingSettings } from "./NamingSettings";
 import { ShortcutSetting } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
@@ -123,6 +124,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></Field.Root>
         </Show>
+        <NamingSettings app={props.app} />
         <ReservedLine message={offered()?.failure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>

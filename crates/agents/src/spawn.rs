@@ -405,6 +405,12 @@ impl Agents {
             _ => Role::Agent,
         };
         let pair = Pair {
+            naming_guide: self
+                .shared
+                .naming_guide
+                .as_ref()
+                .map(|read| read())
+                .transpose()?,
             yolo,
             permission_mode,
             model: node.model,
