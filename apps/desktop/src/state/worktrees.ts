@@ -2,6 +2,7 @@ import { createEffect, createResource, createRoot, createSignal, onCleanup, untr
 import type { Accessor, Resource } from "solid-js";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { AppSeam, DaemonExit } from "../app/seam";
+import { copy } from "../copy";
 import { failureOf } from "../todos/failureOf";
 import type { RailState } from "./rail";
 import { NOW_TICK_MS } from "./clock";
@@ -39,7 +40,7 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
     refresh: (id: string): Promise<Read> => {
       const entry = current(id);
 
-      if (!entry) return Promise.resolve({ failure: "Worktree state is unavailable." });
+      if (!entry) return Promise.resolve({ failure: copy.worktreeReadUnavailable });
 
       // A view can open just before a coarse tick; skip that tick rather than poll twice within five seconds.
       if (!entry.read.loading) entry.attempted = now() + NOW_TICK_MS;
