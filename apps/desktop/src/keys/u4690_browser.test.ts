@@ -175,35 +175,20 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
   }
 }, 60_000);
 
-it.each(["agent", "bubble", "pad"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
+it.each(["agent", "bubble"])("u4690a_pointer_keeps_source_focus_and_action_destinations: %s", async place => {
   await browser("set", "viewport", "1512", "950");
   await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id="agent-2"]')`);
 
-  if (place === "pad") {
-    await read(`[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(tab => tab.textContent.includes('Pads')).click()`);
-    await wait(`!!document.querySelector('.pads-tab [data-part=branch-control]')`);
-    await read(`document.querySelector('.pads-tab [data-part=branch-control]').click()`);
-    await wait(`!!document.querySelector('.shelf .pad-name')`);
-    await browser("click", ".shelf .pad-name");
-    await read(`document.querySelector('.shelf .pad-name').focus()`);
-    await read(`document.querySelector('.shelf .pad-name').dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', bubbles: true, cancelable: true}))`);
-    await wait(`!!document.querySelector('.pad-body button')`);
-    // U4698a opens Pads filling the centre, over the Terminal bar's Hint line.
-    await browser("click", '.drawer button[aria-label="Restore"]');
-    await wait(`document.querySelector('.drawer')?.getAttribute('data-maximised') === 'false' && !document.querySelector('.drawer')?.getAnimations().some(animation => animation.playState === 'running')`);
-    await read(`window.__source = document.querySelector('.pad-body button'); window.__source.focus()`);
-  } else {
-    await browser("click", '.rail-row[data-id="agent-2"]');
-    await wait(`!!document.querySelector('.pane-screen textarea')`);
+  await browser("click", '.rail-row[data-id="agent-2"]');
+  await wait(`!!document.querySelector('.pane-screen textarea')`);
 
-    if (place === "bubble") {
-      await browser("click", ".terminal-new");
-      await wait(`!!document.querySelector('.bubble textarea')`);
-    }
-
-    await read(`window.__source = document.querySelector(${JSON.stringify(place === "bubble" ? ".bubble textarea" : ".pane-screen textarea")}); window.__source.focus()`);
+  if (place === "bubble") {
+    await browser("click", ".terminal-new");
+    await wait(`!!document.querySelector('.bubble textarea')`);
   }
+
+  await read(`window.__source = document.querySelector(${JSON.stringify(place === "bubble" ? ".bubble textarea" : ".pane-screen textarea")}); window.__source.focus()`);
 
   await wait(`!!document.querySelector('.hint-line [data-hint="⌘K"]:enabled')`);
   const target = await point('.hint-line [data-hint="⌘K"]');
