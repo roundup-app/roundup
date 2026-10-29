@@ -77,6 +77,7 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   expect([connections.get("/a")!.drawer.content()]).toEqual([null]);
   const undo = await shown();
   expect(announcements).toContain(undo.closest('[role="status"]'));
+
   if (source === "menu") {
     document.body.focus();
     await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.enabled).toBe(true));
@@ -86,6 +87,7 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
     pressUndo();
     pressUndo();
   }
+
   await waitFor(() => expect(app.of("/a").calls.filter(c => c.method === "todo.restore")).toEqual([{ method: "todo.restore", params: { operation } }]));
 });
 

@@ -115,6 +115,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Bubble minimise 
 
     return { terminal_id: "shell" };
   };
+
   openProjectPage("action:chord:⌘T", "/p");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
   const terminal = document.activeElement!;
