@@ -59,7 +59,7 @@ it("nr9_inspect_stop_run_in_overview", async () => {
 
   expect(within(detail).getByText(current.reason!)).toBeTruthy();
   expect(within(detail).getByText(current.instruction)).toBeTruthy();
-  expect(within(detail).getByText(copy.reactionActor("agent", "a"))).toBeTruthy();
+  expect(within(detail).getByText(copy.reactionAuthority).nextElementSibling?.textContent).toBe("a");
 
   connected.showView("made");
   await waitFor(() => expect(screen.queryByRole("region", { name: copy.reactionDetail("Ship it") })).toBeNull());
@@ -373,7 +373,9 @@ it("nr9_list_stop_keeps_selected_identity_after_refusal", async () => {
   const method = "reaction.stop";
   const records = [saved(), saved({ id: "r2", home: "beta", actor: { kind: "agent", id: "a", parent: null }, reason: "Wait for review" })];
   const { app } = await mount(() => records, [workstream("beta")]);
-  const row = (await screen.findByRole("button", { name: /Ship it.*beta/ })).closest("li")!;
+  const opener = await screen.findByRole("button", { name: /Ship it.*beta/ });
+  opener.focus();
+  const row = opener.closest("li")!;
   const action = () => within(row).getByRole("button", { name: copy.reactionStop });
   app.handlers[method] = () => { throw new Error("Access refused. Restore access and retry."); };
 
