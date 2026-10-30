@@ -185,3 +185,76 @@ fn b4699c_each_brief_routes_child_blocks_to_the_door() {
         }
     }
 }
+
+#[test]
+fn e3_workstream_guidance_precedes_tools() {
+    let s = setup();
+    for mcp in [true, false] {
+        for role in [Role::Door, Role::Agent, Role::Scout] {
+            let argv = s
+                .launcher()
+                .prepare_on(
+                    folders(&s.dir),
+                    "7",
+                    "1",
+                    &s.cwd,
+                    None,
+                    role,
+                    &agents::claude_code::Pair {
+                        mcp_off: !mcp,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+            let catalogue = text
+                .find(if mcp { "## Tools" } else { "## Commands" })
+                .unwrap();
+            let guidance = text.find("## Working in a Workstream");
+            if role != Role::Door {
+                assert!(
+                    guidance.is_none(),
+                    "membership belongs in start Context: {role:?}"
+                );
+                continue;
+            }
+            assert!(guidance.unwrap() < catalogue);
+            for rule in [
+                "two or more steps",
+                "complete each",
+                "handoff",
+                "without approval",
+                "reason",
+                "end your turn",
+                "never poll",
+                "user moves win",
+            ] {
+                assert!(text[..catalogue].contains(rule), "missing {rule}");
+            }
+            let entries: Vec<_> = text[catalogue..]
+                .lines()
+                .take_while(|line| !line.starts_with("## Asking"))
+                .filter(|line| line.starts_with("- `"))
+                .collect();
+            assert!(!entries.is_empty());
+            for entry in entries {
+                assert!(
+                    entry.split_whitespace().count() <= 25,
+                    "catalogue entry exceeds 24 words (excluding bullet): {entry}"
+                );
+            }
+            if mcp {
+                assert!(
+                    text.contains("ToolSearch") && text.contains("select:mcp__roundup__<name>,…")
+                );
+                assert!(text.contains(
+                    "Load `agent_context`, `message_list` and `agent_digest` together first."
+                ));
+                assert!(!text.contains("Load every tool"));
+            } else {
+                assert!(text.contains("rup help"));
+            }
+            assert!(!argv.is_empty());
+        }
+    }
+}
