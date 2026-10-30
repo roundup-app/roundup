@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 #[path = "common/served.rs"]
 mod common;
 

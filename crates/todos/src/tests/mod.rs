@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 use std::sync::Arc;
 
 use contracts::{Actor, ActorKind, Event, Verb};
