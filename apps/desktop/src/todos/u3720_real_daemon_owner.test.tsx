@@ -238,7 +238,9 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .ProseMirror')");
     saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" });
     await observe(moved.id, agents[0]!.id);
-    await lane.browser("click", ".todo-history-line");
+    // Keyboard activation reaches the history disclosure beneath the sticky document controls.
+    await lane.browser("focus", ".todo-history-line");
+    await lane.browser("press", "Enter");
     await lane.until("document.querySelector('.todo-history-line')?.getAttribute('aria-expanded') === 'true'");
     await capture("drawer-changes");
 
