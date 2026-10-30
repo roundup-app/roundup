@@ -54,8 +54,9 @@ const openDocument = async (width: number, height: number, recording = false) =>
   await browser("wait", ".todo-header");
 };
 
-it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_reachable_%sx%s", { retry: 0, timeout: 90_000 }, async (width, height) => {
-  await openDocument(width, height, true);
+it.each([[1512, 950, "menus"], [1280, 820, "menus"], [1512, 950, "document"], [1280, 820, "document"]] as const)("u4698d_worst_case_todo_keeps_its_actions_reachable_%sx%s_%s", { retry: 0, timeout: 90_000 }, async (width, height, stage) => {
+  await openDocument(width, height, stage === "document");
+  await evaluate("window.__fake.app.calls.length = 0; true");
 
   if (output) {
     mkdirSync(output, { recursive: true });
@@ -74,7 +75,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
 
     }
 
-    if (await evaluate("!!document.querySelector('.todo-header')")) {
+    if (stage === "menus") {
       await browser("click", '.drawer [aria-label="More actions"]');
       await browser("wait", '[role="menu"][data-state="open"]');
 
@@ -115,13 +116,19 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
           await browser("press", "Escape");
         }
 
-      if (output) {
-        for (const priority of ["low", "medium", "high", "urgent", null]) {
-          await evaluate(`window.__fake.app.rpc('todo.update', { id: 1, priority: ${JSON.stringify(priority)} }); true`);
-          await settle();
-          await browser("screenshot", join(output, `priority-${priority ?? "unset"}-${width}.png`));
-          writeFileSync(join(output, `priority-${priority ?? "unset"}-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
-        }
+    }
+
+    if (stage === "menus") {
+      expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'todo.assign', 'todo.move', 'todo.delete'].includes(call.method))")).toEqual([]);
+      return;
+    }
+
+    if (output) {
+      for (const priority of ["low", "medium", "high", "urgent", null]) {
+        await evaluate(`window.__fake.app.rpc('todo.update', { id: 1, priority: ${JSON.stringify(priority)} }); true`);
+        await settle();
+        await browser("screenshot", join(output, `priority-${priority ?? "unset"}-${width}.png`));
+        writeFileSync(join(output, `priority-${priority ?? "unset"}-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
       }
     }
 
