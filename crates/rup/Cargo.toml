@@ -17,7 +17,6 @@ tokio.workspace = true
 
 [dev-dependencies]
 pads = { path = "../pads" }
-checkpoints = { path = "../checkpoints" }
 rmcp = { version = "3.5.1", default-features = false, features = ["client"] }
 rupd = { path = "../rupd", features = ["test-support"] }
 rusqlite.workspace = true

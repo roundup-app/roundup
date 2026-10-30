@@ -83,8 +83,6 @@ impl Daemon {
                     | "agent.setOrder"
                     | "agent.resume"
                     | "agent.instructions"
-                    | "workstream.rewind"
-                    | "workstream.rewindPlan"
             )
         {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
@@ -148,8 +146,6 @@ impl Daemon {
                 | "events.subscribe"
                 | "terminal.output"
                 | "terminal.outputStop"
-                | "workstream.rewind"
-                | "workstream.rewindPlan"
                 | "agent.context"
                 | "agent.brief"
         ) {
@@ -164,9 +160,6 @@ impl Daemon {
         }
         if method == "todo.addRef" {
             self.require_ref_target(&params)?;
-        }
-        if method == "checkpoint.write" {
-            self.require_door(&conn.actor).await?;
         }
         let module = self
             .modules

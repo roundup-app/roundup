@@ -44,7 +44,6 @@ fn module(name: &str, dir: &Path, ctx: &Ctx) -> Arc<dyn Module> {
             )
             .unwrap(),
         ),
-        "checkpoints" => Arc::new(checkpoints::Checkpoints::open(dir).unwrap()),
         _ => unreachable!(),
     }
 }
@@ -89,19 +88,10 @@ async fn n20_current_store_opens() {
             "body",
             "kept",
         ),
-        (
-            "checkpoints",
-            "checkpoint.write",
-            json!({"title":"kept","blocks":[{"kind":"text","text":"facts"}]}),
-            "checkpoint.list",
-            json!({"workstream":"door"}),
-            "title",
-            "kept",
-        ),
     ] {
         let dir = tempfile::tempdir().unwrap();
         let ctx = Ctx {
-            actor: if matches!(name, "messages" | "checkpoints") {
+            actor: if name == "messages" {
                 Actor {
                     kind: ActorKind::Agent,
                     id: "door".into(),

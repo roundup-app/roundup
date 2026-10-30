@@ -1,4 +1,4 @@
-//! Workstream settings, Queue and Rewind.
+//! Workstream settings and Queue.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -90,88 +90,4 @@ pub struct QueueMoveParams {
 pub struct CapParams {
     #[specta(type = Option<specta_typescript::Number>)]
     pub cap: Option<serde_json::Value>,
-}
-
-/// `workstream.rewindPlan`: what a rewind of the Door's own Workstream to `checkpoint` would do.
-/// `agent` selects one child, direct or nested; without it every child is selected.
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct RewindPlanParams {
-    pub id: String,
-    pub checkpoint: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub agent: Option<String>,
-}
-
-/// One selected child.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct PlanAgent {
-    pub agent: String,
-    pub name: String,
-    /// Started after the Checkpoint: a rewind removes it from the Rail.
-    pub created_after: bool,
-    /// Paths whose content differs between the Mark's snapshot and the Worktree now.
-    pub files_changed: Vec<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct RewindPlan {
-    pub agents: Vec<PlanAgent>,
-    /// True when any child's `files_changed` is not empty.
-    pub files_changed: bool,
-}
-
-/// What happens to files: `keep` leaves every file, `restore` returns each selected Worktree to its Mark.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum Files {
-    Keep,
-    Restore,
-}
-
-/// `workstream.rewind`. `files` is required. `agent` selects one child, as in `RewindPlanParams`.
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct RewindParams {
-    pub id: String,
-    pub checkpoint: u32,
-    pub files: Files,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub agent: Option<String>,
-}
-
-/// How one selected child ended up: `rewound`, `removed` from the Rail, or `dropped` with its `reason`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "lowercase")]
-pub enum RewindState {
-    Rewound,
-    Removed,
-    Dropped,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct RewindAgent {
-    pub agent: String,
-    pub name: String,
-    pub state: RewindState,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[specta(optional, type = String)]
-    pub reason: Option<String>,
-}
-
-/// What `workstream.rewind` returns to the Door.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct Rewind {
-    /// The Checkpoint's title.
-    pub checkpoint: String,
-    pub files: Files,
-    pub agents: Vec<RewindAgent>,
-}
-
-/// `workstream.rewound {id, checkpoint}`: pushed once, after every selected child ended, rewound,
-/// removed or dropped.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub struct Rewound {
-    pub id: String,
-    pub checkpoint: u32,
 }
