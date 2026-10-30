@@ -8,6 +8,8 @@ import type { ObservationHealth } from "@contracts/reaction/ObservationHealth";
 import type { Reason } from "@contracts/message/Reason";
 import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
+const dismiss = "Dismiss";
+
 const appearanceCopy = {
   fontFamilyHint: "Choose Default to use the bundled font.",
   discardSettingsEdit: (label: string) => `Discard ${label} edit`,
@@ -207,8 +209,8 @@ export const copy = {
     : `Your search in ${project} won't be kept after reload. Keep this Project open to recover your work.`,
   switcherCopyFailure: "Could not copy query. Select the text and copy again.",
   copyQuery: "Copy query",
-  dismissFailure: "Dismiss",
-  dismiss: "Dismiss",
+  dismissFailure: dismiss,
+  dismiss,
   retryStorage: "Try again",
   queryCopied: "Copied",
   discardQuery: "Discard query",

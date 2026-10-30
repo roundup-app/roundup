@@ -6,7 +6,7 @@ import { Todos } from "../todos/Todos";
 import { Pads } from "./Pads";
 import type { ConnectedProject } from "../state/connectedProject";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { AppSeam } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -379,6 +379,12 @@ it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destina
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
 
+describe("U3787a connected App regions", () => {
+  let real: StartedDaemon;
+
+  beforeEach(async () => { real = await startRealDaemon({}); }, 120_000);
+  afterEach(async () => { await real?.stop(); });
+
 // The full App owns keys and native menu capture; the Daemon owns every mutation and identity.
 it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-todo", "drawer-pad"])("u3787a_%s_delete_undo_redo_without_feedback", async kind => {
   const app = createServedApp(real.base);
@@ -426,17 +432,18 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
     button.focus(); fireEvent.click(button);
   } else if (kind === "clear-done") fireEvent.click(await screen.findByText("Clear done", { selector: "button" }));
   else if (kind === "todos" || kind === "pads") {
+    const menus = menuProbe.count;
     fireEvent.contextMenu(row);
-    await waitFor(() => expect(menuProbe.shown?.some(item => item.id === "delete")).toBe(true));
+    await waitFor(() => expect(menuProbe.count).toBe(menus + 1));
+    expect(menuProbe.shown?.some(item => item.id === "delete")).toBe(true);
     menuProbe.answer!("delete");
   } else fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   const read = async () => isPad ? (await app.rpc("pad.list", null)).some(item => item.incarnation === pad!.incarnation) : (await app.rpc("todo.list", null)).some(item => item.id === todo!.id);
   await waitFor(async () => expect(await read()).toBe(false));
   await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
-  // A removed row's surviving list, or a closed Drawer's original list, owns the next key.
-  const region = document.activeElement?.closest<HTMLElement>("[data-history-region]") ?? document.querySelector<HTMLElement>(kind === "todos" ? '.drawer .todos-tab' : kind === "pads" ? '.drawer .pads-tab' : '.shelf-tabs [aria-selected="true"]');
-
-  if (region) { region.tabIndex = 0; region.focus(); }
+  // BulkDelete's acknowledged readback returns focus after its row refresh.
+  const expectedRegion = kind === "todos" || kind === "pads" ? kind : "shelf";
+  await waitFor(() => expect(document.activeElement?.closest<HTMLElement>("[data-history-region]")?.dataset.historyRegion).toBe(expectedRegion));
 
   const absent = () => {
     expect(document.querySelector(".todo-undo")).toBeNull();
@@ -451,7 +458,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
 
   if (kind.startsWith("drawer-")) {
     if (isPad) {
-      await waitFor(() => expect(document.querySelector('.shelf .pad-name .shelf-title') !== null).toBe(true));
+      await waitFor(() => expect(document.querySelector('.shelf [data-shelf-group] [data-part="branch-control"]')).not.toBeNull());
 
       for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) {
         if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
@@ -495,4 +502,6 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
   fireEvent.keyDown(rail, { key: "z", code: "KeyZ", metaKey: true, shiftKey: true });
   await waitFor(async () => expect(await present()).toBe(false));
   expect([...document.querySelectorAll("button")].filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+});
+
 });
