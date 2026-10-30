@@ -61,6 +61,9 @@ it("u4547e_drag_reparents_the_chosen_agent_without_restarting", async () => {
     expect(await lane.calls("rail.move")).toEqual([{method:"rail.move",params:{id:"agent-4",parent,index:0}}]);
     const moved = await lane.evaluate(`window.__fake.app.rpc('rail.tree', null).then(nodes => nodes.find(node => node.id === 'agent-4'))`);
     expect(moved).toEqual({...Object(identity),parent,order:0});
+    await lane.until(`document.querySelectorAll('${row("agent-4")}').length === 1 && !document.querySelector('.rail-section[aria-label="AGENTS"]')`);
+    expect(await lane.evaluate(`document.querySelectorAll('${row("agent-4")}').length`)).toBe(1);
+    expect(await lane.evaluate(`document.querySelector('.rail-section[aria-label="AGENTS"]')`)).toBeNull();
     await lane.capture("U4547e", `drag-${kind}`);
   }
 }, 60_000);
@@ -81,11 +84,18 @@ it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
   await lane.browser("press", "m");
   await lane.until("document.querySelector('[role=combobox]') === document.activeElement");
   await lane.capture("U4547e", "destinations");
+  await lane.browser("press", "Escape");
+  await lane.until("!document.querySelector('[role=combobox]')");
+  expect(await lane.evaluate("document.activeElement?.getAttribute('data-id')")).toBe("agent-4");
+  expect(await lane.calls("rail.move")).toEqual([]);
+  await lane.browser("press", "m");
+  await lane.until("document.querySelector('[role=combobox]') === document.activeElement");
   await lane.evaluate("window.__fake.failNext(-32003, 'Move refused. Reopen the destination, then retry.')");
   await lane.browser("fill", "[role=combobox]", "Review");
   await lane.until("document.querySelectorAll('[role=option]').length === 1");
   await lane.browser("press", "Enter");
   await lane.until("document.querySelector('[role=alert]')?.textContent.includes('Move refused')");
+  expect(await lane.evaluate("document.activeElement?.getAttribute('data-id')")).toBe("agent-4");
   await lane.capture("U4547e", "rejected-move");
   await lane.browser("click", ".rail-command-notice button");
   await lane.until("!document.querySelector('.rail-command-notice [role=alert]')");
