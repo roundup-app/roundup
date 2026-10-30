@@ -173,5 +173,13 @@
   right: var(--space-4);
   z-index: 1;
   width: calc(var(--space-6) * 6);
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
   background: var(--ground);
+  box-shadow: var(--elevation);
+}
+
+.pane .terminal-find-miss {
+  font-size: var(--text-caption);
+  color: var(--grey);
 }
