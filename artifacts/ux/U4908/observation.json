@@ -514,5 +514,8 @@
     "Resolve capture-observer failures without changing behavior assertions or timeouts.",
     "Complete the Shelf row regression run and rerun the corrected required checks.",
     "Compare matching baseline/head Checks and inspect group/title columns at depths 0\u20133."
-  ]
+  ],
+  "final_shelf_regressions": "58/58 passed",
+  "paired_observer": "3 passed; 5 failed: Todo row targeting and recorder cleanup",
+  "integration_head": "ed240913cb8ee5e54912d408283a964e3eeb93d2"
 }
