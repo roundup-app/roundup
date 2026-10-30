@@ -388,3 +388,8 @@ captured menu/key owner. Return/menu Open uses the immediate keyboard Drawer pat
 F2/menu Rename opens the existing NameField immediately. Menu projection changes
 no focus, layout or Tokens; D2/D5/D6 retain their baseline. Native-menu rendering
 stays system-owned, with no new App animation.
+
+
+U3787b scoped Add Todo menu/key activation reuses the existing instant draft-field
+opening and focus. Availability updates immediately on editing, scope change or
+list removal. No animation, duration, curve or Token changes.

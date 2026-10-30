@@ -1,7 +1,9 @@
+import { copy as todoCopy } from "../todos/copy";
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   find: "Find…",
+  addTodo: todoCopy.addTodo,
   switchProject: sharedCopy.switchProject,
   reviewChanges: sharedCopy.reviewChanges,
   shortcutKeys: new Map([
