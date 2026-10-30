@@ -237,7 +237,7 @@ jobs:
         uses: ./.github/actions/setup
         with:
           save-cache: 'true'
-          node: 'false'
+          node: 'true'
       - name: C9b native release size
         run: |
           cargo build --locked --release -p rupd
@@ -272,6 +272,39 @@ jobs:
         run: |
           python3 loop/app-data.py python3 loop/app-data.test.py
           python3 loop/app-data.py python3 loop/launch-sites.test.py
+
+      - name: S1 macOS App bundle
+        id: app-bundle
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        timeout-minutes: 20
+        run: |
+          mkdir -p target/app-bundle-evidence
+          git rev-parse HEAD > target/app-bundle-evidence/commit.txt
+          {
+            uname -a
+            sw_vers
+            printf 'Runner: %s %s %s\nImage: %s %s\n' "$RUNNER_OS" "$RUNNER_ARCH" "$RUNNER_NAME" "$ImageOS" "$ImageVersion"
+            rustc -Vv
+            cargo -V
+            node --version
+            pnpm --version
+            xcodebuild -version
+          } > target/app-bundle-evidence/identity.txt 2>&1
+          just app-bundle 2>&1 | tee target/app-bundle-evidence/build.log
+      - name: S1 S3 A12a X8 extracted App bundle observer
+        if: ${{ !cancelled() && steps.app-bundle.outcome == 'success' }}
+        timeout-minutes: 8
+        run: |
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          just app-bundle-check "target/$triple/release/bundle/macos/roundup.app" 2>&1 | tee target/app-bundle-evidence/observer.log
+      - name: S1 macOS packaging evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-bundle-macos-${{ github.run_attempt }}
+          path: target/app-bundle-evidence/
+          if-no-files-found: error
+          retention-days: 30
 
   # L89: the web tests in seven shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
