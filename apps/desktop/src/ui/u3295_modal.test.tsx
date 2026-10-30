@@ -7,6 +7,7 @@ import { Popover } from "./Popover";
 import { Menu } from "./Menu";
 import { Select } from "./Select";
 import { Tooltip } from "./Tooltip";
+import { Combobox } from "./Combobox";
 import { Mentions } from "./Mentions";
 import { BlockerMenu } from "../todos/BlockerMenu";
 import { todo } from "../todos/testHarness";
@@ -31,9 +32,10 @@ const mount = (kind: Surface) => {
   const picked = vi.fn();
   const [open, setOpen] = createSignal(false);
   const [text, setText] = createSignal("");
+  const [dismissed, setDismissed] = createSignal(false);
   const [highlight, setHighlight] = createSignal<string | null>("alpha");
   const items = [{ value: "alpha", label: "Alpha" }];
-  const results = () => text() ? items.filter(item => item.label.toLowerCase().includes(text().slice(1).toLowerCase())) : [];
+  const results = () => !dismissed() && text() ? items.filter(item => item.label.toLowerCase().includes(text().slice(1).toLowerCase())) : [];
 
   const ui = () => {
     if (kind === "menu") return <Menu.Root onSelect={picked}><Menu.Trigger>Open</Menu.Trigger><Portal><Menu.Positioner><Menu.Content><Menu.Item value="alpha">Alpha</Menu.Item></Menu.Content></Menu.Positioner></Portal></Menu.Root>;
@@ -42,7 +44,7 @@ const mount = (kind: Surface) => {
 
     if (kind === "tooltip") return <Tooltip.Root openDelay={0} closeDelay={0}><Tooltip.Trigger>Open</Tooltip.Trigger><Portal><Tooltip.Positioner><Tooltip.Content>Alpha</Tooltip.Content></Tooltip.Positioner></Portal></Tooltip.Root>;
 
-    if (kind === "mentions") return <Mentions.Root items={results()} highlightedValue={highlight()} onHighlightChange={setHighlight} onSelect={picked}><Mentions.Field aria-label="Mention" value={text()} onInput={event => setText(event.currentTarget.value)} open onKey={() => {}} /><Mentions.List label="Suggestions" items={results()} /></Mentions.Root>;
+    if (kind === "mentions") return <Mentions.Root inputValue={text()} onDismiss={() => setDismissed(true)} items={results()} highlightedValue={highlight()} onHighlightChange={setHighlight} onSelect={picked}><Mentions.Field aria-label="Mention" value={text()} onInput={event => setText(event.currentTarget.value)} open onKey={() => {}} /><Mentions.List label="Suggestions" items={results()} row={item => item.label} /></Mentions.Root>;
 
     if (kind === "blocker") return <BlockerMenu open={open()} onOpenChange={setOpen} others={[todo(1, { title: "Alpha" })]} buttonRef={() => {}} onPick={picked} />;
 
@@ -71,13 +73,18 @@ it.each(surfaces)("u3295b_a_dialog_closes_outside_floating_controls: %s", async 
   await control.show();
   const setOpen = modal();
 
+  const floating = () => kind === "tooltip" ? screen.queryByRole("tooltip", { hidden: true })
+    : kind === "menu" ? screen.queryByRole("menu", { hidden: true })
+    : ["select", "mentions", "blocker"].includes(kind) ? screen.queryByRole("listbox", { hidden: true })
+    : screen.queryAllByRole("button").find(button => button.closest('[data-scope="popover"][data-part="content"]')) ?? null;
+
   setOpen(true);
   await screen.findByRole("dialog", { name: "Import" });
-  await waitFor(() => expect(kind === "select" ? screen.queryByRole("listbox") : screen.queryByText("Alpha")).toBeNull());
+  await waitFor(() => expect(floating()).toBeNull());
   await waitFor(() => expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true));
   setOpen(false);
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect(kind === "select" ? screen.queryByRole("listbox") : screen.queryByText("Alpha")).toBeNull();
+  expect(floating()).toBeNull();
   expect(control.picked).not.toHaveBeenCalled();
 
   if (kind === "mentions") expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("@al");
@@ -129,4 +136,33 @@ it("u3295b_dialog_owned_controls_still_work: nested portalled Dialog", async () 
   fireEvent.click(screen.getByText("Alpha"));
   await waitFor(() => expect(control.picked).toHaveBeenCalledTimes(1));
   expect(screen.getByRole("dialog", { name: "Active" })).toBeTruthy();
+});
+
+
+it("u504_form_suggestions_highlight_wrap_and_accept_without_moving_focus", async () => {
+  const picked = vi.fn();
+  render(() => <Combobox.Picker label="Destination" value="" items={[{ value: "a", label: "Alpha" }, { value: "b", label: "Beta" }]} onSelect={picked} />);
+  const trigger = screen.getByRole("button", { name: /Destination/ });
+  fireEvent.click(trigger);
+  const field = await screen.findByRole("combobox");
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  const options = screen.getAllByRole("option");
+  const active = () => document.getElementById(field.getAttribute("aria-activedescendant") ?? "");
+  await waitFor(() => expect(active()).toBe(options[0]));
+  fireEvent.keyDown(field, { key: "ArrowUp" });
+  await waitFor(() => expect(active()).toBe(options[1]));
+  fireEvent.keyDown(field, { key: "ArrowDown" });
+  await waitFor(() => expect(active()).toBe(options[0]));
+  fireEvent.input(field, { target: { value: "Al" } });
+  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+  await waitFor(() => expect(active()).toBe(screen.getByRole("option")));
+  fireEvent.input(field, { target: { value: "" } });
+  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+  const last = screen.getAllByRole("option")[1]!;
+  fireEvent.pointerMove(last, { pointerType: "mouse" });
+  await waitFor(() => expect(active()).toBe(options[0]));
+  expect(document.activeElement).toBe(field);
+  fireEvent.keyDown(field, { key: "Tab" });
+  await waitFor(() => expect(picked).toHaveBeenCalledExactlyOnceWith("a"));
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
 });

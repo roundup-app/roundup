@@ -124,10 +124,10 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(await keyFrame("Escape", "Escape", "!document.querySelector('.switcher') && document.activeElement === window.__layerOrigin")).toBe(true);
     await settle();
     await leader();
-    expect(await keyFrame("s", "KeyS", "document.querySelector('.shelf').hidden")).toBe(true);
+    expect(await keyFrame("b", "KeyB", "document.querySelector('.shelf').hidden")).toBe(true);
     await settle();
     await leader();
-    expect(await keyFrame("s", "KeyS", "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
+    expect(await keyFrame("b", "KeyB", "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
     await settle();
 
     // Select the row itself: its centre can contain a quick action on hover.

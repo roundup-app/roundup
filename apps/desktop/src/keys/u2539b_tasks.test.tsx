@@ -29,7 +29,7 @@ it("u2539b_capture_keeps_requested_work_items_unmounted_until_filing", async () 
 
 it("u2539b_drawer_keeps_attention_reachable", async () => {
   const { connected } = await mount();
-  leader("KeyS");
+  leader("KeyB");
   const row = await screen.findByText("Selected work");
   fireEvent.click(row);
   fireEvent.keyDown(row.closest("button")!, { key: "Enter", code: "Enter" });
@@ -141,7 +141,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
     await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a0"));
   } else if (task === "items") {
-    runLeader("KeyS");
+    runLeader("KeyB");
     await screen.findByRole("region", { name: "Todos" });
     expect(document.querySelector(".todos-tab")).not.toBeNull();
   } else if (task === "inbox") {
@@ -149,7 +149,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     await screen.findByRole("region", { name: "Inbox" });
     expect(document.querySelector(".inbox")).not.toBeNull();
   } else if (task === "assign") {
-    leader("KeyS");
+    leader("KeyB");
     fireEvent.click(await screen.findByRole("button", { name: /Unassigned/ }));
     const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Selected work/ });
     fireEvent.click(row);
@@ -187,7 +187,7 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
     ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⌃⌘J", "⌃⌘J"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
     ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
     ["action:leader:⇧J", "⌘K ⇧J"], ["action:leader:K", "⌘K K"],
-    ["action:leader:S", "⌘K S"], ["action:leader:I", "⌘K I"],
+    ["action:leader:B", "⌘K B"], ["action:leader:I", "⌘K I"],
   ]);
   await saveAppSettings({ quickAdd: "ctrl+shift+KeyY" });
   await waitFor(() => expect(projectMenu.items.filter(item => item.group === "create" && item.label === "Capture a Todo").map(item => [item.id, item.shortcut])).toEqual([["action:chord:⌃⇧Y", "⌃⇧Y"]]));

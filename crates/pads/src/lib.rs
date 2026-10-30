@@ -18,11 +18,11 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use contracts::pad::PadName;
-use contracts::{Actor, ActorKind, EventData};
+use contracts::{Actor, EventData};
 use rpc::{Ctx, Module, RpcError, params, reply};
 use serde_json::Value;
 
-use operations::{found, get, require_owner_or_user, wrote};
+use operations::{found, get, wrote};
 use store::Store;
 pub use store::{PadDeletion, PadSource, PadSourceState, source, source_state};
 

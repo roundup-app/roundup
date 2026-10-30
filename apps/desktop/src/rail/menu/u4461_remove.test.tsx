@@ -146,7 +146,7 @@ it("u4601_the_lists_follow_the_removal_plan", async () => {
   ], "chosen");
 
   expect([goesLine(plan, "chosen"), staysLine(plan)]).toEqual([
-    "Goes: chosen, finished, 1 done Todo, 1 Pad",
-    "Stays (Remove this): running, dirty, ahead, 1 open Todo, 2 Pads",
+    "Goes: chosen, finished, 1 done Todo, 3 Pads",
+    "Stays (Remove this): running, dirty, ahead, 1 open Todo",
   ]);
 });

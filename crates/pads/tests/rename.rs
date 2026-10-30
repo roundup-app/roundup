@@ -158,16 +158,7 @@ async fn u3789a_rename_refusals_leave_pads_mirrors_touches_and_events_unchanged(
                 .unwrap_err();
             assert_eq!(error.code, code, "{name} -> {new_name}");
         }
-        let other = Ctx {
-            actor: contracts::Actor {
-                kind: contracts::ActorKind::Agent,
-                id: "other".into(),
-                parent: None,
-            },
-            bus: bus.clone(),
-            touches: touches.clone(),
-        };
-        assert_eq!(pads.call(&other, "pad.rename", json!({"name":"Notes","newName":"Plan","expectedIncarnation":original["incarnation"]})).await.unwrap_err().code, rpc::code::FORBIDDEN);
+
         assert_eq!(
             pads.call(&ctx, "pad.list", json!(null)).await.unwrap(),
             before
