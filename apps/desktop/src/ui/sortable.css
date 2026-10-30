@@ -42,8 +42,19 @@
   flex: none;
   cursor: grab;
   touch-action: none;
+  opacity: 0;
+  transition: opacity var(--duration-crossfade) var(--easing-out);
 }
 .sortable-handle:active { cursor: grabbing; }
 .sortable-handle svg { width: var(--space-4); height: var(--space-4); }
 
 .sortable-handle:focus-visible { color: var(--text); }
+
+/* A grip shows while its row is hovered, holds focus, is selected or is the drag source. */
+:is(.shelf-row, .rail-row, .rail-leaf, .pad-row-head, .todo-row):is(:hover, :focus-within, [data-selected="true"], [aria-selected="true"], .sortable-source) .sortable-handle,
+.sortable-source .sortable-handle,
+.sortable-handle:focus-visible { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sortable-handle { transition: none; }
+}
