@@ -13,6 +13,7 @@ import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
+import { Find } from "./Find";
 import { lazyXtermEmulators } from "./lazyEmulator";
 import type { EmulatorFactory } from "./emulator";
 import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -202,21 +203,36 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
     refitNextFrame();
   };
 
+  // Z3788a: Find belongs to the focused Terminal and keeps its query while the Pane lives.
+  const [finding, setFinding] = createSignal(false);
+  const [findQuery, setFindQuery] = createSignal("");
+
+  const closeFind = (): void => {
+    setFinding(false);
+
+    const id = terminalId();
+
+    if (id !== null) screens.emulatorFor(id).focus();
+  };
+
+  createEffect(on(terminalId, () => setFinding(false), { defer: true }));
+
   registerKeys({ kind: "region", element: screen }, [
-    { chord: "⌘=", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], resize: "grow" as const },
-    { chord: "⌘-", chords: ["Meta+-"], resize: "shrink" as const },
-    { chord: "⌘0", chords: ["Meta+0"], resize: "reset" as const },
-  ].map(({ chord, chords, resize: size }) => ({
+    { chord: "⌘=", chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], run: resize("grow") },
+    { chord: "⌘-", chords: ["Meta+-"], run: resize("shrink") },
+    { chord: "⌘0", chords: ["Meta+0"], run: resize("reset") },
+    { chord: "⌘F", chords: undefined, run: () => setFinding(true) },
+  ].map(({ chord, chords, run }) => ({
     action: CHORDS.find(action => action.keys === chord)!,
-    chords,
-    repeat: true,
-    when: event => terminalId() !== null && inScreen(event.target instanceof Element ? event.target : null) && connected.daemonExit() === null,
-    capture: focus => {
+    ...chords && { chords },
+    repeat: true as const,
+    when: (event: KeyboardEvent) => terminalId() !== null && inScreen(event.target instanceof Element ? event.target : null) && connected.daemonExit() === null,
+    capture: (focus: Element | null) => {
       const id = terminalId();
 
       return {
         available: () => id !== null && terminalId() === id && inScreen(focus) && focus?.isConnected === true && connected.daemonExit() === null,
-        invoke: resize(size),
+        invoke: run,
       };
     },
   })));
@@ -314,6 +330,9 @@ export const Pane = (props: { notice?: string | null; retryNotice?: (() => void)
               </button>} />
             </div>
           )}
+        </Show>
+        <Show when={finding() ? terminalId() : null}>
+          {(id) => <Find query={findQuery()} setQuery={setFindQuery} find={(query, backwards) => screens.emulatorFor(id()).find?.(query, backwards) ?? false} close={closeFind} />}
         </Show>
         <Show when={latest()}>
           {(id) => (

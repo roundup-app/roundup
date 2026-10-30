@@ -29,6 +29,9 @@ type FakeEmulator = Emulator & {
   clickLink(printed: Printed): void;
   pasted: string[];
   scrollsToBottom: number;
+  /** Every Find step the pane asked for, and whether the fake reports a match. */
+  finds: [string, boolean][];
+  matches: boolean;
   /** Simulates the user scrolling the view, as a wheel or drag would. */
   scroll(atBottom: boolean): void;
 };
@@ -64,6 +67,13 @@ export const fakeEmulators = () => {
       clickLink: (printed) => linkListener(printed),
       pasted: [],
       scrollsToBottom: 0,
+      finds: [],
+      matches: true,
+      find: (query, backwards = false) => {
+        emulator.finds.push([query, backwards]);
+
+        return emulator.matches;
+      },
       write: (bytes, parsed) => {
         if (bytes.length > 0) emulator.written.push(bytes);
         parsed?.();
