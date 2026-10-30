@@ -448,6 +448,7 @@ fn u3787b_plain_key_commands_register_no_accelerator() {
         .unwrap();
         assert_eq!(plain(built).text().unwrap(), source.label);
         assert_eq!(hint, [(vec![], key.into())]);
+        assert_eq!(sequence_hints(&[source.clone()]), [(source.label, key.into())]);
     }
 }
 
