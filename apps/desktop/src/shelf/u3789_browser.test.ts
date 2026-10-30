@@ -7,9 +7,8 @@ import type { Checks } from "../testing/checks";
 
 const shot = async (id: string, stage: string, step: string) => {
   const checks = await read<Checks>("window.__checks()");
-  const directory = captureDir(id);
-
-  if (directory) {
+  for (const directory of [captureDir(id), ...(id === "U4908" ? [captureDir("U4708")] : [])]) {
+    if (!directory) continue;
     const folder = join(directory, stage);
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, `${step}.checks.json`), JSON.stringify(checks) + "\n");
@@ -57,6 +56,7 @@ const dense = async () => {
     const made = [];
     for (let i = 0; i < 10; i++) made.push((await rpc('todo.create', {title: 'blocker ' + i, body: null, blockers: null})).id);
     await rpc('todo.setBlockers', {id: 1, blockers: made});
+    await rpc('todo.assign', {id: 1, owner: {kind:'agent', id:'tokens', parent:null}});
     await rpc('pad.rename', {name: 'a-pad-with-a-very-long-name-here', newName: 'P'.repeat(120), expectedIncarnation: 'fixture-1'});
   })()`);
 };
@@ -120,57 +120,60 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
 
   if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", `interaction-${kind}.webm`)); await wait("window.__fake && document.querySelector('.rail-tree')"); }
 
-  await overview();
+  try {
+    await overview();
 
-  if (seed === "tree-40") await dense();
-  else await browser("eval", `(async () => {
-    const rpc = window.__fake.app.rpc;
-    await rpc('rail.rename', {id:'agent-1',name:'A'.repeat(60)});
-    const blockers = [];
-    for (let n=0;n<10;n++) blockers.push((await rpc('todo.create',{title:'blocker '+n,body:null,blockers:null})).id);
-    await rpc('todo.create', {title:'T'.repeat(300),body:null,blockers,owner:{kind:'agent',id:'agent-1',parent:null}});
-    await rpc('pad.create',{name:'P'.repeat(120),text:null});
-    await rpc('pad.create',{name:'Short Pad',text:null});
-  })()`);
-  await browser("eval", `(async () => {
-    const rpc = window.__fake.app.rpc;
-    let parent = null;
-    for (const title of ['Root Todo', 'Child Todo', 'Grandchild Todo', 'Great-grandchild Todo']) {
-      const todo = await rpc('todo.create', {title, body:null, blockers:parent === null ? null : [parent]});
-      parent = todo.id;
-    }
-  })()`);
-  await browser("click", `#shelf-tab-${kind}`);
-  await wait(`document.querySelector('.${kind}-tab')`);
-  await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
-  await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
-  const row = kind === "todos" ? `.todos-tab [data-todo="${seed === "tree-40" ? 1 : 11}"] .todo-row-button` : `.pads-tab [data-pad="${"P".repeat(120)}"] .pad-name`;
-  await browser("scrollintoview", row);
-  await browser("mouse", "move", "1", "1");
-  await browser("eval", "document.activeElement.blur()");
-  await shot("U4908", stage, `${seed}-${kind}-rest`);
-  await browser("hover", row);
-  await shot("U4908", stage, `${seed}-${kind}-hover`);
-  await browser("focus", row);
-  await shot("U4908", stage, `${seed}-${kind}-focus`);
-  await browser("click", row);
-  await shot("U4908", stage, `${seed}-${kind}-selected`);
-  await browser("press", "Enter");
-  await wait("document.querySelector('.drawer[data-open=true]')");
-  await shot("U4908", stage, `${seed}-${kind}-opened`);
-  await browser("click", ".drawer[data-open=true] .close");
-  await wait("!document.querySelector('.drawer[data-open=true]')");
-  await browser("click", ".shelf-add");
-  await wait("document.querySelector('.entry-field')");
-  await shot("U4908", stage, `${seed}-${kind}-add`);
-  await browser("fill", ".entry-field", "Rejected item");
-  await browser("eval", `(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.handlers['${kind === "todos" ? "todo.create" : "pad.create"}'] = () => {throw new RpcError(-32003, 'Creation refused; change the name and try again.');}; })()`);
-  await browser("press", "Enter");
-  await wait("document.body.textContent.includes('Creation refused')");
-  await shot("U4908", stage, `${seed}-${kind}-failure`);
-  await browser("press", "Escape");
-  await browser("set", "viewport", "1280", "820");
-  await shot("U4908", stage, `${seed}-${kind}-1280`);
+    if (seed === "tree-40") await dense();
+    else await browser("eval", `(async () => {
+      const rpc = window.__fake.app.rpc;
+      await rpc('rail.rename', {id:'agent-1',name:'A'.repeat(60)});
+      const blockers = [];
+      for (let n=0;n<10;n++) blockers.push((await rpc('todo.create',{title:'blocker '+n,body:null,blockers:null})).id);
+      await rpc('todo.create', {title:'T'.repeat(300),body:null,blockers,owner:{kind:'agent',id:'agent-1',parent:null}});
+      await rpc('pad.create',{name:'P'.repeat(120),text:null});
+      await rpc('pad.create',{name:'Short Pad',text:null});
+    })()`);
+    await browser("eval", `(async () => {
+      const rpc = window.__fake.app.rpc;
+      let parent = null;
+      for (const title of ['Root Todo', 'Child Todo', 'Grandchild Todo', 'Great-grandchild Todo']) {
+        const todo = await rpc('todo.create', {title, body:null, blockers:parent === null ? null : [parent]});
+        parent = todo.id;
+      }
+    })()`);
+    if (kind === "pads") await browser("click", "#shelf-tab-pads");
+    await wait(`document.querySelector('.${kind}-tab')`);
+    await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
+    await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
+    const row = kind === "todos" ? `.todos-tab [data-todo="${seed === "tree-40" ? 1 : 11}"] .todo-row-button` : `.pads-tab [data-pad="${"P".repeat(120)}"] .pad-name`;
+    await browser("scrollintoview", row);
+    await browser("mouse", "move", "1", "1");
+    await browser("eval", "document.activeElement.blur()");
+    await shot("U4908", stage, `${seed}-${kind}-rest`);
+    await browser("hover", row);
+    await shot("U4908", stage, `${seed}-${kind}-hover`);
+    await browser("focus", row);
+    await shot("U4908", stage, `${seed}-${kind}-focus`);
+    await browser("click", row);
+    await shot("U4908", stage, `${seed}-${kind}-selected`);
+    await browser("press", "Enter");
+    await wait("document.querySelector('.drawer[data-open=true]')");
+    await shot("U4908", stage, `${seed}-${kind}-opened`);
+    await browser("click", ".drawer[data-open=true] .close");
+    await wait("!document.querySelector('.drawer[data-open=true]')");
+    await browser("click", ".shelf-add");
+    await wait("document.querySelector('.entry-field')");
+    await shot("U4908", stage, `${seed}-${kind}-add`);
+    await browser("fill", ".entry-field", "Rejected item");
+    await browser("eval", `(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.handlers['${kind === "todos" ? "todo.create" : "pad.create"}'] = () => {throw new RpcError(-32003, 'Creation refused; change the name and try again.');}; })()`);
+    await browser("press", "Enter");
+    await wait("document.body.textContent.includes('Creation refused')");
+    await shot("U4908", stage, `${seed}-${kind}-failure`);
+    await browser("press", "Escape");
+    await browser("set", "viewport", "1280", "820");
+    await shot("U4908", stage, `${seed}-${kind}-1280`);
 
-  if (video) await browser("record", "stop");
+  } finally {
+    if (video) await browser("record", "stop");
+  }
 }, 60_000);
