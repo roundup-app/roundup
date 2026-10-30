@@ -1,3 +1,4 @@
+import { historyRegion } from "../keys/focus";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { todoEditor } from "../drawer/editors";
@@ -255,7 +256,10 @@ export const TodoDrawer = (props: {
     void drafts.todoUndo.remove([id], `todo:${id}`).then(removed => {
       if (removed) { setRemovedByMe(true);
 
- if (drawer.content() === opening) drawer.close("key"); }
+ if (drawer.content() === opening) {
+   drawer.close("key");
+   queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
+ } }
       else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());
       setDeleting(false);
     });
@@ -263,7 +267,7 @@ export const TodoDrawer = (props: {
 
   return (
     <>
-      <div class="todo-detail">
+      <div class="todo-detail" data-history-region={`todo:${props.id}`}>
         <Show when={todo()}>{current => <TodoHeader todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
         <ReservedLine class="todo-delete-feedback"
           aria-live={drafts.todoUndo.uncertain() ? undefined : "polite"} aria-atomic="true"
@@ -320,6 +324,7 @@ export const TodoDrawer = (props: {
           </Show>
       </div>
       <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
+
 
     </>
   );
