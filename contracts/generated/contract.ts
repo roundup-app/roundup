@@ -137,6 +137,7 @@ export const CONTRACT = {
     "todo.markCommentsRead": "35bafabaf21370cd",
     "todo.move": "bf4d113add2591c9",
     "todo.readHistory": "508a84bd3c2373ff",
+    "todo.redo": "af1370ea44684553",
     "todo.refs": "07d3876f3e0b1c75",
     "todo.removeRef": "1d482c2a43dae545",
     "todo.reopen": "5a0d269969a6c1fb",

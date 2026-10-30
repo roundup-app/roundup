@@ -334,6 +334,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               if (!editing() && event.target instanceof Element && !event.target.closest("button, input")) open("pointer");
             }}
             data-incarnation={pad.incarnation}
+            data-editing={editing()}
             data-selected={props.selection.selected().includes(pad.incarnation) ? "true" : undefined}
             data-shelf-row
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [

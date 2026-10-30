@@ -1,3 +1,4 @@
+import "./Row.css";
 import { Listbox as ArkListbox, createListCollection } from "@ark-ui/solid/listbox";
 import { createEffect, createMemo, createSignal, on, For, Show, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -57,7 +58,7 @@ const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onK
 const List = (props: { label: string; items: readonly Mention[] }) => (
   <Show when={props.items.length > 0}><Portal><Popover.Positioner><Popover.Content class="app-mentions-panel">
     <ArkListbox.Content class="app-listbox app-mentions" aria-label={props.label}>
-      <For each={props.items}>{(item) => <ArkListbox.Item item={item} class="app-listbox-item"><ArkListbox.ItemText>{item.label}</ArkListbox.ItemText></ArkListbox.Item>}</For>
+      <For each={props.items}>{(item) => <ArkListbox.Item item={item} class="app-listbox-item row-wash"><ArkListbox.ItemText>{item.label}</ArkListbox.ItemText></ArkListbox.Item>}</For>
     </ArkListbox.Content>
   </Popover.Content></Popover.Positioner></Portal></Show>
 );
