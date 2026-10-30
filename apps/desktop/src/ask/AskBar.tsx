@@ -592,17 +592,17 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
-        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
+        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
             heads.set(record.id, element); content.register(element, record.id);
             onCleanup(() => { if (heads.get(record.id) === element) heads.delete(record.id); });
           }} data-row-selected={content.selection.isSelected(record.id)} aria-current={selected() === record.id ? "true" : undefined}
-          aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
+          aria-label={copy.openDeliverable(record.title)} aria-describedby={`made-details-${record.id} made-time-${record.id}`} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
           <span class="made-content">
             <span class="made-title">{copied().get(record.id)?.copied() ? copy.copied : record.title}</span>
             <span class="made-status" data-state={record.target.kind}>{status(record)}</span>
-            <span class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
-            <time class="made-details" datetime={new Date(record.published_at).toISOString()}>{copy.reactionWhen(new Date(record.published_at).toISOString())}</time>
+            <span id={`made-details-${record.id}`} class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
+            <time id={`made-time-${record.id}`} class="made-details" datetime={new Date(record.published_at).toISOString()}>{copy.reactionWhen(new Date(record.published_at).toISOString())}</time>
           </span>
           <Icon name="right" />
         </button>}</Tip>

@@ -1,4 +1,4 @@
-import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
+import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   terminalPreparationCancelled: sharedCopy.terminalPreparationCancelled,
@@ -21,13 +21,13 @@ export const copy = {
   close: sharedCopy.close,
   closeQuestion: sharedCopy.closeQuestion,
   rename: sharedCopy.rename,
-  terminalName: "Terminal name",
+  terminalName: sharedCopy.draftSurface("bubbles"),
   newTerminal: sharedCopy.newTerminal,
   terminals: "Terminals",
-  closeTerminal: (value1: CopyValue) => `Close ${value1}`,
+  closeTerminal: sharedCopy.closeView,
   copied: sharedCopy.copied,
   terminalOutcomeUnknown: sharedCopy.terminalOutcomeUnknown,
-  terminalOriginalWorkstreamUnavailable: "New Terminal: original Workstream unavailable",
+  terminalOriginalWorkstreamUnavailable: "The original Workstream is unavailable. Choose another before opening a Terminal.",
   terminalOpenAgainQuestion: "The earlier opening may have succeeded. Open another Terminal in the original Workstream?",
   closeTerminalWarning: "The Terminal and its output will be removed. Its running program will stop.",
   closeTerminalOutputWarning: "The Terminal and its output will be removed.",

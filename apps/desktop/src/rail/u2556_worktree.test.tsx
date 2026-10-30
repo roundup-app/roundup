@@ -4,6 +4,7 @@ import { afterEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { WorktreeControl } from "../changes/WorktreeControl";
+import { copy as changesCopy } from "../changes/copy";
 import { mountRail, rowOf, rowGlyph as glyphOf, settled } from "./railFixture";
 
 const worktree = { path: "/p/a", branch: "topic", base: "base" };
@@ -84,7 +85,7 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(count);
   finish({ ahead: 11, behind: 3, dirty: true, ci: { state: "running", stale: true }, pr: { number: 42, stale: false } });
   await screen.findByLabelText("11 ahead of Base");
-  await screen.findByText("11 ahead, 3 behind, dirty");
+  await screen.findByText(changesCopy.worktreeStateText(11, 3, true));
   expect(screen.getByLabelText("CI running, stale").dataset.state).toBe("running");
 
 
@@ -114,7 +115,7 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   expect(unavailable.dataset.state).toBe("unavailable");
   failed = false;
   setNow(100_000_000_015_000);
-  await screen.findByText("5 ahead, 2 behind");
+  await screen.findByText(changesCopy.worktreeStateText(5, 2, false));
   expect(screen.queryByRole("alert")).toBeNull();
 
 });

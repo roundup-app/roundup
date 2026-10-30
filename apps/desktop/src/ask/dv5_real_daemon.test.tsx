@@ -111,7 +111,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   connected.showView("made");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
-  const linkButton = await within(made).findByRole("button", { name: new RegExp(`^Open Failure link ·`) });
+  const linkButton = await within(made).findByRole("button", { name: new RegExp(`^Open Failure link$`) });
   // P3557c: a failure belongs to its record, so each row is read on its own.
   const rowOf = (button: HTMLElement) => button.closest("li")!;
   const count = within(made).getAllByRole("listitem").length;
@@ -124,7 +124,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   expect(within(made).getAllByRole("listitem")).toHaveLength(count);
   expect(opened).toEqual([{ kind: "url", url: "https://example.com/refused" }]);
 
-  const padButton = within(made).getByRole("button", { name: new RegExp(`^Open Failure Pad ·`) });
+  const padButton = within(made).getByRole("button", { name: new RegExp(`^Open Failure Pad$`) });
   refusal = "native opener refused";
   fireEvent.click(padButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
@@ -140,7 +140,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   expect(within(rowOf(padButton)).getByRole("alert")).toBeDefined();
   expect(within(made).getAllByRole("listitem")).toHaveLength(count);
 
-  const fileButton = within(made).getByRole("button", { name: new RegExp(`^Open Cached file ·`) });
+  const fileButton = within(made).getByRole("button", { name: new RegExp(`^Open Cached file$`) });
   fireEvent.click(fileButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(opened).toHaveLength(3);
@@ -183,9 +183,9 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   reopened.showView("made");
   render(() => <ConnectedProjectContext.Provider value={reopened}><AskBar /></ConnectedProjectContext.Provider>);
   const catalogue = await screen.findByRole("region", { name: "Made" });
-  await within(catalogue).findByRole("button", { name: new RegExp(`^Open Failure Pad ·`) });
-  expect(within(catalogue).queryByRole("button", { name: new RegExp("^Open Cached file ·") })).toBeNull();
-  expect(within(catalogue).queryByRole("button", { name: new RegExp("^Open Failure link ·") })).toBeNull();
+  await within(catalogue).findByRole("button", { name: new RegExp(`^Open Failure Pad$`) });
+  expect(within(catalogue).queryByRole("button", { name: new RegExp("^Open Cached file$") })).toBeNull();
+  expect(within(catalogue).queryByRole("button", { name: new RegExp("^Open Failure link$") })).toBeNull();
 });
 
 
