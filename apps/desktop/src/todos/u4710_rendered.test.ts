@@ -106,6 +106,8 @@ it.each([true, false].flatMap(base => [1280, 1512].map(width => ({base, width}))
       await browser("press", "ArrowLeft");
       await browser("press", "Space");
       await wait("!!document.querySelector('.todo-row [role=alert]')");
+      await browser("mouse", "move", "1", "1");
+      await wait("!Array.from(document.querySelectorAll('[role=tooltip]')).some(element => element.checkVisibility())");
       await shot("failure");
     }
 
