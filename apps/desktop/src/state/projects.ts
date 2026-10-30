@@ -3,7 +3,7 @@ import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
 import { outcomeOf, retryRead, RpcError } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { storageSchema, storedValue } from "./storage";
 
 /** One open Project as the strip shows it: `generation` counts reopens, so a new Daemon's connection replaces the old one whole. */

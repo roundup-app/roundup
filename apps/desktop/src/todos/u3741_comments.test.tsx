@@ -17,7 +17,8 @@ const USER_ACTOR: Actor = { kind: "user", id: "you", parent: null };
 const line = (id: number, author: Actor, body: string, read = true): Comment => ({ id, author, body, created_at: id * 60_000, read });
 
 const open = async () => {
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^Idle #1 / }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: /^Idle #1 / }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   await within(panel()).findByRole("region", { name: /^Comments · / });
 };
 

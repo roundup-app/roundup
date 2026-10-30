@@ -42,7 +42,7 @@ it.each(["list", "agent-list", "drawer"].flatMap(surface => [false].map(done => 
 
   if (done) fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
-  if (surface === "drawer") fireEvent.keyDown(await screen.findByRole("button", { name: `${done ? "Done" : "Idle"} #1 ship` }), { key: "Enter" });
+  if (surface === "drawer") { const focusedRow = await screen.findByRole("button", { name: `${done ? "Done" : "Idle"} #1 ship` }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
   const area = surface === "drawer" ? within(document.querySelector<HTMLElement>(".drawer")!) : screen;
   const box = await area.findByRole<HTMLInputElement>("checkbox", { name: `${done ? "Reopen" : "Complete"} ship` });

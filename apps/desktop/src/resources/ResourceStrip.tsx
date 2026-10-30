@@ -1,6 +1,6 @@
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { ReservedLine } from "../ink/ReservedLine";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";

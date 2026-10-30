@@ -6,7 +6,7 @@ import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "sol
 import type { Accessor } from "solid-js";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { Worktree } from "@contracts/agent/Worktree";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { failureOf } from "../todos/failureOf";

@@ -1,7 +1,7 @@
 import { createSignal, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import { outcomeOf } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";

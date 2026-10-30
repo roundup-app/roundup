@@ -135,7 +135,8 @@ it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async plac
     fireEvent.click(screen.getByRole("button", { name: "Add Pad", hidden: true }));
     field = screen.getByLabelText("Pad name");
   } else {
-    fireEvent.keyDown(rows[0]!, { key: "Enter" });
+    rows[0]!.focus();
+    fireEvent.keyDown(rows[0]!, { key: "Enter", code: "Enter" });
     await waitFor(() => expect(document.querySelector(".todo-detail-title .todo-editable p")).not.toBeNull());
     fireEvent.dblClick(document.querySelector(".todo-detail-title .todo-editable p")!);
     field = await screen.findByLabelText("Title");
@@ -223,4 +224,41 @@ it.each([false, true].flatMap(out => ["key", "menu"].map(source => ({ out, sourc
   captured.run();
   openProjectPage(`action:chord:${chord}`);
   expect(app.calls.filter(call => call.method === "todo.setBlockers")).toHaveLength(1);
+});
+
+it.each(["key", "menu"])("u3787b_todo_open_uses_the_focused_row: %s", async source => {
+  const { app, rows } = await open();
+  fireEvent.click(rows[1]!);
+  rows[0]!.focus();
+  const id = Number(rows[0]!.closest("[data-todo]")!.getAttribute("data-todo"));
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⏎")?.shortcut).toBe("⏎"));
+  expect(document.activeElement).toBe(rows[0]);
+  const reads = app.calls.filter(call => call.method === "todo.comments").length;
+
+  if (source === "key") fireEvent.keyDown(rows[0]!, { key: "Enter", code: "Enter" });
+  else openProjectPage("action:chord:⏎");
+
+  await waitFor(() => expect(app.calls.filter(call => call.method === "todo.comments").slice(reads).map(call => call.params)).toEqual([{ id }]));
+  expect(document.querySelectorAll(".todo-detail")).toHaveLength(1);
+});
+
+it.each(["key", "menu"])("u3787b_todo_rename_keeps_the_captured_row: %s", async source => {
+  const { app, rows } = await open();
+  fireEvent.click(rows[1]!);
+  rows[0]!.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
+  const target = rows[0]!.closest("[data-todo]");
+  const captured = captureActions(rows[0]!).find(action => action.keys === "F2")!;
+  expect(document.activeElement).toBe(rows[0]);
+
+  if (source === "key") fireEvent.keyDown(rows[0]!, { key: "F2", code: "F2" });
+  else openProjectPage("action:chord:F2");
+
+  const field = await screen.findByRole("textbox", { name: "Name" });
+  expect(field.closest("[data-todo]")).toBe(target);
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(false));
+  captured.run();
+  openProjectPage("action:chord:F2");
+  expect(screen.getAllByRole("textbox", { name: "Name" })).toEqual([field]);
+  expect(app.calls.filter(call => call.method === "todo.update")).toEqual([]);
 });

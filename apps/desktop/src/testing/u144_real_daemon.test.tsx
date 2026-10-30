@@ -11,7 +11,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { useContext } from "solid-js";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";

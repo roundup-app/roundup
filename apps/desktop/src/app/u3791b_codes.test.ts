@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { outcomeOf, RpcError } from "./seam";
 import { clipboardFailure, readPaste } from "./clipboard";
 import { pasteEvent, imageFile } from "../testing/clipboard";
