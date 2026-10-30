@@ -1,7 +1,7 @@
 import { createSignal, For } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { Icon } from "../ink/Icon";
 import { Menu } from "../ui/Menu";

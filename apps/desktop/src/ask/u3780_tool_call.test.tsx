@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { ToolCall } from "@contracts/agent/ToolCall";
 import { agent, door, event } from "../testing/nodes";
 import { mountAskBar as mountQuietAskBar } from "./askFixture";

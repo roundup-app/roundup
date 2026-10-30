@@ -2,7 +2,7 @@ import type { ActivationSource } from "../keys/registry";
 import { batch, createComputed, createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { storageSchema, storedValue } from "../state/storage";
 import { createSlideLifetime } from "../ui/slideLifetime";
 

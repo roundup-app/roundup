@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { useSplitter } from "@ark-ui/solid/splitter";
 import { createEffect, createSignal, createUniqueId, on, onCleanup, onMount, type JSX } from "solid-js";
 import type { Side } from "../resize/widths";

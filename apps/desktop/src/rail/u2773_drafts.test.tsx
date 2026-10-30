@@ -177,7 +177,7 @@ it("u2773b_rail_out_of_order_name_replies_keep_new_work", async () => {
 
 it("u2773a_rail_recovery_keeps_selection_when_submission_settles", async () => {
   const { RpcError } = await import("../app/seam");
-  const { copy } = await import("../copy");
+  const { copy } = await import("./copy");
   const { waitFor } = await import("@solidjs/testing-library");
   const mounted = await mountRail([workstream("w")]);
   let refuse!: (error: Error) => void;

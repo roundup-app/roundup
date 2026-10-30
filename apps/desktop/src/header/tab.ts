@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** What the strip knows of one open Project (U179); the App derives it from the tab and the Project's live Rail. */
 export type StripTab = {

@@ -1,5 +1,5 @@
 import type { App } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { NativeAlert } from "../ui/NativeAlert";
 import type { StripTab } from "./tab";
 
