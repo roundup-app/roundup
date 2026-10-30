@@ -370,14 +370,11 @@ async fn nr6_instant_fires_once_and_survives_reopen() {
     assert_eq!(saved.observation.health, "waiting");
     assert!(messages(&s.user, &s.w, "it is time").await.is_empty());
 
-    let mut fired = saved.clone();
-    for _ in 0..100 {
-        fired = made(&s.user, "reaction.get", json!({ "id": saved.id })).await;
-        if !fired.firings.is_empty() {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
+    let fired = super::daemon::h21_poll("the instant reaction's durable firing", async || {
+        let current = made(&s.user, "reaction.get", json!({ "id": saved.id })).await;
+        (!current.firings.is_empty()).then_some(current)
+    })
+    .await;
     assert_eq!(fired.firings.len(), 1);
     assert!(fired.firings[0].matched);
     let evidence: Value = serde_json::from_str(&fired.firings[0].evidence).unwrap();
