@@ -954,6 +954,8 @@ export const copy = {
   triage: "Triage",
   triageKeys: "Triage keys",
   triageEnter: "Triage Todos",
+  moveTo: "Move to…",
+  moveToInRail: "Move to… (M · Rail row)",
   triageMove: "Move",
   triageAssign: "Assign",
   triageWorkstream: "Workstream",
