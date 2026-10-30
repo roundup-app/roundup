@@ -32,7 +32,7 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
   return <li class="inbox-item" data-row={props.row.key} data-arrived={props.row.arrived ? "" : undefined}>
     <Collapsible.Root open={props.open} onOpenChange={props.toggle} lazyMount unmountOnExit>
       <div class="inbox-head">
-        <Collapsible.Trigger data-button="quiet" class="inbox-row" data-selected={props.selected} ref={props.head}>
+        <Collapsible.Trigger data-button="quiet" class="inbox-row" data-selected={props.selected} data-overview-item={node().id + ":" + node().attempt + ":" + node().status_revision} ref={props.head}>
           <KindGlyph kind={node().status?.kind ?? "idle"} />
           <span id={name} class="inbox-row-name">{node().name}</span>
         </Collapsible.Trigger>

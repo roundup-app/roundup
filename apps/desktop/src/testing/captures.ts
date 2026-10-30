@@ -81,7 +81,7 @@ const observerTable = {
   "src/settings/u4277_rendered.test.ts": ["U4277a", "U4277b", "U4277c"],
   "src/shelf/u371_reserved_modes.test.ts": ["U2892"],
   "src/shelf/u3787c_browser.test.ts": ["U3787c"],
-  "src/shelf/u3789_browser.test.ts": { ids: ["U3800a"], aliases: {} },
+  "src/shelf/u3789_browser.test.ts": { ids: ["U3800a", "U4908", "U4708"], aliases: {} },
   "src/shelf/u4463_browser.test.ts": ["U4463"],
   "src/state/u3787f_storage_browser.test.ts": ["U3787f"],
   "src/state/u4086_storage_browser.test.ts": ["U4086a", "U4086b", "U4086c", "U4086d"],
@@ -133,6 +133,7 @@ export function captureTests(selection: string | undefined) {
   // Shared observers gate on a lead id or write each member's directory. Activate
   // the complete group so an individually requested member cannot silently skip.
   const groups = [
+    ["U4708", "U4908"],
     ["U3295a", "U3295b"],
     ["U3299a", "U3299b", "U3299c", "U3299d"],
     ["U4277a", "U4277b", "U4277c"],

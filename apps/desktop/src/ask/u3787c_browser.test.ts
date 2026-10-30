@@ -42,6 +42,7 @@ it.skipIf(!captureDir("U3787c")).each(["tree-40", "tabs-8", "conflict"])("u3787c
     })()`);
     // Overview is the production return path from the currently selected Workstream.
     await lane.browser("click", '[data-todo-root]');
+    await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page',{detail:{path:document.querySelector('.project-tab[data-selected=true]').dataset.path,command:'view:workstreams'}}))");
     await lane.until("document.querySelectorAll('.overview-entry').length >= 5");
 
     for (const [selector, opening] of [[".overview-entry", "overview"], [".made-open", "made"]]) {

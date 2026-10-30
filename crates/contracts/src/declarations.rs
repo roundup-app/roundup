@@ -78,13 +78,13 @@ declarations! { $;
         "agent.setModel": contracts::agent::SetModelParams => contracts::agent::RailNode, rpc_agent_set_model, none();
     }
     todos_methods["todo"] {
-        "todo.create": contracts::todo::CreateParams => contracts::todo::Todo, rpc_todo_create, all(schema(contracts::todo::CreateParams,"Create a Todo."));
+        "todo.create": contracts::todo::CreateParams => contracts::todo::Todo, rpc_todo_create, all(schema(contracts::todo::CreateParams,"Create a Todo. Optional priority: low, medium, high or urgent; omitted/null is unset."));
         "todo.get": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_get, all(schema(contracts::todo::TodoId,"Read one Todo."));
         "todo.listHanded": () => Vec<contracts::todo::Handed>, rpc_todo_list_handed, none();
         "todo.getHistory": contracts::todo::TodoId => contracts::todo::History, rpc_todo_get_history, none();
         "todo.readHistory": contracts::todo::ReadHistoryParams => (), rpc_todo_read_history, none();
         "todo.list": () => Vec<contracts::todo::Todo>, rpc_todo_list, all(empty("List every Todo."));
-        "todo.update": contracts::todo::UpdateParams => contracts::todo::Todo, rpc_todo_update, all(schema(contracts::todo::UpdateParams,"Change a Todo's title or body."));
+        "todo.update": contracts::todo::UpdateParams => contracts::todo::Todo, rpc_todo_update, all(schema(contracts::todo::UpdateParams,"Change a Todo's title, body or priority. Priority: low, medium, high or urgent; omitted preserves it, null clears it."));
         "todo.complete": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_complete, all(schema(contracts::todo::TodoId,"Mark a Todo done."));
         "todo.reopen": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_reopen, all(schema(contracts::todo::TodoId,"Reopen a done Todo."));
         "todo.setBlockers": contracts::todo::SetBlockersParams => contracts::todo::Todo, rpc_todo_set_blockers, all(schema(contracts::todo::SetBlockersParams,"Replace a Todo's whole blocker list."));
@@ -183,7 +183,7 @@ declarations! { $;
         "agent.skills": contracts::agent::NodeId => contracts::agent::Skills, rpc_agent_skills, none();
         "agent.digest": contracts::agent::NodeId => contracts::agent::Digest, rpc_agent_digest, door(custom(agent_digest()));
         "agent.wake": contracts::agent::WakeParams => contracts::agent::Woken, rpc_agent_wake, all(custom(agent_wake()));
-        "reaction.create": contracts::reaction::CreateParams => contracts::reaction::Reaction, reaction_call, all(schema(contracts::reaction::CreateParams,"Save a named instruction that a declared condition (named Agents finished, a PR's checks passed, or one instant) delivers once to a target Agent as a Message. Needs an `operation` retry key, an `expires_at` and a target that is you or in your Reach; the definition is immutable, so to change it stop it and create another. A refusal saves nothing."));
+        "reaction.create": contracts::reaction::CreateParams => contracts::reaction::Reaction, reaction_call, all(schema(contracts::reaction::CreateParams,"Save a named instruction that a declared condition (named Agents finished, a PR's checks passed, or one instant) delivers once to a target Agent as a Message. Creates immediately without approval, recording you as the authenticated maker. Needs a nonempty one-line `reason` explaining why it is needed (separate from the delivered instruction), an `operation` retry key, an `expires_at` and a target that is you or in your Reach; the definition is immutable, so to change it stop it and create another. A refusal saves nothing."));
         "reaction.preview": contracts::reaction::PreviewParams => contracts::reaction::Preview, reaction_call, all(schema(contracts::reaction::PreviewParams,"Resolve a date, time and UTC offset to the exact `instant` condition `at` and its UTC instant, before creating a time reaction. Saves nothing."));
         "reaction.list": () => Vec<contracts::reaction::Reaction>, reaction_call, all(empty("List the reactions you authorized."));
         "reaction.get": contracts::reaction::ReactionId => contracts::reaction::Reaction, reaction_call, all(schema(contracts::reaction::ReactionId,"Read one reaction you authorized."));

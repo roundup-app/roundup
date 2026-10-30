@@ -5,6 +5,12 @@ fail-fast = false
 # lane's job summary (`tools/e14/observe.py`). Custom profiles inherit it.
 retries = 1
 
+# The real debug repair runs pnpm install, which replaces shared package executables.
+# No other test may launch a package while that repair is rewriting node_modules.
+[[profile.default.overrides]]
+filter = 'package(rup) & binary(debug_checkpoint) & test(=a4691b_missing_debug_runtime_is_repairable)'
+threads-required = 'num-test-threads'
+
 # Tests that assert a product's upper bound on real elapsed time each run alone: no other test shares the
 # runner's CPUs while one is timed. They start first, so the wait for a free runner is paid before the rest.
 # A test belongs here when it asserts that a real (not paused) clock stayed under a bound the product promises;

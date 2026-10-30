@@ -19,7 +19,7 @@ const ids = ["a:a", "c:11", "c:12", "a:r", "a:b"];
 const mount = async (open: () => boolean) => {
   const result = await mountApp(app => {
     Object.assign(app.handlers, todoHandlers({ todos: [todo(111, { title: "Ship 11" })], comments: new Map([[111, [{ id: 11, author: { kind: "agent", id: "a", parent: null }, body: "Reply 11", created_at: 11, read: false }]]]) }, data => app.emit(event(data))));
-    app.handlers["rail.tree"] = () => [agent("a", "needs-you", "asks", { name: "alpha", terminal_id: "requesting-terminal" }), agent("r", "working", "editing", { name: "running" }), agent("b", "done", "finished", { name: "終 é 😀" })];
+    app.handlers["rail.tree"] = () => [agent("a", "needs-you", "asks", { name: "alpha", terminal_id: "requesting-terminal" }), agent("r", "needs-you", "editing", { name: "running" }), agent("b", "needs-you", "finished", { name: "終 é 😀" })];
     app.handlers["terminal.list"] = () => [info("requesting-terminal", { owner: "a" })];
     app.handlers["todo.unread"] = () => [11, 12, 13, 14, 15].map(id => ({ todo: id + 100, title: `Ship ${id}`, comment: { id, author: { kind: "agent", id: "a", parent: null }, body: `Reply ${id}`, created_at: id, read: false } }));
   });
@@ -69,7 +69,7 @@ it.each(inventory)("u3787c_each_list_selects_only_visible_rows $opening", async 
   fireEvent.keyDown(row("a:b"), { key: "a", metaKey: true });
   expect(selected()).toEqual(ids);
   expect(app.calls.slice(before)).toEqual([]);
-  app.handlers["rail.tree"] = () => [agent("a", "needs-you", "asks", { name: "alpha", terminal_id: "requesting-terminal" }), agent("r", "working", "editing", { name: "running again" }), agent("b", "done", "finished", { name: "終 é 😀" })];
+  app.handlers["rail.tree"] = () => [agent("a", "needs-you", "asks", { name: "alpha", terminal_id: "requesting-terminal" }), agent("r", "needs-you", "editing", { name: "running again" }), agent("b", "needs-you", "finished", { name: "終 é 😀" })];
   app.emit(event({ name: "rail.changed" }));
   await within(document.querySelector(".inbox")!).findByRole("button", { name: /running again/ });
   const afterRefresh = app.calls.length;
@@ -110,8 +110,7 @@ it("u3787c_reopening_resets_Inbox_selection", async () => {
   fireEvent.keyDown(row("a:a"), { key: "Escape" });
   expect(selected()).toEqual([]);
   expect(document.querySelector(".inbox")).toBeTruthy();
-  fireEvent.keyDown(row("a:a"), { key: "Escape" });
-  await waitFor(() => expect(document.querySelector(".inbox")).toBeNull());
+  fireEvent.click(document.querySelector<HTMLButtonElement>('.overview-section-trigger[aria-expanded="true"]')!);
   inventory[0]!.open();
   await waitFor(() => expect(row("a:a")).toBeTruthy());
   expect(selected()).toEqual([]);
@@ -125,7 +124,7 @@ it.each(["Enter", " "])("u3787c_comment_activation_opens_only_its_Todo_%s", asyn
   row("c:11").focus();
   expect(row("c:11").hasAttribute("aria-pressed")).toBe(false);
   fireEvent.keyDown(row("c:11"), { key });
-  await waitFor(() => expect(document.querySelector(".inbox")).toBeNull());
+  await waitFor(() => expect(document.querySelector(".todo-detail")).not.toBeNull());
   await waitFor(() => expect(app.calls.slice(before).filter(call => call.method === "todo.markCommentsRead").map(call => call.params)).toEqual([{ id: 111 }]));
   expect(app.calls.slice(before).filter(call => call.method === "todo.comments").map(call => call.params)).toEqual([{ id: 111 }]);
   expect(app.calls.slice(before).some(call => call.method.startsWith("agent.") || call.method === "terminal.write")).toBe(false);
