@@ -14,6 +14,7 @@ export const storageCopy = {
 export const copy = {
   projectNoLongerOpen: "Project is no longer open",
   terminalOutcomeUnknown: sharedCopy.terminalOutcomeUnknown,
+  changeDidNotApply: (name: string) => `The change to ${name} did not apply.`,
   keep: sharedCopy.keep,
   newWorkstreamTitle: sharedCopy.newWorkstreamTitle,
   worktreeReadUnavailable: sharedCopy.worktreeReadUnavailable,

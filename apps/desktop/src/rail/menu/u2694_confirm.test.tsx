@@ -153,7 +153,7 @@ describe("u2694 the Rail's menu actions", () => {
 
   it("u2694b_another_remove_error_shows_the_failure_line", async () => {
     const { app } = await mountRail([agent("a", "idle", "idle")]);
-    app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32603, "cannot remove"));
+    app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32003, "cannot remove"));
 
     open("a");
     await app.pickMenu("Remove");

@@ -68,6 +68,8 @@ export type Controls = {
   actAs(actor: Actor): void;
   /** Makes the next `rpc` call, whatever its method, reject with `code` and `message`. */
   failNext(code: number, message: string): void;
+  /** The error a Daemon refusal throws, for a handler that must refuse one method. */
+  refusal(code: number, message: string): Error;
 };
 
 const statusAt = (now: number, kind: Kind, label: string, minutesAgo: number) => ({
@@ -478,6 +480,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     writeOutput: (terminalId, text) => {
       write(terminalId, text);
     },
+    refusal: (code, message) => new RpcError(code, message),
     failNext: (code, message) => {
       failure = new RpcError(code, message);
     },

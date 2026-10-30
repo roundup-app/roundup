@@ -1,3 +1,4 @@
+import { applying } from "../app/pending";
 import type { Deletion as RailDeletion } from "@contracts/agent/Deletion";
 import { createSignal } from "solid-js";
 import { copy } from "./copy";
@@ -111,13 +112,16 @@ export function createTodoUndo() {
       let receipt = retry ? await app.rpc("rail.deletion", { project: chosen.project, operation: chosen.operation }) : null;
 
       if (!receipt) {
-        try { receipt = await app.rpc("rail.remove", { id: chosen.id, operation: chosen.operation }); }
-        catch (error) {
+        const removed = await applying(() => app.rpc("rail.remove", { id: chosen.id, operation: chosen.operation }));
+
+        if (removed.kind === "applied") receipt = removed.value;
+        else {
+          const error = removed.error;
           const observed = await app.rpc("rail.deletion", { project: chosen.project, operation: chosen.operation });
 
           if (observed) receipt = observed;
           else {
-            if (outcomeOf(error) === "failed") setRailPending(undefined);
+            if (removed.kind === "refused") setRailPending(undefined);
             throw error;
           }
         }

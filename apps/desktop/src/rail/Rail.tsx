@@ -3,6 +3,7 @@ import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "../app/FirstRun";
 import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
+import { applying } from "../app/pending";
 import { captureFocus } from "../keys/focus";
 import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -876,8 +877,14 @@ export const Rail = () => {
                           }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
-                            await app.rpc("rail.rename", { id: view().node.id, name });
-                            failure.acknowledge(view().node.id);
+                            const id = view().node.id;
+                            const base = view().node.name;
+                            const result = await applying(() => app.rpc("rail.rename", { id, name }));
+
+                            if (result.kind === "refused") throw result.error;
+
+                            if (result.kind === "pending") rail.hold(id, { kind: "rename", asked: name, base });
+                            failure.acknowledge(id);
                           }}
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
