@@ -175,7 +175,17 @@ pub(crate) fn text(nodes: &[RailNode], context: &Context) -> String {
     let door = nodes
         .iter()
         .any(|node| node.id == context.ask.to && node.kind == NodeKind::Workstream);
-    words(context, door)
+    let mut text = words(context, door);
+    let mut parent = context.parent.as_ref().map(|parent| parent.id.as_str());
+    while let Some(node) = parent.and_then(|id| nodes.iter().find(|node| node.id == id)) {
+        if node.kind == NodeKind::Workstream {
+            text.push_str(&format!("\n\nWorkstream: {}.\n\n", node.name));
+            text.push_str(agents::claude_code::WORKSTREAM_GUIDANCE);
+            break;
+        }
+        parent = node.parent.as_deref();
+    }
+    text
 }
 
 #[cfg(test)]
@@ -378,6 +388,39 @@ mod tests {
         for id in ["4", "5", "99"] {
             let err = compose(&rail(), &[], id).unwrap_err();
             assert_eq!(err.code, rpc::code::NOT_FOUND, "{id}");
+        }
+    }
+
+    #[test]
+    fn e3_workstream_children_receive_guidance_only_in_start_context() {
+        let mut nodes = rail();
+        nodes.push(node("8", NodeKind::Agent, "free", None, false));
+        nodes.push(node("9", NodeKind::Agent, "nested", Some("2"), false));
+        nodes.push(node("10", NodeKind::Agent, "free child", Some("8"), false));
+        for (id, member) in [
+            ("2", true),
+            ("6", true),
+            ("9", true),
+            ("8", false),
+            ("10", false),
+            ("1", false),
+        ] {
+            let context = compose(&nodes, &[], id).unwrap();
+            let text = text(&nodes, &context);
+            assert_eq!(text.contains("two or more steps"), member, "{id}: {text}");
+            if member {
+                for rule in [
+                    "complete each",
+                    "handoff",
+                    "without approval",
+                    "reason",
+                    "end your turn",
+                    "never poll",
+                    "user moves win",
+                ] {
+                    assert!(text.contains(rule), "missing {rule}: {text}");
+                }
+            }
         }
     }
 
