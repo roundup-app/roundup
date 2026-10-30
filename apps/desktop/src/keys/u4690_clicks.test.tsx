@@ -121,14 +121,15 @@ const activate = async (keys: string, source: "key" | "pointer", leader = false)
     await waitFor(() => expect(leaderArmed()).toBe(true));
   }
 
-  const button = await waitFor(() => {
-    const found = document.querySelector<HTMLButtonElement>(`.hint-line [data-hint="${keys}"]`);
-    expect(found?.disabled).toBe(false);
+  const selector = `.hint-line [data-hint="${keys}"]`;
+  await waitFor(() => expect(document.querySelector<HTMLButtonElement>(selector)?.disabled).toBe(false));
 
-    return found!;
-  });
-
-  if (source === "pointer") { fireEvent.pointerDown(button); fireEvent.click(button); }
+  if (source === "pointer") {
+    // Focus settling can replace HintLine buttons before waitFor resumes; activate the connected one.
+    const button = document.querySelector<HTMLButtonElement>(selector)!;
+    fireEvent.pointerDown(button);
+    fireEvent.click(button);
+  }
   else {
     const row = leader ? LEADER.find(row => row.keys === keys)! : CHORDS.find(row => row.keys === keys)!;
     const parts = ("press" in row ? row.press : row.presses[0]!).split("+");
@@ -170,7 +171,7 @@ it.each(["A", "P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] 
 
     if (keys === "T") await screen.findByRole("textbox", { name: "Capture a Todo" });
 
-    if (keys === "I") await screen.findByRole("region", { name: "Inbox" });
+    if (keys === "I") await screen.findByRole("region", { name: "Needs you" });
     expect(leaderArmed()).toBe(false);
     expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
   },
