@@ -193,13 +193,9 @@ impl Git {
         result
     }
 
-    fn reference(&self, project: &Path, reference: &str) -> Result<Option<String>, RpcError> {
+    pub(super) fn reference(&self, dir: &Path, name: &str) -> Result<Option<String>, RpcError> {
         let output = self
-            .output(
-                project,
-                &["show-ref", "--verify", "--hash", reference],
-                None,
-            )
+            .output(dir, &["show-ref", "--verify", "--hash", name], None)
             .map_err(failed)?;
         if output.status.success() {
             return Ok(Some(String::from_utf8_lossy(&output.stdout).trim().into()));
@@ -209,19 +205,19 @@ impl Git {
         }
         // show-ref reports an absent exact ref as 128 on older Git versions.
         if !self
-            .run(project, &["for-each-ref", "--format=%(refname)", reference])
+            .run(dir, &["for-each-ref", "--format=%(refname)", name])
             .map_err(failed)?
             .lines()
-            .any(|line| line == reference)
+            .any(|line| line == name)
         {
             return Ok(None);
         }
         Err(failed(String::from_utf8_lossy(&output.stderr)))
     }
 
-    fn update_refs(&self, project: &Path, input: &str) -> Result<(), RpcError> {
+    fn update_refs(&self, dir: &Path, input: &str) -> Result<(), RpcError> {
         let output = self
-            .output(project, &["update-ref", "--stdin"], Some(input))
+            .output(dir, &["update-ref", "--stdin"], Some(input))
             .map_err(failed)?;
         if !output.status.success() {
             return Err(failed(String::from_utf8_lossy(&output.stderr)));
