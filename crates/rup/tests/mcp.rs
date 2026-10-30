@@ -1228,10 +1228,18 @@ async fn m5159c_no_checkpoint_surface_remains() {
     let shim = spawn_shim(&socket, "a1").await;
     let tools = shim.client.list_all_tools().await.unwrap();
     let methods: Vec<_> = contracts::methods::METHODS.iter().map(|m| m.name).collect();
-    for gone in ["checkpoint_write", "checkpoint_list", "workstream_rewindPlan"] {
+    for gone in [
+        "checkpoint_write",
+        "checkpoint_list",
+        "workstream_rewindPlan",
+    ] {
         assert!(tools.iter().all(|tool| tool.name != gone), "{gone}");
     }
-    for gone in ["checkpoint.write", "checkpoint.list", "workstream.rewindPlan"] {
+    for gone in [
+        "checkpoint.write",
+        "checkpoint.list",
+        "workstream.rewindPlan",
+    ] {
         assert!(!methods.contains(&gone), "{gone}");
     }
 }
