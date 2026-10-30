@@ -1,6 +1,6 @@
-/* U4898: three creation rows retain the existing footer row height. */
+/* U4313b: keep the Terminal bar and its overlays at one footer row; stacked Rail actions size themselves. */
 :root {
-  --rail-actions-height: calc((var(--space-5) + var(--space-4)) * 3);
+  --rail-actions-height: calc(var(--space-5) + var(--space-4));
 }
 
 /* U391: the footer is the Rail's last child, outside the scrolling list, and reaches both of the Rail's edges (the Rail's own padding is the list's). One hairline above it (D8). */
@@ -10,7 +10,7 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: space-between;
-  height: var(--rail-actions-height);
+  height: auto;
   box-sizing: border-box;
   background: var(--sunken);
   padding-inline: var(--space-4);
@@ -21,8 +21,8 @@
 
 .rail-actions button {
   justify-content: flex-start;
-  min-height: 0;
-  flex: 1;
+  min-height: var(--space-6);
+  flex: none;
   gap: var(--space-3);
   --button-lead: 0;
   --button-inline: 0;
