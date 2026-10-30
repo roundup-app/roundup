@@ -287,7 +287,10 @@ fn sequence_hints(items: &[Item]) -> Vec<(String, String)> {
             }
             item.shortcut
                 .as_ref()
-                .filter(|shortcut| shortcut.starts_with("⌘K "))
+                .filter(|shortcut| {
+                    shortcut.starts_with("⌘K ")
+                        || (item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']))
+                })
                 .map(|shortcut| (item.label.clone(), shortcut.clone()))
                 .into_iter()
                 .collect()
@@ -720,7 +723,10 @@ mod tests {
             .unwrap();
             assert_eq!(plain(built).text().unwrap(), source.label);
             assert_eq!(hint, [(vec![], key.into())]);
-            assert_eq!(sequence_hints(&[source]), [("Run action".into(), key.into())]);
+            assert_eq!(
+                sequence_hints(&[source]),
+                [("Run action".into(), key.into())]
+            );
         }
     }
 
