@@ -95,11 +95,33 @@ def inventory(content, filename, matching=False):
                 seen.add(name)
                 for part in ast.walk(tree):
                     relevant = isinstance(part, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and part.name == name
-                    relevant = relevant or isinstance(part, (ast.Import, ast.ImportFrom)) and any((alias.asname or alias.name.split('.')[0]) == name for alias in part.names)
-                    relevant = relevant or isinstance(part, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.NamedExpr)) and any(isinstance(item, ast.Name) and item.id == name for target in (part.targets if isinstance(part, ast.Assign) else [part.target]) for item in ast.walk(target))
+                    relevant = relevant or isinstance(part, (ast.Import, ast.ImportFrom)) and any(
+                        (alias.asname or alias.name.split('.')[0]) == name for alias in part.names)
+                    if isinstance(part, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+                        targets = part.targets if isinstance(part, ast.Assign) else [part.target]
+                        relevant = relevant or any(isinstance(item, ast.Name) and item.id == name
+                                                   for target in targets for item in ast.walk(target))
+                    if isinstance(part, ast.Expr) and isinstance(part.value, ast.Call):
+                        call = part.value
+                        inputs = [*call.args, *[keyword.value for keyword in call.keywords]]
+                        if isinstance(call.func, ast.Attribute):
+                            inputs.append(call.func.value)
+                        relevant = relevant or any(isinstance(item, ast.Name) and item.id == name
+                                                   for value in inputs for item in ast.walk(value))
                     if relevant:
                         extra_dependencies.add(ast.get_source_segment(content, part))
                         pending.extend(item.id for item in ast.walk(part) if isinstance(item, ast.Name))
+                        ancestor = parents.get(part)
+                        while ancestor is not None:
+                            # Branch/loop inputs select the observed assignment;
+                            # hashing only its value would authorize a different observation.
+                            for field in ('test', 'iter', 'target', 'items', 'type', 'subject', 'pattern', 'guard'):
+                                value = getattr(ancestor, field, None)
+                                for header in value if isinstance(value, list) else [value]:
+                                    if isinstance(header, ast.AST):
+                                        extra_dependencies.add(ast.dump(header, include_attributes=False))
+                                        pending.extend(item.id for item in ast.walk(header) if isinstance(item, ast.Name))
+                            ancestor = parents.get(ancestor)
             extra_dependencies = sorted(extra_dependencies)
             # Unchanged statements anchor the assertion on both sides. Insertions or
             # replacements elsewhere may shift lines; crossing an existing anchor is a move.
