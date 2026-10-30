@@ -22,7 +22,7 @@ const open = async (pads = false) => {
   await showEverythingInApp();
 
   if (pads) {
-    fireEvent.click(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: /^Pads/ }));
+    fireEvent.click(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /^Pads/ }));
     await waitFor(() => expect(document.querySelector(".shelf .pad-name")).not.toBeNull());
 
     for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
