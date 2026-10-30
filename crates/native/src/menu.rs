@@ -129,8 +129,8 @@ define_class!(
 );
 
 // A zero-height accessory supplies the actual menu window through AppKit's
-// documented item-view lifecycle. Action rows keep view == nil. Window-update
-// notifications do not reliably arrive while native menus track.
+// documented item-view lifecycle. Action rows keep view == nil, and attachment
+// requires no window-update notification during native tracking.
 define_class!(
     #[unsafe(super(NSView))]
     #[thread_kind = MainThreadOnly]
