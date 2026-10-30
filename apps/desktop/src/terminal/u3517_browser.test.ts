@@ -749,11 +749,11 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await read("window.__observedEmulator=null");
         await capture("new-agent");
       } else if (seed === "tree-40") {
-        await read("document.querySelector('.shelf [aria-label=\"Close work items\"]').click()");
+        await read("document.querySelector('.shelf [aria-label=\"Close the Bench\"]').click()");
         await wait("document.querySelector('.window')?.dataset.shelf==='closed'");
         await capture("shelf-closed");
         await browser("press", "Meta+k");
-        await browser("press", "s");
+        await browser("press", "b");
         await wait("!!document.querySelector('.shelf')");
         await capture("shelf-open");
         await browser("click", "#shelf-tab-pads");
