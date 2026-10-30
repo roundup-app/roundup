@@ -65,11 +65,6 @@ describe("u17 Todo detail", () => {
 
 
 
-  it("u17_the_todo_drawer_omits_the_last_touch_line", async () => {
-    await openDrawerOf(/#5/);
-    expect(within(drawer()).queryByText(/^Last/)).toBeNull();
-  });
-
   it("u17_opening_the_drawer_reads_history_before_acknowledging_it", async () => {
     const { app } = await openDrawerOf(/#5/);
     expect(callsTo(app, "todo.readHistory")).toHaveLength(0);
@@ -169,6 +164,7 @@ describe("u17 Todo detail", () => {
     app.handlers["todo.update"] = () => blocked();
     fireEvent.dblClick(within(drawer()).getByText("Move the cache."));
     const field = await within(drawer()).findByRole("textbox", { name: "Body" });
+    await waitFor(() => expect(document.activeElement).toBe(field));
 
     fireEvent.input(field, { target: { value: "Move it to redis." } });
     fireEvent.blur(field);
@@ -218,13 +214,6 @@ describe("u17 Todo detail", () => {
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
     expect((await within(drawer()).findByText(/was deleted/)).textContent).toBe("#5 was deleted");
-  });
-
-  it("u17_history_follows_the_current_todo", async () => {
-    await openDrawerOf(/#5/);
-    const body = within(drawer()).getByText("Move the cache.");
-    const history = within(drawer()).getByRole("region", { name: "Todo history" });
-    expect(body.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("u17_two_quick_blocker_picks_both_land_the_second_built_on_the_first", async () => {

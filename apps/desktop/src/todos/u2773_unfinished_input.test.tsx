@@ -44,6 +44,7 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("base"));
   const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
   const text = "  e\u0301 🧪\nnext line  ";
   fireEvent.input(field, { target: { value: text } });
   field.setSelectionRange(2, 5, "backward");
@@ -91,10 +92,13 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   fireEvent.dblClick(within(drawer).getByText("base"));
-  fireEvent.input(screen.getByRole("textbox", { name: "Body" }), { target: { value: "  A\n🧪  " } });
+  const first = screen.getByRole("textbox", { name: "Body" });
+  await waitFor(() => expect(document.activeElement).toBe(first));
+  fireEvent.input(first, { target: { value: "  A\n🧪  " } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.dblClick(within(drawer).getByText("base"));
   const newer = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  await waitFor(() => expect(document.activeElement).toBe(newer));
 
   fireEvent.input(newer, { target: { value: "  B\nnewer  " } });
 
