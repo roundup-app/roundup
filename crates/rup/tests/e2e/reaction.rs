@@ -6,7 +6,7 @@ use contracts::reaction::Reaction;
 use rpc::code;
 use serde_json::{Value, json};
 
-use super::daemon::storage::{PROJECT_V36, legacy_reaction};
+use super::daemon::storage::{PROJECT_V35, legacy_reaction};
 use super::wake::{STOP, WORK, drive, messages, notes, project_db, scene, start_again, still};
 use super::{actor, agent_in_as, client_as};
 
@@ -922,7 +922,7 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
         drop(s.user);
         s.project.crash();
         {
-            legacy_reaction(&s.project.data_dir().join("project.db"), PROJECT_V36[18]);
+            legacy_reaction(&s.project.data_dir().join("project.db"), PROJECT_V35[18]);
             if !manual_first {
                 let db = project_db(&s.project);
                 // NR3's crash between firing commit and Watch save: automatic replay must reuse it.

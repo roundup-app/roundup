@@ -1,3 +1,4 @@
+// T4902 removes the retired T29 migration; the same non-duration upgrade boundary is retained.
 //! U4454c, U4454d: no Time or Timeline reads or stores measurements.
 use rpc::{Client, code};
 use rusqlite::Connection;
@@ -33,7 +34,7 @@ async fn u4454c_the_daemon_serves_no_measurement_summary() {
 #[tokio::test]
 async fn u4454d_a_project_opens_without_measurement_tables() {
     let dir = tempfile::tempdir().unwrap();
-    let db = storage::project(dir.path(), 37);
+    let db = storage::project(dir.path(), 36);
     db.execute_batch(
         r#"INSERT INTO nodes(id,kind,name,ord) VALUES(1,'workstream','kept',0);
            INSERT INTO nodes(id,kind,name,parent,ord) VALUES(2,'agent','Kept Agent',1,0);
