@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../app/copy";
 import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -94,7 +95,7 @@ it("u2742c_targets_stay_eligible_in_the_current_project", async () => {
   // The dense sibling has eight private Terminals; none is eligible from runner.
   expect(await read(`([...document.querySelectorAll('.terminal-tab')].map(e => e.dataset.bubble))`)).toEqual(["102", "103"]);
   await read(`window.__fake.app.exitDaemon({code:1})`);
-  await wait(`document.body.textContent.includes('Daemon exited 1')`);
+  await wait(`document.body.textContent.includes(${JSON.stringify(appCopy.daemonExit("exited 1"))})`);
   const before = await read(`window.__fake.app.calls.length`);
   await key();
   expect(await read(`window.__fake.app.calls.length`)).toBe(before);

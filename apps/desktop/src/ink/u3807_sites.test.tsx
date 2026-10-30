@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../app/copy";
 import { copy } from "./copy";
 import { createFakeApp } from "../testing/fakeApp";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
@@ -346,7 +347,7 @@ it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message
     await cycle(surface, () => select("harbor"), () => { app.windowTitleHandler = null; select("alpha"); });
   } else if (site === "Daemon exit") {
     app.exitDaemon({ code: 1 });
-    const message = await within(surface).findByText(/Daemon exited/);
+    const message = await within(surface).findByText(new RegExp(appCopy.daemonExit("exited")));
     const place = message.closest<HTMLElement>(".reserved-line")!;
     fireEvent.click(within(place).getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
