@@ -63,7 +63,9 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
 /** Project-owned receipts, never client snapshots. The current connection may change; the operation does not. */
 export function createTodoUndo() {
   const [stack, setStack] = createSignal<({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] } | { kind: "rail"; receipt: RailDeletion; name: string })[]>([]);
+
   type Redo = ({ kind: "todos"; receipt: Deletion; operation: string } | { kind: "rail"; receipt: RailDeletion; name: string; operation: string }) & { state: "ready" | "unknown" };
+
   const [redoes, setRedoes] = createSignal<Redo[]>([]);
   const redoUnknown = () => redoes().at(-1)?.state === "unknown";
   const [pending, setPending] = createSignal(false);
@@ -111,6 +113,7 @@ export function createTodoUndo() {
         setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: chosen.name }]);
         setRedoes([]);
       }
+
       setRailPending(undefined);
       setVisible(true);
 
