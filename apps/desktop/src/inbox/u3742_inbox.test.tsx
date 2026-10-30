@@ -36,7 +36,7 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
 
   // Activating the row opens the Todo's Drawer, which marks it read, and the row leaves the Inbox.
   fireEvent.click(within(panel()).getByRole("button", { name: /builder commented on Ship/ }));
-  await screen.findByRole("region", { name: /^Comments · 1$/ });
+  await screen.findByRole("region", { name: "Activity" });
   await waitFor(() => expect(todoCallsTo(m.app, "todo.markCommentsRead").map((call) => call.params)).toEqual([{ id: 1 }]));
   m.app.emit({ actor: AGENT, name: "todo.commentsRead", data: { id: 1 } });
   m.connected.drawer.close();

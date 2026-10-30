@@ -124,7 +124,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
         } else field = await screen.findByRole("textbox", { name: "Workstream name" });
       } else {
         fireEvent.keyDown(row, { key: "Enter" });
-        await screen.findByRole("region", { name: "Todo history" });
+        await screen.findByRole("region", { name: "Activity" });
 
         if (opening === "Todo title") fireEvent.dblClick(document.querySelector('.todo-detail-title p[tabindex]')!);
 

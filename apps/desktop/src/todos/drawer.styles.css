@@ -38,7 +38,7 @@
 .todo-comments-live { position: absolute; width: var(--hairline-width); height: var(--hairline-width); overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; }
 /* U3775: a status line is a quiet button; its details show as plain text beneath it. */
 .todo-status { display: flex; flex-direction: column; gap: var(--space-1); }
-.todo-status-summary { align-self: flex-start; text-align: start; font: inherit; line-height: inherit; color: var(--text); margin-block: calc(var(--space-1) * -1); }
+.todo-status-summary { align-self: flex-start; text-align: start; font: inherit; line-height: inherit; color: var(--text); margin-block: 0; }
 .todo-status-summary::after { content: "▸" / ""; margin-inline-start: var(--space-1); }
 .todo-status-summary[aria-expanded="true"]::after { content: "▾" / ""; }
 .todo-status-details { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--grey); padding-inline-start: var(--space-3); }
@@ -47,8 +47,8 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 0;
-  border-radius: 0;
-  background: var(--transparent);
+  border-radius: var(--radius-control);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   resize: none;
@@ -150,3 +150,25 @@
 .todo-detail-body .todo-add-notes { margin-inline: var(--reading-gutter); }
 
 .drawer:has(.todo-header) .drawer-controls { z-index: var(--layer-popover); }
+
+.todo-activity-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.todo-activity-entries { display: flex; flex-direction: column; gap: var(--space-5); }
+.todo-activity-entries[hidden] { display: none; }
+.todo-change { display: flex; align-items: baseline; gap: var(--space-3); color: var(--grey); font-size: var(--text-small); }
+.todo-change p { margin: 0; }
+.todo-activity-dot { display: inline-block; flex: none; width: var(--space-1); height: var(--space-1); border-radius: var(--radius-round); background: var(--grey); margin-inline: var(--space-1); }
+.todo-comment { padding-inline-start: var(--space-5); }
+.todo-comment-head { font-size: var(--text-small); }
+.todo-comment-parts { font-size: var(--text-body); line-height: var(--line); }
+.todo-composer { display: flex; gap: var(--space-3); align-items: flex-start; margin-top: var(--space-3); }
+.todo-composer-actor { flex: none; color: var(--grey); font-size: var(--text-small); padding-top: var(--space-2); }
+.todo-comment-field { min-width: 0; min-height: calc(var(--line) * 3); line-height: var(--line); }
+.todo-comments .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; white-space: normal; }
+.todo-comments .ink[data-tone] { white-space: normal; overflow: visible; }
+.todo-comments { font-size: var(--text-title); }
+.todo-activity-head h3 { font-size: var(--text-body); }
+.todo-comment-head button { margin-inline-start: var(--space-3); }
+
+/* Recovery belongs after the composer, so it cannot cover a send failure. */
+.todo-draft-recovery[data-in-drawer] .reserved-line { max-width: var(--reading-width); padding-inline: var(--reading-gutter); }
+.todo-comments .reserved-content { align-items: flex-start; }

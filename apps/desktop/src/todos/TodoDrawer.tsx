@@ -1,6 +1,6 @@
 import { historyRegion } from "../keys/focus";
 import { outcomeOf } from "../app/seam";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, keepRegionFocus } from "../keys/focus";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { TodoHeader } from "./TodoHeader";
@@ -13,7 +13,6 @@ import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
 import { TodoComments } from "./TodoComments";
 import { TodoRefs } from "./TodoRefs";
-import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { useTodoList } from "./todoList";
@@ -115,6 +114,7 @@ export const TodoDrawer = (props: {
     return current && form ? { ...current, title: form.title, body: form.body, done: form.done, blockers: form.blockers.map(Number) } : current;
   };
 
+  let detail: HTMLDivElement | undefined;
   let titleRow: HTMLDivElement | undefined;
 
   const toggle = () => attempt(async () => {
@@ -254,15 +254,20 @@ export const TodoDrawer = (props: {
     setDeleteRefused(0);
     const id = props.id;
     const opening = drawer.content();
+    const focus = captureFocus();
     setDeleting(true);
-    void drafts.todoUndo.remove([id], `todo:${id}`).then(removed => {
+    void drafts.todoUndo.remove([id], `todo:${id}`).then(async removed => {
       if (removed) { setRemovedByMe(true);
+ await props.todos.reload();
 
  if (drawer.content() === opening) {
+   // Readback can remove the focused action; keep the Drawer owning its return.
+   if (document.activeElement === document.body) focus(() => detail?.focus({ preventScroll: true }));
    drawer.close("key");
 
    if (props.region) drafts.todoUndo.handoff(`todo:${id}`, props.region);
    queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
+   void keepRegionFocus(props.todos.reload, ".todo-row-button");
  } }
       else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());
       setDeleting(false);
@@ -271,7 +276,7 @@ export const TodoDrawer = (props: {
 
   return (
     <>
-      <div class="todo-detail" data-history-region={`todo:${props.id}`}>
+      <div class="todo-detail" tabIndex={-1} ref={detail} data-history-region={`todo:${props.id}`}>
         <Show when={todo()}>{current => <TodoHeader todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
         <ReservedLine class="todo-delete-feedback"
           aria-live={drafts.todoUndo.uncertain() ? undefined : "polite"} aria-atomic="true"
@@ -321,13 +326,12 @@ export const TodoDrawer = (props: {
                 </div>
                 <Show when={!props.recovery}><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
                 <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
-                <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} /></Show>
-                <Show when={!props.recovery}><TodoHistory id={props.id} saved={saved} onCapture={setCaptured} /></Show>
+                <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} onCapture={setCaptured} /></Show>
               </>
             )}
           </Show>
-      </div>
       <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
+      </div>
 
 
     </>
