@@ -14,6 +14,7 @@ const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 const open = async () => {
   const mounted = await mountTodos([todo(5, { title: "session store" }), todo(7, { title: "other" })], true);
   { const focusedRow = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   await within(drawer()).findByRole("button", { name: /^Blocked by/ });
 
   return mounted;
@@ -45,6 +46,7 @@ describe("u150 Todo deletion", () => {
     };
 
     { const focusedRow = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
     await within(drawer()).findByRole("button", { name: /^Blocked by/ });
     await remove();
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });

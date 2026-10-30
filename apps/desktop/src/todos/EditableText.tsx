@@ -135,6 +135,7 @@ export const EditableText = (props: {
   let savedFocus: ReturnType<typeof captureFocus> | undefined;
   createEffect(on(() => props.todo[props.name], () => {
     const focus = savedFocus;
+
     if (props.name === "body") return;
 
     savedFocus = undefined;
