@@ -221,7 +221,7 @@
   /* U357: one depth is a glyph and its gap, so a child's glyph sits under its parent's name. */
   --rail-step: var(--tree-step);
   /* The leading gap keeps every glyph clear of the tree's connecting lines. */
-  --rail-edge: var(--space-2);
+  --rail-edge: var(--space-3);
   /* Overview's space-3 inset plus space-1 tile padding. */
   --rail-inset: var(--space-4);
   --rail-slot: var(--space-5);
@@ -797,7 +797,18 @@
   text-overflow: clip;
 }
 
-.rail-section + .rail-section { margin-top: var(--rail-section-gap); }
+.rail-section + .rail-section { margin-top: var(--rail-section-gap); position: relative; }
+/* U5147b: one hairline centred in the gap, the root divider's span and paint. */
+.rail-section + .rail-section::before {
+  content: "";
+  position: absolute;
+  top: calc((var(--rail-section-gap) + var(--hairline-width)) / -2);
+  right: 0;
+  left: 0;
+  height: var(--hairline-width);
+  background-color: var(--hairline);
+  pointer-events: none;
+}
 .rail-section [data-part="branch-content"] { padding-inline-start: 0; }
 .rail .section-head[data-part="branch-control"] { color: var(--grey); }
 .rail .section-head:is(:hover, :focus-visible) { color: var(--text); }
@@ -805,38 +816,6 @@
 .opening-prompt-dialog form {
   display: grid;
   gap: var(--space-4);
-}
-
-/* Mode identity stays beside the truncated name; actions reserve their trailing space. */
-.mode-name {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-  gap: var(--space-2);
-}
-
-.mode-name .name {
-  flex: 0 1 auto;
-}
-
-.mode-mark {
-  display: inline-flex;
-  flex: none;
-  cursor: default;
-}
-
-.rail-row:has(.mode-mark) .row-icons {
-  position: static;
-  background: none;
-}
-
-.rail-row:has(.mode-mark) .row-icons::before {
-  content: none;
-}
-
-.rail-row:has(.mode-mark) .row-tail {
-  margin-inline-start: var(--space-4);
 }
 
 .rail .section-head { padding-inline: var(--space-4); }

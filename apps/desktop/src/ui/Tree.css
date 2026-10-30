@@ -39,7 +39,7 @@
 /* U4335a: both trees anchor connections to the same glyph box and Token step. */
 :root {
   --tree-step: var(--space-5);
-  --tree-origin: calc(var(--row-text-inset) - var(--space-4));
+  --tree-origin: calc(var(--row-text-inset) - var(--space-6));
   --tree-mid: calc(var(--space-6) / 2);
 }
 

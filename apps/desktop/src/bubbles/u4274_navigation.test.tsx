@@ -8,7 +8,7 @@ import { agent, door, info } from "../testing/nodes";
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
-// U4707: the tab bar reads the 32px --row-text-inset Token.
+// U4707: the tab bar reads the 44px --row-text-inset Token (U5147d).
 it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empty"].map(selection => ({ source, selection }))))("u4313a_bar_plus_opens_once_and_focuses: $source $selection", async ({ source, selection }) => {
   const { daemon, connected, shells, emulators } = await mountNavigation(selection === "empty");
 
@@ -30,7 +30,7 @@ it.each(["keyboard", "menu", "bar"].flatMap(source => ["home", "a1", null, "empt
   expect(document.querySelector('.terminal-tabs[role="group"]')).toBeTruthy();
 });
 
-// U4707: the tab bar reads the 32px --row-text-inset Token.
+// U4707: the tab bar reads the 44px --row-text-inset Token (U5147d).
 it("u4313a_empty_terminal_bar_keeps_new_terminal_available", async () => {
   const { connected, daemon, shells, emulators } = await mountNavigation(true);
   const portal = document.querySelector(".resource-agent");
