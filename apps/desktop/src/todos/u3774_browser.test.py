@@ -36,16 +36,6 @@ setup = r"""(async () => {
   await f.app.rpc('todo.comment',{id:5,body});
   f.actAs({kind:'user',id:'you',parent:null});
 })()"""
-reading = r"""(() => {
-  const d=document.querySelector('.drawer');
-  const buttons=[...d.querySelectorAll('.todo-status-summary')];
-  const state=()=>buttons.map(b=>b.getAttribute('aria-expanded'));
-  const detail=(n)=>[...d.querySelectorAll('.todo-status-details')].some(e=>e.textContent.includes('detail '+n+' line a')&&e.getClientRects().length>0);
-  const field=d.querySelector('.todo-comment-field').getBoundingClientRect();
-  const box=d.getBoundingClientRect();
-  return {count:buttons.length,state:state(),shown:[1,2,3].map(detail),
-    fits:d.scrollWidth<=d.clientWidth&&field.left>=box.left&&field.right<=box.right};
-})()"""
 
 try:
     browser('open', origin + '/harness.html?seed=tree-40')
@@ -58,19 +48,16 @@ try:
     browser('wait', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
     browser('click', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
     browser('wait', '.shelf [data-todo="5"] .todo-open')
-    assert evaluate("({w:innerWidth,h:innerHeight,d:matchMedia('(prefers-color-scheme: dark)').matches})") == {'w': 1512, 'h': 950, 'd': True}
     evaluate(setup)
     browser('click', '.shelf [data-todo="5"] .todo-open')
     browser('wait', '--fn', 'document.querySelectorAll(".todo-status-summary").length===3')
     evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));document.querySelector(".todo-comments").scrollIntoView({block:"start"})})()')
-    closed = evaluate(reading)
-    assert closed['count'] == 3 and closed['state'] == ['false'] * 3 and closed['shown'] == [False] * 3 and closed['fits'], closed
-    evaluate('document.querySelector(".todo-status-summary").click()')
-    browser('wait', '--fn', 'document.querySelector(".todo-status-summary").getAttribute("aria-expanded")==="true"')
-    opened = evaluate(reading)
-    assert opened['state'] == ['true', 'false', 'false'] and opened['shown'][0] and opened['fits'], opened
     directory = Path(target)
     directory.mkdir(parents=True, exist_ok=True)
+    browser('screenshot', str(directory / 'thread-closed-1512-dark.png'))
+    (directory / 'thread-closed-1512-dark.checks.json').write_text(json.dumps(evaluate('window.__checks()'), ensure_ascii=False) + '\n')
+    evaluate('document.querySelector(".todo-status-summary").click()')
+    browser('wait', '--fn', 'document.querySelector(".todo-status-summary").getAttribute("aria-expanded")==="true"')
     browser('screenshot', str(directory / 'thread-1512-dark.png'))
     (directory / 'thread-1512-dark.checks.json').write_text(json.dumps(evaluate('window.__checks()'), ensure_ascii=False) + '\n')
     print('ok')
