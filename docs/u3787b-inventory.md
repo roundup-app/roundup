@@ -608,7 +608,7 @@ Chromium at 1512×950 dark. Tree-40, tabs-8, conflict, Help, Pad editor, Quote
 and dense save refusal preserve every baseline-passing Check (D1–D14);
 `loop/rules.sh delta` passes. The full save cause/recovery and retained draft are
 visible. Paired compact Check readings are committed under
-`artifacts/ux/U3787b/block-format/`; PNGs and the keyboard recording remain
+`artifacts/ux/U3787b/block-format/`; PNG images and the keyboard recording remain
 uncommitted. `just capture U3787b` still rejects the id in the frozen capture table;
 explicit captures supply Chromium evidence only.
 
