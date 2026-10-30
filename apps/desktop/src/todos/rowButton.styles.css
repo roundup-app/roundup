@@ -348,7 +348,7 @@
   z-index: 1;
   width: var(--space-4);
   min-width: var(--space-4);
-  transform: translateX(calc(var(--space-3) - var(--row-text-inset)));
+  transform: translateX(calc(var(--space-4) - var(--row-text-inset)));
 }
 .todo-row .app-progress { margin-block: var(--space-1); font-size: var(--text-caption); color: var(--grey); }
 .todo-row .app-progress-track { height: calc(var(--space-1) / 2); }

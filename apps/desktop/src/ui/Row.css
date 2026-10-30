@@ -39,6 +39,7 @@
 .row-wash[data-todo-drop] { --row-wash: var(--hover); }
 
 /* U5147d: the Drawer's rows sit 16 px inside the panel, so their wash fills the row box. */
-.shelf-row.row-wash:not(.sortable-source)::after {
+.shelf-row.row-wash:not(.sortable-source)::after,
+.shelf-group-control.row-wash:not(.sortable-source)::after {
   inset: 0;
 }
