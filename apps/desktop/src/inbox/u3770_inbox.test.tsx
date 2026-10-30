@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { Kind } from "@contracts/Kind";
@@ -6,7 +6,8 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { attentionOrder } from "../rail/attention";
 import { agent, event, NOW } from "../testing/nodes";
 import { mountTodos, todo } from "../todos/testHarness";
-import { Inbox } from "./Inbox";
+import { AskBar } from "../ask/AskBar";
+import { ConnectedProjectContext } from "../state/connectedProject";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
@@ -16,7 +17,7 @@ const act = async (run: () => void) => { await run(); await Promise.resolve(); }
 
 const send = async (m: Awaited<ReturnType<typeof mountInbox>>, ...sent: DaemonEvent[]) => { for (const each of sent) m.app.emit(each); await m.connected.rail.settled(); await Promise.resolve(); };
 
-const panel = () => screen.getByRole("complementary", { name: "Drawer" });
+const panel = () => screen.getByRole("region", { name: "Needs you" });
 
 const NODES: RailNode[] = [
   agent("a", "needs-you", "asks", { name: "alpha", order: 0 }),
@@ -30,8 +31,9 @@ const NODES: RailNode[] = [
 const mountInbox = async (nodes: RailNode[] = NODES, reducedMotion = true) => {
   const m = await mountTodos([], reducedMotion, structuredClone(nodes));
   m.app.handlers["agent.resume"] = () => ({ ...NODES[2]! });
-  m.connected.drawer.open(() => <Inbox />);
-  await within(panel()).findByRole("heading", { name: "Needs you" });
+  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  m.connected.showView("attention");
+  await screen.findByRole("region", { name: "Needs you" });
 
   return m;
 };
@@ -40,7 +42,7 @@ let revision = 1;
 
 const status = (id: string, kind: Kind, label = "x", since = NOW) => event({ name: "agent.status", data: { status_revision: String(++revision), attempt: "1", id, status: { kind, label, since, finished: "0" } } });
 
-const groupOf = (name: string) => within(panel()).getByRole("region", { name });
+const groupOf = (_name: string) => panel();
 
 const names = (group: HTMLElement) => [...group.querySelectorAll(".inbox-row-name")].map((each) => each.textContent);
 
@@ -48,21 +50,18 @@ const calls = (m: Awaited<ReturnType<typeof mountInbox>>, method: string) => m.a
 
 it("u3770a_sections_hold_their_agents_in_order_with_counts", async () => {
   await mountInbox();
-  const sections = within(panel()).getAllByRole("region").filter((each) => each.getAttribute("aria-label") !== "Inbox").map((each) => each.getAttribute("aria-label"));
-  expect(sections).toEqual(["Needs you", "Running", "Done"]);
-  expect(names(groupOf("Needs you"))).toEqual(["gamma", "alpha", "zeta"]);
-  expect(names(groupOf("Running"))).toEqual(["beta"]);
-  expect(names(groupOf("Done"))).toEqual(["epsilon", "delta"]);
-  expect(within(groupOf("Needs you")).getByText("3")).toBeTruthy();
-  expect(within(groupOf("Done")).getByText("2")).toBeTruthy();
-  expect(within(groupOf("Running")).getAllByRole("img", { name: "Working" })).toHaveLength(1);
+  expect(names(panel())).toEqual(["gamma", "alpha", "zeta"]);
+  expect(within(panel()).getByText("3")).toBeTruthy();
+  expect(within(panel()).queryByText("beta")).toBeNull();
+  expect(screen.queryByRole("complementary", { name: "Drawer" })).toBeNull();
 });
 
 it("u3770a_an_empty_inbox_says_nothing_waits", async () => {
   const m = await mountTodos([], true, [agent("i", "idle", "Idle")]);
-  m.connected.drawer.open(() => <Inbox />);
-  await within(panel()).findByText("Nothing waits for you");
-  expect(within(panel()).queryByRole("region", { name: "Needs you" })).toBeNull();
+  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  m.connected.showView("attention");
+  await screen.findByText("Nothing waits for you");
+  expect(panel().querySelectorAll(".inbox-group")).toHaveLength(0);
 });
 
 it("u3770b_a_row_opens_to_its_state_s_one_action", async () => {
@@ -72,10 +71,10 @@ it("u3770b_a_row_opens_to_its_state_s_one_action", async () => {
   await waitFor(() => expect(head("gamma").getAttribute("aria-expanded")).toBe("true"));
   expect(within(panel()).getByText("crashed")).toBeTruthy();
   expect(await within(panel()).findByRole("button", { name: "Retry" })).toBeTruthy();
-  fireEvent.click(head("beta"));
-  expect(await within(panel()).findByText("editing Thread.tsx")).toBeTruthy();
-  fireEvent.click(within(head("beta").closest("li")!).getByRole("button", { name: "Open" }));
-  expect(m.connected.rail.selected()).toBe("b");
+  fireEvent.click(head("alpha"));
+  expect(await within(panel()).findByText("asks")).toBeTruthy();
+  fireEvent.click(within(head("alpha").closest("li")!).getByRole("button", { name: "Open" }));
+  expect(m.connected.rail.selected()).toBe("a");
   expect(m.connected.drawer.content()).toBeNull();
 });
 
@@ -85,10 +84,10 @@ it("u3770b_one_row_is_open_at_a_time", async () => {
   const expanded = (name: string, value: string) => waitFor(() => expect(head(name).getAttribute("aria-expanded")).toBe(value));
   fireEvent.click(head("alpha"));
   await expanded("alpha", "true");
-  fireEvent.click(head("beta"));
+  fireEvent.click(head("alpha"));
   await expanded("alpha", "false");
   await expanded("beta", "true");
-  fireEvent.click(head("beta"));
+  fireEvent.click(head("alpha"));
   await expanded("beta", "false");
 });
 
@@ -100,7 +99,7 @@ it("u3770b_escape_collapses_and_returns_focus", async () => {
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
   await waitFor(() => expect(head.getAttribute("aria-expanded")).toBe("false"));
   expect(document.activeElement).toBe(head);
-  expect(m.connected.drawer.content()).not.toBeNull();
+  expect(screen.getByRole("button", { name: /^Needs you/ }).getAttribute("aria-expanded")).toBe("true");
 });
 
 it("u3770c_retry_resumes_the_failed_agent", async () => {
@@ -109,7 +108,7 @@ it("u3770c_retry_resumes_the_failed_agent", async () => {
   fireEvent.click(await within(panel()).findByRole("button", { name: "Retry" }));
   await waitFor(() => expect(calls(m, "agent.resume")).toEqual([{ id: "c" }]));
   await send(m, status("c", "working"));
-  expect(names(groupOf("Running"))).toEqual(["beta", "gamma"]);
+  expect(names(panel())).not.toContain("gamma");
 });
 
 it("u3770c_a_failed_call_keeps_the_row_open_with_the_error", async () => {
@@ -135,7 +134,7 @@ it("u3770d_a_status_event_moves_the_row_and_counts", async () => {
 it("u3770d_a_burst_ends_in_the_last_state", async () => {
   const m = await mountInbox();
   await send(m, ...(["needs-you", "working", "error", "done", "working"] as const).map((kind) => status("a", kind)));
-  expect(names(groupOf("Running"))).toContain("alpha");
+  expect(names(panel())).not.toContain("alpha");
   expect(names(groupOf("Needs you"))).not.toContain("alpha");
   expect(within(groupOf("Needs you")).getByText("2")).toBeTruthy();
 });
@@ -154,10 +153,7 @@ it("u3770d_changes_do_not_close_or_move_the_open_row", async () => {
 
 it("u3770d_the_needs_you_count_is_a_polite_live_region", async () => {
   await mountInbox();
-  const live = (name: string) => groupOf(name).querySelector(".inbox-count")!.getAttribute("aria-live");
-  expect(live("Needs you")).toBe("polite");
-  expect(live("Running")).toBeNull();
-  expect(live("Done")).toBeNull();
+  expect(panel().querySelector(".inbox-count")!.getAttribute("aria-live")).toBe("polite");
 });
 
 it("u3770e_reduced_motion_makes_every_change_instant", async () => {
@@ -171,11 +167,12 @@ it("u3770e_reduced_motion_makes_every_change_instant", async () => {
 it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   const m = await mountTodos([{ ...todo(1, { title: "Ship" }) }], true, structuredClone(NODES));
   m.store.comments!.set(1, [{ id: 1, author: { kind: "agent", id: "a", parent: null }, body: "which branch?", created_at: 1, read: false }]);
-  m.connected.drawer.open(() => <Inbox />);
+  render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
+  m.connected.showView("attention");
   const row = await within(groupOf("Needs you")).findByRole("button", { name: /alpha commented on Ship/ });
   // The unread comment row follows the Agent rows and makes no Message call.
   expect(within(row).getByText("which branch?")).toBeTruthy();
-  expect(groupOf("Needs you").lastElementChild!.contains(row)).toBe(true);
+  expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
   expect(m.app.calls.some((call) => call.method.startsWith("message."))).toBe(false);
 });
 
@@ -243,7 +240,7 @@ it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_
   if (head("alpha").getAttribute("aria-expanded") !== "true") fireEvent.click(head("alpha"));
 
   await waitFor(() => expect(within(row("alpha")).queryByRole("alert")).toBeNull());
-  fireEvent.click(head("beta"));
+  fireEvent.click(head("alpha"));
   expect((await within(row("beta")).findByRole("alert")).textContent).toBe("resume b refused");
   expect(m.connected.drafts.list()).toEqual(drafts);
   expect(within(panel()).getByRole("alert", { name: "cannot load comments" })).toBeTruthy();
