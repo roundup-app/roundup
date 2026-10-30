@@ -24,7 +24,7 @@ Rail Pad/Todo leaves were retired by #4457. Their counted owner control opens th
 | Project tab | Focused F2, double-click name, native Rename | `header/u183_rename.test.tsx`: `u3787c_escape_restores_the_name_project`, plus conflict/failure and selected-revision recovery |
 | Terminal tab | Double-click, native Rename, selected-revision recovery | `bubbles/u511a_rename.test.tsx`: `u3787c_escape_restores_the_name_terminal`, `u3787c_escape_restores_the_name_selected_terminal_recovery`; `bubbles/u511a_browser.test.ts`: dense App openings, underlying Escape and zero local name writes |
 
-Agent-owned Pad names retain their ownership restriction. `pads/u3789a_pad_rename.test.tsx` preserves exact text through refetch without submitting; `shelf/u3789_rows.test.tsx` retains reload, older-failure/newer-draft and navigation probes. `header/u184_close.test.tsx`'s `u2773a_header_restores_exact_work_real_reload` and `bubbles/u511a_browser.test.ts`'s `u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery` retain real-Project restoration observers. Explicit discard and acknowledged-submit settlement remain with the original Project draft holders.
+Agent-owned Pad names retain their ownership restriction. `pads/u3789a_pad_rename.test.tsx` preserves exact text through refetch without submitting; `shelf/u3789_rows.test.tsx` retains reload, older-failure/newer-draft and navigation probes. `header/u183_rename.test.tsx`'s `u3787c_escape_restores_the_name_project_%s` proves mounted App-seam restoration after remount: exact Unicode/whitespace, selection and original Project identity persist, with zero rename calls; it does not cover real-Daemon reload. `bubbles/u511a_browser.test.ts`'s `u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery` retains its real-Project restoration observer. Explicit discard and acknowledged-submit settlement remain with the original Project draft holders.
 
 | Optional surface | Classification / retained observer |
 | --- | --- |
@@ -46,7 +46,7 @@ Ark's deferred select-all must not overwrite that range.
 | --- | --- |
 | Exact Todo/Pad draft, selection and original object after reload; no rename/read/history from restoration | `shelf/u3789_rows.test.tsx`: `u3789a_rename_never_opens_reload_keeps_original_identity`, parameterized over Todo and Pad |
 | Late reaction acknowledgement stays in its original Project and preserves newer input | `reactions/nr9_reactions.test.tsx`: `nr9_creation_acknowledgement_refreshes_the_remounted_project` |
-| Real Project-name restoration and separate Project identities | `header/u184_close.test.tsx`: `u2773a_header_restores_exact_work_real_reload` |
+| Mounted App-seam Project-name restoration after remount: exact Unicode/whitespace, selection and original Project identity, with zero rename calls; no real-Daemon reload coverage | `header/u183_rename.test.tsx`: `u3787c_escape_restores_the_name_project_%s` |
 | Real Terminal-name restoration, exact selection and refusal to rename an ended original | `bubbles/u511a_browser.test.ts`: `u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery` |
 
 The repair's [check run](https://github.com/roundup-app/roundup/actions/runs/40800954408)
