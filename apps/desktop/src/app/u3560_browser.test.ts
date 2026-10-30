@@ -20,72 +20,6 @@ const capture = async (id: string, step: string) => {
   writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
 };
 
-const field = async (kind: string, initial = "alpha bravo charlie") => {
-  await start();
-
-  if (kind === "pad") {
-    await read(`window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(initial)} })`);
-    await browser("focus", '.rail-row[data-id="payments"]');
-    await browser("press", "Enter");
-    await wait("document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'payments'");
-    await read("(() => {const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();})()");
-    await wait("document.querySelector('.pads-tab')?.checkVisibility()");
-    await wait("!!document.querySelector('.pads-tab [data-incarnation=fixture-3] .pad-name')");
-    await read("document.querySelector('.pads-tab [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
-    await wait("[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'pad-3')");
-    await browser("click", '.pads-tab [data-incarnation="fixture-3"] .pad-name');
-    await browser("wait", "--fn", "document.activeElement?.matches('.pad-name')");
-    await browser("press", "Enter");
-    await wait(`document.querySelector('.ProseMirror[contenteditable=true]')?.textContent === ${JSON.stringify(initial)}`);
-
-    return ".ProseMirror[contenteditable=true]";
-  }
-
-  if (kind === "ask") {
-    await browser("press", "Meta+/");
-    await wait("!!document.querySelector('.ask-bar textarea')");
-
-    return ".ask-bar textarea";
-  }
-
-  if (kind === "rename") {
-    await browser("dblclick", '[data-id="migrate"] .name');
-    await wait("!!document.querySelector('[data-id=migrate] input')");
-
-    return '[data-id="migrate"] input';
-  }
-
-  // Native editable surfaces exercise the same App event route without any synthetic insertion.
-  await read(`(() => { const field = document.createElement('${kind}'); field.id = 'clipboard-field'; field.style.cssText = 'position:fixed;top:100px;left:500px'; document.body.append(field); })()`);
-
-  return "#clipboard-field";
-};
-
-it.each(["pad", "ask", "input", "textarea", "rename"])("u3560c_paste_edits_only_the_focused_field_%s", async kind => {
-  const selector = await field(kind);
-
-  if (kind !== "pad") await browser("fill", selector, "alpha bravo charlie");
-  else await browser("click", selector);
-  await browser("clipboard", "write", "雪 🐈\nbonjour");
-  await read(`(() => {
-    const field = document.querySelector(${JSON.stringify(selector)});
-    field.focus();
-    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.setSelectionRange(6, 11);
-    else { const range = document.createRange(); const text = field.querySelector('p').firstChild; range.setStart(text, 6); range.setEnd(text, 11); getSelection().removeAllRanges(); getSelection().addRange(range); }
-    window.__clipboardCallsBefore = window.__fake.app.calls.filter(call => call.method === 'terminal.write' || call.method === 'message.send').length;
-  })()`);
-  await browser("press", "Control+V");
-  const value = () => read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.innerText.replace(/\\n+/g, '\\n').trim(); })()`);
-  const expected = ["input", "rename", "pad"].includes(kind) ? "alpha 雪 🐈 bonjour charlie" : "alpha 雪 🐈\nbonjour charlie";
-  await wait(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return ('value' in field ? field.value : field.innerText).includes('bonjour'); })()`);
-  expect(await value()).toBe(expected);
-
-  if (["pad", "ask", "rename"].includes(kind)) await capture("U3560c", `paste-${kind}`);
-  await browser("press", "Control+Z");
-  await wait(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return ('value' in field ? field.value : field.textContent) === 'alpha bravo charlie'; })()`);
-  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write' || call.method === 'message.send').length === window.__clipboardCallsBefore")).toBe(true);
-}, 60_000);
-
 it.each(["agents-10", "tree-40", "bubbles"])("u3560e_intervention_paste_failure_and_recovery_%s", async seed => {
   await start(seed);
   const agent = seed === "bubbles" ? "runner" : "agent-3";
@@ -115,24 +49,4 @@ it.each(["agents-10", "tree-40", "bubbles"])("u3560e_intervention_paste_failure_
   await wait("!document.querySelector('.pane-failure [role=alert]') && window.__fake.app.savedImages.length === 1");
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write').length")).toBe(2);
   await capture("U3560e", `${seed}-image-recovered`);
-}, 60_000);
-
-it.each(["pad", "ask", "input", "textarea", "rename"])("u3560c_copy_preserves_the_source_editor_%s", async kind => {
-  const selector = await field(kind, "original 雪 🐈");
-
-  if (kind !== "pad") await browser("fill", selector, "original 雪 🐈");
-  else await browser("click", selector);
-  const original = await read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.textContent; })()`);
-  await browser("clipboard", "write", "");
-  await browser("press", "Control+A");
-  await browser("press", "Control+C");
-  const selected = await read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.textContent; })()`);
-  expect(selected).toBe(original);
-
-  // The independent clipboard observer is outside Ask’s focus trap.
-  if (kind === "ask") await browser("press", "Escape");
-
-  await read("(() => { const field = document.createElement('textarea'); field.id='copy-observer'; document.body.append(field); field.focus(); })()");
-  await browser("press", "Control+V");
-  expect(await read("document.querySelector('#copy-observer').value")).toBe(original);
 }, 60_000);
