@@ -465,3 +465,37 @@ it.each([
   expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
+
+
+it.each([
+  { chord: "⇧⌘B", key: "B", code: "KeyB", shiftKey: true, altKey: false, semantic: "blockquote" },
+  { chord: "⌥⌘8", key: "8", code: "Digit8", shiftKey: false, altKey: true, semantic: "ul" },
+  { chord: "⌥⌘7", key: "7", code: "Digit7", shiftKey: false, altKey: true, semantic: "ol" },
+  { chord: "⌥⌘C", key: "c", code: "KeyC", shiftKey: false, altKey: true, semantic: "pre" },
+].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Pad block $chord from $source captures the editor", async ({ chord, key, code, shiftKey, altKey, semantic, source }) => {
+  const { daemon } = await mountNavigation(true, 0);
+  const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen", updated_at: 0, revision: 1, home: null }];
+  Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
+  daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
+  await showEverythingInApp(undefined, "Pads");
+  const field = await openPad("Plan");
+  field.setSelectionRange(1, 7, "forward");
+  const surface = screen.getByRole("textbox", { name: "Pad body" });
+  surface.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)).toMatchObject({ shortcut: chord, enabled: true }));
+  const captured = captureActions(surface).find(action => action.keys === chord)!;
+  expect(document.activeElement).toBe(surface);
+  expect(field.querySelector(semantic)).toBeNull();
+
+  if (source === "key") fireEvent.keyDown(surface, { key, code, metaKey: true, shiftKey, altKey });
+  else openProjectPage(`action:chord:${chord}`);
+
+  expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
+  expect(document.activeElement).toBe(surface);
+  screen.getByRole("textbox", { name: "Ask" }).focus();
+  expect(captured.available()).toBe(false);
+  captured.run();
+  openProjectPage(`action:chord:${chord}`);
+  expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+});
