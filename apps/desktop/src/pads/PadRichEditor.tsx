@@ -199,7 +199,7 @@ export default function PadRichEditor(props: {
 
     registerKeys({ kind: "region", element: () => host }, toolbarCommands.map(({ action, label, command }) => ({
       action,
-      match: "key" as const,
+      match: action.keys.includes("⌥") ? undefined : "key" as const,
       capture: focus => {
         commandState();
 

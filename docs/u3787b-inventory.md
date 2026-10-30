@@ -611,3 +611,8 @@ visible. Paired compact Check readings are committed under
 `artifacts/ux/U3787b/block-format/`; PNGs and the keyboard recording remain
 uncommitted. `just capture U3787b` still rejects the id in the frozen capture table;
 explicit captures supply Chromium evidence only.
+
+Option-modified formatting uses the registry's existing physical-code matching;
+inline formatting keeps its existing logical-letter matching. The Code block key
+case sends macOS Option-C's `ç` with `KeyC`, so a localized key character cannot
+silently bypass the captured command while its native menu item works.
