@@ -245,6 +245,7 @@ it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr
     await evaluate('localStorage.setItem("roundup:app-settings", JSON.stringify({mode:"dark"}))');
     await browser("reload");
     await wait("!!window.__fake && document.documentElement.dataset.mode === 'dark'");
+    await browser("set", "media", "dark");
     await evaluate(`(() => {
       const path = document.querySelector('.project-tab[data-selected=true]').dataset.path;
       const app = window.__fake.app.of(path);

@@ -726,6 +726,7 @@ export const copy = {
   reactionActor: (kind: string, name: string | null) => kind === "user" ? "Made by you" : name === null ? "The maker Agent is unavailable" : `Made by ${name}`,
   reactionMakerReason: "Reason",
   reactionNoReason: "No reason saved",
+  reactionListCondition: (condition: string, target: string) => `${condition} · Target Agent: ${target}`,
   reactionHome: "Home",
   reactionNoHome: "Project root",
   reactionGone: () => "Unavailable Agent",
