@@ -1,4 +1,6 @@
-import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
+import { DisplayClockContext } from "../state/clock";
+import type { JSX } from "solid-js";
+import { cleanup, render as renderWithoutClock, screen, waitFor } from "@solidjs/testing-library";
 import { showEverything, withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
@@ -6,6 +8,8 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { Pads } from "./Pads";
 import { deferred, openShelf, padOf, AGENT } from "./padsFixture";
+
+const render = (view: () => JSX.Element) => renderWithoutClock(() => <DisplayClockContext.Provider value={() => () => 0}>{view()}</DisplayClockContext.Provider>);
 
 afterEach(cleanup);
 

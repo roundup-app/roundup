@@ -140,6 +140,15 @@
 
 .pad-name {
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pad-name .shelf-title {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .pad-inset .shelf-text {

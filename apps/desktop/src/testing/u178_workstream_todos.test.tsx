@@ -1,4 +1,5 @@
 import "../todos/testHarness";
+import { createNow, DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { connectProject, ConnectedProjectContext, createProjectDrafts } from "../state/connectedProject";
@@ -38,9 +39,13 @@ const mount = async (real: StartedDaemon, draftsFor = createProjectDrafts()) => 
 
   await showEverything(connected);
 
-  const rendered = render(() => <ConnectedProjectContext.Provider value={connected}>
+  const rendered = render(() => {
+    const now = createNow(() => 0, () => false);
+
+    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}>
     <Todos /><DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-  </ConnectedProjectContext.Provider>);
+  </ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
+  });
 
   await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')).not.toBeNull());
   fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);

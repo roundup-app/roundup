@@ -110,7 +110,7 @@ const mount = (app: AppSeam) => {
     });
   };
 
-  const content = () => <><App app={app} reducedMotion={reducedMotion} clock={Date.now} prepareIdle={open => {
+  const content = () => <><App app={app} reducedMotion={reducedMotion} clock={() => Date.now()} prepareIdle={open => {
     if (requested.has(open.project.path)) return;
     requested.add(open.project.path);
     inspection(open);
