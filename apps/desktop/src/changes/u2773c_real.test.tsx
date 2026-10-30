@@ -34,7 +34,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
     expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: /Send to/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
     await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
     const submitted = send.mock.calls[0]![0];
     expect(submitted).toMatchObject({ to: "a", kind: "note" });
