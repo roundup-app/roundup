@@ -40,6 +40,7 @@ export const copy = {
   draftSurfaces: (surfaces: string[]) => surfaces.join(", "),
   credentialDraftMemoryOnly: "This form contains credentials. Values are hidden here and will not survive a reload.",
   openDraft: sharedCopy.openDraft,
+  allDraftSurfaces: "stored surfaces",
   openEvidence: sharedCopy.openEvidence,
   loadingProject: "Loading Project…",
   recoverNotes: sharedCopy.recoverNotes,
