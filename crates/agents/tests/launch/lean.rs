@@ -516,7 +516,7 @@ fn lc7_an_unknown_extra_fails_the_start_and_is_named() {
     );
     assert_eq!(listed.skills, ["zzskill"]);
     assert_eq!(listed.plugins, ["zzplug@market"]);
-    assert_eq!(listed.mcp, ["zzserver"]);
+    assert_eq!(listed.mcp, ["computer-use", "zzserver"]);
 }
 
 #[test]
@@ -723,3 +723,49 @@ fn lc16_no_role_hides_slash_commands() {
 
 #[path = "lean/user_setup.rs"]
 mod user_setup;
+
+#[test]
+fn lc18_agent_extras_lists_computer_use() {
+    let s = setup();
+    with_extras(&s);
+    std::fs::write(
+        &s.claude_json,
+        json!({"mcpServers": {"computer-use": {"type": "http", "url": "https://x"}}}).to_string(),
+    )
+    .unwrap();
+    let listed = agents::claude_code::extras::available(
+        &s.launcher().extras_sources(s.dir.parent().unwrap()),
+    );
+    assert_eq!(listed.mcp, ["computer-use"]);
+    let extras = Extras {
+        mcp: vec!["computer-use".into()],
+        ..Extras::default()
+    };
+    let argv = s
+        .prepare_lean("7", Role::Agent, &lean_pair(false, extras), None)
+        .unwrap();
+    let config = read(Path::new(Setup::after(&argv, "--mcp-config").unwrap()));
+    assert!(config["mcpServers"]["computer-use"].is_null());
+}
+
+#[test]
+fn lc18_choosing_computer_use_adds_the_switch() {
+    let s = setup();
+    let extras = Extras {
+        mcp: vec!["computer-use".into()],
+        ..Extras::default()
+    };
+    let argv = s
+        .prepare_lean("7", Role::Agent, &lean_pair(false, extras), None)
+        .unwrap();
+    assert!(has(&argv, "--computer-use-mcp"));
+}
+
+#[test]
+fn lc18_a_start_without_it_has_no_switch() {
+    let s = setup();
+    let argv = s
+        .prepare_lean("7", Role::Agent, &lean_pair(false, Extras::default()), None)
+        .unwrap();
+    assert!(!has(&argv, "--computer-use-mcp"));
+}
