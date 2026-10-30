@@ -202,7 +202,7 @@ for (const [name, source, forbidden] of [
   });
 }
 
-for (const change of ["unchanged", "stale", "navigation", "merged navigation", "function navigation", "edited", "dependency", "helper", "duplicate", "additional", "renamed", "moved", "reordered", "control"]) {
+for (const change of ["unchanged", "stale", "navigation", "merged navigation", "function navigation", "edited", "dependency", "dependency control", "mutation", "helper", "duplicate", "additional", "renamed", "moved", "reordered", "control"]) {
   test(`t3779b_assertion_boundary: Python baseline ${change}`, () => {
     const dir = mkdtempSync(resolve(tmpdir(), "roundup-python-baseline-"));
     const config = resolve(dir, "config.json");
@@ -219,7 +219,11 @@ for (const change of ["unchanged", "stale", "navigation", "merged navigation", "
       const body = 'raise RuntimeError("Launcher must never execute")\ndef observe():\n    return 0\nscript = "document.body.clientWidth"\nresult = evaluate(script)\nbrowser("open", "/old")\nassert result > 0\nbrowser("click", "button")\n'.replace("assert result > 0", change === "helper" ? "assert result > observe()" : "assert result > 0");
       const source = ["function navigation", "renamed"].includes(change)
         ? "def test_fixture():\n" + body.split("\n").filter(Boolean).map(line => "    " + line).join("\n") + "\n"
-        : body;
+        : change === "dependency control"
+          ? body.replace("result = evaluate(script)", "flag = True\nif flag:\n    result = evaluate(script)")
+          : change === "mutation"
+            ? body.replace("document.body.clientWidth", "({width: document.body.clientWidth})").replace("assert result > 0", 'result.update(width=1)\nassert result["width"] > 0')
+            : body;
       writeFileSync(pythonFile, source);
       const audit = spawnSync("python3", [resolve(repo, directory, "python-audit.py"), dir], { encoding: "utf8" });
       assert.equal(audit.status, 0, audit.stderr);
@@ -240,6 +244,8 @@ for (const change of ["unchanged", "stale", "navigation", "merged navigation", "
       }
       if (change === "edited") writeFileSync(pythonFile, source.replace("result > 0", "result > 1"));
       if (change === "dependency") writeFileSync(pythonFile, source.replace('script = "document.body.clientWidth"', 'script = "document.body.clientHeight"'));
+      if (change === "dependency control") writeFileSync(pythonFile, source.replace("flag = True", "flag = False"));
+      if (change === "mutation") writeFileSync(pythonFile, source.replace("update(width=1)", "update(width=2)"));
       if (change === "helper") writeFileSync(pythonFile, source.replace("return 0", "return 1"));
       if (change === "duplicate") writeFileSync(pythonFile, source + "assert result > 0\n");
       if (change === "additional") writeFileSync(pythonFile, source + 'assert evaluate("document.body.clientHeight") > 0\n');
