@@ -2,6 +2,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
+import { openLane } from "../todos/laneBrowser";
+import type { LaneBrowser } from "../todos/laneBrowser";
 import { shelfBrowser } from "../shelf/u371Browser";
 
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
@@ -89,4 +91,75 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
     await settle();
     await capture("pad-failure");
   }
+});
+
+
+const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
+  await lane.evaluate("document.querySelectorAll('.rail [data-part=branch-control][data-depth=\"1\"][data-state=open]').forEach(el => el.click())");
+  await lane.browser("focus", "[data-todo-root]");
+  for (const key of ["Tab", "Shift+Tab"]) {
+    await lane.evaluate("window.__cycle = { start: document.activeElement, nodes: [], regions: [] }");
+    let complete = false;
+    for (let step = 0; step < 160; step++) {
+      await lane.browser("press", key);
+      const state = await lane.evaluate<{ complete: boolean; centre: boolean; regions: string[] }>(`(() => {
+        const el = document.activeElement;
+        const cycle = window.__cycle;
+        cycle.nodes.push(el);
+        for (const region of ['rail', 'drawer', 'shelf']) if (el.closest('.' + region) && !cycle.regions.includes(region)) cycle.regions.push(region);
+        return { complete: el === cycle.start, centre: !!el.closest('.centre'), regions: cycle.regions };
+      })()`);
+      if (covered) expect(state.centre, `${key} reached a covered control`).toBe(false);
+      if (state.complete) {
+        if (covered) expect(state.regions).toEqual(expect.arrayContaining(shelf ? ["rail", "drawer", "shelf"] : ["rail", "drawer"]));
+        complete = true;
+        break;
+      }
+    }
+    expect(complete, `${key} did not complete a focus cycle`).toBe(true);
+  }
+};
+
+it.each(["pad", "todo"])("u4911a_covered_centre_controls_leave_and_rejoin_tab_order_%s", { retry: 0, timeout: 240_000 }, async kind => {
+  const lane = await openLane(1512, "dark", `u4911a-${kind}`);
+  try {
+    await lane.until("!!document.querySelector('.ask-input')");
+    await lane.browser("fill", ".ask-input", "  Original unsent work 雪\nkeep this exact draft  ");
+    await lane.evaluate(`(async () => {
+      const original = Storage.prototype.setItem;
+      window.__writes = 0;
+      window.__restoreStorage = () => { Storage.prototype.setItem = original; };
+      Storage.prototype.setItem = function(key, value) {
+        if (key === 'roundup:app-settings') { window.__writes++; throw new Error('disk is full. Free space and retry.'); }
+        return original.call(this, key, value);
+      };
+      await (await import('/src/settings/preferences.ts')).saveAppSettings({fontFamily:'Original font 雪'});
+    })()`);
+    await lane.until("!!document.querySelector('.storage-failure button')");
+    await lane.evaluate("window.__covered = { centre: document.querySelector('.centre'), button: document.querySelector('.storage-failure button'), writes: window.__writes }");
+    await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-${kind === "pad" ? "pads" : "todos"}'); if (tab.getAttribute("aria-expanded") !== "true") tab.click(); })()`);
+    if (kind === "todo") await lane.evaluate("document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()");
+    const row = kind === "pad" ? ".shelf .pad-name" : ".shelf .todo-row-button";
+    await lane.browser("wait", row);
+    await lane.browser("focus", row);
+    await lane.browser("press", "Enter");
+    await lane.until("!!document.querySelector('.drawer[data-fill=true]')");
+    await cycle(lane, true, true);
+    await lane.browser("click", '.drawer button[aria-label=Restore]');
+    await lane.until("!!document.querySelector('.drawer[data-maximised=false]')");
+    await cycle(lane, false, true);
+    expect(await lane.evaluate("window.__cycle.nodes.includes(window.__covered.button)")).toBe(true);
+    await lane.browser("click", '.drawer button[aria-label=Maximise]');
+    await lane.until("!!document.querySelector('.drawer[data-fill=true]')");
+    await lane.browser("click", '.drawer button.close');
+    await lane.until("!!document.querySelector('.drawer[data-open=false]')");
+    expect(await lane.evaluate(`({ same: document.querySelector('.centre') === window.__covered.centre && document.querySelector('.storage-failure button') === window.__covered.button,
+      draft: document.querySelector('.ask-input').value, writes: window.__writes === window.__covered.writes, copies: window.__fake.app.clipboardWrites.length,
+      submits: window.__fake.app.calls.filter(c => c.method === 'ask.send').length })`)).toEqual({ same:true, draft:"  Original unsent work 雪\nkeep this exact draft  ", writes:true, copies:0, submits:0 });
+    await lane.evaluate("window.__restoreStorage()");
+    await lane.browser("focus", ".storage-failure button");
+    await lane.browser("press", "Enter");
+    await lane.until("!document.querySelector('.storage-failure')");
+    expect(await lane.evaluate("(async () => (await import('/src/settings/preferences.ts')).appSettings().fontFamily)()")).toBe("Original font 雪");
+  } finally { await lane.close(); }
 });
