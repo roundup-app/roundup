@@ -1,42 +1,32 @@
 import { copy as recoveryCopy } from "../sharedCopy";
-import "../todos/testHarness";
+import { todo } from "../todos/testHarness";
 import { createNow, DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import type { StartedDaemon } from "./realDaemonFixture";
+import { createFakeApp } from "./fakeApp";
+import { todoHandlers } from "./stores";
+import type { TodoStore } from "./stores";
+import { event } from "./nodes";
+import { RpcError } from "../app/seam";
 import { connectProject, ConnectedProjectContext, createProjectDrafts } from "../state/connectedProject";
 import { showEverything } from "./showEverything";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { Todos } from "../todos/Todos";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { startRealDaemon } from "./realDaemonFixture";
-import { createServedApp } from "./realSeam";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-describe("u2773 unfinished Todos through the real Daemon", () => {
-
-let one: StartedDaemon;
-
-let two: StartedDaemon;
-
-beforeAll(async () => {
-  one = await startRealDaemon({});
-  two = await startRealDaemon({});
-}, 240_000);
-
-afterAll(async () => { await two?.stop(); await one?.stop(); });
+describe("u2773 unfinished Todos through the App seam", () => {
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
-const mount = async (real: StartedDaemon, draftsFor = createProjectDrafts()) => {
-  const app = createServedApp(real.base);
-  const calls: string[] = [];
-  const rpc = app.rpc;
-
-  app.rpc = (method, params) => { calls.push(method);
-
- return rpc(method, params); };
-
-  const connected = await connectProject(app, { name: "same Project", path: real.dir }, () => true, () => 0,
-    () => null, undefined, draftsFor(real.dir));
+const mount = async (original: ReturnType<typeof todo>) => {
+  const app = createFakeApp();
+  const store: TodoStore = { todos: [original], changes: new Map(), reads: new Map() };
+  Object.assign(app.handlers, todoHandlers(store, data => app.emit(event(data))));
+  // The captured history is input to the App; storage concurrency belongs to the Rust module tests.
+  store.changes!.set(original.id, [{ seq: 1, before: null, after: {
+    title: original.title, body: original.body, done: false, blockers: [], owner: null, priority: null,
+  }, actor: original.creator, changed_at: 0 }]);
+  const connected = await connectProject(app, { name: "same Project", path: "/todo-drafts" }, () => true, () => 0,
+    () => null, undefined, createProjectDrafts()("/todo-drafts"));
 
   await showEverything(connected);
 
@@ -51,7 +41,7 @@ const mount = async (real: StartedDaemon, draftsFor = createProjectDrafts()) => 
   await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')).not.toBeNull());
   fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
 
-  return { ...rendered, connected, app, calls };
+  return { ...rendered, connected, app, store };
 };
 
 const openBody = async (id: number, body: string) => {
@@ -66,38 +56,46 @@ const openBody = async (id: number, body: string) => {
   return within(drawer).findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
 };
 
-it("u2773c_todos_external_change_keeps_original_at_real_daemon", async () => {
-  const external = createServedApp(one.base);
-  const original = await external.rpc("todo.create", { title: "conflict target", body: "original base", blockers: null });
-  const { connected, app } = await mount(one);
+it("u2773c_todos_external_change_keeps_original", async () => {
+  const original = todo(1, { title: "conflict target", body: "original base" });
+  const { connected, app, store } = await mount(original);
   const field = await openBody(original.id, "original base");
 
   fireEvent.input(field, { target: { value: "  my edit\n🧪  " } });
   const captured = connected.drafts.list().find(draft => draft.destination.object === String(original.id))!;
 
-  await external.rpc("todo.update", { id: original.id, title: null, body: "another Actor" });
+  const changed = { ...original, body: "another Actor" };
+  store.todos = [changed];
+  store.changes!.set(original.id, [...store.changes!.get(original.id)!, { seq: 2, before: store.changes!.get(original.id)![0]!.after,
+    after: { title: changed.title, body: changed.body, done: false, blockers: [], owner: null, priority: null }, actor: original.creator, changed_at: 1 }]);
+  app.handlers["todo.update"] = () => { throw new RpcError(-32003, "Todo changed since editing began"); };
+  app.emit(event({ name: "todo.updated", data: changed }));
   await screen.findByText(/Changed Todo/);
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
-  expect((await app.rpc("todo.get", { id: original.id })).body).toBe("another Actor");
+  expect(app.calls.filter(call => call.method === "todo.update")).toEqual([{
+    method: "todo.update", params: { id: original.id, title: null, body: "  my edit\n🧪  ", expected_change: 1 },
+  }]);
+  expect(captured.destination).toMatchObject({ object: String(original.id), recipient: "body" });
+  expect(captured.value).toMatchObject({ base: "original base", expected_change: 1 });
   expect(connected.drafts.list().find(draft => draft.status === "failed")?.value).toEqual(captured.value);
-  expect(screen.getByRole("textbox", { name: "Body" })).toHaveProperty("value", "  my edit\n🧪  ");
+  expect(await screen.findByRole("textbox", { name: "Body" })).toHaveProperty("value", "  my edit\n🧪  ");
 }, 60_000);
 
 it("u2773c_todos_unavailable_original_keeps_project_local_recovery", async () => {
-  const external = createServedApp(two.base);
-  const original = await external.rpc("todo.create", { title: "removed original", body: "base to remove", blockers: null });
-  const { connected, app } = await mount(two);
+  const original = todo(1, { title: "removed original", body: "base to remove" });
+  const { connected, app, store } = await mount(original);
   const field = await openBody(original.id, "base to remove");
 
   fireEvent.input(field, { target: { value: "  recover after removal 🧪  " } });
   connected.drawer.close("key");
-  await external.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [original.id] });
+  store.todos = [];
+  app.emit(event({ name: "todo.deleted", data: { id: original.id } }));
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(String(original.id)));
   expect(connected.drafts.list().find(draft => draft.destination.object === String(original.id))?.value.text).toBe("  recover after removal 🧪  ");
   fireEvent.click(screen.getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(connected.drafts.list()).toEqual([]);
-  expect((await app.rpc("todo.list", null)).some(todo => todo.id === original.id)).toBe(false);
+  expect(app.calls.filter(call => ["todo.create", "todo.update", "todo.delete"].includes(call.method))).toEqual([]);
 }, 60_000);
 
 });
