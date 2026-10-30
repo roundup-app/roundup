@@ -28,7 +28,7 @@ export const copy = {
   useTheirs: "Use theirs",
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
-  inlineCode: "Inline code",
+  inlineCode: sharedCopy.inlineCodeAction,
   bulletList: "Bullet list",
   numberedList: "Numbered list",
   checklist: "Checklist",
@@ -60,5 +60,4 @@ export const copy = {
   moveItem: sharedCopy.moveItem,
   blocks: sharedCopy.blocks,
   resume: sharedCopy.resume,
-  inlineCodeAction: sharedCopy.inlineCodeAction,
 } as const;
