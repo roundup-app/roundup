@@ -164,12 +164,12 @@ describe("u373 and u370 on one mounted App", () => {
   it("u373_the_other_tab_switches", async () => {
     await shared();
     expect(within(shelf()).getAllByRole("tabpanel")).toHaveLength(1);
-    expect(selectedTab()).toBe("Todos");
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
     fireEvent.click(tabNamed("Pads"));
     expect(shelf().hidden).toBe(false);
     await waitFor(() => expect(shelf().querySelector('section[aria-label="Todos"]')).toBeNull());
-    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
-    expect(tabNamed("Todos").getAttribute("aria-expanded")).toBe("false");
+    expect(document.getElementById("shelf-tab-pads")?.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-expanded")).toBe("false");
     await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Pads").id));
   });
 
@@ -235,7 +235,7 @@ describe("u373 the Shelf has two tabs", () => {
     localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({ open: true, tab: 7 }));
     await mountApp();
 
-    expect(selectedTab()).toBe("Todos");
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
   });
 
   it("u373_add_keeps_its_path", async () => {
