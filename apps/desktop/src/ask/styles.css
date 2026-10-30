@@ -228,7 +228,6 @@
   --button-radius: 0;
 }
 
-.overview-entry[data-row-selected="true"] { background: var(--selected); }
 
 .overview-name {
   min-width: 0;
@@ -531,3 +530,5 @@
   color: var(--text);
   font-size: var(--text-title);
 }
+
+.ask-bar :is(.project-overview, .made):has(.empty-state) { flex: 1; min-height: 0; }
