@@ -592,11 +592,11 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
       <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
-        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
+        <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
             heads.set(record.id, element); content.register(element, record.id);
             onCleanup(() => { if (heads.get(record.id) === element) heads.delete(record.id); });
           }} data-row-selected={content.selection.isSelected(record.id)} aria-current={selected() === record.id ? "true" : undefined}
-          aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
+          aria-label={copy.openDeliverable(record.title, record.maker_name)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
           <span class="made-content">
             <span class="made-title">{copied().get(record.id)?.copied() ? copy.copied : record.title}</span>

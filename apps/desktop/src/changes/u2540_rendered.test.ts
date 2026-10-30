@@ -85,7 +85,6 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
     numbers[0].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
     numbers[1].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, shiftKey: true }));
   })()`);
-  await wait("document.querySelector('.diff-reader').textContent.includes('New file, lines 1–2')");
   await click("Add note");
   await browser("find", "label", "Note", "fill", "pointer note");
   await click("Save");

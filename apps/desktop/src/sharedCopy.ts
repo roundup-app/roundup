@@ -4,6 +4,14 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 const dismiss = "Dismiss";
 
+const running = "Running";
+
+export const terminalName = "Terminal name";
+
+export const notes = "Notes";
+
+export const notesRegion = "Agent notes";
+
 const rpcFailures = new Map<number, string>([
   [-32700, "The request could not be read. Try again."], [-32601, "This action is unavailable. Check for an update."],
   [-32602, "Check the input and try again."], [-32603, "Completion is unconfirmed. Check before trying again."],
@@ -14,7 +22,7 @@ const rpcFailures = new Map<number, string>([
   [-32009, "Earlier changes are unavailable. Refresh to check current work."], [-32010, "The inbox is unavailable. Check the Agent before trying again."],
 ]);
 
-export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": "New Mode", "opening-prompt": "First prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
+export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": "New Mode", "opening-prompt": "First prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes, steer: "Steer", ask: "Ask", header: "Project name", bubbles: terminalName, changes: notesRegion, terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
 export const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
@@ -27,6 +35,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  running,
   addTodo: "Add Todo",
   terminalPreparationCancelled: "Terminal preparation cancelled",
   resources: "Resources",
@@ -148,7 +157,7 @@ export const copy = {
   doorStopped: (name: string) => `${name} stopped`,
   doorStoppedWithExit: (name: string, value1: CopyValue) => `${name} stopped, ${value1}`,
   worktreeCiText: (state: WorktreeCiState, stale: boolean, label = false) => {
-    const value = { passed: "Passed", failed: "Failed", running: "Running", "no-ci": "No CI", conflicts: "Conflicts", error: "Error", unknown: "Unknown" }[state];
+    const value = { passed: "Passed", failed: "Failed", running, "no-ci": "No CI", conflicts: "Conflicts", error: "Error", unknown: "Unknown" }[state];
 
     return `${label && state !== "no-ci" ? `CI ${value.toLowerCase()}` : value}${stale ? ", stale" : ""}`;
   },
