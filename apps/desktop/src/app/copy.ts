@@ -6,7 +6,7 @@ export const linkCopy = {
 } as const;
 
 export const storageCopy = {
-  continue: (key: string) => key.startsWith("roundup:drafts:") ? "Continue without these saved drafts" : "Continue without these settings",
+  continue: (key: string) => key.startsWith("roundup:drafts:") ? "Continue" : "Continue without these settings",
   retained: (count: number) => `Invalid saved data kept for recovery (${count})`,
   recoveryLabel: (key: string, copied = false) => `${copied ? "Copied" : "Copy"} ${labels.get(key.split(":")[1] ?? "") ?? "settings"}`,
   restoring: "Restoring saved work…",
