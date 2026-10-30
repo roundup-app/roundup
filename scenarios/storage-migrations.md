@@ -59,3 +59,43 @@ Required checks (policy; existing anchors on main):
 5. Preserve migration discovery and clean text merges: `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”; `crates/rupd/src/storage_tests.rs`, `n21_two_migrations_added_on_two_branches_merge_cleanly` and `n21_a_migration_file_runs_after_the_head_in_name_order`. A clean Git merge does not authorize duplicate-prefix additions in CI; an unmerged addition conflicting with newly landed main work must receive a new appended number before merge.
 
 Policy: Linux Rust tests observe the repair; the filename guard's local fixtures observe CI refusal. No UI, rendered capture or Mac-only observation is required. The implementation records the audited base SHA, all discovered migration directories and duplicate groups on its Issue. Run `just ready`, affected Rust tests and the guard fixtures; report one row per failed command with its exit code. Exit 0 passes, every other exit fails. Specification validation runs `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`; both must exit 0. No scenario Work table holds progress or engineering questions.
+
+## Refuse databases from newer builds
+
+**N5088a a newer database is refused at open.** Work order: [#5088](https://github.com/roundup-app/roundup/issues/5088). For each migration owner below, let `known` be the number of entries in its current production migration sequence and `stored` be SQLite's `PRAGMA user_version`. Given a file-backed database with `stored = known + 1`, when its normal storage open runs, then open returns an error identifying the database path, `stored` as the database version and `known` as the maximum this build supports, and explaining that the database came from a newer or branch build (the corresponding `n5088a_` test below). The error must distinguish the two versions; a migration target alone is insufficient. Refusal happens before applying migrations or reading application tables, so a missing table or column cannot replace this error (same tests).
+
+| Migration owner on main | In-process regression test to implement |
+|---|---|
+| Project: `crates/rupd/src/storage.rs`, `open` / `migrations` | `n5088a_project_refuses_a_newer_database` |
+| Agents: `crates/agents/src/schema.rs`, `open` | `n5088a_agents_refuses_a_newer_database` |
+| Todos: `crates/todos/src/schema.rs`, `open` | `n5088a_todos_refuses_a_newer_database` |
+| Pads: `crates/pads/src/schema.rs`, `open` | `n5088a_pads_refuses_a_newer_database` |
+| Messages: `crates/messages/src/schema.rs`, `open` | `n5088a_messages_refuses_a_newer_database` |
+| Digest: `crates/messages/src/digest_schema.rs`, `open` | `n5088a_digest_refuses_a_newer_database` |
+| Provenance: `crates/provenance/src/schema.rs`, `open` | `n5088a_provenance_refuses_a_newer_database` |
+| Checkpoints: `crates/checkpoints/src/schema.rs`, `open` | `n5088a_checkpoints_refuses_a_newer_database` |
+
+Each test creates a temporary SQLite file, sets `user_version` to one above the production count, closes the setup connection and invokes the real storage open. An otherwise empty database makes refusal before application SQL observable. Assert the returned error's path, both version values and newer/branch explanation; reopen through raw SQLite to assert `user_version` is unchanged and no application tables were created (same tests). Derive `known` from the production sequence, not a second copied inventory or a fixed version number. The Project count includes its frozen ten-entry head plus every discovered added migration, rather than the highest SQL filename prefix (policy).
+
+Policy: one in-process test per migration owner; call the existing storage open seam, including schema `open` where that is the migration boundary. No App, browser, real Daemon process, vendor process or clock is needed. Standalone stores use standalone filenames: their existing `project.db` bypass remains valid because the Project migration owner guards the shared database first. Do not compare a shared Project version against a shorter standalone sequence. Audit all production `user_version` / `to_latest` owners at the implementation base and include any additional owner found, with one equivalent test (policy).
+
+Policy: preferences are audited, not converted. `apps/desktop/src/settings/preferences.ts`, `appSettings`, uses `storedValue` from `apps/desktop/src/state/storage.ts`, backed by the Tauri store's `work.json`; `crates/desktop/src/store.rs`, `Store`, keeps Project preferences in `projects.json`. Neither migrates SQLite `user_version`, so neither gets a fabricated SQLite guard or regression. Record any changed finding on the Issue. The build-time fresh-image generator in `crates/rupd/build.rs` creates a new database; it is not an opener of user data (policy).
+
+**N5088b the Project reports the refusal instead of a later SQL error.** Policy: a failed Project open propagates N5088a's complete diagnostic through the existing Daemon startup error and App Project-open/reopen failure surface. The affected Project shows the database path, stored and supported versions, and newer/branch-build explanation; it must not appear ready or defer the error until Add Todo or another application query. Keep the existing Project association and retry behaviour. Include actionable guidance to use the build that wrote the database or, for disposable pre-release data, reset that database after closing roundup; no automatic reset or deletion. Inspect the propagation from `crates/rupd/src/storage.rs`, `open`, through `crates/desktop/src/daemon.rs`, `start`, and `apps/desktop/src/state/projects.ts`, `createProjectsState`, to `apps/desktop/src/App.tsx`, `App`. This is an error-propagation policy, not a new UI or RPC contract; retain the existing surface and existing failure tests, with no new App/browser/process regression for this Issue.
+
+Policy: this work adds refusal only. No repair, down-migration, import, schema adoption, automatic deletion, database rename or app-identifier change. `stored <= known` retains its existing migration/open behaviour. Do not rewrite applied SQL or weaken existing migration scenarios. Existing bounded repairs remain as specified; this work introduces none. No Message, Route, Held or Takeover change; M1–M10 remain unchanged.
+
+### Implementation scope and checks
+
+Policy: implementation covers the eight migration owners above, their existing open/error callers and in-process test modules. Existing Daemon/native error propagation may change only as needed to preserve this diagnostic. No App layout, styling, seam, contract or frozen loop changes. Use installed `rusqlite` and `rusqlite_migration`; no replacement migration engine or new store. Apply rule 9 if introducing shared migration machinery. Progress, audit findings and engineering questions belong on #5088, not a scenario Work table.
+
+Required checks (existing acceptance on `origin/main`; policy):
+
+1. `scenarios/project-store.md`, headings “N16 one live database holds all concerns” and “N17 old per-store databases never block startup”; `crates/rupd/src/storage_tests.rs`, `n16_all_stores_share_one_project_database` and `n17_old_store_files_never_block_the_open`, retain current persistence and ignored legacy files.
+2. `scenarios/project-store.md`, heading “N20 current schemas need no pre-release adoption”, retains the disposable-data policy without adding repair.
+3. `scenarios/merge-conflict-spots.md`, heading “N21 one file per migration”; `crates/rupd/src/storage.rs`, `migrations`, retains the frozen head and discovered added sequence.
+4. `apps/desktop/src/app/u37_reopen.test.tsx`, `u37_a_failed_reopen_shows_the_message_in_ink_and_offers_reopen_again`, retains the existing Project failure and retry surface.
+
+Principle observers (policy): P11's Gate asks whether a rejected operation loses unfinished input; refusal must not delete or reset data. Observe refusal's unchanged version/schema in the eight tests and inspect that no recovery path discards input. P12's Gate asks whether unavailable content hides its cause or substitutes another target; preserve the refused database's identity and diagnostic through N5088b's existing surface. No publication or editable surface is added.
+
+Implementation verification (policy): run `just ready` and `cargo nextest run -p rupd -p agents -p todos -p pads -p messages -p provenance -p checkpoints -E 'test(n5088a_)'`, plus tests reached by edited files. Run `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Exit 0 passes; every other exit fails. For each failed command report one row containing command and exit code. Linux in-process tests and review of existing error propagation suffice; no Mac observation is required.

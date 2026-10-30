@@ -367,3 +367,51 @@ async fn m10_a_subagent_cannot_write_a_checkpoint() {
         .unwrap();
     assert_eq!(listed.as_array().unwrap().len(), 0);
 }
+
+#[tokio::test]
+async fn a31_a_missing_id_is_not_found_and_writes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+
+    let reply = tests::ask(
+        &daemon,
+        r#"{"id":1,"method":"agent.skills","params":{"id":"nobody"}}"#,
+    )
+    .await;
+
+    assert_eq!(reply["error"]["code"], code::NOT_FOUND);
+    let tree = tests::ask(&daemon, r#"{"id":2,"method":"rail.tree"}"#).await;
+    assert_eq!(tree["result"], json!([]), "{tree}");
+}
+
+#[tokio::test]
+async fn a31_a_call_on_an_existing_id_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Agent',0)",
+        [],
+    )
+    .unwrap();
+    let before = tests::ask(&daemon, r#"{"id":1,"method":"rail.tree"}"#).await;
+    assert_eq!(before["result"].as_array().unwrap().len(), 1);
+
+    let reply = tests::ask(
+        &daemon,
+        r#"{"id":2,"method":"agent.skills","params":{"id":"1"}}"#,
+    )
+    .await;
+
+    assert!(reply["result"]["skills"].is_array(), "{reply}");
+    assert_eq!(
+        tests::ask(&daemon, r#"{"id":1,"method":"rail.tree"}"#).await,
+        before
+    );
+    let touched = tests::ask(
+        &daemon,
+        r#"{"id":3,"method":"provenance.touched","params":{"actor_id":"1"}}"#,
+    )
+    .await;
+    assert_eq!(touched["result"], json!([]), "{touched}");
+}
