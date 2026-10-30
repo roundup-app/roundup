@@ -13,7 +13,7 @@ const open = async (body: string, done = false) => {
   { const focusedRow = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Ship/ }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
   await within(panel()).findByRole("button", { name: /^Blocked by/ });
-  await within(panel()).findByRole("region", { name: "Todo history" });
+  await within(panel()).findByRole("region", { name: "Activity" });
 
   return mounted;
 };
