@@ -3,6 +3,10 @@ import { copy as sharedCopy } from "../sharedCopy";
 export const copy = {
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
+  quote: sharedCopy.quote,
+  bulletList: sharedCopy.bulletList,
+  numberedList: sharedCopy.numberedList,
+  codeBlock: sharedCopy.codeBlock,
   inlineCode: sharedCopy.inlineCodeAction,
   find: "Find…",
   addTodo: sharedCopy.addTodo,

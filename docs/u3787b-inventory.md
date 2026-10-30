@@ -573,3 +573,31 @@ conflict, Pad Open/Bold, dense save refusal and Help. Full refusal cause/fix and
 the retained edit are visible. The 21.4-second keyboard recording and PNG images stay
 uncommitted under `artifacts/ux/U3787b/inline-format/`; paired Check readings are
 committed there. No native rendering/combined-dispatch observation is claimed.
+
+## Rich-editor block formatting continuation
+
+Quote (`⇧⌘B`), Bullet list (`⌥⌘8`), Numbered list (`⌥⌘7`) and Code block
+(`⌥⌘C`) now use the same captured editor registration as inline formatting.
+Installed Milkdown supplies their commands, shortcut definitions and dry-run
+availability. Menu projection and toolbar shortcut titles read the shared
+catalogue; shared copy owns the four labels used by Keys and Pads. No editing
+behavior, dispatcher or library navigation is replaced.
+
+The eight added `u3787b_menu_and_key_share_one_action: Pad block` cases exercise
+the production App/editor and native-menu event seam: each route formats the
+captured block once, preserves focus, refuses the retained capture after focus
+leaves and writes no Terminal input. The existing Tauri event-forwarding and
+native accelerator observers include all four chords. No existing test,
+assertion or timeout is removed or changed.
+
+Read main macOS CI [41116240329](https://github.com/roundup-app/roundup/actions/runs/41116240329),
+SHA `6956be9102c67dc05dfd4728b15a54d0239ee7b4`: mac and mac-clippy pass;
+`u3787b_native_responder_find_and_close_follow_availability` passes in 1.637 s.
+This records actual AppKit responder behavior; it supplies no displayed-key,
+alignment or complete-App combined-dispatch observation. Earlier native evidence
+retains its recorded scope and SHA.
+
+Remaining: Paragraph and Heading 1–6, GFM Strikethrough, the rest of the
+library/native inventory and native Edit availability, followed by final native
+displayed-key/combined-dispatch observations. Ordinary editing/list navigation
+remains control-owned. This continuation closes neither #4308 nor #3843.
