@@ -202,7 +202,7 @@ for (const [name, source, forbidden] of [
   });
 }
 
-for (const change of ["unchanged", "stale", "navigation", "assertion", "dependency", "duplicate", "moved", "renamed"]) {
+for (const change of ["unchanged", "stale", "navigation", "assertion", "dependency", "duplicate", "moved", "renamed", "helper", "navigation committed", "module navigation"]) {
   test(`t3779b_assertion_boundary: Python baseline ${change}`, () => {
     const dir = mkdtempSync(resolve(tmpdir(), "roundup-python-baseline-"));
     const config = resolve(dir, "config.json");
@@ -228,13 +228,33 @@ for (const change of ["unchanged", "stale", "navigation", "assertion", "dependen
       git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "baseline");
       git("update-ref", "refs/remotes/origin/main", "HEAD");
       const source = readFileSync(pythonFile, "utf8");
+      if (change === "helper") writeFileSync(pythonFile, 'def evaluate(script):\n    return 900\n' + source);
+      if (change === "module navigation") {
+        const moduleSource = source.replace('def t3779b_fixture():\n', '').replaceAll('    ', '');
+        writeFileSync(pythonFile, moduleSource);
+        const moduleAudit = spawnSync("python3", [resolve(repo, directory, "python-audit.py"), dir], { encoding: "utf8" });
+        const moduleRow = JSON.parse(moduleAudit.stdout);
+        writeFileSync(baseline, JSON.stringify({ file: moduleRow.file, test: moduleRow.test, identity: moduleRow.identity }) + "\n");
+        git("add", ".");
+        git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "module baseline");
+        git("update-ref", "refs/remotes/origin/main", "HEAD");
+        writeFileSync(pythonFile, moduleSource.replace('browser("click", "old")', 'browser("click", "new")'));
+      }
+      if (change === "navigation committed") {
+        const revision = spawnSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).stdout.trim();
+        writeFileSync(resolve(dir, directory, "baseline-source.json"), JSON.stringify({ sourceRevision: revision }));
+        writeFileSync(pythonFile, source.replace('browser("click", "old")', 'browser("click", "new")'));
+        git("add", ".");
+        git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "navigation merged");
+        git("update-ref", "refs/remotes/origin/main", "HEAD");
+      }
       if (change === "navigation") writeFileSync(pythonFile, source.replace('browser("click", "old")', 'browser("press", "Meta+k")\n    browser("click", "new")'));
       if (change === "assertion") writeFileSync(pythonFile, source.replace("assert size > 0", "assert size > 1"));
       if (change === "dependency") writeFileSync(pythonFile, source.replace("clientWidth", "clientHeight"));
       if (change === "duplicate") writeFileSync(pythonFile, source.replace("assert size > 0", "assert size > 0\n    assert size > 0"));
       if (change === "moved") writeFileSync(pythonFile, source.replace('    assert size > 0\n    browser("close")', '    browser("close")\n    assert size > 0'));
       if (change === "renamed") writeFileSync(pythonFile, source.replace("t3779b_fixture", "t3779b_other"));
-      const allowed = change === "unchanged" || change === "navigation";
+      const allowed = change === "unchanged" || change.includes("navigation");
       if (change === "stale") writeFileSync(pythonFile, 'raise RuntimeError("Launcher must never execute")\n');
       const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, allowed ? 0 : 1, result.stdout + result.stderr);
