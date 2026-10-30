@@ -1,6 +1,6 @@
-import { cleanup, waitFor } from "@solidjs/testing-library";
+import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { bubbleNames, mountBubbles } from "./bubblesFixture";
+import { bubbleNames, mountBubbles, TERMINALS } from "./bubblesFixture";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -18,6 +18,7 @@ it("u467_bubbles_keep_their_owners_over_the_door_terminal", async () => {
   connected.rail.select("a");
   await waitFor(() => expect(bubbleNames()).toEqual(["cargo test", "zsh"]));
   expect(screens()).toEqual(["t-a"]);
+  expect(screen.getByRole("group", { name: TERMINALS[0]!.title! })).toBeTruthy();
 
   connected.rail.select("other");
   await waitFor(() => expect(bubbleNames()).toEqual([]));
