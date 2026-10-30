@@ -1,6 +1,6 @@
 # Real Claude Code with a fake model
 
-Policy: A32/U350 (#4542) retire Clear-only inventory entries and their process requirements; the mixed `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear` observer keeps launch/resume and retires only its Clear branch; all surviving behavior retains its original observer and cost boundary. Historical baseline counts precede that retirement.
+Policy: A32/U350 (#4542) retire Clear-only inventory entries and their process requirements; the mixed `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear` observer keeps launch/resume and retires only its Clear branch; all surviving behavior retains its original observer and cost boundary. T3779c moves `src/testing/u176_agent_names.test.tsx` to mounted-App jsdom observers; production sibling naming remains covered by `crates/agents/tests/scenarios/naming.rs::u176_agents_with_one_prompt_are_numbered_among_their_siblings`. Its real-Claude web observer is retired as a duplicate naming proof. Historical baseline counts precede those retirements.
 
 Ownership: `crates/rup/tests/` (the five files below, shared helper, `e2e/fake_claude.py` and fixtures), `crates/rupd/tests/b21_stopped_door.rs`, the twenty listed web test files, `.config/nextest.toml`, `.github/workflows/check.yml` install/cache steps, `package.json` and `pnpm-lock.yaml`. No production behaviour change, contract change or spike files belongs to this work (policy). Land the shared helper and `crates/rup` first, then `crates/rupd`, then `apps/desktop`, one module directory per PR (policy). Progress, exceptions and engineering questions belong on the work Issue, never in a scenario Work table (policy).
 
@@ -110,7 +110,6 @@ Cost observer (TC1): `e11_a_tool_result_matches_the_next_turn` also asserts D3â€
 - `src/testing/u159_workstream_todos.test.tsx`
 - `src/testing/u160_workstream_thread.test.tsx`
 - `src/testing/u166_door_permission.test.tsx`
-- `src/testing/u176_agent_names.test.tsx`
 - `src/testing/u177_restarted_door.test.tsx`
 - `src/testing/u178_workstream_todos.test.tsx`
 - `src/testing/u187_thread_mode_real_daemon.test.tsx`
