@@ -248,7 +248,7 @@ for (const owner of ["todos", "pads"] as const) {
       }
 
       await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /^(Idle|Blocked|Done) #3 / : "other" })).toBeNull());
-      expect(within(screen.getByRole("group", { name: "Work items deletion" })).getByRole("alert").textContent).toContain(readbackError.message);
+      expect(within(screen.getByRole("group", { name: "Bench deletion" })).getByRole("alert").textContent).toContain(readbackError.message);
       expect(connected.drafts.list()).toEqual(retained);
       fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
       await questionClosed();

@@ -39,7 +39,7 @@ it("p3557c_rendered_failure_clears_with_its_deleted_pad", async () => {
   await browser("open", `${server.resolvedUrls.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
   await browser("wait", "[role=tree]");
   const pads = "window.__fake.app.handlers['pad.list']";
-  const name = JSON.parse(await browser("eval", `window.__fake.app.rpc('pad.list').then(list => list.find(pad => pad.owner.kind === 'user').name)`));
+  const name = JSON.parse(await browser("eval", `window.__fake.app.rpc('pad.list').then(list => list[0].name)`));
 
   await browser("eval", `window.__fake.emit({ actor: { kind: 'agent', id: 'a', parent: null }, name: 'pad.changed', data: { name: ${JSON.stringify(name)} } })`);
   await browser("wait", ".app-toast-action");
