@@ -381,6 +381,39 @@ mod tests {
     }
 
     #[test]
+    fn e3_workstream_children_receive_guidance_only_in_start_context() {
+        let mut nodes = rail();
+        nodes.push(node("8", NodeKind::Agent, "free", None, false));
+        nodes.push(node("9", NodeKind::Agent, "nested", Some("2"), false));
+        nodes.push(node("10", NodeKind::Agent, "free child", Some("8"), false));
+        for (id, member) in [
+            ("2", true),
+            ("6", true),
+            ("9", true),
+            ("8", false),
+            ("10", false),
+            ("1", false),
+        ] {
+            let context = compose(&nodes, &[], id).unwrap();
+            let text = text(&nodes, &context);
+            assert_eq!(text.contains("two or more steps"), member, "{id}: {text}");
+            if member {
+                for rule in [
+                    "complete each",
+                    "handoff",
+                    "without approval",
+                    "reason",
+                    "end your turn",
+                    "never poll",
+                    "user moves win",
+                ] {
+                    assert!(text.contains(rule), "missing {rule}: {text}");
+                }
+            }
+        }
+    }
+
+    #[test]
     fn e3_the_brief_is_the_vendors_shape_around_one_line_each() {
         let todos = [
             todo(1, "2", false, vec![], false),
