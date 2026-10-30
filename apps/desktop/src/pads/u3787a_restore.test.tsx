@@ -1,8 +1,7 @@
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { showEverythingInApp } from "../testing/showEverything";
-import { showShelfTab } from "../testing/shelfTabs";
-import { projectMenu } from "../testing/menuProbe";
+import { menuProbe, projectMenu } from "../testing/menuProbe";
 import { Todos } from "../todos/Todos";
 import { Pads } from "./Pads";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -392,9 +391,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
   let connected: ConnectedProject | undefined;
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} initialShelfOpen={kind !== "todos" && kind !== "pads"} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
   await waitFor(() => expect(connected !== undefined).toBe(true));
-  await showEverythingInApp();
-
-  if (isPad) showShelfTab("Pads");
+  await showEverythingInApp(undefined, isPad ? "Pads" : "Todos");
 
   if (kind === "todos" || kind === "pads") {
     connected!.rail.select(null);
@@ -408,7 +405,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
   }
 
   const owner = kind === "todos" || kind === "pads" ? within(screen.getByRole("complementary", { name: "Drawer" })) : screen;
-  const row = kind === "clear-done" ? await screen.findByRole("button", { name: "Clear done" }) : await owner.findByRole("button", { name: isPad ? name : new RegExp(`#${todo!.id} `) });
+  const row = kind === "clear-done" ? await screen.findByText("Clear done", { selector: "button" }) : isPad ? (await owner.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await owner.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));
   row.focus();
 
   if (kind.startsWith("drawer-")) {
@@ -416,8 +413,12 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
     const panel = screen.getByRole("complementary", { name: "Drawer" });
     const button = await within(panel).findByRole("button", { name: isPad ? "Delete" : "Delete Todo" });
     button.focus(); fireEvent.click(button);
-  } else if (kind === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
-  else fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  } else if (kind === "clear-done") fireEvent.click(await screen.findByText("Clear done", { selector: "button" }));
+  else if (kind === "todos" || kind === "pads") {
+    fireEvent.contextMenu(row);
+    await waitFor(() => expect(menuProbe.shown?.some(item => item.id === "delete")).toBe(true));
+    menuProbe.answer!("delete");
+  } else fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   const read = async () => isPad ? (await app.rpc("pad.list", null)).some(item => item.incarnation === pad!.incarnation) : (await app.rpc("todo.list", null)).some(item => item.id === todo!.id);
   await waitFor(async () => expect(await read()).toBe(false));
   await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
@@ -426,7 +427,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
 
   if (region) { region.tabIndex = 0; region.focus(); }
 
-  const absent = () => expect(screen.queryAllByRole("button").filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+  const absent = () => expect([...document.querySelectorAll("button")].filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
   absent();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe(isPad ? "Undo Delete Pad" : "Undo Delete Todo"));
   fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true });
@@ -454,11 +455,11 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
   const rail = screen.getByRole("tree", { name: "Rail" });
   rail.tabIndex = -1; rail.focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe("Undo Remove round-trip-rail"));
-  expect(screen.queryAllByRole("button").filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+  expect([...document.querySelectorAll("button")].filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
   fireEvent.keyDown(rail, { key: "z", code: "KeyZ", metaKey: true });
   await waitFor(async () => expect(await present()).toBe(true));
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘Z")?.label).toBe("Redo Remove round-trip-rail"));
   fireEvent.keyDown(rail, { key: "z", code: "KeyZ", metaKey: true, shiftKey: true });
   await waitFor(async () => expect(await present()).toBe(false));
-  expect(screen.queryAllByRole("button").filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+  expect([...document.querySelectorAll("button")].filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
 });

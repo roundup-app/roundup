@@ -52,7 +52,7 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
     await lane.until("!document.querySelector('[data-id=\"' + window.__railChosen + '\"]')");
     await lane.capture("U3787a", `rail-${seed}-deleted`);
     await lane.evaluate("(() => { const rail=document.querySelector('.rail-tree'); rail.tabIndex=-1; rail.focus(); return true; })()");
-      await lane.browser("press", "Meta+z");
+    await lane.browser("press", "Meta+z");
     await lane.until((seed === "conflict" || seed === "dense-failure") ? "document.body.textContent.includes('The original Home changed')" : "!!document.querySelector('[data-id=\"'+window.__railChosen+'\"]')");
     expect(await lane.calls("rail.restore")).toHaveLength(1);
     await lane.capture("U3787a", `rail-${seed}-${(seed === "conflict" || seed === "dense-failure") ? "conflict" : "restored"}`);
@@ -82,6 +82,13 @@ it("u3787a_quiet_deletion_keeps_the_lists_and_drawers_reachable", async () => {
         return true;
       })()`);
       await lane.until("!![...document.querySelectorAll('.pads-tab .pad-name')].find(row => row.textContent.includes('Chosen Pad'))");
+      await lane.evaluate(`(() => {
+        for (const control of document.querySelectorAll('.pads-tab [data-shelf-group] [data-part="branch-control"]')) {
+          if (control.closest('[role="treeitem"]')?.getAttribute('aria-expanded') === 'false') control.click();
+        }
+        return true;
+      })()`);
+      await lane.until("[...document.querySelectorAll('.pads-tab .pad-name')].some(row => row.textContent.includes('Chosen Pad') && row.getClientRects().length > 0)");
       await lane.evaluate(`(() => {
         const row=[...document.querySelectorAll('.pads-tab .pad-name')].find(row => row.textContent.includes('Chosen Pad'));
         row.focus(); return true;

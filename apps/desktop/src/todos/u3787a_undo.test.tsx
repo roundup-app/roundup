@@ -16,6 +16,7 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { openProjectPage, projectMenu, questionProbe } from "../testing/menuProbe";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { useBrowserStorage } from "../state/storage";
+import { historyRegion } from "../keys/focus";
 
 stubDialogLayout();
 
@@ -80,7 +81,7 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   await acknowledged();
   expect(connections.get("/a")!.drafts.todoUndo.available("todo:5")).toBe(true);
   expect(connections.get("/a")!.drafts.todoUndo.available("todo:7")).toBe(false);
-  expect(screen.queryAllByRole("button").filter(button => button.textContent === "Undo")).toEqual([]);
+  expect([...document.querySelectorAll("button")].filter(button => button.textContent === "Undo")).toEqual([]);
 
   if (source === "menu") {
     document.body.focus();
@@ -100,8 +101,8 @@ const DELETED = /^Deleted \d/;
 
 const acknowledged = async () => {
   await waitFor(() => {
-  expect([...histories.values()].some(open => open.drafts.todoUndo.available() && !open.drafts.todoUndo.pending())).toBe(true);
-  expect(screen.queryByText(DELETED)).toBeNull();
+    expect([...histories.values()].some(open => open.drafts.todoUndo.available() && !open.drafts.todoUndo.pending())).toBe(true);
+    expect(screen.queryByText(DELETED)).toBeNull();
   });
   await new Promise<void>(resolve => queueMicrotask(resolve));
 };
@@ -111,7 +112,7 @@ const pressUndo = () => {
 
   const target = history?.available("rail") ? document.querySelector<HTMLElement>(".rail-tree")
     : history?.available("shelf") ? document.querySelector<HTMLElement>('.shelf-tab[aria-selected="true"]')
-    : document.activeElement instanceof HTMLElement && history?.available(document.activeElement.closest<HTMLElement>("[data-history-region]")?.dataset.historyRegion) ? document.activeElement : document.body;
+    : document.activeElement instanceof HTMLElement && history?.available(historyRegion(document.activeElement)) ? document.activeElement : document.body;
 
   if (target) { target.tabIndex = -1; target.focus(); }
 
@@ -248,14 +249,14 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
     daemon.handlers["todo.list"] = () => [todo(5, { done: entry === "clear-done" }), todo(7, { done: entry === "clear-done" })];
     await showEverythingInApp();
 
-    if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
+    if (entry === "clear-done") fireEvent.click(await screen.findByText("Clear done", { selector: "button" }));
     else {
-      const first = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / });
+      const first = await screen.findByLabelText(/^(?:Idle|Blocked|Done) #5 /);
 
       if (entry === "selection") {
         fireEvent.click(first, { metaKey: true });
-        fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }), { metaKey: true });
-        fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+        fireEvent.click(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /), { metaKey: true });
+        fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
       } else { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     }
 
@@ -271,7 +272,7 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
   });
 }
 
-const showPads = async () => {
+const showPads = async (name?: string) => {
   showShelfTab("Pads");
   await waitFor(() => {
     const groups = document.querySelectorAll('.pads-tab [data-shelf-group]');
@@ -279,6 +280,8 @@ const showPads = async () => {
     if (!groups.length) throw new Error("Pad groups are loading");
 
     for (const control of document.querySelectorAll<HTMLElement>('.pads-tab [data-shelf-group] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+
+    if (name) expect([...document.querySelectorAll(".pads-tab .pad-name")].some(row => row.textContent === name)).toBe(true);
   });
 };
 
@@ -288,7 +291,7 @@ for (const entry of ["selection", "single", "drawer"] as const) {
     const daemon = app.of("/a");
     await showEverythingInApp();
     await showPads();
-    const first = await screen.findByRole("button", { name: "first" });
+    const first = (await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!;
 
     if (entry === "selection") {
       const remove = daemon.handlers["pad.delete"]!;
@@ -297,10 +300,10 @@ for (const entry of ["selection", "single", "drawer"] as const) {
  return remove(p)!; };
 
       fireEvent.click(first, { metaKey: true });
-      fireEvent.click(screen.getByRole("button", { name: "second" }), { metaKey: true });
-      fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+      fireEvent.click(screen.getByText("second", { selector: ".pad-name .shelf-title" }).closest<HTMLElement>(".pad-name")!, { metaKey: true });
+      fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
       await screen.findByText("Could not delete second: permission refused");
-      expect(screen.getByRole("button", { name: "second" }).getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByText("second", { selector: ".pad-name .shelf-title" }).closest<HTMLElement>(".pad-name")!.getAttribute("aria-pressed")).toBe("true");
     } else if (entry === "single") { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     else {
       fireEvent.keyDown(first, { key: "Enter" });
@@ -313,8 +316,10 @@ for (const entry of ["selection", "single", "drawer"] as const) {
     expect([questionProbe.shown]).toEqual([null]);
     expect(daemon.calls.filter(c => c.method === "pad.delete").map(c => c.params)).toEqual((entry === "selection" ? ["first", "second"] : ["first"]).map(name => ({ name, expectedIncarnation: `fixture-${name}`, operation: expect.any(String) })));
     pressUndo();
-    await screen.findByRole("button", { name: "first" });
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "pad.restore").length).toBe(1));
+    await waitFor(() => expect(connections.get("/a")!.drafts.todoUndo.pending()).toBe(false));
+    await showPads("first");
+    (await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!;
     expect((await daemon.rpc("pad.read", { name: "first" }))).toEqual(padOf("first", AGENT, "original"));
     expect(daemon.calls.filter(c => ["agent.spawn", "terminal.spawn", "pad.create"].includes(c.method))).toEqual([]);
   });
@@ -325,9 +330,9 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
   const daemon = app.of("/a");
   await showEverythingInApp();
   await showPads();
-  fireEvent.click(await screen.findByRole("button", { name: "first" }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "second" }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  fireEvent.click((await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!, { metaKey: true });
+  fireEvent.click(screen.getByText("second", { selector: ".pad-name .shelf-title" }).closest<HTMLElement>(".pad-name")!, { metaKey: true });
+  fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
   await acknowledged();
   const restore = daemon.handlers["pad.restore"]!;
   let refuse = true;
@@ -359,7 +364,7 @@ it("u3787a_unknown_delete_reconciles_before_retry_pads", async () => {
 
   await showEverythingInApp();
   await showPads();
-  const row = await screen.findByRole("button", { name: "first" });
+  const row = (await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!;
   row.focus();
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   const check = await screen.findByRole("button", { name: "Check deletion" });
@@ -368,7 +373,7 @@ it("u3787a_unknown_delete_reconciles_before_retry_pads", async () => {
   fireEvent.click(check);
   await acknowledged();
   pressUndo();
-  await screen.findByRole("button", { name: "first" });
+  (await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!;
   expect(daemon.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([
     { name: "first", expectedIncarnation: "fixture-first", operation: expect.any(String) },
   ]);
@@ -385,7 +390,7 @@ it("u3787a_delete_has_no_question_and_freezes_targets_pads_pending", async () =>
 
   await showEverythingInApp();
   await showPads();
-  const row = await screen.findByRole("button", { name: "first" });
+  const row = (await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!;
   row.focus();
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
@@ -406,15 +411,15 @@ for (const entry of ["selection", "clear-done"] as const) {
     daemon.handlers["todo.delete"] = p => ({ operation: p.operation, deleted: [5], missing: [7], state: "deleted" });
     await showEverythingInApp();
 
-    if (entry === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
+    if (entry === "clear-done") fireEvent.click(await screen.findByText("Clear done", { selector: "button" }));
     else {
-      fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }), { metaKey: true });
-      fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }), { metaKey: true });
-      fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+      fireEvent.click(await screen.findByLabelText(/^(?:Idle|Blocked|Done) #5 /), { metaKey: true });
+      fireEvent.click(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /), { metaKey: true });
+      fireEvent.click(screen.getByText("Delete 2", { selector: "button" }));
     }
 
     await screen.findByText("Could not delete same #7: The chosen Todo is no longer available. Refresh to check again.");
-    expect(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #7 / }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /).getAttribute("aria-pressed")).toBe("true");
     pressUndo();
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
     expect(daemon.calls.filter(c => c.method === "todo.delete").map(c => c.params)).toEqual([{ ids: [5, 7], operation: expect.any(String) }]);
@@ -435,7 +440,8 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   await acknowledged();
   expect(connected.drafts.list()).toEqual(retained);
   pressUndo();
-  await screen.findByRole("button", { name: "second" });
+  await waitFor(() => expect(connected.drafts.todoUndo.pending()).toBe(false));
+  await showPads("second");
   expect(connected.drafts.list()).toEqual(retained);
 });
 
@@ -532,7 +538,7 @@ it("u3787a_a_drawer_delete_explains_an_unconfirmed_pad_deletion", async () => {
 
   await showEverythingInApp();
   await showPads();
-  const row = await screen.findByRole("button", { name: "first" });
+  const row = (await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!;
   row.focus();
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   await screen.findByRole("button", { name: "Check deletion" });
@@ -640,7 +646,7 @@ it("u3787a_pending_restore_disables_history_until_acknowledgement", async () => 
   const { app, remove, connections } = await mount();
   await remove("/a");
   const undo = connections.get("/a")!.drafts.todoUndo;
-  await waitFor(() => expect(undo.available("todo:5")).toBe(true));
+  await acknowledged();
   let finish!: () => void;
   app.of("/a").handlers["todo.restore"] = p => new Promise(resolve => {
     finish = () => resolve({ operation: p.operation, deleted: [5], missing: [], state: "restored", restoration: "restoration-5" });
@@ -668,8 +674,8 @@ it("u3787a_edit_menu_tracks_focused_history", async () => {
   destination.focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe("Undo Delete Todo"));
   expect(screen.queryByText(DELETED)).toBeNull();
-  expect(screen.queryAllByRole("button").filter(button => button.textContent === "Undo")).toEqual([]);
-  expect(screen.queryAllByRole("button").filter(button => button.textContent === "Dismiss")).toEqual([]);
+  expect([...document.querySelectorAll("button")].filter(button => button.textContent === "Undo")).toEqual([]);
+  expect([...document.querySelectorAll("button")].filter(button => button.textContent === "Dismiss")).toEqual([]);
   app.of("/a").handlers["todo.redo"] = p => ({ operation: p.operation, deleted: [5], missing: [], state: "deleted" });
   undoKey();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘Z")?.label).toBe("Redo Delete Todo"));
