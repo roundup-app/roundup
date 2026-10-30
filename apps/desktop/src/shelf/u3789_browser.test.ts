@@ -393,3 +393,28 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
     }
   }
 }, 300_000);
+
+
+it.each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activation => ({ kind, activation }))))("u4908_open_button_opens_chosen_item_once_$kind/$activation", async ({ kind, activation }) => {
+  await load("tree-40");
+  await overview();
+  if (kind === "pad") {
+    await browser("click", "#shelf-tab-pads");
+    await wait("document.querySelector('.pads-tab')");
+  }
+  await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
+  const selector = kind === "pad" ? '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .todo-open' : '.todos-tab [data-todo="1"] .todo-open';
+  // Read the role/name before activating: a missing Pad action is the red case.
+  expect(await read(`(() => { const button = document.querySelector('${selector}'); return button ? {role:button.tagName, name:button.getAttribute('aria-label')} : null; })()`)).toEqual({role:"BUTTON", name:kind === "pad" ? "Open a-pad-with-a-very-long-name-here" : "Open todo 1"});
+  await browser("eval", "window.__fake.app.calls.length = 0");
+  if (activation === "pointer") await browser("click", selector);
+  else {
+    await browser("focus", selector);
+    await wait(`document.activeElement === document.querySelector('${selector}')`);
+    await browser("press", activation);
+  }
+  await wait("document.querySelector('.drawer[data-open=true]')");
+  const method = kind === "pad" ? "pad.read" : "todo.getHistory";
+  expect(await read(`window.__fake.app.calls.filter(call => call.method === '${method}').map(call => call.params)`)).toEqual([kind === "pad" ? {name:"a-pad-with-a-very-long-name-here"} : {id:1}]);
+  expect(await read("window.__fake.app.calls.filter(call => ['pad.rename','pad.move','todo.update','todo.complete','todo.reopen','todo.move','todo.assign'].includes(call.method))")).toEqual([]);
+}, 60_000);
