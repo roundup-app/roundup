@@ -231,11 +231,11 @@ it("u3311_real_daemon_delegate_board", async () => {
     saved.set(moved.id, { title: "Release notes revised", body: "" });
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-add-notes");
-    await lane.until("!!document.querySelector('textarea[aria-label=Body]')");
-    await lane.browser("fill", "textarea[aria-label=Body]", "Exact body é 🧪\n次の行");
-    await lane.browser("press", "Tab");
-    await lane.until("!document.querySelector('textarea[aria-label=Body]')");
-    await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .todo-editable p')");
+    await lane.until("!!document.querySelector('.todo-detail-body .ProseMirror[aria-label=Body]')");
+    await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪\n次の行");
+    await lane.browser("press", "Control+Enter");
+    await lane.until("!document.querySelector('.todo-detail-body button.word')");
+    await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .ProseMirror')");
     saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪\n次の行" });
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-history-line");

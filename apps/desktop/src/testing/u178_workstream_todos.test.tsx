@@ -1,3 +1,4 @@
+import "../todos/testHarness";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { connectProject, ConnectedProjectContext, createProjectDrafts } from "../state/connectedProject";
@@ -52,9 +53,9 @@ const openBody = async (id: number, body: string) => {
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   await within(drawer).findByRole("button", { name: /^Changes/ });
-  fireEvent.dblClick(within(drawer).getByText(body));
+  fireEvent.dblClick(await within(drawer).findByText(body));
 
-  return within(drawer).getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  return within(drawer).findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
 };
 
 it("u2773c_todos_external_change_keeps_original_at_real_daemon", async () => {

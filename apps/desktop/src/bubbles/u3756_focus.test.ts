@@ -365,14 +365,17 @@ it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal"
   await wait(`!!document.querySelector('.drawer .todo-add-notes')`);
   await read(`(() => {
     const queue = window.queueMicrotask, queued = [];
-    window.queueMicrotask = task => queued.push(task);
+    window.queueMicrotask = task => {
+      // EditableText.bind queues this callback after the rich editor is ready.
+      if (task.toString().includes('focus(focusField)')) queued.push(task);
+      else queue(task);
+    };
     document.querySelector('.drawer .todo-add-notes').focus();
     document.querySelector('.drawer .todo-add-notes').click();
-    window.queueMicrotask = queue;
-    window.editorMounted = document.querySelector('.drawer textarea');
-    window.restoreEditor = () => queued.forEach(task => queue(task));
+    window.restoreEditor = () => { window.queueMicrotask = queue; queued.forEach(task => queue(task)); };
   })()`);
-  expect(await read(`!!window.editorMounted && document.activeElement === document.body`)).toBe(true);
+  await wait(`!!document.querySelector('.drawer .ProseMirror[role=textbox]') && document.activeElement === document.body`);
+  await read(`window.editorMounted = document.querySelector('.drawer .ProseMirror')`);
   await read(`window.arrive()`);
   await wait(`!!document.querySelector('.pane-screen .xterm')`);
   expect(await read(`document.activeElement === document.body`)).toBe(true);
