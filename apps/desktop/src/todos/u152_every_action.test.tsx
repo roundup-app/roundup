@@ -27,7 +27,7 @@ const rowText = (id: number) => rowOf(id).textContent;
 
 const openDrawerOf = async (id: number) => {
   fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) }), { key: "Enter" });
-  await within(drawer()).findByText("Blocker");
+  await within(drawer()).findByRole("button", { name: /^Blocked by/ });
 };
 
 for (const by of ["pointer", "keyboard"] as const) {
@@ -216,7 +216,8 @@ it.each(["dismiss", "save", "delete", "failed-delete", "unrelated"] as const)("p
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 2 } });
   } else {
     if (action === "failed-delete") m.app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32003, "Cannot delete; retry"));
-    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+    fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   }
 
   if (action === "delete") {
@@ -323,7 +324,8 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       if (owner.startsWith("open_row")) m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
     } else {
       if (action === "failed-delete") m.app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32003, deleteRefusal));
-      fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+      fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
     }
 
     if (action === "delete") {
@@ -434,7 +436,8 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
     await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
   } else {
-    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+    fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
     await waitFor(() => expect(drawer().inert).toBe(true));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
   }

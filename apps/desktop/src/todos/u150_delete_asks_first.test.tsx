@@ -14,13 +14,14 @@ const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 const open = async () => {
   const mounted = await mountTodos([todo(5, { title: "session store" }), todo(7, { title: "other" })], true);
   fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }), { key: "Enter" });
-  await within(drawer()).findByText("Blocker");
+  await within(drawer()).findByRole("button", { name: /^Blocked by/ });
 
   return mounted;
 };
 
 const remove = async () => {
-  fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+  fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
 };
 
 describe("u150 Todo deletion", () => {
@@ -44,7 +45,7 @@ describe("u150 Todo deletion", () => {
     };
 
     fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }), { key: "Enter" });
-    await within(drawer()).findByText("Blocker");
+    await within(drawer()).findByRole("button", { name: /^Blocked by/ });
     await remove();
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 

@@ -311,7 +311,7 @@ export const EditableText = (props: {
       const target = event.relatedTarget;
       queueMicrotask(() => {
         if (!alive || connected.drawer.content() !== content || started.recovered
-          || (target instanceof Element && (target.closest(".close, .todo-draft-recovery, [data-dismiss-failure]") || !target.closest(".drawer")))) return;
+          || (target instanceof Element && (target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer")))) return;
         void submit(target);
       });
     });
