@@ -10,6 +10,7 @@ const openDrawer = async () => {
   await mountTodos([todo(5, { title: "session store", body: "Move the cache." })]);
   fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }), { key: "Enter" });
   await within(drawer()).findByRole("button", { name: /^Blocked by/ });
+  await within(drawer()).findByText("Move the cache.");
 };
 
 describe("u139 a Todo's title and body edit by keyboard", () => {
