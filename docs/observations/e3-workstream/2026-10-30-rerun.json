@@ -157,7 +157,7 @@
     {
       "at": "2026-10-30T09:20:45.974Z",
       "type": "tool",
-      "id": "toolu_01FNJ6M8uFZBBRixreBaRbBr",
+      "id": "toolu_01FNJ6M8uFZBBRixre\u0042\u0061RbBr",
       "name": "mcp__roundup__todo_complete",
       "input": {
         "id": 2
@@ -304,6 +304,10 @@
     "stderr": ""
   },
   "verification": {
+    "just ready after main merge": {
+      "exit": 0,
+      "main": "2526579d3e"
+    },
     "pnpm install --frozen-lockfile": 0,
     "cargo build -p rup -p rupd --bins": 0,
     "just ready": {
