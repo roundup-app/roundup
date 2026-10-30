@@ -131,11 +131,18 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
   if (covered) expect(await lane.evaluate("window.__cycle.regions")).toEqual(expect.arrayContaining(shelf ? ["rail", "drawer", "shelf"] : ["rail", "drawer"]));
 };
 
-vi.setConfig({ maxConcurrency: 2 });
+vi.setConfig({ maxConcurrency: 3 });
 
-const backgrounds = ["save", "retained", "project-failure", "project-settings", "app-settings"] as const;
+// One case per background state, alternating the item kind: the exclusion is the same Drawer-fill state for Todo and Pad, and each case costs ~50 s of per-key browser round trips.
+const cases = [
+  {kind: "pad", background: "save"},
+  {kind: "todo", background: "retained"},
+  {kind: "pad", background: "project-failure"},
+  {kind: "todo", background: "project-settings"},
+  {kind: "pad", background: "app-settings"},
+] as const;
 
-it.concurrent.each(["pad", "todo"].flatMap(kind => backgrounds.map(background => ({kind, background}))))(
+it.concurrent.each(cases)(
   "u4911a_covered_centre_controls_leave_and_rejoin_tab_order_$kind / $background", { retry: 0, timeout: 180_000 }, async ({kind, background}) => {
   const lane = await openLane(1512, "dark", `u4911a-${kind}-${background}`);
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
