@@ -565,3 +565,11 @@ at `bf80a4c7a8a7983279735875b7a1cf9c09587a81` passed mac/mac-clippy and the actu
 `u3787b_native_responder_find_and_close_follow_availability` probe (1.084 s).
 It does not establish native displayed-key/alignment or complete-App combined
 dispatch. Prior native evidence retains its original scope and SHA.
+
+Rendered observer: baseline `ea7a644e36aa8779605e825323343e90df5eebed` and
+implementation `9e9514ea0c6e08561610bac88c2f1506419c508d`, isolated headless
+Chromium at 1512×950 dark. All D1–D14/D16 readings pass for tree-40, tabs-8,
+conflict, Pad Open/Bold, dense save refusal and Help. Full refusal cause/fix and
+the retained edit are visible. The 21.4-second keyboard recording and PNGs stay
+uncommitted under `artifacts/ux/U3787b/inline-format/`; paired Check readings are
+committed there. No native rendering/combined-dispatch observation is claimed.
