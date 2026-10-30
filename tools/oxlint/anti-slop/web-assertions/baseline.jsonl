@@ -332,7 +332,6 @@
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_todo_drawer_removed_notice_dismiss","identity":"12e9500155a2bcdd2ba8a9ca45b0c9c538527f4359fc14a8cee9d4039d5b32e8"}
 {"file":"apps/desktop/src/todos/u16_create_a_todo.test.tsx","test":"u16 create a Todo > u16_clicking_plus_opens_one_title_field_in_a_row_after_the_last_todo","identity":"fc19e5d4091c661dea03b4a881e1f0d6de7ecdeb793471aebb58f74df159047b"}
 {"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_when_another_actor_deletes_the_open_todo_the_drawer_says_so","identity":"5a1b492aec31309915f2417ee44d2b9b782571c51277b09b866ba02d86b7ce6a"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_history_follows_the_current_todo","identity":"9f4b8bbd6f6a8aa0bceda0d6ca084b7a61b4fb1334b79e6ec7fcca7cb746df53"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u2773a_todos_live_creation_enters_recovery_only_after_hiding","identity":"2fa731fd702a57698a0cf26f7b52cdb6232509cf8f278f82c3e762fe3a9ca800"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u2773a_todos_live_creation_enters_recovery_only_after_hiding","identity":"f2433ec26e3d53de89d7cfe82f0a015682b2c0ab2fc4e9bb8336481715c23133"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u3021c_todo_selected_revision_refuses_wrong_%s","identity":"31ebcbb789fe760208c17720b6e49573e8e1ba9424869fd6dea316c0bf156264"}
