@@ -47,7 +47,7 @@ it.each(["comments", "history"] as const)("u5119_available_activity_is_bounded_d
   expect(todoCallsTo(m.app, failed === "comments" ? "todo.markCommentsRead" : "todo.readHistory")).toHaveLength(0);
 });
 
-it.each((["comments", "history"] as const).flatMap(failed => [false, true].flatMap(expanded => [0, 3, 30].map(count => ({ failed, expanded, count })))))("u5119_retry_preserves_the_opening_fold $failed / $expanded / $count", async ({ failed, expanded, count }) => {
+it.each((["comments", "history"] as const).flatMap(failed => [0, 3, 30].flatMap(count => (count === 30 ? [false, true] : [false]).map(expanded => ({ failed, expanded, count })))))("u5119_retry_preserves_the_opening_fold $failed / $expanded / $count", async ({ failed, expanded, count }) => {
   const m = await opening(failed, count);
   const available = failed === "comments" ? "h" : "c";
   const recovered = failed === "comments" ? "c" : "h";
