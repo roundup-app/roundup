@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -149,10 +150,10 @@ describe("u3715 a failed create keeps the text and says why", () => {
     await waitFor(() => expect(fail).toBeTypeOf("function"));
     fail();
 
-    await screen.findByLabelText("Recovered capture draft");
+    await screen.findByLabelText(recoveryCopy.unfinishedWork);
     expect(field()!.value).toBe("second");
     press(field()!, { shiftKey: true });
-    expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered capture draft").value).toBe("first");
+    expect(screen.getByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).value).toBe("first");
 
   });
 });
@@ -409,10 +410,10 @@ it.each(["create", "move"])("t4905_a_settled_failure_removes_only_its_placeholde
   type(field()!, "  newer draft 雪  ");
   expect(document.querySelector("[data-todo]")).not.toBeNull();
   fail();
-  await screen.findByLabelText("Recovered capture draft");
+  await screen.findByLabelText(recoveryCopy.unfinishedWork);
   expect(document.querySelector("[data-pending]")).toBeNull();
   expect(field()!.value).toBe("  newer draft 雪  ");
-  expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered capture draft").value).toBe("  rejected capture  ");
+  expect(screen.getByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).value).toBe("  rejected capture  ");
   expect(screen.getByRole("alert").textContent).toContain(cause.message);
 
   if (stage === "move") {

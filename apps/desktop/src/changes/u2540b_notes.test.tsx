@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { parse } from "flatted";
 import { notesFor } from "./notes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
@@ -189,7 +190,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const recovered = await screen.findByRole("dialog", { name: "Recover notes" });
   // The form is first; discard only that draft, keeping the older saved batch note.
   const discarding = vi.spyOn(notesFor(reopened.app, "/p"), "discardForm");
-  fireEvent.click(within(recovered).getAllByRole("button", { name: "Discard this draft" })[0]!);
+  fireEvent.click(within(recovered).getAllByRole("button", { name: recoveryCopy.discardRevision })[0]!);
   await discarding.mock.results[0]!.value;
   expect(recovered.textContent).not.toContain(memory.trim());
   await waitFor(() => expect(parse(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.find((draft: { destination: { surface: string } }) => draft.destination.surface === "changes").value.data).forms).toEqual([]));
@@ -402,7 +403,7 @@ it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(
   if (action === "dismiss") fireEvent.click(within(recovery).getByRole("button", { name: "Dismiss" }));
   else if (action.includes("discard")) {
     if (action === "failed discard") blocked = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk refused"); });
-    fireEvent.click(within(first).getByRole("button", { name: "Discard this draft" }));
+    fireEvent.click(within(first).getByRole("button", { name: recoveryCopy.discardRevision }));
   } else {
     fireEvent.click(action === "copy same" ? source : within(other).getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(copied).toHaveBeenCalledTimes(2));
