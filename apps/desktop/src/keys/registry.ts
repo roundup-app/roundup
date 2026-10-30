@@ -21,7 +21,7 @@ export const activationSource = (event: Pick<MouseEvent, "detail">): ActivationS
 
 type Binding = { chords: readonly string[]; when?: (event: KeyboardEvent) => boolean; run: (event: KeyboardEvent) => void };
 
-type ActionBinding = { action: Chord | LeaderKey; match?: "key"; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: () => void } };
+type ActionBinding = { action: Chord | LeaderKey; chords?: readonly string[]; repeat?: true; match?: "key"; press?: string; searchable?: false; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: () => void; label?: string } };
 
 type Registration = { scope: KeyScope; actions: ActionBinding[]; bindings: { matches: ReturnType<typeof parseKeybinding>[number][]; when: Binding["when"]; run: Binding["run"] }[] };
 
@@ -75,8 +75,8 @@ const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
 export const leaderArmed = armed;
 
 /** `⌘K`'s run: the leader waits for one key. */
-export const armLeader = (event: KeyboardEvent): void => {
-  kept = event.code;
+export const armLeader = (event?: Pick<KeyboardEvent, "code">): void => {
+  kept = event?.code ?? null;
   setArmed(true);
 };
 
@@ -112,6 +112,29 @@ const takeLeaderKey = (event: KeyboardEvent): void => {
   hit?.run(event);
 };
 
+const eligibleAt = (focus: Element | null): Registration[] => [...registrations].filter(({ scope }) => {
+    if (scope.kind === "leader") return false;
+
+    if (scope.kind === "app") return true;
+
+    if (scope.kind === "layer") return scope.active();
+
+    return !!focus && !!scope.element()?.contains(focus);
+  }).sort((a, b) => {
+    if (a.scope.kind === "layer" && b.scope.kind === "layer") {
+      if (containsScope(a.scope, b.scope)) return 1;
+
+      if (containsScope(b.scope, a.scope)) return -1;
+
+      const focused = (scope: KeyScope) => !!focus && !!rootOf(scope)?.contains(focus);
+      const ownership = Number(focused(b.scope)) - Number(focused(a.scope));
+
+      if (ownership) return ownership;
+    }
+
+    return rank(b.scope) - rank(a.scope) || depth(b.scope) - depth(a.scope);
+  });
+
 const dispatch = (event: KeyboardEvent): void => {
   // Modifier chords are keyboard actions too; the focus-visible library excludes them by default.
   setInteractionModality("keyboard");
@@ -135,28 +158,7 @@ const dispatch = (event: KeyboardEvent): void => {
 
   const focus = document.activeElement;
 
-  const eligible = [...registrations].filter(({ scope }) => {
-    if (scope.kind === "leader") return false;
-
-    if (scope.kind === "app") return true;
-
-    if (scope.kind === "layer") return scope.active();
-
-    return !!focus && !!scope.element()?.contains(focus);
-  }).sort((a, b) => {
-    if (a.scope.kind === "layer" && b.scope.kind === "layer") {
-      if (containsScope(a.scope, b.scope)) return 1;
-
-      if (containsScope(b.scope, a.scope)) return -1;
-
-      const focused = (scope: KeyScope) => !!focus && !!rootOf(scope)?.contains(focus);
-      const ownership = Number(focused(b.scope)) - Number(focused(a.scope));
-
-      if (ownership) return ownership;
-    }
-
-    return rank(b.scope) - rank(a.scope) || depth(b.scope) - depth(a.scope);
-  });
+  const eligible = eligibleAt(focus);
 
   const layer = eligible.find(({ scope }) => scope.kind === "layer");
   const modal = eligible.some(({ scope }) => scope.kind === "layer" && scope.modal);
@@ -195,15 +197,19 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
     if (!("action" in binding)) return binding;
 
     const key: Binding = {
-      chords: "presses" in binding.action ? chordsFor(binding.action.keys, binding.match) : leaderChord(binding.action.keys),
+      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsFor(binding.action.keys, binding.match) : leaderChord(binding.action.keys)),
       run: (event) => {
         const captured = binding.capture(event.target instanceof Element ? event.target : document.activeElement);
 
-        if (!event.repeat && captured.available()) captured.invoke();
+        if ((!event.repeat || binding.repeat) && captured.available()) {
+          captured.invoke();
+
+          if (armed()) kept = event.code;
+        }
       },
     };
 
-    if (binding.when) key.when = binding.when;
+    key.when = event => binding.when?.(event) !== false && (scope.kind !== "leader" || binding.capture(event.target instanceof Element ? event.target : document.activeElement).available());
 
     return key;
   });
@@ -224,24 +230,35 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
 };
 
 /** U2572: capture the registered owners before a modal moves focus. Each invocation rechecks that same owner and target; no DOM key event is manufactured or dispatched. */
-export const captureActions = (focus: Element | null): { value: string; label: string; keys: string; available: () => boolean; run: () => void }[] => {
+export const captureActions = (focus: Element | null) => {
   if (modalOpen()) return [];
 
   const rows = [...CHORDS, ...LEADER];
 
-  return [...registrations].flatMap((registration) => registration.actions.map((binding) => {
+  const eligible = [...eligibleAt(focus), ...[...registrations].filter(({ scope }) => scope.kind === "leader")];
+  const region = eligible.find(({ scope }) => scope.kind === "region")?.scope;
+  const layer = eligible.find(({ scope }) => scope.kind === "layer")?.scope;
+  const seen = new Set<string>();
+
+  return eligible.filter(({ scope }) => (scope.kind !== "region" || scope === region) && (scope.kind !== "layer" || scope === layer)).flatMap((registration) => registration.actions.map((binding) => {
     const captured = binding.capture(focus);
     const leader = "press" in binding.action;
 
     const available = () => registrations.has(registration) && captured.available();
 
     return {
-      value: `action:${leader ? "leader" : "chord"}:${binding.action.keys}`,
-      label: binding.action.what,
+      value: `action:${leader ? "leader" : "chord"}:${binding.action.keys}${binding.press ? `:${binding.press}` : ""}`,
+      action: binding.action, press: binding.press, searchable: binding.searchable !== false,
+      label: captured.label ?? binding.action.what,
       keys: leader ? `${CHORDS.find((row) => row.keys === "⌘K")!.keys} ${binding.action.keys}` : binding.action.keys,
       available,
       run: () => { if (available()) captured.invoke(); },
       at: rows.findIndex(row => row.keys === binding.action.keys && ("press" in row) === leader),
     };
-  })).sort((a, b) => a.at - b.at);
+  })).filter(row => {
+    if (!row.available() || seen.has(row.value)) return false;
+    seen.add(row.value);
+
+    return true;
+  }).sort((a, b) => a.at - b.at);
 };

@@ -1,8 +1,6 @@
-import { currentOwner } from "../state/rail";
 import { captureFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
-import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
 import { IconButton } from "../ui/IconButton";
 import type { ActivationSource } from "../keys/registry";
@@ -21,8 +19,7 @@ import { createFailure } from "./failure";
 import { outcomeOf, RpcError } from "../app/seam";
 import { usePadList } from "../rail/pads/padList";
 import type { PadList } from "../rail/pads/padList";
-import { USER } from "./owner";
-import { cutName, wholeWord } from "./nameLine";
+import { wholeWord } from "./nameLine";
 
 import type { PadEditorHandle } from "./PadRichEditor";
 import "./styles.css";
@@ -150,7 +147,7 @@ const PadBody = (props: {
 
   /** The baseline always moves to the last loaded or saved text, even mid-edit, so a later dirty-check stays correct; the field itself only follows while the user is not typing, or their keystrokes would vanish. */
   const adopt = (next: Pad) => {
-    setPad({ ...next, owner: { ...next.owner } });
+    setPad({ ...next });
     sourceRevision = next.revision;
     setOrigin(next.text);
 
@@ -159,9 +156,7 @@ const PadBody = (props: {
 
   const sameContent = (left: Pad, right: Pad) =>
     left.revision === right.revision &&
-    left.text === right.text &&
-    left.owner.kind === right.owner.kind &&
-    left.owner.id === right.owner.id;
+    left.text === right.text;
 
   const currentDraft = () => finalDraft !== undefined ? finalDraft : editor ? editor.getText() : shown();
 
@@ -195,7 +190,7 @@ const PadBody = (props: {
 
         if (sameContent(current, pad())) return;
 
-        setPad({ ...current, owner: { ...current.owner } });
+        setPad({ ...current });
 
         // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
         if (sent !== null && actor?.kind === "user" && current.text === sent) return;
@@ -237,11 +232,9 @@ const PadBody = (props: {
     else actionFailure.show(message);
   };
 
-  const ownedByUser = () => pad().owner.kind === "user";
-
   const write = () =>
     act(async () => {
-      if (paused() || sent !== null || due === null || deleted() || !ownedByUser() || (conflictActor() && due !== "keep-mine")) return;
+      if (paused() || sent !== null || due === null || deleted() || (conflictActor() && due !== "keep-mine")) return;
 
       const resolveConflict = due === "keep-mine";
       const version = conflictVersion;
@@ -337,26 +330,6 @@ const PadBody = (props: {
     void write();
   };
 
-  /** The Agent that owns the Pad, while it is on the Rail (U432). */
-  const owner = () => (pad().owner.kind === "agent" ? connected.rail.nodes.find((node) => node.id === pad().owner.id) : undefined);
-
-  /** U432: selects the owner's row, Resuming it first when it has exited (A22); the Drawer stays open. */
-  const openOwner = () =>
-    act(async () => {
-      const node = owner();
-
-      if (!node) return;
-
-      connected.rail.select(node.id);
-
-      if (connected.rail.exitOf(node) !== null) {
-        if (!node.can_resume) throw new Error(copy.hasExitedAndCannotBeResumed(connected.rail.nameOf(pad().owner)));
-
-        await connected.app.rpc("agent.resume", { id: node.id });
-        await connected.rail.refresh();
-      }
-    });
-
   const exportToFile = () =>
     act(async () => {
       const path = await connected.app.chooseSavePath([name, ".md"].join(""));
@@ -393,7 +366,7 @@ const PadBody = (props: {
 
     capture();
 
-    if (!paused() && ownedByUser() && (!conflictActor() || sent !== null) && !deleted()) saveAfterPause();
+    if (!paused() && (!conflictActor() || sent !== null) && !deleted()) saveAfterPause();
   };
 
   const onText = (text: string) => {
@@ -404,14 +377,8 @@ const PadBody = (props: {
   const onEditorBlur = (next: EventTarget | null) => {
     if (next instanceof Element && next.closest(".pad-rich-editor, [data-pad-dismiss]")) return;
 
-    if (ownedByUser()) flush();
+    flush();
   };
-
-  /** U58: a Pad opened from under its Agent is taken here, by the owner mark, as U18's click does in the Shelf. */
-  const takeIt = () =>
-    act(async () => {
-      adopt(await connected.app.rpc("pad.setOwner", { name, owner: USER }));
-    });
 
   const keepMine = () => {
     if (sent === null && connected.drafts.list().some(draft => draft.destination.surface === "pads" && draft.destination.object === destination.object && (draft.status === "unknown" || draft.status === "pending"))) {
@@ -464,27 +431,8 @@ const PadBody = (props: {
     <div class="pad-body">
       <div class="pad-head">
         <span class="pad-head-title">
-          <span {...nameCut.attrs()} class="pad-head-name" style={cutName}>{name}</span>
-          <Show when={currentOwner(connected.rail, pad().owner)}>{owner =>
-            <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{owner().name}</span>
-          }
-          </Show>
+          <span {...nameCut.attrs()} class="pad-head-name">{name}</span>
         </span>
-        <Show when={!ownedByUser()}>
-          <button data-button="quiet" type="button" class="word pad-make-yours" style={wholeWord} onClick={() => void takeIt()}>{copy.makeYours}</button>
-        </Show>
-        <Show when={owner()}>
-          <Tip text={copy.ownerName(connected.rail.nameOf(pad().owner))}>{(trigger) => <button {...trigger()}
-            data-button="icon"
-            type="button"
-            class="word"
-            style={wholeWord}
-            aria-label={copy.openOwner}
-            onClick={() => void openOwner()}
-          >
-            <Icon name="talk" />
-          </button>}</Tip>
-        </Show>
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
         </IconButton>
@@ -520,7 +468,7 @@ const PadBody = (props: {
         <PadRichEditor
           initialFocus={props.initialFocus}
           text={source}
-          readonly={!ownedByUser() || invalid()}
+          readonly={invalid()}
           onChange={onChange}
           onText={onText}
           onBlur={onEditorBlur}

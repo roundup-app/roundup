@@ -17,9 +17,9 @@ import { watchProject } from "./watch";
 
 export const TOAST_AGENT: Actor = { kind: "agent", id: "a", parent: null };
 
-export const toastTodo = (id: number, creator: Actor, title = "ship it"): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, creator, home: null, owner: null, refs: [], estimate_minutes: null });
+export const toastTodo = (id: number, creator: Actor, title = "ship it"): Todo => ({ id, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator, home: null, owner: null, refs: [] });
 
-export const pad = (name: string, owner: Actor): Pad => ({ incarnation: `fixture-${name}`, name, owner, text: "", updated_at: 0, revision: 1, home: null });
+export const pad = (name: string, _actor: Actor): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null });
 
 export const status = (id: string, kind: Kind) =>
   event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind, since: NOW, finished: "0" } } });

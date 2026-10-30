@@ -7,6 +7,4 @@ export type CreateParams = {
 	blockers: number[] | null,
 	/**  Omitted or `None` is Unassigned. */
 	owner?: Owner.Owner,
-	/**  T29: whole minutes, 1 to 1440; omitted or `None` is no estimate. */
-	estimate_minutes?: number,
 };

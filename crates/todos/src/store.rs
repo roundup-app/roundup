@@ -81,6 +81,13 @@ impl Store {
                 .expect("listed Todo has initial values");
             let after = values(&todo);
             if previous != &after {
+                let at = now_ms();
+                todo.updated_at = at;
+                db.execute(
+                    "UPDATE todos SET updated_at = ?2 WHERE id = ?1",
+                    params![todo.id, at],
+                )
+                .map_err(RpcError::internal)?;
                 let after_touch: i64 = db
                     .query_row("SELECT COALESCE(MAX(seq), 0) FROM touches", [], |row| {
                         row.get(0)
@@ -88,7 +95,7 @@ impl Store {
                     .map_err(RpcError::internal)?;
                 db.execute(
                     "INSERT INTO changes(todo, before_values, after_values, after_touch, actor, changed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![todo.id, serde_json::to_string(previous).map_err(RpcError::internal)?, serde_json::to_string(&after).map_err(RpcError::internal)?, after_touch, creator_json(actor), now_ms()],
+                    params![todo.id, serde_json::to_string(previous).map_err(RpcError::internal)?, serde_json::to_string(&after).map_err(RpcError::internal)?, after_touch, creator_json(actor), at],
                 ).map_err(RpcError::internal)?;
             }
             let was_blocked = todo.blocked;
@@ -111,7 +118,6 @@ impl Store {
     }
 
     /// Every id in `blockers` must exist, or the call is `NOT_FOUND`.
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn insert(
         &self,
         title: &str,
@@ -119,7 +125,6 @@ impl Store {
         blockers: &[u32],
         creator: &Actor,
         owner: Option<&Actor>,
-        estimate_minutes: Option<u32>,
         after_touch: i64,
     ) -> Result<Todo, RpcError> {
         self.require_all(blockers)?;
@@ -129,15 +134,14 @@ impl Store {
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
         tx.execute(
-            "INSERT INTO todos (title, body, created_at, creator, owner, estimate_minutes, pos)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
+            "INSERT INTO todos (title, body, created_at, updated_at, creator, owner, pos)
+             VALUES (?1, ?2, ?3, ?3, ?4, ?5, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
             params![
                 title,
                 body,
                 created_at,
                 creator_json(creator),
                 owner.map(creator_json),
-                estimate_minutes
             ],
         )
         .map_err(RpcError::internal)?;
@@ -152,7 +156,7 @@ impl Store {
         let row = self
             .db
             .query_row(
-                "SELECT title, body, done, created_at, creator, home, owner, estimate_minutes, EXISTS(
+                "SELECT title, body, done, created_at, updated_at, creator, home, owner, EXISTS(
                     SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
                     WHERE b.todo = todos.id AND o.done = 0
                 ) FROM todos WHERE id = ?1",
@@ -163,17 +167,17 @@ impl Store {
                         r.get(1)?,
                         r.get(2)?,
                         r.get(3)?,
-                        r.get::<_, String>(4)?,
-                        r.get(5)?,
-                        r.get::<_, Option<String>>(6)?,
-                        r.get(7)?,
+                        r.get(4)?,
+                        r.get::<_, String>(5)?,
+                        r.get(6)?,
+                        r.get::<_, Option<String>>(7)?,
                         r.get(8)?,
                     ))
                 },
             )
             .optional()
             .map_err(RpcError::internal)?;
-        let (title, body, done, created_at, creator, home, owner, estimate_minutes, blocked) =
+        let (title, body, done, created_at, updated_at, creator, home, owner, blocked) =
             row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
         Ok(Todo {
             id,
@@ -183,6 +187,7 @@ impl Store {
             blockers: self.blockers_of(id)?,
             blocked,
             created_at,
+            updated_at,
             creator: parse_creator(&creator).map_err(RpcError::internal)?,
             home,
             owner: owner
@@ -190,7 +195,6 @@ impl Store {
                 .transpose()
                 .map_err(RpcError::internal)?,
             refs: self.refs(id)?,
-            estimate_minutes,
         })
     }
 
@@ -242,13 +246,11 @@ impl Store {
         ids.into_iter().map(|id| self.get(id)).collect()
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn update(
         &self,
         id: u32,
         title: Option<&str>,
         body: Option<&str>,
-        estimate_minutes: Option<Option<u32>>,
         expected_change: Option<u32>,
         after_touch: i64,
         actor: &Actor,
@@ -262,8 +264,8 @@ impl Store {
         self.require_change(id, expected_change)?;
         self.db
             .execute(
-                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body), estimate_minutes = ?4 WHERE id = ?1",
-                params![id, title, body, estimate_minutes.unwrap_or(current.estimate_minutes)],
+                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body) WHERE id = ?1",
+                params![id, title, body],
             )
             .map_err(RpcError::internal)?;
         self.record_change(id, Some(before), after_touch, actor)?;
@@ -347,7 +349,7 @@ impl Store {
             .map_err(RpcError::internal)?;
         if retained {
             tx.execute(
-                "DELETE FROM rail_removal_items WHERE kind='todo-home' AND id=?",
+                "DELETE FROM rail_removal_items WHERE kind='todo-home' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
                 [id.to_string()],
             )
             .map_err(RpcError::internal)?;
@@ -387,7 +389,7 @@ impl Store {
             .map_err(RpcError::internal)?;
         if retained {
             tx.execute(
-                "DELETE FROM rail_removal_items WHERE kind='todo-owner' AND id=?",
+                "DELETE FROM rail_removal_items WHERE kind='todo-owner' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
                 [id.to_string()],
             )
             .map_err(RpcError::internal)?;
@@ -605,10 +607,21 @@ impl Store {
         if before.as_ref() == Some(&after) {
             return Ok(());
         }
+        let at = now_ms();
+        let created = before.is_none();
         self.db.execute(
             "INSERT INTO changes(todo, before_values, after_values, after_touch, actor, changed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![id, before.map(|value| serde_json::to_string(&value)).transpose().map_err(RpcError::internal)?, serde_json::to_string(&after).map_err(RpcError::internal)?, after_touch, creator_json(actor), now_ms()],
+            params![id, before.map(|value| serde_json::to_string(&value)).transpose().map_err(RpcError::internal)?, serde_json::to_string(&after).map_err(RpcError::internal)?, after_touch, creator_json(actor), at],
         ).map_err(RpcError::internal)?;
+        // T30: creation keeps `updated_at` equal to `created_at`; every later Change moves it.
+        if !created {
+            self.db
+                .execute(
+                    "UPDATE todos SET updated_at = ?2 WHERE id = ?1",
+                    params![id, at],
+                )
+                .map_err(RpcError::internal)?;
+        }
         Ok(())
     }
 
@@ -725,7 +738,6 @@ pub(super) fn values(todo: &Todo) -> Values {
         done: todo.done,
         blockers: todo.blockers.clone(),
         owner: todo.owner.clone(),
-        estimate_minutes: todo.estimate_minutes,
     }
 }
 

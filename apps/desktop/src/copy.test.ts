@@ -28,6 +28,8 @@ const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancest
 
 // These are executable structure or diagnostics never shown by the App, not copy exemptions.
 const STRUCTURE = new Set([
+  // The key registry layer discriminant selects an executable scope, never a label.
+  "layer",
   // U3794: tool names the Agent runtime sends and a selector for text fields are executable structure, not prose.
   "Edit", "MultiEdit", "Write", "NotebookEdit", "textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])",
   // U3517a: a console-only font fallback diagnostic, never rendered by the App.
@@ -37,7 +39,7 @@ const STRUCTURE = new Set([
   // U3309: physical key codes (including the generated Digit template) never render as copy.
   "ArrowUp", "ArrowDown", "Digit ",
   // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
-  "R", "KeyR", "D", "E", "O", "A", "X", "C", "Tab", "J K", "P", "KeyP", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
+  "R", "KeyR", "D", "E", "O", "A", "X", "C", "Tab", "J K", "P", "KeyP", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "B", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyB", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
   "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
   // U3529: display media and a recovery availability discriminant, never displayed copy.
@@ -97,14 +99,14 @@ const candidates = (source: string): { line: number; text: string }[] => {
     const parent = ancestors.at(-1);
 
     // FontFaceSet.load consumes CSS font syntax, never App copy.
-    const call = parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" ? parent.callee : null;
+    const call = (parent?.type === "CallExpression" || parent?.type === "OptionalCallExpression") && (parent.callee.type === "MemberExpression" || parent.callee.type === "OptionalMemberExpression") ? parent.callee : null;
     const owner = call?.object;
 
     if (call?.property.type === "Identifier" && call.property.name === "load" && owner?.type === "MemberExpression" && owner.object.type === "Identifier" && owner.object.name === "document" && owner.property.type === "Identifier" && owner.property.name === "fonts") return;
 
-    const uiSetter = parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && parent.callee.property.name === "setAttribute" && parent.arguments[0]?.type === "StringLiteral" && UI_ATTRIBUTES.test(parent.arguments[0].value) && parent.arguments[1] === node;
+    const uiSetter = (parent?.type === "CallExpression" || parent?.type === "OptionalCallExpression") && call?.property.type === "Identifier" && call.property.name === "setAttribute" && parent.arguments[0]?.type === "StringLiteral" && UI_ATTRIBUTES.test(parent.arguments[0].value) && parent.arguments[1] === node;
 
-    if (!uiSetter && parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && ["rpc", "setAttribute", "getAttribute", "querySelector", "querySelectorAll", "closest", "split", "scrollIntoView", "hasAttribute"].includes(parent.callee.property.name)) return;
+    if (!uiSetter && call?.property.type === "Identifier" && ["rpc", "setAttribute", "getAttribute", "querySelector", "querySelectorAll", "closest", "split", "scrollIntoView", "hasAttribute"].includes(call.property.name)) return;
 
     if (parent?.type === "ReturnStatement" && ancestors.some((each) => each.type === "VariableDeclarator" && each.id.type === "Identifier" && ["placeOf", "createDoorMode"].includes(each.id.name))) return;
 
@@ -194,11 +196,14 @@ it("u471_catalogue_distinguishes_internal_fallback_props_from_app_copy", () => {
       Rename project{format(label)}
     </RenameField>} />;
     document.fonts.load(\`\${style} \${size}px \${family}\`);
+    rows?.querySelectorAll("button.ask-line");
+    row?.setAttribute("aria-label", "Open row");
   `)).toEqual([
     { line: 3, text: "recover" },
     { line: 4, text: "recovery failed" },
     { line: 5, text: "rename" },
     { line: 5, text: "Rename project" },
+    { line: 10, text: "Open row" },
   ]);
 });
 

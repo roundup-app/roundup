@@ -64,7 +64,7 @@ impl Daemon {
             .await?;
         self.auto.start(|| self.reader());
         let observes = (method.starts_with("todo.")
-            && !matches!(method, "todo.restore" | "todo.deletion"))
+            && !matches!(method, "todo.restore" | "todo.deletion" | "todo.redo"))
             || method.starts_with("workstream.")
             || matches!(
                 method,
@@ -74,6 +74,7 @@ impl Daemon {
             || (method.starts_with("todo.") && method != "todo.startWorkstream")
             || method == "workstream.setAuto"
             || method == "rail.restore"
+            || method == "rail.redo"
             || (method == "rail.remove" && params["operation"].is_string());
         let _guard = if serializes {
             Some(self.auto.gate.lock().await)
@@ -196,11 +197,8 @@ async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
         }) {
             continue;
         }
-        let estimate = todo
-            .estimate_minutes
-            .map_or_else(|| "no estimate".into(), |minutes| format!("{minutes} min"));
         let body = format!(
-            "{key}\nTodo #{}: {}\nEstimate: {estimate}\nTake this Todo with todo_assign {{\"id\": {}, \"owner\": \"me\"}}. Delegate using a peer's Rail name as owner, or start a Subagent and assign it. Subagent starts obey the Workstream cap.",
+            "{key}\nTodo #{}: {}\nTake this Todo with todo_assign {{\"id\": {}, \"owner\": \"me\"}}. Delegate using a peer's Rail name as owner, or start a Subagent and assign it. Subagent starts obey the Workstream cap.",
             todo.id, todo.title, todo.id
         );
         reader

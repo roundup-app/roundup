@@ -755,7 +755,7 @@ mod tests {
                 .save_conversation(&id, conversation, cwd.to_str().unwrap())
                 .unwrap();
             let agents = Arc::new(reopen(agents));
-            assert!(agents.shared.terminals.list().is_empty());
+            assert!(agents.shared.terminals.list().await.is_empty());
             assert!(agents.shared.node(&id).unwrap().attempt.is_none());
             let ctx = rpc::Ctx {
                 actor: contracts::Actor::user(),

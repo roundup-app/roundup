@@ -10,6 +10,7 @@ construction and event forwarding. This work adds no dispatcher.
 | Commands | Production holder | Observer |
 |---|---|---|
 | New Agent, prompted Agent, Terminal, Ask, configured Capture; leader Project, attention, work items, Inbox, assignment, changes | Existing `App.tsx` Project projection and registered owners | #4278 / merged #4336: `u4278b_native_accelerator_runs_the_action_once`, `u4278a_unavailable_actions_are_hidden_or_explain_on_use`, `u4278b_one_step_items_carry_native_accelerators`, `u4278b_leader_hints_register_no_accelerator` |
+| Row Switcher; Agent/Bubble switch; Bubble minimise/close; Rail Remove; deletion Undo | Existing `Switcher.tsx`, `Bubbles.tsx`, `Rail.tsx` and Project-owned `todoUndo`; the Project projection includes these registered owners | `u3787b_menu_and_key_share_one_action` covers the production Switcher and Bubble minimise by key/menu; `u3787a_delete_has_no_question_and_freezes_targets_u3787b` extends the original deletion proof to both routes; `u3787a_editor_and_terminal_keep_undo` also refuses menu Undo in editors/Terminals |
 | Focused Terminal Find catalogue/label and existing menu route | `keys/chords.ts`, `App.tsx`; Terminal owner registers its action through `registerKeys` | `u3787b_menu_and_key_share_one_action` uses the connected App, real registry and registered Terminal owner; `u3787b_scoped_menu_does_not_steal_terminal_input` covers unavailable/removed owners and editor input; existing `u2539b_native_menu_projects_the_task_chords` adds actual Tauri Find event forwarding for two Projects |
 
 Find's SearchAddon, floating control and query retention remain #3853. When several Terminal owners register Find, projection and activation choose the
@@ -26,8 +27,8 @@ than adding a duplicate. No existing behavioral test is removed or retired.
 
 The fixed Project task subset is not the complete real-registration inventory.
 Remaining production coverage includes scoped Shelf/list/triage commands, Rail
-rename/remove, Bubble commands, Switcher/Help, deletion Undo from `App.tsx`, settings,
-and Terminal clipboard/font actions in `terminal/Pane.tsx` and `terminal/screens.ts`.
+rename, Help, settings,
+and Terminal clipboard actions in `terminal/screens.ts`.
 Library-owned editor/list navigation must retain its control ownership. Each named
 command still needs its current binding, scoped capture and menu equivalence.
 The complete inventory/configuration observers remain required.
@@ -45,3 +46,211 @@ AppKit-accelerator/webview exactly-once dispatch. #4278's recorded evidence rema
 on that Issue; the older #3843 launch/link observation is not menu evidence.
 The complete implementation SHA still needs the native-only observations after
 remaining command integration. This slice closes neither #4308 nor #3843.
+
+## Scoped-command continuation
+
+The Project menu now projects every available non-Shelf command owner, keeping
+#4278's existing create/navigate/views groups and labels. Existing Bubble and Rail
+owners supply their capture and availability; no selection or dispatcher is added.
+The Leader prefix is excluded as a standalone command; its actions display their
+complete sequences, such as `⌘K J` and `⌘K K`.
+The Switcher and deletion Undo register actions instead of separate raw bindings.
+Undo captures the Project and its existing restoration holder; both routes recheck
+availability and pending restoration. Editor and Terminal focus omit deletion Undo
+and leave native Cmd+Z untouched. Unavailable Project actions remain omitted under
+U4278a. This does not install global accelerators for plain Shelf/list commands.
+
+No existing test is removed or retired. The original frozen-deletion/one-restore
+proof is parameterized over key and menu rather than duplicated; its original
+editor/Terminal ownership proof now also checks menu refusal. The ordinary
+`u2241_no_other_chord_is_taken_at_app_scope` modifier sweep remains unchanged.
+
+macOS CI [40832209878](https://github.com/roundup-app/roundup/actions/runs/40832209878)
+at `0c29b966db434106efbc5ec5ab717ed1bb93d3a9` passed `mac` and `mac-clippy`.
+It is compilation/CI evidence only. Preserve earlier native evidence on #4278;
+this continuation claims no AppKit displayed-key, responder or combined-dispatch
+observation. Remaining native observations follow the complete implementation,
+not this partial catalogue slice.
+
+
+## Terminal font continuation
+
+The production pane's Larger Terminal text (`⌘=`), Smaller Terminal text (`⌘-`)
+and Reset Terminal text size (`⌘0`) now register captured actions. The existing
+Project projection discovers them without another command list or dispatch path.
+Each capture retains the Project's font holder and selected Terminal identity;
+changing that selection or removing the owner makes the capture unavailable.
+The same screen/editor/Daemon guard owns both menu availability and key handling.
+
+`u3787b_menu_and_key_share_one_action` exercises all three production commands by
+key and the App's native-menu event seam, asserting exactly one font update,
+unchanged focus and no Terminal writes. Its unavailable-owner observer refuses a
+capture after changing the selected Terminal. The existing Tauri
+`u2539b_native_menu_projects_the_task_chords` forwards these menu events for two
+Projects, and `u4278b_one_step_items_carry_native_accelerators` checks their native
+accelerator construction. These extend existing proofs; none is retired or removed.
+
+The unmodified U102 file retains the logical `=`/`+` and optional Shift aliases,
+held-key resizing, bounds, saved Project size, configured reset, frame-coalesced
+refitting, scrollback preservation, storage failures and editor/Daemon exclusion.
+The unmodified U2241 ordinary Terminal modifier sweep remains required. The
+registry accepts these existing logical aliases and repeat policy directly,
+using tinykeys rather than another keyboard listener.
+
+macOS CI [40843663089](https://github.com/roundup-app/roundup/actions/runs/40843663089)
+at `626a412ebc62c185c754885872ffdc744d34a673` passed `mac` and `mac-clippy`.
+Installed Tauri 2.12.1 `menu::Menu::default` includes predefined Close Window;
+muda 0.20.0 sends its `performClose:` responder action. Neither is replaced here.
+Neither CI nor Chromium observes native font key equivalents or combined
+AppKit/webview dispatch. Existing #4278 native evidence is retained; the remaining
+complete inventory, clipboard, scoped lists/triage/Help/settings/Rail rename,
+responder Find and final native observations keep #4308 open.
+
+## Terminal clipboard continuation
+
+Terminal Copy and Paste stay the standard responder commands of Tauri's default
+Edit menu; no Project-menu accelerator is added, because one would take ⌘C/⌘V from
+every editor. Paste already arrives as the webview `paste` event. The Terminal
+screen now also takes the `copy` event the Edit menu sends, writing the selection
+through the same `copy` as the ⌘C key. A key press is consumed before the event
+exists, so either path acts once; an empty selection or an editor leaves the event
+to the browser. `u3787b_edit_menu_copy_event_copies_the_terminal_selection_once`
+proves it; the U101 key proofs are unchanged and no test is removed or retired.
+
+Still open on #4308: scoped Shelf/list/triage, Rail rename, Help and settings
+inventory, the complete real-registration inventory observer, and the native
+displayed-key, responder Find and combined-dispatch observations against the
+final implementation SHA. No native result is claimed here.
+
+## Registry-to-menu inventory observer
+
+`u3787b_menu_covers_bound_commands` compares, for a focused Terminal and a focused
+Rail row in the connected App, every available captured Project action with the
+menu items the App writes: each has an item, displays its chord or `⌘K` sequence,
+and the menu holds no item the registry does not offer (so no unavailable command
+is shown). Building the menu leaves focus where it was. This is the real-registration
+inventory for those two foci; Shelf, triage and Help foci, Rail rename, and the
+native displayed-key, responder Find and combined-dispatch observations stay open.
+No test is removed or retired, and no native result is claimed.
+
+## Shelf row commands
+
+The Shelf's registered row commands (`D`, `E`, `M`, the triage keys) now join the
+Project menu from the same `captureActions` inventory, so a focused row's command has
+a menu item and an editor focus has none. A plain key is control-owned, so
+`menu::project_kind` shows it as a hint and registers no native accelerator
+(`u3787b_plain_key_commands_register_no_accelerator`); the key keeps working in the
+webview. `u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row`
+proves item, hint, one `todo.delete` by menu, unchanged focus and omission in a text
+field. Two rows sharing an id (`Esc`) yield one item. No test is removed or retired.
+
+Still open on #4308: Rail rename and Help in the inventory observer, responder Find,
+and the native displayed-key, responder and combined-dispatch observations against the
+final implementation SHA. No native result is claimed.
+
+
+## Help and Rail rename continuation
+
+Continues unmerged PR #4877 from its head, preserving Shelf hint projection and
+plain-key accelerator exclusion. Help (`?`) now registers its existing opener;
+Rail rename (`F2`) registers with the owning Rail and calls its existing editing
+state directly. The obsolete `Keys` component's synthetic double-click is removed,
+along with its mounts in App and fixtures. Ark still owns tree navigation and
+Help's dialog; neither command installs a native accelerator for its plain key.
+
+`u3787b_menu_and_key_share_one_action` now exercises Help and focused Rail rename
+by both routes. Rename addresses the focused row even when another is selected;
+its editor omits menu Rename, Escape returns focus, and opening sends no rename
+RPC. Help closes back to the original row and writes no Terminal input. Existing
+U140 focused-row, U4324 Help focus exclusions and U2241 Terminal modifier observers
+remain required. No test is removed or retired; fixture edits only remove the
+obsolete component mount. The real Tauri event proof
+`u2539b_native_menu_projects_the_task_chords` now forwards Help/F2 in two Projects;
+`u3787b_plain_key_commands_register_no_accelerator` adds both hints.
+
+The Rail inventory observer now requires F2. Complete Shelf and triage inventory
+coverage remains open; the inherited Shelf menu/delete proof remains intact. Settings stays
+the standard application menu's `app-settings` event, with equivalence proved by
+`u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups`.
+Configured Capture remains covered by #4278's existing
+`u2539b_native_menu_projects_the_task_chords` observer rather
+than a duplicate test. Terminal clipboard responders remain covered by U101 and
+its Edit-menu copy event proof. Library-owned editing and list navigation stay
+with their controls.
+
+Read current main macOS CI:
+[40916673952](https://github.com/roundup-app/roundup/actions/runs/40916673952),
+`c7cf55de270fcdf9c0c2490df607b5a2113f0bc6`: `mac` and `mac-clippy` both passed.
+Earlier macOS compilation records and #4278 native evidence above remain valid
+for their recorded SHAs. This run makes no new native dispatch claim.
+
+Remaining on #4308: native responder Find integration and actual responder
+availability for Find/Close Window; complete library/native inventory validation;
+and displayed-key, alignment, responder and combined accelerator/webview dispatch
+observations against the final implementation SHA. Tauri 2.12.1 and muda 0.20.0
+expose predefined Close Window but no Find constructor. AppKit's
+[performTextFinderAction:](https://developer.apple.com/documentation/appkit/nsresponder/performtextfinderaction(_:))
+is the responder-chain capability to investigate. A WebKit/AppKit observer must
+establish support and availability; adding a webview global search is not authorized.
+This continuation closes neither #4308 nor #3843.
+
+The U480 Help binding audit now explicitly presses F2, since its modified
+key sweep cannot see it. Help retains logical `?` matching through `HELP_KEYS`,
+with no physical US-layout shortcut added to the App-scope inventory; the
+unmodified U2241 Terminal sweep retains its existing boundary. No test was removed. Its menu Help dismissal assertion
+was redundant with U54 and the same test's focus return, and was removed. All
+U3787b menu tests use one Project: they never switch Projects, and the existing
+Tauri forwarding observer above retains the two-Project proof.
+
+## Captured triage actions
+
+Triage Assign (`A`), Move (`W`), Complete (`X`) and Comment (`C`) now
+register with the existing action holder. Their capture retains the focused Todo
+and checks that the mode, Todos tab and row remain available; Move is omitted
+without another Home. The same capture invokes the existing picker/mutation by
+menu or key. J/K remain control-owned navigation, with no native accelerator.
+
+`u3787b_triage_commands_share_the_focused_todo` covers all four commands through
+the connected App, plus exactly one completion/comment call for the captured id.
+`u3787b_triage_menu_refuses_an_owner_after_leaving_the_mode` refuses both the menu
+route and a retained capture after Escape. The Tauri forwarding observer
+`u2539b_native_menu_projects_the_task_chords` includes all four commands for both
+Projects. U3751/U3474 retain the ordinary triage, continuation and draft proofs;
+U2241 retains its unmodified Terminal modifier sweep.
+
+Retired `u3724_each_new_key_is_in_chords_and_help`: it asserted catalogue entries
+against other catalogue entries. The production Shelf menu/triage tests and U54
+Help observers retain the behavioral discovery proofs. No other proof is removed.
+
+This continues PR #4877 through its already-merged continuation #4891. Still open:
+complete Shelf/triage inventory (including assignment and nesting), library/native
+inventory and responder Find/Close availability, then native displayed-key and
+combined dispatch observations against the complete implementation SHA. No native
+completion is claimed. macOS check 40941756743 at
+`d780754c8e12a9cf4e81e25cee8ff682a8986a8c` passed mac and mac-clippy; earlier native
+records retain their original scope and SHA.
+
+## Captured Todo nesting
+
+The production `RowButton` now registers Tab and Shift+Tab through its existing
+row layer and `nest` callback. The Project menu discovers the same captured
+nesting plan; focus leaving the row, lifting it, opening a modal or losing the
+available nesting operation refuses that capture. A row with no nesting operation
+keeps ordinary Tab navigation. Plain Tab hints still register no native accelerator.
+
+`u3787b_nesting_captures_the_focused_todo_once` uses the connected production App
+and menu-event seam for both directions and entry paths: one `todo.setBlockers`
+for the focused Todo, unchanged focus during menu projection, no action from the
+retained capture or menu after an editor takes focus. Existing U3709/U3711 proofs
+retain ordinary Tab navigation, dependency identity, cycle refusal and visible
+failure; no test is removed or retired. The existing Tauri
+`u2539b_native_menu_projects_the_task_chords` also forwards both nesting commands
+for two Projects. This extends the accepted #4877 work through main's merged
+continuations, without changing accepted menu grouping or context menus.
+
+Main check [40981393565](https://github.com/roundup-app/roundup/actions/runs/40981393565)
+at `7595b070bbb91dae1c3c2fc5d2d2970f48461250` passed mac and mac-clippy.
+This is CI evidence only; earlier native observations keep their original scope.
+Complete assignment/library/native inventory, responder Find/Close availability
+and final native displayed-key/combined-dispatch observations remain on #4308.
+This slice closes neither #4308 nor #3843.

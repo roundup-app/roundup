@@ -1,8 +1,18 @@
 import { createEffect, createRoot, createSignal, on, onCleanup, untrack } from "solid-js";
 import * as v from "valibot";
+import tokens from "../tokens.css?inline";
 import { storageSchema, storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
-import type { App, CapturePort, AppSeam } from "../app/seam";
+import type { CapturePort, AppSeam } from "../app/seam";
+
+const tokenNumber = (name: string) => Number.parseFloat(new RegExp(`--${name}:\\s*([^;]+);`).exec(tokens)![1]!);
+
+/** Inclusive xterm ranges shared by the stored parser and numeric editors. */
+export const terminalRanges = {
+  fontSize: { min: MIN_FONT_SIZE, max: MAX_FONT_SIZE, step: 1 },
+  lineHeight: { min: tokenNumber("line-terminal-min"), max: tokenNumber("line-terminal-max"), step: tokenNumber("terminal-type-step") },
+  letterSpacing: { min: tokenNumber("letter-terminal-min"), max: tokenNumber("letter-terminal-max"), step: tokenNumber("terminal-type-step") },
+} as const;
 
 const schema = storageSchema("roundup:app-settings", v.object({
   permissionMode: v.fallback(v.picklist(["", "default", "acceptEdits", "plan", "auto"]), ""),
@@ -12,6 +22,11 @@ const schema = storageSchema("roundup:app-settings", v.object({
   modelLabel: v.fallback(v.string(), ""),
   fontFamily: v.fallback(v.string(), ""),
   fontSize: v.fallback(v.pipe(v.number(), v.minValue(MIN_FONT_SIZE), v.maxValue(MAX_FONT_SIZE)), DEFAULT_FONT_SIZE),
+  lineHeight: v.fallback(v.pipe(v.number(), v.minValue(terminalRanges.lineHeight.min), v.maxValue(terminalRanges.lineHeight.max)), tokenNumber("line-terminal")),
+  letterSpacing: v.fallback(v.pipe(v.number(), v.minValue(terminalRanges.letterSpacing.min), v.maxValue(terminalRanges.letterSpacing.max)), tokenNumber("letter-terminal")),
+  fontWeight: v.fallback(v.pipe(v.number(), v.check(value => [300, 400, 500, 600].includes(value))), tokenNumber("weight-terminal")),
+  interfaceScale: v.fallback(v.picklist(["small", "default", "large"]), "default"),
+  focusMarkers: v.fallback(v.boolean(), true),
   quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
   quickAddKey: v.fallback(v.string(), ""),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
@@ -29,6 +44,15 @@ export const appSettings = (): Preferences => {
 
   return storage().read() ?? v.parse(schema, {});
 };
+
+/** Preview and real emulators resolve the same saved typography; Project zoom overrides size separately. */
+export const terminalType = (settings = appSettings()) => ({
+  fontFamily: settings.fontFamily || /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim(),
+  fontSize: settings.fontSize,
+  fontWeight: settings.fontWeight,
+  lineHeight: settings.lineHeight,
+  letterSpacing: settings.letterSpacing,
+});
 
 /** A failed durable write changes nothing; the settings view shows the returned cause. */
 let saving: Promise<unknown> = Promise.resolve();
@@ -60,7 +84,9 @@ export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePo
 /** Own the root's explicit scheme for this App lifetime. System continues using the native media query. */
 export const applyAppAppearance = () => {
   createEffect(() => {
-    const { mode } = appSettings();
+    const { mode, interfaceScale, focusMarkers } = appSettings();
+    document.documentElement.dataset.interfaceScale = interfaceScale;
+    document.documentElement.dataset.focusMarkers = String(focusMarkers);
     document.documentElement.dataset.mode = mode;
 
     if (mode === "system") document.documentElement.style.removeProperty("color-scheme");
@@ -68,6 +94,8 @@ export const applyAppAppearance = () => {
   });
   onCleanup(() => {
     delete document.documentElement.dataset.mode;
+    delete document.documentElement.dataset.interfaceScale;
+    delete document.documentElement.dataset.focusMarkers;
     document.documentElement.style.removeProperty("color-scheme");
   });
 };

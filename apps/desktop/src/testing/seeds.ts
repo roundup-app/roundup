@@ -131,18 +131,18 @@ const todosAt = (now: number): Todo[] =>
     blockers: index === 3 ? [3, 5] : [],
     blocked: index === 3,
     created_at: now,
+    updated_at: now,
     creator: index % 2 === 0 ? RUNNING : USER,
     home: null,
     owner: null,
     refs: [],
-    estimate_minutes: null,
   }));
 
 const padsAt = (now: number): Pad[] =>
   Array.from({ length: 4 }, (_, index) => ({
     incarnation: `fixture-${index}`,
     name: index === 1 ? "a-pad-with-a-very-long-name-here" : `pad-${index}`,
-    owner: index % 2 === 1 ? USER : { kind: "agent", id: "agent-1", parent: null },
+
     text: "# hello\nsome text\n".repeat(30),
     updated_at: now,
     revision: 1,
@@ -342,15 +342,8 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
     for (const pad of (await app.handlers["pad.list"]?.(null)) ?? []) {
       if (pad.home !== workstream.id) continue;
-      const reason = pad.owner.kind === "agent" ? staying.get(pad.owner.id) : undefined;
-
-      if (reason === undefined) {
-        await app.handlers["pad.delete"]?.({ name: pad.name });
-        result.removed.push({ id: pad.name, kind: "pad", name: pad.name });
-      } else {
-        await app.handlers["pad.move"]?.({ name: pad.name, home: null });
-        result.kept.push({ id: pad.name, kind: "pad", name: pad.name, reason });
-      }
+      await app.handlers["pad.delete"]?.({ name: pad.name });
+      result.removed.push({ id: pad.name, kind: "pad", name: pad.name });
     }
 
     nodes.splice(nodes.indexOf(workstream), 1);

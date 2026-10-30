@@ -2,7 +2,7 @@
 //! and the Todos, which only it holds together; `agents` owns the vendor's words for the text.
 
 use contracts::agent::{
-    Brief, Context, ContextAsk, ContextParent, ContextPeer, ContextSelf, ContextTodo, NodeKind,
+    Context, ContextAsk, ContextParent, ContextPeer, ContextSelf, ContextTodo, NodeKind,
     ParentNode, RailNode,
 };
 use contracts::todo::Todo;
@@ -143,9 +143,30 @@ fn words(context: &Context, door: bool) -> String {
     lines.join("\n")
 }
 
+/// Naming instructions belong beside the live Rail identity, never in a shared Brief file.
+pub(crate) fn naming(
+    text: String,
+    settings: &contracts::project::NamingSettings,
+    settled: bool,
+) -> String {
+    let action = if !settings.automatic_renaming {
+        "Automatic self-naming is off. Keep your current name; do not rename yourself automatically."
+    } else if settled {
+        "Automatic self-naming is on. Your name is already chosen: keep it. Never replace an explicit or user-entered name."
+    } else {
+        "Automatic self-naming is on. Choose your own task name with rail_rename, following the naming guide. Never replace an explicit or user-entered name, including a later user rename."
+    };
+    let (name, rest) = text.split_once('\n').unwrap_or((&text, ""));
+    format!(
+        "{name}\n{action}\nNaming guide: {}\n{rest}",
+        settings.naming_guide
+    )
+}
+
 /// E3: what `rup context` prints for `context`'s Agent, in the vendor's own shape.
-pub(crate) fn brief(nodes: &[RailNode], context: &Context) -> Brief {
-    Brief {
+#[cfg(test)]
+pub(crate) fn brief(nodes: &[RailNode], context: &Context) -> contracts::agent::Brief {
+    contracts::agent::Brief {
         stdout: agents::claude_code::session_start_context(&text(nodes, context)),
     }
 }
@@ -209,6 +230,7 @@ mod tests {
             blockers,
             blocked,
             created_at: 0,
+            updated_at: 0,
             creator: Actor {
                 kind: ActorKind::Agent,
                 id: creator.into(),
@@ -217,7 +239,6 @@ mod tests {
             home: None,
             owner: None,
             refs: vec![],
-            estimate_minutes: None,
         }
     }
 

@@ -10,7 +10,7 @@ export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switch
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
 export type Hint = { label: string; at: Partial<Record<HintPlace, number>> };
 
-/** Every chord bound in the webview outside a Terminal screen, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⇧⌘T`, `⌘K` and `⌘/` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
+/** Commands bound in the webview, including focused Terminal actions, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⇧⌘T`, `⌘K`, `⌘/` and `⌃⌘J` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 /** The label and the binding are derived from the same saved physical press. */
 export const shortcutLabel = (press: string, keyName = ""): string => {
   const parts = press.split("+");
@@ -26,25 +26,32 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⇧⌘N", what: copy.newAgentWithAPrompt, presses: ["meta+shift+KeyN"] },
   { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
   { keys: "⌘K", what: copy.leaderWaitsForAKey, presses: ["meta+KeyK"], hint: { label: copy.leaderWaitsForAKey, at: { rail: 3, agent: 2, bubble: 1, pad: 1, drawer: 1 } } },
+  { keys: "⌃⌘J", what: copy.jumpToWhatNeedsYou, presses: ["ctrl+meta+KeyJ"], hint: { label: copy.jumpToWhatNeedsYou, at: { rail: -1, agent: -1, bubble: -1, shelf: -1, pad: -1, drawer: -1 } } },
   { get keys() { return shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey); }, what: copy.captureATodo, get presses() { return [appSettings().quickAdd]; } },
   { keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.switchAgentTerminal, at: { agent: 0, bubble: 0 } } },
   { keys: "M", what: copy.moveTo, presses: ["KeyM"], inRail: true },
+  { keys: copy.renameChord, what: copy.rename, presses: [copy.renameChord], inRail: true },
+  // Help follows the logical ? through HELP_KEYS, rather than a physical US-layout chord.
+  { keys: "?", what: copy.help, presses: [] },
   { keys: "R", what: copy.restartMode, presses: ["KeyR"], inRail: true },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
-  { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 5 } } },
-  { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true, hint: { label: copy.todoAssignDigit, at: { shelf: 7 } } },
+  { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 6 } } },
+  { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true, hint: { label: copy.assign, at: { shelf: 2 } } },
   { keys: "⏎", what: copy.openDraft, presses: ["Enter"], inShelf: true },
 
   { keys: "O", what: copy.assignTodo, presses: ["KeyO"], inShelf: true, hint: { label: copy.assign, at: { shelf: 1 } } },
   { keys: "M", what: copy.maximise, presses: ["KeyM"], inShelf: true, hint: { label: copy.maximise, at: { shelf: 0 } } },
-  { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 2 } } },
-  { keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 3 } } },
-  { keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 4 } } },
+  { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 3 } } },
+  { keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 4 } } },
+  { keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 5 } } },
+  { keys: "⌘=", what: copy.terminalLargerText, presses: ["meta+Equal"], inTerminals: true },
+  { keys: "⌘-", what: copy.terminalSmallerText, presses: ["meta+Minus"], inTerminals: true },
+  { keys: "⌘0", what: copy.terminalResetText, presses: ["meta+Digit0"], inTerminals: true },
   { keys: "⌘F", what: copy.find, presses: ["meta+KeyF"], inTerminals: true },
   { keys: "⌘Z", what: copy.todoUndo, presses: ["meta+KeyZ"] },
   { keys: "⌘,", what: copy.settings, presses: ["meta+Comma"] },
   // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
-  { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 6 } } },
+  { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 7 } } },
   { keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], inShelf: true, inTriage: true },
   { keys: "A", what: copy.triageAssign, presses: ["KeyA"], inShelf: true, inTriage: true },
   { keys: "W", what: copy.triageWorkstream, presses: ["KeyW"], inShelf: true, inTriage: true },
@@ -70,7 +77,7 @@ export const LEADER: readonly LeaderKey[] = [
   { keys: "K", what: copy.switchToARowByName, short: copy.leaderShortRow, press: "KeyK" },
   { keys: "M", what: copy.minimiseOrRestoreTheBubble, short: copy.leaderShortMinimise, press: "KeyM" },
   { keys: "W", what: copy.closeTheBubble, short: copy.leaderShortClose, press: "KeyW" },
-  { keys: "S", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyS" },
+  { keys: "B", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyB" },
   { keys: "T", what: copy.captureATodo, short: copy.leaderShortCapture, press: "KeyT" },
   { keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },
 ];
@@ -107,9 +114,6 @@ export const chordsOf = (chord: Chord | undefined, match: "code" | "key" = "code
   );
 
 export const chordsFor = (keys: string, match: "code" | "key" = "code"): readonly string[] => chordsOf(CHORDS.find((chord) => chord.keys === keys), match);
-
-/** `⌘K` arms the leader (U2239). */
-export const LEADER_ARM = chordsFor("⌘K");
 
 /** Existing Rail navigation, kept local to Keys until its Rail lane adopts Ark. */
 export const RAIL_KEYS = "ArrowLeft ArrowRight F2".split(" ");

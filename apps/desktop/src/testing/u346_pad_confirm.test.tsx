@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { expect, it, vi } from "vitest";
-import { USER } from "./nodes";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { expect, it } from "vitest";
 import { openPad } from "../pads/padsFixture";
 
 // jsdom has no layout, so the editor's scroll-to-selection asks a Range for rects it cannot give.
@@ -104,6 +103,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
   try {
     await browser("--profile", profile, "open", "about:blank");
     await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
     const app = createServedApp(real.base);
     const home = await app.rpc("rail.createWorkstream", { name: "Pad review", parent: null });
 
@@ -113,11 +113,13 @@ it("p2544e_reopen_saved_agent_work", async () => {
     });
 
     await expect.poll(() => app.rpc("pad.list", null), { timeout: 30_000 }).toMatchObject([
-      { name: "agent-work", owner: { kind: "agent", id: agent.id }, home: home.id, text: visualSource, revision: 1 },
+      { name: "agent-work", home: home.id, text: visualSource, revision: 1 },
     ]);
 
-    const openRealPad = async () => {
-      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+    let currentName = "agent-work";
+
+    const openRealPad = async (visit = true) => {
+      if (visit) await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
       await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
 
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
@@ -137,25 +139,57 @@ it("p2544e_reopen_saved_agent_work", async () => {
     };
 
     await openRealPad();
-    expect(await evaluate("document.querySelector('.ProseMirror').getAttribute('contenteditable')")).toBe("false");
-    // Ownership is the subject here; keyboard activation cannot miss the control while lazy visuals change layout.
-    await browser("focus", ".pad-head .pad-make-yours");
-    await browser("press", "Enter");
-    await browser("wait", ".ProseMirror[contenteditable=true]");
+    expect(await evaluate("document.querySelector('.ProseMirror').getAttribute('contenteditable')")).toBe("true");
     await browser("focus", ".ProseMirror");
     await browser("press", "Control+Home");
     await browser("keyboard", "type", "Reviewed ");
     await browser("wait", "[data-state=saved]");
     const expected = `Reviewed ${visualSource}`;
 
-    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, owner: { kind: "user" } });
+    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2 });
     await browser("click", ".drawer .close");
+    await browser("wait", "--fn", "!document.querySelector('.pad-body')");
+    await browser("focus", ".pad-name");
+    await browser("press", "F2");
+    await browser("wait", ".row-name-editor input");
+    await browser("fill", ".row-name-editor input", "reviewed-work");
+    await browser("press", "Enter");
+    currentName = "reviewed-work";
+    await browser("wait", "--fn", "document.querySelector('.pad-name')?.textContent === 'reviewed-work'");
+    const destination = await app.rpc("rail.createWorkstream", { name: "Reviewed", parent: null });
+    await app.rpc("pad.move", { name: currentName, home: destination.id });
+    await browser("wait", "--fn", `document.querySelector('[data-pad="reviewed-work"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(destination.id)}`);
+    // The harness's served adapter refuses native close. Embed the same App on its
+    // existing seam: the fixture owns the real Daemon's shutdown/restart below.
+    await browser("open", `${real.base}/__daemon/open`);
+    await evaluate(`(async () => {
+      const source = await (await fetch('/src/App.tsx')).text();
+      const { render } = await import(source.split('"').find(path => path.includes('/deps/solid-js_web.js')));
+      const { App } = await import('/src/App.tsx');
+      const { createServedApp } = await import('/src/testing/realSeam.ts');
+      const { useBrowserStorage } = await import('/src/state/storage.ts');
+      const { runChecks } = await import('/src/testing/checks.ts');
+      await Promise.all(['/src/tokens.css', '/src/styles.css', '/src/scrollbar.css'].map(path => import(path)));
+      useBrowserStorage(localStorage);
+      const served = createServedApp(location.origin);
+      const app = { ...served, ask: async () => true, closeProject: async () => {}, chooseProjectPath: async () => ${JSON.stringify(real.dir)} };
+      document.body.replaceChildren();
+      const root = document.createElement('div');
+      document.body.append(root);
+      render(() => App({ app, initialShelfOpen: true, reducedMotion: () => true, clock: Date.now }), root);
+      window.__checks = () => runChecks();
+      return true;
+    })()`);
+    await browser("wait", `[data-path='${real.dir}']`);
+    await browser("click", `[data-path='${real.dir}'] button[aria-label^='Close ']`);
+    await browser("wait", "--fn", "!document.querySelector('.project-tab')");
     await real.restart();
-    await openRealPad();
+    await browser("find", "role", "button", "click", "--name", "Choose folder…", "--exact");
+    await openRealPad(false);
     await browser("wait", ".visual-mermaid svg");
     await browser("wait", ".visual-drawing .excalidraw");
     expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe(expected.split("\n")[0]);
-    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, home: home.id });
+    expect(await app.rpc("pad.read", { name: currentName })).toMatchObject({ text: expected, revision: 2, home: destination.id });
     const evidence = process.env.ROUNDUP_PAD_EVIDENCE;
 
     if (evidence) {
@@ -163,7 +197,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await browser("screenshot", join(evidence, "real-daemon-reopened.png"));
       await writeFile(join(evidence, "real-daemon-reopened.json"), JSON.stringify({
         agent: agent.id, workstream: home.id,
-        pad: await app.rpc("pad.read", { name: "agent-work" }),
+        pad: await app.rpc("pad.read", { name: currentName }),
         checks: await evaluate("window.__checks()"), native_claim: false,
       }));
     }
@@ -175,124 +209,6 @@ it("p2544e_reopen_saved_agent_work", async () => {
     }
   }
 }, 300_000);
-
-it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
-  const [{ startRealDaemon }, { createServedApp }, { RequestedApp: App }, { createProjectDrafts }, { fakeEmulators }, { showEverythingInApp }, { showShelfTab }, { render }] = await Promise.all([
-    import("./realDaemonFixture"), import("./realSeam"), import("./requestedApp"), import("../state/connectedProject"), import("../terminal/paneHarness"), import("./showEverything"), import("./shelfTabs"), import("@solidjs/testing-library"),
-  ]);
-
-  const first = await startRealDaemon({});
-  const second = await startRealDaemon({});
-
-  try {
-    let one = createServedApp(first.base);
-    let two = createServedApp(second.base);
-    const name = "retained-real";
-    const original = await one.rpc("pad.create", { name, text: "original\n" });
-    const other = await two.rpc("pad.create", { name, text: "other Project\n" });
-    await one.rpc("rail.createWorkstream", { name: "scope-first", parent: null });
-    await two.rpc("rail.createWorkstream", { name: "scope-second", parent: null });
-    let paths = [first.dir];
-    const closed = new Set<string>();
-    const calls = [vi.spyOn(one, "rpc"), vi.spyOn(two, "rpc")];
-
-    const app = {
-      ...one,
-      projects: async () => paths.map(path => ({ path, name: path === first.dir ? "first" : "second", running: true })),
-      forProject: (path: string) => path === first.dir ? one : two,
-      chooseProjectPath: async () => paths.includes(second.dir) ? first.dir : second.dir,
-      openProject: async (path: string) => {
-        if (closed.delete(path)) {
-          const root = path === first.dir ? first : second;
-          await root.restart();
-          const bound = createServedApp(root.base);
-          calls.push(vi.spyOn(bound, "rpc"));
-
-          if (path === first.dir) one = bound;
-          else two = bound;
-        }
-
-        if (!paths.includes(path)) paths.push(path);
-
-        return { path, name: path === first.dir ? "first" : "second" };
-      },
-      closeProject: async (path: string) => {
-        (path === first.dir ? first : second).daemon.kill();
-        closed.add(path);
-        paths = paths.filter(each => each !== path);
-      },
-      onDaemonExited: async () => () => {},
-    };
-
-    let drafts = createProjectDrafts();
-    const mount = () => render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-    const writes = () => calls.flatMap(spy => spy.mock.calls).filter(([method]) => method === "pad.write" || method === "pad.create" || method === "pad.move").length;
-    mount();
-    await showEverythingInApp(/scope-first/);
-    showShelfTab("Pads");
-    const field = await openPad(name);
-    fireEvent.input(field, { target: { value: "unfinished é 🪁\nsecond" } });
-    const retained = drafts(first.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === original.incarnation)!;
-    expect(retained.destination).toEqual({ surface: "pads", object: original.incarnation, recipient: null });
-    expect(retained.value).toMatchObject({ originalName: name, source: "unfinished é 🪁\nsecond\n", base: "original\n", baseRevision: original.revision });
-    // A separate public write generates the real Event that pauses this editor.
-    await one.rpc("pad.write", { name, text: "external\n", expectedRevision: original.revision, expectedIncarnation: original.incarnation });
-    await screen.findByText(/Changed by/);
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: "second" });
-    await showEverythingInApp(/scope-second/);
-    showShelfTab("Pads");
-    const elsewhere = await openPad(name);
-    expect(elsewhere.value).toBe("other Project");
-    fireEvent.input(elsewhere, { target: { value: "separate 🪁" } });
-    await two.rpc("pad.write", { name, text: "external other", expectedRevision: other.revision, expectedIncarnation: other.incarnation });
-    await screen.findByText(/Changed by/);
-    const afterExternal = writes();
-    cleanup();
-    // A fresh App and holder read the durable bytes, rather than reusing component memory.
-    drafts = createProjectDrafts();
-    mount();
-    fireEvent.click(await screen.findByRole("tab", { name: "first" }));
-    await showEverythingInApp(/scope-first/);
-    showShelfTab("Pads");
-    const restored = await openPad(name);
-    expect(restored.value).toBe("unfinished é 🪁\nsecond");
-    ;
-    const focused = document.activeElement;
-    await one.rpc("pad.setOwner", { name, owner: USER });
-    expect(document.activeElement).toBe(focused);
-    fireEvent.focusOut(restored);
-    expect(writes()).toBe(afterExternal);
-    expect(drafts(first.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === original.incarnation)?.value.base).toBe("original\n");
-    expect(drafts(second.dir).list().find(draft => draft.destination.surface === "pads" && draft.destination.object === other.incarnation)).toMatchObject({ destination: { object: other.incarnation }, value: { source: "separate 🪁\n", base: "other Project\n" } });
-    expect((await one.rpc("pad.read", { name })).text).toBe("external\n");
-    expect((await two.rpc("pad.read", { name })).text).toBe("external other");
-    const firstTab = document.querySelector<HTMLElement>(`[data-path="${first.dir}"]`)!;
-    fireEvent.pointerEnter(firstTab);
-    fireEvent.click(within(firstTab).getByRole("button", { name: /^Close / }));
-    await waitFor(() => expect(document.querySelector(`[data-path="${first.dir}"]`)).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await waitFor(() => expect(document.querySelector(`[data-path="${first.dir}"]`)).not.toBeNull());
-    await showEverythingInApp(/scope-first/);
-    showShelfTab("Pads");
-    const reopenedProject = await openPad(name);
-    expect(reopenedProject.value).toBe("unfinished é 🪁\nsecond");
-    expect(writes()).toBe(afterExternal);
-    // Removing and recreating the original cannot lend authority to recovered edits.
-    await one.rpc("pad.delete", { name });
-    const replacement = await one.rpc("pad.create", { name, text: "replacement" });
-    await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: "Resume" }).disabled).toBe(true));
-    expect(replacement.incarnation).not.toBe(original.incarnation);
-    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
-    expect((await one.rpc("pad.read", { name })).text).toBe("replacement");
-    expect(drafts(first.dir).list().filter(draft => draft.destination.surface === "pads").at(-1)?.destination.object).toBe(original.incarnation);
-  } finally {
-    cleanup();
-    vi.restoreAllMocks();
-    await first.stop();
-    await second.stop();
-  }
-}, 240_000);
 
 it("u3789a_generated_App_contract_renames_through_the_real_Daemon", async () => {
   const { startRealDaemon } = await import("./realDaemonFixture");

@@ -149,12 +149,8 @@ async fn p15_any_actor_appends_with_touch_and_event() {
     let mut events = rig.bus.subscribe();
     let b = agent("b");
 
-    let denied = rig
-        .fail(&b, "pad.write", json!({"name": "notes", "text": "x"}))
-        .await;
     let pad = section(&rig, &b, "Plan", "- b").await;
 
-    assert_eq!(denied.code, code::FORBIDDEN);
     assert_eq!(pad["revision"], 2);
     assert!(matches!(
         events.try_recv().unwrap().data,
@@ -310,17 +306,10 @@ async fn p15_revision_follows_text_changes() {
     let moved = rig
         .ok(&user, "pad.move", json!({"name": "notes", "home": "r1"}))
         .await;
-    let handed = rig
-        .ok(
-            &user,
-            "pad.setOwner",
-            json!({"name": "notes", "owner": agent("b")}),
-        )
-        .await;
 
     assert_eq!(
-        [written, same, appended, nothing, moved, handed].map(revision),
-        [2, 2, 3, 3, 3, 3]
+        [written, same, appended, nothing, moved].map(revision),
+        [2, 2, 3, 3, 3]
     );
 }
 
@@ -473,11 +462,11 @@ async fn p2544d_two_connections_have_one_winner() {
 }
 
 #[tokio::test]
-async fn p2544d_guard_preserves_validation_and_authorization() {
+async fn p2544d_guard_preserves_validation_and_shared_revision_conflicts() {
     let rig = Rig::new();
     rig.create("notes", "original").await;
     for (who, name, expected) in [
-        (agent("b"), "notes", code::FORBIDDEN),
+        (agent("b"), "notes", code::CONFLICT),
         (agent("a"), "missing", code::NOT_FOUND),
         (agent("a"), "../notes", code::INVALID_PARAMS),
     ] {

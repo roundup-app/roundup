@@ -177,13 +177,14 @@ it("u3515a_send_offers_other_project_receivers_in_rail_order", async () => {
 it("u3515a_source_identity_follows_the_object_not_selection", async () => {
   for (const kind of ["shell", "run", "publication"]) {
     if (kind === "publication") {
-      const { app } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+      const { app, connected } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
       app.handlers["deliverable.list"] = () => [{
         id: "publication", project: "p", maker: { kind: "agent", id: "a", parent: null }, maker_name: "a", home: null,
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
       window.dispatchEvent(new Event("focus"));
+      connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
       fireEvent.contextMenu(await within(made).findByRole("listitem"));
       expect(entry(app, copy.sendToAgentMenu).children?.map(child => child.id)).toEqual(["send:a"]);
@@ -257,20 +258,21 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Published output: no eligible receiver", run: async () => {
-      const { app } = await mountAskBar([], null, []);
+      const { app, connected } = await mountAskBar([], null, []);
       app.handlers["deliverable.list"] = () => [{
         id: "publication", project: "p", maker: USER, maker_name: "Me", home: null,
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
       window.dispatchEvent(new Event("focus"));
+      connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
       fireEvent.contextMenu(await within(made).findByRole("listitem"));
       expect(app.menuLabels()).not.toContain(copy.sendToAgentMenu);
       await app.closeMenu();
       expect(actionCalls(app)).toEqual([]);
     } },
-    { name: "Todo and Pad owner drags: the current owner is never a drop target", run: async () => {
+    { name: "Todo owner and Pad Home drags: the current destination is never a drop target", run: async () => {
       // The pointer-only owner destinations use U3515d's isolated rendered App observer.
       const lane = await openLane(1512, "dark", "u3515-owner-guard");
 
@@ -281,7 +283,6 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
           const todo = (await app.rpc('todo.list', null))[0];
           await app.rpc('todo.assign', { id: todo.id, owner: { kind: 'user', id: 'you', parent: null } });
           const pad = (await app.rpc('pad.list', null))[0];
-          await app.rpc('pad.setOwner', { name: pad.name, owner: { kind: 'user', id: 'you', parent: null } });
           const pads = await app.rpc('pad.list', null);
           app.handlers['pad.list'] = () => pads.filter(item => item.name === pad.name);
           app.handlers['rail.tree'] = () => [];
@@ -329,11 +330,11 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       expect(screen.queryByRole("combobox")).toBeNull();
       expect(actionCalls(app)).toEqual([]);
     } },
-    { name: "Pad assignment: Me is its only owner", run: async () => {
+    { name: "Shared Pads offer no assignment", run: async () => {
       const { app, connected } = await openShelf([padOf("mine", USER)]);
       app.handlers["rail.tree"] = () => [];
       await connected.rail.refresh();
-      const me = document.querySelector<HTMLElement>('[data-shelf-group="me"] [data-part="branch-control"]');
+      const me = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
       if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
       screen.getByRole("button", { name: "mine" }).focus();
@@ -355,7 +356,7 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       const { app, connected } = await mountTodos([todo(1, { owner: USER, title: "review" })]);
       app.handlers["rail.tree"] = () => [];
       await connected.rail.refresh();
-      const me = document.querySelector<HTMLElement>('[data-shelf-group="me"] [data-part="branch-control"]');
+      const me = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
       if (me?.closest('[data-shelf-group]')?.querySelector('[data-part="branch-content"]')?.hasAttribute("hidden")) fireEvent.click(me);
       const button = await screen.findByRole("button", { name: /Idle #1 / });
@@ -453,7 +454,7 @@ it.each([
   },
   {
     name: "Work-item Pad",
-    expected: [["open", "0"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["make-yours", "5"], ["delete", "7"]],
+    expected: [["open", "0"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["delete", "7"]],
     receivers: ["a", "b"],
     mount: async () => {
       const { app, connected } = await openShelf([padOf("notes", { kind: "agent", id: "a", parent: null })]);
@@ -468,7 +469,7 @@ it.each([
   },
   {
     name: "Work-item Todo",
-    expected: [["open", "0"], ["complete", "3"], ["send", "4"], ["copy-link", "4"], ["assign", "5"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
+    expected: [["open", "0"], ["complete", "3"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["assign", "5"], ["move", "5"], ["move-up", "5"], ["move-down", "5"], ["delete", "7"]],
     receivers: ["a", "b"],
     mount: async () => {
       const owner = { kind: "agent" as const, id: "a", parent: null };
@@ -486,13 +487,14 @@ it.each([
     expected: [["send", "4"], ["copy-link", "4"]],
     receivers: ["a"],
     mount: async () => {
-      const { app } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+      const { app, connected } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
       app.handlers["deliverable.list"] = () => [{
         id: "publication", project: "p", maker: USER, maker_name: "Me", home: null,
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
       window.dispatchEvent(new Event("focus"));
+      connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
 
       return { app, target: await within(made).findByRole("listitem") };

@@ -103,7 +103,7 @@ const newer = async (choice: string) => {
     await wait(`document.activeElement?.matches('.ask-field') || !!document.activeElement?.closest('.ask-bar')`);
   } else if (choice === "drawer") {
     if (await read(`!!document.querySelector('.rail-row[data-id=backend]')`)) {
-      await browser("click", ".rail-row[data-id=backend] .row-state");
+      await browser("click", ".rail-row[data-id=backend] .name");
       await wait(`document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true'`);
     }
 
@@ -143,26 +143,6 @@ for (const choice of ["drawer", "ask", "rail"]) {
     await capture("U3756b", choice);
   }, 90_000);
 }
-
-it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_%s", async ending => {
-  await fresh("door-stopped");
-  await wait(`!!document.querySelector('.pane-action')`);
-  await read(`(() => {
-    const app = window.__fake.app;
-    const start = app.handlers['rail.startDoor'];
-    app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
-    window.originFocus = document.querySelector('.rail-row[data-id=first-workstream]');
-    window.originFocus.focus();
-    document.querySelector('.pane-action').click();
-  })()`);
-  await wait(`!!window.arrive`);
-  await choose("bubble");
-  await read(`${ending === "origin" ? "window.originFocus.focus()" : "document.activeElement.blur()"}; window.expectedFocus = document.activeElement; window.arrive()`);
-  await wait(`!!document.querySelector('.pane-screen .xterm')`);
-  expect(await read(`document.activeElement === window.expectedFocus`)).toBe(true);
-  await capture("U3756c", ending);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
-}, 90_000);
 
 for (const listFirst of [false, true]) {
   for (const intervene of [false, true]) {

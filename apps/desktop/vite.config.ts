@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import postcss from "postcss";
 import valueParser from "postcss-value-parser";
 import { fileURLToPath } from "node:url";
@@ -6,6 +6,7 @@ import solid from "vite-plugin-solid";
 import { visualizer } from "rollup-plugin-visualizer";
 import { configDefaults, defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
+import { captureTests } from "./src/testing/captures.ts";
 import TimedSequencer from "./src/testing/shardSequencer.ts";
 
 import { buildModules } from "./budgets/build.ts";
@@ -16,6 +17,31 @@ postcss.parse(readFileSync(new URL("./src/tokens.css", import.meta.url), "utf8")
   if (declaration.prop.startsWith("--query-")) queryTokens.set(declaration.prop, declaration.value);
 });
 
+const selectedCaptures = captureTests(process.env.ROUNDUP_CAPTURES);
+
+const captures = selectedCaptures?.files;
+
+
+const captureIds = selectedCaptures?.ids;
+
+// This shared file also owns logged-in Claude observers; U4590 uses only its deterministic PTY observer.
+const startupOnly = captureIds?.includes("U4590") && !captureIds.some(id => ["U463", "U2773g", "U2875d", "U3037d"].includes(id));
+
+if (captureIds) process.env.ROUNDUP_CAPTURES = captureIds.join(",");
+
+type CaptureSelection = { fileParallelism?: boolean; testNamePattern?: RegExp };
+
+const captureSelection: CaptureSelection = {};
+
+if (captures) {
+  captureSelection.fileParallelism = false;
+
+  if (captureIds?.every(id => id === "U4590")) captureSelection.testNamePattern = /^(u4590_|u3517[a-d]_|u3529|u4592_|s3806c_)/i;
+  else if (startupOnly) captureSelection.testNamePattern = /^(?!u463_|u2773[ag]_|u2875d_real_import_)/i;
+}
+
+const captureExcludes = captures ? globSync("src/**/*.test.{ts,tsx}").filter(file => !captures.includes(file)) : [];
+
 const served = realDaemonFromEnv(process.env);
 
 // These scenario-prescribed files own no browser or App server, including S3806b when its caller slice lands.
@@ -24,6 +50,10 @@ const webkitGuards = [
   "src/ui/s3806b_actions.test.tsx",
   "src/terminal/s3806c_scale.test.ts",
 ];
+
+// Files that launch Chromium or a real Daemon starve every test sharing their pool: a shard's reds were a hook timing out
+// beside them. They run one file at a time in their own project, so two of them never overlap.
+const heavy = ["src/**/*_browser.test.{ts,tsx}", "src/**/*_rendered.test.{ts,tsx}", "src/**/*real*.test.{ts,tsx}"];
 
 // Radix Colors scopes light to `:root, .light, .light-theme` and dark to `.dark, .dark-theme`, which the App never toggles
 // (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light
@@ -184,6 +214,7 @@ export default defineConfig({
   server: { port: 5173, strictPort: true },
   test: {
     environment: "jsdom",
+    ...captureSelection,
     // A shard's real-Claude and Chromium files starve the first test of a file past vitest's 5 s (owner's choice, 2026-10-17); a test that sets its own longer limit keeps it.
     testTimeout: 15_000,
     // L122: a flaky test runs twice before it fails; the lane lists a pass on the retry as flaky.
@@ -198,12 +229,23 @@ export default defineConfig({
     setupFiles: ["src/testing/domStubs.ts"],
     // Inline projects inherit jsdom, stubs, transforms and resolution. Only queued App tests start their global setup.
     projects: [
-      { test: { name: "webkit-guards", include: webkitGuards } },
+      { test: { name: "webkit-guards", include: webkitGuards, exclude: captureExcludes } },
       {
         test: {
           name: "app",
           include: ["src/**/*.test.{ts,tsx}"],
-          exclude: [...configDefaults.exclude, ...webkitGuards],
+          exclude: [...configDefaults.exclude, ...webkitGuards, ...heavy, ...captureExcludes],
+          globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
+        },
+      },
+      {
+        test: {
+          name: "heavy",
+          include: heavy,
+          exclude: [...configDefaults.exclude, ...webkitGuards, ...captureExcludes],
+          fileParallelism: false,
+          // Projects of one group share the pool; a later group starts after the earlier one ends, so no app file overlaps a heavy one.
+          sequence: { groupOrder: 1 },
           globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
         },
       },

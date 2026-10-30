@@ -57,3 +57,24 @@
   gap: var(--space-3) var(--space-6);
 }
 .help-section, .help-shelf { min-width: 0; }
+
+/* U4690e: native action targets keep the existing quiet hint hierarchy. */
+.hint-line .hint-action {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  outline: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .hint-line .hint-action:enabled:hover { color: var(--text); }
+}
+.hint-line .hint-action:focus-visible { outline: none; }
+.hint-line .hint-action:disabled {
+  color: var(--disabled);
+  cursor: default;
+}
+/* D5: --disabled keeps 4.5:1 on the page ground only; the chip fill is darker. */
+.hint-action:disabled .key-chip { color: var(--grey); }

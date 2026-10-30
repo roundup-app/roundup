@@ -72,9 +72,9 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await wait(`!!document.querySelector('.inbox .empty-state')`);
       await snap(`${theme}-inbox`);
 
-      for (const view of ["made", "reactions", "ask-history"]) {
+      for (const view of ["made", "reactions"]) {
         await load("empty-project", view);
-        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : view === "reactions" ? `!!document.querySelector('.reactions .empty-state')` : view === "ask-history" ? `!!document.querySelector('.ask-history .empty-state')` : `!!document.querySelector('.note-recovery .empty-state')`);
+        await wait(view === "made" ? `!!document.querySelector('.made .empty-state')` : `!!document.querySelector('.reactions .empty-state')`);
         await snap(`${theme}-${view}`);
       }
 
@@ -91,6 +91,10 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await browser("press", "Enter");
       await wait(`!!document.querySelector('.pane-door .empty-state')`);
       await snap(`${theme}-stopped-door`);
+      await load("door-stopped");
+      await wait(`!!document.querySelector('.pane-door .empty-state') && !!document.querySelector('.xterm-screen')`);
+      await read(`(async () => { const emulator = window.__terminals.get('t-first-workstream'); await emulator.ready; const output = Array.from({length:60}, (_, index) => 'Retained output line ' + (index + 1) + ' — completed work remains available across the stopped Door pane.').join('\\r\\n') + '\\r\\n'; await new Promise(resolve => emulator.write(new TextEncoder().encode(output), resolve)); })()`);
+      await snap(`${theme}-stopped-door-output`);
       await load("resources", "resources");
       await read(`window.__fake.app.handlers['agent.changedFiles'] = () => ({files:[]})`);
       await browser("click", '.rail-row[data-id="worktree-agent"]');
@@ -118,8 +122,131 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await browser("focus", '.app-select-trigger');
       await wait(`document.activeElement.matches('.app-select-trigger:focus-visible')`);
       await snap(`${theme}-form-ring`);
+      await load("empty-project");
+
+      if (await read(`!!document.querySelector('.window[data-shelf="open"]')`)) {
+        await browser("click", '[aria-label="Close the Bench"]');
+        await wait(`!document.querySelector('.window[data-shelf="open"]')`);
+      }
+
+      await snap(`${theme}-overview`);
+
+      if (theme === "dark") {
+        await browser("set", "viewport", "800", "600");
+        await snap("dark-narrow");
+        await browser("set", "viewport", "640", "320");
+        await snap("dark-short");
+        await browser("eval", `document.querySelectorAll('.empty-state').forEach(el => { el.scrollTop = el.scrollHeight; })`);
+        await snap("dark-short-scrolled");
+        await browser("set", "viewport", "1512", "950");
+      }
     }
   } finally {
     try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
   }
 }, 240_000);
+
+// U401 is a critic-only observer: record production marks and the four shared surfaces.
+it.skipIf(!captureDir("U401"))("u401_capture_shared_glyphs_for_the_critic", async () => {
+  const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+  const server = await appServer();
+  const profile = mkdtempSync(join(tmpdir(), "u401-"));
+  const session = `u401-${process.pid}`;
+  const dir = join(captureDir("U401")!, phase);
+  mkdirSync(dir, { recursive: true });
+
+  const browser = async (...args: string[]) => {
+    const reply = JSON.parse((await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout);
+
+    if (!reply.success) throw new Error(reply.error);
+
+    return reply.data.result;
+  };
+
+  const origin = server.resolvedUrls.local[0]!;
+
+  const load = async (seed: string, view = "") => {
+    await browser("open", new URL(`/harness.html?seed=${seed}&items=1${view ? `&view=${view}` : ""}`, origin).href);
+    await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-tree')");
+  };
+
+  const snap = async (name: string) => {
+    await browser("screenshot", join(dir, `${name}.png`));
+    writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await browser("eval", "window.__checks()"), null, 2));
+  };
+
+  try {
+    await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "open", origin);
+    await browser("set", "viewport", "1512", "950");
+
+    for (const theme of ["light", "dark"]) {
+      await browser("set", "media", "color-scheme", theme);
+      await load("agents-10");
+      await browser("eval", `(async () => {
+        const {render} = await import('/node_modules/solid-js/web/dist/web.js');
+        const {createComponent} = await import('/node_modules/solid-js/dist/solid.js');
+        const {KindGlyph} = await import('/src/ink/KindGlyph.tsx');
+        const sheet = document.createElement('div');
+        sheet.id = 'glyph-contact-sheet';
+        sheet.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;gap:32px;background:var(--ground);filter:grayscale(1)';
+        document.body.append(sheet);
+        for (const kind of ['idle','blocked','working','needs-you','error','done','working','working']) {
+          const slot = document.createElement('div');
+          sheet.append(slot);
+          render(() => createComponent(KindGlyph, {kind}), slot);
+        }
+        await document.fonts.ready;
+        await new Promise(requestAnimationFrame);
+        [...sheet.querySelectorAll('.working-arc')].forEach((arc, i) => {
+          for (const animation of arc.getAnimations()) {
+            animation.pause();
+            animation.currentTime = Number(animation.effect.getTiming().duration) * i / 3;
+          }
+        });
+      })()`);
+      await browser("screenshot", join(dir, `${theme}-greyscale-contact.png`));
+    }
+
+    await browser("set", "media", "color-scheme", "dark");
+
+    for (const seed of ["agents-10", "tree-40"]) {
+      await load(seed, "workstreams");
+      await browser("eval", `(async () => {
+        const node = await window.__fake.app.rpc('rail.createWorkstream', {name:'Release review', parent:null});
+        window.__fake.setStatus(node.id, 'blocked', 'Waiting on review');
+        window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+      })()`);
+      await browser("wait", "--fn", "[...document.querySelectorAll('.rail-row')].some(row => row.textContent.includes('Release review') && row.querySelector('[aria-label=Blocked]'))");
+      await snap(`${seed}-workstreams`);
+      await browser("eval", `(async () => {
+        const {seedApp} = await import('/src/testing/seeds.ts');
+        const todos = (await seedApp('tree-40', Date.now()).app.rpc('todo.list', null)).slice(0, 5).map((todo, i) => ({...todo, done:false, blocked:i < 2, blockers:i < 2 ? [3] : [], owner:null, home:null}));
+        window.__fake.app.handlers['todo.list'] = () => todos;
+        window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'todo.updated',data:{todo:todos[0]}});
+      })()`);
+
+      if (await browser("eval", `document.querySelector('[role="tab"][data-value="todos"]').getAttribute('aria-selected') !== 'true'`)) await browser("click", '[role="tab"][data-value="todos"]');
+      await browser("wait", "--fn", "document.querySelectorAll('.todos-tab [aria-label=Blocked]').length === 2 && document.querySelectorAll('.todos-tab [aria-label=Idle]').length === 3");
+
+      if (await browser("eval", `document.querySelector('.todos-tab [data-shelf-group="unassigned"]').getAttribute('aria-expanded') !== 'true'`)) await browser("click", '.todos-tab [data-shelf-group="unassigned"] .shelf-group-control');
+      await browser("wait", "--fn", "document.querySelector('.todos-tab [data-shelf-group=unassigned]').getAttribute('aria-expanded') === 'true'");
+      await snap(`${seed}-todos`);
+      await load(seed);
+      await browser("eval", `(async () => {
+        const node = await window.__fake.app.rpc('rail.createWorkstream', {name:'Release review', parent:null});
+        window.__fake.setStatus(node.id, 'blocked', 'Waiting on review');
+        window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+        window.__u401Workstream = node.id;
+      })()`);
+      await browser("wait", "--fn", "[...document.querySelectorAll('.rail-row')].some(row => row.textContent.includes('Release review') && row.querySelector('[aria-label=Blocked]'))");
+      await browser("eval", `window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'ask.changed',data:{ask:{id:'u401',at:'1',text:'Review the changes',parts:[{text:'Review the changes',placement:{kind:'routed',workstream:window.__u401Workstream},state:'typed'},{text:'Publish the result',placement:{kind:'routed',workstream:window.__u401Workstream},state:'failed',reason:'The Door stopped before delivery. Start it and try again.'}]}}})`);
+      await browser("wait", "--fn", "!!document.querySelector('.ask-row [aria-label=Blocked]')");
+      expect(await browser("eval", "document.querySelectorAll('.ask-row [role=img][aria-label=Blocked]').length")).toBe(1);
+      await snap(`${seed}-ask-failure`);
+    }
+  } finally {
+    await browser("close").catch(() => {});
+    await server.close();
+    rmSync(profile, { recursive: true, force: true });
+  }
+}, 60_000);

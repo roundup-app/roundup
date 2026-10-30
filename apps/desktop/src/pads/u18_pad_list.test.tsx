@@ -6,56 +6,13 @@ import {
   deferred,
   openShelf,
   padOf,
-  RpcError,
 } from "./padsFixture";
-import { USER } from "../testing/nodes";
+import { agent, USER, workstream } from "../testing/nodes";
 
 afterEach(cleanup);
 
 describe("u18 list and ownership", () => {
-  it("u18_the_pads_list_shows_each_pad_by_name", async () => {
-    await openShelf([
-      padOf("auth-notes", AGENT),
-      padOf("release-checklist", USER),
-    ]);
-
-    expect(
-      [
-        await screen.findByText("auth-notes"),
-        screen.getByText("release-checklist"),
-      ].length,
-    ).toBe(2);
-  });
-
-  it("u18_make_yours_menu_changes_the_original_pad_owner", async () => {
-    const { app, state } = await openShelf([padOf("auth-notes", AGENT)]);
-    app.handlers["pad.setOwner"] = ({ name }) => {
-      state.pads = state.pads.map((pad) =>
-        pad.name === name ? { ...pad, owner: USER } : pad,
-      );
-
-      return padOf(name, USER);
-    };
-
-    fireEvent.contextMenu(await screen.findByRole("button", { name: "auth-notes" }));
-    await app.pickMenu("Make yours");
-
-    expect(app.calls.filter((call) => call.method === "pad.setOwner")).toEqual([
-      { method: "pad.setOwner", params: { name: "auth-notes", owner: USER } },
-    ]);
-  });
-
-  it("u18_a_refused_owner_change_shows_the_message_in_ink", async () => {
-    const { app } = await openShelf([padOf("auth-notes", AGENT)]);
-    const failure = new RpcError(-32001, "only the owner may hand it over");
-    app.handlers["pad.setOwner"] = () => { throw failure; };
-
-    fireEvent.contextMenu(await screen.findByRole("button", { name: "auth-notes" }));
-    await app.pickMenu("Make yours");
-
-    expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
-  });
-
+  // u3736_pads_group_by_home_once_each replaces the simple name-list proof.
   it("u18_pad_changed_refetches_pad_list_and_logs_no_touch", async () => {
     const { app, state, calls } = await openShelf([padOf("auth-notes", AGENT)]);
     await screen.findByText("auth-notes");
@@ -111,4 +68,61 @@ describe("u18 list and ownership", () => {
 
     expect(screen.queryByText("older")).toBeNull();
   });
+});
+
+it("u3736_pads_group_by_home_once_each", async () => {
+  const { app, connected } = await openShelf([
+    { ...padOf("Beta", AGENT), home: "w1" },
+    { ...padOf("alpha", USER), home: "w1" },
+    { ...padOf("Elsewhere", AGENT), home: "w2" },
+    padOf("Root", AGENT),
+  ]);
+
+  const tree = [workstream("w2", { name: "Second", order: 0 }), workstream("w1", { name: "First", order: 1 }), workstream("empty", { order: 2 }), agent("maker", "done", "stopped", { parent: "w1" })];
+  app.handlers["rail.tree"] = () => tree;
+  // pad.list already guarantees P3 order; this connected observer checks that grouping keeps it.
+  app.handlers["pad.list"] = () => [
+    { ...padOf("alpha", USER), home: "w1" }, { ...padOf("Beta", AGENT), home: "w1" },
+    { ...padOf("Elsewhere", AGENT), home: "w2" }, padOf("Root", AGENT),
+  ];
+  await connected.rail.refresh();
+  app.emit({ actor: USER, name: "pad.changed", data: { name: "alpha" } });
+  const membership = () => [...document.querySelectorAll('.pads-tab [data-shelf-group]')].map(group => [group.getAttribute("data-shelf-group"), [...group.querySelectorAll("[data-pad]")].map(row => row.getAttribute("data-pad"))]);
+  const expected = [["w2", ["Elsewhere"]], ["w1", ["alpha", "Beta"]], ["unassigned", ["Root"]]];
+  await waitFor(() => expect(membership()).toEqual(expected));
+
+  for (const selection of ["maker", "w2", null]) {
+    connected.rail.select(selection);
+    expect(membership()).toEqual(expected);
+  }
+
+  const group = document.querySelector('[data-shelf-group="w1"]')!;
+  fireEvent.click(group.querySelector(".shelf-group-control")!);
+  await waitFor(() => expect(group.getAttribute("aria-expanded")).toBe("false"));
+  app.emit({ actor: USER, name: "pad.changed", data: { name: "alpha" } });
+  await waitFor(() => expect(app.calls.filter(call => call.method === "pad.list")).toHaveLength(3));
+  expect(group.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("u3736_pad_home_events_refresh_groups", async () => {
+  const { app, connected, state } = await openShelf([{ ...padOf("notes", AGENT), home: "w1" }]);
+  let tree = [workstream("w1", { name: "Original" }), workstream("w2", { name: "Destination", order: 1 }), agent("maker", "working", "editing", { parent: "w1" })];
+  app.handlers["rail.tree"] = () => tree;
+  await connected.rail.refresh();
+  await screen.findByText("Original");
+
+  for (const maker of [agent("maker", "working", "editing", { name: "Renamed maker", parent: "w2" }), agent("maker", "done", "stopped", { parent: "w2" })]) {
+    tree = [tree[0]!, tree[1]!, maker];
+    await connected.rail.refresh();
+    expect(document.querySelector('[data-pad="notes"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group')).toBe("w1");
+  }
+
+  tree = [workstream("w1", { name: "Renamed" }), tree[1]!];
+  app.emit({ actor: USER, name: "rail.changed" });
+  await screen.findByText("Renamed");
+  expect(document.querySelector('[data-pad="notes"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group')).toBe("w1");
+  state.pads = [{ ...state.pads[0]!, home: "w2" }];
+  app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
+  await waitFor(() => expect(document.querySelector('[data-pad="notes"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group')).toBe("w2"));
+  expect(document.querySelector('[data-shelf-group="w1"]')).toBeNull();
 });

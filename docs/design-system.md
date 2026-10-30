@@ -7,7 +7,7 @@ How the App looks. `docs/wireframes.md` says what each screen holds and where; t
 
 The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
 
-Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
+Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137). D18 is the critic-only visual exception: its contact sheet and approval are required for U401’s Blocked-mark implementation, with no automated visual assertion or owner Mac observation.
 
 ## Six rules
 
@@ -52,7 +52,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--elevation-ring` | `0 0 0 .5px rgba(0,0,0,.16)` | `0 0 0 .5px rgba(255,255,255,.20)` | the floating surface edge; never a focus or control ring |
 | `--elevation` | `var(--elevation-ring), var(--elevation-contact), var(--elevation-ambient)` | same | one shared recipe for the Drawer, Shelf, floating surfaces and Terminal Bubble |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
-| `--row-text-inset` | `56px` | same | U131 title inset, including leading slots; currently shared by Shelf rows and Terminal tabs, with Rail integration pending |
+| `--row-text-inset` | `32px` | same | U131 title inset, including leading slots; currently shared by Shelf rows and Terminal tabs, with Rail integration pending |
 | `--flat-tab-edge` | `1px` | same | the shared flat tab's border or inactive spacer; included in U131's Terminal title inset |
 | `--length-zero` | `0px` | same | typed zero for length calculations, gradients and fallbacks |
 | `--hairline-width` / `--stroke-width` / `--tick-border-width` | `1px` / `2px` / `1.5px` | same | hairlines, placement marks and the Ask tick |
@@ -102,12 +102,12 @@ Kind has two carriers, a Glyph shape and a tone. The shape is enough on its own:
 
 | Kind | Glyph | Tone | Ink |
 |---|---|---|---|
-| `error` | `✕` | `--red` | yes |
-| `needs-you` | `●` | `--amber` | yes |
-| `working` | `○` | `--accent` | no |
-| `blocked` | `⏸` | `--grey` | no |
-| `idle` | `·` | `--grey` | no |
-| `done` | `✓` | `--grey` | no |
+| `error` | `⊗` (cross in a disc; U401) | `--red` | yes |
+| `needs-you` | `◉` (disc in a ring; U401) | `--amber` | yes |
+| `working` | `◔` (turning quarter; U401, U446) | `--accent` | no |
+| `blocked` | `⊖` (ring with horizontal centre bar; U401) | `--grey` | no |
+| `idle` | `○` (empty ring; U401) | `--grey` | no |
+| `done` | `✓` (check in a disc; U401) | `--grey` | no |
 
 Outside U4464’s decorative scene and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
 
@@ -165,12 +165,12 @@ Three user settings change the look. Each has a rule in `tokens.css`:
 
 ## The checks
 
-Each check is measured from computed style and the DOM of the running App, never from pixels, on every visible element of the screen, in light and in dark. A check that cannot measure fails; it never passes by default.
+Except D18 and D19, each check is measured from computed style and the DOM of the running App, never from pixels, on every visible element of the screen, in light and in dark. A check that cannot measure fails; it never passes by default.
 
 | Id | Passes when | Scenario |
 |---|---|---|
 | D1 | every computed colour, background, border-color, shadow, radius and duration is the value of a Token | U130 |
-| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). This adds no general space step. | U131 |
+| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). This adds no general space step. Rail section alignment and grouping also satisfy the U4896 policy below. | U131, U4896 |
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer item row (not editor menu categories or commands) shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
@@ -180,12 +180,66 @@ Each check is measured from computed style and the DOM of the running App, never
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0; duration membership alone proves neither movement nor smoothness (U3010a, `scenarios/ui-motion.md`) | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
 | D11 | in the Thread, the column is at most `--measure` (`56rem`) wide, no rendered line holds more than 120 characters, and every row's text starts at one x within 1 px, at 1280 by 800 | U197 |
-| D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px | U360, U3726 |
+| D12 | in each of the Shelf's `todos` and `pads` lists, after U3708's tree indent, the Glyphs' left x are within 1 px of one another; first words align within 1 px among tick-only rows and among rows with a Glyph column (U3726); every later line starts at its own title's left x within 1 px; across the App, every icon beside text meets U86's x-height centring policy below | U360, U3726, U86 |
 | D13 | in the Shelf, every text node is `--font-ui` unless it is an id, a path or code | U360 |
 | D14 | in the Shelf, no row has a fill, border or shadow at rest; the gaps between rows, from a head to its first row and between the two lists are space steps, equal across the lists; no title or name shows more than two lines or overflows its row | U360 |
 | D15 | all App-authored text and accessible names come from the App copy catalogue; its entries and formatter branches use sentence case and `GLOSSARY.md` user labels, with explicit section-head, acronym and authored-value exemptions | U471, U472 |
 | D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
 | D17 | A tooltip sits against the element under the pointer that owns it. | U2749 |
+| D18 | The design critic approves a greyscale contact sheet of all six production Kind Glyphs side by side at 16 px in both light and dark: idle/open ring, Blocked ring with a horizontal centre bar (⊖) in the same stroke and colour as the ring, working quarter, needs-you disc in a ring, error cross in a disc, done check in a disc. Every pair is distinguishable by shape without labels or colour; include three working-arc angles (U446). This is a critic-only visual Check, not a DOM or pixel-difference test. | U401 |
+| D19 | For every added or changed icon, the design critic approves its meaning against the complete icon/status inventory below: one glyph identifies one concept, and section-head icons share no bare circle/dot/square family with their rows' status marks. Inspect changed production icons at their rendered size beside neighbours in light and dark; labels and colour cannot rescue a shape collision. | U4898 |
+
+### Icon meaning and inventory (U4898)
+
+D19 is critic-only specification policy; it adds no DOM, SVG-path or pixel assertion. Apply it to every PR adding or changing an icon, including a direct library import, status mark, dynamic name or wrapper caller. Resolve every alternative, assign its existing glossary term and role (identity, state or action), then compare the changed glyph with all inventory rows. The same action across objects is one concept; two object terms are not. Bare circles, dots, squares and rotated squares form the status families; compound drawings such as `bot` and `workflow` do not become bare squares because they contain square nodes. Render each changed icon beside its actual neighbours at its production size in both themes. The critic's explicit D19 approval is the only outside visual acceptance; no user or Mac-only check is added. U4898 specifies the paired Rail captures and retains all other passing Checks.
+
+This inventory records the U4898 implementation checkout, audited across all `Icon` callers, their dynamic providers, direct Lucide imports and non-Icon state marks. Paths are relative to `apps/desktop/src`. Multiple call sites with one glyph/role share a row; alternatives are listed explicitly. Existing cross-term uses are visible here, not evidence that D19 already passes; each changed glyph must be compared against the entire table.
+
+| Glyph / alternatives | Glossary term and meaning | Call sites / resolved providers |
+|---|---|---|
+| `bot` | Agent — section identity | `rail/Rail.tsx`, `sections` AGENTS |
+| `workflow` | Mode — section/row/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode; `rail/RailRow.tsx`, `mode-mark` |
+| `messages` | Workstream — section/create identity | `rail/Rail.tsx`, WORKSTREAMS and New Workstream |
+| `circle` | Agent — create action identity | `rail/Rail.tsx`, New Agent |
+| `layout-dashboard` | Project — overview navigation | `rail/Rail.tsx`, overview tile |
+| `diamond` | Todo — open created content, not Mode | `rail/pads/AgentPads.tsx`, `PadsControl` |
+| `circle`; `check`; `diamond`; `x` | Progress / Result check / Result report — older or pending; accepted, checked or completed; unknown effect; not performed or unavailable | `orders/WorkProgress.tsx`, result state branches (existing cross-term overlaps) |
+| `check` / `order` (`file-text`) | Todo / Pad — Shelf identity; Pad row identity | `shelf/Shelf.tsx`, `ShelfTabs` through `ink/SectionHead.tsx`; `shelf/frame.ts`, `SHELF_TABS` / `PAD_ICON`; `pads/Pads.tsx` |
+| `right` / `down` | Rail / Shelf / Todo / Draft / Overview — disclose content | `rail/RailRow.tsx`; `rail/Rail.tsx`, both recovery summaries; `ink/SectionHead.tsx`, branch indicator; `shelf/OwnerGroups.tsx`; `todos/Todos.tsx`, dependency trigger; `todos/TodoHistory.tsx`; `ui/Disclosure.tsx`; `ui/Accordion.tsx`, Overview section indicators; `ask/AskBar.tsx`, target summary; `todos/NewWorkstream.tsx`, picker trigger |
+| `play` | Agent / Door / Terminal — start or resume | `rail/RowIcons.tsx`, resume; `rail/Rail.tsx`, Door action; `terminal/Pane.tsx`, preparation action |
+| `rotate-cw`; `stop`; `more`; `folder`; `editor` | Agent / Mode / Worktree — restart; stop; actions; open folder; open editor | `rail/RowIcons.tsx`, `RowIcon` alternatives |
+| `plus` | Agent / Todo / Pad / Terminal — add action | `rail/RowIcons.tsx`; `todos/Todos.tsx`; `todos/BlockerMenu.tsx`; `pads/Pads.tsx`; `bubbles/Bubbles.tsx` |
+| `branch` | Worktree — changed-work navigation | `changes/WorktreeControl.tsx` |
+| `memory` / `cpu` / `disk` | Resource use — resident memory / CPU / Worktree bytes | `resources/ResourceStrip.tsx`, `Value` through `Values` |
+| `talk`; `export`; `trash` | Pad — send to Agent; export; delete | `pads/PadDrawer.tsx` |
+| `trash` | Todo deletion — delete | `todos/TodoDrawer.tsx` |
+| `edit` | Draft — recover | `header/ProjectTab.tsx`; `bubbles/Bubbles.tsx` |
+| `x` | Project / Drawer / Draft / Terminal / Status / Result report — close or dismiss action | `header/ProjectTab.tsx`, close and copy failure; `drawer/DrawerHost.tsx`; `ink/ErrorLine.tsx`; `ui/IconButton.tsx`, `ExitButton`; `shelf/BulkDelete.tsx`, failure; `orders/WorkProgress.tsx`, report/read/resume failures; `bubbles/Bubbles.tsx`; `bubbles/Bubble.tsx` |
+| `minus` | Terminal — minimise action | `bubbles/Bubble.tsx` |
+| `left`, `dot`, `pause`, `clear` | No active `Icon` caller | `ink/Icon.tsx`, mapped exports only |
+| Kind Glyphs `○ ⊖ ◔ ◉ ⊗ ✓` | Kind / Glyph — idle, blocked, working, needs-you, error, done; D18 | `ink/KindGlyph.tsx`; consumers: `rail/Rail.tsx`, `rail/RailRow.tsx`, `ask/AskBar.tsx`, `ask/AskRows.tsx`, `todos/OpenRow.tsx`, `todos/Todos.tsx`, `todos/TodoDrawer.tsx`, `todos/TodoComments.tsx`, `drawer/DraftRecovery.tsx`, `importer/ImportPanel.tsx`, `switcher/Switcher.tsx`, `toasts/queue.tsx`, `inbox/Inbox.tsx`, `inbox/InboxRow.tsx` |
+| `●` | Unseen — unread result / Terminal output / Overview section | `header/ProjectTab.tsx`; `rail/RailRow.tsx`; `bubbles/Bubbles.tsx`, both tab presentations; `copy.ts`, `unseenMark`; `ui/Accordion.tsx`, `overview-unseen` |
+| `↑`, `✓ ✗ … — ! ⚠ ?`, PR number and stale text, `—` | Worktree state — ahead, CI, PR, stale or unavailable | `rail/RailRow.tsx`, worktree chips; `copy.ts`, Worktree formatters |
+| Counts / progress bars / state text | Status / Todo / Draft / Reaction / Deliverable — counts, progress and named states, not object icons | `rail/Rail.tsx`; `shelf/OwnerGroups.tsx`; `todos/Todos.tsx`, `todos/Capture.tsx`, `todos/CapturePanel.tsx`, `todos/EditableText.tsx`, `todos/TodoRefs.tsx`, `todos/TodoHistory.tsx`, `todos/TodoDrawer.tsx`; `ui/Progress.tsx`; `header/ProjectTab.tsx`; `drawer/DraftRecovery.tsx`; `pads/PadDrawer.tsx`; `reactions/Reactions.tsx`; `ask/AskRows.tsx`, `ask/AskBar.tsx`; `inbox/Inbox.tsx`; `bubbles/Bubbles.tsx` |
+| Direct Lucide `maximize` / `minimize` / `x` | Drawer / Shelf — resize / close actions | `drawer/DrawerHost.tsx`; `app/Layout.tsx` |
+| Direct `arrow-up-right`; `list-checks`; `grip-vertical` | Todo — open; Todo — triage; Pad order / Rail / Todo — reorder | `todos/OpenRow.tsx`; `todos/Todos.tsx`; `ui/sortable.tsx` |
+| Direct `hourglass`; `check` / `minus`; `chevron-down`; radio dot / switch thumb | App / Project — loading; Todo or form value — checked / mixed; form choice — disclosure; selected/on state | `App.tsx`, `ui/Deferred.tsx`; `ui/Checkbox.tsx`, `ui/Form.tsx`, `ui/Combobox.tsx`, `ui/Select.tsx`; `ui/RadioGroup.css`, `ui/Switch.css` |
+| Fixture `○`, literal `+` / `×` | Glyph / Project — test-only row mark and controls | `ui/u483Fixture.tsx`; `ui/u474Fixture.tsx`, `ui/u491Fixture.tsx` (Kind Glyph and Toast); excluded from production meaning decisions |
+
+
+## Icon and text centring (U86)
+
+D12's vertical clause is specification policy until implemented. The design critic rejects any icon/text pair whose visible mark centre is more than 1 CSS px above or below the first line's x-height centre. Measure the mark between its topmost and bottommost painted strokes, excluding its hit area; measure the text between its baseline and the top of a lowercase `x` in the label's resolved font, size and weight, including for headings, digits and wrapped labels. In the Todo done summary, the check centres on the count/`done`; `Clear done` shares the text baseline within 1 CSS px.
+
+One shared rule using Token-defined icon boxes and line heights covers status/name pairs, Rail rows and section heads, icon-labelled buttons, Todo and Ask rows, and menus throughout `apps/desktop/src`. No per-row, per-surface or per-icon vertical compensation is allowed. Row heights, horizontal columns, selection alignment, vector shapes, accessible names and D6 hit areas remain. This replaces only the optical-baseline clause of D8 under “Design-system pass requirements (U130–U137)” below; its inset requirement remains.
+
+The critic uses U86's call-site inventory and paired main/head dark 1512×950 captures, including Todo done summary, Rail, Ask, every Kind, opened menus and visible failure feedback. Rest, hover, keyboard focus and selection all meet the same tolerance. This optical clause is judged on rendering, an exception to the computed-style-only measurement above; no unit or browser layout assertion is added. Existing automated Check readings supplement the capture comparison; no Check passing on main may regress, including D2, D5 and D6.
+
+### Rail section edges and spacing (U4896)
+
+D2 additionally requires one Token-based leading inset rule for Rail section heads and rows: each depth-zero leading mark aligns with its section-head icon within 1 CSS px; nested marks, tree connector paint and empty/placeholder text never start more than 1 CSS px before it. Section chevrons and row drag grips share one Token-based trailing column, their rendered marks centred within 1 CSS px across depths. The Token gap before the next visible section head exceeds every within-section adjacent-row gap; a collapsed section measures from its head, and an absent section leaves no gap. Preserve existing row heights. Under U4896, row actions show only on row hover or focus-within; selection alone leaves them hidden, with just the mark, name and handle at rest. Every action remains keyboard reachable; focus-within reveals it without moving the columns.
+
+This is specification policy until U4896's implementation lands. The design critic judges all sections and row kinds in paired main/head dark/light captures at 1512×950 with 252 and 480 CSS px Rails, using the full fixture/audit in `scenarios/ui-rail.md`, U4896, including selected/unselected rows at rest, hover only, focus-within only and after both leave. Actions visible on selection alone fail U4896; actions unreachable by keyboard fail D6. A mark or connector before its head, a misaligned trailing centre, or a section gap no larger than its row gaps fails D2. Existing automated D2 readings alone do not prove this addition; no layout unit test is required or allowed. All other Checks passing on main must still pass.
 
 ## Text case
 
@@ -330,8 +384,10 @@ U134: neutral and semantic palette aliases use Radix Colors 3 light/dark scales.
 
 U4382a supersedes the no-box and no-focus-ring rules above only for shared form controls: Field input/textarea, NumberInput, civil-date input, Select/Combobox picker, Checkbox, Switch and RadioGroup. Ark owns their behavior. Screens arrange fields; `ui/Field.css` and each control stylesheet own their paint. Frames use `--hairline-width` and `--form-border` (Radix gray 8); fields use `--form-ground`, Token padding and `--radius-control`. Checkbox marks use `--radius-chip`; radio and switch marks are round. Switch off uses `--form-off`, on uses `--accent`, and the thumb uses `--form-thumb` and checkbox checks use `--form-on-ink`.
 
-Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons are the sole exception to dark-only evidence.
+Keyboard focus draws a two-pixel `--accent` outline with a two-pixel offset, including invalid fields. Invalid frames use `--red` with the supplied error below. Disabled fields keep readable `--disabled` text. D6 requires these rings; unrelated controls retain U3528. D8 allows these one-pixel frames in form-border, accent, red and disabled only on the listed shared control parts; other borders and all elevation restrictions remain unchanged. D2, D5 and D9 remain unchanged. U4382a's paired dark/light 1512×950 comparisons and U401’s D18 contact sheet are the exceptions to dark-only evidence.
 
 U4464: empty-view actions reuse shared primary/quiet buttons in one centred horizontal row, with shortcuts inside. Rail order is New Agent ⌘N, New Workstream ⇧⌘N. Single-action and actionless views retain their behavior. Open Doodles use `--doodle-line` (#5a4a3e light, #e6cfbb dark), `--doodle-patch` (#2f8f80), `--doodle-offset` (+14/+10 scene units) and `--doodle-blend` (multiply light, screen dark), with unchanged geometry. These decorative inks and the fixed primary fill/key ink are named D3 exceptions.
 
 U4685a/b: `tokens.css` paints an inward `--hairline-width` outline in `--accent` on the focused Terminal, Rail, Shelf or Drawer. CSS `:focus-within` follows actual focus immediately; Shelf also follows its tabs in the shared header. It changes no border, padding or dimensions and requests no fit or resize. A hidden Shelf paints nothing. Help and other dialogs take focus away, clearing the region indicator, and existing focus return restores it. Controls retain U3528 and shared forms retain U4382a. D2, D5 and D6 hold; region geometry and unobscured Terminal glyphs/caret are judged through the rendered U4685 observer.
+
+U4687a interface text scale: the selected small/default/large step multiplies the shared 11–15 px interface type Tokens by 0.9/1/1.1. D2 accepts only those scaled steps; all spacing, contrast and control Checks still apply. Terminal typography and Project zoom are independent.

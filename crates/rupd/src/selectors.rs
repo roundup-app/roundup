@@ -1,4 +1,4 @@
-//! U4593: canonicalize Agent inputs once, before authority checks and effects.
+//! Canonicalize Agent and Workstream inputs before authority checks and effects.
 use super::*;
 use contracts::agent::{NodeKind, RailNode};
 
@@ -6,7 +6,17 @@ fn is_agent(node: &RailNode) -> bool {
     node.kind == NodeKind::Agent || (node.kind == NodeKind::Workstream && node.attempt.is_some())
 }
 
-fn select(nodes: &[RailNode], actor: &Actor, last_id: i64, text: &str) -> Result<String, RpcError> {
+fn select(
+    nodes: &[RailNode],
+    actor: &Actor,
+    last_id: i64,
+    text: &str,
+    kind: NodeKind,
+) -> Result<String, RpcError> {
+    let (label, accepts): (&str, fn(&RailNode) -> bool) = match kind {
+        NodeKind::Agent => ("Agent", is_agent),
+        NodeKind::Workstream => ("Workstream", |node| node.kind == NodeKind::Workstream),
+    };
     let explicit = text.strip_prefix("name:");
     if explicit.is_none() {
         if text == "me" {
@@ -33,18 +43,18 @@ fn select(nodes: &[RailNode], actor: &Actor, last_id: i64, text: &str) -> Result
     let name = explicit.unwrap_or(text);
     let matches: Vec<_> = nodes
         .iter()
-        .filter(|n| is_agent(n) && n.name == name)
+        .filter(|n| accepts(n) && n.name == name)
         .collect();
     match matches.as_slice() {
         [node] => Ok(node.id.clone()),
         [] => {
             let names: Vec<_> = nodes
                 .iter()
-                .filter(|n| is_agent(n))
+                .filter(|n| accepts(n))
                 .map(|n| n.name.as_str())
                 .collect();
             Err(RpcError::not_found(format!(
-                "Agent {name:?}; available Agent Rail names: {}",
+                "{label} {name:?}; available {label} Rail names: {}",
                 if names.is_empty() {
                     "none".into()
                 } else {
@@ -72,7 +82,7 @@ fn select(nodes: &[RailNode], actor: &Actor, last_id: i64, text: &str) -> Result
                 })
                 .collect();
             Err(RpcError::conflict(format!(
-                "ambiguous Agent {name:?}: {}",
+                "ambiguous {label} {name:?}: {}",
                 candidates.join(", ")
             )))
         }
@@ -90,7 +100,7 @@ fn string(
         if user && text == "you" {
             return Ok(());
         }
-        *value = Value::String(select(nodes, actor, last_id, text)?);
+        *value = Value::String(select(nodes, actor, last_id, text, NodeKind::Agent)?);
     }
     Ok(())
 }
@@ -102,7 +112,13 @@ fn owner(
     value: &mut Value,
 ) -> Result<(), RpcError> {
     if value.is_string() {
-        let id = select(nodes, actor, last_id, value.as_str().unwrap())?;
+        let id = select(
+            nodes,
+            actor,
+            last_id,
+            value.as_str().unwrap(),
+            NodeKind::Agent,
+        )?;
         *value = json!({"kind":"agent", "id":id, "parent":null});
     } else if value["kind"] == "agent" {
         // Explicit Actors retain opaque stored identities, including retired owners.
@@ -123,6 +139,14 @@ impl Daemon {
         method: &str,
         mut params: Value,
     ) -> Result<Value, RpcError> {
+        if method == "rail.startDoor"
+            && let Some(id) = params["id"].as_str()
+        {
+            let nodes = self.rail().await?;
+            let last_id = self.agents.rail_last_id()?;
+            params["id"] = select(&nodes, actor, last_id, id, NodeKind::Workstream)?.into();
+            return Ok(params);
+        }
         if method == "agent.wake" {
             wake::parse_request(params.clone())?;
         }
@@ -184,7 +208,7 @@ impl Daemon {
             "reaction.create" => fields.push(("target", false)),
             _ => {}
         }
-        let has_owner = matches!(method, "todo.create" | "todo.assign" | "pad.setOwner");
+        let has_owner = matches!(method, "todo.create" | "todo.assign");
         let has_list = method == "agent.wake"
             || (method == "reaction.create" && params["condition"]["kind"] == "agents");
         if !has_owner && !has_list && !fields.iter().any(|(field, _)| params[*field].is_string()) {
@@ -201,7 +225,8 @@ impl Daemon {
             }
             if self.agents.rail_deletion(actor, operation)?.is_some()
                 && let Some(id) = params["id"].as_str()
-                && select(&nodes, actor, last_id, id).is_err_and(|e| e.code == code::NOT_FOUND)
+                && select(&nodes, actor, last_id, id, NodeKind::Agent)
+                    .is_err_and(|e| e.code == code::NOT_FOUND)
             {
                 return Err(RpcError::conflict("removal key already names another node"));
             }

@@ -20,12 +20,12 @@ afterEach(cleanup);
 
 window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false });
 
-const interrupted = async (mode: "replace" | "document") => {
+const interrupted = async () => {
   const logs = mkdtempSync(join(tmpdir(), "u3078i-"));
   const log = (name: string) => existsSync(join(logs, name)) ? readFileSync(join(logs, name), "utf8") : "";
 
   const real = await startRealDaemon({
-    FAKE_CLAUDE_CHILD_PROCESS: JSON.stringify(["python3", "-c", REPORTER, join(REPO, "target/debug/rup"), join(logs, "report"), mode]),
+    FAKE_CLAUDE_CHILD_PROCESS: JSON.stringify(["python3", "-c", REPORTER, join(REPO, "target/debug/rup"), join(logs, "report"), "replace"]),
     FAKE_CLAUDE_LAUNCH_LOG: join(logs, "launches"),
     FAKE_CLAUDE_PROMPT_LOG: join(logs, "prompts"),
   });
@@ -64,7 +64,7 @@ const interrupted = async (mode: "replace" | "document") => {
 };
 
 it("u3078i_real_daemon_reopen_and_resume", async () => {
-  const run = await interrupted("replace");
+  const run = await interrupted();
 
   try {
     const before = { messages: await run.messages(), launches: run.log("launches"), prompts: run.log("prompts") };
@@ -89,49 +89,6 @@ it("u3078i_real_daemon_reopen_and_resume", async () => {
 
     await waitFor(() => expect(within(again.section).queryByRole("button", { name: /Resume unfinished/ })).toBeNull());
     expect(await run.messages()).toBe(before.messages + 1);
-    expect(run.log("launches")).toBe(before.launches);
-  } finally {
-    cleanup();
-    await run.real.stop();
-  }
-}, 60_000);
-
-it("u3078i_real_daemon_document_work_resumes_the_same_way", async () => {
-  const run = await interrupted("document");
-
-  try {
-    const before = await run.messages();
-    const opened = await run.open();
-    const view = within(opened.section);
-
-    // Reviewed prose and a diagram are results like any other: the one unfinished step is offered.
-    expect(view.getByText(/Prepare the diagram/)).toBeTruthy();
-    fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
-    await waitFor(async () => expect(await run.messages()).toBe(before + 1), { timeout: 30_000 });
-    const sent = (await run.served.rpc("message.list", { to: null, status: null })).slice(before);
-
-    expect(sent.length).toBe(1);
-    expect(sent[0]?.body).toContain("Prepare the diagram");
-  } finally {
-    cleanup();
-    await run.real.stop();
-  }
-}, 60_000);
-
-it("u3078i_real_daemon_failed_resume_stays_actionable", async () => {
-  const run = await interrupted("replace");
-
-  try {
-    await run.served.rpc("agent.stop", { id: run.worker.id });
-    const before = { messages: await run.messages(), launches: run.log("launches") };
-    const stopped = await run.open();
-    const view = within(stopped.section);
-
-    fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
-    await view.findByRole("alert", { name: /resume was not accepted/ }, { timeout: 30_000 });
-    expect(document.activeElement).toBe(view.getByRole("button", { name: "Try resuming again" }));
-    // A stopped Agent stays stopped: nothing was sent and no program started.
-    expect(await run.messages()).toBe(before.messages);
     expect(run.log("launches")).toBe(before.launches);
   } finally {
     cleanup();

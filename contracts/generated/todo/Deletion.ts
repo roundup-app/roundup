@@ -11,4 +11,9 @@ export type Deletion = {
 	deleted: number[],
 	missing: number[],
 	state: todo$DeletionState.DeletionState,
+	/**
+	 *  Server-created restored identity. Redo must echo this acknowledgement from
+	 *  restore or readback; the same operation key in another Project cannot match.
+	 */
+	restoration?: string,
 };

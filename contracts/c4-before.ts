@@ -439,7 +439,7 @@ export type pad_MoveParams = { name: string, home: string | null, };
 
 export type pad_Pad = { 
 
-incarnation: string, name: string, owner: Actor, text: string, updated_at: number, 
+incarnation: string, name: string, text: string, updated_at: number, 
 
 revision: number, 
 
@@ -457,7 +457,6 @@ export type pad_PadName = { name: string, };
 
 export type pad_RenameParams = { name: string, newName: string, expectedIncarnation: string, };
 
-export type pad_SetOwnerParams = { name: string, owner: Actor, };
 
 export type pad_SetStorageParams = { files: boolean, };
 
@@ -760,7 +759,7 @@ export type todo_CreateParams = { title: string, body: string | null, blockers: 
 
 owner?: Actor, 
 
-estimate_minutes?: number, };
+};
 
 export type todo_HandParams = { agent: string, };
 
@@ -786,7 +785,7 @@ export type todo_SetBlockersParams = { id: number, blockers: Array<number>, expe
 
 export type todo_Todo = { id: number, title: string, body: string, done: boolean, blockers: Array<number>, 
 
-blocked: boolean, created_at: number, 
+blocked: boolean, created_at: number, updated_at: number, 
 
 creator: Actor, 
 
@@ -796,19 +795,19 @@ owner: Actor | null,
 
 refs: Array<string>, 
 
-estimate_minutes: number | null, };
+};
 
 export type todo_TodoId = { id: number, };
 
 export type todo_UnreadComment = { todo: number, title: string, comment: todo_Comment, };
 
-export type todo_UpdateParams = { id: number, title: string | null, body: string | null, estimate_minutes?: number | null, expected_change?: number, };
+export type todo_UpdateParams = { id: number, title: string | null, body: string | null, expected_change?: number, };
 
 export type todo_Values = { title: string, body: string, done: boolean, blockers: Array<number>, 
 
 owner: Actor | null, 
 
-estimate_minutes: number | null, };
+};
 
 export type workstream_AutoParams = { id: string, auto: boolean, };
 
@@ -1029,7 +1028,6 @@ export type Before = {
   "pad/Pad": pad_Pad;
   "pad/PadName": pad_PadName;
   "pad/RenameParams": pad_RenameParams;
-  "pad/SetOwnerParams": pad_SetOwnerParams;
   "pad/SetStorageParams": pad_SetStorageParams;
   "pad/WriteParams": pad_WriteParams;
   "project/AgentResources": project_AgentResources;
@@ -1206,7 +1204,6 @@ export type BeforeRpcMethods = {
   "pad.write": { params: pad_WriteParams; result: pad_Pad };
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
   "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };
-  "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_DeleteParams; result: pad_Deletion };
   "pad.getDeletion": { params: pad_GetDeletionParams; result: pad_Deletion };

@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 import { TreeView as ArkTreeView } from "@ark-ui/solid/tree-view";
 import "./Tree.css";
+import "./Row.css";
 
 export const TreeView = {
   ...ArkTreeView,

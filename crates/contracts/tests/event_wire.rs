@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 use contracts::common::ActorKind;
 use contracts::message::{Message, MessageKind, MessageStatus, Reason};
 use contracts::todo::Todo;
@@ -14,6 +15,7 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         blockers: vec![2, 3],
         blocked: true,
         created_at: 123,
+        updated_at: 123,
         creator: Actor {
             kind: ActorKind::Agent,
             id: "a1".into(),
@@ -22,9 +24,8 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         home: Some("w1".into()),
         owner: None,
         refs: vec![],
-        estimate_minutes: None,
     };
-    let todo_wire = json!({"id":7,"title":"title","body":"body","done":true,"blockers":[2,3],"blocked":true,"created_at":123,"creator":{"kind":"agent","id":"a1","parent":"door"},"home":"w1","owner":null,"refs":[],"estimate_minutes":null});
+    let todo_wire = json!({"id":7,"title":"title","body":"body","done":true,"blockers":[2,3],"blocked":true,"created_at":123,"updated_at":123,"creator":{"kind":"agent","id":"a1","parent":"door"},"home":"w1","owner":null,"refs":[]});
     let message = Message {
         id: 9,
         from: todo.creator.clone(),
@@ -134,4 +135,11 @@ fn a34_pad_deleted_is_in_generated_typescript() {
         include_str!("../../../contracts/generated/EventData.ts")
             .contains("{ \"name\": \"pad.deleted\", \"data\": PadName }")
     );
+}
+
+#[test]
+fn t30_a_todo_json_without_updated_at_stays_valid() {
+    let old = json!({"id":7,"title":"t","body":"","done":false,"blockers":[],"blocked":false,"created_at":5,"creator":{"kind":"user","id":"you","parent":null},"home":null,"owner":null});
+    let todo: contracts::todo::Todo = serde_json::from_value(old).unwrap();
+    assert_eq!(todo.updated_at, 0);
 }

@@ -60,3 +60,81 @@ it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_i
     document.body.replaceChildren();
   }
 });
+
+it("r21_backlogged_output_rests_as_long_as_each_chunk_took", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+
+  const { app, connected } = await connectFakeProject([node("flood")], [info("t-flood")]);
+  const { factory, made } = fakeEmulators();
+
+  const screens = createScreens(connected, (id) => {
+    const emulator = factory(id);
+    const write = emulator.write;
+
+    return { ...emulator, write: (bytes, done) => {
+      write(bytes);
+
+      if (!bytes.length) return done?.();
+      // Each chunk takes 6 ms to parse.
+      setTimeout(() => done?.(), 6);
+    } };
+  });
+
+  try {
+    screens.show("t-flood", document.body.appendChild(document.createElement("div")));
+    await subscribed(app, "t-flood");
+    await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
+    app.emitOutput("t-flood", "one");
+    app.emitOutput("t-flood", "two");
+    const chunks = () => made.get("t-flood")!.written.map(bytes => new TextDecoder().decode(bytes));
+
+    expect(chunks()).toEqual(["one"]);
+    await vi.advanceTimersByTimeAsync(6);
+    expect(chunks()).toEqual(["one"]);
+    await vi.advanceTimersByTimeAsync(5);
+    expect(chunks()).toEqual(["one"]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(chunks()).toEqual(["one", "two"]);
+  } finally {
+    screens.dispose();
+    document.body.replaceChildren();
+    vi.useRealTimers();
+  }
+});
+
+it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+
+  const { app, connected } = await connectFakeProject([node("flood")], [info("t-flood")]);
+  const { factory, made } = fakeEmulators();
+
+  const screens = createScreens(connected, (id) => {
+    const emulator = factory(id);
+    const write = emulator.write;
+
+    return { ...emulator, write: (bytes, done) => {
+      write(bytes);
+
+      if (!bytes.length) return done?.();
+      // Parsing runs at 1000 bytes per ms.
+      setTimeout(() => done?.(), bytes.length / 1000);
+    } };
+  });
+
+  try {
+    screens.show("t-flood", document.body.appendChild(document.createElement("div")));
+    await subscribed(app, "t-flood");
+    await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
+    app.emitOutput("t-flood", "x".repeat(20_000));
+    await vi.advanceTimersByTimeAsync(200);
+    const sizes = made.get("t-flood")!.written.map(bytes => bytes.length);
+
+    expect(sizes[0]).toBe(8192);
+    expect(sizes.slice(1, -1).every(size => size >= 2500 && size <= 3500)).toBe(true);
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(20_000);
+  } finally {
+    screens.dispose();
+    document.body.replaceChildren();
+    vi.useRealTimers();
+  }
+});

@@ -153,7 +153,7 @@ export const RailRowView = (props: {
   };
 
   const rowProps = () => ({
-    class: "rail-row", classList: { "rail-root-divider": props.rootDivider ?? false }, "data-id": props.row.node.id,
+    class: "rail-row", classList: { "row-wash": true, "rail-root-divider": props.rootDivider ?? false }, "data-id": props.row.node.id,
     title: !props.editing ? cutName.title() : undefined,
     "data-selected": props.selected ? "true" : undefined,
     "data-multiple": props.multiple ? "true" : undefined,
@@ -182,7 +182,7 @@ export const RailRowView = (props: {
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={copy.collapse} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       <Show when={workstream() && props.row.node.opening_prompt?.trim()} fallback={name()}>
-        <span class="mode-name">{name()}<span class="mode-mark" data-state="mode" role="img" aria-label={copy.modeWord}><Icon name="diamond" /></span></span>
+        <span class="mode-name">{name()}<span class="mode-mark" data-state="mode" role="img" aria-label={copy.modeWord}><Icon name="workflow" /></span></span>
       </Show>
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>

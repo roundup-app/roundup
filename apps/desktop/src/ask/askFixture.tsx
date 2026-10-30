@@ -4,7 +4,6 @@ import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { DrawerHost } from "../drawer/DrawerHost";
-import { Keys } from "../keys/Keys";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -21,7 +20,7 @@ const TREE: RailNode[] = [
   workstream("docs", { order: 2, name: "docs" }),
 ];
 
-/** The Ask bar of an open Project on the fake Daemon, with `Keys` for `⌘/`; `asks` seeds `ask.list`. */
+/** The Ask bar of an open Project on the fake Daemon, with its registered `⌘/` owner; `asks` seeds `ask.list`. */
 /** Stands in for the Overview menu: the panel opens through the same entry, shown only while work qualifies. */
 const RecoveryEntry = () => {
   const entries = useRecoveryMenu();
@@ -29,7 +28,7 @@ const RecoveryEntry = () => {
   return <Show when={entries().length > 0}><button type="button" onClick={() => void entries()[0]!.run?.()}>Recover unfinished work</button></Show>;
 };
 
-export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`, reducedMotion = false) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`, reducedMotion = false, viewing = () => true) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree instanceof Promise ? [] : tree;
@@ -38,15 +37,11 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "existing output" });
   app.handlers["terminal.resize"] = () => null;
   const { factory } = fakeEmulators();
-  const connected = await connectProject(app, { name: "p", path }, () => reducedMotion, () => 0);
+  const connected = await connectProject(app, { name: "p", path }, () => reducedMotion, () => 0, undefined, undefined, undefined, viewing);
 
   connected.showView("workstreams");
 
-  if (selected === null) {
-    connected.showView("ask-history");
-    connected.showView("made");
-    connected.showView("reactions");
-  }
+  if (selected === null && asks.length) connected.showView("asks");
 
   if (tree instanceof Promise) {
     app.handlers["rail.tree"] = () => tree;
@@ -59,7 +54,6 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   const view = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <Keys />
       <aside class="rail"><RecoveryEntry /></aside>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
@@ -68,6 +62,10 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   ));
 
   await connected.rail.settled();
+
+  if (selected === null && asks.length) connected.showView("asks");
+
+
 
   return { app, connected, setRecovery, unmount: view.unmount };
 };

@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; existing non-duration proofs below remain.
 import { Channel } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -17,11 +18,11 @@ const TODO: Todo = {
   blockers: [],
   blocked: false,
   created_at: 0,
+  updated_at: 0,
   creator: { kind: "user", id: "you", parent: null },
   home: null,
   owner: null,
   refs: [],
-  estimate_minutes: null,
 };
 
 const NOT_FOUND = -32001;

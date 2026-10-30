@@ -15,8 +15,8 @@ const noFocusRing = stylelint.createPlugin(focusRingRule, () => (root, result) =
 
     // U4685 allows paint on these region owners only; descendants keep U3528.
     if (root.source?.input.file?.endsWith('/apps/desktop/src/tokens.css') &&
-        declaration.parent?.type === 'rule' && declaration.parent.selector ===
-          '.columns:has(> .rail:focus-within)::after,\n.pane:focus-within::after,\n.drawer:focus-within::after,\n.shelf:focus-within::after,\n.window:has(.shelf-tabs:focus-within) .shelf::after' &&
+        declaration.parent?.type === 'rule' && ['.drawer:focus-within',
+          '.columns:has(> .rail:focus-within)::after,\n.pane:focus-within::after,\n.shelf:focus-within::after,\n.window:has(.shelf-tabs:focus-within) .shelf::after'].includes(declaration.parent.selector) &&
         ((declaration.prop === 'outline' && declaration.value === 'var(--hairline-width) solid var(--accent)') ||
          (declaration.prop === 'outline-offset' && declaration.value === 'calc(-1 * var(--hairline-width))'))) return;
     let focused = false;

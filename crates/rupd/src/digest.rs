@@ -79,6 +79,16 @@ impl Reader {
     /// The Rail, the Todos, the Pads and every Message.
     pub async fn world(&self) -> Result<World, RpcError> {
         let daemon = Actor::daemon;
+        let pads: Vec<contracts::pad::Pad> =
+            self.call("pad", "pad.list", Value::Null, daemon()).await?;
+        let mut touches = Vec::new();
+        for pad in &pads {
+            touches.extend(
+                self.touches
+                    .history(&format!("pad:{}", pad.name))
+                    .map_err(RpcError::internal)?,
+            );
+        }
         Ok(World {
             nodes: self
                 .call("rail", "rail.tree", Value::Null, daemon())
@@ -86,7 +96,8 @@ impl Reader {
             todos: self
                 .call("todo", "todo.list", Value::Null, daemon())
                 .await?,
-            pads: self.call("pad", "pad.list", Value::Null, daemon()).await?,
+            pads,
+            touches,
             // The user sees every Message; `message.list` shows the Daemon only its own.
             messages: self
                 .call("message", "message.list", json!({}), Actor::user())
@@ -99,6 +110,7 @@ pub struct World {
     nodes: Vec<contracts::agent::RailNode>,
     todos: Vec<contracts::todo::Todo>,
     pads: Vec<contracts::pad::Pad>,
+    touches: Vec<contracts::Touch>,
     messages: Vec<Message>,
 }
 
@@ -116,6 +128,7 @@ impl World {
             nodes: &self.nodes,
             todos: &self.todos,
             pads: &self.pads,
+            touches: self.touches.clone(),
             messages: &self.messages,
         }
     }
@@ -217,7 +230,6 @@ mod tests {
             listed: Mutex::new(vec![contracts::pad::Pad {
                 incarnation: "1".into(),
                 name: "plan".into(),
-                owner: Actor::user(),
                 text: "keep this".into(),
                 updated_at: 0,
                 revision: 1,

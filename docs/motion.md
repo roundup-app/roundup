@@ -345,3 +345,29 @@ Registering, disabling or removing the focused Terminal owner changes menu
 availability without moving focus or writing Terminal input. Other editors retain
 their own Cmd+F handling. The Find control itself belongs to Z3788a; no motion is added.
 D2/D5/D6/D9 keep their existing Tokens and layout.
+
+U3787b Switcher and deletion Undo menu routes use their existing captured command
+owners, with instant projection, focus and acknowledgement. Existing Bubble
+minimise/close and Agent/Bubble switching keep their established behavior; menu
+construction moves no focus. No motion, geometry or Token is added. D2/D5/D6/D9
+remain unchanged; native menu rendering is system-owned.
+
+U3787b Terminal font menu actions reuse the pane's instant font update and existing
+frame-coalesced refit. Menu projection and target capture move no focus or Terminal
+input. Logical aliases and held-key sizing keep their control-owned behavior.
+D2/D5/D6 retain the same layout and Tokens; native menu rendering stays system-owned.
+
+U3787b Help and Rail rename use the same captured registration for menu and key.
+Opening Help, entering rename and returning focus on Escape are instant, with
+no new transition or delayed dispatch. Ark retains Help's dialog focus handling;
+Rail retains its existing rename field and draft recovery.
+
+U3787b triage Assign/Move/Complete/Comment menu actions invoke their captured Todo
+holder immediately, exactly as the corresponding key does. Menu projection adds
+no transition or focus move; existing picker, completion and comment behavior
+keeps its motion contract. No Check or Token changes; D2/D5/D6 remain unchanged.
+
+U3787b Todo nesting menu actions invoke the row's captured nesting plan immediately,
+through the same holder as Tab/Shift+Tab. Menu projection changes no focus; the
+existing M1 nesting cancellation and failure surface remain. No motion, geometry
+or Token changes; D2/D5/D6 remain unchanged.

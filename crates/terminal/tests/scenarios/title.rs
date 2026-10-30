@@ -28,7 +28,12 @@ async fn titles_of(
     })
     .await
     .expect("the program exits in time");
-    let listed = terminals.list().into_iter().map(|t| t.title).collect();
+    let listed = terminals
+        .list()
+        .await
+        .into_iter()
+        .map(|t| t.title)
+        .collect();
     (titles, listed)
 }
 

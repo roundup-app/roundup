@@ -29,7 +29,7 @@ it("u2539b_capture_keeps_requested_work_items_unmounted_until_filing", async () 
 
 it("u2539b_drawer_keeps_attention_reachable", async () => {
   const { connected } = await mount();
-  leader("KeyS");
+  leader("KeyB");
   const row = await screen.findByText("Selected work");
   fireEvent.click(row);
   fireEvent.keyDown(row.closest("button")!, { key: "Enter", code: "Enter" });
@@ -42,7 +42,13 @@ it("u2539b_drawer_keeps_attention_reachable", async () => {
 
 it("u2539b_selected_agent_returns_to_landing", async () => {
   const { connected } = await mount();
-  fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
+  fireEvent.click(await waitFor(() => {
+    const entry = document.querySelector<HTMLButtonElement>(".overview-entry");
+
+    expect(entry).not.toBeNull();
+
+    return entry!;
+  }));
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
   fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
@@ -61,7 +67,7 @@ it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
   await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal="t-other"]')).not.toBeNull());
 });
 
-it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
+it.each(["resources"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
   const { connected } = await mount();
 
   if (view === "resources") {
@@ -81,7 +87,7 @@ it.each(["ask-history", "resources", "reactions", "made"])("u2539b_landing_opens
 
 it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "assign", "project", "changes"].flatMap(task =>
   (task === "assign" ? ["keyboard", "native-menu"] : ["keyboard", "native-menu", "terminal"]).map(source => ({ task, source, scenario: source === "native-menu" ? "u4278b_native_accelerator_runs_the_action_once" : "u2539b_top_ten_tasks_complete_within_three_presses" }))))("$scenario: $task from $source", async ({ task, source }) => {
-  const { daemon, connected, store, nodes, shells, emulators } = await mount();
+  const { daemon, connected, store, nodes, shells, emulators } = await mount(false, task === "project" ? 7 : 0);
   let presses = 0;
   const press = (code: string, options: KeyboardEventInit = {}) => { presses++; key(code, options); };
 
@@ -135,7 +141,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
     await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a0"));
   } else if (task === "items") {
-    runLeader("KeyS");
+    runLeader("KeyB");
     await screen.findByRole("region", { name: "Todos" });
     expect(document.querySelector(".todos-tab")).not.toBeNull();
   } else if (task === "inbox") {
@@ -143,7 +149,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     await screen.findByRole("region", { name: "Inbox" });
     expect(document.querySelector(".inbox")).not.toBeNull();
   } else if (task === "assign") {
-    leader("KeyS");
+    leader("KeyB");
     fireEvent.click(await screen.findByRole("button", { name: /Unassigned/ }));
     const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ Selected work/ });
     fireEvent.click(row);
@@ -178,9 +184,10 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
   const { daemon, connected } = await mount();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:J")?.enabled).toBe(true));
   expect(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut])).toEqual([
-    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
+    ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⌃⌘J", "⌃⌘J"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
     ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
-    ["action:leader:S", "⌘K S"], ["action:leader:I", "⌘K I"],
+    ["action:leader:⇧J", "⌘K ⇧J"], ["action:leader:K", "⌘K K"],
+    ["action:leader:B", "⌘K B"], ["action:leader:I", "⌘K I"],
   ]);
   await saveAppSettings({ quickAdd: "ctrl+shift+KeyY" });
   await waitFor(() => expect(projectMenu.items.filter(item => item.group === "create" && item.label === "Capture a Todo").map(item => [item.id, item.shortcut])).toEqual([["action:chord:⌃⇧Y", "⌃⇧Y"]]));
@@ -189,7 +196,7 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
   key("Escape");
   openProjectPage("action:leader:J", "/wrong-project");
   expect(connected().rail.selected()).toBeNull();
-  openProjectPage("action:leader:J", "/p");
+  openProjectPage("action:chord:⌃⌘J", "/p");
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(0);
 });
@@ -228,8 +235,8 @@ it("u2539b_hiding_optional_views_preserves_original_drafts", async () => {
   const text = "  unfinished\nexact work 🐈  ";
   fireEvent.input(screen.getByRole("textbox", { name: "Ask" }), { target: { value: text } });
   const original = connected().drafts.list().find(draft => draft.destination.surface === "ask")!;
-  openProjectPage("view:ask-history", "/p");
-  openProjectPage("view:ask-history", "/p");
+  openProjectPage("view:made", "/p");
+  openProjectPage("view:made", "/p");
   connected().rail.select("a1");
   connected().rail.select(null);
   const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
@@ -327,20 +334,21 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(0);
 });
 
-it.each([false, true].flatMap(reverse => [false, true].map(closeReactions => ({ reverse, closeReactions }))))("u4276a_requested_screens_close_independently: $reverse $closeReactions", async ({ reverse, closeReactions }) => {
+it.each([false, true])("u4276a_reactions_section_preserves_terminal_and_selection: %s", async reverse => {
   const { connected, daemon } = await mount();
-  const order = reverse ? ["ask-history", "reactions"] : ["reactions", "ask-history"];
+  const draft = document.querySelector<HTMLTextAreaElement>(".ask-input")!;
+  fireEvent.input(draft, { target: { value: "keep exact\n unfinished" } });
+  const order = reverse ? ["made", "reactions"] : ["reactions", "made"];
 
-  for (const view of order) openProjectPage(`view:${view}`, "/p");
-  await screen.findByRole("button", { name: "Close Named reactions" });
-  await screen.findByRole("button", { name: "Close Ask history" });
-  const selection = connected().rail.selected();
-  fireEvent.click(screen.getByRole("button", { name: closeReactions ? "Close Named reactions" : "Close Ask history" }));
-  expect(connected().hasView(closeReactions ? "ask-history" : "reactions")).toBe(true);
-  expect(connected().hasView(closeReactions ? "reactions" : "ask-history")).toBe(false);
-  expect(connected().rail.selected()).toBe(selection);
-  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".ask-input")));
-  expect(daemon.calls.filter(call => ["terminal.close", "reaction.stop", "reaction.run", "reaction.create"].includes(call.method))).toHaveLength(0);
+  for (const view of order) {
+    openProjectPage(`view:${view}`, "/p");
+    await waitFor(() => expect(document.querySelector(`[data-part=item-trigger][aria-expanded=true]`)?.textContent).toBe(view === "made" ? "Made" : "Reactions"));
+    expect(document.querySelectorAll('[data-part=item-trigger][aria-expanded=true]')).toHaveLength(1);
+  }
+
+  expect(connected().rail.selected()).toBeNull();
+  expect(document.querySelector<HTMLTextAreaElement>(".ask-input")!.value).toBe("keep exact\n unfinished");
+  expect(daemon.calls.filter(call => ["terminal.close", "reaction.stop", "reaction.run", "reaction.create", "ask.send", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
 
 it("u4274b_project_menu_omits_navigation_toggles", async () => {

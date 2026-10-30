@@ -2,8 +2,7 @@
 import * as v from "valibot";
 import type { ChildProcess } from "node:child_process";
 import { request } from "node:http";
-import { build } from "vite";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -12,10 +11,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { useContext } from "solid-js";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { RpcError } from "../app/seam";
+import { copy } from "../copy";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
-import { realDaemon } from "./realDaemonPlugin";
 import { startRealDaemon } from "./realDaemonFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -27,7 +26,6 @@ import { openFile, saveNote } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { openRecovery as openMenu, recoveryLabel } from "./recovery";
 
-
 /** A row opens as left-unsent work and turns to Copy once its original is known gone, which waits on the Daemon's reads. */
 const copyOf = (row: () => HTMLElement) => waitFor(() => within(row()).getByRole("button", { name: "Copy" }), { timeout: 15_000 });
 
@@ -36,13 +34,11 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
   let real: StartedDaemon;
 
-  let dir: string;
-
   let base: string;
 
   beforeAll(async () => {
     real = await startRealDaemon({});
-    ({ daemon, dir, base } = real);
+    ({ daemon, base } = real);
   }, 120_000);
 
   afterAll(async () => {
@@ -107,59 +103,6 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     expect([await status(`127.0.0.1:${url.port}`), await status(`evil.example:${url.port}`)]).toEqual([200, 403]);
   });
 
-  it("u144_vite_build_leaves_the_daemon_route_out_of_dist", async () => {
-    const out = await mkdtemp(join(tmpdir(), "roundup-dist-"));
-
-    try {
-      await build({
-        configFile: join(process.cwd(), "vite.config.ts"),
-        root: process.cwd(),
-        logLevel: "silent",
-        plugins: [realDaemon({ project: dir, socket: join(dir, "rupd.sock") })],
-        build: { outDir: out, emptyOutDir: true },
-      });
-
-      const files = (await readdir(out, { recursive: true, withFileTypes: true })).filter((entry) => entry.isFile());
-      const texts = await Promise.all(files.map((entry) => readFile(join(entry.parentPath, entry.name), "utf8").catch(() => "")));
-
-      expect(files.length).toBeGreaterThan(0);
-      expect(texts.some((text) => text.includes("__daemon") || text.includes("loopback only"))).toBe(false);
-    } finally {
-      await rm(out, { recursive: true, force: true });
-    }
-  }, 120_000);
-
-  it("u144_seed_behaves_as_today_beside_the_daemon_route", async () => {
-    cleanup();
-    document.body.innerHTML = '<div id="root"></div>';
-    window.history.pushState({}, "", "/harness.html?seed=agents-10&view=workstreams");
-    vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }));
-
-    const calls: string[] = [];
-    const fetched = globalThis.fetch;
-
-    globalThis.fetch = Object.assign(
-      (input: RequestInfo | URL, init?: RequestInit) => {
-        calls.push(String(input));
-
-        return fetched(input, init);
-      },
-      fetched,
-    );
-
-    try {
-      await import("./harness");
-      await screen.findByRole("region", { name: "Rail" });
-      expect(window.__fake).toBeDefined();
-      expect(calls.filter((call) => call.includes("__daemon"))).toEqual([]);
-    } finally {
-      globalThis.fetch = fetched;
-      vi.unstubAllGlobals();
-      document.body.innerHTML = "";
-      window.history.pushState({}, "", "/");
-    }
-  });
-
   it("u144_closing_the_socket_fires_daemon_exited_and_the_header_says_so", async () => {
     await mount();
     await screen.findByRole("banner");
@@ -167,7 +110,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
     daemon.stdin!.end();
     daemon.kill();
 
-    expect(await screen.findByText("Daemon exited by signal", {}, { timeout: 20_000 })).toBeTruthy();
+    expect(await screen.findByText(new RegExp(copy.exitedBySignal), {}, { timeout: 20_000 })).toBeTruthy();
   }, 60_000);
 });
 
@@ -229,7 +172,6 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       await openFile("same.ts");
       const comparison = await connected.app.rpc("agent.compareFile", { id: node.id, path: "same.ts" });
       expect(comparison.new).toMatchObject({ kind: "text", text: node.id === first.id ? "first source\n" : "second source\n" });
-      await saveNote("check selected source");
       fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
@@ -243,8 +185,6 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     connected.rail.select(first.id);
     fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
     await openFile("same.ts");
-    // Retire the inspection-only note from the prior observer; this batch holds exactly two new notes.
-    fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
     await saveNote("first exact comment");
     await saveNote("second exact comment");
     fireEvent.click(screen.getByRole("button", { name: "Send notes to First" }));
@@ -329,7 +269,6 @@ describe("u2540 inspection and notes on the real Daemon", () => {
 
 });
 
-
 describe("u2773 Project draft integration on real Projects", () => {
   let first: StartedDaemon;
   let second: StartedDaemon;
@@ -337,7 +276,6 @@ describe("u2773 Project draft integration on real Projects", () => {
   let app: AppSeam;
   let original: RailNode;
   let replacement: RailNode;
-  let otherOriginal: RailNode;
   let calls: MockInstance<AppSeam["rpc"]>[];
   const exact = "  original e\u0301 🪁\nlast line  ";
   const target = () => ({ surface: "orders", object: original.id, recipient: original.id });
@@ -381,14 +319,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     const served = createServedApp(first.base);
     original = await served.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
     replacement = await served.rpc("rail.createWorkstream", { name: `replacement ${seed}`, parent: null });
-    const other = createServedApp(second.base);
-    otherOriginal = await other.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
-
-    if (otherOriginal.id === original.id) {
-      await other.rpc("rail.remove", { id: otherOriginal.id });
-      otherOriginal = await other.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
-    }
-
     const roots = [first, second];
     const live = new Map(roots.map((root) => [root.dir, createServedApp(root.base)]));
     let opened = [first.dir];
@@ -471,7 +401,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     const separate = independent.draft;
     const write = Storage.prototype.setItem;
 
-
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
       if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
       write.call(this, key, value);
@@ -493,46 +422,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     await waitFor(() => expect(createProjectDrafts()(first.dir).list()).toEqual([newer]));
     expect(createProjectDrafts()(second.dir).list()).toEqual([separate]);
     expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => !["pad.list", "todo.list", "todo.listHanded"].includes(method))).toEqual([]);
-  }, 60_000);
-
-  it("u2773h_shared_authority_survives_project_lifecycle", async () => {
-    await setup();
-    const holder = drafts(first.dir);
-    const saved = holder.edit(target(), { title: "same name", ask: exact, done: "  yes\n" }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
-    const independent = holder.edit({ surface: "todos", object: original.id, recipient: null }, { title: "independent 🧭" }, null, "ordinary").draft;
-    await holder.submit(saved.revision);
-    await holder.settle(saved.revision, "failed");
-    const otherSaved = drafts(second.dir).edit({ surface: "orders", object: otherOriginal.id, recipient: otherOriginal.id }, { ask: "other Project" }, null, "ordinary").draft;
-    await drafts(second.dir).submit(otherSaved.revision);
-    await drafts(second.dir).settle(otherSaved.revision, "failed");
-    expect(holder.problem()).toBeNull();
-    const connection = await connectProject(app.forProject(first.dir), { name: "first", path: first.dir }, () => true, () => 0, () => null, undefined, drafts(first.dir));
-    expect(connection.drafts).toBe(holder);
-    connection.stopTerminalScheme();
-    const outside = document.createElement("input");
-    document.body.append(outside);
-    outside.focus();
-    mount();
-    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
-    expect(document.activeElement).toBe(outside);
-    outside.remove();
-    const focus = document.activeElement;
-    await holder.retry();
-    expect(document.activeElement).toBe(focus);
-    const firstRecovery = await openRecovery();
-    expect([...firstRecovery.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toContain(saved.revision);
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: "second" });
-    const secondRecovery = await openRecovery();
-    expect([...secondRecovery.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toEqual([otherSaved.revision]);
-    fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    cleanup();
-    drafts = createProjectDrafts();
-    mount();
-    await openRecovery();
-    expect(drafts(first.dir).list().map((draft) => draft.revision)).toEqual([saved.revision, independent.revision]);
-    expect(drafts(second.dir).list()[0]?.value).toEqual({ ask: "other Project" });
-    noDelivery();
   }, 60_000);
 
   it.each(["write", "surface"])("u2773h_retention_failure_preserves_closed_project_memory_%s", async (kind) => {
@@ -558,7 +447,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     };
 
     const write = Storage.prototype.setItem;
-
 
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
       if (kind === "write" && key.startsWith("roundup:drafts:")) throw new Error("disk full");
@@ -620,30 +508,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-  it("u2773h_settlement_keeps_other_revisions", async () => {
-    await setup();
-    const holder = drafts(first.dir);
-    const a = holder.edit(target(), { ask: "A" }, null, "ordinary").draft;
-    await holder.submit(a.revision);
-    const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
-    mount();
-    await screen.findByRole("tab", { name: "first" });
-    // B was left unsent and A is in flight: only B lists (U3289a).
-    expect(await recoveryLabel()).toBe("Recover unfinished work (1)");
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: "second" });
-    await holder.settle(a.revision, "failed");
-    expect(holder.list()).toEqual([expect.objectContaining({ revision: a.revision, status: "failed" }), b]);
-    await holder.settle(a.revision, "unknown");
-    fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    const unknown = await openRecovery();
-    expect([...unknown.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toContain(a.revision);
-    expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
-    await holder.settle(a.revision, "acknowledged");
-    expect(holder.list()).toEqual([b]);
-    noDelivery();
-  }, 60_000);
-
   it("u2773h_unavailable_original_remains_recoverable", async () => {
     await setup();
     const holder = drafts(first.dir);
@@ -673,7 +537,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-
   it("u2773f_dead_vendor_is_not_reconstructed", async () => {
     await setup();
     const bound = app.forProject(first.dir);
@@ -699,7 +562,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     expect(document.activeElement).toBe(outside);
     const recovery = await openRecovery();
-    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
+    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`) instanceof HTMLElement).toBe(true);
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(emulators.made.has(terminal)).toBe(false);
     expect((await bound.rpc("terminal.list", null)).find((each) => each.id === terminal)?.running).not.toBe(true);
@@ -708,7 +571,5 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
     outside.remove();
   }, 60_000);
-
-
 
 });

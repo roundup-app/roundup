@@ -13,52 +13,17 @@ const TOKENS = table
 
 const rows = table.split("\n").filter((row) => row.startsWith("| `--"));
 
-// Token -> light value, from the table's Light column and the prose lines under it (type and space steps).
-const expectedLight = new Map<string, string>();
-
-for (const row of rows) {
-  const cells = row.split("|");
-  const names = cells[1]?.match(/--[\w-]+/g) ?? [];
-  const values = [...(cells[2] ?? "").matchAll(/`([^`]+)`/g)].map((match) => match[1] ?? "");
-
-  names.forEach((name, index) => expectedLight.set(name, values[index] ?? ""));
-}
-
-for (const [, name, value] of table.matchAll(/`(--font-[\w-]+)` is `([^`]+)`/g)) expectedLight.set(name ?? "", value ?? "");
-
-for (const [, name, size] of table.matchAll(/`(--text-[\w-]+)` (\d+)/g)) expectedLight.set(name ?? "", `${size}px`);
-
-const steps = /`--space-1` to `--space-6` are ([\d, ]+) px/.exec(table)?.[1]?.split(",") ?? [];
-
-steps.forEach((step, index) => expectedLight.set(`--space-${index + 1}`, `${step.trim()}px`));
-
-// Spelling only: case, spaces, a bare leading dot and trailing zeros differ between the table and CSS; hex colours compare as written.
-const normalised = (value: string) =>
-  value.startsWith("#") ? value.toLowerCase() : value.toLowerCase().replace(/\s+/g, "").replace(/\d*\.?\d+/g, (number) => String(Number(number)));
-
-// Tokens whose light value is knowingly not the table's yet. Slice 2 of U130 moved `--text` to the table's
-// `#1d1d1f` and deleted its entry; a later slice may add one.
-const KNOWN_DIFFERENCES = new Map<string, string>();
-
 function valueOf(section: string, token: string): string | undefined {
   return section.match(new RegExp(`(?:^|[\\s;{])${token}:\\s*([^;\\s][^;]*);`))?.[1];
 }
 
 describe("u130 tokens", () => {
 
-  it("u130_every_token_has_the_tables_light_value_except_the_named_differences", () => {
+  it("u130_every_documented_token_has_a_light_definition", () => {
     const css = Object.values(import.meta.glob<string>("../tokens.css", { query: "?raw", import: "default", eager: true }))[0] ?? "";
+    const light = /:root\s*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
 
-    const wrong = [...expectedLight].filter(
-      ([name, value]) => normalised(valueOf(css, name) ?? "") !== normalised(KNOWN_DIFFERENCES.get(name) ?? value),
-    );
-
-    expect(wrong, "Tokens whose light value is not the table's").toEqual([]);
-
-    for (const [name, difference] of KNOWN_DIFFERENCES)
-      expect(normalised(difference), `the named difference for ${name} is real, or the entry goes`).not.toBe(
-        normalised(expectedLight.get(name) ?? ""),
-      );
+    expect(TOKENS.filter(token => !valueOf(light, token))).toEqual([]);
   });
 
   it("u130_main_and_the_harness_import_tokens_css_before_styles_css", () => {

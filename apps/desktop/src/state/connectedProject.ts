@@ -144,7 +144,7 @@ export type ConnectedProject = {
   /** U4457: the Agent whose Pads group the Shelf is asked to show, until the Pads tab has taken it. */
   padsRequest: Accessor<string | null>;
   padsOwner: Accessor<string | null>;
-  showPadsOf: (agent: string, tab?: "pads" | "todos") => void;
+  showPadsOf: (agent: string, tab?: "todos") => void;
   padsTab: Accessor<"pads" | "todos">;
   finishPadsRequest: () => void;
   view: Accessor<string | null>;
@@ -258,6 +258,22 @@ export const connectProject = async (
   if (ended) stopQueue();
 
 
+  let stopAsks = () => {};
+
+  const asks = createRoot(dispose => {
+    stopAsks = dispose;
+
+    return createAsks(app, events, { path: project.path, target: () => {
+      if (!viewing() || settingsView.open() || daemonExit() !== null) return null;
+
+      const node = rail.nodes.find(node => node.id === rail.selected());
+
+      return node?.kind === "workstream" && node.terminal_id !== null ? node.id : null;
+    } });
+  });
+
+  if (ended) stopAsks();
+
   const onImported = (id: string, agent: string | null) => {
     void rail.refresh().then(() => rail.select(agent ?? id));
   };
@@ -273,7 +289,7 @@ export const connectProject = async (
   const createIn = (kind: "todo" | "pad" | "terminal", home: string) => setCreation({ kind, home });
   const finishCreation = () => setCreation(null);
   const [padsRequest, setPadsRequest] = createSignal<string | null>(null);
-  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "pads" | "todos" } | null>(null);
+  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "todos" } | null>(null);
 
   const padsOwner = () => {
     const destination = padsDestination();
@@ -281,9 +297,9 @@ export const connectProject = async (
     return destination?.selection === rail.selected() ? destination.agent : null;
   };
 
-  const padsTab = () => padsDestination()?.tab ?? "pads";
+  const padsTab = () => padsDestination()?.tab ?? "todos";
 
-  const showPadsOf = (agent: string, tab: "pads" | "todos" = "pads") => {
+  const showPadsOf = (agent: string, tab: "todos" = "todos") => {
     setPadsDestination({ agent, selection: rail.selected(), tab });
     setPadsRequest(agent);
   };
@@ -297,7 +313,7 @@ export const connectProject = async (
 
   const hideView = (name: string) => { setViews(previous => previous.includes(name) ? previous.filter(value => value !== name) : previous); };
 
-  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); terminalScheme.stop(); } };
+  return { creation, createIn, finishCreation, padsTab, padsRequest, padsOwner, showPadsOf, finishPadsRequest, view, hasView, showView, hideView, project, drafts, app, events, rail, terminalScheme, unseen, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopRail(); stopQueue(); stopUnseen(); stopAsks(); terminalScheme.stop(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

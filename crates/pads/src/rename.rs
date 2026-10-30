@@ -15,11 +15,6 @@ impl Pads {
         let mut mirror = MirrorRename::default();
         let pad = store.atomically(|| {
             let pad = get(&store, &p.name)?;
-            if pad.owner != ctx.actor {
-                return Err(RpcError::forbidden(
-                    "only the owner may rename a pad; Make yours first",
-                ));
-            }
             if pad.incarnation != p.expected_incarnation || pad.name != p.name {
                 return Err(RpcError::conflict(
                     "the original pad name or creation changed",

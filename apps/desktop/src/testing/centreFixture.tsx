@@ -42,8 +42,8 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
   app.handlers["attachment.save"] = (params) => ({ path: `/saved/${params.name}` });
   /** U347: a selected Workstream shows only its own, so the fixture's items sit in the first one. */
   const home = tree.find((node) => node.kind === "workstream")?.id ?? null;
-  app.handlers["todo.list"] = () => [{ id: 1, title: "todo 1", body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home, owner: null, refs: [], estimate_minutes: null }];
-  app.handlers["pad.list"] = () => [{ incarnation: "fixture-1", name: "notes", owner: USER, text: "", updated_at: 0, revision: 1, home }];
+  app.handlers["todo.list"] = () => [{ id: 1, title: "todo 1", body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner: null, refs: [] }];
+  app.handlers["pad.list"] = () => [{ incarnation: "fixture-1", name: "notes",  text: "", updated_at: 0, revision: 1, home }];
 
   options.prepare?.(app);
 

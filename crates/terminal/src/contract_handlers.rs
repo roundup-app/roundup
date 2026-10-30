@@ -105,7 +105,7 @@ impl Terminals {
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        reply(&self.list())
+        reply(&self.list().await)
     }
 
     pub(super) async fn rpc_terminal_catch_up(

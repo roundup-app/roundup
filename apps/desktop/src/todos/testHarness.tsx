@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; existing non-duration proofs below remain.
 import { createNow, DisplayClockContext } from "../state/clock";
 import { createSignal } from "solid-js";
 import { expect } from "vitest";
@@ -26,11 +27,11 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   blockers: [],
   blocked: false,
   created_at: 0,
+  updated_at: 0,
   creator: USER,
   home: null,
   owner: null,
   refs: [],
-  estimate_minutes: null,
   ...over,
 });
 
@@ -92,13 +93,12 @@ export const todoRowOf = (id: number): HTMLElement => {
   return found;
 };
 
-export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done", drawing: "ring" | "dashed" | "check") => {
+export const assertKind = (button: HTMLElement, kind: "idle" | "blocked" | "done") => {
   const row = button.closest<HTMLElement>(".shelf-row") ?? button;
   const mark = within(row).getByRole("img", { name: { idle: "Idle", blocked: "Blocked", done: "Done" }[kind] });
 
   expect(within(row).getAllByRole("img")).toEqual([mark]);
   expect(mark.querySelectorAll("svg")).toHaveLength(1);
   expect(mark.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
-  expect(mark.getAttribute("data-drawing")).toBe(drawing);
   expect(mark.textContent).toBe("");
 };

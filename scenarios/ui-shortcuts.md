@@ -1,6 +1,6 @@
 # UI: scoped shortcuts (U479 to U481) and the ⌘K leader (U2238 to U2241)
 
-Policy: U3787b (`scenarios/ui-mac-expectations.md`) adds menu-bar discoverability without widening App key ownership. U3787a adds ⌘Z for item restoration only outside editors and Terminals; their own undo remains untouched.
+Policy: U3787b (`scenarios/ui-mac-expectations.md`) adds menu-bar discoverability without widening App key ownership. U3787a owns ⌘Z and ⇧⌘Z for the focused region’s undo/redo outside editors and Terminals; their own undo/redo remains untouched. Empty histories do not fall through to another region; the Edit menu names available actions and Help lists both chords.
 
 The keyboard layer serves the Enter and Intervene stages of `.agents/data/journey.md`: opening Help must not change the user's selected Agent or place in the centre. This specification defines implementation acceptance; it claims no shipped registry.
 
@@ -64,9 +64,14 @@ Scope (policy): the same directories as U479, plus `apps/desktop/src/copy.ts` an
 | `K` | open the switcher (U51) |
 | `M` | minimise or restore the focused Bubble (U165) |
 | `W` | close the focused Bubble (U165) |
-| `S` | show or hide the Shelf (U370) |
+| `B` | open or close the Bench (Shelf code term, U370); replaces leader `S` under #4966 |
+| `I` | open Overview with Needs you expanded, not an Inbox Drawer (U3770e) |
 
 The action is the one the removed chord ran, with its guards (an `M` or `W` with no focused Bubble does nothing, as `⌘.` and `⇧⌘⌫` did). The leader has no timeout. `Escape`, or any key that is not in the table (a letter, digit, `⌘`, `⌃` or `⌥` combination, `Enter`, `Tab`), ends the wait, runs nothing and reaches no Terminal, no field and no Rail; a lone modifier press (`⇧` before `J`) neither ends the wait nor counts as the key. A pointer press outside an enabled Hint line leader choice, `⌘K` again, a Project switch, or a modal layer opening ends it too. U4690b in `scenarios/ui-shortcut-hints.md` makes that enabled choice run its action once and end the wait, without pointer-down cancelling the choice before click. The key that ends the wait is handled by the webview with `preventDefault`, and its key repeat does nothing. While a modal layer such as Help or the switcher is open, `⌘K` arms nothing (U479). Tests: `u2239_each_leader_key_runs_its_action_once`, `u2239_the_leader_waits_without_a_timeout` (a fake clock moves an hour; the next `J` still jumps), `u2239_escape_and_an_unbound_key_end_the_wait_and_reach_nothing` (including `⌘J`, `⌥J`, `⌃J` and `Enter` with a Terminal focused: no `terminal.write`, no action, then a plain `j` reaches the Terminal), `u2239_a_modifier_alone_keeps_the_wait`, `u2239_pointer_press_project_switch_and_modal_end_the_wait`, in `apps/desktop/src/keys/`.
+
+U2239 #4966 routing amendment: the Bench action uses `⌘K B`; `⌘K S` becomes an unbound leader sequence, consumes its key and performs nothing. This does not change the scoped direct `⌘B` Terminal switch (U2742c). `⌘K I` is an explicit request for Overview/Needs you even when empty; repeat leaves it expanded. Existing modal guards, focus ownership, Caps Lock neutrality and repeat consumption remain. Extend `u2239_each_leader_key_runs_its_action_once` and `u2239_escape_and_an_unbound_key_end_the_wait_and_reach_nothing` for B/I/retired S, including a focused Terminal and zero `terminal.write`; retain `u2241_no_other_chord_is_taken_at_app_scope` for direct-key ownership. U3770e proves the I destination; U370 proves B persistence/focus/toggle. The registry, leader panel, Help, hints and native menu project the same bound action; no independent matcher or display-only binding (policy). Policy: the critic checks Bench/Reactions labels, including Open the Bench and Close the Bench, and no remaining Named reactions/work items labels. Tests assert behavior, accessible roles and routing rather than exact copy.
+
+Numbered regression Checks for this chord amendment: (1) `apps/desktop/src/keys/chords.ts`, `LEADER` and `CHORDS`, show leader B is free on main and direct scoped B is distinct; (2) `apps/desktop/src/keys/u2239_leader.test.tsx`, `u2239_each_leader_key_runs_its_action_once`, proves single dispatch; (3) `scenarios/ui-shortcuts.md`, U2241, preserves the Terminal exception boundary; (4) `scenarios/ui-shelf-frame.md`, U370/U373, preserves Bench tab/focus behavior. These are baseline anchors, not implementation evidence.
 
 **Leader**: `⌘K`: it waits for one more key from the `LEADER` table (`LeaderKey`, `leaderChord`), or ends on any other key (U2239). The `leader` KeyScope holds those keys' actions; `armLeader`, `endLeader`, `leaderArmed` and `modalOpen` are its state.
 
@@ -89,7 +94,7 @@ Under rule 10 the implementation deletes these clauses and their tests; it migra
 | `⌘,` Models | U377, U480's Models test | the key and the Models button; U377 retires the sheet |
 | `⌘J`, `⇧⌘J` | U30, U45, U186 | replaced by leader `J`, `⇧J` (U2239) |
 | `⌘.`, `⇧⌘⌫` | U165 | replaced by leader `M`, `W` (U2239) |
-| `⌘\` | U370 | replaced by leader `S` (U2239) |
+| `⌘\` | U370 | replaced by leader `B` (U2239, #4966) |
 | `⌘K` opens the switcher | U51 | replaced by leader `K` (U2239) |
 | the Help rows of all the above | U54 | Help lists what U2241 says |
 
@@ -118,7 +123,7 @@ Shell boundary (policy): no bare Control or Option shortcut is reserved. `⌃J` 
 
 Given the existing U30 ordering fixtures, when each jump is made using either route, then error-before-needs-you, oldest Status first, Daemon-order ties, next/wrap, Door inclusion, Terminal exclusion, ancestor expansion, scrolling and unchanged Rail order hold. Extend `apps/desktop/src/rail/u30_jump.test.tsx` by parameterizing its existing `u30_` cases over the leader and direct routes; keep their assertions rather than duplicating the suite. With no candidates or no open Project the direct chord changes no selection, focus or input; after `daemon-exited` it still selects existing attention just as leader `J` does. Tests: the parameterized U30 empty cases and `u48_after_daemon_exited_leader_j_still_selects`, plus `u4692_without_a_project_the_chord_does_nothing` in the new connected-App file. Bare `⌘J` and `⇧⌘J` stay retired; U45's retired prohibition of `⌃⌘J` is superseded only for this exact chord.
 
-Given a held chord, when one non-repeat keydown is followed by twenty repeat keydowns, then only one jump occurs, every repeat is handled without Terminal input, and a new press after release advances once; an isolated repeat advances nothing. Test: `u4692_a_held_chord_jumps_once` in the same file. Matching uses physical `KeyJ`, so Caps Lock's `key: J` and a non-Latin `key` at that position still jump; adding Shift or Option, dropping either required modifier, or another physical key does not run this action. Test: `u4692_only_the_exact_physical_chord_jumps`. The U2241 modifier sweep retains the forwarding proof for every other modifier combination.
+Given a held chord, when one non-repeat keydown is followed by twenty repeat keydowns, then only one jump occurs, every repeat is handled without Terminal input, and a new press after release advances once; an isolated repeat advances nothing. Test: `u4692_a_repeating_chord_jumps_once` in the same file. Matching uses physical `KeyJ`, so Caps Lock's `key: J` and a non-Latin `key` at that position still jump; adding Shift or Option, dropping either required modifier, or another physical key does not run this action. Test: `u4692_only_the_exact_physical_chord_jumps`. The U2241 modifier sweep retains the forwarding proof for every other modifier combination.
 
 Given Help, the switcher or a modal picker/dialog is open, when the chord is pressed or repeats, then no underlying jump runs, no selection or draft changes and no Terminal input is sent; dismissing that layer retains its existing U479/U496 focus and Escape behavior. Test: `u4692_modal_layers_block_the_direct_jump` using actual registered App layers, in the same file. Given exact unsubmitted Ask or Pad text, when the direct chord navigates and the user returns to that source, then the draft and its original Project/object/recipient remain exact and no submit occurs. Test: `u4692_jump_preserves_unsubmitted_input` in that file. These are P3's requesting-Terminal observer and P11's changed-navigation observer; no new delivery path is introduced.
 

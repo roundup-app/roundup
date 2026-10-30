@@ -52,7 +52,11 @@ pub fn start(fake: &[(&str, &str)]) -> Project {
 }
 
 pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, &str)]) -> Project {
-    let rup = PathBuf::from(env!("CARGO_BIN_EXE_rup"));
+    let packaged = std::env::var_os("ROUNDUP_TEST_APP_BIN").map(PathBuf::from);
+    let rup = packaged
+        .as_ref()
+        .map(|dir| dir.join("rup"))
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_rup")));
     let rupd = rup.with_file_name("rupd");
     assert!(
         rupd.is_file(),
@@ -60,20 +64,29 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
         rupd.display()
     );
     let sidecar = data.path().join("sidecar");
-    let bundled = Command::new("bash")
-        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/sidecar/bundle.sh"))
-        .arg(&sidecar)
-        .arg("--local-node")
-        .status()
-        .unwrap();
-    assert!(bundled.success(), "fixture sidecar is complete");
+    if packaged.is_none() {
+        let bundled = Command::new("bash")
+            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/sidecar/bundle.sh"))
+            .arg(&sidecar)
+            .arg("--local-node")
+            .status()
+            .unwrap();
+        assert!(bundled.success(), "fixture sidecar is complete");
+    }
     // Borrow both folders: a startup panic reaps the harness Daemon before these owners drop.
     let mut daemon = rupd_harness::start(&rupd, dir.path(), true, |command| {
+        if packaged.is_some() {
+            command
+                .env_remove("ROUNDUP_RUP_BIN")
+                .env_remove("ROUNDUP_SIDECAR_DIR");
+        } else {
+            command
+                .env("ROUNDUP_RUP_BIN", &rup)
+                .env("ROUNDUP_SIDECAR_DIR", &sidecar);
+        }
         command
             .current_dir(dir.path())
             .env("CLAUDE_CONFIG_DIR", dir.path().join("claude-config"))
-            .env("ROUNDUP_RUP_BIN", &rup)
-            .env("ROUNDUP_SIDECAR_DIR", &sidecar)
             .env(
                 "ROUNDUP_CLAUDE_BIN",
                 Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/e2e/fake_claude.py"),
@@ -93,6 +106,22 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
 }
 
 impl Project {
+    /// D1/D5: close the App's lifetime pipe and require a clean, bounded shutdown.
+    pub async fn close(&mut self) {
+        drop(self.daemon.stdin.take());
+        tokio::time::timeout(Duration::from_secs(15), async {
+            loop {
+                if let Some(status) = self.daemon.child.try_wait().unwrap() {
+                    assert!(status.success(), "attached shutdown failed: {status}");
+                    return;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("attached Daemon exits within D1's 15-second bound");
+    }
+
     pub fn crash(&mut self) {
         if self.daemon.child.try_wait().unwrap().is_none() {
             self.daemon.child.kill().unwrap();

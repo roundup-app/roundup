@@ -17,6 +17,10 @@ pub struct Todo {
     pub blocked: bool,
     #[specta(type = specta_typescript::Number)]
     pub created_at: i64,
+    /// T30: the time of the Todo's last Change (title, body, done, owner or blockers); `created_at` on creation. A Todo from before this field reads its latest Change time, or `created_at`.
+    #[serde(default)]
+    #[specta(type = specta_typescript::Number)]
+    pub updated_at: i64,
     /// The Actor whose `todo.create` made this Todo. A Todo from before this field reads as `Actor::user()`.
     pub creator: Actor,
     /// The Workstream (a Rail id) this Todo belongs to; `None` is the Project root. A Todo from before this field reads as `None`.
@@ -26,8 +30,6 @@ pub struct Todo {
     /// Links to Pads and Pad sections (T27), in the order added. A Todo from before refs reads none.
     #[serde(default)]
     pub refs: Vec<String>,
-    /// T29: expected work in minutes (1 to 1440); `None` is no estimate. A Todo from before this field reads as `None`.
-    pub estimate_minutes: Option<u32>,
 }
 
 /// One qualifying Hand-off for a Todo's current owner after its last owner change.
@@ -47,9 +49,6 @@ pub struct CreateParams {
     /// Omitted or `None` is Unassigned.
     #[specta(optional, type = Owner)]
     pub owner: Option<Owner>,
-    /// T29: whole minutes, 1 to 1440; omitted or `None` is no estimate.
-    #[specta(optional, type = u32)]
-    pub estimate_minutes: Option<u32>,
 }
 
 /// Sets the owner, `None` for Unassigned. `expected_change` is the last captured History Change
@@ -73,23 +72,15 @@ pub struct TodoId {
     pub id: u32,
 }
 
-/// Changes title/body/estimate. `estimate_minutes` is whole minutes 1 to 1440 (T29); `null` clears it, omitted leaves it. `expected_change` is the last captured History Change sequence;
+/// Changes title/body. `expected_change` is the last captured History Change sequence;
 /// mismatch is CONFLICT, a removed Todo is NOT_FOUND, and omission is unconditional.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct UpdateParams {
     pub id: u32,
     pub title: Option<String>,
     pub body: Option<String>,
-    #[serde(default, deserialize_with = "present")]
-    #[specta(optional, type = Option<specta_typescript::Number>)]
-    pub estimate_minutes: Option<Option<u32>>,
     #[specta(optional, type = u32)]
     pub expected_change: Option<u32>,
-}
-
-/// A field that is present, `null` included, is `Some`; an absent one stays `None` by `default`.
-fn present<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<u32>>, D::Error> {
-    Option::<u32>::deserialize(d).map(Some)
 }
 
 /// Replaces the whole blocker list. A list that would make a cycle is an error.
@@ -127,9 +118,6 @@ pub struct Values {
     /// A change recorded before owners existed reads `None`.
     #[serde(default)]
     pub owner: Option<Actor>,
-    /// A change recorded before estimates existed reads `None`.
-    #[serde(default)]
-    pub estimate_minutes: Option<u32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -259,4 +247,21 @@ pub struct Deletion {
     pub deleted: Vec<u32>,
     pub missing: Vec<u32>,
     pub state: DeletionState,
+    /// Server-created restored identity. Redo must echo this acknowledgement from
+    /// restore or readback; the same operation key in another Project cannot match.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub restoration: Option<String>,
+}
+
+/// Redo only the successful restored subset of `source` in this Project, for its Actor.
+/// Capture a fresh `operation` before dispatch. Replay that pair or read todo.deletion
+/// with the new key after an unknown reply. Restore the new operation to undo again.
+/// Changed/replaced targets refuse atomically; repair the cause and retry the same pair.
+#[derive(Clone, Debug, Serialize, Deserialize, specta::Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RedoParams {
+    pub source: String,
+    pub restoration: String,
+    pub operation: String,
 }

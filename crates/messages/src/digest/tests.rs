@@ -25,24 +25,19 @@ fn todo(id: u32, creator: &str, done: bool) -> Todo {
     let creator = serde_json::json!({"kind": "agent", "id": creator, "parent": null});
     serde_json::from_value(serde_json::json!({
         "id": id, "title": format!("todo {id}"), "body": "", "done": done, "blockers": [],
-        "blocked": false, "created_at": 0, "creator": creator, "home": "m", "owner": null,
+        "blocked": false, "created_at": 0, "updated_at": 0, "creator": creator, "home": "m", "owner": null,
     }))
     .unwrap()
 }
 
-fn pad(name: &str, owner: &str, at: i64) -> Pad {
+fn pad(name: &str, home: &str, at: i64) -> Pad {
     Pad {
         incarnation: "1".into(),
         name: name.into(),
-        owner: Actor {
-            kind: ActorKind::Agent,
-            id: owner.into(),
-            parent: None,
-        },
         text: "ZEBRA".into(),
         updated_at: at,
         revision: 1,
-        home: None,
+        home: Some(home.into()),
     }
 }
 
@@ -80,6 +75,19 @@ fn ask(
     messages: &[Message],
 ) -> Vec<DigestItem> {
     let from = Sources {
+        touches: pads
+            .iter()
+            .map(|pad| contracts::Touch {
+                actor: Actor {
+                    kind: ActorKind::Agent,
+                    id: pad.home.clone().unwrap(),
+                    parent: None,
+                },
+                verb: contracts::Verb::Wrote,
+                item: format!("pad:{}", pad.name),
+                at: pad.updated_at,
+            })
+            .collect(),
         nodes,
         todos,
         pads,
@@ -205,6 +213,19 @@ fn b19_the_user_asking_does_not_hide_pads_from_m() {
     let seen = Seen::default();
     let pads = [pad("one", "a", 10)];
     let from = Sources {
+        touches: pads
+            .iter()
+            .map(|pad| contracts::Touch {
+                actor: Actor {
+                    kind: ActorKind::Agent,
+                    id: pad.home.clone().unwrap(),
+                    parent: None,
+                },
+                verb: contracts::Verb::Wrote,
+                item: format!("pad:{}", pad.name),
+                at: pad.updated_at,
+            })
+            .collect(),
         nodes: &rail(),
         todos: &[],
         pads: &pads,
@@ -276,6 +297,7 @@ fn b20_children_are_in_rail_order_at_most_20_then_more() {
 fn b20_forbidden_not_found_and_conflict() {
     let nodes = rail();
     let from = Sources {
+        touches: Vec::new(),
         nodes: &nodes,
         todos: &[],
         pads: &[],
@@ -406,6 +428,19 @@ fn sources<'a>(
     messages: &'a [Message],
 ) -> Sources<'a> {
     Sources {
+        touches: pads
+            .iter()
+            .map(|pad| contracts::Touch {
+                actor: Actor {
+                    kind: ActorKind::Agent,
+                    id: pad.home.clone().unwrap(),
+                    parent: None,
+                },
+                verb: contracts::Verb::Wrote,
+                item: format!("pad:{}", pad.name),
+                at: pad.updated_at,
+            })
+            .collect(),
         nodes,
         todos,
         pads,

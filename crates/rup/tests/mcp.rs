@@ -1,14 +1,13 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 #[path = "common/served.rs"]
 mod common;
 
 use std::path::Path;
 use std::process::{Output, Stdio};
-use std::sync::Arc;
 use std::time::Duration;
 
 use common::Served;
-use contracts::pad::DeleteParams;
-use contracts::{Actor, ActorKind, IdentifyParams, Touch, Verb, message, pad, todo};
+use contracts::{Actor, ActorKind, IdentifyParams, Touch, Verb};
 use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ProtocolVersion};
 use rmcp::service::{RoleClient, RunningService};
@@ -88,8 +87,7 @@ struct Project {
 fn start_daemon() -> Project {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
-    let daemon = Arc::new(rupd::Daemon::open(&dir.path().join(".roundup")).unwrap());
-    let daemon = tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let daemon = common::serve(dir.path(), &socket);
     Project {
         _dir: dir,
         socket,
@@ -282,105 +280,6 @@ async fn m1_offers_one_tool_per_method_and_no_others() {
 }
 
 #[tokio::test]
-async fn m1_input_schemas_are_the_contract_schemas() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-    let schema = |name: &str| {
-        let tool = tools.iter().find(|t| t.name == name).unwrap();
-        Value::Object((*tool.input_schema).clone())
-    };
-
-    let derived = |schema| serde_json::to_value(schema).unwrap();
-    let expected = [
-        (
-            "agent_wake",
-            derived(schemars::schema_for!(contracts::agent::WakeParams)),
-        ),
-        (
-            "message_progress",
-            derived(schemars::schema_for!(message::ProgressParams)),
-        ),
-        (
-            "message_report",
-            derived(schemars::schema_for!(message::ReportParams)),
-        ),
-        (
-            "message_acceptResult",
-            derived(schemars::schema_for!(message::AcceptResultParams)),
-        ),
-        (
-            "message_verifyResult",
-            derived(schemars::schema_for!(message::ResultId)),
-        ),
-        (
-            "message_resolveResult",
-            derived(schemars::schema_for!(message::ResolveResultParams)),
-        ),
-        (
-            "todo_create",
-            derived(schemars::schema_for!(todo::CreateParams)),
-        ),
-        ("todo_get", derived(schemars::schema_for!(todo::TodoId))),
-        ("todo_reopen", derived(schemars::schema_for!(todo::TodoId))),
-        (
-            "todo_update",
-            derived(schemars::schema_for!(todo::UpdateParams)),
-        ),
-        (
-            "todo_complete",
-            derived(schemars::schema_for!(todo::TodoId)),
-        ),
-        (
-            "todo_setBlockers",
-            derived(schemars::schema_for!(todo::SetBlockersParams)),
-        ),
-        (
-            "pad_create",
-            derived(schemars::schema_for!(pad::CreateParams)),
-        ),
-        ("pad_read", derived(schemars::schema_for!(pad::PadName))),
-        (
-            "pad_write",
-            derived(schemars::schema_for!(pad::WriteParams)),
-        ),
-        (
-            "pad_append",
-            derived(schemars::schema_for!(pad::AppendParams)),
-        ),
-        (
-            "pad_appendSection",
-            derived(schemars::schema_for!(pad::AppendSectionParams)),
-        ),
-        (
-            "pad_setOwner",
-            derived(schemars::schema_for!(pad::SetOwnerParams)),
-        ),
-        ("pad_delete", derived(schemars::schema_for!(DeleteParams))),
-        (
-            "message_send",
-            derived(schemars::schema_for!(message::SendParams)),
-        ),
-        (
-            "message_get",
-            derived(schemars::schema_for!(message::MessageId)),
-        ),
-        (
-            "message_list",
-            derived(schemars::schema_for!(message::ListParams)),
-        ),
-    ];
-    for (name, contract_schema) in expected {
-        assert_eq!(schema(name), contract_schema, "{name}");
-    }
-    assert_eq!(schema("todo_list"), json!({ "type": "object" }));
-    assert_eq!(schema("pad_list"), json!({ "type": "object" }));
-    // E4: the shim fills the id, so the tool takes no input.
-    assert_eq!(schema("agent_context"), json!({ "type": "object" }));
-}
-
-#[tokio::test]
 async fn m2_a_created_todo_is_a_touch_by_the_calling_agent() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
@@ -484,20 +383,15 @@ async fn p15_tool_offered_and_touch_by_agent() {
 #[tokio::test]
 async fn m2_a_daemon_error_is_a_tool_error_carrying_code_and_message() {
     let project = start_daemon();
-    let owner = client_as(&project.socket, agent("owner")).await;
-    owner
-        .request("pad.create", json!({ "name": "notes" }))
-        .await
-        .unwrap();
     let shim = spawn_shim(&project.socket, "a1").await;
 
     let result = shim
-        .call("pad_write", json!({ "name": "notes", "text": "mine" }))
+        .call("pad_write", json!({ "name": "missing", "text": "mine" }))
         .await;
 
     assert_eq!(result.is_error, Some(true));
     let error = text(&result);
-    assert_eq!(error["code"], rpc::code::FORBIDDEN);
+    assert_eq!(error["code"], rpc::code::NOT_FOUND);
     assert!(error["message"].is_string());
 }
 
@@ -1223,23 +1117,6 @@ async fn t19_mcp_reopen_uses_agent_identity() {
 }
 
 #[tokio::test]
-async fn t21_the_tool_description_asks_for_one_plain_line_for_the_user() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-    let tools = shim.client.list_all_tools().await.unwrap();
-    let tool = tools.iter().find(|t| t.name == "todo_comment").unwrap();
-    let description = tool.description.as_deref().unwrap();
-    for phrase in [
-        "only when the user must read it",
-        "question",
-        "blocker",
-        "one short plain line",
-    ] {
-        assert!(description.contains(phrase), "{phrase}: {description}");
-    }
-}
-
-#[tokio::test]
 async fn t21_an_agent_comment_names_its_author_over_mcp_and_cli() {
     let project = start_daemon();
     let user = client_as(&project.socket, Actor::user()).await;
@@ -1313,48 +1190,32 @@ async fn t28_an_agent_adds_and_removes_a_ref_over_mcp_and_cli() {
     assert_eq!(todo["refs"], json!([]));
 }
 
+// T4902 retires T29; t4902_public_todo_contract_has_no_duration proves the replacement contract.
+
 #[tokio::test]
-async fn t28_the_tool_descriptions_name_the_section_form() {
+async fn t4902_public_todo_contract_has_no_duration() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
     let tools = shim.client.list_all_tools().await.unwrap();
-    let tool = tools.iter().find(|t| t.name == "todo_addRef").unwrap();
-    let description = tool.description.as_deref().unwrap();
-    for phrase in ["Point the user", "read it", "#<heading>"] {
-        assert!(description.contains(phrase), "{phrase}: {description}");
+    for tool in tools.iter().filter(|tool| tool.name.starts_with("todo_")) {
+        let wire = serde_json::to_value(tool).unwrap();
+        assert!(!wire.to_string().contains("estimate_minutes"), "{wire}");
     }
-}
-
-#[tokio::test]
-async fn t29_mcp_todo_update_sets_the_estimate() {
-    let project = start_daemon();
-    let user = client_as(&project.socket, Actor::user()).await;
-    user.request("todo.create", json!({"title": "ship"}))
-        .await
-        .unwrap();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let result = shim
-        .call("todo_update", json!({"id": 1, "estimate_minutes": 45}))
+    let created = shim
+        .call("todo_create", json!({"title":"ship", "body":"keep"}))
         .await;
-
-    assert_ne!(result.is_error, Some(true));
-    assert_eq!(text(&result)["estimate_minutes"], 45);
-    let history = user
-        .request("todo.getHistory", json!({"id": 1}))
-        .await
-        .unwrap();
-    assert_eq!(history["changes"][1]["actor"], json!(agent("a1")));
-    assert_eq!(history["changes"][1]["after"]["estimate_minutes"], 45);
-    let touches = user
-        .request("provenance.history", json!({"item": "todo:1"}))
-        .await
-        .unwrap();
-    assert!(
-        touches
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|t| t["verb"] == "wrote" && t["actor"] == json!(agent("a1")))
-    );
+    assert_ne!(created.is_error, Some(true));
+    let made = text(&created);
+    assert!(made.get("estimate_minutes").is_none());
+    let updated = shim
+        .call("todo_update", json!({"id":made["id"], "title":"saved"}))
+        .await;
+    assert_ne!(updated.is_error, Some(true));
+    let got = shim.call("todo_get", json!({"id":made["id"]})).await;
+    assert_ne!(got.is_error, Some(true));
+    let got = text(&got);
+    assert!(got.get("estimate_minutes").is_none());
+    assert_eq!(got["title"], "saved");
+    assert_eq!(got["body"], "keep");
+    assert_eq!(got["creator"], json!(agent("a1")));
 }

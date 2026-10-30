@@ -57,9 +57,11 @@ impl Daemon {
                     | "todo.delete"
                     | "todo.deletion"
                     | "todo.restore"
+                    | "todo.redo"
                     | "rail.remove"
                     | "rail.deletion"
                     | "rail.restore"
+                    | "rail.redo"
                     | "message.progress"
                     | "message.report"
                     | "message.acceptResult"
@@ -153,7 +155,7 @@ impl Daemon {
         ) {
             self.before_prompt_effect(&conn.actor, method).await?;
         }
-        if method == "todo.restore" && conn.actor.kind != ActorKind::User {
+        if matches!(method, "todo.restore" | "todo.redo") && conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user restores deleted Todos"));
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
@@ -171,9 +173,6 @@ impl Daemon {
             .get(owner)
             .ok_or_else(|| RpcError::method_not_found(method))?;
         if matches!(method, "todo.move" | "pad.move") {
-            if method == "pad.move" && conn.actor.kind == ActorKind::Agent {
-                return Err(RpcError::forbidden("an Agent may not move a pad"));
-            }
             self.require_workstream(&params).await?;
         }
         if matches!(method, "todo.create" | "todo.assign") {
@@ -277,7 +276,7 @@ impl Daemon {
             self.reset_orphaned_pad_homes().await?;
             return outcome;
         }
-        if method == "pad.delete" && outcome.is_ok() {
+        if matches!(method, "pad.delete" | "pad.redoDelete") && outcome.is_ok() {
             self.publications.invalidate_revoked()?;
         }
         outcome
