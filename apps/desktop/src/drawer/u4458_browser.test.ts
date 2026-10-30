@@ -108,7 +108,7 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
         for (const region of ['rail', 'drawer', 'shelf']) if (el.closest('.' + region) && !cycle.regions.includes(region)) cycle.regions.push(region);
         const complete = ${covered ? "el === cycle.start || el.matches('.drawer [contenteditable=true]')" : "el === window.__covered.button"};
         if (complete) cycle.ends.push(el);
-        return { complete, centre: !!el.closest('.centre') };
+        return { complete, centre: !!el.closest('.centre') && !el.closest('.resource-agent') };
       })()`);
 
       if (covered) expect(state.centre, `${key} reached a covered control`).toBe(false);
@@ -119,7 +119,14 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
     expect(complete, `${key} did not complete a focus sweep`).toBe(true);
   }
 
-  if (covered) expect(await lane.evaluate("window.__cycle.ends[0] === window.__cycle.ends[1]")).toBe(true);
+  if (covered) {
+    expect(await lane.evaluate("window.__cycle.ends[0] === window.__cycle.ends[1]")).toBe(true);
+
+    if (await lane.evaluate("!document.querySelector('.settings-view')")) {
+      expect(await lane.evaluate("window.__cycle.nodes.includes(document.querySelector('.terminal-new'))")).toBe(true);
+      expect(await lane.evaluate("[...document.querySelectorAll('.hint-line button:not(:disabled)')].every(button => window.__cycle.nodes.includes(button))")).toBe(true);
+    }
+  }
 
   if (covered) expect(await lane.evaluate("window.__cycle.regions")).toEqual(expect.arrayContaining(shelf ? ["rail", "drawer", "shelf"] : ["rail", "drawer"]));
 };
