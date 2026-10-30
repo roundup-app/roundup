@@ -121,7 +121,7 @@ describe("u5 Drawer and last touch", () => {
       </ConnectedProjectContext.Provider>
     ));
 
-    expect((await screen.findByText(/a wrote/)).textContent).toContain("08:07");
+    expect((await screen.findByText(/a wrote/)).textContent).toMatch(/08:07/);
   });
 
   it("u190_the_last_touch_line_is_the_newest_read_when_an_older_read_resolves_last", async () => {
@@ -164,7 +164,7 @@ describe("u5 Drawer and last touch", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(screen.getByText(/a wrote/).textContent).toContain("09:00");
+    expect(screen.getByText(/a wrote/).textContent).toMatch(/09:00/);
   });
 
   it("u3791c_rejected_actions_reach_their_owner_drawer", async () => {

@@ -37,7 +37,8 @@ describe("u182 hover tells the count", () => {
     fireEvent.keyDown(document.body, { key: "Tab" });
     tab("api").focus();
 
-    expect((await screen.findByRole("tooltip")).textContent).toContain("api");
+    const tooltip = await screen.findByRole("tooltip");
+    await waitFor(() => expect(tab("api").getAttribute("aria-describedby")).toBe(tooltip.id));
 
     tab("api").blur();
 
