@@ -157,7 +157,9 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   await pickTwo();
   await askToDelete(2);
   await screen.findByText("Could not delete todo 1 #1: denied");
-  fireEvent.keyDown(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  const focusedRow = screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
+  focusedRow.focus();
+  fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
   expect(screen.getByRole<HTMLElement>("complementary").inert).toBe(false);
 });
 

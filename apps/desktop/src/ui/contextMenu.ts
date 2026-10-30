@@ -3,7 +3,7 @@ import { writeText } from "../app/clipboard";
 import type { RpcMethods } from "@contracts/methods";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { railOrder } from "../rail/layout";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { App, AppSeam, MenuItem } from "../app/seam";
 
 /** U2694a: one item of a menu model. `run` stays in the webview; only the rest crosses to the host. */

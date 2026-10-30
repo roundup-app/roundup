@@ -1,4 +1,4 @@
-import { copy } from "../../copy";
+import { copy } from "../copy";
 import { useConnectedProject } from "../../state/connectedProject";
 import type { RailMenuModel } from "./model";
 import { removalQuestion } from "./removal";

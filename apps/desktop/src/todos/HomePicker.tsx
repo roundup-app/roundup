@@ -3,7 +3,7 @@ import { For } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Menu } from "../ui/Menu";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Home } from "./homes";
 
 /**

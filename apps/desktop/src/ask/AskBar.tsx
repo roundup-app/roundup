@@ -9,7 +9,7 @@ import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
 import { ReservedLine } from "../ink/ReservedLine";

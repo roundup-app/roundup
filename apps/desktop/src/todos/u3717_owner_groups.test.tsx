@@ -4,7 +4,7 @@ import { RpcError } from "../app/seam";
 import { agent, event } from "../testing/nodes";
 import { withScopeRow } from "../testing/showEverything";
 import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { mountTodos, todo, todoEvent, todoCallsTo as callsTo } from "./testHarness";
 
 afterEach(cleanup);

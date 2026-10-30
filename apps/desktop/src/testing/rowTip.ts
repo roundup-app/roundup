@@ -1,5 +1,5 @@
 import { waitFor } from "@solidjs/testing-library";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** U2228a: a row's accessible name is its name, then its Status label; read that label once the row carries one. */
 export const rowStatusLabel = async (row: HTMLElement): Promise<string> => {

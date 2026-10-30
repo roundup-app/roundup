@@ -1,5 +1,5 @@
 import { ExitButton } from "../ui/IconButton";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { useConnectedProject } from "../state/connectedProject";

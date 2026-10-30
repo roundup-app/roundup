@@ -13,7 +13,7 @@ import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Bubble } from "./Bubble";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import { HintLine } from "../keys/HintLine";
