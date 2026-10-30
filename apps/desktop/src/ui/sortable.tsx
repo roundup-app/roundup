@@ -439,6 +439,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     // Horizontal overrun remains a tree destination only while dnd-kit targets this list.
     const target = event.operation.target?.element;
     const horizontalOverrun = tree && !outside && target && list?.contains(target);
+
     const inside = !pointerDrag || (box && point.y >= box.top && point.y < box.bottom
       && ((point.x >= box.left && point.x < box.right) || horizontalOverrun));
 
