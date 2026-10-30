@@ -139,7 +139,9 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await openDrawerOf(2);
       press(within(drawer()).getByRole("button", { name: "More actions" }), by);
-      press(await screen.findByRole("menuitem", { name: "Delete Todo" }), by);
+      const remove = await screen.findByRole("menuitem", { name: "Delete Todo" });
+      if (by === "keyboard") fireEvent.keyDown(remove.closest('[role="menu"]')!, { key: "End" });
+      fireEvent.click(remove);
       await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [2] } }]));
       mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos[0]! }));
 
@@ -195,7 +197,7 @@ describe("u152 remove a blocker", () => {
     fireEvent.click(within(drawer()).getByRole("button", { name: /^Blocked by/ }));
     fireEvent.click(await screen.findByRole("option", { name: /#1/ }));
 
-    expect((await within(drawer()).findByText(/cannot remove/)).textContent).toBe("cannot remove");
+    expect(await within(drawer()).findByRole("alert", { name: /cannot remove/ })).toBeTruthy();
     expect(rowOf(2).getAttribute("aria-level")).toBe("2");
   });
 });

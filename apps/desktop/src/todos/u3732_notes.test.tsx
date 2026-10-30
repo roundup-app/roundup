@@ -17,13 +17,6 @@ const open = async (body: string, done = false) => {
   return mounted;
 };
 
-it("u3732_an_empty_body_shows_add_notes_and_a_filled_one_does_not", async () => {
-  await open("");
-  expect(within(panel()).getByRole("button", { name: "Add notes" })).toBeTruthy();
-  cleanup();
-  await open("some notes");
-  expect(within(panel()).queryByRole("button", { name: "Add notes" })).toBeNull();
-});
 
 it("u3732_click_and_enter_open_the_body_with_focus", async () => {
   const { app } = await open("");

@@ -62,7 +62,9 @@ const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).fil
 
 /** U147: the Pad's one surface. `readonly` prevents editing unavailable content; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
 export default function PadRichEditor(props: {
-  initialFocus?: ReturnType<typeof captureFocus>;
+  autofocus?: boolean;
+  label?: string;
+  initialFocus?: ReturnType<typeof captureFocus> | undefined;
   text: string;
   readonly: boolean;
   onChange: () => void;
@@ -210,7 +212,7 @@ export default function PadRichEditor(props: {
       }
 
       field.setAttribute("role", "textbox");
-      field.setAttribute("aria-label", copy.padBody);
+      field.setAttribute("aria-label", props.label ?? copy.padBody);
       field.setAttribute("aria-multiline", "true");
 
       // Crepe owns navigation; mirror its rendered selection without intercepting keys.
@@ -268,7 +270,7 @@ export default function PadRichEditor(props: {
       // ProseMirror's own focus writes its selection to the DOM first, so Chromium has no caret of its own to adopt.
       const focusEditor = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).focus());
 
-      if (!props.readonly) focus(focusEditor);
+      if (!props.readonly && props.autofocus !== false) focus(focusEditor);
 
       props.onReady({
         getText,
