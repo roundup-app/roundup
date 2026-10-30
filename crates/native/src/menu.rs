@@ -447,16 +447,27 @@ pub(crate) mod tests {
                 }
             }
             let editor: Retained<AnyObject> = msg_send![class(c"NSTextView"), new];
+            // NSTextView only validates the modern finder action when its find bar
+            // is enabled. A bare text view otherwise exercises an unavailable editor.
+            let _: () = msg_send![&*editor, setUsesFindBar: true];
             let _: () = msg_send![&*editor, setString: &*NSString::from_str("native editor")];
             let content: Retained<AnyObject> = msg_send![&*windows[1], contentView];
-            let _: () = msg_send![&*content, addSubview: &*editor];
+            let scroll: Retained<AnyObject> = msg_send![class(c"NSScrollView"), new];
+            let bounds: NSRect = msg_send![&*content, bounds];
+            let _: () = msg_send![&*scroll, setFrame: bounds];
+            let _: () = msg_send![&*scroll, setDocumentView: &*editor];
+            let _: () = msg_send![&*content, addSubview: &*scroll];
             let accepted: bool = msg_send![&*windows[1], makeFirstResponder: &*editor];
             assert!(accepted);
             let _: () = msg_send![&*find_menu, update];
             let enabled: bool = msg_send![&*find, isEnabled];
             let target: Retained<AnyObject> =
                 msg_send![&*app, targetForAction: sel!(performTextFinderAction:)];
-            assert!(enabled && std::ptr::eq(&*target, &*editor));
+            assert!(enabled, "a find-enabled native editor validates Find");
+            assert!(
+                std::ptr::eq(&*target, &*editor),
+                "Find targets the focused native editor"
+            );
             let accepted: bool = msg_send![&*windows[1], makeFirstResponder: &*responders[1]];
             assert!(accepted);
             // A projected registration owns the native accelerator; the responder entry
