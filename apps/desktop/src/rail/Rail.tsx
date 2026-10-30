@@ -967,26 +967,28 @@ export const Rail = () => {
         void menu.restartSession(id, request);
       }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
-      <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
-        status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
-        <Show when={failure.retry()}>{retry => <>
-          <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
-          <button type="button" data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>
-        </>}</Show>
-        <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
-      </ReservedLine>
-      <div class="rail-actions">
-        <button data-button="add"
-          aria-label={copy.addWorkstream}
-          class="word"
-          aria-disabled={canSpawn() ? undefined : true}
-          onClick={() => {
-            if (canSpawn()) guarded(() => rail.createWorkstream());
-          }}
-        >
-          <Icon name="messages" />{copy.addWorkstreamWord}</button>
-        <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name="workflow" />{copy.modeWord}</button>
-        <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
+      <div class="rail-footer">
+        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+          status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
+          <Show when={failure.retry()}>{retry => <>
+            <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
+            <button type="button" data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>
+          </>}</Show>
+          <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
+        </ReservedLine>
+        <div class="rail-actions">
+          <button data-button="add"
+            aria-label={copy.addWorkstream}
+            class="word"
+            aria-disabled={canSpawn() ? undefined : true}
+            onClick={() => {
+              if (canSpawn()) guarded(() => rail.createWorkstream());
+            }}
+          >
+            <Icon name="messages" />{copy.addWorkstreamWord}</button>
+          <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name="workflow" />{copy.modeWord}</button>
+          <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
+        </div>
       </div>
     </>
   );
