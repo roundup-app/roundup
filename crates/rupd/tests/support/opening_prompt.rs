@@ -149,6 +149,14 @@ async fn u4547d_restart_uses_the_saved_prompt_and_preserves_contents() {
     assert_eq!(node["name"], "Fresh team");
     assert_eq!(node["opening_prompt"], prompt);
     assert_eq!(recorded_bytes(&run).await, expected);
+    run.user
+        .request(
+            "workstream.setOpeningPrompt",
+            json!({"id":run.child,"prompt":" changed for the next session\n "}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(recorded_bytes(&run).await, expected);
     run.finish().await;
 }
 
