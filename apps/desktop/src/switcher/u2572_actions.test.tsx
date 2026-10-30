@@ -189,16 +189,16 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
   expect(results).toEqual(key === "W" ? [[{ method: "terminal.close", params: { id: "7" } }], [{ method: "terminal.close", params: { id: "7" } }]] : [[], []]);
 });
 
-it.each(["S", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: App owner %s", async (key) => {
+it.each(["B", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: App owner %s", async (key) => {
   for (const byAction of [false, true]) {
     await openTabs({ api: [agent("a", "needs-you", "asks")], web: [agent("w", "error", "failure")] });
 
     const beforeShelf = document.querySelector<HTMLElement>(".window")?.dataset.shelf;
 
-    if (byAction) { await show(); await chooseAction(key === "S" ? "Open work items" : "Jump to what needs you in another Project", "enter"); }
-    else leaderKey("Key" + (key === "S" ? "S" : "J"), { shiftKey: key === "⇧J" });
+    if (byAction) { await show(); await chooseAction(key === "B" ? "Open the Bench" : "Jump to what needs you in another Project", "enter"); }
+    else leaderKey("Key" + (key === "B" ? "B" : "J"), { shiftKey: key === "⇧J" });
 
-    if (key === "S") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
+    if (key === "B") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
     else await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
     cleanup();
   }
@@ -338,12 +338,12 @@ it("u2572b_the_Shelf_action_keeps_its_opening_toggle_after_the_overlay_closes", 
   await openTabs({ web: [agent("w", "idle", "idle")] });
   const window = document.querySelector<HTMLElement>(".window")!;
   press("k", { metaKey: true, code: "KeyK" });
-  press("s", { code: "KeyS" });
+  press("b", { code: "KeyB" });
   await waitFor(() => expect(window.dataset.shelf).toBe("open"));
   window.dataset.shelfMode = "overlay";
   await show();
   expect(window.dataset.shelf).toBe("closed");
-  await chooseAction("Open work items", "enter");
+  await chooseAction("Open the Bench", "enter");
   expect(window.dataset.shelf).toBe("closed");
 });
 

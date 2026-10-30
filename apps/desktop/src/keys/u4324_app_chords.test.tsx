@@ -111,7 +111,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
       await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("existing"));
       target = document.querySelector<HTMLElement>('[data-terminal="existing"]')!;
     } else if (place === "shelf" || place === "triage" || place === "drawer") {
-      press("KeyK", { metaKey: true }); press("KeyS");
+      press("KeyK", { metaKey: true }); press("KeyB");
       await waitFor(() => expect(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')).not.toBeNull());
       fireEvent.click(document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
 
@@ -213,7 +213,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
   } else if (chord === "leader") {
     expect(leaderArmed()).toBe(true);
     expect(document.activeElement).toBe(target);
-    press("KeyS");
+    press("KeyB");
     expect(leaderArmed()).toBe(false);
     expect(document.querySelector(".window")?.getAttribute("data-shelf")).not.toBe(shelfBefore);
   } else await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Ask" })));

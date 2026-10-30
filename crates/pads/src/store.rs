@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use contracts::{Actor, pad::Pad};
+use contracts::pad::Pad;
 use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use unicode_normalization::UnicodeNormalization;
@@ -19,7 +19,6 @@ pub struct PadSource {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PadDeletion {
     User,
-    Owner,
     Cleanup,
 }
 
@@ -38,12 +37,12 @@ pub enum PadSourceState {
 /// One SELECT reads identity, text and Revision coherently; no file mirror is read.
 pub fn source(db: &Connection, name: &str) -> rusqlite::Result<Option<PadSource>> {
     db.query_row(
-        "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation
+        "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation
          FROM pads p JOIN pad_sources s ON s.pad_key = p.key WHERE p.key = ?1",
         [key(name)],
         |row| {
             Ok(PadSource {
-                incarnation: row.get(6)?,
+                incarnation: row.get(5)?,
                 pad: row_to_pad(row)?,
             })
         },
@@ -56,20 +55,25 @@ pub fn source(db: &Connection, name: &str) -> rusqlite::Result<Option<PadSource>
 /// without racing source deletion. This supplies facts, not an access grant.
 pub fn source_state(db: &Connection, incarnation: i64) -> rusqlite::Result<PadSourceState> {
     db.query_row(
-        "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation, s.deletion
+        "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation, s.deletion
          FROM pad_sources s LEFT JOIN pads p ON p.key = s.pad_key WHERE s.incarnation = ?1",
         [incarnation],
         |row| {
-            let deletion: Option<String> = row.get(7)?;
+            let deletion: Option<String> = row.get(6)?;
             match deletion.as_deref() {
-                None => Ok(PadSourceState::Live(PadSource { incarnation: row.get(6)?, pad: row_to_pad(row)? })),
+                None => Ok(PadSourceState::Live(PadSource {
+                    incarnation: row.get(5)?,
+                    pad: row_to_pad(row)?,
+                })),
                 Some("user") => Ok(PadSourceState::Deleted(PadDeletion::User)),
-                Some("owner") => Ok(PadSourceState::Deleted(PadDeletion::Owner)),
+
                 Some("cleanup") => Ok(PadSourceState::Deleted(PadDeletion::Cleanup)),
                 Some(_) => Err(rusqlite::Error::InvalidQuery),
             }
         },
-    ).optional().map(|state| state.unwrap_or(PadSourceState::Unknown))
+    )
+    .optional()
+    .map(|state| state.unwrap_or(PadSourceState::Unknown))
 }
 
 const FILES_SETTING: &str = "files";
@@ -109,11 +113,10 @@ impl Store {
     /// False when a Pad with this name already exists.
     pub fn insert(&self, pad: &Pad) -> rusqlite::Result<bool> {
         let changed = self.db.execute(
-            "INSERT OR IGNORE INTO pads (key, name, owner, text, updated_at, home, revision, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, (SELECT MAX(position) + 1 FROM pads))",
+            "INSERT OR IGNORE INTO pads (key, name, text, updated_at, home, revision, position) VALUES (?1, ?2, ?3, ?4, ?5, 1, (SELECT MAX(position) + 1 FROM pads))",
             params![
                 key(&pad.name),
                 pad.name,
-                owner_json(&pad.owner),
                 pad.text,
                 pad.updated_at,
                 pad.home
@@ -125,7 +128,7 @@ impl Store {
     pub fn get(&self, name: &str) -> rusqlite::Result<Option<Pad>> {
         self.db
             .query_row(
-                "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation
+                "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation
                  FROM pads p JOIN pad_sources s ON s.pad_key = p.key WHERE p.key = ?1",
                 [key(name)],
                 row_to_pad,
@@ -136,7 +139,7 @@ impl Store {
     /// Persisted order, initially alphabetical for existing Pads.
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
         let mut stmt = self.db.prepare(
-            "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation
+            "SELECT p.name, p.text, p.updated_at, p.home, p.revision, s.incarnation
              FROM pads p JOIN pad_sources s ON s.pad_key = p.key ORDER BY p.position IS NULL, p.position, p.name",
         )?;
         stmt.query_map([], row_to_pad)?.collect()
@@ -206,7 +209,6 @@ impl Store {
                 key(name),
                 match cause {
                     PadDeletion::User => "user",
-                    PadDeletion::Owner => "owner",
                     PadDeletion::Cleanup => "cleanup",
                 }
             ],
@@ -218,14 +220,6 @@ impl Store {
         let changed = self
             .db
             .execute("DELETE FROM pads WHERE key = ?1", [key(name)])?;
-        Ok(changed == 1)
-    }
-
-    pub fn set_owner(&self, name: &str, owner: &Actor, at: i64) -> rusqlite::Result<bool> {
-        let changed = self.db.execute(
-            "UPDATE pads SET owner = ?2, updated_at = ?3 WHERE key = ?1",
-            params![key(name), owner_json(owner), at],
-        )?;
         Ok(changed == 1)
     }
 
@@ -261,28 +255,19 @@ pub(crate) fn key(name: &str) -> String {
     caseless::default_case_fold_str(&decomposed)
 }
 
-fn owner_json(owner: &Actor) -> String {
-    serde_json::to_string(owner).expect("an Actor is always serializable")
-}
-
 fn row_to_pad(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pad> {
-    let owner: String = row.get(1)?;
     Ok(Pad {
-        incarnation: row.get::<_, i64>(6)?.to_string(),
+        incarnation: row.get::<_, i64>(5)?.to_string(),
         name: row.get(0)?,
-        owner: serde_json::from_str(&owner).map_err(|err| {
-            rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(err))
-        })?,
-        text: row.get(2)?,
-        updated_at: row.get(3)?,
-        home: row.get(4)?,
-        revision: u64::try_from(row.get::<_, i64>(5)?).unwrap_or(1),
+        text: row.get(1)?,
+        updated_at: row.get(2)?,
+        home: row.get(3)?,
+        revision: u64::try_from(row.get::<_, i64>(4)?).unwrap_or(1),
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use contracts::Actor;
 
     use super::*;
 
@@ -294,7 +279,6 @@ mod tests {
         let pad = Pad {
             incarnation: String::new(),
             name: "notes".into(),
-            owner: Actor::user(),
             text: String::new(),
             updated_at: 0,
             revision: 1,
@@ -304,7 +288,6 @@ mod tests {
         other.delete("notes").unwrap();
 
         assert!(!one.set_text("notes", "x", 1).unwrap());
-        assert!(!one.set_owner("notes", &Actor::user(), 1).unwrap());
         assert!(!one.delete("notes").unwrap());
     }
 }
