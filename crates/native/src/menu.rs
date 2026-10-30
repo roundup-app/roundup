@@ -3,12 +3,14 @@ use objc2::{
     MainThreadMarker, msg_send,
     rc::{Allocated, Retained},
     runtime::{AnyClass, AnyObject},
+    sel,
 };
 use objc2_foundation::{NSRange, NSSize, NSString};
 use tauri::{AppHandle, Runtime};
 
-/// Decorate the freshly built Project submenu on the main thread; indices include separators.
-/// Plain titles and key equivalents stay untouched; attributed titles share a right-aligned hint stop.
+/// Refresh responder actions and decorate the freshly built Project submenu on the main thread.
+/// Call after installation and every projection, including no Project. Indices include separators;
+/// plain Project titles and key equivalents stay untouched.
 pub fn project_menu_hints<R: Runtime>(
     app: &AppHandle<R>,
     hints: Vec<(Vec<usize>, String)>,
@@ -27,6 +29,7 @@ unsafe fn decorate_project_menu(hints: Vec<(Vec<usize>, String)>) {
     // remain retained through installation; menus can be absent during teardown.
     unsafe {
         let application: Retained<AnyObject> = msg_send![application, sharedApplication];
+        sync_responder_menu(&application);
         let menu: Option<Retained<AnyObject>> = msg_send![&*application, mainMenu];
         let Some(menu) = menu else { return };
         let project: Option<Retained<AnyObject>> =
@@ -35,6 +38,82 @@ unsafe fn decorate_project_menu(hints: Vec<(Vec<usize>, String)>) {
         let submenu: Option<Retained<AnyObject>> = msg_send![&*project, submenu];
         let Some(submenu) = submenu else { return };
         decorate_project_tree(&submenu, &hints);
+    }
+}
+
+/// AppKit owns validation and dispatch; Project commands keep muda's explicit availability.
+unsafe fn sync_responder_menu(application: &AnyObject) {
+    // SAFETY: called only with the shared NSApplication on the main thread. Menus and
+    // their children are retained while inspected; no responder or window is cached.
+    unsafe {
+        let menu: Option<Retained<AnyObject>> = msg_send![application, mainMenu];
+        let Some(menu) = menu else { return };
+        let submenu = |title: &str| -> Option<Retained<AnyObject>> {
+            let item: Option<Retained<AnyObject>> =
+                msg_send![&*menu, itemWithTitle: &*NSString::from_str(title)];
+            item.and_then(|item| msg_send![&*item, submenu])
+        };
+        if let Some(file) = submenu("File") {
+            // Tauri's default File menu contains only standard Close Window on macOS.
+            let _: () = msg_send![&*file, setAutoenablesItems: true];
+            let _: () = msg_send![&*file, update];
+        }
+        let Some(edit) = submenu("Edit") else { return };
+        let project_find = submenu("Project").is_some_and(|project| has_find_owner(&project));
+        let index: isize = msg_send![&*edit, indexOfItemWithTag: 3787isize];
+        if project_find && index >= 0 {
+            let _: () = msg_send![&*edit, removeItemAtIndex: index];
+        } else if !project_find && index < 0 {
+            let item: Allocated<AnyObject> = msg_send![
+                AnyClass::get(c"NSMenuItem").expect("AppKit is loaded"),
+                alloc
+            ];
+            let item: Retained<AnyObject> = msg_send![item, initWithTitle: &*NSString::from_str("Find…"), action: sel!(performTextFinderAction:), keyEquivalent: &*NSString::from_str("f")];
+            // NSTextFinderActionShowFindInterface = 1. Nil target follows the responder chain.
+            let _: () = msg_send![&*item, setTag: 1isize];
+            let _: () = msg_send![&*item, setTarget: std::ptr::null::<AnyObject>()];
+            let _: () = msg_send![&*item, setKeyEquivalentModifierMask: 1usize << 20];
+            let submenu: Retained<AnyObject> =
+                msg_send![AnyClass::get(c"NSMenu").expect("AppKit is loaded"), new];
+            let _: () = msg_send![&*submenu, setAutoenablesItems: true];
+            let _: () = msg_send![&*submenu, addItem: &*item];
+            let container: Retained<AnyObject> =
+                msg_send![AnyClass::get(c"NSMenuItem").expect("AppKit is loaded"), new];
+            let _: () = msg_send![&*container, setTitle: &*NSString::from_str("Find")];
+            let _: () = msg_send![&*container, setTag: 3787isize];
+            let _: () = msg_send![&*container, setSubmenu: &*submenu];
+            let _: () = msg_send![&*edit, addItem: &*container];
+            let _: () = msg_send![&*submenu, update];
+        }
+        // Edit stays manually enabled: Terminal Copy is handled by the webview's copy
+        // event even when WebKit's native selection validator would disable it.
+    }
+}
+
+unsafe fn has_find_owner(menu: &AnyObject) -> bool {
+    // SAFETY: callers retain a live NSMenu on the main thread; this reads only its projection.
+    unsafe {
+        let count: isize = msg_send![menu, numberOfItems];
+        for index in 0..count {
+            let item: Retained<AnyObject> = msg_send![menu, itemAtIndex: index];
+            let enabled: bool = msg_send![&*item, isEnabled];
+            if !enabled {
+                continue;
+            }
+            let child: Option<Retained<AnyObject>> = msg_send![&*item, submenu];
+            if let Some(child) = child {
+                if has_find_owner(&child) {
+                    return true;
+                }
+            } else {
+                let key: Retained<NSString> = msg_send![&*item, keyEquivalent];
+                let mask: usize = msg_send![&*item, keyEquivalentModifierMask];
+                if key.to_string() == "f" && mask == 1usize << 20 {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
@@ -217,6 +296,246 @@ pub fn context_menu<R: Runtime>(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    use objc2::{DefinedClass, MainThreadOnly, define_class};
+    use objc2_app_kit::NSResponder;
+    use objc2_foundation::{NSDefaultRunLoopMode, NSObjectProtocol, NSPoint, NSRect};
+    use std::cell::Cell;
+
+    #[derive(Default)]
+    struct FindState {
+        available: Cell<bool>,
+        calls: Cell<usize>,
+    }
+
+    define_class!(
+        #[unsafe(super(NSResponder))]
+        #[thread_kind = MainThreadOnly]
+        #[ivars = FindState]
+        struct FindResponder;
+
+        unsafe impl NSObjectProtocol for FindResponder {}
+        impl FindResponder {
+            #[unsafe(method(acceptsFirstResponder))]
+            fn accepts(&self) -> bool { true }
+
+            #[unsafe(method(performTextFinderAction:))]
+            fn find(&self, _sender: &AnyObject) {
+                self.ivars().calls.set(self.ivars().calls.get() + 1);
+            }
+
+            #[unsafe(method(validateMenuItem:))]
+            fn validate(&self, _item: &AnyObject) -> bool {
+                self.ivars().available.get()
+            }
+        }
+    );
+
+    pub(crate) fn u3787b_native_responder_find_and_close_follow_availability() {
+        let main = MainThreadMarker::new().expect("main-thread harness");
+        // SAFETY: actual AppKit menus, windows, responders and events stay retained on
+        // the main thread. Restore the prior menu and close only these probe windows.
+        unsafe {
+            let class = |name: &std::ffi::CStr| AnyClass::get(name).expect("AppKit loaded");
+            let app: Retained<AnyObject> = msg_send![class(c"NSApplication"), sharedApplication];
+            let prior: Option<Retained<AnyObject>> = msg_send![&*app, mainMenu];
+            let _: bool = msg_send![&*app, setActivationPolicy: 0isize];
+            let _: () = msg_send![&*app, finishLaunching];
+            let _: () = msg_send![&*app, activateIgnoringOtherApps: true];
+            let menu: Retained<AnyObject> = msg_send![class(c"NSMenu"), new];
+            let mut submenus = Vec::new();
+            for title in ["File", "Edit", "Project"] {
+                let item: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+                let sub: Retained<AnyObject> = msg_send![class(c"NSMenu"), new];
+                let _: () = msg_send![&*item, setTitle: &*NSString::from_str(title)];
+                let _: () = msg_send![&*sub, setAutoenablesItems: false];
+                let _: () = msg_send![&*item, setSubmenu: &*sub];
+                let _: () = msg_send![&*menu, addItem: &*item];
+                submenus.push(sub);
+            }
+            let close: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+            let _: () = msg_send![&*close, setTitle: &*NSString::from_str("Close Window")];
+            let _: () = msg_send![&*close, setAction: sel!(performClose:)];
+            let _: () = msg_send![&*close, setKeyEquivalent: &*NSString::from_str("w")];
+            let _: () = msg_send![&*submenus[0], addItem: &*close];
+            let copy: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+            let _: () = msg_send![&*copy, setTitle: &*NSString::from_str("Copy")];
+            let _: () = msg_send![&*copy, setAction: sel!(copy:)];
+            let _: () = msg_send![&*copy, setEnabled: true];
+            let _: () = msg_send![&*submenus[1], addItem: &*copy];
+            let _: () = msg_send![&*app, setMainMenu: &*menu];
+            sync_responder_menu(&app);
+            let copy_enabled: bool = msg_send![&*copy, isEnabled];
+            assert!(
+                copy_enabled,
+                "Terminal Copy retains its existing event route"
+            );
+            let container: Retained<AnyObject> = msg_send![&*submenus[1], itemWithTag: 3787isize];
+            let find_menu: Retained<AnyObject> = msg_send![&*container, submenu];
+            let find: Retained<AnyObject> = msg_send![&*find_menu, itemAtIndex: 0isize];
+            let windows = (0..2).map(|_| {
+                let window: Allocated<AnyObject> = msg_send![class(c"NSWindow"), alloc];
+                let window: Retained<AnyObject> = msg_send![window,
+                    initWithContentRect: NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(300.0, 200.0)),
+                    styleMask: 3usize, backing: 2usize, defer: false];
+                let _: () = msg_send![&*window, setReleasedWhenClosed: false];
+                window
+            }).collect::<Vec<_>>();
+            let responders = (0..2)
+                .map(|_| {
+                    let responder = FindResponder::alloc(main).set_ivars(FindState::default());
+                    let responder: Retained<FindResponder> = msg_send![super(responder), init];
+                    responder
+                })
+                .collect::<Vec<_>>();
+            for (index, window) in windows.iter().enumerate() {
+                let _: () =
+                    msg_send![&**window, makeKeyAndOrderFront: std::ptr::null::<AnyObject>()];
+                // AppKit activation arrives through the event queue. Unlike the App,
+                // this harness has no running event loop: dispatch until AppKit reports
+                // this probe window as key before testing nil-target menu validation.
+                let deadline: Retained<AnyObject> =
+                    msg_send![class(c"NSDate"), dateWithTimeIntervalSinceNow: 5.0f64];
+                loop {
+                    let key: Option<Retained<AnyObject>> = msg_send![&*app, keyWindow];
+                    if key
+                        .as_deref()
+                        .is_some_and(|key| std::ptr::eq(key, &**window))
+                    {
+                        break;
+                    }
+                    let remaining: f64 = msg_send![&*deadline, timeIntervalSinceNow];
+                    assert!(
+                        remaining > 0.0,
+                        "AppKit did not make probe window {index} key"
+                    );
+                    let event: Option<Retained<AnyObject>> = msg_send![&*app,
+                        nextEventMatchingMask: usize::MAX, untilDate: &*deadline,
+                        inMode: NSDefaultRunLoopMode, dequeue: true];
+                    if let Some(event) = event {
+                        let _: () = msg_send![&*app, sendEvent: &*event];
+                    }
+                }
+                // A bare NSResponder has no view hierarchy to link it to the window.
+                let _: () = msg_send![&*responders[index], setNextResponder: &**window];
+                let accepted: bool = msg_send![&**window, makeFirstResponder: &*responders[index]];
+                assert!(accepted);
+                for available in [false, true] {
+                    responders[index].ivars().available.set(available);
+                    let _: () = msg_send![&*find_menu, update];
+                    let enabled: bool = msg_send![&*find, isEnabled];
+                    assert_eq!(
+                        enabled, available,
+                        "Find availability in probe window {index}"
+                    );
+                    let number: isize = msg_send![&**window, windowNumber];
+                    let event: Retained<AnyObject> = msg_send![class(c"NSEvent"),
+                        keyEventWithType: 10usize, location: NSPoint::new(0.0, 0.0),
+                        modifierFlags: 1usize << 20, timestamp: 0.0f64, windowNumber: number,
+                        context: std::ptr::null::<AnyObject>(), characters: &*NSString::from_str("f"),
+                        charactersIgnoringModifiers: &*NSString::from_str("f"), isARepeat: false, keyCode: 3u16];
+                    let _: bool = msg_send![&*menu, performKeyEquivalent: &*event];
+                    assert_eq!(
+                        responders[index].ivars().calls.get(),
+                        usize::from(available)
+                    );
+                    let focused: Retained<AnyObject> = msg_send![&**window, firstResponder];
+                    assert!(std::ptr::eq(
+                        &*focused,
+                        (&*responders[index]) as *const FindResponder as *const AnyObject
+                    ));
+                }
+            }
+            let editor: Retained<AnyObject> = msg_send![class(c"NSTextView"), new];
+            // NSTextView only validates the modern finder action when its find bar
+            // is enabled. A bare text view otherwise exercises an unavailable editor.
+            let _: () = msg_send![&*editor, setUsesFindBar: true];
+            let _: () = msg_send![&*editor, setString: &*NSString::from_str("native editor")];
+            let content: Retained<AnyObject> = msg_send![&*windows[1], contentView];
+            let scroll: Retained<AnyObject> = msg_send![class(c"NSScrollView"), new];
+            let bounds: NSRect = msg_send![&*content, bounds];
+            let _: () = msg_send![&*scroll, setFrame: bounds];
+            let _: () = msg_send![&*scroll, setDocumentView: &*editor];
+            let _: () = msg_send![&*content, addSubview: &*scroll];
+            let accepted: bool = msg_send![&*windows[1], makeFirstResponder: &*editor];
+            assert!(accepted);
+            let _: () = msg_send![&*find_menu, update];
+            let enabled: bool = msg_send![&*find, isEnabled];
+            let target: Retained<AnyObject> =
+                msg_send![&*app, targetForAction: sel!(performTextFinderAction:)];
+            assert!(enabled, "a find-enabled native editor validates Find");
+            assert!(
+                std::ptr::eq(&*target, &*editor),
+                "Find targets the focused native editor"
+            );
+            let accepted: bool = msg_send![&*windows[1], makeFirstResponder: &*responders[1]];
+            assert!(accepted);
+            // A projected registration owns the native accelerator; the responder entry
+            // must be absent, so AppKit cannot fire both paths for one key equivalent.
+            let terminal: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+            let _: () = msg_send![&*terminal, setTitle: &*NSString::from_str("Terminal Find")];
+            let _: () = msg_send![&*terminal, setAction: sel!(performTextFinderAction:)];
+            let _: () = msg_send![&*terminal, setTarget: &*responders[0]];
+            let _: () = msg_send![&*terminal, setKeyEquivalent: &*NSString::from_str("f")];
+            let _: () = msg_send![&*terminal, setKeyEquivalentModifierMask: 1usize << 20];
+            let _: () = msg_send![&*submenus[2], addItem: &*terminal];
+            sync_responder_menu(&app);
+            // AppKit can add native editing items after NSTextView becomes focused.
+            // Only the responder Find entry must disappear when Project owns Cmd+F.
+            let index: isize = msg_send![&*submenus[1], indexOfItemWithTag: 3787isize];
+            assert_eq!(
+                index, -1,
+                "Project Find suppresses the responder Find entry"
+            );
+            let event: Retained<AnyObject> = msg_send![class(c"NSEvent"),
+                keyEventWithType: 10usize, location: NSPoint::new(0.0, 0.0),
+                modifierFlags: 1usize << 20, timestamp: 0.0f64, windowNumber: 0isize,
+                context: std::ptr::null::<AnyObject>(), characters: &*NSString::from_str("f"),
+                charactersIgnoringModifiers: &*NSString::from_str("f"), isARepeat: false, keyCode: 3u16];
+            let handled: bool = msg_send![&*menu, performKeyEquivalent: &*event];
+            assert!(handled);
+            assert_eq!(responders[0].ivars().calls.get(), 2);
+            assert_eq!(responders[1].ivars().calls.get(), 1);
+            let _: () = msg_send![&*terminal, setEnabled: false];
+            sync_responder_menu(&app);
+            let _: bool = msg_send![&*menu, performKeyEquivalent: &*event];
+            assert_eq!(responders[0].ivars().calls.get(), 2);
+            assert_eq!(responders[1].ivars().calls.get(), 2);
+            let _: () = msg_send![&*submenus[2], removeItem: &*terminal];
+            sync_responder_menu(&app);
+            let before: isize = msg_send![&*submenus[1], numberOfItems];
+            sync_responder_menu(&app);
+            let count: isize = msg_send![&*submenus[1], numberOfItems];
+            assert_eq!(
+                count, before,
+                "projection is idempotent after removing an owner"
+            );
+            let container: Retained<AnyObject> = msg_send![&*submenus[1], itemWithTag: 3787isize];
+            let current_find_menu: Retained<AnyObject> = msg_send![&*container, submenu];
+            let _: () = msg_send![&*current_find_menu, update];
+            let _: () = msg_send![&*current_find_menu, performActionForItemAtIndex: 0isize];
+            assert_eq!(responders[1].ivars().calls.get(), 3);
+            let _: () = msg_send![&*submenus[0], update];
+            let enabled: bool = msg_send![&*close, isEnabled];
+            assert!(enabled);
+            let _: () = msg_send![&*submenus[0], performActionForItemAtIndex: 0isize];
+            let visible: bool = msg_send![&*windows[1], isVisible];
+            let other_visible: bool = msg_send![&*windows[0], isVisible];
+            assert!(
+                !visible && other_visible,
+                "Close targets the actual key window"
+            );
+            let _: () = msg_send![&*windows[0], close];
+            let _: () = msg_send![&*submenus[0], update];
+            let _: () = msg_send![&*current_find_menu, update];
+            let close_enabled: bool = msg_send![&*close, isEnabled];
+            let current_find: Retained<AnyObject> =
+                msg_send![&*current_find_menu, itemAtIndex: 0isize];
+            let find_enabled: bool = msg_send![&*current_find, isEnabled];
+            assert!(!close_enabled && !find_enabled);
+            let _: () = msg_send![&*app, setMainMenu: prior.as_deref()];
+        }
+    }
 
     pub(crate) fn u4462_the_hint_takes_the_key_equivalent_colour_and_font() {
         let _main = MainThreadMarker::new().expect("native test harness runs on the main thread");
