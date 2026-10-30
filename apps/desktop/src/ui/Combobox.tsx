@@ -20,7 +20,7 @@ import { createMemo, createSignal, createUniqueId, For, onCleanup, type JSX } fr
 
 type ComboboxItem = { value: string; label: string };
 
-/** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; Ark owns the highlight and `↑` `↓` (no wrap); a resting or moving pointer never moves the highlight. `onSelect` hears the highlighted value on `⏎`. */
+/** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; Ark owns the highlight and `↑` `↓`; form choices wrap, and the pointer preserves the keyboard position. `onSelect` hears the highlighted value on `⏎`. */
 const Root = (props: {
   items: readonly ComboboxItem[];
   /** Opt in only owned content rows; commands and form choices keep single activation. */
@@ -49,7 +49,7 @@ const Root = (props: {
 
   const groups = createMemo(() => collection().group());
 
-  // Ark highlights the row under the pointer; the highlight follows typing and the arrows alone, so a pointer event's own highlight change is dropped.
+  // Typing and arrows own the highlight; a resting pointer must not move the selection wash.
   let pointerEvent = false;
 
   const notePointer = (): void => {
@@ -83,9 +83,9 @@ const Root = (props: {
     id, ids: { label: field?.().ids.label, input: field?.().ids.control },
     disabled: field?.().disabled, readOnly: field?.().readOnly, required: field?.().required, invalid: field?.().invalid,
     dir: locale().dir, getRootNode: environment().getRootNode,
-    collection: collection(), multiple: props.items.some(item => props.contentRow?.(item)), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: false, autoFocus: false,
+    collection: collection(), multiple: props.items.some(item => props.contentRow?.(item)), open: true, inputBehavior: "none" as const, selectionBehavior: "clear" as const, loopFocus: !props.contentRow, autoFocus: false,
     onFocusOutside: event => { if (!(event.detail.target instanceof Node && props.focusScope?.()?.contains(event.detail.target))) dismiss?.(); },
-    inputValue: props.inputValue, value: [], highlightedValue: props.highlightedValue ?? undefined,
+    inputValue: props.inputValue, value: [], highlightedValue: props.contentRow ? props.highlightedValue ?? undefined : props.items.find(item => item.value === props.highlightedValue)?.value ?? props.items[0]?.value,
     onHighlightChange: details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); },
     onInputValueChange: details => props.onInput(details.inputValue),
     onOpenChange: details => { if (!details.open && details.reason === "escape-key") dismiss?.(); },
@@ -127,6 +127,11 @@ const Root = (props: {
     <ArkCombobox.Control><ArkCombobox.Input spellcheck={false} autocorrect="off" autocapitalize="off" on:keydown={{ capture: true, handleEvent: (event: KeyboardEvent) => {
       // Home/End edit the query; content-row navigation starts only after focus leaves it.
       if (props.contentRow && (event.key === "Home" || event.key === "End")) event.stopPropagation();
+
+      if (!props.contentRow && event.key === "Tab" && !event.shiftKey && !event.isComposing && api().highlightedValue) {
+        event.preventDefault();
+        api().selectValue(api().highlightedValue!);
+      }
     } }} ref={element => {
       const focus = initialFocus;
       input = element;

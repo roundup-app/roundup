@@ -144,7 +144,7 @@ export type ConnectedProject = {
   /** U4457: the Agent whose Pads group the Shelf is asked to show, until the Pads tab has taken it. */
   padsRequest: Accessor<string | null>;
   padsOwner: Accessor<string | null>;
-  showPadsOf: (agent: string, tab?: "pads" | "todos") => void;
+  showPadsOf: (agent: string, tab?: "todos") => void;
   padsTab: Accessor<"pads" | "todos">;
   finishPadsRequest: () => void;
   view: Accessor<string | null>;
@@ -289,7 +289,7 @@ export const connectProject = async (
   const createIn = (kind: "todo" | "pad" | "terminal", home: string) => setCreation({ kind, home });
   const finishCreation = () => setCreation(null);
   const [padsRequest, setPadsRequest] = createSignal<string | null>(null);
-  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "pads" | "todos" } | null>(null);
+  const [padsDestination, setPadsDestination] = createSignal<{ agent: string; selection: string | null; tab: "todos" } | null>(null);
 
   const padsOwner = () => {
     const destination = padsDestination();
@@ -297,9 +297,9 @@ export const connectProject = async (
     return destination?.selection === rail.selected() ? destination.agent : null;
   };
 
-  const padsTab = () => padsDestination()?.tab ?? "pads";
+  const padsTab = () => padsDestination()?.tab ?? "todos";
 
-  const showPadsOf = (agent: string, tab: "pads" | "todos" = "pads") => {
+  const showPadsOf = (agent: string, tab: "todos" = "todos") => {
     setPadsDestination({ agent, selection: rail.selected(), tab });
     setPadsRequest(agent);
   };

@@ -27,6 +27,7 @@ pub struct Sources<'a> {
     pub nodes: &'a [RailNode],
     pub todos: &'a [Todo],
     pub pads: &'a [Pad],
+    pub touches: Vec<contracts::Touch>,
     pub messages: &'a [Message],
 }
 
@@ -426,7 +427,13 @@ fn farewells(book: &mut Book, from: &Sources) -> Vec<Push> {
 fn newest_pad(child: &RailNode, from: &Sources) -> i64 {
     from.pads
         .iter()
-        .filter(|pad| pad.owner.kind == ActorKind::Agent && pad.owner.id == child.id)
+        .filter(|pad| {
+            from.touches.iter().any(|touch| {
+                touch.verb == contracts::Verb::Wrote
+                    && touch.actor.id == child.id
+                    && touch.item == format!("pad:{}", pad.name)
+            })
+        })
         .map(|pad| pad.updated_at)
         .max()
         .unwrap_or(i64::MIN)
@@ -500,7 +507,13 @@ fn entry(
     let mut written: Vec<&Pad> = from
         .pads
         .iter()
-        .filter(|pad| pad.owner.kind == ActorKind::Agent && pad.owner.id == child.id)
+        .filter(|pad| {
+            from.touches.iter().any(|touch| {
+                touch.verb == contracts::Verb::Wrote
+                    && touch.actor.id == child.id
+                    && touch.item == format!("pad:{}", pad.name)
+            })
+        })
         .filter(|pad| after.is_none_or(|after| pad.updated_at > after))
         .collect();
     written.sort_by_key(|pad| pad.updated_at);

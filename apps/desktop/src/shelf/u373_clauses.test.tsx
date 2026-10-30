@@ -51,19 +51,19 @@ const mountApp = async (seed: SeedName = "tree-40") => {
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await waitFor(() => expect(shelf()).not.toBeNull());
-  await screen.findByRole("tablist", { name: "Work items" });
+  await screen.findByRole("tablist", { name: "Bench" });
 
   return controls;
 };
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
+const tabs = () => within(screen.getByRole("tablist", { name: "Bench" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
-  leaderKey("KeyS", init, target);
+  leaderKey("KeyB", init, target);
 
 const probe = (role: string, attributes: Record<string, string> = {}) => {
   const element = document.body.appendChild(document.createElement("div"));
@@ -78,7 +78,7 @@ const probe = (role: string, attributes: Record<string, string> = {}) => {
 
 
 describe("u370 the chord and esc", () => {
-  it("u370_leader_s_toggles_from_a_terminal_and_never_reaches_it", async () => {
+  it("u370_leader_b_toggles_from_a_terminal_and_never_reaches_it", async () => {
     await shared();
     const field = document.body.appendChild(document.createElement("textarea"));
     const reached: KeyboardEvent[] = [];
@@ -95,7 +95,7 @@ describe("u370 the chord and esc", () => {
     expect(reached).toEqual([]);
   });
 
-  it("u370_leader_s_toggles_with_a_drawer_open", async () => {
+  it("u370_leader_b_toggles_with_a_drawer_open", async () => {
     await shared();
     fireEvent.click(tabNamed("Pads"));
     await within(shelf()).findByRole("button", { name: "Add Pad" });

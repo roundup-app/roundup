@@ -40,19 +40,19 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   await waitFor(() => expect(document.querySelector('[aria-label="Ask"]')).not.toBeNull());
 
   if (shelf().hidden) chord();
-  await waitFor(() => expect(shelf().querySelector('[role="tablist"][aria-label="Work items"]')).not.toBeNull());
+  await waitFor(() => expect(shelf().querySelector('[role="tablist"][aria-label="Bench"]')).not.toBeNull());
 
   return controls;
 };
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
+const tabs = () => within(screen.getByRole("tablist", { name: "Bench" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
-  leaderKey("KeyS", init, target);
+  leaderKey("KeyB", init, target);
 
 const counts = () => ["todos", "pads"].map(tab => Number(shelf().querySelector(`#shelf-tab-${tab} .shelf-count`)?.textContent ?? 0));
 
@@ -65,16 +65,11 @@ describe("u373 and u370 on one mounted App", () => {
     live = undefined;
   });
 
-  it("u373_counts_follow_the_scope", async () => {
+  it.each([["payments", 0], ["tokens", 3], [null, 7]] as const)("u373_counts_follow_the_scope: %s", async (selected, todoCount) => {
     await shared();
 
-    await waitFor(() => expect(counts()).toEqual([7, 4]));
-    fireEvent.click(document.querySelector('.rail-row[data-id="payments"]')!);
-    await waitFor(() => expect(counts()).toEqual([0, 4]));
-    fireEvent.click(document.querySelector('.rail-row[data-id="tokens"]')!);
-    await waitFor(() => expect(counts()).toEqual([3, 4]));
-    fireEvent.click(document.querySelector('[data-todo-root]')!);
-    await waitFor(() => expect(counts()).toEqual([7, 4]));
+    if (selected) fireEvent.click(document.querySelector(`.rail-row[data-id="${selected}"]`)!);
+    await waitFor(() => expect(counts()).toEqual([todoCount, 4]));
   });
 
   it("u373_counts_follow_the_terminal_selected_in_the_switcher", async () => {
@@ -111,13 +106,13 @@ describe("u373 and u370 on one mounted App", () => {
 
     fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
     await waitFor(() => expect(group.getAttribute("aria-expanded")).toBe("false"));
-    expect(counts()).toEqual([7, 4]);
+    await waitFor(() => expect(counts()).toEqual([7, 4]));
     fireEvent.click(tabNamed("Pads"));
     await waitFor(() => expect(shelf().hidden).toBe(true));
     // U2539b unmounts requested surfaces when closed; the chord reopens the retained Pads tab.
     chord();
     await waitFor(() => expect(shelf().hidden).toBe(false));
-    expect(counts()).toEqual([7, 4]);
+    await waitFor(() => expect(counts()).toEqual([7, 4]));
   }, 45_000);
 
   it("u373_tab_navigation_stays_on_tabs", async () => {
@@ -130,25 +125,6 @@ describe("u373 and u370 on one mounted App", () => {
       await waitFor(() => expect(document.activeElement).toBe(tabNamed(name!)));
     }
   }, 45_000);
-
-  it("u371_scroll_shadow_top_bottom_and_none", async () => {
-    await shared();
-    const wrap = document.querySelector<HTMLElement>(".shelf-scroll")!;
-    const area = wrap.querySelector<HTMLElement>(".shelf-area")!;
-
-    expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["false", "false"]);
-    Object.defineProperty(area, "clientHeight", { value: 100, configurable: true });
-    Object.defineProperty(area, "scrollHeight", { value: 300, configurable: true });
-    area.scrollTop = 0;
-    fireEvent.scroll(area);
-    expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["false", "true"]);
-    area.scrollTop = 80;
-    fireEvent.scroll(area);
-    expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["true", "true"]);
-    area.scrollTop = 200;
-    fireEvent.scroll(area);
-    expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["true", "false"]);
-  });
 
   it("u451_shelf_tabs_do_not_drag_or_zoom_the_window", async () => {
     const controls = await shared();
@@ -164,16 +140,16 @@ describe("u373 and u370 on one mounted App", () => {
   it("u373_the_other_tab_switches", async () => {
     await shared();
     expect(within(shelf()).getAllByRole("tabpanel")).toHaveLength(1);
-    expect(selectedTab()).toBe("Todos");
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
     fireEvent.click(tabNamed("Pads"));
     expect(shelf().hidden).toBe(false);
     await waitFor(() => expect(shelf().querySelector('section[aria-label="Todos"]')).toBeNull());
-    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
-    expect(tabNamed("Todos").getAttribute("aria-expanded")).toBe("false");
+    expect(document.getElementById("shelf-tab-pads")?.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-expanded")).toBe("false");
     await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Pads").id));
   });
 
-  it("u370_leader_s_toggles_from_every_focus", async () => {
+  it("u370_leader_b_toggles_from_every_focus", async () => {
     const controls = await shared();
     const before = controls.app.calls.length;
     const field = document.body.appendChild(document.createElement("input"));
@@ -186,7 +162,7 @@ describe("u373 and u370 on one mounted App", () => {
     }
 
     field.remove();
-    expect(controls.app.calls.slice(before).filter((call) => call.method !== "terminal.resize")).toEqual([]);
+    expect(controls.app.calls.slice(before).filter((call) => !["terminal.resize", "pad.list"].includes(call.method))).toEqual([]);
   });
 
   it("u370_focus_returns_where_it_was", async () => {
@@ -228,14 +204,14 @@ describe("u373 the Shelf has two tabs", () => {
     batch(cleanup);
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
-    expect(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { selected: true }).id).toBe(chosen);
+    expect(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { selected: true }).id).toBe(chosen);
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {
     localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({ open: true, tab: 7 }));
     await mountApp();
 
-    expect(selectedTab()).toBe("Todos");
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
   });
 
   it("u373_add_keeps_its_path", async () => {

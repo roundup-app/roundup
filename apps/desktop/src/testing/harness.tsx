@@ -118,7 +118,7 @@ const mount = (app: AppSeam) => {
     for (const view of query.getAll("view")) open.showView(view);
 
     if (query.get("items") === "1") queueMicrotask(() => {
-      if (document.querySelector('.window[data-shelf="closed"]')) captureActions(document.activeElement).find(action => action.value === "action:leader:S")?.run();
+      if (document.querySelector('.window[data-shelf="closed"]')) captureActions(document.activeElement).find(action => action.value === "action:leader:B")?.run();
     });
   }} createEmulator={(id, copy) => {
     const emulator = createEmulator(id, copy);
