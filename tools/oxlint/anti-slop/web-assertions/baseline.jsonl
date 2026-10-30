@@ -387,12 +387,6 @@
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u2773a_todos_live_creation_enters_recovery_only_after_hiding","identity":"2fa731fd702a57698a0cf26f7b52cdb6232509cf8f278f82c3e762fe3a9ca800"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u2773a_todos_live_creation_enters_recovery_only_after_hiding","identity":"f2433ec26e3d53de89d7cfe82f0a015682b2c0ab2fc4e9bb8336481715c23133"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u3021c_todo_selected_revision_refuses_wrong_%s","identity":"31ebcbb789fe760208c17720b6e49573e8e1ba9424869fd6dea316c0bf156264"}
-{"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_busy_until_is_now_plus_the_sum_of_estimates_and_done_todos_add_nothing","identity":"8b18f0aa8f800c30e3782d696d249ae69e30d0518273415fbbbd0714767f2640"}
-{"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_missing_estimates_add_nothing_and_say_so","identity":"4a4f0745e32ccf4170a645e7388b5fd5994f2c16b3638647526460d5665999e5"}
-{"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_missing_estimates_add_nothing_and_say_so","identity":"529449a77ba4375232075731763a2cf74a0821b9c7c3b447df7f2d85dc2d4115"}
-{"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_the_line_follows_an_estimate_change_and_the_minute","identity":"19a956d8989e18a1bd1f72d6695948752e7c026dba1b535a4d50b478108100cb"}
-{"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_the_line_follows_an_estimate_change_and_the_minute","identity":"7fc2b547f3f7463d456e1f609eb8c6552efabb6187680a884cd84fc0ec3aca4d"}
-{"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3308_the_line_follows_an_estimate_change_and_the_minute","identity":"3f84a64685d9d907ba651f788fdaf6e3dba16fbebb5bd9094c4ffe4a2d336999"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3310_the_switch_is_absent_without_a_workstream","identity":"5701c4135075bbbcbbce87d2865b482482ab310ef1a3e7509e343c5c6780961b"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3310_a_refused_call_keeps_the_state_and_shows_its_cause","identity":"89c3dee33abc2d5e17ce022200e81462292088093fc5613bbf412ccd6d241a93"}
 {"file":"apps/desktop/src/todos/u3308_board.test.tsx","test":"u3309_a_refused_digit_assignment_shows_its_cause_and_keeps_the_owner","identity":"460f377a9628ed811657169b4fb791fa9aebd4c11b439ce99239a2fa8073d638"}
@@ -486,8 +480,6 @@
 {"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"33eef4d390f7d4c2511867892520cbb4c652b476945e5448169b4394dce18011"}
 {"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"e033be15df4d7c5c2ff8df0f4cca99c8943f29af2d335029896daf3cbaa1acea"}
 {"file":"apps/desktop/src/todos/u462_history.test.tsx","test":"u3728_changes_wait_behind_one_line","identity":"d8a140fe5fdc2c0ab0ef88b092588b4d6051b719056858717068505760c34190"}
-{"file":"apps/desktop/src/todos/u462_history.test.tsx","test":"u3365_an_estimate_only_change_renders_one_line_%j","identity":"cfc0554e3ab8eb0b3e2ec2402afd413007afb904db10df7e99a5f5768610b4a1"}
-{"file":"apps/desktop/src/todos/u462_history.test.tsx","test":"u3365_an_estimate_change_keeps_the_other_fields_lines","identity":"3c89630a7011f6c7865ea9132dd59da9871ee88c54e2e5c4a2dc6a512511291b"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_a_dialog_closes_outside_floating_controls: %s","identity":"ba592a6ef196511f10abc240904ce4b47c3188c507a4c352d7b633cdb963147e"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_a_dialog_closes_outside_floating_controls: %s","identity":"72e1d99f1487dc646db43a9b1f157a362678a8eed8baed9e5853130e19632cbb"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_dialog_owned_controls_still_work: %s","identity":"62f1153f81dc8c35b488d4823504ee6f3cadb18822573e3902be9d0ac557c62b"}

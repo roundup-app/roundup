@@ -64,7 +64,7 @@ impl Daemon {
             .await?;
         self.auto.start(|| self.reader());
         let observes = (method.starts_with("todo.")
-            && !matches!(method, "todo.restore" | "todo.deletion"))
+            && !matches!(method, "todo.restore" | "todo.deletion" | "todo.redo"))
             || method.starts_with("workstream.")
             || matches!(
                 method,
