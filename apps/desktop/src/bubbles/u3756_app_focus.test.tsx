@@ -27,6 +27,7 @@ const mount = async () => {
 
     return nodes;
   };
+
   app.handlers["terminal.list"] = () => live ? [info("t-home", { owner })] : [];
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["terminal.resize"] = () => null;
@@ -35,6 +36,7 @@ const mount = async () => {
 
     return nodes[nodes.length - 1]!;
   };
+
   app.handlers["rail.startDoor"] = ({ id }) => new Promise(resolve => {
     finishStart = () => {
       live = true;
@@ -66,6 +68,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
   const newer = document.activeElement;
   const terminalFocuses: EventTarget[] = [];
   const observe = (event: FocusEvent) => { if (event.target instanceof HTMLElement && event.target.hasAttribute("data-terminal")) terminalFocuses.push(event.target); };
+
   document.addEventListener("focusin", observe);
   m.reveal();
   await waitFor(() => expect(m.app.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(1));
