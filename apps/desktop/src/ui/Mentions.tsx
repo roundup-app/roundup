@@ -24,6 +24,7 @@ const Root = (props: {
   // Zag 1.45 reports pointer and keyboard highlights through the same callback.
   // Keep the controlled keyboard choice while allowing item clicks and tooltip events.
   let pointerEvent = false;
+
   const notePointer = () => {
     pointerEvent = true;
     setTimeout(() => { pointerEvent = false; });
