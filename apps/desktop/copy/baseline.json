@@ -1,7 +1,6 @@
 [
 {"rule":"dynamic-copy-read","identity":"keys/chords.ts:shortcutKeys","branch":"0","fingerprint":"f4c342dce3e365b0a676dbde44e2c0fbe59d3780452eae7c73fbdfc546172942"},
 {"rule":"duplicate-copy","identity":"recoveryLabel","branch":"literal:cde0fb0dec14","fingerprint":"cde0fb0dec1400c54a0f7e7eafa73624c53e4da258bbd34b3380a0defeba95c1"},
-{"rule":"duplicate-copy","identity":"dismissFailure","branch":"literal:48845bff334a","fingerprint":"48845bff334a50a59aaecf499f28a7a24c3b4b891b8b18a9f1169ad8e8a6b261"},
 {"rule":"duplicate-copy","identity":"restoreRetry","branch":"literal:942087cc2d41","fingerprint":"942087cc2d41e01304b7195558d093d10c72af8e838c7556d6a02d471ee71852"},
 {"rule":"duplicate-copy","identity":"copy","branch":"literal:e21f935f11d7","fingerprint":"e21f935f11d7e966dbbae78da9daa378fe8142a14e7c0cd7434183005faa6c5c"},
 {"rule":"duplicate-copy","identity":"draftSurface","branch":"literal:dcd1d5223f73","fingerprint":"dcd1d5223f73b3a965c07e3ff5dbee3eedcfedb806686a05b9b3868a2c3d6d50"},
@@ -159,7 +158,6 @@
 {"rule":"vocabulary","identity":"deliverableUnavailable","branch":"4","fingerprint":"2dc56921d1aa4e181cd9eb71cecdf645dea9f969e2e3436e5cddf9c119b6af29"},
 {"rule":"recovery-name","identity":"deliverableUnavailable","branch":"4","fingerprint":"2dc56921d1aa4e181cd9eb71cecdf645dea9f969e2e3436e5cddf9c119b6af29"},
 {"rule":"fragment","identity":"switcherCopyFailure","branch":"0","fingerprint":"284a27b545f15a647b3bfc3c4af325c2c990bf6659f90426ac9b5e7d8e8f392d"},
-{"rule":"duplicate-copy","identity":"dismissFailure","branch":"0","fingerprint":"48845bff334a50a59aaecf499f28a7a24c3b4b891b8b18a9f1169ad8e8a6b261"},
 {"rule":"duplicate-copy","identity":"draftSurface","branch":"6","fingerprint":"e0926fdac700b09497b5f0218ea3dd54fa13c0bdeaee6caa7b85e50b852aa05f"},
 {"rule":"duplicate-copy","identity":"draftField","branch":"6","fingerprint":"dcd1d5223f73b3a965c07e3ff5dbee3eedcfedb806686a05b9b3868a2c3d6d50"},
 {"rule":"duplicate-copy","identity":"draftField","branch":"8","fingerprint":"b8c209cdead61a095ec097b7a13c4fc9264c04b3e3bd0fca42ec8dbaeebeeafe"},
