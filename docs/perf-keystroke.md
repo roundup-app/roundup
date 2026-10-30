@@ -322,6 +322,10 @@ introduced. Explicit shell marks retain their existing immediate updates.
 `r21_flood_gutters_draw_once_per_frame_without_losing_turn_selection` reproduces
 those 198 reads before the repair, then asserts zero during parsing and one at
 the next render, with a gutter click selecting the complete 200-line Turn.
+The isolated headless Chromium observer at 1512×950 in dark mode confirms
+187 reads during parsing plus one at render before, versus zero plus one
+after; both gutter clicks select the complete Turn. Its records and captures
+are under `artifacts/ux/R21/{base,head}/`. All tree-40 Checks remain passing.
 This continues #4879's adaptive scheduling, already preserved on main, and
 changes no byte ordering or recorder boundary. It proves fewer layout reads,
 not native latency. R20/R21 remain open. Before review, run
