@@ -259,11 +259,13 @@ This slice closes neither #4308 nor #3843.
 
 The Project projection now includes each available registration beneath a
 catalogue chord, including the existing `1–9` registrations with their distinct
-`Digit1` through `Digit9` ids. Each item keeps its captured destination label and
-shows its own digit as a hint; it installs no native accelerator. Retained
+`Digit1` through `Digit9` ids. The available numbered actions share one `Assign to` submenu, in Rail order.
+Each leaf reads `Assign to <Agent name>` and shows its digit only as a hint; it installs no native accelerator. Retained
 assignment captures refuse invocation after focus leaves the captured row. Selection uses
 the existing Project event and `captureActions` route. Catalogue order, accepted
-Project grouping and context-menu construction stay intact.
+Project groups and context-menu construction stay intact. Help, O and hints use
+`Assign`; the shared native constructor retains submenu digit hints by index path,
+so duplicate Agent names keep their own digits.
 
 `u3787b_numbered_assignment_captures_one_todo_and_owner` drives ninth-Agent
 assignment by key and menu through the connected production App, pinning the Todo,
