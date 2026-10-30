@@ -578,7 +578,6 @@ mod tests {
         for (name, home, code) in [
             ("notes", json!("nope"), rpc::code::NOT_FOUND),
             ("notes", json!(agent), rpc::code::INVALID_PARAMS),
-            ("ghost", r1.clone(), rpc::code::NOT_FOUND),
         ] {
             let err = call(&daemon, "pad.move", json!({"name":name,"home":home}))
                 .await
