@@ -53,12 +53,13 @@ it("u2540c_acceptance_clears_only_the_submitted_batch", async () => {
 
 it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {
   const { app } = await openDiff();
-  await saveNote("keep");
+  const noteText = "keep";
+  await saveNote(noteText);
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "receiver ended"); };
 
   fireEvent.click(screen.getByRole("button", { name: /Send to/ }));
   await screen.findByText("receiver ended");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("keep");
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(noteText);
   let body = "";
   app.handlers["message.send"] = params => { body = params.body; throw new Error("disconnected"); };
 
@@ -68,7 +69,7 @@ it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(2);
   app.handlers["message.list"] = () => [message(9, { from: { kind: "user", id: "you", parent: null }, to: "a", body, status: "pending" })];
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
-  await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(2);
 });
 
@@ -132,7 +133,7 @@ it("u2773b_changes_pending_reload_reconciles_without_resending", async () => {
   reopened.app.handlers["message.list"] = () => [message(42, { body, to: "a", from: { kind: "user", id: "you", parent: null } })];
   expect(screen.getByRole("button", { name: /Send to/ }).hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
-  await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   acknowledge(message(42, { body, to: "a" }));
 });

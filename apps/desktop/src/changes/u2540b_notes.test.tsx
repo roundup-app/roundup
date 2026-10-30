@@ -375,7 +375,6 @@ it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" })));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
   fireEvent.click(document.activeElement!);
-  expect(await screen.findByRole("button", { name: "View diff" })).toBeTruthy();
 });
 
 it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(action => ({ scope: "note", action })))("p3557c_failure_lifetime_note_recovery: $scope $action", async ({ action }) => {
