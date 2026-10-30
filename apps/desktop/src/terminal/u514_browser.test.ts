@@ -90,17 +90,19 @@ const doubleAt = async (at: { x: number; y: number }) => {
 // Every surface shares the one `user-select: none` chrome rule, so one title-bar, one Rail and one Shelf surface represent it.
 const chromeSurfaces = [".window-title", '[data-id="migrate"] .name', ".shelf-tabs"];
 
-it.each(chromeSurfaces.flatMap(surface => ["drag", "double-click"].map(gesture => ({ surface, gesture }))))(
-  "u2680c_chrome_drag_and_double_click_leave_no_browser_selection_$surface ($gesture)", async ({ surface, gesture }) => {
+it.each(["drag", "double-click"])(
+  "u2680c_chrome_drag_and_double_click_leave_no_browser_selection_%s", async gesture => {
     await app();
 
-    await wait(`!!document.querySelector(${JSON.stringify(surface)})`);
+    for (const surface of chromeSurfaces) {
+      await wait(`!!document.querySelector(${JSON.stringify(surface)})`);
 
-    if (gesture === "drag") await drag(await point(surface), await point(surface, true));
-    else await browser("dblclick", surface);
+      if (gesture === "drag") await drag(await point(surface), await point(surface, true));
+      else await browser("dblclick", surface);
 
-    expect(await read<boolean>("getSelection().isCollapsed"), surface).toBe(true);
-  }, 90_000);
+      expect(await read<boolean>("getSelection().isCollapsed"), surface).toBe(true);
+    }
+  }, 60_000);
 
 it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_and_double_click_leave_no_browser_selection_%s", async (surface) => {
   const selector = await placement("bubble");
@@ -173,29 +175,28 @@ it.each(["agent", "bubble"] as const)("u2680a_terminal_boundaries_never_create_b
   }
 }, 180_000);
 
-// One output click, one inset click and one chrome click per placement; a Bubble adds its header and one resize edge.
-const clickCases = [
-  { where: "agent", target: "output" }, { where: "agent", target: "inset" }, { where: "agent", target: ".window-title" },
-  { where: "bubble", target: "output" }, { where: "bubble", target: ".bubble-header" }, { where: "bubble", target: '.bubble-zone[data-zone="se"]' },
-] as const;
-
-it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$where ($target)", async ({ where, target }) => {
+// Remounting the App per target dominated this sweep; reseed selections on the same emulator instead.
+it.each(["agent", "bubble"] as const)("u2680b_a_click_clears_browser_and_terminal_selections_%s", async where => {
   const selector = await placement(where);
-  await browser("dblclick", selector);
-  expect(await read<string>("window.__emu.selection()"), target).not.toBe("");
-  await browser("eval", "(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector('.window-title')); getSelection().addRange(range); })()");
+  const targets = where === "agent" ? ["output", "inset", ".window-title"]
+    : ["output", ".bubble-header", '.bubble-zone[data-zone="se"]'];
 
-  const at = target === "inset" ? await read<{ x: number; y: number }>(`(() => {
-    const host = document.querySelector(${JSON.stringify(selector)}).closest('.pane-screen, .bubble-body').getBoundingClientRect();
-    return { x: Math.round(host.left + 1), y: Math.round(host.top + 12) };
-  })()`) : await point(target === "output" ? selector : target);
+  for (const target of targets) {
+    await browser("dblclick", selector);
+    expect(await read<string>("window.__emu.selection()"), target).not.toBe("");
+    await browser("eval", "(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector('.window-title')); getSelection().removeAllRanges(); getSelection().addRange(range); })()");
 
-  await browser("mouse", "move", String(at.x), String(at.y));
-  await browser("mouse", "down");
-  await browser("mouse", "up");
-  expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })"), target).toEqual({ terminal: "", browser: true });
+    const at = target === "inset" ? await read<{ x: number; y: number }>(`(() => {
+      const host = document.querySelector(${JSON.stringify(selector)}).closest('.pane-screen, .bubble-body').getBoundingClientRect();
+      return { x: Math.round(host.left + 1), y: Math.round(host.top + 12) };
+    })()`) : await point(target === "output" ? selector : target);
 
-}, 90_000);
+    await browser("mouse", "move", String(at.x), String(at.y));
+    await browser("mouse", "down");
+    await browser("mouse", "up");
+    expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })"), target).toEqual({ terminal: "", browser: true });
+  }
+}, 60_000);
 
 const editorKinds = ["pad", "rename"] as const;
 
