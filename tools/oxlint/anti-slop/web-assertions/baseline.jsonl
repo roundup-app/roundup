@@ -427,7 +427,6 @@
 {"file":"apps/desktop/src/ui/u491_browser.test.ts","test":"u491_drag_preview_end_and_escape","identity":"cc6c57f50633ee8d0cb7cda88f01bcd6aa0d4ef9e3b61f5cbf671f5ab95e9af9"}
 {"file":"apps/desktop/src/ui/u491_browser.test.ts","test":"u491_drag_preview_end_and_escape","identity":"b6daff56e6e18f77e58bb6f7bd7d06c2c69448b29c5e52a70174fdd5fdde25c9"}
 {"file":"apps/desktop/src/ui/u491_browser.test.ts","test":"u491_drag_preview_end_and_escape","identity":"de1ef3bb70620676892d6628f9f380a8f254c55ac4f5790f2e4258bf43a976b2"}
-{"file":"apps/desktop/src/ui/u491_browser.test.ts","test":"u492_escape_dismisses","identity":"ceefe65c1b0c8418eb7d9852e22b45c2c99ee4b9f4a8c61e59d5e056b75b3b85"}
 {"file":"apps/desktop/src/ui/u492_library_teardown.test.tsx","test":"u492_%s_published_entry > u492_%s_disposal_cancels_library_work","identity":"77874448414e0b0cd0433d5ae762a06af522de1118de7f8e474cf8d42862877e"}
 {"file":"apps/desktop/src/ui/u492_library_teardown.test.tsx","test":"u492_%s_published_entry > u492_five_second_expiry_keeps_exit_then_leaves_no_work","identity":"98cda00b3e34f29e26dee95a47607523f50e07d7ffaf6ac14ad59ccd574f5a1c"}
 {"file":"apps/desktop/src/ui/u492_provider.test.tsx","test":"u492_hover_focus_resume_from_time_left","identity":"d5bfcbad4c54cd3b687f33adb7b68a646c3ad77e1887cede6088d6c0d1035bae"}
