@@ -570,6 +570,6 @@ Rendered observer: baseline `ea7a644e36aa8779605e825323343e90df5eebed` and
 implementation `9e9514ea0c6e08561610bac88c2f1506419c508d`, isolated headless
 Chromium at 1512×950 dark. All D1–D14/D16 readings pass for tree-40, tabs-8,
 conflict, Pad Open/Bold, dense save refusal and Help. Full refusal cause/fix and
-the retained edit are visible. The 21.4-second keyboard recording and PNGs stay
+the retained edit are visible. The 21.4-second keyboard recording and PNG images stay
 uncommitted under `artifacts/ux/U3787b/inline-format/`; paired Check readings are
 committed there. No native rendering/combined-dispatch observation is claimed.
