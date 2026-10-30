@@ -260,7 +260,7 @@ This slice closes neither #4308 nor #3843.
 The Project projection now includes each available registration beneath a
 catalogue chord, including the existing `1–9` registrations with their distinct
 `Digit1` through `Digit9` ids. The available numbered actions share one `Assign to` submenu, in Rail order.
-Each leaf reads `Assign to <Agent name>` and shows its digit only as a hint; it installs no native accelerator. Retained
+Each leaf reads `<Agent name>` and shows its digit only as a hint; it installs no native accelerator. Retained
 assignment captures refuse invocation after focus leaves the captured row. Selection uses
 the existing Project event and `captureActions` route. Catalogue order, accepted
 Project groups and context-menu construction stay intact. Help, O and hints use
