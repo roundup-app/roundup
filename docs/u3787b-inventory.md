@@ -482,3 +482,35 @@ are recorded independently; Linux/Chromium cannot establish this native renderin
 The focus-changing native probe shares nextest’s existing `native-app` group with
 the desktop AppKit observers. `.config/nextest.toml` changes scheduling only;
 no observer is skipped and no assertion or timeout is weakened.
+
+## Focused Project-tab Rename
+
+Project tabs' existing F2 binding now registers the catalogue Rename action.
+The shared Project projection exposes it only while the tab itself holds focus;
+editing, another focus target, modal ownership or removal refuses the capture.
+Menu/key reuse the same tab's existing rename editor and draft authority, with
+no Project switch, new rename behavior or context-menu change.
+
+`u3787b_menu_and_key_share_one_action: Project Rename` drives both entry paths
+through the production App and registry/menu event seam: one exact Project rename
+with its captured base, no write on opening, one editor, and retained/menu refusal
+when editing or after focus leaves. `u3787b_menu_covers_bound_commands` also visits
+Project-tab focus. Existing `u3787c_escape_restores_the_name_project_*` and the
+header U2773c observers retain cancellation and draft/conflict recovery. No test,
+behavioral assertion or timeout is removed or changed.
+
+Native prerequisite evidence has advanced: main check
+[41078101697](https://github.com/roundup-app/roundup/actions/runs/41078101697),
+SHA `b059d3caff608510c6af775b888ef1b449e1d17d`, passed `mac` and `mac-clippy`.
+Its `native::u3787b_native_responder_find_and_close_follow_availability` passed
+in 1.803 seconds, exercising actual AppKit objects and responder dispatch.
+This proves that native observer's behavior, beyond compilation; it does not
+supply displayed-key/alignment captures or integrated AppKit/webview dispatch
+in the complete App. Earlier #4278/#4965 records retain their scope and SHA.
+
+Remaining #4308 work includes the complete library/native inventory, the
+library-owned rich editor's formatting commands and current native Edit command
+availability, followed by final displayed-key and combined-dispatch observations.
+The installed Milkdown commonmark preset supplies named formatting bindings such
+as Mod-b and Mod-i; Project-tab coverage does not claim those are projected.
+Keep ordinary text/list navigation control-owned. #4308 and #3843 remain open.
