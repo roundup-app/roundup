@@ -21,7 +21,7 @@ export const draftProblem = (cause: string) => `${cause === "write" ? "Could not
 export type CopyValue = string | number | undefined;
 
 export const labels = new Map([
-  ["open-tab", "the selected Project"], ["unseen", "read markers"], ["drafts", "drafts"],
+  ["open-tab", "the selected Project"], ["unseen", "read markers"], ["drafts", "unfinished work"],
   ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"],
   ["widths", "panel widths"], ["shelf", "work item layout"], ["terminal-font", "Terminal text size"],
  ]);
@@ -33,7 +33,7 @@ export const copy = {
   switchProject: "Switch Project",
   reviewChanges: "Review changes",
   closeView: (name: string) => `Close ${name}`,
-  railDraftConflict: "The original name changed. Your edit is retained; copy or discard it before renaming again.",
+  railDraftConflict: "The original name has changed. Your unfinished work remains. Copy it or discard it before renaming again.",
   railDraftMissingTarget: "Unavailable target",
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   settings: "Settings",
@@ -56,11 +56,11 @@ export const copy = {
   openDraft: "Open",
   unfinishedWork: "Unfinished work",
   copyProjectName: "Copy name",
-  currentDraft: "Current work",
-  draftStatus: { draft: "Unsubmitted", pending: "Pending", failed: "Failed", unknown: "Acceptance unknown" },
+  currentDraft: "Current",
+  draftStatus: { draft: "Unsubmitted", pending: "Pending", failed: "Failed", unknown: "Completion unknown" },
   originalUnavailable: "Original object unavailable",
   storageRetry: "Retry storage only",
-  discardRevision: "Discard this revision",
+  discardRevision: "Discard",
   draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: ${draftProblem(cause)}`,
   copyField: (field: string) => `Copy ${field}`,
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,

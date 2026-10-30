@@ -2,7 +2,7 @@ import { labels, copy as sharedCopy } from "../sharedCopy";
 
 export const storageCopy = {
   invalid: (key: string) => `Could not restore saved ${labels.get(key.split(":")[1] ?? "") ?? "settings"} because the saved format is invalid. Retry or continue; the original data will be kept for recovery.`,
-  recoveryFailure: (key: string, cause: string) => `Could not keep a copy of saved ${labels.get(key.split(":")[1] ?? "") ?? "settings"}: ${cause}`,
+  recoveryFailure: (key: string, cause: string) => `A recovery copy is unavailable for ${labels.get(key.split(":")[1] ?? "") ?? "settings"}: ${cause}. Try again.`,
   recoveryReadback: "Could not verify the saved recovery copy. Retry restoring saved work.",
   restoreFailure: (cause: string) => `Could not restore saved work: ${cause}`,
   readFailure: (cause: string) => `Could not read saved work: ${cause}`,

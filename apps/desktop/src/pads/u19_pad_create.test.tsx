@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
@@ -135,7 +136,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     fireEvent.click(await screen.findByRole("button", { name: "Copy name" }));
     expect(clipboard).toHaveBeenCalledWith("  recoverable é 🪁  ");
     expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);
-    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(screen.getByRole("button", { name: recoveryCopy.discardRevision }));
     expect(connected.drafts.list()).toEqual([older]);
     expect(field.value).toBe("");
     writes.mockRestore();
