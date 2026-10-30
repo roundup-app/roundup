@@ -4,4 +4,5 @@ export type Deletion = {
 	operation: string,
 	id: string,
 	restored: boolean,
+	restoration?: string | null,
 };
