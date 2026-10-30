@@ -16,6 +16,7 @@ fn definition(target: &str, instruction: &str) -> Value {
     json!({
         "operation": "op-1",
         "name": "when done",
+        "reason": "Wait for the prerequisite.",
         "target": target,
         "instruction": instruction,
         "condition": { "kind": "agents", "ids": [] },
@@ -206,7 +207,7 @@ async fn nr3_reopen_preserves_accepted_definition_and_message() {
     let mut s = scene(&[]).await;
     let mut body = definition(&s.w, "ship it");
     body["condition"]["ids"] = json!([s.a]);
-    let saved = made(&s.user, "reaction.create", body.clone()).await;
+    let saved = made(&s.as_w, "reaction.create", body.clone()).await;
     let run = json!({ "id": saved.id, "operation": "go" });
     let fired = made(&s.user, "reaction.run", run.clone()).await;
     let again = made(&s.user, "reaction.run", run.clone()).await;
@@ -214,13 +215,17 @@ async fn nr3_reopen_preserves_accepted_definition_and_message() {
     assert_eq!((fired.firings.len(), fired.remaining), (1, 0));
     let firing = fired.firings[0].clone();
     assert!(!firing.matched);
-    assert!(firing.definition.contains("ship it"));
+    let frozen: Value = serde_json::from_str(&firing.definition).unwrap();
+    assert_eq!(frozen["instruction"], "ship it");
+    assert_eq!(frozen["actor"], serde_json::to_value(&saved.actor).unwrap());
+    assert_eq!(frozen["reason"], "Wait for the prerequisite.");
     assert_eq!(messages(&s.user, &s.w, "ship it").await.len(), 1);
 
     // Stopping and creating another never touches what was accepted.
     made(&s.user, "reaction.stop", json!({ "id": saved.id })).await;
     body["operation"] = json!("op-2");
     body["instruction"] = json!("something else");
+    body["reason"] = json!("Replacement reason.");
     made(&s.user, "reaction.create", body).await;
     let err = s
         .user
@@ -863,6 +868,17 @@ async fn nr11_invalid_reason_saves_nothing() {
         let error = s.as_w.request("reaction.create", body).await.unwrap_err();
         assert_eq!(error.code, code::INVALID_PARAMS);
     }
+    for authority in ["maker", "actor"] {
+        let mut body = definition(&s.w, "go");
+        body["condition"]["ids"] = json!([s.a]);
+        body[authority] = json!({"kind": "user", "id": "forged", "parent": null});
+        let error = s
+            .as_w
+            .request("reaction.create", body.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, code::INVALID_PARAMS);
+    }
     assert!(listed(&s.user).await.is_empty());
     assert!(messages(&s.user, &s.w, "").await.is_empty());
 }
@@ -913,7 +929,7 @@ async fn nr11_reason_retry_preserves_definition() {
     let s = scene(&[]).await;
     let mut body = definition(&s.w, "go");
     body["condition"]["ids"] = json!([s.a]);
-    body["reason"] = json!(" \tWait for tests.  ");
+    body["reason"] = json!("\r\n \tWait for tests.  \n");
     let first = made(&s.as_w, "reaction.create", body.clone()).await;
     body["reason"] = json!("Wait for tests.");
     let again = made(&s.as_w, "reaction.create", body.clone()).await;
@@ -925,17 +941,6 @@ async fn nr11_reason_retry_preserves_definition() {
         .await
         .unwrap_err();
     assert_eq!(error.code, code::CONFLICT);
-    for authority in ["maker", "actor"] {
-        body["operation"] = json!(authority);
-        body[authority] = json!({"kind": "user", "id": "forged", "parent": null});
-        let error = s
-            .as_w
-            .request("reaction.create", body.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(error.code, code::INVALID_PARAMS);
-        body.as_object_mut().unwrap().remove(authority);
-    }
     assert_eq!(listed(&s.user).await, vec![first]);
 }
 
