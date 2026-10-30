@@ -1,6 +1,8 @@
 import { Age } from "../shelf/Age";
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
+import { modalOpen, registerKeys } from "../keys/registry";
+import { CHORDS } from "../keys/chords";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
@@ -334,6 +336,22 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
 
   const rename = () => { setEditing(true); };
 
+  registerKeys({ kind: "layer", element: () => row, active: () => document.activeElement === row && !modalOpen(), modal: false }, CHORDS.filter(action => action.keys === "⏎" || action.keys === "F2").map(action => ({
+    action, searchable: false as const,
+    when: (event: KeyboardEvent) => event.target === row && !event.isComposing,
+    capture: (focus: Element | null) => {
+      const name = pad.name;
+      const incarnation = pad.incarnation;
+
+      return {
+        available: () => focus === row && row?.isConnected === true && document.activeElement === row
+          && !row.closest("[hidden], [inert]") && !editing() && !props.bulk.pending() && !modalOpen()
+          && props.shown().some(current => current.incarnation === incarnation && current.name === name),
+        invoke: () => { if (action.keys === "⏎") open("key"); else rename(); },
+      };
+    },
+  })));
+
   const nameCut = createCutTitle(() => pad.name);
 
   return (
@@ -380,15 +398,6 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
                 props.bulk.key(event);
 
                 if (!event.defaultPrevented && !props.bulk.pending()) props.selection.key(pad.incarnation, event);
-              }}
-              onKeyDown={event => {
-                if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-
-                if (event.key === "Enter") { event.preventDefault();
-
- if (!event.repeat) open("key"); }
-
-                if (event.key === "F2") { event.preventDefault(); rename(); }
               }}
               onDblClick={() => open("pointer")}
               onClick={(event) => { if (!props.bulk.pending()) props.selection.click(pad.incarnation, event); row?.focus(); }}
