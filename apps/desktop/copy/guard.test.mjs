@@ -1,8 +1,11 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { checkCopy } from "./guard.mjs";
+
 const ROOT = new URL("../src/", import.meta.url).pathname;
+
 import { join } from "node:path";
+
 const fixture = (entries, body = "copy.message") => ({
   "app/copy.ts": `export const copy = { ${entries} };`,
   "app/view.ts": `import { copy } from './copy'; export const view = ${body};`,
@@ -152,4 +155,25 @@ it("u471_copy_guard_accepts_compiler_proven_key_unions", () => {
   const files = fixture('message: { open: "Open", close: "Close" }');
   files["app/view.ts"] = 'import {copy} from "./copy"; declare const key: "open" | "close"; export const view = copy.message[key];';
   expect(rules(files)).toEqual([]);
+});
+
+it.each([
+  ['export const wordsCopy = { message: "Storage" };', 'copy.message'],
+  ['const labels = { message: "Storage" }; export const wordsCopy = { ...labels };', 'copy.message'],
+])("u471_copy_guard_accepts_explicit_catalogue_inputs_%s", (catalogue, body) => {
+  expect(checkCopy({
+    "words.ts": catalogue,
+    "view.ts": `import { wordsCopy as copy } from "./words"; export const view = ${body};`,
+  }, { catalogues: ["words.ts"] }).diagnostics).toEqual([]);
+});
+
+it("u471_copy_guard_ignores_tests_and_unreachable_catalogue_dependencies", () => {
+  expect(rules({
+    ...fixture('message: "Storage", dead: () => copy.other(), other: () => "Unused"'),
+    "app/view.test.ts": 'import {copy} from "./copy"; copy.dead();',
+  }).filter(rule => rule === "unused-copy")).toHaveLength(2);
+});
+
+it("u471_copy_guard_rejects_unused_map_leaves", () => {
+  expect(rules(fixture('message: new Map([["used", "Storage"], ["dead", "Unused"]])', 'copy.message.get("used")'))).toContain("unused-copy");
 });
