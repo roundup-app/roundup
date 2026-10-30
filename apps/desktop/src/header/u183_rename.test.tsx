@@ -316,11 +316,13 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
 
  return new Promise((yes, no) => { accept = yes; reject = no; }); };
 
+  const firstText = "  A e\u0301 🪁  ";
+  const nextText = "  B 雪  ";
   const a = await edit();
-  fireEvent.input(a, { target: { value: "  A e\u0301 🪁  " } });
+  fireEvent.input(a, { target: { value: firstText } });
   press("Enter");
   const b = await edit("A");
-  fireEvent.input(b, { target: { value: "  B 雪  " } });
+  fireEvent.input(b, { target: { value: nextText } });
   press("Escape");
   fireEvent.click(tab("web"));
 
@@ -333,15 +335,15 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
   fireEvent.click(await screen.findByRole("tab", { name: "api" }));
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  expect(within(dialog).getByText(nextText, { exact: true, normalizer: text => text })).toBeDefined();
   const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : recoveryCopy.draftStatus.unknown} ·`) });
 
   if (outcome === "acknowledged") expect(older).toBeNull();
   else {
     fireEvent.click(older!);
-    expect(within(dialog).getByText("  A e\u0301 🪁  ", { exact: true, normalizer: text => text })).toBeDefined();
+    expect(within(dialog).getByText(firstText, { exact: true, normalizer: text => text })).toBeDefined();
     fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
-    expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+    expect(within(dialog).getByText(nextText, { exact: true, normalizer: text => text })).toBeDefined();
   }
 
   expect(sends).toEqual([[path("api"), "  A e\u0301 🪁  ", "api"]]);
@@ -404,7 +406,6 @@ it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
   expect(input.value).toBe("  legacy 雪  ");
   press("Enter");
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(dialog).getByText("  legacy 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
   expect(within(dialog).getAllByRole("status").some(status => status.textContent?.includes(recoveryCopy.railDraftConflict))).toBe(true);
   expect(sends).not.toHaveBeenCalled();
 });

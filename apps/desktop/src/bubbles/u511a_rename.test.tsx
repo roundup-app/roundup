@@ -357,7 +357,7 @@ it("u2773c_bubbles_external_change_keeps_original", async () => {
   expect(tab("2")!.getAttribute("aria-label")).toBe("external");
   mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, incarnation: "replacement" } : terminal));
   mounted.app.emit(event({ name: "terminal.changed" }));
-  await waitFor(() => expect(within(recovery).getByText("Original object unavailable")).toBeDefined());
+  await waitFor(() => expect(within(recovery).getByText(recoveryCopy.originalUnavailable)).toBeDefined());
   expect(mounted.connected.drafts.list()[0]!.destination).toEqual({ surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" });
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
   fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));

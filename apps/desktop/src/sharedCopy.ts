@@ -30,7 +30,7 @@ export const copy = {
   switchProject: "Switch Project",
   reviewChanges: "Review changes",
   closeView: (name: string) => `Close ${name}`,
-  railDraftConflict: "The original name has changed. Your unfinished work is safe. Copy it or discard it before renaming again.",
+  railDraftConflict: "The original name has changed. Your unfinished work remains. Copy it or discard it before renaming again.",
   railDraftMissingTarget: "Unavailable target",
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   settings: "Settings",

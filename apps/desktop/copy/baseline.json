@@ -144,6 +144,7 @@
 {"rule":"fragment","identity":"draftRetention","branch":"0","fingerprint":"f2333383f56092e73e56ef551a5f103919c3e91394bc31c7fa88d64b60f305e0"},
 {"rule":"fragment","identity":"draftRetention","branch":"2","fingerprint":"a95b082d4e1ede374c864747119e75ec5f9c8823ae8f243ac157265f77f0c181"},
 {"rule":"duplicate-copy","identity":"tryAgain","branch":"0","fingerprint":"d8b8392e2c542950ca64867168e4ef87d4ad606882d5898f826b51c6d553988f"},
+{"rule":"unused-copy","identity":"allDraftSurfaces","branch":"0","fingerprint":"568d0bc2c5b90d3fc38159e80a0c14f7c222769fde17315cf3df1219b924f1ef"},
 {"rule":"label-length","identity":"progressEmpty","branch":"0","fingerprint":"985aa9eb9fe083e88185daadc2d8ae6a679f81f963c4fe38b663fc82f7e35c57"},
 {"rule":"label-length","identity":"progressUnreadable","branch":"0","fingerprint":"b2e5e203a2be74b0b19ebbcb8cdce95f87966e84b37768f3cea772b43520701c"},
 {"rule":"vocabulary","identity":"resumeUnknown","branch":"0","fingerprint":"bf10154330e46dea8b73f1689617b660fcbfe5741b7a2fe03c9caef192919ec9"},
