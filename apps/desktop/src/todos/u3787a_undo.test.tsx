@@ -80,7 +80,7 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   const operation = (calls[0]!.params as { operation: string }).operation;
   finish({ operation, deleted: [5], missing: [], state: "deleted" });
   await acknowledged();
-  expect([connections.get("/a")!.drawer.content()]).toEqual([null]);
+  await waitFor(() => expect([connections.get("/a")!.drawer.content()]).toEqual([null]));
   await acknowledged();
   expect(connections.get("/a")!.drafts.todoUndo.available("todo:5")).toBe(true);
   expect(connections.get("/a")!.drafts.todoUndo.available("todo:7")).toBe(false);
@@ -480,6 +480,7 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   expect(retained.filter(draft => draft.destination.surface === "pads").map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
   fireEvent.click(within(screen.getByLabelText("Drawer")).getByRole("button", { name: "Delete" }));
   await acknowledged();
+  await waitFor(() => expect(connected.drawer.content()).toBeNull());
   expect(connected.drafts.list()).toEqual(retained);
   pressUndo();
   await waitFor(() => expect(connected.drafts.todoUndo.pending()).toBe(false));
