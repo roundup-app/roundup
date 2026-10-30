@@ -382,3 +382,9 @@ from either menu or Return/F2. Projection preserves focus; entering the existing
 editor and opening its Drawer add no transition or dispatch delay. Existing
 Drawer motion and draft recovery remain. No geometry or Token changes; D2/D5/D6
 remain unchanged.
+
+U3787b Shelf Pad Open and Rename now invoke their existing callbacks from the
+captured menu/key owner. Return/menu Open uses the immediate keyboard Drawer path;
+F2/menu Rename opens the existing NameField immediately. Menu projection changes
+no focus, layout or Tokens; D2/D5/D6 retain their baseline. Native-menu rendering
+stays system-owned, with no new App animation.

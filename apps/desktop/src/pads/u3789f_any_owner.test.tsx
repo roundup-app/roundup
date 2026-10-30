@@ -20,7 +20,9 @@ it("u3789f_double_click_opens_and_never_renames", async () => {
 it("u3789f_f2_and_menu_rename_any_owners_item", async () => {
   const { app } = await openShelf([padOf("notes", AGENT, "a")]);
 
-  fireEvent.keyDown(await screen.findByRole("button", { name: "notes" }), { key: "F2" });
+  const row = await screen.findByRole("button", { name: "notes" });
+  row.focus();
+  fireEvent.keyDown(row, { key: "F2", code: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox");
   fireEvent.input(field, { target: { value: "plan" } });
   fireEvent.keyDown(field, { key: "Enter" });
@@ -34,7 +36,9 @@ it("u3789f_a_failure_line_names_its_action", async () => {
   const { app } = await openShelf([padOf("notes", AGENT, "a")]);
   app.handlers["pad.rename"] = () => { throw new Error("name taken"); };
 
-  fireEvent.keyDown(await screen.findByRole("button", { name: "notes" }), { key: "F2" });
+  const row = await screen.findByRole("button", { name: "notes" });
+  row.focus();
+  fireEvent.keyDown(row, { key: "F2", code: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox");
   fireEvent.input(field, { target: { value: "plan" } });
   fireEvent.keyDown(field, { key: "Enter" });
@@ -61,7 +65,9 @@ it("u3736_pad_actions_need_no_transfer", async () => {
 it("u3789f_the_user_opens_any_owners_item_every_way", async () => {
   await openShelf([padOf("notes", AGENT, "a")]);
 
-  fireEvent.keyDown(await screen.findByRole("button", { name: "notes" }), { key: "Enter" });
+  const row = await screen.findByRole("button", { name: "notes" });
+  row.focus();
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
 
   await screen.findByRole("textbox", { name: "Pad body" }, { timeout: 5000 });
   expect(screen.queryByText(/failed/i)).toBeNull();
