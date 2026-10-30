@@ -266,9 +266,9 @@ for (const entry of ["selection", "single", "drawer"] as const) {
   it(`u3787a_success_and_partial_failure_offer_only_acknowledged_undo_pads_${entry}`, async () => {
     const { app, connections } = await mount();
     const daemon = app.of("/a");
-    await showEverythingInApp();
-    await showPads();
-    const first = await screen.findByRole("button", { name: "first" });
+    await showEverythingInApp(undefined, "Pads");
+    const pads = within(document.querySelector<HTMLElement>(".pads-tab")!);
+    const first = await pads.findByRole("button", { name: "first" });
 
     if (entry === "selection") {
       const remove = daemon.handlers["pad.delete"]!;
@@ -277,10 +277,10 @@ for (const entry of ["selection", "single", "drawer"] as const) {
  return remove(p)!; };
 
       fireEvent.click(first, { metaKey: true });
-      fireEvent.click(screen.getByRole("button", { name: "second" }), { metaKey: true });
-      fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+      fireEvent.click(pads.getByRole("button", { name: "second" }), { metaKey: true });
+      fireEvent.click(pads.getByRole("button", { name: "Delete 2" }));
       await screen.findByText("Could not delete second: permission refused");
-      expect(screen.getByRole("button", { name: "second" }).getAttribute("aria-pressed")).toBe("true");
+      expect(pads.getByRole("button", { name: "second" }).getAttribute("aria-pressed")).toBe("true");
     } else if (entry === "single") { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     else {
       fireEvent.keyDown(first, { key: "Enter" });
@@ -293,7 +293,7 @@ for (const entry of ["selection", "single", "drawer"] as const) {
     expect([questionProbe.shown]).toEqual([null]);
     expect(daemon.calls.filter(c => c.method === "pad.delete").map(c => c.params)).toEqual((entry === "selection" ? ["first", "second"] : ["first"]).map(name => ({ name, expectedIncarnation: `fixture-${name}`, operation: expect.any(String) })));
     pressUndo();
-    await screen.findByRole("button", { name: "first" });
+    await pads.findByRole("button", { name: "first" });
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "pad.restore").length).toBe(1));
     expect((await daemon.rpc("pad.read", { name: "first" }))).toEqual(padOf("first", AGENT, "original"));
     expect(daemon.calls.filter(c => ["agent.spawn", "terminal.spawn", "pad.create"].includes(c.method))).toEqual([]);

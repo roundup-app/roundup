@@ -64,6 +64,8 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
 
 
     if (output) {
+      await browser("set", "viewport", String(width), String(height));
+      await settle();
       await browser("screenshot", join(output, `open-${width}.png`));
       writeFileSync(join(output, `open-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
 
@@ -74,7 +76,9 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
       await browser("wait", '[role="menu"][data-state="open"]');
 
       if (output) {
-        await browser("screenshot", join(output, `actions-${width}.png`));
+        await browser("set", "viewport", String(width), String(height));
+      await settle();
+      await browser("screenshot", join(output, `actions-${width}.png`));
         writeFileSync(join(output, `actions-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
       }
 
@@ -84,7 +88,9 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
       await browser("wait", '[role="combobox"]');
 
       if (output) {
-        await browser("screenshot", join(output, `blockers-${width}.png`));
+        await browser("set", "viewport", String(width), String(height));
+      await settle();
+      await browser("screenshot", join(output, `blockers-${width}.png`));
         writeFileSync(join(output, `blockers-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
       }
 
@@ -95,6 +101,8 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
     await browser("wait", '.drawer input[type="checkbox"]:checked');
 
     if (output) {
+      await browser("set", "viewport", String(width), String(height));
+      await settle();
       await browser("screenshot", join(output, `done-${width}.png`));
       writeFileSync(join(output, `done-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
     }
@@ -103,6 +111,8 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
     await settle();
 
     if (output) {
+      await browser("set", "viewport", String(width), String(height));
+      await settle();
       await browser("screenshot", join(output, `minimised-${width}.png`));
       writeFileSync(join(output, `minimised-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
     }
@@ -118,7 +128,9 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
   if (output) {
     await evaluate("(() => { const pane = document.querySelector('.todo-detail'); pane.scrollTop = pane.scrollHeight; return true; })()");
     await settle();
-    await browser("screenshot", join(output, `bottom-${width}.png`));
+    await browser("set", "viewport", String(width), String(height));
+      await settle();
+      await browser("screenshot", join(output, `bottom-${width}.png`));
     writeFileSync(join(output, `bottom-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   }
 
@@ -142,7 +154,9 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
   await browser("wait", '.todo-detail-body [role="alert"]');
 
   if (output) {
-    await browser("screenshot", join(output, `body-refusal-${width}.png`));
+    await browser("set", "viewport", String(width), String(height));
+      await settle();
+      await browser("screenshot", join(output, `body-refusal-${width}.png`));
     writeFileSync(join(output, `body-refusal-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   }
 
@@ -162,6 +176,8 @@ it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_docum
     await settle();
 
     if (output) {
+      await browser("set", "viewport", String(width), String(height));
+      await settle();
       await browser("screenshot", join(output, `${name}-${width}.png`));
       writeFileSync(join(output, `${name}-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
     }
