@@ -164,6 +164,9 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
     await shot("U4908", stage, `${seed}-${kind}-selected`);
     await browser("press", "Enter");
     await wait("document.querySelector('.drawer[data-open=true]')");
+
+    if (kind === "pads") await wait("document.querySelector('.pad-rich-editor .ProseMirror')");
+
     await shot("U4908", stage, `${seed}-${kind}-opened`);
     await browser("click", ".drawer[data-open=true] .close");
     await wait("!document.querySelector('.drawer[data-open=true]')");
