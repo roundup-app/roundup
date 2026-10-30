@@ -160,6 +160,7 @@ pub const NO_TOOL: [&str; 80] = [
     // U3787a: only the original user reconciles or restores a Rail removal.
     "rail.deletion",
     "rail.restore",
+    "rail.redo",
     "todo.restore",
     "todo.redo",
     "todo.deletion",
