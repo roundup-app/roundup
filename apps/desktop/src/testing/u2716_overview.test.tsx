@@ -28,6 +28,7 @@ it("u2716a_attention_name_follows_tree_and_status", async () => {
   const attention = await screen.findByRole("button", { name: /Needs you/ });
   attention.focus();
   await waitFor(() => expect(attention.hasAttribute("data-focus")).toBe(true));
+
   if (attention.getAttribute("aria-expanded") !== "true") fireEvent.click(attention);
 
   await waitFor(() => expect(document.querySelector(".overview-sections [data-part=item-trigger][aria-expanded=true]")).not.toBeNull());
