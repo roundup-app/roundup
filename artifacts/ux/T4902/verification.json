@@ -1,0 +1,599 @@
+{
+  "issue": 4920,
+  "date": "2026-10-30",
+  "author_agent": "builder-41004561775",
+  "baseline": "69e298abb898163a46f52d5b304d615071f236fc",
+  "head": "56f49fd6becddbbabf7408178e82f2e51fd5ac5a",
+  "comparison": "Observation only: both immutable commits have the same product tree. Removal was merged in PRs 4942 and 5010.",
+  "observer": {
+    "file": "apps/desktop/src/todos/u3720_real_daemon_owner.test.tsx",
+    "test": "u3311_real_daemon_delegate_board",
+    "browser": "dedicated headless agent-browser session, fresh profile",
+    "daemon": "isolated real rupd; fake vendor answers Auto through public CLI",
+    "viewport": [
+      1512,
+      950
+    ],
+    "scheme": "dark",
+    "capture_command": "timeout 290 just capture U3308,U3311,T4902",
+    "exit_codes": {
+      "base": 0,
+      "head": 0
+    },
+    "test_ms": {
+      "base": 136293.706598,
+      "head": 178675.98493
+    },
+    "assertions": [
+      "Hover and cancelled drag assign zero times and retain Todo identity, Home, owner and fields",
+      "Pointer drop, digit and picker hand-offs agree with todo.list owner",
+      "Auto delivers the Todo and updates ownership without taking focus",
+      "Burst retarget cancels the earlier glide; each row has at most one running glide",
+      "Reduced motion creates no new glide",
+      "Rejected assign and save retain old saved values and show complete causes",
+      "Drawer title/body save and Changes preserve identity, Home and owner",
+      "Project reload reads back saved title/body, identity, Home and owner; Me remains Me",
+      "Focus is never body at observed hand-offs; exact draft bytes survive failed save"
+    ]
+  },
+  "principles": {
+    "P3": "Auto and hand-offs add no routine attention",
+    "P6": "Real-Daemon observer reads identity/Home/owner after hand-offs and reload",
+    "P11": "Failed Drawer save retains its draft; history/draft unit regressions pass"
+  },
+  "checks": {
+    "regressions": [],
+    "states": 10,
+    "all_check_ids": [
+      "D1",
+      "D10",
+      "D11",
+      "D12",
+      "D13",
+      "D14",
+      "D16",
+      "D2",
+      "D3",
+      "D4",
+      "D5",
+      "D6",
+      "D7",
+      "D8",
+      "D9"
+    ],
+    "pre_existing": [
+      {
+        "state": "drag-preview",
+        "checks": [
+          "D6",
+          "D10"
+        ],
+        "cause": "active drag uses grabbing cursor on both commits"
+      }
+    ],
+    "settled": "Every Check passes in all nine settled states on both commits",
+    "readings": {
+      "base": {
+        "1512x950-dark-assign-failure.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-auto-hand-off.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-board.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-burst-hand-off.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-drag-preview.checks.json": {
+          "D1": "pass",
+          "D10": "fail",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "fail",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-drawer-changes.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-empty-agent.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-project-reopened.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-reduced-motion.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-save-failure.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      },
+      "head": {
+        "1512x950-dark-assign-failure.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-auto-hand-off.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-board.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-burst-hand-off.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-drag-preview.checks.json": {
+          "D1": "pass",
+          "D10": "fail",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "fail",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-drawer-changes.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-empty-agent.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-project-reopened.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-reduced-motion.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "1512x950-dark-save-failure.checks.json": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        }
+      }
+    }
+  },
+  "verification": [
+    {
+      "clause": "Public values, Events and history across ordinary Todo operations",
+      "test": "crates/todos/src/tests/values.rs::t4902_todo_values_and_history_have_no_duration",
+      "command": "timeout 290 cargo nextest run -p todos t4902 --no-fail-fast",
+      "exit_code": 0
+    },
+    {
+      "clause": "Public schema and authenticated create/update/read; CLI derives the same params",
+      "test": "crates/rup/tests/mcp.rs::t4902_public_todo_contract_has_no_duration",
+      "command": "timeout 290 cargo nextest run -p rup --test mcp t4902 --no-fail-fast",
+      "exit_code": 0
+    },
+    {
+      "clause": "Auto id/title without duration; unassignment/order/restart, ownership exclusions, off and cap",
+      "test": "crates/rupd/src/auto_tests.rs; all 14 A3308 tests",
+      "command": "timeout 290 cargo nextest run -p rupd --lib auto_tests --no-fail-fast",
+      "exit_code": 0
+    },
+    {
+      "clause": "Checks 1, 2 and 5: owner order/reassignment, digit/picker, Auto, history acknowledgement/failure and exact unfinished editing",
+      "files": [
+        "u3717_owner_groups.test.tsx",
+        "u3308_board.test.tsx",
+        "u462_history.test.tsx",
+        "u2773_unfinished_input.test.tsx"
+      ],
+      "command": "timeout 290 pnpm --filter desktop exec vitest run src/todos/u3717_owner_groups.test.tsx src/todos/u3308_board.test.tsx src/todos/u462_history.test.tsx src/todos/u2773_unfinished_input.test.tsx --retry=0",
+      "passed": 75,
+      "exit_code": 0
+    },
+    {
+      "clause": "Dependency installation",
+      "command": "timeout 290 pnpm install --frozen-lockfile",
+      "exit_code": 0
+    },
+    {
+      "clause": "Required implementation CI, including T16/T17, Message laws, all Rust/web lanes and macOS",
+      "url": "https://github.com/roundup-app/roundup/actions/runs/40994414253",
+      "conclusion": "success"
+    },
+    {
+      "clause": "Full readiness on clean merged head",
+      "command": "timeout 290 env NODE_COMPILE_CACHE=/tmp/4920-node-cache just ready",
+      "exit_code": 124
+    }
+  ],
+  "audit": {
+    "matches": 120,
+    "result": "Only absence assertions, historical removal/capture records, or unrelated writing/performance/vendor terms remain. No active Todo field in apps, crates, contracts or glossary. Generic hold-plain writing guidance is unchanged.",
+    "red_first_commit": "668ca35a1b91c55087fe8310bedcdc409f663248",
+    "retirements": "T29/U3365 and time-only Board tests retired in merged children. Owner/Auto/history/draft proofs survive; no test is changed by this observation PR.",
+    "contract_policy": "Merged Rust-generated declarations and all callers remove the field together. No compatibility field or replacement feature; unrelated SQL migration filenames unchanged; Message delivery laws unchanged."
+  },
+  "artifacts": {
+    "base": {
+      "video": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1512,
+            "height": 950
+          }
+        ],
+        "format": {
+          "duration": "24.400000"
+        }
+      },
+      "files": {
+        "1512x950-dark-assign-failure.checks.json": "5772441aab6dacc6367c3a8d0fc889725ec15529216f544604e26b4feddac73d",
+        "1512x950-dark-assign-failure.png": "b08bbdd35a00c2e05ea7aa893b89e880aa591e419e3a67c265c4650884ba5e03",
+        "1512x950-dark-auto-hand-off.checks.json": "1801bf4d3488c7e38c099446fb3adea12956e7ea070a5937cd51fa563ff1113d",
+        "1512x950-dark-auto-hand-off.png": "45ff3c56c52f432a71831743869c0882f2b2f9b09b98a9a965f222afe2a4ab76",
+        "1512x950-dark-board.checks.json": "8684ea44339d82bebe19c1c3f5d43664b9815d6bb0b1a95c3e31169df1f691b0",
+        "1512x950-dark-board.png": "ac25fa25835e03c9b9a1611399863627112759a0e33c1727739065c1188bc605",
+        "1512x950-dark-burst-hand-off.checks.json": "1801bf4d3488c7e38c099446fb3adea12956e7ea070a5937cd51fa563ff1113d",
+        "1512x950-dark-burst-hand-off.png": "671ff38a4634b34e3b001fe69faf345eac0784cd6740c6b5283730fc078be769",
+        "1512x950-dark-drag-preview.checks.json": "3a9263cba260d1d7f8df6eb1714f68668742ea2396d02e178e9e98425604986d",
+        "1512x950-dark-drag-preview.png": "4673be3069c6a629a8a298f3bc7728e162ba0b3cad4e87895a353d9ea0306227",
+        "1512x950-dark-drawer-changes.checks.json": "11b85526c3453d3d85cdf23219acbd180a8a1d5fd8b2454863705965eda1f0ed",
+        "1512x950-dark-drawer-changes.png": "9e169e3448dd05d322f2eca94c9b29e5fdc915cf687e5f1eec921f51ecb2c52d",
+        "1512x950-dark-empty-agent.checks.json": "e2178c37b19267f3729f1d15456ee36f7dab5d687b2a6985de024e7c7c498dcd",
+        "1512x950-dark-empty-agent.png": "d05387012c14c0a9aee6d4e50bdcbc2e48b98b9ccf80cc50d47f34e12a5877d5",
+        "1512x950-dark-project-reopened.checks.json": "789bbf3943b085b4715b53eaab54548f79196fbc084886eab719fa3df416f7fb",
+        "1512x950-dark-project-reopened.png": "e30fc56b412312d8494546571e51dabfbff518891f4d8dc48fd66d13be386369",
+        "1512x950-dark-reduced-motion.checks.json": "1801bf4d3488c7e38c099446fb3adea12956e7ea070a5937cd51fa563ff1113d",
+        "1512x950-dark-reduced-motion.png": "2f620bbcc9a04230c35236d4f1b04c5711afc688eb6da8e10113341eeeced2c6",
+        "1512x950-dark-save-failure.checks.json": "f32111aecafad9ab9f3fb7e2523c386240fdc792100dc0bb81c4d73eab2b0b40",
+        "1512x950-dark-save-failure.png": "e7e6bf07a5701c0785346c53ddf5d9ca7b36df9f14bb3e1b005524a33ff32ada",
+        "assign-failure.observer.json": "f3fe30fc88f24ab33f76fef658c44e6aa5d420af667abc058fa394c67a998e53",
+        "auto-hand-off.observer.json": "c357ddca0f6fb9998d7667b228c20af580ed2b4f5644e4c6e3fb78622a1fa429",
+        "board.observer.json": "672b2b5944d686a811e4ae9ddf5507ec62ad573bc957746cc362a92288167a6d",
+        "burst-hand-off.observer.json": "efc0cfab772c0436c69ae93b96387009021566facb5efc82d218bd24e2571449",
+        "drag-preview.observer.json": "62046ec758d76323b9d1cfe771fc4a70f8c0c68654ba339396883b0fb5344233",
+        "drawer-changes.observer.json": "b346ff272214d4299f4710130a2efe14426bcb234385b32735d1bd026487a218",
+        "empty-agent.observer.json": "a787bc376f188b86896be4c5ec0b54df84ab8a2315be8596bc2fa7674ed6593f",
+        "hand-offs.webm": "addb25e746f9367ccb9890b6bba065a450f0d85dc5e4f6d724514c2ec26538f6",
+        "project-reopened.observer.json": "a66358c6409fd6c26e533864850d017f5bf082b7623913fe10e122bd7612ec7e",
+        "reduced-motion.observer.json": "c357ddca0f6fb9998d7667b228c20af580ed2b4f5644e4c6e3fb78622a1fa429",
+        "save-failure.observer.json": "213c956fa65802ddf3de15b02871c6071973e3c0075089e1f909da781f85a2b5"
+      }
+    },
+    "head": {
+      "video": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1512,
+            "height": 950
+          }
+        ],
+        "format": {
+          "duration": "19.700000"
+        }
+      },
+      "files": {
+        "1512x950-dark-assign-failure.checks.json": "5772441aab6dacc6367c3a8d0fc889725ec15529216f544604e26b4feddac73d",
+        "1512x950-dark-assign-failure.png": "5d92e726bbd88a52cdc380374d74a7e190c7df522342dc1799178243b1768cd5",
+        "1512x950-dark-auto-hand-off.checks.json": "1801bf4d3488c7e38c099446fb3adea12956e7ea070a5937cd51fa563ff1113d",
+        "1512x950-dark-auto-hand-off.png": "d0951ab703e3dba60817189cb6271586fa2dda9934f58cfc27ae66d6b20cedc4",
+        "1512x950-dark-board.checks.json": "8684ea44339d82bebe19c1c3f5d43664b9815d6bb0b1a95c3e31169df1f691b0",
+        "1512x950-dark-board.png": "7b0329aa39c7716688e1318b4f711eea587048dcc9bdf4351bdb3d7b5fae62d5",
+        "1512x950-dark-burst-hand-off.checks.json": "1801bf4d3488c7e38c099446fb3adea12956e7ea070a5937cd51fa563ff1113d",
+        "1512x950-dark-burst-hand-off.png": "2945ab6f3a0bdab362a88bb468b0e823ad5d802f3d402845b058ee9049140599",
+        "1512x950-dark-drag-preview.checks.json": "3a9263cba260d1d7f8df6eb1714f68668742ea2396d02e178e9e98425604986d",
+        "1512x950-dark-drag-preview.png": "a33a8d920be960f6dca242243ef36fbe5bd1abe600a4f45510a0eb34d3029a5c",
+        "1512x950-dark-drawer-changes.checks.json": "11b85526c3453d3d85cdf23219acbd180a8a1d5fd8b2454863705965eda1f0ed",
+        "1512x950-dark-drawer-changes.png": "a897dc4881dfa6a26824c116745aab57843c3b8447805d0dff1efeef237eb95c",
+        "1512x950-dark-empty-agent.checks.json": "e2178c37b19267f3729f1d15456ee36f7dab5d687b2a6985de024e7c7c498dcd",
+        "1512x950-dark-empty-agent.png": "70c62bf681a1ac4aba65f24edf7dfed08ee9aab9fd5cac986fa416f8e6db45c7",
+        "1512x950-dark-project-reopened.checks.json": "789bbf3943b085b4715b53eaab54548f79196fbc084886eab719fa3df416f7fb",
+        "1512x950-dark-project-reopened.png": "bfbfdc0b2cabaf777e1c2832e58bb7faf88ad54d9ec61e2ea9e1f42eb54d4757",
+        "1512x950-dark-reduced-motion.checks.json": "1801bf4d3488c7e38c099446fb3adea12956e7ea070a5937cd51fa563ff1113d",
+        "1512x950-dark-reduced-motion.png": "f420f38a17557ccf0d6d154fccd847ab9f2ff8a7390f98811b853345276be26f",
+        "1512x950-dark-save-failure.checks.json": "f32111aecafad9ab9f3fb7e2523c386240fdc792100dc0bb81c4d73eab2b0b40",
+        "1512x950-dark-save-failure.png": "85e8f87df317b86c12de2be5100276057b0bb713baec2ccdfa4e289279ec73f8",
+        "assign-failure.observer.json": "f3fe30fc88f24ab33f76fef658c44e6aa5d420af667abc058fa394c67a998e53",
+        "auto-hand-off.observer.json": "c357ddca0f6fb9998d7667b228c20af580ed2b4f5644e4c6e3fb78622a1fa429",
+        "board.observer.json": "672b2b5944d686a811e4ae9ddf5507ec62ad573bc957746cc362a92288167a6d",
+        "burst-hand-off.observer.json": "efc0cfab772c0436c69ae93b96387009021566facb5efc82d218bd24e2571449",
+        "drag-preview.observer.json": "62046ec758d76323b9d1cfe771fc4a70f8c0c68654ba339396883b0fb5344233",
+        "drawer-changes.observer.json": "a40acc6300149c2b556c13dadbcc17c28383fd2a28e6bdb764d7c10c077c4082",
+        "empty-agent.observer.json": "a787bc376f188b86896be4c5ec0b54df84ab8a2315be8596bc2fa7674ed6593f",
+        "hand-offs.webm": "ddc5db1aa78d99531e60c8f12382aa0ce9d1ea2cba6e317207f749d69d878a08",
+        "project-reopened.observer.json": "a66358c6409fd6c26e533864850d017f5bf082b7623913fe10e122bd7612ec7e",
+        "reduced-motion.observer.json": "c357ddca0f6fb9998d7667b228c20af580ed2b4f5644e4c6e3fb78622a1fa429",
+        "save-failure.observer.json": "213c956fa65802ddf3de15b02871c6071973e3c0075089e1f909da781f85a2b5"
+      }
+    }
+  },
+  "native_claim": "Linux Chromium observation only; the user reports what they meet on the Mac.",
+  "integration": {
+    "main": "b4973e174",
+    "merge": "4a31e885976ea6454f61c69dbcfec838648e02c7",
+    "result": "Clean merge, no conflict resolution; merge-loss passes. Incoming changes affect unrelated test/lint files, with no product change after capture."
+  },
+  "readiness_attempts": [
+    {
+      "checkout": "original main",
+      "exit_code": 124,
+      "cause": "Cold lint fixture suite exceeded 290 seconds"
+    },
+    {
+      "checkout": "original main with Node compile cache",
+      "exit_code": 124,
+      "cause": "Lint fixture suite exceeded 290 seconds during compilation/capture"
+    },
+    {
+      "checkout": "evidence worktree before integrating newer main",
+      "exit_code": 143,
+      "cause": "Stopped to integrate main before final verification"
+    },
+    {
+      "checkout": "merged evidence head",
+      "exit_code": 124
+    }
+  ]
+}
