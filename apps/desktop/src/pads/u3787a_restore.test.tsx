@@ -382,6 +382,15 @@ it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destina
 // The full App owns keys and native menu capture; the Daemon owns every mutation and identity.
 it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-todo", "drawer-pad"])("u3787a_%s_delete_undo_redo_without_feedback", async kind => {
   const app = createServedApp(real.base);
+  // The contract probes above retain their own data; each rendered region starts
+  // with only its chosen item so a prior probe cannot supply its target or Home.
+  for (const pad of await app.rpc("pad.list", null)) await app.rpc("pad.delete", { name: pad.name, expectedIncarnation: pad.incarnation, operation: `clean-${kind}-${pad.incarnation}` });
+
+  const previous = await app.rpc("todo.list", null);
+
+  if (previous.length) await app.rpc("todo.delete", { ids: previous.map(todo => todo.id), operation: `clean-${kind}-todos` });
+  for (const node of await app.rpc("rail.tree", null)) await app.rpc("rail.remove", { id: node.id, operation: `clean-${kind}-${node.id}` });
+
   const name = `round-trip-${kind}`;
   const isPad = kind.includes("pad");
   const pad = isPad ? await app.rpc("pad.create", { name, text: "exact retained content" }) : null;
@@ -432,6 +441,23 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe(isPad ? "Undo Delete Pad" : "Undo Delete Todo"));
   fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true });
   await waitFor(async () => expect(await read()).toBe(true));
+
+  if (kind.startsWith("drawer-")) {
+    if (isPad) {
+      await waitFor(() => expect(document.querySelector('.shelf .pad-name .shelf-title') !== null).toBe(true));
+
+      for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) {
+        if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+      }
+    }
+
+    const restoredRow = isPad ? (await screen.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await screen.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));
+    restoredRow.focus();
+    fireEvent.keyDown(restoredRow, { key: "Enter", code: "Enter" });
+    const button = await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: isPad ? "Delete" : "Delete Todo" });
+    button.focus();
+  }
+
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘Z")?.label).toBe(isPad ? "Redo Delete Pad" : "Redo Delete Todo"));
   absent();
   fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true, shiftKey: true });
