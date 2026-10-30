@@ -237,13 +237,39 @@ impl Collector {
         true
     }
 
-    /// Callers must supply the currently registered identity, never a row index.
-    pub(super) fn facts(&self, identity: &Identity, now: Instant) -> Option<Facts> {
-        let state = self.state.lock().expect("worktrunk cache poisoned");
-        let cached = state.facts.get(identity)?;
+    /// Reads the registered identity's facts, invalidating a changed or unreadable head.
+    pub(super) fn read(
+        &self,
+        identity: &Identity,
+        now: Instant,
+        head: Option<&str>,
+    ) -> Option<Facts> {
+        let mut state = self.state.lock().expect("worktrunk cache poisoned");
+        let cached = state.facts.get_mut(identity)?;
+        let moved = cached
+            .facts
+            .evidence
+            .as_ref()
+            .is_some_and(|(evidence, stale)| {
+                !stale
+                    && match evidence {
+                        Evidence::Complete(read) | Evidence::Pending(read) => {
+                            head != Some(&read.head)
+                        }
+                        Evidence::Incomplete(_) => false,
+                    }
+            });
+        if moved {
+            stale(&mut cached.facts);
+        }
         let mut facts = cached.facts.clone();
         if now.duration_since(cached.success) >= FULL_INTERVAL {
             stale(&mut facts);
+        }
+        if moved {
+            // Bypass the minute-long cooldown after a local commit/push; collection
+            // remains in the background, so no forge read blocks local state.
+            state.lanes[1].since = None;
         }
         Some(facts)
     }
@@ -584,7 +610,7 @@ fn drain(
 /// required checks with `gh`, so `agent.worktreeState` serves that evidence.
 #[cfg(feature = "test-support")]
 impl super::Agents {
-    pub fn set_evidence_from_gh(&self, id: &str, path: &Path, gh: &Path) {
+    pub async fn set_evidence_from_gh(&self, id: &str, path: &Path, gh: &Path) {
         let shared = &self.shared;
         shared
             .rail()
@@ -599,6 +625,24 @@ impl super::Agents {
             .unwrap();
         for lane in &mut shared.worktrunk.state.lock().unwrap().lanes {
             lane.since = Some(Instant::now());
+        }
+        // `publish` ends each in-flight collection. Let it finish before installing
+        // fixture evidence, so its late result cannot overwrite this observation.
+        let deadline = Instant::now() + TIMEOUT;
+        while shared
+            .worktrunk
+            .state
+            .lock()
+            .unwrap()
+            .lanes
+            .iter()
+            .any(|lane| lane.running)
+        {
+            assert!(
+                Instant::now() < deadline,
+                "fixture collector did not finish"
+            );
+            tokio::task::yield_now().await;
         }
         let ids = identities(shared).unwrap();
         let path = &ids.iter().find(|i| i.agent == id).unwrap().path;
@@ -627,19 +671,18 @@ impl super::Agents {
         &self,
         id: &str,
         expected: &contracts::agent::Worktree,
+        head: Option<&str>,
     ) -> Option<Facts> {
         let record = self.shared.node(id).ok()?.worktree?;
         if &record != expected {
             return None;
         }
-        self.shared.worktrunk.facts(
-            &Identity {
-                agent: id.to_owned(),
-                path: PathBuf::from(record.path),
-                branch: record.branch,
-                base: record.base,
-            },
-            Instant::now(),
-        )
+        let identity = Identity {
+            agent: id.to_owned(),
+            path: PathBuf::from(record.path),
+            branch: record.branch,
+            base: record.base,
+        };
+        self.shared.worktrunk.read(&identity, Instant::now(), head)
     }
 }
