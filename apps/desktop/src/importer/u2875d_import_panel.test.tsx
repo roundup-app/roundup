@@ -382,14 +382,14 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
         if (!projectMenu.items.some(item => item.id === 'view:made' && item.enabled)) throw new Error('Native menu action unavailable: view:made');
         window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command:'view:made'}}));
       })()`);
-      await lane.until("document.querySelector('[data-part=item-trigger][data-value=made]')?.getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.made-row').length === 2");
+      await lane.until("document.querySelector('[data-part=item-trigger][id$=made]')?.getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.made-row').length === 2");
 
       if (phase === "names") {
         await capture("U3299d", side!, "publications");
       }
 
       await lane.browser("find", "role", "button", "click", "--name", "Reactions", "--exact");
-      await lane.until("document.querySelector('[data-part=item-trigger][data-value=reactions]')?.getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.reaction-row').length === 7");
+      await lane.until("document.querySelector('[data-part=item-trigger][id$=reactions]')?.getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.reaction-row').length === 7");
 
       if (phase === "names") {
       await capture("U3299a", side!, "overview");
