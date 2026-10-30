@@ -72,7 +72,7 @@ export const copy = {
   assignTodo: sharedCopy.assignTodo,
   askBarShortcut: sharedCopy.askBarShortcut,
   renameChord: sharedCopy.renameChord,
-  restartMode: sharedCopy.restartMode,
+  restartMode: "Restart Mode",
   todoAssignDigit: "Assign",
   terminalLargerText: "Larger Terminal text",
   terminalSmallerText: "Smaller Terminal text",
