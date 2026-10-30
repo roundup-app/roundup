@@ -351,6 +351,7 @@ const PadBody = (props: {
       actionFailure.clear();
       props.onFailureCleared?.();
       setRemovedByMe(true);
+      await list.reload();
       // A deletion event can remove the focused Delete button before its reply closes the Drawer.
       focus(() => { if (document.activeElement === document.body) close?.focus({ preventScroll: true }); });
       connected.drawer.close(source);
