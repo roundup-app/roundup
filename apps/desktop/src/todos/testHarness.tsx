@@ -22,7 +22,11 @@ import { Rail } from "../rail/Rail";
 // U4698d's browser observer exercises Milkdown itself; these fixtures keep real draft/RPC settlement
 // and substitute only the shared editor handle, as the Pad failure-lifetime fixtures do.
 // eslint-disable-next-line anti-slop/no-module-mocking
-vi.mock("../pads/PadRichEditor", () => ({ default: (props: import("solid-js").ComponentProps<typeof import("../pads/PadRichEditor").default>) => {
+vi.mock("../pads/PadRichEditor", async (original) => {
+  const actual = await original<typeof import("../pads/PadRichEditor")>();
+
+  return { default: (props: import("solid-js").ComponentProps<typeof import("../pads/PadRichEditor").default>) => {
+  if (props.label === undefined) return <actual.default {...props} />;
   let field: HTMLTextAreaElement | undefined;
   const [text, setText] = createSignal(props.text);
   let base = props.text;
@@ -44,7 +48,7 @@ vi.mock("../pads/PadRichEditor", () => ({ default: (props: import("solid-js").Co
   return <Show when={!!props.initialFocus} fallback={<p tabIndex={0}>{props.text}</p>}><textarea ref={field} aria-label={props.label} value={text()}
     onInput={event => { setText(event.currentTarget.value); props.onChange(); props.onText(text()); }}
     onSelect={() => props.onSelection?.()} onBlur={event => props.onBlur(event.relatedTarget)} /></Show>;
-} }));
+} }; });
 
 export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   id,
