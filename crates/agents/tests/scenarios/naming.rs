@@ -307,8 +307,10 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
             }
             _ => {}
         }
+        let name_before = f.name_of(&id).await;
         // Attach after setup naming; only the guarded prompt belongs to this window.
         let mut events = f.bus.subscribe();
+        let mut rail_events = f.bus.subscribe();
         let prompt = match case {
             "no words" => "please, the...",
             "same name" => "new agent",
@@ -318,13 +320,24 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
             _ => "fix the build",
         };
         f.submit(&id, prompt).await;
+        assert_eq!(f.name_of(&id).await, name_before, "{case}");
         assert!(crate::common::renames(&mut events).is_empty(), "{case}");
+        while let Ok(event) = rail_events.try_recv() {
+            assert!(
+                !matches!(event.data, contracts::EventData::RailChanged),
+                "{case}: an unchanged prompt must not announce a Rail change"
+            );
+        }
         let mut expected = Vec::new();
         if matches!(case, "no words" | "Clarification") {
             f.submit(&id, "fix the build").await;
-            if case == "Clarification" {
+            let name_after = if case == "Clarification" {
                 expected.push((id.clone(), "fix-build".into()));
-            }
+                "fix-build"
+            } else {
+                &name_before
+            };
+            assert_eq!(f.name_of(&id).await, name_after, "{case}");
         }
         f.call(
             "rail.rename",
