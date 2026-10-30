@@ -193,7 +193,7 @@ impl Store {
         )?;
         if retained && changed == 1 {
             tx.execute(
-                "DELETE FROM rail_removal_items WHERE kind='pad-home' AND id=?",
+                "DELETE FROM rail_removal_items WHERE kind='pad-home' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
                 [name],
             )?;
         }

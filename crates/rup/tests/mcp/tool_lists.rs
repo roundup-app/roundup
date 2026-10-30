@@ -118,7 +118,7 @@ pub const DOOR_METHODS: [&str; 7] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 80] = [
+pub const NO_TOOL: [&str; 81] = [
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
     "daemon.getNaming",
     "daemon.setNaming",
@@ -160,6 +160,7 @@ pub const NO_TOOL: [&str; 80] = [
     // U3787a: only the original user reconciles or restores a Rail removal.
     "rail.deletion",
     "rail.restore",
+    "rail.redo",
     "todo.restore",
     "todo.redo",
     "todo.deletion",
