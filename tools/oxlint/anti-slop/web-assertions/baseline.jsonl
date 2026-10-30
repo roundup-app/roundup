@@ -31,8 +31,6 @@
 {"file":"apps/desktop/src/ask/u3780_tool_call.test.tsx","test":"u3780c_a_running_call_has_no_result_to_copy","identity":"d7e7959530007e0bbc08e5a33c76d241018894e6214c0fd3dfa2e8c94c93dfd1"}
 {"file":"apps/desktop/src/ask/u3780_tool_call.test.tsx","test":"u3780c_a_running_call_has_no_result_to_copy","identity":"827b7762809f13b9b7a462017f56e4060a919c93544c5757ecf98ce742e4c4d6"}
 {"file":"apps/desktop/src/ask/u3780_tool_call.test.tsx","test":"u3780c_payload_text_is_inert","identity":"0a24a79721d79ce0a9f3b78bd4a0b7e2885e65b41642c577fa999a61a09cd205"}
-{"file":"apps/desktop/src/ask/u504_ask_bar.test.tsx","test":"u2773b_unknown_asks_have_individual_status_checks","identity":"91c2852d76bb8e07f6ebe1047ff735c4e0840c7b911cbeb73c3e6aee381df6e5"}
-{"file":"apps/desktop/src/ask/u504_ask_bar.test.tsx","test":"u2773b_unknown_asks_have_individual_status_checks","identity":"80558378bbda2326ff0befdf4254efcf585575eee2e20a9e8df7a55481197e5d"}
 {"file":"apps/desktop/src/ask/u505_ask_rows.test.tsx","test":"u505 an Ask row shows progress from Agent state > u505_a_failed_row_shows_its_reason","identity":"7036c2d85819cbd9ad81c71682de56035015b9f299d43fd92911047810e0b858"}
 {"file":"apps/desktop/src/bubbles/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_bubbles_close: Retry then Keep leaves the failure with its Retry","identity":"0301151c93495bda3f2af017694e9b33fe4027e2f6bdd0bc4bb5febe0754d3c6"}
 {"file":"apps/desktop/src/bubbles/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_bubbles_close: Retry then Keep leaves the failure with its Retry","identity":"a0c17d6dfe9a0b0a469bf25ddbcce7dab7aca0e7e83b7990b2abf1b03eacb183"}
