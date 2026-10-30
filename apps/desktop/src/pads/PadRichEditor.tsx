@@ -1,7 +1,7 @@
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
-import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand } from "@milkdown/kit/preset/commonmark";
+import { CHORDS, chordsFor } from "../keys/chords";
+import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
@@ -64,6 +64,10 @@ const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link
 const toolbarCommands = [
   { key: "bold", action: CHORDS.find(action => action.keys === "⌘B")!, label: copy.bold, command: toggleStrongCommand },
   { key: "italic", action: CHORDS.find(action => action.keys === "⌘I")!, label: copy.italic, command: toggleEmphasisCommand },
+  { key: "quote", action: CHORDS.find(action => action.keys === "⇧⌘B")!, label: copy.quote, command: wrapInBlockquoteCommand },
+  { key: "bullet-list", action: CHORDS.find(action => action.keys === "⌥⌘8")!, label: copy.bulletList, command: wrapInBulletListCommand },
+  { key: "ordered-list", action: CHORDS.find(action => action.keys === "⌥⌘7")!, label: copy.numberedList, command: wrapInOrderedListCommand },
+  { key: "code-block", action: CHORDS.find(action => action.keys === "⌥⌘C")!, label: copy.codeBlock, command: createCodeBlockCommand },
   { key: "code", action: CHORDS.find(action => action.keys === "⌘E")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
 ];
 
@@ -195,7 +199,7 @@ export default function PadRichEditor(props: {
 
     registerKeys({ kind: "region", element: () => host }, toolbarCommands.map(({ action, label, command }) => ({
       action,
-      match: "key" as const,
+      chords: chordsFor(action.keys, action.keys.includes("⌥") ? "code" : "key"),
       capture: focus => {
         commandState();
 
