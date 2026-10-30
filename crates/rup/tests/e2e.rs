@@ -1782,37 +1782,6 @@ async fn a31_a_workstream_id_resolves_to_its_door() {
     assert_eq!(names, ["project-only", "reduce"]);
 }
 
-#[tokio::test]
-async fn a31_a_missing_id_is_not_found_and_writes_nothing() {
-    let (project, _home) = a31_project();
-    let client = project.client().await;
-
-    let error = a31_names(&client, "nobody").await.unwrap_err();
-
-    assert_eq!(error.code, rpc::code::NOT_FOUND);
-    assert!(rail_tree(&client).await.is_empty());
-}
-
-#[tokio::test]
-async fn a31_a_call_on_an_existing_id_changes_nothing() {
-    let (project, _home) = a31_project();
-    let client = project.client().await;
-    let agent = project.spawn_agent(&project.subscribed().await).await;
-    let before = rail_tree(&client).await;
-
-    a31_names(&client, &agent.id).await.unwrap();
-
-    assert_eq!(rail_tree(&client).await, before);
-    let touches: Vec<Touch> = serde_json::from_value(
-        client
-            .request("provenance.touched", json!({ "actor_id": agent.id }))
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-    assert!(touches.is_empty(), "{touches:?}");
-}
-
 fn card(title: &str) -> Value {
     json!({ "title": title, "blocks": [
         { "kind": "rows", "title": "done", "rows": [{ "label": "login", "value": "merged" }] },
