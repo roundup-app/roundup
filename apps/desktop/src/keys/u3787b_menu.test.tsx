@@ -7,7 +7,10 @@ import { showEverythingInApp } from "../testing/showEverything";
 import { info } from "../testing/nodes";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
+import type { MenuItem } from "../app/seam";
 import { captureActions, registerKeys } from "./registry";
+
+const menuCommands = (items: MenuItem[]): MenuItem[] => items.flatMap(item => item.children ? menuCommands(item.children) : [item]);
 
 const disposals: (() => void)[] = [];
 
@@ -191,9 +194,9 @@ it.each(["terminal", "rail row", "Shelf row", "triage"])("u3787b_menu_covers_bou
 
   const focus = document.activeElement!;
   const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : place === "rail row" ? "action:chord:F2" : "action:chord:⌘=";
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === expected)).toBe(true));
+  await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id === expected)).toBe(true));
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
-  const shown = new Map(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
+  const shown = new Map(menuCommands(projectMenu.items).filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
 
   expect(available.length).toBeGreaterThan(10);
 
@@ -252,9 +255,11 @@ it.each(["key", "menu"])("u3787b_numbered_assignment_captures_one_todo_and_owner
   const row = document.querySelector<HTMLButtonElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
   row.focus();
   const command = `action:chord:1–9:Digit${number}`;
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === command)?.shortcut).toBe(String(number)));
+  await waitFor(() => expect(menuCommands(projectMenu.items).find(item => item.id === command)?.shortcut).toBe(String(number)));
   const captured = captureActions(row).find(action => action.value === command)!;
-  expect(projectMenu.items.filter(item => item.id.startsWith("action:chord:1–9:")).length).toBe(9);
+  const assignments = projectMenu.items.find(item => item.children?.some(child => child.id === command));
+  expect(assignments?.children).toHaveLength(9);
+  expect(projectMenu.items.some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false);
   expect(document.activeElement).toBe(row);
 
   if (source === "key") fireEvent.keyDown(row, { key: String(number), code: `Digit${number}` });
@@ -263,7 +268,7 @@ it.each(["key", "menu"])("u3787b_numbered_assignment_captures_one_todo_and_owner
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner: { kind: "agent", id: `a${number - 1}`, parent: null } }]));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   screen.getByLabelText("New Todo title").focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false));
+  await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false));
   captured.run();
   openProjectPage(command);
   expect(daemon.calls.filter(call => call.method === "todo.assign")).toHaveLength(1);
