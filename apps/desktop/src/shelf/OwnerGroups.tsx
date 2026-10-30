@@ -3,7 +3,7 @@ import { createTreeCollection } from "@ark-ui/solid/collection";
 import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
 import { Tip } from "../ui/Tip";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { captureFocus } from "../keys/focus";
 import type { OwnerGroup } from "./scope";
 

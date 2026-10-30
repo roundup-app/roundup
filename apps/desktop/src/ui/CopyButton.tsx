@@ -2,7 +2,7 @@ import { createEffect, createMemo, createSignal, mapArray, on, onCleanup, splitP
 import { debounce } from "@solid-primitives/scheduled";
 import { writeText } from "../app/clipboard";
 import type { App } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** Clipboard feedback belongs to one mounted control and the latest acknowledged attempt. */
 export const createCopyFeedback = () => {
