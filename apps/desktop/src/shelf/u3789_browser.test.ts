@@ -162,10 +162,13 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
     await shot("U4908", stage, `${seed}-${kind}-focus`);
     await browser("click", row);
     await shot("U4908", stage, `${seed}-${kind}-selected`);
+
+    if (kind === "pads") await browser("eval", "import('/src/pads/PadRichEditor.tsx').then(() => true)");
+
     await browser("press", "Enter");
     await wait("document.querySelector('.drawer[data-open=true]')");
 
-    if (kind === "pads") await wait("document.querySelector('.pad-rich-editor .ProseMirror')");
+    if (kind === "pads") await wait("document.querySelector('.pad-editor [contenteditable=true]')");
 
     await shot("U4908", stage, `${seed}-${kind}-opened`);
     await browser("click", ".drawer[data-open=true] .close");
