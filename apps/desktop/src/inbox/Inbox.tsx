@@ -21,18 +21,23 @@ const STALE = new Set(["todo.restored", "todo.commented", "todo.commentsRead", "
 /** Read comments before Overview chooses its initial section, including comment-only attention. */
 export const createInbox = () => {
   const { app, events, rail } = useConnectedProject();
+
   const [read, { refetch }] = createResource(async (_key, { value }): Promise<{ rows: readonly UnreadComment[]; failure: string | null }> => {
     let rows: readonly UnreadComment[] = value?.rows ?? [];
     const failure = await failureOf(async () => { rows = await app.rpc("todo.unread", null); });
+
     return { rows, failure };
   });
+
   const rows = () => read()?.rows ?? [];
   const failure = () => read()?.failure ?? null;
   const loaded = () => read() !== undefined;
   const refresh = () => { void refetch(); };
+
   onCleanup(events.subscribe(event => { if (STALE.has(event.name)) refresh(); }));
 
   const groups = createMemo(() => sectionsOf(rail.nodes, rows()));
+
   const records = () => groups().flatMap(group => [
     ...group.node ? [{ id: group.node.id + ":" + group.node.attempt + ":" + group.node.status_revision, at: group.node.status?.since ?? 0 }] : [],
     ...group.comments.map(row => ({ id: `c:${row.comment.id}`, at: row.comment.created_at })),
@@ -64,11 +69,14 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
 
     return groups().flatMap(group => {
       const node = group.node;
+
       if (!node) return [];
       seen.add(node.id);
+
       return [{ key: `a:${node.id}`, node, arrived: live && !reducedMotion() && !before.has(node.id) }];
     });
   });
+
   const byKey = createMemo(() => new Map(model().map(each => [each.key, each])));
   const needsCount = () => model().length + rows().length;
 

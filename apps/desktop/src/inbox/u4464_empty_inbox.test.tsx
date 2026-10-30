@@ -12,7 +12,7 @@ it("u4464_no_empty_view_before_the_first_answer", async () => {
   app.handlers["todo.unread"] = () => answer.promise;
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   render(() => <ConnectedProjectContext.Provider value={connected}><Inbox /></ConnectedProjectContext.Provider>);
-  expect(screen.queryByText("Nothing waits for you")).toBeNull();
+  expect(document.querySelector(".overview-quiet")).toBeNull();
   answer.resolve([]);
   await screen.findByText("Nothing waits for you");
 });
