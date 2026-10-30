@@ -5,8 +5,6 @@ import { browser, read, wait } from "../ui/tabsBrowser";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
 
-/** Opt-in real-renderer selection and terminal-continuation observations. */
-
 const found = chromePath();
 
 const run = found || process.env["CI"] ? describe : describe.skip;
