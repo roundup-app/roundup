@@ -7,6 +7,11 @@ import { shelfBrowser } from "../shelf/u371Browser";
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
 const output = captureDir("U4698b");
+const capture = async (name: string) => {
+  if (!output) return;
+  await browser("screenshot", join(output, `${name}.png`));
+  writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+};
 
 it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: 90_000 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
@@ -18,6 +23,12 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("record", "start", join(output, "reading.webm"));
     await browser("wait", ".shelf-tabs");
     await browser("set", "media", "dark");
+  }
+
+  for (const [width, height] of [[1512, 950], [1280, 820]]) {
+    await browser("set", "viewport", String(width), String(height));
+    await settle();
+    await capture(`before-editor-${width}`);
   }
 
   const name = "Document reading and formatting ".repeat(7).slice(0, 200);
@@ -51,16 +62,18 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     expect(await evaluate("document.querySelectorAll('.drawer [aria-label=Restore], .drawer [aria-label=Maximise]').length")).toBe(1);
     expect(await evaluate("document.querySelectorAll('.milkdown-top-bar .top-bar-item, .milkdown-top-bar .top-bar-heading-button').length")).toBe(11);
 
-    if (output) {
-      await browser("screenshot", join(output, `worst-${width}.png`));
-      writeFileSync(join(output, `worst-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
-    }
+    await capture(`worst-${width}`);
+    await browser("click", '.top-bar-heading-button');
+    await settle();
+    await capture(`heading-menu-${width}`);
+    await browser("click", '.top-bar-heading-button');
+    await settle();
 
     await browser("click", '.drawer [aria-label="Restore"]');
     await settle();
     expect(await evaluate("document.querySelector('.drawer').dataset.maximised")).toBe("false");
 
-    if (output) await browser("screenshot", join(output, `minimised-${width}.png`));
+    await capture(`minimised-${width}`);
 
     await browser("click", '.drawer [aria-label="Maximise"]');
     await settle();
@@ -70,7 +83,7 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
   if (output) {
     await evaluate("document.querySelector('.pad-editor').scrollTop = 650; true");
     await settle();
-    await browser("screenshot", join(output, "scrolled-1280.png"));
+    await capture("scrolled-1280");
     await browser("focus", ".drawer .ProseMirror");
     await browser("press", "Control+End");
     await evaluate("window.__fake.failNext(-32000, 'The Pad could not be saved'); true");
@@ -78,6 +91,6 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("wait", ".drawer [data-pad-dismiss]");
     await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
     await settle();
-    await browser("screenshot", join(output, "save-failure-1280.png"));
+    await capture("save-failure-1280");
   }
 });
