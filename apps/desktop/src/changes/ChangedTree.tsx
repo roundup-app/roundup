@@ -1,7 +1,7 @@
 import { captureFocus } from "../keys/focus";
 import { createSignal, For, onCleanup, onMount } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "../todos/failureOf";
 import { useConnectedProject } from "../state/connectedProject";

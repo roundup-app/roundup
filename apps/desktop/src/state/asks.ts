@@ -7,7 +7,7 @@ import type { SendParams } from "@contracts/ask/SendParams";
 import type { Events } from "../app/events";
 import * as v from "valibot";
 import { storageSchema, storedValue } from "./storage";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** U505: one Ask as the App shows it; `pending` is the optimistic entry between Enter and the Daemon's answer. */
 export type AskEntry = { key: string; at?: number; text: string; parts: readonly AskPart[]; pending: boolean };

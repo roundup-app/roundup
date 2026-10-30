@@ -5,7 +5,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { batch, createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";

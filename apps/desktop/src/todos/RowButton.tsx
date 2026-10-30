@@ -1,6 +1,6 @@
 import { modalOpen, registerKeys } from "../keys/registry";
 import { CHORDS } from "../keys/chords";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { JSX } from "solid-js";
 import "./rowButton.styles.css";
 
