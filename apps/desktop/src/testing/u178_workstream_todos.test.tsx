@@ -51,7 +51,8 @@ const openBody = async (id: number, body: string) => {
   fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
-  await within(drawer).findByRole("button", { name: /^Changes/ });
+  const activity = await within(drawer).findByRole("region", { name: "Activity" });
+  await within(activity).findByText(/^Created /);
   fireEvent.dblClick(await within(drawer).findByText(body));
 
   return within(drawer).findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
