@@ -61,12 +61,87 @@ pub(crate) fn is_quiet_digest(given: &[Message], message: &Message) -> bool {
                 .iter()
                 .rev()
                 .filter(|m| is_digest(&m.from, &m.body))
-                .find_map(|m| entries_of(&m.body).into_iter().find(|e| e.name == entry.name));
+                .find_map(|m| {
+                    entries_of(&m.body)
+                        .into_iter()
+                        .find(|e| e.name == entry.name)
+                });
             let prior_kind = before.as_ref().map(|e| e.kind);
             let alarming = matches!(entry.kind, Kind::Error | Kind::NeedsYou)
                 && prior_kind != Some(entry.kind);
-            let new_last = before.as_ref().map_or(!entry.last.is_empty(), |e| e.last != entry.last);
+            let new_last = before
+                .as_ref()
+                .map_or(!entry.last.is_empty(), |e| e.last != entry.last);
             let todo_done = before.as_ref().is_some_and(|e| entry.todos < e.todos);
             !(alarming || new_last || todo_done)
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::digest::push_body;
+    use contracts::agent::DigestEntry;
+    use contracts::message::MessageKind;
+    use contracts::{Actor, Kind};
+
+    fn entry(kind: Kind, last: &str, todos: u32) -> DigestEntry {
+        DigestEntry {
+            name: "c".into(),
+            kind,
+            last: last.into(),
+            todos,
+            pads: vec![],
+        }
+    }
+
+    fn digest(id: u32, status: MessageStatus, entry: &DigestEntry) -> Message {
+        Message {
+            id,
+            from: Actor::daemon(),
+            to: "top".into(),
+            kind: MessageKind::Note,
+            body: push_body(entry),
+            reply_to: None,
+            status,
+            reason: None,
+            at: 0,
+        }
+    }
+
+    #[test]
+    fn b5168f_a_quiet_digest_starts_no_turn() {
+        let given = [digest(
+            1,
+            MessageStatus::Delivered,
+            &entry(Kind::Working, "a", 2),
+        )];
+        let more_todos = digest(2, MessageStatus::Pending, &entry(Kind::Idle, "a", 3));
+        assert!(is_quiet_digest(&given, &more_todos));
+    }
+
+    #[test]
+    fn b5168f_a_finished_result_starts_one_turn() {
+        let given = [digest(
+            1,
+            MessageStatus::Delivered,
+            &entry(Kind::Working, "a", 2),
+        )];
+        for next in [
+            entry(Kind::Working, "b", 2),
+            entry(Kind::Working, "a", 1),
+            entry(Kind::Error, "a", 2),
+            entry(Kind::NeedsYou, "a", 2),
+        ] {
+            let next = digest(2, MessageStatus::Pending, &next);
+            assert!(!is_quiet_digest(&given, &next), "{}", next.body);
+        }
+    }
+
+    #[test]
+    fn b5168f_a_new_question_starts_one_turn() {
+        let mut question = digest(2, MessageStatus::Pending, &entry(Kind::Working, "a", 2));
+        question.from = Actor::user();
+        assert!(!is_quiet_digest(&[], &question));
+    }
 }

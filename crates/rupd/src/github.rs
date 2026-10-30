@@ -28,7 +28,11 @@ fn number(value: i32) -> Result<String, RpcError> {
 /// A5168c: `gh`'s first stderr line, at most 200 bytes, with the value of any secret-looking
 /// environment variable and any header line left out.
 fn first_line(stderr: &str) -> String {
-    let secrets: Vec<String> = std::env::vars()
+    first_line_hiding(stderr, secret_values())
+}
+
+fn secret_values() -> Vec<String> {
+    std::env::vars()
         .filter(|(name, value)| {
             let name = name.to_ascii_uppercase();
             value.len() >= 4
@@ -37,7 +41,10 @@ fn first_line(stderr: &str) -> String {
                     .any(|word| name.contains(word))
         })
         .map(|(_, value)| value)
-        .collect();
+        .collect()
+}
+
+fn first_line_hiding(stderr: &str, secrets: Vec<String>) -> String {
     let mut line = stderr
         .lines()
         .map(str::trim)
@@ -59,7 +66,17 @@ fn first_line(stderr: &str) -> String {
 }
 
 async fn gh(dir: &std::path::Path, args: &[&str], stdin: Option<&str>) -> Result<String, RpcError> {
-    let mut child = tokio::process::Command::new("gh")
+    run("gh".as_ref(), dir, args, stdin).await
+}
+
+/// `program` is `gh` itself; a test names a fake.
+async fn run(
+    program: &std::ffi::OsStr,
+    dir: &std::path::Path,
+    args: &[&str],
+    stdin: Option<&str>,
+) -> Result<String, RpcError> {
+    let mut child = tokio::process::Command::new(program)
         .args(args)
         .current_dir(dir)
         .stdin(if stdin.is_some() {
@@ -258,5 +275,101 @@ impl Daemon {
                     .await?,
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    /// A fake `gh` that records its argv, directory and stdin, then runs `body`.
+    fn fake_gh(dir: &std::path::Path, body: &str) -> std::path::PathBuf {
+        let script = dir.join("gh");
+        std::fs::write(
+            &script,
+            format!(
+                "#!/bin/sh\necho \"$@\" >> \"$0.argv\"\npwd > \"$0.cwd\"\ncat > \"$0.stdin\" < /dev/stdin\n{body}\n"
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        script
+    }
+
+    #[tokio::test]
+    async fn a5168d_gh_runs_in_the_project_folder_with_its_argv() {
+        let bin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        let fake = fake_gh(bin.path(), "echo '{}'");
+        run(
+            fake.as_ref(),
+            project.path(),
+            &["pr", "edit", "7", "--body-file", "-"],
+            Some("hello"),
+        )
+        .await
+        .unwrap();
+        let read = |name: &str| std::fs::read_to_string(bin.path().join(name)).unwrap();
+        assert_eq!(read("gh.argv").trim(), "pr edit 7 --body-file -");
+        assert_eq!(read("gh.stdin"), "hello");
+        let cwd = std::fs::canonicalize(project.path()).unwrap();
+        assert_eq!(read("gh.cwd").trim(), cwd.to_str().unwrap());
+    }
+
+    #[tokio::test]
+    async fn a5168c_a_non_zero_exit_returns_the_first_stderr_line() {
+        let bin = tempfile::tempdir().unwrap();
+        let fake = fake_gh(
+            bin.path(),
+            "echo 'gh: not logged in' >&2; echo second >&2; exit 1",
+        );
+        let err = run(fake.as_ref(), bin.path(), &["pr", "view", "1"], None)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::INTERNAL);
+        assert_eq!(err.message, "gh: gh: not logged in");
+    }
+
+    #[tokio::test]
+    async fn a5168c_a_missing_gh_names_gh() {
+        let empty = tempfile::tempdir().unwrap();
+        let absent = empty.path().join("gh");
+        let err = run(absent.as_ref(), empty.path(), &["pr", "view", "1"], None)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::INTERNAL);
+        assert!(
+            err.message.starts_with("gh could not run"),
+            "{}",
+            err.message
+        );
+    }
+
+    #[tokio::test]
+    async fn a5168c_garbage_output_is_an_error_not_a_panic() {
+        let Err(err) = parse::<RawPr>("<html>") else {
+            panic!("garbage parsed");
+        };
+        assert_eq!(err.code, code::INTERNAL);
+        assert!(err.message.contains("gh"));
+    }
+
+    #[test]
+    fn a5168c_the_error_holds_no_environment_value() {
+        let line = first_line_hiding(
+            &format!("bad credentials ghp_secretvalue123 {}", "x".repeat(300)),
+            vec!["ghp_secretvalue123".into()],
+        );
+        assert!(!line.contains("ghp_secretvalue123"));
+        assert!(line.len() <= LINE_MAX);
+    }
+
+    #[test]
+    fn a5168a_a_bad_number_runs_no_gh() {
+        for bad in [0, -3] {
+            assert_eq!(number(bad).unwrap_err().code, code::INVALID_PARAMS);
+        }
+        assert_eq!(number(5).unwrap(), "5");
     }
 }

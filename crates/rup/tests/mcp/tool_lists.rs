@@ -105,7 +105,7 @@ pub const TOOL_METHODS: [&str; 90] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-pub const DOOR_METHODS: [&str; 7] = [
+pub const DOOR_METHODS: [&str; 12] = [
     "agent.digest",
     // LC7, LC8
     "agent.extras",
@@ -115,6 +115,12 @@ pub const DOOR_METHODS: [&str; 7] = [
     "checkpoint.write",
     "workstream.rewindPlan",
     "workstream.rewind",
+    // A5168a, A5168b
+    "github.prGet",
+    "github.issueGet",
+    "github.prSetBody",
+    "github.prReady",
+    "github.prAutoMerge",
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
