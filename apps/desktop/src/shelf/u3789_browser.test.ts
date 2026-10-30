@@ -35,6 +35,7 @@ const shot = async (id: string, stage: string, step: string): Promise<Checks> =>
         .map(control => control.getAttribute('aria-label'))
     }))
   })`);
+
   let picture: string | undefined;
 
   for (const directory of [captureDir(id), ...(id === "U4908" ? [captureDir("U4708"), ...ageCaptures()] : [])]) {
