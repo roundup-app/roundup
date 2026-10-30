@@ -459,6 +459,11 @@
       "clause": "Required implementation CI, including T16/T17, Message laws, all Rust/web lanes and macOS",
       "url": "https://github.com/roundup-app/roundup/actions/runs/40994414253",
       "conclusion": "success"
+    },
+    {
+      "clause": "Full readiness on clean merged head",
+      "command": "timeout 290 env NODE_COMPILE_CACHE=/tmp/4920-node-cache just ready",
+      "exit_code": 124
     }
   ],
   "audit": {
@@ -564,5 +569,31 @@
       }
     }
   },
-  "native_claim": "Linux Chromium observation only; the user reports what they meet on the Mac."
+  "native_claim": "Linux Chromium observation only; the user reports what they meet on the Mac.",
+  "integration": {
+    "main": "b4973e174",
+    "merge": "4a31e885976ea6454f61c69dbcfec838648e02c7",
+    "result": "Clean merge, no conflict resolution; merge-loss passes. Incoming changes affect unrelated test/lint files, with no product change after capture."
+  },
+  "readiness_attempts": [
+    {
+      "checkout": "original main",
+      "exit_code": 124,
+      "cause": "Cold lint fixture suite exceeded 290 seconds"
+    },
+    {
+      "checkout": "original main with Node compile cache",
+      "exit_code": 124,
+      "cause": "Lint fixture suite exceeded 290 seconds during compilation/capture"
+    },
+    {
+      "checkout": "evidence worktree before integrating newer main",
+      "exit_code": 143,
+      "cause": "Stopped to integrate main before final verification"
+    },
+    {
+      "checkout": "merged evidence head",
+      "exit_code": 124
+    }
+  ]
 }
