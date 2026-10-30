@@ -121,6 +121,10 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
   if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", `interaction-${kind}.webm`)); await wait("window.__fake && document.querySelector('.rail-tree')"); }
 
   try {
+    // Recording starts a fresh browser context, so restore the observer media there.
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await wait("matchMedia('(prefers-color-scheme: dark)').matches");
     await overview();
 
     if (seed === "tree-40") await dense();
