@@ -825,9 +825,13 @@ impl Daemon {
         &self,
         actor: &Actor,
         world: &crate::digest::World,
-        p: CreateParams,
+        mut p: CreateParams,
         pin: Option<Result<String, RpcError>>,
     ) -> Result<Reaction, RpcError> {
+        p.reason = p.reason.trim().to_owned();
+        if p.reason.is_empty() || p.reason.contains(['\r', '\n']) {
+            return Err(invalid("reason must be one nonempty line"));
+        }
         let request = serde_json::to_string(&p).map_err(RpcError::internal)?;
         let mut db = self
             .reactions
@@ -887,6 +891,7 @@ impl Daemon {
             id: id.clone(),
             name: p.name,
             actor: actor.clone(),
+            reason: Some(p.reason),
             home: target.parent.clone(),
             target: p.target,
             instruction: p.instruction,

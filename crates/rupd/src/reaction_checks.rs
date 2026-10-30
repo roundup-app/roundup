@@ -533,7 +533,7 @@ mod tests {
             "operation": format!("{repository}#{number}#{}", pin),
             "name": "ship",
             "target": target,
-            "instruction": "ship it",
+            "reason": "Wait for the pinned checks.", "instruction": "ship it",
             "condition": {"kind": "pr-checks", "repository": repository, "number": number},
             "expires_at": "2099-01-01T00:00:00Z",
         }))
@@ -587,7 +587,7 @@ mod tests {
                 .to_owned();
             let params = serde_json::from_value(json!({
                 "operation": "authorized-checks", "name": "ship", "target": target,
-                "instruction": "revoked checks instruction",
+                "reason": "Wait for the pinned checks.", "instruction": "revoked checks instruction",
                 "condition": {"kind": "pr-checks", "repository": REPO, "number": 23},
                 "expires_at": "2099-01-01T00:00:00Z",
             }))
@@ -685,7 +685,7 @@ mod tests {
         forge(&head, "pending");
         let params = json!({
             "operation": "pending-head", "name": "when checks pass", "target": target,
-            "instruction": "review this PR",
+            "reason": "Wait for the pinned checks.", "instruction": "review this PR",
             "condition": { "kind": "pr-checks", "repository": REPO, "number": 23 },
             "expires_at": "2099-01-01T00:00:00Z"
         });
@@ -735,7 +735,7 @@ mod tests {
                 "reaction.create",
                 json!({
                     "operation": "moved-head", "name": "when checks pass", "target": target,
-                    "instruction": "do not deliver after a head change",
+                    "reason": "Wait for the pinned checks.", "instruction": "do not deliver after a head change",
                     "condition": { "kind": "pr-checks", "repository": REPO, "number": 23 },
                     "expires_at": "2099-01-01T00:00:00Z"
                 }),
@@ -762,7 +762,7 @@ mod tests {
                     "reaction.create",
                     json!({
                         "operation": format!("no-identity-{unavailable}"), "name": "refused",
-                        "target": target, "instruction": "must not save",
+                        "target": target, "reason": "Wait for the pinned checks.", "instruction": "must not save",
                         "condition": { "kind": "pr-checks", "repository": REPO, "number": 23 },
                         "expires_at": "2099-01-01T00:00:00Z"
                     }),
@@ -910,7 +910,7 @@ mod tests {
             .unwrap();
         let params = serde_json::from_value(json!({
             "operation": "expiring-checks", "name": "ship", "target": target,
-            "instruction": "ship it",
+            "reason": "Wait for the pinned checks.", "instruction": "ship it",
             "condition": {"kind": "pr-checks", "repository": REPO, "number": 23},
             "expires_at": stamp,
         }))
