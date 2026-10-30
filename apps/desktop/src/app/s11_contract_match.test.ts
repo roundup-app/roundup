@@ -1,3 +1,4 @@
+import { copy } from "./copy";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RpcMethods } from "@contracts/methods";
@@ -41,7 +42,7 @@ describe("s11 the App says when the Daemon is not the one it was built with", ()
   it("s11_an_older_daemon_is_named_before_any_call", async () => {
     const { app, connected } = await connectTo({ fingerprint: "old", methods: ours.slice(1) });
 
-    expect(connected.contractNotice).toBe("The Daemon is older than the App. Quit and run `just app` again to rebuild it.");
+    expect(connected.contractNotice).toBe(copy.theDaemonIsOlderThanTheApp(copy.quitAndRunJustAppAgainToRebuild));
     expect(app.calls[0]?.method).toBe("daemon.ping");
     expect(app.calls.filter((call) => call.method === "daemon.methods")).toHaveLength(1);
     expect(app.calls.filter((call) => call.method === "daemon.ping")).toHaveLength(1);
@@ -50,13 +51,13 @@ describe("s11 the App says when the Daemon is not the one it was built with", ()
   it("s11_a_newer_daemon_is_named", async () => {
     const { connected } = await connectTo({ fingerprint: "new", methods: [...ours, "future.method"] });
 
-    expect(connected.contractNotice).toBe("The Daemon is newer than the App. Quit and run `just app` again to rebuild it.");
+    expect(connected.contractNotice).toBe(copy.theDaemonIsNewerThanTheApp(copy.quitAndRunJustAppAgainToRebuild));
   });
 
   it("s11_a_mixed_difference_says_they_differ", async () => {
     const mixed = await connectTo({ fingerprint: "x", methods: [...ours.slice(1), "future.method"] });
     const retyped = await connectTo({ fingerprint: "x", methods: ours });
-    const text = "The App and the Daemon differ. Quit and run `just app` again to rebuild it.";
+    const text = copy.theAppAndTheDaemonDiffer(copy.quitAndRunJustAppAgainToRebuild);
 
     expect(mixed.connected.contractNotice).toBe(text);
     expect(retyped.connected.contractNotice).toBe(text);
@@ -65,7 +66,7 @@ describe("s11 the App says when the Daemon is not the one it was built with", ()
   it("s11_a_daemon_without_a_contract_is_older", async () => {
     const { connected } = await connectTo(undefined);
 
-    expect(connected.contractNotice).toBe("The Daemon is older than the App. Quit and run `just app` again to rebuild it.");
+    expect(connected.contractNotice).toBe(copy.theDaemonIsOlderThanTheApp(copy.quitAndRunJustAppAgainToRebuild));
   });
 
   it("s11_method_not_found_names_the_method_and_the_difference", async () => {
@@ -75,7 +76,7 @@ describe("s11 the App says when the Daemon is not the one it was built with", ()
 
     await expect(createTauriApp().forProject("/p").rpc("models.list", null)).rejects.toMatchObject({
       code: -32601,
-      message: "models.list: The App and the Daemon differ. Quit and run `just app` again to rebuild it.",
+      message: copy.theAppAndTheDaemonDiffer2("models.list", copy.quitAndRunJustAppAgainToRebuild),
     });
   });
 });

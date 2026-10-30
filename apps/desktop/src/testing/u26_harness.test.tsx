@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../app/copy";
 import { copy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -61,7 +62,7 @@ describe("u26 the harness seeds", () => {
 
     const line = await screen.findByRole("alert");
 
-    expect(line.textContent).toBe("Daemon exited 1");
+    expect(line.textContent).toBe(appCopy.daemonExit("exited 1"));
     expect(line.querySelector("svg.lucide-x")).not.toBeNull();
   });
 

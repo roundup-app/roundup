@@ -1,3 +1,4 @@
+import { storageCopy as appStorageCopy } from "../app/copy";
 import { expect, it } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 
@@ -22,7 +23,7 @@ it("u4086b_continue_quarantines_one_record_and_reopens_with_explicit_copy", asyn
     expect(await lane.calls("agent.spawn")).toEqual([]);
     await lane.capture("U4086a", "head-invalid-shelf");
     await lane.evaluate("sessionStorage.setItem('u4086:fail', '1')");
-    await lane.tabTo("Continue without these settings");
+    await lane.tabTo(appStorageCopy.continue("roundup:shelf:/p"));
     await lane.browser("press", "Enter");
     await lane.until("document.querySelector('[role=alert]')?.textContent.includes('disk is full')");
     await lane.capture("U4086c", "head-save-failed");
