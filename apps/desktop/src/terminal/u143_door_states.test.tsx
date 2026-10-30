@@ -6,7 +6,7 @@ import { RpcError } from "../app/seam";
 import { agent, door, event, info, workstream } from "../testing/nodes";
 import { openTabs, path } from "../header/stripFixture";
 import { CHORDS } from "../keys/chords";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);

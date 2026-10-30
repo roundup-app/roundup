@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createSignal, on } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import "./rowButton.styles.css";

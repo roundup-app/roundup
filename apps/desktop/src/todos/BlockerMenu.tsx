@@ -1,7 +1,7 @@
 import { createMemo, createSignal } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { registerKeys } from "../keys/registry";
 import { Icon } from "../ink/Icon";
 import { Combobox } from "../ui/Combobox";
