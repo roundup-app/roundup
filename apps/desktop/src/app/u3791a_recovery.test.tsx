@@ -1,3 +1,4 @@
+import { copy as appCopy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -13,19 +14,21 @@ afterEach(cleanup);
 
 it("u3791a_daemon_third_failure_is_visible", async () => {
   const app = createFakeApp();
+  const retained = node("retained", { name: "Retained work" });
+  const failure = new Error("Cannot start Daemon");
   app.opened.project = { name: "project", path: "/p" };
-  app.handlers["rail.tree"] = () => [node("retained", { name: "Retained work" })];
+  app.handlers["rail.tree"] = () => [retained];
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
-  await screen.findByText("Retained work");
+  await screen.findByText(retained.name);
   app.exitDaemon({ code: 1, recovery: "waiting" });
-  expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull();
-  expect(screen.queryByText(/Daemon exited/)).toBeNull();
-  expect(screen.getByText("Retained work")).toBeTruthy();
-  app.exitDaemon({ code: 1, recovery: "waiting", cause: "Cannot start Daemon" });
-  expect(screen.queryByText("Cannot start Daemon")).toBeNull();
-  app.exitDaemon({ code: 1, cause: "Cannot start Daemon" });
-  expect(screen.getAllByText("Cannot start Daemon")).toHaveLength(1);
-  expect(screen.getByRole("button", { name: "Reopen" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: appCopy.reopen })).toBeNull();
+  expect(screen.queryByText(new RegExp(appCopy.daemonExit("exited")))).toBeNull();
+  expect(screen.getByText(retained.name)).toBeTruthy();
+  app.exitDaemon({ code: 1, recovery: "waiting", cause: failure.message });
+  expect(screen.queryByText(failure.message)).toBeNull();
+  app.exitDaemon({ code: 1, cause: failure.message });
+  expect(screen.getAllByText(failure.message)).toHaveLength(1);
+  expect(screen.getByRole("button", { name: appCopy.reopen })).toBeTruthy();
 });
 
 it("u3791a_reconnected_project_refetches", async () => {

@@ -498,7 +498,7 @@ export const App = (props: {
         const items = actions.filter(action => (action.value === id || action.value.startsWith(`${id}:`)) && action.available()).map(action => {
           const item: MenuItem = { id: action.value, label: row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action.label, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: available || row.keys === "⌘O" };
 
-          if (!("inRail" in row && row.inRail && (row.keys === "R" || row.keys === "M"))) item.shortcut = "press" in row ? `⌘K ${row.keys}` : action.press ? shortcutLabel(action.press) : row.keys;
+          item.shortcut = "press" in row ? `⌘K ${row.keys}` : action.press ? shortcutLabel(action.press) : row.keys;
 
           return item;
         });
