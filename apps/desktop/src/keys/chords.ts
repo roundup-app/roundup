@@ -2,7 +2,7 @@ import { appSettings } from "../settings/preferences";
 import { copy } from "./copy";
 
 /** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inFirstRun` keeps a chord in first-run Help only; `inRail` marks a chord only a focused Rail row binds (U358); `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inFirstRun?: true; inRail?: true; inTerminals?: true; inShelf?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
+export type Chord = { keys: string; what: string; presses: readonly string[]; inFirstRun?: true; inRail?: true; inTerminals?: true; inShelf?: true; inEditor?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
 export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf";
@@ -48,8 +48,15 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘=", what: copy.terminalLargerText, presses: ["meta+Equal"], inTerminals: true },
   { keys: "⌘-", what: copy.terminalSmallerText, presses: ["meta+Minus"], inTerminals: true },
   { keys: "⌘0", what: copy.terminalResetText, presses: ["meta+Digit0"], inTerminals: true },
+  { keys: "⇧⌘B", what: copy.quote, presses: ["meta+shift+KeyB"], inEditor: true },
+  { keys: "⌥⌘8", what: copy.bulletList, presses: ["alt+meta+Digit8"], inEditor: true },
+  { keys: "⌥⌘7", what: copy.numberedList, presses: ["alt+meta+Digit7"], inEditor: true },
+  { keys: "⌥⌘C", what: copy.codeBlock, presses: ["alt+meta+KeyC"], inEditor: true },
+  { keys: "⌘I", what: copy.italic, presses: ["meta+KeyI"], inEditor: true },
+  { keys: "⌘E", what: copy.inlineCode, presses: ["meta+KeyE"], inEditor: true },
   { keys: "⌘F", what: copy.find, presses: ["meta+KeyF"], inTerminals: true },
-  { keys: "⌘Z", what: copy.todoUndo, presses: ["meta+KeyZ"] },
+  { keys: "⌘Z", what: copy.undoFocused, presses: ["meta+KeyZ"] },
+  { keys: "⇧⌘Z", what: copy.redoFocused, presses: ["meta+shift+KeyZ"] },
   { keys: "⌘,", what: copy.settings, presses: ["meta+Comma"] },
   // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
   { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 7 } } },

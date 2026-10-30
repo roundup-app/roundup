@@ -73,7 +73,7 @@ it.skipIf(!captureDir("P3557c"))("p3557c_header_rendered_failure_before_and_afte
 
   await browser("eval", "[...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Copy name').click()");
   await browser("wait", "--fn", "!!document.querySelector('.header-recovery [role=alert]')");
-  await browser("eval", "[...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Discard this revision').click()");
+  await browser("eval", "[...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Discard').click()");
   await browser("wait", "--fn", "!document.querySelector('.header-recovery [role=alert]') && !document.querySelector('.draft-value')");
   await capture("discarded");
   await browser("eval", "[...document.querySelectorAll('.header-recovery button')].find(b => b.textContent === 'Close').click()");

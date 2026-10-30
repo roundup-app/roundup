@@ -187,12 +187,16 @@ pub(crate) mod tests {
     pub(crate) fn run() {
         let tests: &[(&str, fn())] = &[
             (
+                "u3787b_native_responder_find_and_close_follow_availability",
+                crate::menu::tests::u3787b_native_responder_find_and_close_follow_availability,
+            ),
+            (
                 "s2297a_a_webkit_without_the_feature_keeps_its_rate_and_says_so",
                 s2297a_a_webkit_without_the_feature_keeps_its_rate_and_says_so,
             ),
             (
-                "u4462_the_hint_takes_the_key_equivalent_colour_and_font",
-                crate::menu::tests::u4462_the_hint_takes_the_key_equivalent_colour_and_font,
+                "u4462_the_hint_uses_the_tertiary_tone_and_menu_font",
+                crate::menu::tests::u4462_the_hint_uses_the_tertiary_tone_and_menu_font,
             ),
             (
                 "u4462_the_hint_stop_is_the_key_equivalent_edge",

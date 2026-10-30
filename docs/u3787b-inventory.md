@@ -1,5 +1,13 @@
 # U3787b command menu integration
 
+Current status: the scoped App, Todo, Pad and Project-tab commands below use the
+shared registry/menu route; #5111 supplies responder Find/Close, now exercised by
+macOS CI. Remaining: complete library/native inventory (including rich-editor
+formatting), native Edit availability and final displayed-key/combined-dispatch
+observations. #4308 and #3843 stay open. Earlier sections retain evidence at its
+original implementation SHA; later continuations supersede their remaining-work
+lists.
+
 The existing `registerKeys` action registration and `captureActions` own target
 capture and availability. `App.tsx` projects the selected Project menu and handles
 `open-project-page`; `menu::select_project_menu` and `menu::app_chosen` own Tauri
@@ -23,7 +31,7 @@ This is shared integration, not Z3788a implementation or native responder proof.
 The Tauri event observer extends an existing parameterized forwarding proof rather
 than adding a duplicate. No existing behavioral test is removed or retired.
 
-## Remaining acceptance on #4308
+## Remaining acceptance at the initial slice
 
 The fixed Project task subset is not the complete real-registration inventory.
 Remaining production coverage includes scoped Shelf/list/triage commands, Rail
@@ -421,3 +429,190 @@ installed table rejects U3787b; explicit isolated captures provide this Chromium
 evidence. No native result is claimed. The new observers use three required Rail
 identities rather than the unrelated twelve-Agent inventory fixture; their
 creation, placement, input ownership and refusal assertions remain intact.
+
+
+## Native responder menu prerequisite (#5108)
+
+Implementation: `136436470b07a0c5a0cb87b8969f44481591f33f` (PR #5111). The existing native menu owner adds
+Edit > Find > Find… with `performTextFinderAction:`, nil target and the standard
+Show Find Interface tag. Its submenu uses AppKit automatic validation. File's
+standard Close Window uses the same native validation and `performClose:`.
+The existing Edit clipboard/undo commands retain their manual availability,
+including Terminal Copy's webview event route.
+
+An enabled Cmd+F registration in the projected Project menu removes responder
+Find. The Project accelerator and captured registry route remain its sole owner;
+removal/unavailability restores the responder menu without caching a selection.
+Installation also runs with no open Project. Hint decoration, nested/context
+menus, configured quick-add and Project presentation are unchanged. No test is
+removed or retired. P3/P6/P9/P11/P14 gain no attention, item changes, Agent starts,
+draft storage or usage accounting through this integration.
+
+`u3787b_native_responder_find_and_close_follow_availability` is registered in the
+existing main-thread native harness. Actual NSMenu/NSWindow objects, two focused
+NSResponder subclasses with native validation, an NSTextView and NSEvents exercise
+responder availability, captured target/focus, menu/key dispatch, Close's actual
+window and exclusive projected ownership. The existing registry/Tauri observers
+retain their captured Project and unavailable/removed-owner proofs.
+
+Local Linux: `pnpm install` and `just ready` passed; the U3787b menu, U2241 modifier and U101 clipboard
+files passed all 40 tests. All 140 desktop Rust observers passed across the initial
+run and the five-observer rerun after building their required rupd/rup binaries.
+Native macOS-target compile/clippy also passed from Linux. `cargo test -p native --locked` and native clippy passed
+on Linux; that platform runs no AppKit probe and establishes no native pass.
+macOS CI must run this implementation before native success is recorded. Earlier
+#4278 native observations and #4965 failed alignment observations keep their
+recorded SHAs; this work supplies no alignment evidence. #4308/#3843 remain open.
+
+Native rendered observer, on build `136436470b07a0c5a0cb87b8969f44481591f33f`:
+
+1. Build with `pnpm install` and `just app <a disposable Project folder>` on macOS;
+   no Claude login is needed. Focus a native editor, open Edit > Find and compare
+   the displayed Cmd+F with the key. Each must use that editor's native Find,
+   preserving its editing target. An unavailable responder must disable Find.
+2. Focus a Terminal with an existing available Find registration. Open Project:
+   Find must display Cmd+F; Edit must have no competing responder Find. Invoke
+   the menu and chord separately: each opens the registered Terminal Find once,
+   with no Terminal input. Leave/remove that owner: it must no longer act.
+   #3853 owns that UI; do not infer a delivered Terminal Find UI from this probe.
+3. Use File > Close Window and, in another launch, Cmd+W. Each must close
+   the actual App window without becoming a Project-close command. The native
+   harness separately checks two-window targeting and no-window availability.
+   Check File/Edit at startup with no Project. Menu opening must not move focus.
+4. Exercise Terminal selection Copy, editor cut/paste, configured quick-add and
+   a leader-hint Project item. They must retain their existing single action and
+   focus; a sequence hint must register no accelerator of its own.
+
+These steps decide native displayed keys and integrated window/editor/Terminal
+behavior. CI's raw AppKit harness and separate real-registry/Tauri event tests
+are recorded independently; Linux/Chromium cannot establish this native rendering.
+
+The focus-changing native probe shares nextest’s existing `native-app` group with
+the desktop AppKit observers. `.config/nextest.toml` changes scheduling only;
+no observer is skipped and no assertion or timeout is weakened.
+
+## Focused Project-tab Rename
+
+Project tabs' existing F2 binding now registers the catalogue Rename action.
+The shared Project projection exposes it only while the tab itself holds focus;
+editing, another focus target, modal ownership or removal refuses the capture.
+Menu/key reuse the same tab's existing rename editor and draft authority, with
+no Project switch, new rename behavior or context-menu change.
+
+`u3787b_menu_and_key_share_one_action: Project Rename` drives both entry paths
+through the production App and registry/menu event seam: one exact Project rename
+with its captured base, no write on opening, one editor, and retained/menu refusal
+when editing or after focus leaves. `u3787b_menu_covers_bound_commands` also visits
+Project-tab focus. Existing `u3787c_escape_restores_the_name_project_*` and the
+header U2773c observers retain cancellation and draft/conflict recovery. No test,
+behavioral assertion or timeout is removed or changed.
+
+Native prerequisite evidence has advanced: main check
+[41078101697](https://github.com/roundup-app/roundup/actions/runs/41078101697),
+SHA `b059d3caff608510c6af775b888ef1b449e1d17d`, passed `mac` and `mac-clippy`.
+Its `native::u3787b_native_responder_find_and_close_follow_availability` passed
+in 1.803 seconds, exercising actual AppKit objects and responder dispatch.
+This proves that native observer's behavior, beyond compilation; it does not
+supply displayed-key/alignment captures or integrated AppKit/webview dispatch
+in the complete App. Earlier #4278/#4965 records retain their scope and SHA.
+
+Remaining #4308 work includes the complete library/native inventory, the
+library-owned rich editor's formatting commands and current native Edit command
+availability, followed by final displayed-key and combined-dispatch observations.
+The installed Milkdown commonmark preset supplies named formatting bindings such
+as Mod-b and Mod-i; Project-tab coverage does not claim those are projected.
+Keep ordinary text/list navigation control-owned. #4308 and #3843 remain open.
+
+Rendered comparison: `artifacts/ux/U3787b/project-rename/{base,head}/`, base
+`b059d3caff608510c6af775b888ef1b449e1d17d` (production sources match the
+`72d06639d848f3beb60cc812cd46d8c1155910b3` branch base), implementation
+`5af082bd8`. Dark 1512×950 tree-40/tabs-8/conflict resting screens and the dense
+retained-name rejection pass D1–D14. The existing Rename input has the same D6
+missing-hover failure and consequent D10 failure on base and head; delta passes,
+with D2/D5 and baseline D6 preserved. The isolated keyboard recording shows F2
+opening the existing editor and Escape returning to its tab. PNGs/video remain
+uncommitted. `just capture U3787b` exits 1 because its frozen capture table rejects
+that id; explicit isolated captures supply Chromium evidence only.
+
+## Rich-editor inline formatting continuation
+
+The production Pad editor registers its installed Milkdown Bold (`⌘B`), Italic
+(`⌘I`) and Inline code (`⌘E`) commands with the existing registry. Bold shares the
+existing focus-scoped `⌘B` identity with Terminal switching; its captured editor
+label overrides the Terminal label. The region owns the command before App scope.
+Milkdown supplies the command, availability probe and document transaction; no
+parallel key dispatcher or synthetic event is added. Captures retain the document
+and selection and refuse invocation after focus leaves, content/selection changes,
+read-only state or disposal. Editor state changes refresh the menu projection.
+
+The added `u3787b_menu_and_key_share_one_action` cases use the connected App,
+production Pad editor and native-menu event seam. Either path formats only the
+chosen text once, keeps focus, refuses the stale capture and writes no Terminal
+input. Existing toolbar/reopen proofs remain unchanged. The Tauri forwarding and
+native accelerator observers add these three commands. No proof is removed or
+retired; catalogue ownership/authored-copy assertions are preserved.
+
+Installed Milkdown CommonMark also binds named block formatting: Quote
+(`⌘⇧B`), Bullet list (`⌥⌘8`), Numbered list (`⌥⌘7`), Code block (`⌥⌘C`),
+Paragraph (`⌥⌘0`) and Heading 1–6 (`⌥⌘1`–`⌥⌘6`). GFM binds Strikethrough
+(`⌥⌘X`). These remain command-menu integration work, alongside native Edit
+availability and final native displayed-key/combined-dispatch observations.
+Plain Enter, Backspace, Delete, Tab and cell/list navigation remain library-owned.
+This slice does not complete #4308 or #3843.
+
+Main macOS check [41084830368](https://github.com/roundup-app/roundup/actions/runs/41084830368)
+at `bf80a4c7a8a7983279735875b7a1cf9c09587a81` passed mac/mac-clippy and the actual
+`u3787b_native_responder_find_and_close_follow_availability` probe (1.084 s).
+It does not establish native displayed-key/alignment or complete-App combined
+dispatch. Prior native evidence retains its original scope and SHA.
+
+Rendered observer: baseline `ea7a644e36aa8779605e825323343e90df5eebed` and
+implementation `9e9514ea0c6e08561610bac88c2f1506419c508d`, isolated headless
+Chromium at 1512×950 dark. All D1–D14/D16 readings pass for tree-40, tabs-8,
+conflict, Pad Open/Bold, dense save refusal and Help. Full refusal cause/fix and
+the retained edit are visible. The 21.4-second keyboard recording and PNG images stay
+uncommitted under `artifacts/ux/U3787b/inline-format/`; paired Check readings are
+committed there. No native rendering/combined-dispatch observation is claimed.
+
+## Rich-editor block formatting continuation
+
+Quote (`⇧⌘B`), Bullet list (`⌥⌘8`), Numbered list (`⌥⌘7`) and Code block
+(`⌥⌘C`) now use the same captured editor registration as inline formatting.
+Installed Milkdown supplies their commands, shortcut definitions and dry-run
+availability. Menu projection and toolbar shortcut titles read the shared
+catalogue; shared copy owns the four labels used by Keys and Pads. No editing
+behavior, dispatcher or library navigation is replaced.
+
+The eight added `u3787b_menu_and_key_share_one_action: Pad block` cases exercise
+the production App/editor and native-menu event seam: each route formats the
+captured block once, preserves focus, refuses the retained capture after focus
+leaves and writes no Terminal input. The existing Tauri event-forwarding and
+native accelerator observers include all four chords. No existing test,
+assertion or timeout is removed or changed.
+
+Read main macOS CI [41116240329](https://github.com/roundup-app/roundup/actions/runs/41116240329),
+SHA `6956be9102c67dc05dfd4728b15a54d0239ee7b4`: mac and mac-clippy pass;
+`u3787b_native_responder_find_and_close_follow_availability` passes in 1.637 s.
+This records actual AppKit responder behavior; it supplies no displayed-key,
+alignment or complete-App combined-dispatch observation. Earlier native evidence
+retains its recorded scope and SHA.
+
+Remaining: Paragraph and Heading 1–6, GFM Strikethrough, the rest of the
+library/native inventory and native Edit availability, followed by final native
+displayed-key/combined-dispatch observations. Ordinary editing/list navigation
+remains control-owned. This continuation closes neither #4308 nor #3843.
+
+Rendered comparison: base `14aa05d8681c2c9c1d2fe8cbfa64004fa615608a`,
+implementation `52982e269ab751dbb84a4fe7bce5e76c98d103c6`, isolated headless
+Chromium at 1512×950 dark. Tree-40, tabs-8, conflict, Help, Pad editor, Quote
+and dense save refusal preserve every baseline-passing Check (D1–D14);
+`loop/rules.sh delta` passes. The full save cause/recovery and retained draft are
+visible. Paired compact Check readings are committed under
+`artifacts/ux/U3787b/block-format/`; PNG images and the keyboard recording remain
+uncommitted. `just capture U3787b` still rejects the id in the frozen capture table;
+explicit captures supply Chromium evidence only.
+
+Option-modified formatting uses the registry's existing physical-code matching;
+inline formatting keeps its existing logical-letter matching. The Code block key
+case sends macOS Option-C's `ç` with `KeyC`, so a localized key character cannot
+silently bypass the captured command while its native menu item works.

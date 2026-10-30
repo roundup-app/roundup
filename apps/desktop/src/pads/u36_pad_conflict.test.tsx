@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -659,7 +660,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   });
 
   fireEvent.input(field, { target: { value: "selected" } });
-  fireEvent.click(await body.findByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(await body.findByRole("button", { name: recoveryCopy.discardRevision }));
   expect(connected.drafts.list()).toEqual([]);
   expect(field.value).toBe("base");
   failedAgain.mockRestore();
