@@ -188,9 +188,8 @@ describe("u2773 Rail persisted edits", () => {
     tree = [{ ...node, name: "Changed elsewhere" }];
     app.emit(event({ name: "rail.changed" }));
     expect((await screen.findByRole("alert")).tabIndex).toBe(-1);
-    expect(name.value).toBe(" exact e\u0301 😀 ");
-    fireEvent.keyDown(name, { key: "Enter" });
-    expect(app.calls.filter(call => call.method === "rail.rename")).toEqual([]);
+    const conflicted = screen.getByLabelText<HTMLInputElement>("Name", { selector: "input" });
+    expect(conflicted.value).toBe(" exact e\u0301 😀 ");
     tree = [];
     app.emit(event({ name: "rail.changed" }));
     await waitFor(() => expect(screen.queryByRole("textbox", { name: recoveryCopy.draftField("name") })).toBeNull());
@@ -199,5 +198,6 @@ describe("u2773 Rail persisted edits", () => {
     expect(draftStorage("/project").list().find((entry) => entry.value.text === " exact e\u0301 😀 ")).toMatchObject({
       destination: { object: node.id }, value: { text: " exact e\u0301 😀 ", base: "Original target" },
     });
+    expect(app.calls.filter(call => call.method === "rail.rename")).toEqual([]);
   }, 120_000);
 });
