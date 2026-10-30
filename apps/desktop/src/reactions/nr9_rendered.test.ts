@@ -222,7 +222,7 @@ it.skipIf(!captureDir("U3787c")).each(["agents-10", "tree-40", "tabs-8", "confli
   }
 }, 60_000);
 
-it.skipIf(!captureDir("NR9"))("nr9_agent_overview_rendered", async () => {
+it.skipIf(!captureDir("NR9"))("nr9_agent_overview_rendered", { timeout: 120_000, retry: 0 }, async () => {
   const { browser, evaluate, wait, close } = await reactionBrowser();
   const server = await appServer();
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
@@ -234,7 +234,7 @@ it.skipIf(!captureDir("NR9"))("nr9_agent_overview_rendered", async () => {
       await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(checks));
       await browser("screenshot", join(dir, `${step}.png`));
     }
-    for (const id of ["D2", "D5", "D6"] as const) expect(checks[id], `${step} ${id}`).toMatchObject({ status: "pass" });
+    for (const id of CHECK_IDS) expect(checks[id], `${step} ${id}`).toMatchObject({ status: "pass" });
   };
   try {
     await browser("set", "viewport", "1512", "950");
@@ -242,6 +242,9 @@ it.skipIf(!captureDir("NR9"))("nr9_agent_overview_rendered", async () => {
     await browser("record", "start", join(dirs[0]!, "overview.webm"));
     await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=agents-10`);
     await wait("!!window.__fake && !!document.querySelector('.project-tab[data-selected=true]')");
+    await evaluate('localStorage.setItem("roundup:app-settings", JSON.stringify({mode:"dark"}))');
+    await browser("reload");
+    await wait("!!window.__fake && document.documentElement.dataset.mode === 'dark'");
     await evaluate(`(() => {
       const path = document.querySelector('.project-tab[data-selected=true]').dataset.path;
       const app = window.__fake.app.of(path);
@@ -287,4 +290,4 @@ it.skipIf(!captureDir("NR9"))("nr9_agent_overview_rendered", async () => {
     try { await browser("record", "stop"); }
     finally { await close(); await server.close(); }
   }
-}, 120_000);
+});

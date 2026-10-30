@@ -73,6 +73,7 @@ it("nr9_inspect_stop_run_in_overview", async () => {
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", false));
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", true));
+  expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "reaction.stop").map(call => call.params)).toEqual([{ id: "r1", operation: expect.any(String) }, { id: "r1" }]);
   fireEvent.click(within(detail).getByRole("button", { name: /^Close/ }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it/ })));
 });
@@ -172,9 +173,12 @@ it.each([
 });
 
 it("u4276c_list_opens_exact_reaction", async () => {
-  const { app } = await mount(() => [saved({ home: "alpha" }), saved({ id: "r2", home: "beta", instruction: "second" })], [workstream("alpha"), workstream("beta")]);
+  const records = [saved({ home: "alpha", actor: { kind: "agent", id: "maker-a", parent: null }, reason: "First prerequisite" }), saved({ id: "r2", home: "beta", instruction: "second", actor: { kind: "agent", id: "maker-b", parent: null }, reason: "Second prerequisite" })];
+  const { app } = await mount(() => records, [workstream("alpha"), workstream("beta"), agent("maker-a", "idle", "ready", { name: "Same maker", parent: "alpha" }), agent("maker-b", "idle", "ready", { name: "Same maker", parent: "beta" })]);
   fireEvent.click(await screen.findByRole("button", { name: /Ship it.*beta/ }));
   await screen.findByText("second");
+  expect(screen.getByText("Second prerequisite")).toBeTruthy();
+  expect(screen.getByText(copy.reactionActor("agent", copy.draftIdentity("Same maker", "beta")))).toBeTruthy();
   expect(app.calls.filter(call => call.method === "reaction.get").map(call => call.params)).toEqual([{ id: "r2" }]);
   fireEvent.click(screen.getByRole("button", { name: "Close Ship it" }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it.*beta/ })));
@@ -363,4 +367,22 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_list_%s", asy
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(connected.drafts.list()).toEqual(before);
   expect(screen.getByRole("button", { name: /Ship it/ })).toBeTruthy();
+});
+
+it.each(["reaction.stop", "reaction.run"] as const)("nr9_list_actions_keep_selected_identity_after_refusal_%s", async method => {
+  const records = [saved(), saved({ id: "r2", home: "beta", actor: { kind: "agent", id: "a", parent: null }, reason: "Wait for review" })];
+  const { app } = await mount(() => records, [workstream("beta")]);
+  const row = (await screen.findByRole("button", { name: /Ship it.*beta/ })).closest("li")!;
+  const action = () => within(row).getByRole("button", { name: method === "reaction.stop" ? copy.reactionStop : copy.reactionRun });
+  app.handlers[method] = () => { throw new Error("Access refused. Restore access and retry."); };
+  fireEvent.click(action());
+  await within(row).findByRole("alert", { name: "Access refused. Restore access and retry." });
+  app.handlers[method] = () => records[1]!;
+  await waitFor(() => expect(action()).toHaveProperty("disabled", false));
+  fireEvent.click(action());
+  await waitFor(() => expect(within(row).queryByRole("alert")).toBeNull());
+  expect(app.calls.filter(call => call.method === method).map(call => call.params)).toEqual([
+    expect.objectContaining({ id: "r2" }), expect.objectContaining({ id: "r2" }),
+  ]);
+  expect(app.calls.filter(call => call.method === "reaction.create" || call.method === "agent.spawn")).toHaveLength(0);
 });
