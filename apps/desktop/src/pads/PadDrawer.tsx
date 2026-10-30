@@ -1,5 +1,5 @@
 import { historyRegion } from "../keys/focus";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, keepRegionFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
 import { createCutTitle } from "../ui/cutTitle";
@@ -356,6 +356,7 @@ const PadBody = (props: {
       focus(() => { if (document.activeElement === document.body) close?.focus({ preventScroll: true }); });
       connected.drawer.close(source);
       queueMicrotask(() => connected.drafts.todoUndo.handoff(`pad:${destination.object}`, historyRegion(document.activeElement)));
+      await keepRegionFocus(list.reload, ".pad-name");
     });
 
   const onChange = () => {

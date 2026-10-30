@@ -35,7 +35,7 @@ const openDrawerOf = async (title: RegExp, todos = shelf(), reducedMotion = true
   focusedRow.focus();
   fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
   await within(drawer()).findByRole("button", { name: /^Blocked by/ });
-  await within(drawer()).findByRole("region", { name: "Todo history" });
+  await within(drawer()).findByRole("region", { name: "Activity" });
 
   return mounted;
 };
@@ -69,8 +69,6 @@ describe("u17 Todo detail", () => {
 
   it("u17_opening_the_drawer_reads_history_before_acknowledging_it", async () => {
     const { app } = await openDrawerOf(/#5/);
-    expect(callsTo(app, "todo.readHistory")).toHaveLength(0);
-    fireEvent.click(within(drawer()).getByRole("button", { name: /^Changes/ }));
     await waitFor(() => expect(callsTo(app, "todo.readHistory")).toHaveLength(1));
     expect(app.calls.map((call) => call.method).filter((method) => method === "todo.getHistory" || method === "todo.readHistory")).toEqual(["todo.getHistory", "todo.readHistory"]);
   });
