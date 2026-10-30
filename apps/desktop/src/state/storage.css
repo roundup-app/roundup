@@ -73,12 +73,7 @@
   grid-area: 1 / 1;
 }
 
-/* U3787a: persistent live feedback overlays the centre without moving its content. */
-.todo-undo[data-overlay][data-empty="true"] {
-  background: var(--transparent);
-  pointer-events: none;
-}
-
+/* U3787a: failure feedback clears the Terminal bar and its hints. */
 .todo-undo[data-overlay="true"] {
   bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
   padding-inline: var(--space-3);
