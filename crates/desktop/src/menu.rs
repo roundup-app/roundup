@@ -213,12 +213,14 @@ fn kind<R: Runtime>(
     project_kind(app, item, build).map(|(entry, _)| entry)
 }
 
+type MenuHints = Vec<(Vec<usize>, String)>;
+
 // The constructor is the platform boundary: observers can inspect the actual arguments supplied to Tauri.
 fn project_kind<R: Runtime>(
     app: &AppHandle<R>,
     item: &Item,
     build: impl Fn(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>> + Copy,
-) -> tauri::Result<(MenuItemKind<R>, Vec<(Vec<usize>, String)>)> {
+) -> tauri::Result<(MenuItemKind<R>, MenuHints)> {
     if let Some(children) = &item.children {
         let sub = Submenu::new(app, &item.label, item.enabled)?;
         let mut hints = Vec::new();
