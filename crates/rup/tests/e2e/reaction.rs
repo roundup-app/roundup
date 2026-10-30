@@ -1239,3 +1239,92 @@ async fn nr5_failed_watch_save_retains_unmatched_evidence_in_memory() {
         json!(completed.firings[0].message)
     );
 }
+
+#[tokio::test]
+async fn nr11_invalid_reason_saves_nothing() {
+    let s = scene(&[]).await;
+    for reason in [None, Some(Value::Null), Some(json!(7)), Some(json!("")), Some(json!(" \t ")), Some(json!("why\nnow")), Some(json!("why\rnow"))] {
+        let mut body = definition(&s.w, "go");
+        body["condition"]["ids"] = json!([s.a]);
+        body.as_object_mut().unwrap().remove("reason");
+        if let Some(reason) = reason { body["reason"] = reason; }
+        let error = s.as_w.request("reaction.create", body).await.unwrap_err();
+        assert_eq!(error.code, code::INVALID_PARAMS);
+    }
+    assert!(listed(&s.user).await.is_empty());
+    assert!(messages(&s.user, &s.w, "").await.is_empty());
+}
+
+#[tokio::test]
+async fn nr11_agent_creation_retains_maker_and_reason() {
+    let mut s = scene(&[]).await;
+    let mut shim = super::Shim::start(&s.project, &s.w).await;
+    let mut body = definition(&s.w, "deliver these exact words");
+    body["condition"]["ids"] = json!([s.a]);
+    body["reason"] = json!("  Wait for the prerequisite before continuing. \t");
+    let saved = shim.call("reaction_create", body).await;
+    assert_eq!(saved["reason"], "Wait for the prerequisite before continuing.");
+    assert_eq!(saved["actor"]["kind"], "agent");
+    assert_eq!(saved["actor"]["id"], s.w);
+    let id = saved["id"].clone();
+    let get = shim.call("reaction_get", json!({"id": id})).await;
+    assert_eq!(get["reason"], saved["reason"]);
+    assert_eq!(get["actor"], saved["actor"]);
+    let list = shim.call("reaction_list", json!({})).await;
+    assert_eq!(list[0]["reason"], saved["reason"]);
+    assert_eq!(list[0]["actor"], saved["actor"]);
+    drop(shim);
+    // Removing the maker must not remove or reconstruct its saved identity.
+    s.user.request("rail.remove", json!({"id": s.w})).await.unwrap();
+    drop(s.user);
+    s.project.restart(&[]);
+    let user = s.project.client().await;
+    let kept = user.request("reaction.get", json!({"id": id})).await.unwrap();
+    assert_eq!(kept["reason"], saved["reason"]);
+    assert_eq!(kept["actor"], saved["actor"]);
+    let list = user.request("reaction.list", Value::Null).await.unwrap();
+    assert_eq!(list[0]["reason"], saved["reason"]);
+    assert_eq!(list[0]["actor"], saved["actor"]);
+}
+
+#[tokio::test]
+async fn nr11_reason_retry_preserves_definition() {
+    let s = scene(&[]).await;
+    let mut body = definition(&s.w, "go");
+    body["condition"]["ids"] = json!([s.a]);
+    body["reason"] = json!(" \tWait for tests.  ");
+    let first = made(&s.as_w, "reaction.create", body.clone()).await;
+    body["reason"] = json!("Wait for tests.");
+    let again = made(&s.as_w, "reaction.create", body.clone()).await;
+    assert_eq!(first, again);
+    body["reason"] = json!("A different reason.");
+    let error = s.as_w.request("reaction.create", body.clone()).await.unwrap_err();
+    assert_eq!(error.code, code::CONFLICT);
+    for authority in ["maker", "actor"] {
+        body["operation"] = json!(authority);
+        body[authority] = json!({"kind": "user", "id": "forged", "parent": null});
+        let error = s.as_w.request("reaction.create", body.clone()).await.unwrap_err();
+        assert_eq!(error.code, code::INVALID_PARAMS);
+        body.as_object_mut().unwrap().remove(authority);
+    }
+    assert_eq!(listed(&s.user).await, vec![first]);
+}
+
+#[tokio::test]
+async fn nr11_legacy_reason_is_absent() {
+    let mut s = scene(&[]).await;
+    let mut body = definition(&s.w, "legacy instruction");
+    body["condition"]["ids"] = json!([s.a]);
+    let saved = made(&s.as_w, "reaction.create", body).await;
+    drop(s.user);
+    s.project.crash();
+    // Model an already-saved pre-NR11 definition, without changing any accepted firing.
+    project_db(&s.project).execute("UPDATE reactions SET record=json_remove(record, '$.reason'), request=json_remove(request, '$.reason') WHERE id=?1", [&saved.id]).unwrap();
+    s.project.restart(&[]);
+    let user = s.project.client().await;
+    let kept = user.request("reaction.get", json!({"id": saved.id})).await.unwrap();
+    assert_eq!(kept.get("reason"), Some(&Value::Null));
+    assert_eq!(kept["actor"], serde_json::to_value(&saved.actor).unwrap());
+    let list = user.request("reaction.list", Value::Null).await.unwrap();
+    assert_eq!(list[0].get("reason"), Some(&Value::Null));
+}
