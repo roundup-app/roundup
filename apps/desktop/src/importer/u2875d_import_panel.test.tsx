@@ -432,7 +432,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       // Requested Ask sections become an overlay on Rail selection; close them before editing there.
       await lane.browser("find", "role", "button", "click", "--name", "Close Made");
       await lane.until("!document.querySelector('.made-row')");
-      await lane.browser("find", "role", "button", "click", "--name", "Close Named reactions");
+      await lane.browser("find", "role", "button", "click", "--name", "Close Reactions");
       await lane.until("!document.querySelector('.reaction-row')");
       await lane.evaluate(`(() => {
         Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
