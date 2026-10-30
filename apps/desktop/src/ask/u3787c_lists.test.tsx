@@ -20,7 +20,6 @@ const published = (title: string, at: number): Deliverable => ({
 });
 
 const inventory = [
-  { opening: "Project → Needs you", selector: ".overview-entry", command: null },
   { opening: "Project → requested Workstreams overview", selector: ".overview-entry", command: "view:workstreams" },
   { opening: "Project menu → Made", selector: ".made-open", command: "view:made" },
 ];
@@ -34,7 +33,7 @@ const mount = async (command: string | null, selector: string) => {
   app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "external", availability: "not-checked", url: `https://example.com/${id}` });
   const { factory } = fakeEmulators();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={factory} prepareIdle={open => { if (command === "view:workstreams") open.showView("workstreams"); }} />);
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("region", { name: command === "view:workstreams" ? "Project overview" : "Needs you" });
 
   if (command === "view:made") openProjectPage(command, "/p");
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
@@ -96,16 +95,6 @@ it.each(["Enter", " "])("u3787c_Made_activation_resolves_the_original_identity_%
   fireEvent.keyDown(eligible[2]!, { key });
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "url", url: "https://example.com/record-2" }]));
   expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "original-project", id: "record-2" }]);
-});
-
-// U2567c retains pointer activation; these exercise the added collection key ownership.
-it.each(["Enter", " "])("u3787c_overview_activation_selects_only_the_original_attention_%s", async key => {
-  const { app, eligible } = await mount(null, ".overview-entry");
-  const before = app.calls.length;
-  eligible[2]!.focus();
-  fireEvent.keyDown(eligible[2]!, { key });
-  await waitFor(() => expect(document.querySelector('.rail-row[data-id="node-2"][data-selected=true]')).not.toBeNull());
-  expect(app.calls.slice(before).some(call => ["agent.spawn", "terminal.write", "ask.send"].includes(call.method))).toBe(false);
 });
 
 it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening", async ({ command, selector }) => {

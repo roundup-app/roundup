@@ -52,6 +52,7 @@ const open = async (openingPrompt = "") => {
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));
+  await waitFor(() => expect(app.calls.some(call => call.method === "todo.unread")).toBe(true));
 
   return app;
 };

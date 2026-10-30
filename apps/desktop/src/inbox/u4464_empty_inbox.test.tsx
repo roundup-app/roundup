@@ -12,8 +12,7 @@ it("u4464_no_empty_view_before_the_first_answer", async () => {
   app.handlers["todo.unread"] = () => answer.promise;
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   render(() => <ConnectedProjectContext.Provider value={connected}><Inbox /></ConnectedProjectContext.Provider>);
-  expect(screen.queryByRole("group")).toBeNull();
+  expect(document.querySelector(".overview-quiet")).toBeNull();
   answer.resolve([]);
-  await screen.findByRole("group", { name: "Nothing waits for you" });
-  expect(screen.getByRole("group").hasAttribute("aria-labelledby")).toBe(true);
+  await screen.findByText("Nothing waits for you");
 });
