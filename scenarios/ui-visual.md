@@ -80,6 +80,8 @@ Policy: native implementation stays in desktop window setup and webview Tokens. 
 
 ### U135–U137 completion observers
 
+Observer need (T3779c): `testing/u362_todo_drag.test.ts::u137_compound_ground_never_silently_ignores_full_coverage` feeds a compound layered background to the production Checks. Real Chromium computes the nested transparent button’s rendered background and text contrast; the assertion checks D5/D10 reject that low-contrast input, rather than asserting a product layout or copied Token value. jsdom has no rendered background/geometry for this Check.
+
 Policy: at 1512×950 in dark, capture `first-run`, `agents-10`, `tree-40`, `daemon-exits` and `conflict` with the existing harness, plus open Drawer/menu/Shelf and Terminal tabs. Show failure text on the densest state. Drive pointer and keyboard press, release, focus, selection and drag on each row class; record first-frame press feedback and the cue comparisons. Run `just capture U130 U131 U132 U133 U134 U135 U136 U137`; keep PNG/video artifacts uncommitted under `artifacts/ux/<id>/`, alongside baseline/head Checks readings. Same renderer, pixel ratio, seed and baseline for comparisons. Missing measurements fail, never silently pass.
 
 Policy: the critic judges D2, D5, D6 and every extended Check; no Check passing on main may regress. `window.__checks()` retains its U137 shape and original checks; source lint evidence contributes to D9, native evidence to D10. A browser with no native observer cannot assert a native pass. Existing `u137_reading_the_page_changes_nothing_the_user_sees` and `u137_a_check_it_cannot_measure_fails_as_not_measurable` remain the observer safety contracts; paint and geometry stay critic evidence.
@@ -234,5 +236,3 @@ Given the complete authored stylesheet set after the audit, when `pnpm lint:styl
 
 
 **U3480 Terminal pane menu acceptance is retired.** Policy: #3529 removes the pane Copy/Paste/Send Menu entirely, including its reopening and note regressions, tests and captures. U3295b's surviving shared Menu/Dialog dismissal and Dialog-owned controls remain required; no Terminal Menu is kept to exercise them. U3529a–d in `ui-text-selection.md` govern selection, gestures and retained old notes.
-
-Observer need (T3779c): `testing/u362_todo_drag.test.ts::u137_compound_ground_never_silently_ignores_full_coverage` feeds a compound layered background to the production Checks. Real Chromium computes the nested transparent button’s rendered background and text contrast; the assertion checks D5/D10 reject that low-contrast input, rather than asserting a product layout or copied Token value. jsdom has no rendered background/geometry for this Check.
