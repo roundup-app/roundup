@@ -177,3 +177,11 @@ it("u471_copy_guard_ignores_tests_and_unreachable_catalogue_dependencies", () =>
 it("u471_copy_guard_rejects_unused_map_leaves", () => {
   expect(rules(fixture('message: new Map([["used", "Storage"], ["dead", "Unused"]])', 'copy.message.get("used")'))).toContain("unused-copy");
 });
+
+it("u471_copy_allowlist_fingerprints_values_behind_dynamic_map_reads", () => {
+  const files = fixture('message: new Map([["open", "Storage"]])');
+  files["app/view.ts"] = 'import {copy} from "./copy"; declare const key: string; export const view = copy.message.get(key);';
+  const baseline = checkCopy(files).inventory;
+  const changed = { ...files, "app/copy.ts": files["app/copy.ts"].replace('"Storage"', '"Other"') };
+  expect(checkCopy(changed, { baseline, previous: baseline }).diagnostics.map(each => each.rule)).toContain("baseline-stale");
+});
