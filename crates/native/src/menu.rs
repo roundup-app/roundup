@@ -339,6 +339,9 @@ pub(crate) mod tests {
             let class = |name: &std::ffi::CStr| AnyClass::get(name).expect("AppKit loaded");
             let app: Retained<AnyObject> = msg_send![class(c"NSApplication"), sharedApplication];
             let prior: Option<Retained<AnyObject>> = msg_send![&*app, mainMenu];
+            let _: bool = msg_send![&*app, setActivationPolicy: 0isize];
+            let _: () = msg_send![&*app, finishLaunching];
+            let _: () = msg_send![&*app, activateIgnoringOtherApps: true];
             let menu: Retained<AnyObject> = msg_send![class(c"NSMenu"), new];
             let mut submenus = Vec::new();
             for title in ["File", "Edit", "Project"] {
@@ -413,6 +416,19 @@ pub(crate) mod tests {
                     ));
                 }
             }
+            let editor: Retained<AnyObject> = msg_send![class(c"NSTextView"), new];
+            let _: () = msg_send![&*editor, setString: &*NSString::from_str("native editor")];
+            let content: Retained<AnyObject> = msg_send![&*windows[1], contentView];
+            let _: () = msg_send![&*content, addSubview: &*editor];
+            let accepted: bool = msg_send![&*windows[1], makeFirstResponder: &*editor];
+            assert!(accepted);
+            let _: () = msg_send![&*find_menu, update];
+            let enabled: bool = msg_send![&*find, isEnabled];
+            let target: Retained<AnyObject> =
+                msg_send![&*app, targetForAction: sel!(performTextFinderAction:)];
+            assert!(enabled && std::ptr::eq(&*target, &*editor));
+            let accepted: bool = msg_send![&*windows[1], makeFirstResponder: &*responders[1]];
+            assert!(accepted);
             // A projected registration owns the native accelerator; the responder entry
             // must be absent, so AppKit cannot fire both paths for one key equivalent.
             let terminal: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
