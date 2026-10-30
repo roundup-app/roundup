@@ -142,3 +142,9 @@
 .todo-detail-title .todo-editable { font-size: var(--text-pad-heading); line-height: 1.3; }
 .todo-meta { font-size: var(--text-title); }
 .todo-header { box-sizing: border-box; padding-inline-start: max(var(--reading-gutter), calc((100% - var(--reading-width)) / 2 + var(--reading-gutter))); }
+
+/* The shared editor scrolls with the document; its toolbar clears the sticky header. */
+.todo-detail .todo-detail-body { padding-inline: 0; flex-shrink: 0; }
+.todo-detail-body .pad-editor { overflow: visible; }
+.todo-detail-body .milkdown-top-bar { top: calc(var(--space-6) + var(--space-2) * 3 + var(--hairline-width)); z-index: 1; }
+.todo-detail-body .todo-add-notes { margin-inline: var(--reading-gutter); }
