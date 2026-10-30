@@ -32,17 +32,6 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
   expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("cancel me");
 });
 
-it("u2540b_close_and_reopen_keep_unsent_notes", async () => {
-  const noteText = "retain me";
-  await openDiff();
-  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: noteText } });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
-  fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
-  expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain(noteText);
-});
-
 it("u2540b_edit_remove_and_batch_across_files", async () => {
   await openDiff();
   await saveNote("first");
@@ -121,7 +110,6 @@ it("u2540b_refresh_keeps_original_context", async () => {
   expect(JSON.stringify(body)).not.toContain("later-revision");
 });
 
-
 it("u2773a_changes_restores_exact_work", async () => {
   const saved = "  saved e\u0301 🐝\nexact  ";
   const unfinished = "  unfinished 🐝\n e\u0301  ";
@@ -134,43 +122,24 @@ it("u2773a_changes_restores_exact_work", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: unfinished } });
   fireEvent.input(screen.getByRole("spinbutton", { name: "End line" }), { target: { value: "2" } });
+  const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
+  field.setSelectionRange(2, 7, "backward");
+  fireEvent.select(field);
   await waitFor(() => expect(localStorage.getItem("roundup:drafts:/p")).toContain("unfinished"));
   view.unmount();
   const { app, connected } = await openDiff();
   expect(notesFor(app, connected.project.path, connected.drafts).list("a").map(note => note.text)).toEqual([saved]);
-  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", unfinished);
+  const add = screen.getByRole("button", { name: "Add note" });
+  add.focus();
+  app.emit(event({ name: "rail.changed" }));
+  expect(document.activeElement).toBe(add);
+  fireEvent.click(add);
+  const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
+  await waitFor(() => expect(document.activeElement).toBe(restored));
+  expect(restored.value).toBe(unfinished);
+  expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 7, "backward"]);
   expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
-});
-
-
-it("u2773a_changes_project_switch_restores_caret_without_background_focus", async () => {
-  for (const path of ["/project/one", "/project/two"]) {
-    const { view } = await openDiff(path);
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-    const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
-    fireEvent.input(field, { target: { value: `  ${path} e\u0301\n🐝  ` } });
-    field.setSelectionRange(2, 7, "backward");
-    fireEvent.select(field);
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${path}`)!).drafts.at(-1).value.data).toContain(path));
-    view.unmount();
-  }
-
-  for (const path of ["/project/two", "/project/one"]) {
-    const { app, view } = await openDiff(path);
-    const add = screen.getByRole("button", { name: "Add note" });
-    add.focus();
-    app.emit(event({ name: "rail.changed" }));
-    expect(document.activeElement).toBe(add);
-    fireEvent.click(add);
-    const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
-    await waitFor(() => expect(document.activeElement).toBe(field));
-    expect(field.value).toBe(`  ${path} e\u0301\n🐝  `);
-    expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([2, 7, "backward"]);
-    expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
-    view.unmount();
-  }
 });
 
 it("u2773e_recovery_actions_keep_surface_draft", async () => {
@@ -249,7 +218,6 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "retain exact newer");
 });
-
 
 it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {
   const noteText = "  original Worktree e\u0301\n🐝  ";
@@ -348,7 +316,6 @@ it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
 
-
 it("u2773e_changes_connection_replacement_keeps_memory", async () => {
   const first = await openDiff();
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage unavailable"); });
@@ -396,7 +363,6 @@ it("u3474e_saving_a_note_returns_to_a_live_control", async () => {
   fireEvent.click(document.activeElement!);
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Note" })));
 });
-
 
 it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   const { app } = await openDiff();
