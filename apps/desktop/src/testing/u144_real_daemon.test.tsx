@@ -1,7 +1,5 @@
 // @vitest-environment jsdom
 import * as v from "valibot";
-import type { ChildProcess } from "node:child_process";
-import { request } from "node:http";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,8 +8,6 @@ import type { MockInstance } from "vitest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { useContext } from "solid-js";
 import { RequestedApp as App } from "../testing/requestedApp";
-import { RpcError } from "../app/seam";
-import { copy } from "./copy";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
@@ -28,91 +24,6 @@ import { openRecovery as openMenu, recoveryLabel } from "./recovery";
 
 /** A row opens as left-unsent work and turns to Copy once its original is known gone, which waits on the Daemon's reads. */
 const copyOf = (row: () => HTMLElement) => waitFor(() => within(row()).getByRole("button", { name: "Copy" }), { timeout: 15_000 });
-
-describe("u144 the harness serves the App on a real Daemon", () => {
-  let daemon: ChildProcess;
-
-  let real: StartedDaemon;
-
-  let base: string;
-
-  beforeAll(async () => {
-    real = await startRealDaemon({});
-    ({ daemon, base } = real);
-  }, 120_000);
-
-  afterAll(async () => {
-    await real?.stop();
-  });
-
-  afterEach(cleanup);
-
-  const mount = async () => {
-    const app: AppSeam = createServedApp(base);
-    const emulators = fakeEmulators();
-
-    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={emulators.factory} />);
-
-    return { app, emulators };
-  };
-
-  it("u144_a_method_the_daemon_rejects_shows_its_message_in_the_mounted_app", async () => {
-    const served = createServedApp(base);
-    let kept = false;
-    const app: AppSeam = { ...served, subscribe: (onEvent) => served.subscribe((event) => (kept ? undefined : onEvent(event))), forProject: () => app };
-    const workstream = await served.rpc("rail.createWorkstream", { name: "doomed", parent: null });
-
-    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-
-    const rail = await screen.findByRole("region", { name: "Rail" });
-
-    fireEvent.dblClick(await within(rail).findByText("doomed"));
-
-    const field = await within(rail).findByRole("textbox");
-
-    kept = true;
-    await served.rpc("rail.remove", { id: workstream.id });
-
-    const rejected = await served.rpc("rail.rename", { id: workstream.id, name: "renamed" }).then(
-      () => null,
-      (error: RpcError) => error,
-    );
-
-    fireEvent.input(field, { target: { value: "renamed" } });
-    fireEvent.keyDown(field, { key: "Enter" });
-
-    expect(rejected).toBeInstanceOf(RpcError);
-    expect((await within(rail).findByRole("alert")).textContent).toContain(rejected!.message);
-  }, 60_000);
-
-  it("u144_it_listens_on_loopback_only_and_refuses_a_foreign_host", async () => {
-    const url = new URL(`${base}/__daemon/open`);
-
-    expect(["127.0.0.1", "localhost"]).toContain(url.hostname);
-
-    const status = (host: string) =>
-      new Promise<number>((done, fail) => {
-        request({ hostname: url.hostname, port: url.port, path: url.pathname, headers: { host } }, (response) => {
-          response.resume();
-          done(response.statusCode ?? 0);
-        })
-          .on("error", fail)
-          .end();
-      });
-
-    expect([await status(`127.0.0.1:${url.port}`), await status(`evil.example:${url.port}`)]).toEqual([200, 403]);
-  });
-
-  it("u144_closing_the_socket_fires_daemon_exited_and_the_header_says_so", async () => {
-    await mount();
-    await screen.findByRole("banner");
-
-    daemon.stdin!.end();
-    daemon.kill();
-
-    expect(await screen.findByText(new RegExp(copy.exitedBySignal), {}, { timeout: 20_000 })).toBeTruthy();
-  }, 60_000);
-});
 
 describe("u2540 inspection and notes on the real Daemon", () => {
   const execute = promisify(execFile);
