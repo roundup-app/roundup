@@ -165,7 +165,7 @@ Three user settings change the look. Each has a rule in `tokens.css`:
 
 ## The checks
 
-Except D18, each check is measured from computed style and the DOM of the running App, never from pixels, on every visible element of the screen, in light and in dark. A check that cannot measure fails; it never passes by default.
+Except D18 and D19, each check is measured from computed style and the DOM of the running App, never from pixels, on every visible element of the screen, in light and in dark. A check that cannot measure fails; it never passes by default.
 
 | Id | Passes when | Scenario |
 |---|---|---|
@@ -187,6 +187,46 @@ Except D18, each check is measured from computed style and the DOM of the runnin
 | D16 | in the Thread, every text node is `--font-ui` unless it is an id, a path or code, and no Agent name wraps | U425 |
 | D17 | A tooltip sits against the element under the pointer that owns it. | U2749 |
 | D18 | The design critic approves a greyscale contact sheet of all six production Kind Glyphs side by side at 16 px in both light and dark: idle/open ring, Blocked ring with a horizontal centre bar (⊖) in the same stroke and colour as the ring, working quarter, needs-you disc in a ring, error cross in a disc, done check in a disc. Every pair is distinguishable by shape without labels or colour; include three working-arc angles (U446). This is a critic-only visual Check, not a DOM or pixel-difference test. | U401 |
+| D19 | For every added or changed icon, the design critic approves its meaning against the complete icon/status inventory below: one glyph identifies one concept, and section-head icons share no bare circle/dot/square family with their rows' status marks. Inspect changed production icons at their rendered size beside neighbours in light and dark; labels and colour cannot rescue a shape collision. | U4898 |
+
+### Icon meaning and inventory (U4898)
+
+D19 is critic-only specification policy; it adds no DOM, SVG-path or pixel assertion. Apply it to every PR adding or changing an icon, including a direct library import, status mark, dynamic name or wrapper caller. Resolve every alternative, assign its existing glossary term and role (identity, state or action), then compare the changed glyph with all inventory rows. The same action across objects is one concept; two object terms are not. Bare circles, dots, squares and rotated squares form the status families; compound drawings such as `bot` and `workflow` do not become bare squares because they contain square nodes. Render each changed icon beside its actual neighbours at its production size in both themes. The critic's explicit D19 approval is the only outside visual acceptance; no user or Mac-only check is added. U4898 specifies the paired Rail captures and retains all other passing Checks.
+
+This inventory records main's callers before U4898 implementation; arrows state the specified replacement, not an implemented claim. Paths are relative to `apps/desktop/src`. Multiple call sites with one glyph/role share a row; alternatives are listed explicitly. Refresh the table from the implementing checkout before critic review. Existing cross-term uses are visible here, not evidence that D19 already passes; each changed glyph must be compared against the entire table.
+
+| Glyph / alternatives | Glossary term and meaning | Call sites / resolved providers |
+|---|---|---|
+| `circle` → `bot` | Agent — section identity | `rail/Rail.tsx`, `sections` AGENTS |
+| `diamond` → `workflow` | Mode — section/row/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode; `rail/RailRow.tsx`, `mode-mark` |
+| `messages` | Workstream — section/create identity | `rail/Rail.tsx`, WORKSTREAMS and New Workstream |
+| `circle` | Agent — create action identity | `rail/Rail.tsx`, New Agent |
+| `layout-dashboard` | Project — overview navigation | `rail/Rail.tsx`, overview tile |
+| `diamond` | Pad / Todo — open owned content, not Mode | `rail/pads/AgentPads.tsx`, `PadsControl` |
+| `diamond` / `owned` (`diamond-plus`) | Owner — user / Agent or extension | `ink/OwnerMark.tsx`, `OwnerMark` |
+| `circle`; `check`; `diamond`; `x` | Progress / Result check / Result report — older or pending; accepted, checked or completed; unknown effect; not performed or unavailable | `orders/WorkProgress.tsx`, result state branches (existing cross-term overlaps) |
+| `check` / `order` (`file-text`) | Todo / Pad — Shelf identity; Pad row identity | `shelf/Shelf.tsx`, `ShelfTabs` through `ink/SectionHead.tsx`; `shelf/frame.ts`, `SHELF_TABS` / `PAD_ICON`; `pads/Pads.tsx` |
+| `right` / `down` | Rail / Shelf / Todo / Draft / Deliverable — disclose content | `rail/RailRow.tsx`; `rail/Rail.tsx`, both recovery summaries; `ink/SectionHead.tsx`, branch indicator; `shelf/OwnerGroups.tsx`; `todos/Todos.tsx`, dependency trigger; `todos/TodoHistory.tsx`; `ui/Disclosure.tsx`; `ask/AskBar.tsx`, Made trigger and target summary; `todos/NewWorkstream.tsx`, picker trigger |
+| `play` | Agent / Door / Terminal — start or resume | `rail/RowIcons.tsx`, resume; `rail/Rail.tsx`, Door action; `terminal/Pane.tsx`, preparation action |
+| `rotate-cw`; `stop`; `more`; `folder`; `editor` | Agent / Mode / Worktree — restart; stop; actions; open folder; open editor | `rail/RowIcons.tsx`, `RowIcon` alternatives |
+| `plus` | Agent / Todo / Pad / Terminal — add action | `rail/RowIcons.tsx`; `todos/Todos.tsx`; `todos/BlockerMenu.tsx`; `pads/Pads.tsx`; `bubbles/Bubbles.tsx` |
+| `branch` | Worktree — changed-work navigation | `changes/WorktreeControl.tsx` |
+| `memory` / `cpu` / `disk` | Resource use — resident memory / CPU / Worktree bytes | `resources/ResourceStrip.tsx`, `Value` through `Values` |
+| `talk`; `export`; `trash` | Pad — send to Agent; export; delete | `pads/PadDrawer.tsx` |
+| `trash` | Todo deletion — delete | `todos/TodoDrawer.tsx` |
+| `edit` | Draft — recover | `header/ProjectTab.tsx`; `bubbles/Bubbles.tsx` |
+| `x` | Project / Drawer / Draft / Terminal / Status / Result report — close or dismiss action | `header/ProjectTab.tsx`, close and copy failure; `drawer/DrawerHost.tsx`; `ink/ErrorLine.tsx`; `ui/IconButton.tsx`, `ExitButton`; `shelf/BulkDelete.tsx`, failure; `orders/WorkProgress.tsx`, report/read/resume failures; `bubbles/Bubbles.tsx`; `bubbles/Bubble.tsx` |
+| `minus` | Terminal — minimise action | `bubbles/Bubble.tsx` |
+| `left`, `dot`, `pause`, `clear` | No active `Icon` caller | `ink/Icon.tsx`, mapped exports only |
+| Kind Glyphs `○ ⊖ ◔ ◉ ⊗ ✓` | Kind / Glyph — idle, blocked, working, needs-you, error, done; D18 | `ink/KindGlyph.tsx`; consumers: `rail/Rail.tsx`, `rail/RailRow.tsx`, `ask/AskBar.tsx`, `ask/AskRows.tsx`, `todos/OpenRow.tsx`, `todos/Todos.tsx`, `todos/TodoDrawer.tsx`, `todos/TodoComments.tsx`, `drawer/DraftRecovery.tsx`, `importer/ImportPanel.tsx`, `switcher/Switcher.tsx`, `toasts/queue.tsx`, `inbox/Inbox.tsx`, `inbox/InboxRow.tsx` |
+| `●` | Unseen — unread result / Terminal output | `header/ProjectTab.tsx`; `rail/RailRow.tsx`; `bubbles/Bubbles.tsx`, both tab presentations; `copy.ts`, `unseenMark` |
+| `↑`, `✓ ✗ … — ! ⚠ ?`, PR number and stale text, `—` | Worktree state — ahead, CI, PR, stale or unavailable | `rail/RailRow.tsx`, worktree chips; `copy.ts`, Worktree formatters |
+| Counts / progress bars / state text | Status / Todo / Draft / Reaction / Deliverable — counts, progress and named states, not object icons | `rail/Rail.tsx`; `shelf/OwnerGroups.tsx`; `todos/Todos.tsx`, `todos/Capture.tsx`, `todos/CapturePanel.tsx`, `todos/EditableText.tsx`, `todos/TodoRefs.tsx`, `todos/TodoHistory.tsx`, `todos/TodoDrawer.tsx`; `ui/Progress.tsx`; `header/ProjectTab.tsx`; `drawer/DraftRecovery.tsx`; `pads/PadDrawer.tsx`; `reactions/Reactions.tsx`; `ask/AskRows.tsx`, `ask/AskBar.tsx`; `inbox/Inbox.tsx`; `bubbles/Bubbles.tsx` |
+| Direct Lucide `maximize` / `minimize` / `x` | Drawer / Shelf — resize / close actions | `drawer/DrawerHost.tsx`; `app/Layout.tsx` |
+| Direct `arrow-up-right`; `list-checks`; `grip-vertical` | Todo — open; Todo — triage; Pad order / Rail / Todo — reorder | `todos/OpenRow.tsx`; `todos/Todos.tsx`; `ui/sortable.tsx` |
+| Direct `hourglass`; `check` / `minus`; `chevron-down`; radio dot / switch thumb | App / Project — loading; Todo or form value — checked / mixed; form choice — disclosure; selected/on state | `App.tsx`, `ui/Deferred.tsx`; `ui/Checkbox.tsx`, `ui/Form.tsx`, `ui/Combobox.tsx`, `ui/Select.tsx`; `ui/RadioGroup.css`, `ui/Switch.css` |
+| Fixture `○`, literal `+` / `×` | Glyph / Project — test-only row mark and controls | `ui/u483Fixture.tsx`; `ui/u474Fixture.tsx`; excluded from production meaning decisions |
+
 
 ## Icon and text centring (U86)
 
