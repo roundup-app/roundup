@@ -105,10 +105,12 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
           await settle();
           await browser("wait", '.owner-picker[data-state="open"]');
           await settle();
+
           if (output) {
             await browser("screenshot", join(output, `${action}-menu-${width}.png`));
             writeFileSync(join(output, `${action}-menu-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
           }
+
           await browser("press", "Escape");
         }
 
