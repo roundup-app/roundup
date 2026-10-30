@@ -199,3 +199,19 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   expect(durable.some(draft => draft.value.name === "edited A 🌱")).toBe(true);
   expect(app.calls).toEqual(calls);
 });
+
+// U3735 replaces the mixed owner/creation observer: Home, refusal and focus remain.
+it.each(["create", "move"])("u3735_failed_create_or_move_preserves_name_%s", async step => {
+  const { app, connected } = await openShelf([]);
+  connected.rail.select(AGENT.id);
+  app.handlers[step === "create" ? "pad.create" : "pad.move"] = () => { throw new RpcError(-32602, `${step} refused`); };
+  const field = await typeName("  exact name  ");
+  await screen.findByText(new RegExp(`${step} refused`));
+  expect(field.value).toBe("  exact name  ");
+  expect(document.activeElement).toBe(field);
+  expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1);
+
+  if (step === "move") {
+    await connected.app.rpc("pad.list", null).then(pads => expect(pads).toMatchObject([{ name: "exact name", home: null }]));
+  }
+});
