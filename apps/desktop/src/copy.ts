@@ -317,7 +317,7 @@ export const copy = {
   notesAccepted: (status: string) => `Notes accepted — ${status}`,
   notesUnknown: (reason: string) => `Acceptance unknown. ${reason}`,
 
-  deletePending: "An earlier deletion is still pending. Check deletion first.", deleteUnconfirmed: "An earlier deletion is unconfirmed. Check deletion first.", todoUndo: "Undo", redo: "Redo", undoAction: (action: string) => `Undo ${action}`, redoAction: (action: string) => `Redo ${action}`, deleteAction: (count: number, noun: "Todo" | "Pad") => `Delete ${noun}${count === 1 ? "" : "s"}`, todoDeletedFeedback: (count: number, noun: "Todo" | "Pad") => `Deleted ${count} ${noun}${count === 1 ? "" : "s"}`, todoDeleteMissing: "The chosen Todo is no longer available. Refresh to check again.", todoRestoreUnknown: "Restoration is unconfirmed. Try Undo again.", todoDeleteRetry: "Check deletion", todoDeleteUnconfirmed: (ids: number[]) => `Deleting ${ids.map(id => `#${id}`).join(", ")} is unconfirmed. Check that deletion before trying Delete again.`, todoRestorePending: "Restoration is in progress. Wait for it to finish, then try Delete again.",
+  deletePending: "An earlier deletion is still pending. Check deletion first.", deleteUnconfirmed: "An earlier deletion is unconfirmed. Check deletion first.", todoUndo: "Undo", redo: "Redo", undoFocused: "Undo in focused region", redoFocused: "Redo in focused region", undoAction: (action: string) => `Undo ${action}`, redoAction: (action: string) => `Redo ${action}`, deleteAction: (count: number, noun: "Todo" | "Pad") => `Delete ${noun}${count === 1 ? "" : "s"}`, todoDeleteMissing: "The chosen Todo is no longer available. Refresh to check again.", todoRestoreUnknown: "Restoration is unconfirmed. Try Undo again.", todoDeleteRetry: "Check deletion", todoDeleteUnconfirmed: (ids: number[]) => `Deleting ${ids.map(id => `#${id}`).join(", ")} is unconfirmed. Check that deletion before trying Delete again.`, todoRestorePending: "Restoration is in progress. Wait for it to finish, then try Delete again.",
   todoDeleted: (id: number) => `#${id} was deleted`,
   couldNotDelete: "Could not delete",
   rowActionsFor: (id: number) => `Actions for todo ${id}`,
@@ -436,7 +436,6 @@ export const copy = {
   switchAgentTerminal: "Switch Agent / Terminal",
   minimiseOrRestoreTheBubble: "Minimise or restore the Bubble",
   closeTheBubble: "Close the Bubble",
-  railDeletedFeedback: (name: string) => `Deleted ${name}`,
   removeProcessLoss: (name: string) => `Stop the running process for ${name}. Its live Terminal input cannot be restored.`,
   removeWorktreeLoss: (name: string) => `Discard the Worktree for ${name}. Its files cannot be restored with Undo.`,
   remove: "Remove",

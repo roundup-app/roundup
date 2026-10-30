@@ -1,4 +1,12 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { showEverythingInApp } from "../testing/showEverything";
+import { showShelfTab } from "../testing/shelfTabs";
+import { projectMenu } from "../testing/menuProbe";
+import { Todos } from "../todos/Todos";
+import { Pads } from "./Pads";
+import type { ConnectedProject } from "../state/connectedProject";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import type { AppSeam } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
@@ -371,3 +379,86 @@ it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destina
     expect(undo.available("shelf")).toBe(false);
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
+
+// The full App owns keys and native menu capture; the Daemon owns every mutation and identity.
+it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-todo", "drawer-pad"])("u3787a_%s_delete_undo_redo_without_feedback", async kind => {
+  const app = createServedApp(real.base);
+  const name = `round-trip-${kind}`;
+  const isPad = kind.includes("pad");
+  const pad = isPad ? await app.rpc("pad.create", { name, text: "exact retained content" }) : null;
+  const todo = !isPad ? await app.rpc("todo.create", { title: name, body: null, blockers: null }) : null;
+
+  if (kind === "clear-done") await app.rpc("todo.complete", { id: todo!.id });
+  let connected: ConnectedProject | undefined;
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} initialShelfOpen={kind !== "todos" && kind !== "pads"} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
+  await waitFor(() => expect(connected !== undefined).toBe(true));
+  await showEverythingInApp();
+
+  if (isPad) showShelfTab("Pads");
+
+  if (kind === "todos" || kind === "pads") {
+    connected!.rail.select(null);
+    connected!.drawer.open(() => isPad ? <Pads /> : <Todos />, "key");
+    await waitFor(() => {
+      const controls = document.querySelectorAll<HTMLElement>('.drawer [data-shelf-group] [data-part="branch-control"]');
+      expect(controls.length).toBeGreaterThan(0);
+
+      for (const control of controls) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+    });
+  }
+
+  const owner = kind === "todos" || kind === "pads" ? within(screen.getByRole("complementary", { name: "Drawer" })) : screen;
+  const row = kind === "clear-done" ? await screen.findByRole("button", { name: "Clear done" }) : await owner.findByRole("button", { name: isPad ? name : new RegExp(`#${todo!.id} `) });
+  row.focus();
+
+  if (kind.startsWith("drawer-")) {
+    fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+    const panel = screen.getByRole("complementary", { name: "Drawer" });
+    const button = await within(panel).findByRole("button", { name: isPad ? "Delete" : "Delete Todo" });
+    button.focus(); fireEvent.click(button);
+  } else if (kind === "clear-done") fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
+  else fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  const read = async () => isPad ? (await app.rpc("pad.list", null)).some(item => item.incarnation === pad!.incarnation) : (await app.rpc("todo.list", null)).some(item => item.id === todo!.id);
+  await waitFor(async () => expect(await read()).toBe(false));
+  await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
+  // A removed row's surviving list, or a closed Drawer's original list, owns the next key.
+  const region = document.activeElement?.closest<HTMLElement>("[data-history-region]") ?? document.querySelector<HTMLElement>(kind === "todos" ? '.drawer .todos-tab' : kind === "pads" ? '.drawer .pads-tab' : '.shelf-tabs [aria-selected="true"]');
+
+  if (region) { region.tabIndex = 0; region.focus(); }
+
+  const absent = () => expect(screen.queryAllByRole("button").filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+  absent();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe(isPad ? "Undo Delete Pad" : "Undo Delete Todo"));
+  fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true });
+  await waitFor(async () => expect(await read()).toBe(true));
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘Z")?.label).toBe(isPad ? "Redo Delete Pad" : "Redo Delete Todo"));
+  absent();
+  fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true, shiftKey: true });
+  await waitFor(async () => expect(await read()).toBe(false));
+  absent();
+});
+
+
+it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
+  const app = createServedApp(real.base);
+  const item = await app.rpc("rail.createWorkstream", { name: "round-trip-rail", parent: null });
+  let connected: ConnectedProject | undefined;
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
+  const label = await screen.findByText("round-trip-rail", { selector: ".name" });
+  const row = label.closest<HTMLElement>('[data-part="branch-control"]')!;
+  row.focus();
+  fireEvent.keyDown(row, { key: "Backspace", code: "Backspace", metaKey: true });
+  const present = async () => (await app.rpc("rail.tree", null)).some(node => node.id === item.id);
+  await waitFor(async () => expect(await present()).toBe(false));
+  await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
+  const rail = screen.getByRole("tree", { name: "Rail" });
+  rail.tabIndex = -1; rail.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe("Undo Remove round-trip-rail"));
+  expect(screen.queryAllByRole("button").filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+  fireEvent.keyDown(rail, { key: "z", code: "KeyZ", metaKey: true });
+  await waitFor(async () => expect(await present()).toBe(true));
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘Z")?.label).toBe("Redo Remove round-trip-rail"));
+  fireEvent.keyDown(rail, { key: "z", code: "KeyZ", metaKey: true, shiftKey: true });
+  await waitFor(async () => expect(await present()).toBe(false));
+  expect(screen.queryAllByRole("button").filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+});

@@ -1,4 +1,4 @@
-import { copy } from "../../copy";
+import { openProjectPage } from "../../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../../App";
@@ -68,7 +68,8 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
     fireEvent.click(check);
   }
 
-  await screen.findByText("Deleted chosen");
+  await waitFor(() => expect(connected!.drafts.todoUndo.available("rail")).toBe(true));
+  expect([screen.queryByText("Deleted chosen")]).toEqual([null]);
   expect(connected!.drafts.todoUndo.available("rail")).toBe(true);
   expect(connected!.drafts.todoUndo.available("shelf")).toBe(false);
   // Settle the event-driven refresh before either Undo entry point.
@@ -76,10 +77,10 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
   await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.tree").length).toBeGreaterThan(1));
 
   if (entry === "menu" || entry === "key") {
-    if (entry === "menu") fireEvent.click(screen.getByRole("button", { name: copy.todoUndo }));
-    else fireEvent.keyDown(document.body, { key: "z", code: "KeyZ", metaKey: true });
+    if (entry === "menu") openProjectPage("action:chord:⌘Z", "/p");
+    else fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "rail.restore")).toHaveLength(1));
-    await waitFor(() => expect(screen.queryByRole("button", { name: copy.todoUndo })).toBeNull());
+    await waitFor(() => expect([screen.queryByRole("button", { name: "Undo" })]).toEqual([null]));
     expect(screen.queryByRole("alert")).toBeNull();
 
     return;
@@ -87,10 +88,10 @@ it.each(["menu", "key", "unknown", "pending"].flatMap(entry => ["agent", "workst
 
   daemon.handlers["rail.restore"] = () => { throw new Error("Original Home changed. Restore the Home and retry."); };
 
-  fireEvent.keyDown(document.body, { key: "z", code: "KeyZ", metaKey: true });
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
   await screen.findByText("Original Home changed. Restore the Home and retry.");
   daemon.handlers["rail.restore"] = () => ({ ...receipt!, deletion: { ...receipt!.deletion!, restored: true } });
-  fireEvent.keyDown(document.body, { key: "z", code: "KeyZ", metaKey: true });
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "z", code: "KeyZ", metaKey: true });
   await waitFor(() => expect([screen.queryByText("Deleted chosen")]).toEqual([null]));
   expect(daemon.calls.filter(c => c.method === "rail.restore").map(c => c.params)).toEqual([receipt!.deletion, receipt!.deletion].map(d => ({ project: d!.project, operation: d!.operation })));
   expect(daemon.calls.filter(c => c.method === "rail.remove")).toHaveLength(1);

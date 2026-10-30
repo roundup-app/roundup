@@ -1,3 +1,4 @@
+import { historyRegion } from "../keys/focus";
 import { captureFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -349,6 +350,7 @@ const PadBody = (props: {
       props.onFailureCleared?.();
       setRemovedByMe(true);
       connected.drawer.close(source);
+      queueMicrotask(() => connected.drafts.todoUndo.handoff(`pad:${destination.object}`, historyRegion(document.activeElement)));
     });
 
   const onChange = () => {
@@ -428,7 +430,7 @@ const PadBody = (props: {
   const nameCut = createCutTitle(() => name);
 
   return (
-    <div class="pad-body">
+    <div class="pad-body" data-history-region={`pad:${destination.object}`}>
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name">{name}</span>

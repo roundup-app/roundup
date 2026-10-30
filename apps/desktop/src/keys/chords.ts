@@ -48,7 +48,8 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘-", what: copy.terminalSmallerText, presses: ["meta+Minus"], inTerminals: true },
   { keys: "⌘0", what: copy.terminalResetText, presses: ["meta+Digit0"], inTerminals: true },
   { keys: "⌘F", what: copy.find, presses: ["meta+KeyF"], inTerminals: true },
-  { keys: "⌘Z", what: copy.todoUndo, presses: ["meta+KeyZ"] },
+  { keys: "⌘Z", what: copy.undoFocused, presses: ["meta+KeyZ"] },
+  { keys: "⇧⌘Z", what: copy.redoFocused, presses: ["meta+shift+KeyZ"] },
   { keys: "⌘,", what: copy.settings, presses: ["meta+Comma"] },
   // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
   { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 7 } } },

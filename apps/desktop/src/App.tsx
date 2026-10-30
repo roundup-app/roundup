@@ -1,3 +1,4 @@
+import { historyRegion } from "./keys/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
 import { debounce } from "@solid-primitives/scheduled";
@@ -232,21 +233,23 @@ export const App = (props: {
   const projects = createProjectsState(props.app);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
-  registerKeys({ kind: "app" }, [{
-    action: CHORDS.find(row => row.keys === "⌘Z")!,
+  registerKeys({ kind: "app" }, ["⌘Z", "⇧⌘Z"].map(keys => ({
+    action: CHORDS.find(row => row.keys === keys)!,
     when: () => !document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
     capture: focus => {
       const path = projects.active();
       const undo = path ? drafts(path).todoUndo : null;
+      const region = historyRegion(focus);
+      const redo = keys === "⇧⌘Z";
 
       return {
-        available: () => path !== null && projects.active() === path && undo !== null && undo.available() && !undo.pending()
+        available: () => path !== null && projects.active() === path && undo !== null && (redo ? undo.redoAvailable(region) : undo.available(region)) && !undo.pending()
           && !focus?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
-        label: undo?.undoLabel() ?? copy.todoUndo,
-        invoke: () => { void undo!.undo(); },
+        label: undo ? (redo ? undo.redoLabel(region) : undo.undoLabel(region)) : redo ? copy.redo : copy.todoUndo,
+        invoke: () => { void (redo ? undo!.redo(region) : undo!.undo(region)); },
       };
     },
-  }]);
+  })));
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
@@ -481,8 +484,15 @@ export const App = (props: {
     const available = connected !== undefined && !(connected instanceof Error);
 
     return [
+      ...(!menuFocus()?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]") ? ["⌘Z", "⇧⌘Z"].map(keys => {
+        const history = projects.active() ? drafts(projects.active()!).todoUndo : null;
+        const region = historyRegion(menuFocus());
+        const redo = keys === "⇧⌘Z";
+
+        return { id: `action:chord:${keys}`, label: history ? (redo ? history.redoLabel(region) : history.undoLabel(region)) : redo ? copy.redo : copy.todoUndo, shortcut: keys, group: "edit" as const, enabled: available && !!history && !history.pending() && (redo ? history.redoAvailable(region) : history.available(region)) };
+      }) : []),
       ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => row.keys !== copy.leaderChord), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
+      ...[...CHORDS.filter(row => row.keys !== copy.leaderChord && row.keys !== "⌘Z" && row.keys !== "⇧⌘Z"), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
 
         const items = actions.filter(action => (action.value === id || action.value.startsWith(`${id}:`)) && action.available()).map(action => {
@@ -495,7 +505,7 @@ export const App = (props: {
 
         return row.keys === "1–9" && items.length ? [{ id, label: copy.assignTo(""), group: "navigate" as const, enabled: available, children: items }] : items;
       }),
-    ].filter((item, at, all) => item.enabled && all.findIndex(other => other.enabled && other.id === item.id) === at);
+    ].filter((item, at, all) => (item.enabled || item.group === "edit") && all.findIndex(other => other.id === item.id) === at);
   });
 
   let menuWriting = false;
@@ -625,14 +635,10 @@ export const App = (props: {
           <For each={drafts.paths?.() ?? keys()}>{path => {
             const undo = drafts(path).todoUndo;
 
-            const shown = () => projects.active() === path && undo.visible();
-            const failure = () => shown() ? undo.feedbackFailure() : null;
-            const status = () => shown() && undo.available() ? undo.feedback() : null;
+            const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
 
-            return <ReservedLine overlay class="todo-undo" aria-live="polite" message={failure()} status={status()}>
-              <Show when={undo.available()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.undo()}>{copy.todoUndo}</button></Show>
+            return <ReservedLine overlay message={failure()}>
               <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
-              <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
             </ReservedLine>;
           }}</For>
           <For each={keys()}>{path => {
