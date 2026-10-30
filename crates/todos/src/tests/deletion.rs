@@ -8,7 +8,7 @@ async fn u3787a_undo_restores_original_graph() {
     h.call_as(
         agent("maker"),
         "todo.create",
-        json!({"title":"first", "body":"retained", "owner":agent("worker"), "estimate_minutes":17}),
+        json!({"title":"first", "body":"retained", "owner":agent("worker"), "priority":"high"}),
     )
     .await
     .unwrap();

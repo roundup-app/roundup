@@ -140,7 +140,7 @@ fn a34_pad_deleted_is_in_generated_typescript() {
 
 #[test]
 fn t30_a_todo_json_without_updated_at_stays_valid() {
-    let old = json!({"id":7,"title":"t","body":"","done":false,"blockers":[],"blocked":false,"created_at":5,"creator":{"kind":"user","id":"you","parent":null},"home":null,"owner":null,"priority":null});
+    let old = json!({"id":7,"title":"t","body":"","done":false,"blockers":[],"blocked":false,"created_at":5,"creator":{"kind":"user","id":"you","parent":null},"home":null,"owner":null});
     let todo: contracts::todo::Todo = serde_json::from_value(old).unwrap();
     assert_eq!(todo.updated_at, 0);
 }
