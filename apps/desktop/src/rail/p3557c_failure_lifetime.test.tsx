@@ -15,7 +15,7 @@ const REFUSED = "daemon said no";
 
 const refuse = () => { throw new Error(REFUSED); };
 
-const owned = (name: string, by: string): Pad => ({ incarnation: `fixture-${name}`, name, owner: { kind: "agent", id: by, parent: null }, text: "old", updated_at: 0, revision: 1, home: null });
+const owned = (name: string, by: string): Pad => ({ incarnation: `fixture-${name}`, name, text: "old", updated_at: 0, revision: 1, home: null });
 
 /** Row `a` fails to remove; the Rail's line is the failure. */
 const failedRemove = async (pane = false) => {

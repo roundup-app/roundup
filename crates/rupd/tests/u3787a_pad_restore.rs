@@ -83,7 +83,7 @@ async fn user(w: &World) {
 }
 
 #[tokio::test]
-async fn u3787a_restore_keeps_agent_owner_home_revision_after_reopen() {
+async fn u3787a_restore_keeps_agent_created_pad_home_revision_after_reopen() {
     let mut w = world().await;
     let home = call(&w, "rail.createWorkstream", json!({"name":"original Home"})).await;
     identify(&w, home["id"].as_str().unwrap()).await;
@@ -297,12 +297,12 @@ async fn u3787a_bulk_successes_are_individually_restorable_without_failed_target
         w.client
             .request(
                 "pad.delete",
-                json!({"name":"other","operation":"subset-other"})
+                json!({"name":"other","operation":"subset-other","expectedIncarnation":"retired"})
             )
             .await
             .unwrap_err()
             .code,
-        rpc::code::FORBIDDEN
+        rpc::code::CONFLICT
     );
     call(&w, "pad.restore", deletion_id(&receipt)).await;
     assert_eq!(call(&w, "pad.read", json!({"name":"own"})).await, own);
@@ -493,7 +493,7 @@ async fn u3787a_missing_original_home_refuses_without_consuming_the_operation() 
 }
 
 #[tokio::test]
-async fn u3787a_owner_deletion_restore_preserves_retained_publication() {
+async fn u3787a_shared_pad_deletion_restore_preserves_publication_revocation() {
     let w = world().await;
     let home = call(&w, "rail.createWorkstream", json!({"name":"maker"})).await;
     identify(&w, home["id"].as_str().unwrap()).await;
@@ -512,11 +512,8 @@ async fn u3787a_owner_deletion_restore_preserves_retained_publication() {
         json!({"project":publication["project"],"id":publication["id"]}),
     )
     .await;
-    assert_eq!(resolved["kind"], "retained");
-    assert_eq!(
-        std::fs::read_to_string(resolved["path"].as_str().unwrap()).unwrap(),
-        "# Result\n\nexact"
-    );
+    assert_eq!(resolved["kind"], "unavailable");
+    assert_eq!(resolved["cause"], "access-revoked");
 }
 
 #[tokio::test]
@@ -786,27 +783,14 @@ async fn u3787a_redo_refuses_replacement_and_retries_only_the_retained_incarnati
 }
 
 #[tokio::test]
-async fn u3787a_redo_checks_original_project_actor_and_current_authority() {
+async fn u3787a_redo_keeps_original_project_actor_and_operation_identity() {
     let w = world().await;
     let a = call(&w, "rail.createWorkstream", json!({"name":"Maker"})).await;
-    let b = call(&w, "rail.createWorkstream", json!({"name":"New authority"})).await;
+    let b = call(&w, "rail.createWorkstream", json!({"name":"Other Actor"})).await;
     identify(&w, a["id"].as_str().unwrap()).await;
     let (pad, receipt) = deleted(&w, "notes").await;
     call(&w, "pad.restore", deletion_id(&receipt)).await;
     let request = redo_request(&receipt, &pad, "redo-authority");
-    user(&w).await;
-    call(&w, "pad.setOwner", json!({"name":"notes","owner":b["id"]})).await;
-    identify(&w, a["id"].as_str().unwrap()).await;
-    assert_eq!(
-        w.client
-            .request("pad.redoDelete", request.clone())
-            .await
-            .unwrap_err()
-            .code,
-        rpc::code::FORBIDDEN
-    );
-    let current = call(&w, "pad.read", json!({"name":"notes"})).await;
-    assert_eq!(current["owner"]["id"], b["id"]);
     identify(&w, b["id"].as_str().unwrap()).await;
     assert_eq!(
         w.client
@@ -826,8 +810,6 @@ async fn u3787a_redo_checks_original_project_actor_and_current_authority() {
             .code,
         rpc::code::FORBIDDEN
     );
-    user(&w).await;
-    call(&w, "pad.setOwner", json!({"name":"notes","owner":a["id"]})).await;
     identify(&w, a["id"].as_str().unwrap()).await;
     let redone = call(&w, "pad.redoDelete", request.clone()).await;
     let mut changed_request = request;
@@ -841,8 +823,8 @@ async fn u3787a_redo_checks_original_project_actor_and_current_authority() {
         rpc::code::CONFLICT
     );
     assert_eq!(
-        call(&w, "pad.restore", deletion_id(&redone)).await["pad"]["owner"],
-        pad["owner"]
+        call(&w, "pad.restore", deletion_id(&redone)).await["pad"],
+        pad
     );
 }
 

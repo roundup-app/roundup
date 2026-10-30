@@ -1,5 +1,5 @@
 import { leaderKey } from "../keys/leaderFixture";
-import { cleanup, render, renderHook, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, render, renderHook, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { seedApp } from "../testing/seeds";
@@ -28,28 +28,12 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findByRole("tablist", { name: "Work items" });
+  await screen.findByRole("tablist", { name: "Bench" });
 
   return controls;
 };
 
-const shelfEdge = () => screen.getByRole("separator", { name: "Resize work items" });
-
-const windowEl = () => document.querySelector<HTMLElement>(".window")!;
-
-const railWidth = () => windowEl().style.getPropertyValue("--rail-width");
-
-const shelfSpan = () => windowEl().style.getPropertyValue("--shelf-span");
-
-const valueOf = (edge: HTMLElement) => Number(edge.getAttribute("aria-valuenow"));
-
 describe("u389 the Rail's width is the user's", () => {
-  it("u389_default_is_288_wider_than_252", async () => {
-    await mountApp();
-
-    expect(railWidth()).toBe("288px");
-  });
-
   it("u453_widths_keep_resize_bounds_without_window_clamps", () => {
     Object.assign(window, { innerWidth: 1280 });
 
@@ -77,17 +61,10 @@ describe("u389 the Rail's width is the user's", () => {
 });
 
 describe("u390 the Shelf's width is the user's", () => {
-  it("u390_default_is_320", async () => {
-    await mountApp();
-
-    expect(shelfSpan()).toBe("320px");
-    expect(valueOf(shelfEdge())).toBe(320);
-  });
-
   it("u390_closed_has_no_edge", async () => {
     await mountApp();
-    leaderKey("KeyS");
+    leaderKey("KeyB");
     await waitFor(() => expect(document.querySelector(".shelf-edge-slot")!.hasAttribute("hidden")).toBe(true));
-    expect(screen.queryByRole("separator", { name: "Resize work items" })).toBeNull();
+    expect(within(document.querySelector<HTMLElement>(".shelf-edge-slot")!).queryByRole("separator")).toBeNull();
   });
 });

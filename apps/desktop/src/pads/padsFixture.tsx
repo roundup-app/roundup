@@ -34,10 +34,10 @@ export const AGENT: Actor = { kind: "agent", id: "agent-7f3", parent: null };
 
 const AGENT_NAME = "auth-refactor";
 
-export const padOf = (name: string, owner: Actor, text = ""): Pad => ({
+export const padOf = (name: string, _actor: Actor, text = ""): Pad => ({
   incarnation: `fixture-${name}`,
   name,
-  owner,
+
   text,
   updated_at: 0,
   revision: 1,
@@ -78,7 +78,6 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
   app.handlers["rail.tree"] = () => withScopeRow([
     {
       id: AGENT.id,
-      // U58 lists a Pad under its Agent once that Agent is on the Rail. Off it, `AGENT` stays a named owner as a Workstream node, which `nameOf` reads and the Shelf's filter does not take for an Agent.
       kind: onRail ? "agent" : "workstream",
       name: AGENT_NAME,
       parent: null,

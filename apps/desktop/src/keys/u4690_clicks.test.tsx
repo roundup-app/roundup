@@ -136,7 +136,7 @@ const activate = async (keys: string, source: "key" | "pointer", leader = false)
   }
 };
 
-it.each(["A", "P", "C", "J", "S", "T", "I"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
+it.each(["A", "P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] as const).map(source => ({ keys, source }))))(
   "u4690b_leader_clicks_and_keys_share_one_wait: $keys $source", async ({ keys, source }) => {
     const { daemon, connected } = await mountNavigation(false, 1);
     connected().showView("workstreams");
@@ -166,7 +166,7 @@ it.each(["A", "P", "C", "J", "S", "T", "I"].flatMap(keys => (["key", "pointer"] 
 
     if (keys === "J") await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
 
-    if (keys === "S") await screen.findByRole("region", { name: "Todos" });
+    if (keys === "B") await screen.findByRole("region", { name: "Todos" });
 
     if (keys === "T") await screen.findByRole("textbox", { name: "Capture a Todo" });
 

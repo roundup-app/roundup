@@ -240,7 +240,6 @@ pub fn types() -> specta::Types {
         .register::<crate::pad::WriteParams>()
         .register::<crate::pad::AppendParams>()
         .register::<crate::pad::AppendSectionParams>()
-        .register::<crate::pad::SetOwnerParams>()
         .register::<crate::pad::ExportParams>()
         .register::<crate::pad::SetStorageParams>()
         .register::<crate::pad::MoveParams>()
