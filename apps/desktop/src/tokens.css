@@ -462,7 +462,7 @@ button, file-tree-container, diffs-container {
 }
 
 /* U3512b: one recipe for web modals, anchored panels and the movable Terminal Bubble. */
-:is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .milkdown-slash-menu) {
+:is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .milkdown-slash-menu, .top-bar-heading-dropdown, .link-preview, .link-edit, .cell-handle .button-group) {
   color: var(--text);
   background-color: var(--surface);
   border: 0;

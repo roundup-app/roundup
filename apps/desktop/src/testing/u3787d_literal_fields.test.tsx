@@ -112,7 +112,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
       if (opening === "Owner query") {
         fireEvent.click(row);
         leaderKey("KeyA");
-        field = await screen.findByRole("combobox", { name: "Assign a Todo to an owner" });
+        field = await screen.findByRole("combobox", { name: "Assign" });
       } else if (opening === "New Workstream" || opening === "Wait-for query") {
         fireEvent.keyDown(row, { key: "o", code: "KeyO" });
         fireEvent.click(await screen.findByText("New Workstream…"));

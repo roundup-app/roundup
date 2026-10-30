@@ -78,6 +78,8 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   await shown();
   expect([connections.get("/a")!.drawer.content()]).toEqual([null]);
   const undo = await shown();
+  expect(connections.get("/a")!.drafts.todoUndo.available("todo:5")).toBe(true);
+  expect(connections.get("/a")!.drafts.todoUndo.available("todo:7")).toBe(false);
   expect(announcements).toContain(undo.closest('[role="status"]'));
 
   if (source === "menu") {
@@ -221,7 +223,7 @@ it("u3787a_refused_delete_keeps_the_previous_success_available", async () => {
 
 for (const entry of ["selection", "single", "clear-done"] as const) {
   it(`u3787a_delete_has_no_question_and_freezes_targets_${entry}`, async () => {
-    const { app } = await mount(entry === "clear-done");
+    const { app, connections } = await mount(entry === "clear-done");
     const daemon = app.of("/a");
     daemon.handlers["todo.list"] = () => [todo(5, { done: entry === "clear-done" }), todo(7, { done: entry === "clear-done" })];
     await showEverythingInApp();
@@ -242,6 +244,8 @@ for (const entry of ["selection", "single", "clear-done"] as const) {
     ]));
     expect([questionProbe.shown]).toEqual([null]);
     await shown();
+    expect(connections.get("/a")!.drafts.todoUndo.available("shelf")).toBe(true);
+    expect(connections.get("/a")!.drafts.todoUndo.available("todos")).toBe(false);
     pressUndo();
     await waitFor(() => expect(daemon.calls.filter(c => c.method === "todo.restore").map(c => c.params)).toEqual([{ operation: expect.any(String) }]));
   });
@@ -260,7 +264,7 @@ const showPads = async () => {
 
 for (const entry of ["selection", "single", "drawer"] as const) {
   it(`u3787a_success_and_partial_failure_offer_only_acknowledged_undo_pads_${entry}`, async () => {
-    const { app } = await mount();
+    const { app, connections } = await mount();
     const daemon = app.of("/a");
     await showEverythingInApp();
     await showPads();
@@ -284,6 +288,8 @@ for (const entry of ["selection", "single", "drawer"] as const) {
     }
 
     await shown();
+    expect(connections.get("/a")!.drafts.todoUndo.available(entry === "drawer" ? "pad:fixture-first" : "shelf")).toBe(true);
+    expect(connections.get("/a")!.drafts.todoUndo.available("pads")).toBe(false);
     expect([questionProbe.shown]).toEqual([null]);
     expect(daemon.calls.filter(c => c.method === "pad.delete").map(c => c.params)).toEqual((entry === "selection" ? ["first", "second"] : ["first"]).map(name => ({ name, expectedIncarnation: `fixture-${name}`, operation: expect.any(String) })));
     pressUndo();

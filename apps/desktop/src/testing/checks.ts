@@ -197,7 +197,9 @@ const d2 = (page: Page): Measure =>
 
     const size = px(page.resolve(style.fontSize));
 
-    if (size !== null && ![...TYPE_STEPS].some(step => Math.abs(size - step * Number(page.token("interface-scale") ?? 1)) < 0.01)) return { fontSize: style.fontSize };
+    // The shared document headings are fixed 20/24 px Tokens (unlike the
+    // interface-scaled 11–15 px steps). No intermediate type sizes are allowed.
+    if (size !== null && ![20, 24, ...[...TYPE_STEPS].map(step => step * Number(page.token("interface-scale") ?? 1))].some(step => Math.abs(size - step) < 0.01)) return { fontSize: style.fontSize };
 
     const level = Number(el.getAttribute("aria-level"));
 

@@ -11,7 +11,7 @@ use tauri::{AppHandle, Runtime};
 /// Plain titles and key equivalents stay untouched; attributed titles share a right-aligned hint stop.
 pub fn project_menu_hints<R: Runtime>(
     app: &AppHandle<R>,
-    hints: Vec<(usize, String)>,
+    hints: Vec<(Vec<usize>, String)>,
 ) -> tauri::Result<()> {
     app.run_on_main_thread(move || {
         let _main = MainThreadMarker::new().expect("Tauri's main thread");
@@ -21,7 +21,7 @@ pub fn project_menu_hints<R: Runtime>(
 }
 
 /// Decorate the installed Project submenu of the application menu, when there is one.
-unsafe fn decorate_project_menu(hints: Vec<(usize, String)>) {
+unsafe fn decorate_project_menu(hints: Vec<(Vec<usize>, String)>) {
     let application = AnyClass::get(c"NSApplication").expect("AppKit is loaded");
     // SAFETY: documented AppKit/Foundation selectors run on the main thread. Objects
     // remain retained through installation; menus can be absent during teardown.
@@ -34,7 +34,36 @@ unsafe fn decorate_project_menu(hints: Vec<(usize, String)>) {
         let Some(project) = project else { return };
         let submenu: Option<Retained<AnyObject>> = msg_send![&*project, submenu];
         let Some(submenu) = submenu else { return };
-        decorate(&submenu, hints);
+        decorate_project_tree(&submenu, &hints);
+    }
+}
+
+/// Each index path selects a leaf in the installed menu, including duplicate Agent names.
+unsafe fn decorate_project_tree(submenu: &AnyObject, hints: &[(Vec<usize>, String)]) {
+    // SAFETY: callers supply a live NSMenu on the process main thread; child menus are retained.
+    unsafe {
+        decorate(
+            submenu,
+            hints
+                .iter()
+                .filter(|(path, _)| path.len() == 1)
+                .map(|(path, hint)| (path[0], hint.clone()))
+                .collect(),
+        );
+        let count: isize = msg_send![submenu, numberOfItems];
+        for index in 0..count {
+            let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
+            let child: Option<Retained<AnyObject>> = msg_send![&*item, submenu];
+            if let Some(child) = child {
+                let index = usize::try_from(index).expect("nonnegative menu index");
+                let nested: Vec<_> = hints
+                    .iter()
+                    .filter(|(path, _)| path.len() > 1 && path[0] == index)
+                    .map(|(path, hint)| (path[1..].to_vec(), hint.clone()))
+                    .collect();
+                decorate_project_tree(&child, &nested);
+            }
+        }
     }
 }
 
@@ -298,14 +327,36 @@ pub(crate) mod tests {
             let _: () = msg_send![&*project, setSubmenu: &*installed];
             let _: () = msg_send![&*bar, addItem: &*project];
             let _: () = msg_send![&*application, setMainMenu: &*bar];
-            decorate_project_menu(vec![(1, "⌘K P".into())]);
+            let child: Retained<AnyObject> = msg_send![class(c"NSMenu"), new];
+            for _ in 0..2 {
+                let item: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+                let _: () =
+                    msg_send![&*item, setTitle: &*NSString::from_str("Assign to same name")];
+                let _: () = msg_send![&*child, addItem: &*item];
+            }
+            let assignment: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+            let _: () = msg_send![&*assignment, setSubmenu: &*child];
+            let _: () = msg_send![&*installed, addItem: &*assignment];
+            decorate_project_menu(vec![
+                (vec![1], "⌘K P".into()),
+                (vec![2, 0], "1".into()),
+                (vec![2, 1], "9".into()),
+            ]);
+            let plain = |index: isize| -> String {
+                let item: Retained<AnyObject> = msg_send![&*child, itemAtIndex: index];
+                let attributed: Retained<AnyObject> = msg_send![&*item, attributedTitle];
+                let shown: Retained<NSString> = msg_send![&*attributed, string];
+                shown.to_string()
+            };
+            assert_eq!(plain(0), "Assign to same name\t1");
+            assert_eq!(plain(1), "Assign to same name\t9");
 
             let (installed, popup) = (stops_and_titles(&installed), stops_and_titles(&popup));
             assert!(
                 installed[1].contains('\t'),
                 "the hint is in the attributed title"
             );
-            assert_eq!(installed, popup, "both paths build the same column");
+            assert_eq!(installed[..2], popup, "both paths build the same column");
         }
     }
 }
