@@ -68,11 +68,24 @@ describe("u4457 the Pads control opens the Shelf", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /Done #1 finished work/ })).toBe(document.activeElement));
   });
 
-  it("u4457_the_control_keeps_its_count_and_name", async () => {
+  it("u4457_pads_open_from_shelf_without_agent_control", async () => {
     await mount([padOf("notes"), padOf("plan")], [todo(1, { creator: by("a1") }), todo(2, { creator: by("a1") })]);
     await waitFor(() => expect(control("a1")?.getAttribute("aria-label")).toBe("2 todos"));
 
     expect(control("a2")).toBeNull();
+    showShelfTab("Pads");
+
+    const root = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="unassigned"]');
+      expect(el).not.toBeNull();
+
+      return el!;
+    });
+
+    if (root.getAttribute("aria-expanded") === "false") fireEvent.click(root.querySelector(".shelf-group-control")!);
+    await screen.findByRole("button", { name: "notes" });
+    expect(document.querySelector('.rail-tree')!.querySelectorAll('[role=treeitem][data-pad], [role=treeitem][data-todo]')).toHaveLength(0);
+    expect(document.querySelectorAll('.pads-tab [data-pad]')).toHaveLength(2);
   });
 });
 
