@@ -332,3 +332,7 @@ Escape then Open, and full actionable rename failure beside retained input.
 PNGs and the interaction recording stay uncommitted. These observe Chromium
 only. `just capture U3787b` exits 1 because the installed observer table rejects
 that id; these explicit isolated captures supply the rendered evidence.
+
+The existing `u3723_keys_are_inert_in_the_drawer_field` fixture now focuses its
+row before Return, matching keyboard dispatch through the captured row holder.
+Its editor-key and zero-mutation assertions are unchanged.
