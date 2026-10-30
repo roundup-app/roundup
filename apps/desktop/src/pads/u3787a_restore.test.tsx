@@ -67,7 +67,7 @@ it("u3787a_app_and_fake_carry_the_original_operation_through_the_real_daemon", a
 });
 
 // U3787a names real identity/authority and receipt readback; helper-only mocks cannot prove redo.
-it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_restored_operation_%s", async kind => {
+it.each(["todos", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_restored_operation_%s", async kind => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "redo", path: real.dir }, () => true, () => 0);
   const undo = connected.drafts.todoUndo;
@@ -79,14 +79,13 @@ it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_ex
     const node = await app.rpc("rail.createWorkstream", { name: `redo-${kind}`, parent: null });
 
     if (kind === "todos") await undo.remove([chosen.id]);
-    else if (kind === "pads") await undo.removePads([pad]);
     else await undo.removeRail(node.id, node.name);
 
     await undo.undo();
     // Redo consumes an acknowledged restoration, and another Undo consumes the new receipt.
     await undo.redo();
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(kind !== "todos");
-    expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(kind !== "pads");
+    expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(kind !== "rail");
     expect((await app.rpc("todo.list", null)).some(row => row.id === arrival.id)).toBe(true);
     await undo.undo();
@@ -94,5 +93,80 @@ it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_ex
     expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(true);
     expect(undo.failure()).toBe(null);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
+
+it.each(["todos", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_redo_without_repeating_effects_%s", async kind => {
+  const app = createServedApp(real.base);
+  const connected = await connectProject(app, { name: "unknown redo", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+  const requests: unknown[] = [];
+  let readable = true;
+  const bridge: AppSeam = { ...app, rpc: async (method, params) => {
+    if (method === (kind === "todos" ? "todo.deletion" : "rail.deletion") && !readable) throw new Error("receipt unavailable");
+
+    if (method === (kind === "todos" ? "todo.redo" : "rail.redo")) {
+      requests.push(params);
+      await app.rpc(method, params);
+      readable = false;
+      throw new Error("reply lost");
+    }
+
+    return app.rpc(method, params);
+  } };
+
+  try {
+    const chosen = await app.rpc("todo.create", { title: `unknown ${kind}`, body: null, blockers: null });
+    const node = await app.rpc("rail.createWorkstream", { name: `unknown ${kind}`, parent: null });
+
+    if (kind === "todos") await undo.remove([chosen.id]);
+    else await undo.removeRail(node.id, node.name);
+
+    await undo.undo();
+    undo.reconnect(bridge);
+    await undo.redo();
+    expect(undo.failure()).toBe("receipt unavailable");
+    expect(requests).toHaveLength(1);
+    // Until readback settles, a new deletion must not erase this recoverable redo.
+    expect(await undo.remove([chosen.id])).toBe(false);
+    await undo.undo();
+    readable = true;
+    await undo.redo();
+    expect(requests).toHaveLength(1);
+    expect(undo.failure()).toBe(null);
+    await undo.undo();
+    expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(true);
+    expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(true);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
+
+it("u3787a_retained_redo_refusal_preserves_a_newer_home_and_retries_the_same_request", async () => {
+  const app = createServedApp(real.base);
+  const requests: unknown[] = [];
+  const bridge: AppSeam = { ...app, rpc: (method, params) => {
+    if (method === "todo.redo") requests.push(params);
+
+    return app.rpc(method, params);
+  } };
+  const connected = await connectProject(bridge, { name: "refused redo", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+
+  try {
+    const chosen = await app.rpc("todo.create", { title: "moved since Undo", body: null, blockers: null });
+    const home = await app.rpc("rail.createWorkstream", { name: "new user Home", parent: null });
+    await undo.remove([chosen.id]);
+    await undo.undo();
+    await app.rpc("todo.move", { id: chosen.id, home: home.id });
+    await undo.redo();
+    expect(undo.failure()).not.toBe(null);
+    expect((await app.rpc("todo.list", null)).find(row => row.id === chosen.id)?.home).toBe(home.id);
+    await app.rpc("todo.move", { id: chosen.id, home: null });
+    await undo.redo();
+    expect(requests).toHaveLength(2);
+    expect(requests[1]).toEqual(requests[0]);
+    expect(undo.failure()).toBe(null);
+    expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(false);
+    await undo.undo();
+    expect((await app.rpc("todo.list", null)).find(row => row.id === chosen.id)?.home).toBe(null);
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
