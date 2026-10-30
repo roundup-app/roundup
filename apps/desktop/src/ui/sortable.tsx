@@ -235,11 +235,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     return { rows, drop: dropAt(remaining, tree.nests, slot, depth) };
   };
 
-  const track = (source: Draggable | null, position: { initial: { x: number }; current: { x: number } }) => {
+  const track = (source: Draggable | null, position: { initial: { x: number }; current: { x: number; y: number } }) => {
     const tree = local.tree;
 
     if (!tree || !isSortable(source)) return;
-    preview(resolve(tree, String(source.id), source.index, { initial: position.initial.x, current: position.current.x }).drop);
+    const atLift = !keyboard && source.manager?.dragOperation.shape?.initial.containsPoint({ x: position.initial.x, y: position.current.y });
+    preview(resolve(tree, String(source.id), atLift ? source.initialIndex : source.index, { initial: position.initial.x, current: position.current.x }).drop);
   };
 
   const mark = (next: T | null) => {
@@ -399,7 +400,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const x = event.to?.x ?? position.current.x + (event.by?.x ?? 0);
     const y = event.to?.y ?? position.current.y + (event.by?.y ?? 0);
 
-    track(source, { initial: position.initial, current: { x } });
+    track(source, { initial: position.initial, current: { x, y } });
 
     if (!local.external || !source) return;
     mark(local.external.target(String(source.id), x, y));
@@ -434,11 +435,16 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const tree = local.tree;
     const point = event.operation.position.current;
     const box = list?.getBoundingClientRect();
-    const inside = !pointerDrag || (box && point.x >= box.left && point.x < box.right && point.y >= box.top && point.y < box.bottom);
+    // RestrictToElement constrains the decoration, not the sensor's pointer distance.
+    // Horizontal overrun remains a tree destination only while dnd-kit targets this list.
+    const target = event.operation.target?.element;
+    const horizontalOverrun = tree && !outside && target && list?.contains(target);
+    const inside = !pointerDrag || (box && point.y >= box.top && point.y < box.bottom
+      && ((point.x >= box.left && point.x < box.right) || horizontalOverrun));
 
     // The extra gap can leave OptimisticSorting's index on a neighbour after the pointer returns.
     // Use the library's lift shape to keep that return in the original slot, preserving horizontal depth.
-    const index = isSortable(source) ? pointerDrag && event.operation.shape?.initial.containsPoint(point) ? source.initialIndex : source.index : null;
+    const index = isSortable(source) ? pointerDrag && event.operation.shape?.initial.containsPoint(tree ? { x: event.operation.position.initial.x, y: point.y } : point) ? source.initialIndex : source.index : null;
 
     const final = tree && inside && !event.canceled && isSortable(source)
       ? resolve(tree, String(source.id), index ?? source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })

@@ -85,7 +85,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
 
     if (input === "pointer") {
       const second = await centre(1);
-      await drag(second, { x: second.x + 30, y: second.y });
+      await drag(second, { x: second.x + await treeStep(), y: second.y });
     } else {
       await page.call(`id => document.querySelector('[data-todo="' + id + '"] .sortable-handle').focus()`, moved);
       await page.press(" ", "Space");
@@ -99,13 +99,13 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(await page.call<number>(`() => document.activeElement.matches('.sortable-handle') ? Number(document.activeElement.closest('[data-todo]').dataset.todo) : null`)).toBe(moved);
   });
 
-  it("u3710_a_sideways_drag_calls_set_blockers_and_a_vertical_one_calls_reorder", async () => {
+  it("u4710b_u3710_a_sideways_drag_calls_set_blockers_and_a_vertical_one_calls_reorder", async () => {
     await setup();
 
     const order = await ids();
     const second = await centre(1);
 
-    await drag(second, { x: second.x + 30, y: second.y });
+    await drag(second, { x: second.x + await treeStep(), y: second.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
     expect((await calls()).map((c) => c.method)).toEqual(["todo.setBlockers"]);
@@ -122,14 +122,14 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(await calls()).toEqual([{ method: "todo.reorder", params: { id: order[order.length - 1], before: order[0] } }]);
   }, 60_000);
 
-  it("u3710_a_drag_that_changes_both_sets_blockers_then_reorders", async () => {
+  it("u4710b_u3710_a_drag_that_changes_both_sets_blockers_then_reorders", async () => {
     await setup();
 
     const order = await ids();
     const last = await centre(order.length - 1);
     const second = await centre(1);
 
-    await drag(last, { x: second.x + 30, y: second.y });
+    await drag(last, { x: second.x + await treeStep(), y: second.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.reorder')`);
     await settled();
 
@@ -140,23 +140,21 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(made[1]!.params).toEqual({ id: order[order.length - 1], before: order[1] });
   }, 60_000);
 
-  it("u3710_depth_is_bounded_by_the_row_above", async () => {
+  it("u4710b_u3710_depth_is_bounded_by_the_row_above", async () => {
     await setup();
 
     const order = await ids();
     const first = await centre(0);
-    // Empty owner targets can add a scrollbar during the drag; leave room for it inside the list.
-    const right = await page.call<number>(`rows => document.querySelector(rows).closest('.todo-list').getBoundingClientRect().right - 1`, rows);
 
-    // The first row has no row above: far right inside the list changes nothing.
-    await drag(first, { x: Math.min(first.x + 200, right), y: first.y });
+    // The first gap cannot gain a parent, even beyond the inline edge.
+    await drag(first, { x: first.x + 8 * await treeStep(), y: first.y });
     await settled();
     expect(await calls()).toEqual([]);
 
     // The second row goes one level under the first, however far right the pointer is.
     const second = await centre(1);
 
-    await drag(second, { x: Math.min(second.x + 300, right), y: second.y });
+    await drag(second, { x: second.x + 8 * await treeStep(), y: second.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
 
@@ -164,6 +162,27 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
 
     expect(made).toHaveLength(1);
     expect(made[0]!.params.blockers?.[0]).toBe(order[0]);
+  }, 60_000);
+
+  it.each([1512, 1280])("u4710b_nearest_step_and_unnest_use_distance_at_%s", async width => {
+    for (const fraction of [0.49, 0.51, -1]) {
+      await setup();
+      await page.resize(width, width === 1280 ? 820 : 950);
+      const order = await ids();
+      const extra = await page.call<number>(`async (order, child) => {
+        const rpc = window.__fake.app.rpc;
+        const extra = await rpc('todo.create', {title:'Other blocker',body:null,blockers:null,owner:{kind:'user',id:'you',parent:null}});
+        await rpc('todo.setBlockers', {id:order[1],blockers:child ? [order[0],extra.id] : [extra.id]});
+        await rpc('todo.update', {id:order[1],title:'Distance and blocker retention',body:null});
+        window.__mark = window.__fake.app.calls.length;
+        return extra.id;
+      }`, order, fraction < 0);
+      await page.until(`() => Array.from(document.querySelectorAll('.shelf .todo-row-button')).some(row => row.textContent.includes('Distance and blocker retention'))`);
+      const from = await centre(1);
+      await drag(from, {x: from.x + fraction * await treeStep(), y: from.y});
+      await settled();
+      expect(await calls()).toEqual(fraction === 0.49 ? [] : [{method: "todo.setBlockers", params: {id: order[1], blockers: fraction < 0 ? [extra] : [order[0], extra]}}]);
+    }
   }, 60_000);
 
   it("u4710b_u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
@@ -175,7 +194,6 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     }`, order);
     await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
     // The grip can sit at the inline edge; the library still identifies this list.
-    await page.call(`rows => document.querySelector(rows).closest('.todo-list').style.paddingInlineEnd = '0px'`, rows);
     const edge = await centre(2);
     await drag(edge, { x: edge.x + 2 * await treeStep(), y: edge.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
@@ -190,7 +208,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     const second = await centre(1);
 
     await page.call(`() => { window.__fake.failNext(-32003, 'todo would wait on itself'); return true; }`);
-    await drag(second, { x: second.x + 30, y: second.y });
+    await drag(second, { x: second.x + await treeStep(), y: second.y });
     await page.until(`() => document.querySelector('[role=alert]') !== null`);
     await settled();
     expect(await page.call<string>(`() => document.querySelector('[role=alert]').textContent`)).toBe("todo would wait on itself");
@@ -216,8 +234,8 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
 
     // First project a different order inside the list, then release outside it.
     await drag(last, { x: last.x, y: first.y }, false);
-    await page.pointer("move", 900, first.y);
-    await page.pointer("up", 900, first.y);
+    await page.pointer("move", 900, 10);
+    await page.pointer("up", 900, 10);
     await settled();
     expect(await calls()).toEqual([]);
   }, 60_000);
