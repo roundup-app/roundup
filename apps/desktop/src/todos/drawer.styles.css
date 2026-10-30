@@ -122,7 +122,7 @@
 
 /* U4698d: the header owns navigation; document content follows one reading edge. */
 .drawer:has(.todo-header) { padding: 0; overflow: hidden; }
-.drawer[data-maximised]:has(.todo-header) .todo-detail { width: 100%; max-width: none; align-self: stretch; overflow: auto; min-height: 0; gap: var(--space-4); padding-bottom: var(--space-5); }
+.drawer[data-maximised]:has(.todo-header) .todo-detail { width: 100%; max-width: none; align-self: stretch; overflow: auto; overscroll-behavior: contain; min-height: 0; gap: var(--space-4); padding-bottom: var(--space-5); }
 .todo-header { position: sticky; top: 0; z-index: var(--layer-drawer); display: flex; align-items: center; gap: var(--space-3); min-height: calc(var(--space-6) + var(--space-2)); padding: var(--space-2) var(--space-6) var(--space-2) var(--reading-gutter); background: var(--ground); border-bottom: var(--hairline-width) solid var(--hairline); }
 .todo-breadcrumb { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 1; color: var(--grey); font-size: var(--text-small); }
 .todo-breadcrumb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -141,7 +141,7 @@
 .todo-detail-title { font-size: var(--text-title); }
 .todo-detail-title .todo-editable { font-size: var(--text-pad-heading); line-height: 1.3; }
 .todo-meta { font-size: var(--text-title); }
-.todo-header { box-sizing: border-box; padding-inline-start: max(var(--reading-gutter), calc((100% - var(--reading-width)) / 2 + var(--reading-gutter))); }
+.todo-header { box-sizing: border-box; padding-inline-start: var(--reading-gutter); }
 
 /* The shared editor scrolls with the document; its toolbar clears the sticky header. */
 .todo-detail .todo-detail-body { padding-inline: 0; flex-shrink: 0; }

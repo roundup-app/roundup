@@ -31,6 +31,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
   await browser("focus", '[data-todo="1"] .todo-row-button');
   await browser("press", "Enter");
   await browser("wait", ".todo-detail-title");
+  await browser("wait", ".drawer .ProseMirror");
   await settle();
 
   if (output) {
@@ -56,6 +57,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
         await browser("screenshot", join(output, `actions-${width}.png`));
         writeFileSync(join(output, `actions-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
       }
+
       await browser("press", "Escape");
       await browser("wait", ".todo-header");
       await browser("click", '[aria-label="Blocked by 30"]');
@@ -65,6 +67,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
         await browser("screenshot", join(output, `blockers-${width}.png`));
         writeFileSync(join(output, `blockers-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
       }
+
       await browser("press", "Escape");
     }
 
@@ -75,6 +78,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
       await browser("screenshot", join(output, `done-${width}.png`));
       writeFileSync(join(output, `done-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
     }
+
     await browser("click", '.drawer [aria-label="Restore"]');
     await settle();
 
@@ -82,10 +86,18 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
       await browser("screenshot", join(output, `minimised-${width}.png`));
       writeFileSync(join(output, `minimised-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
     }
+
     await browser("click", '.drawer [aria-label="Maximise"]');
     await settle();
     await evaluate("window.__fake.app.rpc('todo.reopen', { id: 1 }); true");
     await browser("wait", '.drawer input[type="checkbox"]:not(:checked)');
+  }
+
+  if (output) {
+    await evaluate("(() => { const pane = document.querySelector('.todo-detail'); pane.scrollTop = pane.scrollHeight; return true; })()");
+    await settle();
+    await browser("screenshot", join(output, `bottom-${width}.png`));
+    writeFileSync(join(output, `bottom-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   }
 
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'todo.complete').map(call => call.params.id)")).toEqual([1]);
@@ -93,9 +105,9 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
   if (output) await browser("record", "stop");
 });
 
-it("u4698d_rich_body_saves_the_selected_todo_and_keeps_a_refused_draft", { retry: 0, timeout: 90_000 }, async () => {
+it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_and_keeps_a_refused_draft_%sx%s", { retry: 0, timeout: 90_000 }, async (width, height) => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
-  await browser("set", "viewport", "1512", "950");
+  await browser("set", "viewport", String(width), String(height));
   await evaluate(`(async () => {
     await window.__fake.app.rpc('todo.update', { id: 1, title: 'Release notes', body: '# Plan\\n\\nOriginal body' });
     const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
@@ -119,8 +131,8 @@ it("u4698d_rich_body_saves_the_selected_todo_and_keeps_a_refused_draft", { retry
   await browser("wait", '.todo-detail-body [role="alert"]');
 
   if (output) {
-    await browser("screenshot", join(output, "body-refusal.png"));
-    writeFileSync(join(output, "body-refusal.checks.json"), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+    await browser("screenshot", join(output, `body-refusal-${width}.png`));
+    writeFileSync(join(output, `body-refusal-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   }
 
   await browser("focus", '.drawer .ProseMirror');
