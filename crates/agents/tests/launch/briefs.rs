@@ -8,6 +8,10 @@ fn e9_two_agents_of_one_role_get_equal_brief_bytes() {
         brief(&s, "7014", Role::Agent)
     );
     assert_eq!(brief(&s, "7013", Role::Door), brief(&s, "7014", Role::Door));
+    assert_eq!(
+        brief(&s, "7013", Role::Scout),
+        brief(&s, "7014", Role::Scout)
+    );
 }
 
 #[test]
@@ -191,8 +195,7 @@ fn e3_workstream_guidance_precedes_tools() {
     let s = setup();
     for mcp in [true, false] {
         for role in [Role::Door, Role::Agent, Role::Scout] {
-            let argv = s
-                .launcher()
+            s.launcher()
                 .prepare_on(
                     folders(&s.dir),
                     "7",
@@ -231,13 +234,13 @@ fn e3_workstream_guidance_precedes_tools() {
             ] {
                 assert!(text[..catalogue].contains(rule), "missing {rule}");
             }
-            let entries: Vec<_> = text[catalogue..]
-                .lines()
-                .take_while(|line| !line.starts_with("## Asking"))
-                .filter(|line| line.starts_with("- `"))
-                .collect();
+            let entries = text[catalogue..].split("\n\n").nth(2).unwrap();
             assert!(!entries.is_empty());
-            for entry in entries {
+            for entry in entries.lines() {
+                assert!(
+                    entry.starts_with("- `"),
+                    "one physical line per tool: {entry}"
+                );
                 assert!(
                     entry.split_whitespace().count() <= 25,
                     "catalogue entry exceeds 24 words (excluding bullet): {entry}"
@@ -254,7 +257,6 @@ fn e3_workstream_guidance_precedes_tools() {
             } else {
                 assert!(text.contains("rup help"));
             }
-            assert!(!argv.is_empty());
         }
     }
 }

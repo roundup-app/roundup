@@ -296,7 +296,7 @@ def brief_report(report, source="startup", exercise=False):
         brief = open(flag("--append-system-prompt-file")).read()
     else:
         additional = next(output["hookSpecificOutput"]["additionalContext"] for output in startup)
-        brief = additional.rsplit("\nYour Rail name is ", 1)[0]
+        brief = "# roundup\n" + additional.split("\n# roundup\n", 1)[1]
     seen = {"brief": brief, "tools": names, "startup": startup}
     if "FAKE_CLAUDE_NAME_REPORT" in os.environ or exercise:
         result = request(3, "tools/call", {"name": "agent_context", "arguments": {}})

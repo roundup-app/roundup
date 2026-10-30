@@ -68,7 +68,7 @@ async fn a3516b_start_context_carries_the_brief() {
         assert_eq!(
             reply["hookSpecificOutput"]["additionalContext"],
             format!(
-                "{brief}\n{}",
+                "{}\n{brief}",
                 context["hookSpecificOutput"]["additionalContext"]
                     .as_str()
                     .unwrap()
