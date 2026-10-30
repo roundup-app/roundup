@@ -14,7 +14,7 @@ const open = async () => {
   connected.rail.select("backend");
   render(() => <ConnectedProjectContext.Provider value={connected}>
     <Tabs.Root defaultValue="todos">
-      <Tabs.List aria-label="Work items"><Tabs.Trigger value="todos">Todos</Tabs.Trigger><Tabs.Trigger value="pads">Pads</Tabs.Trigger></Tabs.List>
+      <Tabs.List aria-label="Bench"><Tabs.Trigger value="todos">Todos</Tabs.Trigger><Tabs.Trigger value="pads">Pads</Tabs.Trigger></Tabs.List>
       <Shelf open={() => true} />
     </Tabs.Root>
   </ConnectedProjectContext.Provider>);
@@ -27,7 +27,7 @@ it("u4463_each_head_is_one_row_of_title_and_controls", async () => {
 
   expect(within(head).getAllByRole("switch")).toHaveLength(1);
   expect(within(head).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["add todo to backend", "Triage"]);
-  fireEvent.click(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: /^Pads/ }));
+  fireEvent.click(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /^Pads/ }));
   await waitFor(() => expect(within(head).getByRole("button", { name: copy.addPad })).toBeTruthy());
   expect(within(head).queryByRole("switch")).toBeNull();
 });

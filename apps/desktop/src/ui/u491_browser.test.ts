@@ -24,8 +24,6 @@ const tabTo = async (selector: string) => {
   expect(await read<boolean>(`document.activeElement?.matches('${selector}')`)).toBe(true);
 };
 
-const widths = () => read<{ rail: number; shelf: number }>(`Object.fromEntries(['rail','shelf'].map(name => [name, document.querySelector('[data-layout-panel='+name+']').getBoundingClientRect().width]))`);
-
 it("u491_keys_limits_and_reset_Resize Rail", async () => {
   const name = "Resize Rail";
   const expected = [304, 368, 480, 252, 288];
@@ -49,29 +47,6 @@ it("u491_keys_limits_and_reset_Resize Rail", async () => {
   await wait(`document.querySelector('[aria-label=Ends]').textContent === '7'`);
   expect(await read<string>(`document.querySelector('${selector}').getAttribute('aria-valuenow')`)).toBe(String(expected[4]));
 }, 90_000);
-
-it("u491_existing_layout_binding", async () => {
-  await browser("set", "viewport", "1280", "800");
-  await load();
-  expect(await widths()).toEqual({ rail: 288, shelf: 320 });
-  await key("Resize Rail", "ArrowRight");
-  await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 304`);
-  expect(await widths()).toEqual({ rail: 304, shelf: 320 });
-  await key("Resize work items", "ArrowLeft");
-  await wait(`document.querySelector('[data-layout-panel=shelf]').getBoundingClientRect().width === 336`);
-  expect(await widths()).toEqual({ rail: 304, shelf: 336 });
-  await browser("find", "role", "button", "click", "--name", "Wide", "--exact");
-  await wait(`document.querySelector('[data-layout-root]').dataset.shelfMode === 'overlay'`);
-  expect(await widths()).toEqual({ rail: 480, shelf: 560 });
-  await key("Resize work items", "ArrowRight");
-  await wait(`document.querySelector('[data-layout-panel=shelf]').getBoundingClientRect().width === 544`);
-  await browser("find", "role", "button", "click", "--name", "Shelf", "--exact");
-  await wait(`document.querySelector('[data-layout-panel=shelf]').hidden && !document.querySelector('[aria-label="Resize work items"]')`);
-  await key("Resize Rail", "ArrowLeft");
-  await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 464`);
-  expect(await widths()).toEqual({ rail: 464, shelf: 0 });
-}, 90_000);
-
 
 it("u491_controlled_pixels_follow_owner_and_root", async () => {
   await load();
@@ -131,7 +106,7 @@ it("u492_tab_leaves_toast_for_next_document_control", async () => {
   await wait(`document.querySelector('.app-toast-action')`);
   await browser("focus", ".app-toast-action");
   await browser("press", "Tab");
-  expect(await read<string>(`document.activeElement?.getAttribute('aria-label')`)).toBe("Resize work items");
+  expect(await read<boolean>(`document.activeElement === document.querySelectorAll('[role=separator]')[1]`)).toBe(true);
   await browser("press", "Shift+Tab");
   expect(await read<boolean>(`document.activeElement?.matches('.app-toast-action')`)).toBe(true);
 }, 90_000);

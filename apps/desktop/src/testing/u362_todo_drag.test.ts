@@ -167,7 +167,7 @@ run('u362 rendered move failure', () => {
       await page.call(`() => document.querySelector('[aria-label="Todo fixture"] button').click()`);
       await page.until(`() => document.querySelector('[aria-label="Todo fixture"] button').getAttribute('aria-pressed') === 'true'`);
       await page.press('k', 'KeyK', 4);
-      await page.press('s', 'KeyS');
+      await page.press('b', 'KeyB');
       await page.until(`() => document.querySelectorAll('.shelf .todo-row').length === 200`);
       await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
       await page.until(`() => document.querySelector('.shelf .todo-row-button').getBoundingClientRect().width > 0`);
