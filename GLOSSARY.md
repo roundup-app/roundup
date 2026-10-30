@@ -57,6 +57,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
 | Digest | same | — |
 | Wake request (`agent.wake`) | same | — |
+| GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
+| Quiet Digest (`is_quiet_digest`) | same | — |
 | Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, one-line `reason`, absent for legacy definitions) | Reaction | — |
 | Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
 | Preview (`reaction.preview`) | Time preview | — |
