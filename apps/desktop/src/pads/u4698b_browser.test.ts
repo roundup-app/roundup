@@ -10,7 +10,7 @@ const output = captureDir("U4698b");
 const capture = async (name: string) => {
   if (!output) return;
   await browser("screenshot", join(output, `${name}.png`));
-  writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+  writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 };
 
 it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: 90_000 }, async () => {
@@ -30,6 +30,24 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await settle();
     await capture(`before-editor-${width}`);
   }
+
+  const openTodo = async () => {
+    await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); const group = document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+    await browser("wait", ".shelf .todo-row-button");
+    await browser("focus", ".shelf .todo-row-button");
+    await browser("press", "Enter");
+    await browser("wait", ".drawer .todo-detail-title");
+    await settle();
+  };
+
+  await openTodo();
+  for (const [width, height] of [[1512, 950], [1280, 820]]) {
+    await browser("set", "viewport", String(width), String(height));
+    await settle();
+    await capture(`todo-before-editor-${width}`);
+  }
+  await browser("click", ".drawer .close");
+  await settle();
 
   const name = "Document reading and formatting ".repeat(7).slice(0, 200);
   const table = `| Decision | Owner | Context |\n| --- | --- | --- |\n| ${"LongUnbrokenWord".repeat(12)} | Ada | ${"Table prose wraps across multiple lines. ".repeat(15)} |`;
@@ -92,5 +110,14 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await evaluate("document.querySelector('.pad-editor').scrollTop = 0; true");
     await settle();
     await capture("save-failure-1280");
+  }
+
+  await browser("click", ".drawer .close");
+  await settle();
+  await openTodo();
+  for (const [width, height] of [[1512, 950], [1280, 820]]) {
+    await browser("set", "viewport", String(width), String(height));
+    await settle();
+    await capture(`todo-after-editor-${width}`);
   }
 });
