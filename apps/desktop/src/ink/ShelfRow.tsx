@@ -9,7 +9,7 @@ export const ShelfRow = (props: { glyph: JSX.Element; /** U361: a separately ord
   return (
     <div {...rest} class={own.class ? `shelf-row row-wash ${own.class}` : "shelf-row row-wash"}>
       {own.head !== undefined ? <div class="shelf-head">{own.head}</div> : null}
-      <Show when={own.glyph}><span class="shelf-glyph">{own.glyph}</span></Show>
+      <Show when={own.glyph}>{glyph => <span class="shelf-glyph">{glyph()}</span>}</Show>
       <div class="shelf-text">{own.children}</div>
     </div>
   );

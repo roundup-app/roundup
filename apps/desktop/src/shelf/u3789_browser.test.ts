@@ -110,72 +110,67 @@ it.each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activa
 
 
 // Policy observer: pictures and Check readings are judged by the design critic.
-it.skipIf(!captureDir("U4908"))("u4908_paired_row_columns_and_actions", async () => {
+it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "agents-10"].flatMap(seed => ["todos", "pads"].map(kind => ({base, seed, kind})))))("u4908_paired_row_columns_and_actions_$base/$seed/$kind", async ({base, seed, kind}) => {
+  if (base && !process.env.U500_BASE_ROOT) return;
+  const stage = base ? "base" : "head";
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
+  await load(seed, base);
+  const video = !base && seed === "tree-40" ? captureDir("U4908") : null;
 
-  for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
-    const stage = base ? "base" : "head";
+  if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", `interaction-${kind}.webm`)); await wait("window.__fake && document.querySelector('.rail-tree')"); }
 
-    for (const seed of ["tree-40", "agents-10"]) {
-      await load(seed, base);
-      const video = !base && seed === "tree-40" ? captureDir("U4908") : null;
+  await overview();
 
-      if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", "interaction.webm")); await wait("window.__fake && document.querySelector('.rail-tree')"); }
-
-      await overview();
-      await dense();
-      await browser("eval", `(async () => {
-        const rpc = window.__fake.app.rpc;
-        let parent = null;
-        for (const title of ['Root Todo', 'Child Todo', 'Grandchild Todo', 'Great-grandchild Todo']) {
-          const todo = await rpc('todo.create', {title, body:null, blockers:parent === null ? null : [parent]});
-          parent = todo.id;
-        }
-      })()`);
-
-      for (const kind of ["todos", "pads"]) {
-        await browser("click", `#shelf-tab-${kind}`);
-        await wait(`document.querySelector('.${kind}-tab')`);
-        await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
-        const row = kind === "todos" ? '.todos-tab [data-todo="1"] .todo-row-button' : '.pads-tab .pad-name';
-        await browser("scrollintoview", row);
-        await browser("mouse", "move", "1", "1");
-        await browser("eval", "document.activeElement.blur()");
-        await shot("U4908", stage, `${seed}-${kind}-rest`);
-        await browser("hover", row);
-        await shot("U4908", stage, `${seed}-${kind}-hover`);
-        await browser("focus", row);
-        await shot("U4908", stage, `${seed}-${kind}-focus`);
-        await browser("click", row);
-        await shot("U4908", stage, `${seed}-${kind}-selected`);
-        await browser("press", "Enter");
-        await wait("document.querySelector('.drawer[data-open=true]')");
-        await shot("U4908", stage, `${seed}-${kind}-opened`);
-        await browser("press", "Escape");
-        await wait("!document.querySelector('.drawer[data-open=true]')");
-        await browser("click", ".shelf-add");
-        await wait("document.querySelector('.entry-field')");
-        await shot("U4908", stage, `${seed}-${kind}-add`);
-        await browser("fill", ".entry-field", "Rejected item");
-        await browser("eval", `(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.handlers['${kind === "todos" ? "todo.create" : "pad.create"}'] = () => {throw new RpcError(-32003, 'Creation refused; change the name and try again.');}; })()`);
-        await browser("press", "Enter");
-        await wait("document.body.textContent.includes('Creation refused')");
-        await shot("U4908", stage, `${seed}-${kind}-failure`);
-        await browser("press", "Escape");
-      }
-
-      await browser("set", "viewport", "1280", "820");
-
-      for (const kind of ["todos", "pads"]) {
-        await browser("click", `#shelf-tab-${kind}`);
-        await wait(`document.querySelector('.${kind}-tab')`);
-        await shot("U4908", stage, `${seed}-${kind}-1280`);
-      }
-
-      await browser("set", "viewport", "1512", "950");
-
-      if (video) await browser("record", "stop");
+  if (seed === "tree-40") await dense();
+  else await browser("eval", `(async () => {
+    const rpc = window.__fake.app.rpc;
+    await rpc('rail.rename', {id:'agent-1',name:'A'.repeat(60)});
+    const blockers = [];
+    for (let n=0;n<10;n++) blockers.push((await rpc('todo.create',{title:'blocker '+n,body:null,blockers:null})).id);
+    await rpc('todo.create', {title:'T'.repeat(300),body:null,blockers,owner:{kind:'agent',id:'agent-1',parent:null}});
+    await rpc('pad.create',{name:'P'.repeat(120),text:null});
+    await rpc('pad.create',{name:'Short Pad',text:null});
+  })()`);
+  await browser("eval", `(async () => {
+    const rpc = window.__fake.app.rpc;
+    let parent = null;
+    for (const title of ['Root Todo', 'Child Todo', 'Grandchild Todo', 'Great-grandchild Todo']) {
+      const todo = await rpc('todo.create', {title, body:null, blockers:parent === null ? null : [parent]});
+      parent = todo.id;
     }
-  }
-}, 300_000);
+  })()`);
+  await browser("click", `#shelf-tab-${kind}`);
+  await wait(`document.querySelector('.${kind}-tab')`);
+  await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
+  await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
+  const row = kind === "todos" ? `.todos-tab [data-todo="${seed === "tree-40" ? 1 : 11}"] .todo-row-button` : `.pads-tab [data-pad="${"P".repeat(120)}"] .pad-name`;
+  await browser("scrollintoview", row);
+  await browser("mouse", "move", "1", "1");
+  await browser("eval", "document.activeElement.blur()");
+  await shot("U4908", stage, `${seed}-${kind}-rest`);
+  await browser("hover", row);
+  await shot("U4908", stage, `${seed}-${kind}-hover`);
+  await browser("focus", row);
+  await shot("U4908", stage, `${seed}-${kind}-focus`);
+  await browser("click", row);
+  await shot("U4908", stage, `${seed}-${kind}-selected`);
+  await browser("press", "Enter");
+  await wait("document.querySelector('.drawer[data-open=true]')");
+  await shot("U4908", stage, `${seed}-${kind}-opened`);
+  await browser("click", ".drawer[data-open=true] .close");
+  await wait("!document.querySelector('.drawer[data-open=true]')");
+  await browser("click", ".shelf-add");
+  await wait("document.querySelector('.entry-field')");
+  await shot("U4908", stage, `${seed}-${kind}-add`);
+  await browser("fill", ".entry-field", "Rejected item");
+  await browser("eval", `(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.handlers['${kind === "todos" ? "todo.create" : "pad.create"}'] = () => {throw new RpcError(-32003, 'Creation refused; change the name and try again.');}; })()`);
+  await browser("press", "Enter");
+  await wait("document.body.textContent.includes('Creation refused')");
+  await shot("U4908", stage, `${seed}-${kind}-failure`);
+  await browser("press", "Escape");
+  await browser("set", "viewport", "1280", "820");
+  await shot("U4908", stage, `${seed}-${kind}-1280`);
+
+  if (video) await browser("record", "stop");
+}, 60_000);
