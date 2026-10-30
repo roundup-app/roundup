@@ -126,7 +126,6 @@
 {"rule":"vocabulary","identity":"openAFolder","branch":"0","fingerprint":"fd94cbb45d14e1ce3b3f5fc3e062e18dbef2abb69d578d22cbaa78490d195d6e"},
 {"rule":"label-length","identity":"needYouError","branch":"0","fingerprint":"111bd2d33f0ba3033eeba1dc72685bf119c9c041cdb38ac9be52ac7796ba2ea4"},
 {"rule":"duplicate-copy","identity":"done","branch":"0","fingerprint":"11a6767d5674c7e45f7e00dc525762275b3a48491ad6045427d2609cc496c516"},
-{"rule":"label-length","identity":"helpScope","branch":"2","fingerprint":"77e2f1b0a2104ce2a07993cbf186cb3a09f78852a74d116d24945061af235786"},
 {"rule":"label-length","identity":"helpBubbleScope","branch":"0","fingerprint":"a8fc68631bd5bdaee246845ef20530533234b1c6bf0e4d736af0f6cda55c4370"},
 {"rule":"label-length","identity":"helpRowScope","branch":"1","fingerprint":"24afaf454599a23d27aecbc1239cba998483d72acc9fe48c128b075140c9875f"},
 {"rule":"label-length","identity":"focusThePreviousNextShelfRow","branch":"0","fingerprint":"9919cbbbad4f916b750462bc808ece5f95e7c7a93df1cde1b440bfff1588853a"},

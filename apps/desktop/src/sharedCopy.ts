@@ -31,6 +31,8 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  bold: "Bold",
+  italic: "Italic",
   running,
   addTodo: "Add Todo",
   terminalPreparationCancelled: "Terminal preparation cancelled",
@@ -191,5 +193,6 @@ export const copy = {
   unseenMark: "●",
   unreadResult: "Unread result",
   moveTo: "Move to…",
+  inlineCodeAction: "Inline code",
 } as const;
 
