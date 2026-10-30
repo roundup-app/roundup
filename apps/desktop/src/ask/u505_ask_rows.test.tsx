@@ -176,7 +176,7 @@ it("u504_empty_overview_mounts_no_attention_or_asks", async () => {
   const { app } = await mountAskBar([], null, []);
   await waitFor(() => expect(app.calls.some(call => call.method === "ask.list")).toBe(true));
   expect(document.querySelector(".ask-parts")).toBeNull();
-  expect(document.querySelector('[data-state="attention"]')).toBeNull();
+  expect(document.querySelector(".overview-entry, .inbox-row")).toBeNull();
   expect(screen.queryByRole("button", { name: /Earlier/ })).toBeNull();
   expect(document.querySelector(".ask-input")).toBeTruthy();
   expect(app.calls.filter(call => ["ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
