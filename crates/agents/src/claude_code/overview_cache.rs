@@ -241,6 +241,8 @@ impl Launcher {
         }
         let launcher = self.clone();
         runtime.spawn(async move {
+            let mut tick = tokio::time::interval(POLL);
+            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 let batch: Vec<(String, PathBuf)> = {
                     let mut wanted = launcher
@@ -274,7 +276,7 @@ impl Launcher {
                 if moved {
                     changed();
                 }
-                tokio::time::sleep(POLL).await;
+                tick.tick().await;
             }
         });
     }
