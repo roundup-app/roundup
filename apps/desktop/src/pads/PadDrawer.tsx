@@ -340,6 +340,8 @@ const PadBody = (props: {
 
   const remove = (source: ActivationSource) =>
     act(async () => {
+      const focus = captureFocus();
+      const close = document.activeElement?.closest(".drawer")?.querySelector<HTMLElement>(".close");
       saveAfterPause.clear();
       due = null;
       const failures = await connected.drafts.todoUndo.removePads([{ name, incarnation: destination.object }], `pad:${destination.object}`);
@@ -349,6 +351,8 @@ const PadBody = (props: {
       actionFailure.clear();
       props.onFailureCleared?.();
       setRemovedByMe(true);
+      // A deletion event can remove the focused Delete button before its reply closes the Drawer.
+      focus(() => { if (document.activeElement === document.body) close?.focus({ preventScroll: true }); });
       connected.drawer.close(source);
       queueMicrotask(() => connected.drafts.todoUndo.handoff(`pad:${destination.object}`, historyRegion(document.activeElement)));
     });

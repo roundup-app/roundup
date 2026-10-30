@@ -487,6 +487,9 @@ it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
   const label = await screen.findByText("round-trip-rail", { selector: ".name" });
   const row = label.closest<HTMLElement>('[data-part="branch-control"]')!;
+  fireEvent.click(row);
+  await connected!.rail.settled();
+  await waitFor(() => expect(connected!.rail.selected()).toBe(item.id));
   row.focus();
   fireEvent.keyDown(row, { key: "Backspace", code: "Backspace", metaKey: true });
   const present = async () => (await app.rpc("rail.tree", null)).some(node => node.id === item.id);
