@@ -80,8 +80,7 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   const operation = (calls[0]!.params as { operation: string }).operation;
   finish({ operation, deleted: [5], missing: [], state: "deleted" });
   await acknowledged();
-  expect([connections.get("/a")!.drawer.content()]).toEqual([null]);
-  await acknowledged();
+  await waitFor(() => expect(connections.get("/a")!.drawer.content()).toBeNull());
   expect(connections.get("/a")!.drafts.todoUndo.available("todo:5")).toBe(true);
   expect(connections.get("/a")!.drafts.todoUndo.available("todo:7")).toBe(false);
   expect([...document.querySelectorAll("button")].filter(button => button.textContent === "Undo")).toEqual([]);
