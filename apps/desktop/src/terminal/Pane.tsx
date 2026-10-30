@@ -2,7 +2,7 @@ import { EmptyState } from "../ink/EmptyState";
 import { makeEventListener } from "@solid-primitives/event-listener";
 import { makeResizeObserver } from "@solid-primitives/resize-observer";
 import { appSettings } from "../settings/preferences";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";

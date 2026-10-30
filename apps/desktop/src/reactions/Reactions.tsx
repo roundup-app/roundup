@@ -7,7 +7,7 @@ import * as v from "valibot";
 import type { Message } from "@contracts/message/Message";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import type { Condition } from "@contracts/reaction/Condition";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import type { createReactions } from "./state";
