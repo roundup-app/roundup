@@ -19,7 +19,7 @@ const MODS: KeyboardEventInit[] = [{ ctrlKey: true }, { altKey: true }, { metaKe
   { ctrlKey: true, altKey: true }, { ctrlKey: true, metaKey: true }, { altKey: true, metaKey: true }];
 
 it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
-  expect(CHORDS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf).flatMap(row => row.presses)).toEqual(KEPT);
+  expect(CHORDS.filter(row => !row.inFirstRun && !row.inRail && !row.inTerminals && !row.inShelf && !row.inEditor).flatMap(row => row.presses)).toEqual(KEPT);
   await openTabs({ api: [agent("a1", "idle", "x")] });
 
   const terminal = document.body.appendChild(document.createElement("textarea"));
