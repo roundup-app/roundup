@@ -169,6 +169,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
       await setup();
       await page.resize(width, width === 1280 ? 820 : 950);
       const order = await ids();
+
       const extra = await page.call<number>(`async (order, child) => {
         const rpc = window.__fake.app.rpc;
         const extra = await rpc('todo.create', {title:'Other blocker',body:null,blockers:null,owner:{kind:'user',id:'you',parent:null}});
@@ -177,6 +178,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
         window.__mark = window.__fake.app.calls.length;
         return extra.id;
       }`, order, fraction < 0);
+
       await page.until(`() => Array.from(document.querySelectorAll('.shelf .todo-row-button')).some(row => row.textContent.includes('Distance and blocker retention'))`);
       const from = await centre(1);
       await drag(from, {x: from.x + fraction * await treeStep(), y: from.y});
@@ -208,7 +210,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     const second = await centre(1);
 
     await page.call(`() => { window.__fake.failNext(-32003, 'todo would wait on itself'); return true; }`);
-    await drag(second, { x: second.x + await treeStep(), y: second.y });
+    await drag(second, { x: second.x + 30, y: second.y });
     await page.until(`() => document.querySelector('[role=alert]') !== null`);
     await settled();
     expect(await page.call<string>(`() => document.querySelector('[role=alert]').textContent`)).toBe("todo would wait on itself");
