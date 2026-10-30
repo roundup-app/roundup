@@ -109,7 +109,7 @@ Kind has two carriers, a Glyph shape and a tone. The shape is enough on its own:
 | `idle` | `○` (empty ring; U401) | `--grey` | no |
 | `done` | `✓` (check in a disc; U401) | `--grey` | no |
 
-Outside U4464’s decorative scene and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
+Outside U4464’s decorative scene (until U5163 makes it ground) and fixed primary-fill/key exceptions, three hues exist in the App: `--red`, `--amber`, `--accent`. Surfaces are neutral. A screen with no `error` and no `needs-you` shows no red and no amber.
 
 ## Click targets
 
@@ -327,10 +327,10 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 | `--button-neutral` | `var(--gray-4)` | `var(--gray-4)` | Secondary/action button fill |
 | `--button-accent-fill` | `#1f6b62` | same | Primary fill |
 | `--button-key-ink` | `#d4e6e2` | same | Dimmer readable key on primary fill |
-| `--doodle-line` | `#5a4a3e` | `#e6cfbb` | Decorative scene lines |
-| `--doodle-patch` | `#2f8f80` | same | Decorative scene patch |
-| `--doodle-offset` | `translate(14px, 10px)` | same | Scene patch offset |
-| `--doodle-blend` | `multiply` | `screen` | Scene patch blend |
+| `--doodle-line` | `#5a4a3e` | `#e6cfbb` | Decorative scene lines; retires under U5163 |
+| `--doodle-patch` | `#2f8f80` | same | Decorative scene patch; retires under U5163 |
+| `--doodle-offset` | `translate(14px, 10px)` | same | Scene patch offset; retires under U5163 |
+| `--doodle-blend` | `multiply` | `screen` | Scene patch blend; retires under U5163 |
 | `--button-accent-ink` | `#ffffff` | `#ffffff` | Label on accent fill |
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
 
