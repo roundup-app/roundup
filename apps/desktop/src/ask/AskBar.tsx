@@ -325,7 +325,16 @@ export const AskBar = (props: {
             const start = () => item.label.toLowerCase().indexOf((mentionOf(text()) ?? "").toLowerCase());
             const end = () => start() + (mentionOf(text())?.length ?? 0);
 
-            return <><KindGlyph kind={node()?.status?.kind ?? "idle"} /><span class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show></>;
+            let name: HTMLSpanElement | undefined;
+            const [cut, setCut] = createSignal(false);
+            onMount(() => {
+              if (!name) return;
+              const observer = new ResizeObserver(() => setCut(!!name && name.scrollWidth > name.clientWidth));
+              observer.observe(name);
+              onCleanup(() => observer.disconnect());
+            });
+
+            return <><KindGlyph decorative kind={node()?.status?.kind ?? "idle"} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show></>;
           }} /></Show>
         </Mentions.Root>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}

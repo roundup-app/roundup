@@ -66,5 +66,5 @@
 
 .app-mentions .app-combobox-item[data-highlighted] {
   background-color: var(--transparent);
-  --row-wash: var(--selected);
+  color: var(--accent);
 }
