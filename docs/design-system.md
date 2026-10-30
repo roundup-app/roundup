@@ -372,7 +372,7 @@ The elevation recipe is implemented; the remaining requirements below are specif
 | --- | --- |
 | D4 | Every enabled control answers a press with Token colour, opacity or scale by the first subsequent frame. A control unfilled at rest gains no hover or pressed ground. |
 | D7 | A selected, focused or dragged item row has exactly one changed cue: text colour or one selected ground; combined states reuse the cue. |
-| D8 | Rail, Todo, Pad and Terminal-tab first text uses one local inset after tree indentation; text and Glyph optical baselines agree within 1 CSS px. |
+| D8 | Rail first text aligns with Overview after tree indentation (U4898); Todo, Pad and Terminal-tab first text uses one local inset; text and Glyph optical baselines agree within 1 CSS px. |
 | D9 | Stylelint rejects importance, unowned px/ms/s/colours, selectors over two compounds and child combinators; no existing-hit allowlist. Duration and reduced-motion checks remain. |
 | D10 | Floating surfaces share contact + ambient shadow layers and a 0.5 CSS px edge ring, replacing both old shadow Tokens and every consumer. App palette uses Radix light/dark scales plus the icon-green accent. Rail and Shelf use native vibrancy, opaque under reduced transparency; centre, Terminal pixels and floating panels stay opaque. |
 
