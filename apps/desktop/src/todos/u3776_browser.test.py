@@ -62,7 +62,7 @@ try:
     moving = evaluate(arrive)
     assert moving['running'] == 0, moving
 
-    open_drawer()
+    # Keep the same open Drawer: only the host motion preference changes.
     browser('set', 'media', 'dark', 'reduced-motion')
     assert evaluate('matchMedia("(prefers-reduced-motion: reduce)").matches') is True
     still = evaluate(arrive)
