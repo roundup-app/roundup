@@ -84,7 +84,7 @@ declarations! { $;
         "todo.getHistory": contracts::todo::TodoId => contracts::todo::History, rpc_todo_get_history, none();
         "todo.readHistory": contracts::todo::ReadHistoryParams => (), rpc_todo_read_history, none();
         "todo.list": () => Vec<contracts::todo::Todo>, rpc_todo_list, all(empty("List every Todo."));
-        "todo.update": contracts::todo::UpdateParams => contracts::todo::Todo, rpc_todo_update, all(schema(contracts::todo::UpdateParams,"Change a Todo's title, body or estimate."));
+        "todo.update": contracts::todo::UpdateParams => contracts::todo::Todo, rpc_todo_update, all(schema(contracts::todo::UpdateParams,"Change a Todo's title or body."));
         "todo.complete": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_complete, all(schema(contracts::todo::TodoId,"Mark a Todo done."));
         "todo.reopen": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_reopen, all(schema(contracts::todo::TodoId,"Reopen a done Todo."));
         "todo.setBlockers": contracts::todo::SetBlockersParams => contracts::todo::Todo, rpc_todo_set_blockers, all(schema(contracts::todo::SetBlockersParams,"Replace a Todo's whole blocker list."));
