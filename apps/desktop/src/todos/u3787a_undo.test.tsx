@@ -278,7 +278,7 @@ for (const entry of ["selection", "single", "drawer"] as const) {
 
       fireEvent.click(first, { metaKey: true });
       fireEvent.click(pads.getByRole("button", { name: "second" }), { metaKey: true });
-      fireEvent.click(pads.getByRole("button", { name: "Delete 2" }));
+      fireEvent.click(within(document.querySelector<HTMLElement>(".shelf")!).getByRole("button", { name: "Delete 2" }));
       await screen.findByText("Could not delete second: permission refused");
       expect(pads.getByRole("button", { name: "second" }).getAttribute("aria-pressed")).toBe("true");
     } else if (entry === "single") { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }

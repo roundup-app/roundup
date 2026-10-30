@@ -123,7 +123,7 @@
 /* U4698d: the header owns navigation; document content follows one reading edge. */
 .drawer:has(.todo-header) { padding: 0; overflow: hidden; }
 .drawer:has(.todo-header) .todo-detail { width: 100%; max-width: none; align-self: stretch; overflow: auto; overscroll-behavior: contain; align-items: center; min-height: 0; gap: var(--space-4); padding-bottom: var(--space-5); }
-.todo-header { position: sticky; top: 0; z-index: var(--layer-drawer); display: flex; align-items: center; gap: var(--space-3); min-height: calc(var(--space-6) + var(--space-2)); padding: var(--space-2) calc(var(--space-6) + var(--space-4)) var(--space-2) var(--reading-gutter); background: var(--ground); border-bottom: var(--hairline-width) solid var(--hairline); }
+.todo-header { position: sticky; top: 0; z-index: var(--layer-drawer); display: flex; align-items: center; gap: var(--space-3); min-height: calc(var(--space-6) + var(--space-2)); padding: var(--space-2) var(--space-6) var(--space-2) var(--reading-gutter); padding-inline-end: calc(var(--space-6) + var(--space-4)); background: var(--ground); border-bottom: var(--hairline-width) solid var(--hairline); }
 .todo-breadcrumb { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 1; color: var(--grey); font-size: var(--text-small); }
 .todo-breadcrumb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-header-actions { display: flex; flex: none; align-items: center; gap: var(--space-2); }
@@ -149,4 +149,4 @@
 .todo-detail-body .milkdown-top-bar { top: calc(var(--space-6) + var(--space-2)); z-index: 1; }
 .todo-detail-body .todo-add-notes { margin-inline: var(--reading-gutter); }
 
-.drawer:has(.todo-header) .drawer-controls { z-index: calc(var(--layer-drawer) + 1); }
+.drawer:has(.todo-header) .drawer-controls { z-index: var(--layer-popover); }
