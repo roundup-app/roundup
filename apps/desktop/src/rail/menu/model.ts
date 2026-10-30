@@ -186,7 +186,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** Menu and key capture the same row before consequence judgement. */
   const requestRemove = (node: RailNode, exit: ExitState | null, removed?: () => void) => {
-    if (state()?.confirming || storage.todoUndo.pending() || storage.todoUndo.uncertain()) return;
+    if (state()?.confirming) return;
     setState({ node: { ...node }, exit, confirming: false, action: "remove", removed });
     chooseRemove();
   };
