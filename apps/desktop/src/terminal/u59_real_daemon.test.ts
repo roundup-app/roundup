@@ -4,6 +4,7 @@ import type { ChromePage } from "../testing/chromePage";
 import { browser, read, wait } from "../ui/tabsBrowser";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
+import { createServedApp } from "../testing/realSeam";
 
 const found = chromePath();
 
