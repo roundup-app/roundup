@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../app/copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
@@ -16,7 +17,7 @@ describe("u185 a Daemon gone, in a tab", () => {
 
     fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 
-    expect((await screen.findByRole("tooltip")).textContent).toBe("apiDaemon exited 3");
+    expect((await screen.findByRole("tooltip")).textContent).toBe(`api${appCopy.daemonExit("exited 3")}`);
   });
 
   it("u185_a_signal_exit_reads_by_signal", async () => {
@@ -25,7 +26,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: null }, path("api"));
     fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 
-    expect((await screen.findByRole("tooltip")).textContent).toBe("apiDaemon exited by signal");
+    expect((await screen.findByRole("tooltip")).textContent).toBe(`api${appCopy.daemonExit("exited by signal")}`);
   });
 
   it("u185_the_header_text_shows_for_the_open_project_only", async () => {
@@ -34,11 +35,11 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
-    expect(within(screen.getByRole("region", { name: "Rail" })).queryByText("Daemon exited 1")).toBeNull();
+    expect(within(screen.getByRole("region", { name: "Rail" })).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
 
     fireEvent.click(tab("api"));
 
-    expect(await within(screen.getByRole("region", { name: "Rail" })).findByText("Daemon exited 1")).toBeDefined();
+    expect(await within(screen.getByRole("region", { name: "Rail" })).findByText(appCopy.daemonExit("exited 1"))).toBeDefined();
     expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: "Reopen" })).toBeDefined();
   });
 
@@ -75,7 +76,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: "Reopen" }));
 
     expect(await within(screen.getByRole("region", { name: "Rail" })).findByText("rupd stayed silent")).toBeDefined();
-    expect(within(screen.getByRole("region", { name: "Rail" })).queryByText("Daemon exited 1")).toBeNull();
+    expect(within(screen.getByRole("region", { name: "Rail" })).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
     expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: "Reopen" })).toBeDefined();
   });
 
