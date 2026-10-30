@@ -3,12 +3,14 @@ use objc2::{
     MainThreadMarker, msg_send,
     rc::{Allocated, Retained},
     runtime::{AnyClass, AnyObject},
+    sel,
 };
 use objc2_foundation::{NSRange, NSSize, NSString};
 use tauri::{AppHandle, Runtime};
 
-/// Decorate the freshly built Project submenu on the main thread; indices include separators.
-/// Plain titles and key equivalents stay untouched; attributed titles share a right-aligned hint stop.
+/// Refresh responder actions and decorate the freshly built Project submenu on the main thread.
+/// Call after installation and every projection, including no Project. Indices include separators;
+/// plain Project titles and key equivalents stay untouched.
 pub fn project_menu_hints<R: Runtime>(
     app: &AppHandle<R>,
     hints: Vec<(Vec<usize>, String)>,
@@ -27,6 +29,7 @@ unsafe fn decorate_project_menu(hints: Vec<(Vec<usize>, String)>) {
     // remain retained through installation; menus can be absent during teardown.
     unsafe {
         let application: Retained<AnyObject> = msg_send![application, sharedApplication];
+        sync_responder_menu(&application);
         let menu: Option<Retained<AnyObject>> = msg_send![&*application, mainMenu];
         let Some(menu) = menu else { return };
         let project: Option<Retained<AnyObject>> =
@@ -35,6 +38,73 @@ unsafe fn decorate_project_menu(hints: Vec<(Vec<usize>, String)>) {
         let submenu: Option<Retained<AnyObject>> = msg_send![&*project, submenu];
         let Some(submenu) = submenu else { return };
         decorate_project_tree(&submenu, &hints);
+    }
+}
+
+/// AppKit owns validation and dispatch; Project commands keep muda's explicit availability.
+unsafe fn sync_responder_menu(application: &AnyObject) {
+    // SAFETY: called only with the shared NSApplication on the main thread. Menus and
+    // their children are retained while inspected; no responder or window is cached.
+    unsafe {
+        let menu: Option<Retained<AnyObject>> = msg_send![application, mainMenu];
+        let Some(menu) = menu else { return };
+        let submenu = |title: &str| -> Option<Retained<AnyObject>> {
+            let item: Option<Retained<AnyObject>> =
+                msg_send![&*menu, itemWithTitle: &*NSString::from_str(title)];
+            item.and_then(|item| msg_send![&*item, submenu])
+        };
+        if let Some(file) = submenu("File") {
+            // Tauri's default File menu contains only standard Close Window on macOS.
+            let _: () = msg_send![&*file, setAutoenablesItems: true];
+            let _: () = msg_send![&*file, update];
+        }
+        let Some(edit) = submenu("Edit") else { return };
+        let project_find = submenu("Project").is_some_and(|project| has_find_owner(&project));
+        let index: isize = msg_send![&*edit, indexOfItemWithTarget: std::ptr::null::<AnyObject>(), andAction: sel!(performTextFinderAction:)];
+        if project_find && index >= 0 {
+            let _: () = msg_send![&*edit, removeItemAtIndex: index];
+        } else if !project_find && index < 0 {
+            let item: Allocated<AnyObject> = msg_send![
+                AnyClass::get(c"NSMenuItem").expect("AppKit is loaded"),
+                alloc
+            ];
+            let item: Retained<AnyObject> = msg_send![item, initWithTitle: &*NSString::from_str("Find…"), action: sel!(performTextFinderAction:), keyEquivalent: &*NSString::from_str("f")];
+            // NSTextFinderActionShowFindInterface = 1. Nil target follows the responder chain.
+            let _: () = msg_send![&*item, setTag: 1isize];
+            let _: () = msg_send![&*item, setTarget: std::ptr::null::<AnyObject>()];
+            let _: () = msg_send![&*item, setKeyEquivalentModifierMask: 1usize << 20];
+            let _: () = msg_send![&*edit, addItem: &*item];
+        }
+        // These are Tauri's standard editing actions with nil responder targets.
+        let _: () = msg_send![&*edit, setAutoenablesItems: true];
+        let _: () = msg_send![&*edit, update];
+    }
+}
+
+unsafe fn has_find_owner(menu: &AnyObject) -> bool {
+    // SAFETY: callers retain a live NSMenu on the main thread; this reads only its projection.
+    unsafe {
+        let count: isize = msg_send![menu, numberOfItems];
+        for index in 0..count {
+            let item: Retained<AnyObject> = msg_send![menu, itemAtIndex: index];
+            let enabled: bool = msg_send![&*item, isEnabled];
+            if !enabled {
+                continue;
+            }
+            let child: Option<Retained<AnyObject>> = msg_send![&*item, submenu];
+            if let Some(child) = child {
+                if has_find_owner(&child) {
+                    return true;
+                }
+            } else {
+                let key: Retained<NSString> = msg_send![&*item, keyEquivalent];
+                let mask: usize = msg_send![&*item, keyEquivalentModifierMask];
+                if key.to_string() == "f" && mask == 1usize << 20 {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
@@ -218,7 +288,7 @@ pub fn context_menu<R: Runtime>(
 pub(crate) mod tests {
     use super::*;
 
-    use objc2::{DefinedClass, MainThreadOnly, define_class, sel};
+    use objc2::{DefinedClass, MainThreadOnly, define_class};
     use objc2_app_kit::NSResponder;
     use objc2_foundation::{NSObjectProtocol, NSPoint, NSRect};
     use std::cell::Cell;
@@ -322,6 +392,39 @@ pub(crate) mod tests {
                     ));
                 }
             }
+            // A projected registration owns the native accelerator; the responder entry
+            // must be absent, so AppKit cannot fire both paths for one key equivalent.
+            let terminal: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+            let _: () = msg_send![&*terminal, setTitle: &*NSString::from_str("Terminal Find")];
+            let _: () = msg_send![&*terminal, setAction: sel!(performTextFinderAction:)];
+            let _: () = msg_send![&*terminal, setTarget: &*responders[0]];
+            let _: () = msg_send![&*terminal, setKeyEquivalent: &*NSString::from_str("f")];
+            let _: () = msg_send![&*terminal, setKeyEquivalentModifierMask: 1usize << 20];
+            let _: () = msg_send![&*submenus[2], addItem: &*terminal];
+            sync_responder_menu(&app);
+            let count: isize = msg_send![&*submenus[1], numberOfItems];
+            assert_eq!(count, 0);
+            let event: Retained<AnyObject> = msg_send![class(c"NSEvent"),
+                keyEventWithType: 10usize, location: NSPoint::new(0.0, 0.0),
+                modifierFlags: 1usize << 20, timestamp: 0.0f64, windowNumber: 0isize,
+                context: std::ptr::null::<AnyObject>(), characters: &*NSString::from_str("f"),
+                charactersIgnoringModifiers: &*NSString::from_str("f"), isARepeat: false, keyCode: 3u16];
+            let handled: bool = msg_send![&*menu, performKeyEquivalent: &*event];
+            assert!(handled);
+            assert_eq!(responders[0].ivars().calls.get(), 2);
+            assert_eq!(responders[1].ivars().calls.get(), 1);
+            let _: () = msg_send![&*terminal, setEnabled: false];
+            sync_responder_menu(&app);
+            let _: bool = msg_send![&*menu, performKeyEquivalent: &*event];
+            assert_eq!(responders[0].ivars().calls.get(), 2);
+            assert_eq!(responders[1].ivars().calls.get(), 2);
+            let _: () = msg_send![&*submenus[2], removeItem: &*terminal];
+            sync_responder_menu(&app);
+            sync_responder_menu(&app);
+            let count: isize = msg_send![&*submenus[1], numberOfItems];
+            assert_eq!(count, 1, "projection is idempotent after removing an owner");
+            let _: () = msg_send![&*submenus[1], performActionForItemAtIndex: 0isize];
+            assert_eq!(responders[1].ivars().calls.get(), 3);
             let _: () = msg_send![&*submenus[0], update];
             let enabled: bool = msg_send![&*close, isEnabled];
             assert!(enabled);
@@ -336,7 +439,8 @@ pub(crate) mod tests {
             let _: () = msg_send![&*submenus[0], update];
             let _: () = msg_send![&*submenus[1], update];
             let close_enabled: bool = msg_send![&*close, isEnabled];
-            let find_enabled: bool = msg_send![&*find, isEnabled];
+            let current_find: Retained<AnyObject> = msg_send![&*submenus[1], itemAtIndex: 0isize];
+            let find_enabled: bool = msg_send![&*current_find, isEnabled];
             assert!(!close_enabled && !find_enabled);
             let _: () = msg_send![&*app, setMainMenu: prior.as_deref()];
         }
