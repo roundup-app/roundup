@@ -2,14 +2,15 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { mountTodos, todo, todoCallsTo } from "./testHarness";
+import { TodoHost } from "./TodoDrawer";
 
 afterEach(cleanup);
 
 stubDialogLayout();
 
 it("u4698d_header_navigates_the_visible_order_without_mutating", async () => {
-  const { app, store, todos } = await mountTodos([todo(7), todo(3), todo(9)]);
-  store.todos = [store.todos.find(todo => todo.id === 7)!, store.todos.find(todo => todo.id === 3)!, store.todos.find(todo => todo.id === 9)!];
+  const { app, store, todos } = await mountTodos([todo(7), todo(3), todo(9), todo(4, { done: true })]);
+  store.todos = [store.todos.find(todo => todo.id === 7)!, store.todos.find(todo => todo.id === 3)!, store.todos.find(todo => todo.id === 9)!, store.todos.find(todo => todo.id === 4)!];
   await todos.reload();
   fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #3 todo 3" }), { key: "Enter" });
   const panel = screen.getByRole("complementary", { name: "Drawer" });
@@ -18,6 +19,10 @@ it("u4698d_header_navigates_the_visible_order_without_mutating", async () => {
   expect(within(panel).getByRole<HTMLButtonElement>("button", { name: "Previous Todo" }).disabled).toBe(true);
   fireEvent.click(within(panel).getByRole("button", { name: "Next Todo" }));
   await within(panel).findByRole("checkbox", { name: "Complete todo 3" });
+  fireEvent.click(within(panel).getByRole("button", { name: "Next Todo" }));
+  await within(panel).findByRole("checkbox", { name: "Complete todo 9" });
+  expect(within(panel).getByRole<HTMLButtonElement>("button", { name: "Next Todo" }).disabled).toBe(true);
+  expect(todoCallsTo(app, "todo.get").map(call => call.params)).toEqual([{ id: 7 }, { id: 3 }, { id: 9 }]);
   expect(todoCallsTo(app, "todo.update")).toEqual([]);
   expect(todoCallsTo(app, "todo.assign")).toEqual([]);
 });
@@ -81,4 +86,15 @@ it("u2773a_todos_header_navigation_keeps_the_exact_title_draft", async () => {
   expect(connected.drafts.list()).toEqual(drafts);
   expect(todoCallsTo(app, "todo.update")).toEqual([]);
   expect(todoCallsTo(app, "todo.get").map(call => call.params)).toEqual([{ id: 2 }, { id: 1 }]);
+});
+
+
+it("u4698d_header_without_a_list_navigates_only_the_current_home", async () => {
+  const { app, connected } = await mountTodos([todo(1), todo(2, { home: "other-home" }), todo(3)]);
+  connected.drawer.open(() => <TodoHost id={1} />, "key");
+  const panel = screen.getByRole("complementary", { name: "Drawer" });
+  fireEvent.click(await within(panel).findByRole("button", { name: "Next Todo" }));
+  await within(panel).findByRole("checkbox", { name: "Complete todo 3" });
+  expect(todoCallsTo(app, "todo.get").map(call => call.params)).toEqual([{ id: 3 }]);
+  expect(app.calls.filter(call => ["todo.update", "todo.assign", "todo.move", "agent.start"].includes(call.method))).toEqual([]);
 });
