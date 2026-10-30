@@ -228,7 +228,6 @@
   --button-radius: 0;
 }
 
-.overview-entry[data-row-selected="true"] { background: var(--selected); }
 
 .overview-name {
   min-width: 0;
