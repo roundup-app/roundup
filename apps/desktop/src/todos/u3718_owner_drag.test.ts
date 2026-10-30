@@ -148,6 +148,9 @@ it("u3515c_todo_nesting_excludes_self_descendants_and_unchanged_placement", asyn
     const from = await centre(lane, ROW(sibling!));
     const to = await centre(lane, ROW(parent!));
     await move(lane, from.x, from.y);
+    // Ark unmounts the previous grip's closing Tooltip positioner after its exit.
+    // Wait until that transient layer no longer takes the next pointer press.
+    await lane.until(`document.elementFromPoint(${from.x}, ${from.y})?.closest('.sortable-handle') === document.querySelector(${JSON.stringify(ROW(sibling!))})`);
     await lane.browser("mouse", "down");
     await move(lane, from.x, from.y - 6);
     await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
