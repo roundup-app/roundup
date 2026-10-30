@@ -1,3 +1,4 @@
+import { copy as appCopy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
@@ -34,7 +35,7 @@ describe("u2 first run", () => {
 
     fireEvent.click(await screen.findByText("Choose folder…"));
 
-    expect(await screen.findByText("Open a folder to start")).toBeTruthy();
+    expect(await screen.findByText(appCopy.openAFolderToStart)).toBeTruthy();
   });
 
   it("u2_an_app_that_already_has_a_project_shows_it_without_a_chooser", async () => {
@@ -68,15 +69,14 @@ describe("u2 first run", () => {
   it("u2_a_failed_open_project_shows_the_message_in_ink_in_place_of_the_prompt", async () => {
     const app = createFakeApp();
     app.chooser.path = "/not/a/dir";
-    app.opened.failure = new RpcError(-32602, "/not/a/dir is not a directory");
+    const failure = new RpcError(-32602, "/not/a/dir is not a directory");
+    app.opened.failure = failure;
     renderApp(app);
 
     fireEvent.click(await screen.findByText("Choose folder…"));
 
-    expect((await screen.findByText("/not/a/dir is not a directory")).textContent).toBe(
-      "/not/a/dir is not a directory",
-    );
-    expect(screen.queryByText("Open a folder to start")).toBeNull();
+    expect(await screen.findByText(failure.message)).toBeTruthy();
+    expect(screen.queryByText(appCopy.openAFolderToStart)).toBeNull();
   });
 
   it("u2_a_failed_open_project_is_the_only_ink_in_the_window", async () => {

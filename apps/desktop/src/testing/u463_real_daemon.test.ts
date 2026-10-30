@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../app/copy";
 import { openLane } from "../todos/laneBrowser";
 import type { Todo } from "@contracts/todo/Todo";
 import { execFile } from "node:child_process";
@@ -77,7 +78,7 @@ const width = 1280;
     try {
       await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
       await browser("set", "viewport", String(width), "800");
-      await wait(`document.body.textContent.includes('Open a folder to start')`);
+      await wait(`document.body.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`);
       expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
       await browser("eval", `(() => {
         const fetch = window.fetch.bind(window);
@@ -144,7 +145,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
   try {
     await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1&seed=first-run`);
     await browser("set", "viewport", String(width), "800");
-    await wait(`document.body.textContent.includes('Open a folder to start')`);
+    await wait(`document.body.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`);
     expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
 
     await browser("eval", "window.__firstRun.cancelNextChoice()");
@@ -153,7 +154,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
     expect((await browser("eval", "document.querySelectorAll('.project-tab [role=tab]').length")).result).toBe(0);
     expect(await app.rpc("rail.tree", null)).toEqual([]);
     expect(await app.rpc("terminal.list", null)).toEqual([]);
-    await wait(`document.body.textContent.includes('Open a folder to start')`);
+    await wait(`document.body.textContent.includes(${JSON.stringify(appCopy.openAFolderToStart)})`);
     await activate('[aria-label="Centre"] button');
     await wait(`!!document.querySelector('[aria-label="Add Workstream"]')`);
     expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
