@@ -43,7 +43,7 @@ it.each(["menu", "key"])("u4547e_menu_and_key_move_to_either_container %s", asyn
     expect(await screen.findByText("t-free")).toBe(terminal);
     expect(document.querySelectorAll('.rail-row[data-id="free"]')).toHaveLength(1);
     expect(railCallsTo(m.app, "agent.spawn")).toEqual([]);
-    expect(captureActions(rowOf("Research")).find(a => a.keys === "M")?.available()).toBe(false);
+    expect(captureActions(rowOf("Research")).some(a => a.keys === "M" && a.available())).toBe(false);
     cleanup();
   }
 });

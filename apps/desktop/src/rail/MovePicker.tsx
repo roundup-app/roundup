@@ -5,6 +5,7 @@ import { Portal } from "solid-js/web";
 import { Combobox } from "../ui/Combobox";
 import { Popover } from "../ui/Popover";
 import { copy } from "../copy";
+import { captureFocus, queueFocus } from "../keys/focus";
 
 export const MovePicker = (props: {
   target: { id: string; anchor: HTMLElement } | null;
@@ -17,21 +18,32 @@ export const MovePicker = (props: {
   const items = () => props.destinations.filter(item => item.label.toLocaleLowerCase().includes(query().toLocaleLowerCase()));
   let panel: HTMLDivElement | undefined;
 
+  const close = () => {
+    props.close();
+    queueFocus(() => target.anchor.focus({ preventScroll: true }));
+  };
+
   return <Popover.Root open closeOnEscape closeOnInteractOutside finalFocusEl={() => target.anchor}
-    onOpenChange={({ open }) => { if (!open) props.close(); }}
+    onOpenChange={({ open }) => { if (!open) close(); }}
     positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: () => target.anchor.getBoundingClientRect() }}>
     <Portal><Popover.Positioner><Popover.Content class="choice-picker" ref={panel} aria-label={copy.moveTo}>
       <Combobox.Root items={items()} inputValue={query()} onInput={setQuery}
         highlightedValue={items().some(item => item.value === highlight()) ? highlight() : items()[0]?.value ?? null} onHighlightChange={setHighlight}
-        focusScope={() => panel} onDismiss={() => { props.close(); target.anchor.focus(); }}
-        label={copy.moveTo} placeholder={copy.switcherPlaceholder} empty={copy.noMatch} row={item => item.label}
-        onSelect={parent => { props.close(); props.choose(target.id, parent); }} />
+        focusScope={() => panel} onDismiss={close}
+        label={copy.moveTo} placeholder={copy.moveTo} empty={copy.noMatch} row={item => item.label}
+        onSelect={parent => {
+          close();
+          // Return to the source row after unmount before the move captures focus ownership.
+          queueMicrotask(() => props.choose(target.id, parent));
+        }} />
     </Popover.Content></Popover.Positioner></Portal>
   </Popover.Root>;
 }}</Show>;
 
-export const createMove = ({ app, rail }: Pick<ConnectedProject, "app" | "rail">) => {
+export const createMove = ({ app, rail }: Pick<ConnectedProject, "app" | "rail">, rowElement: (id: string) => HTMLElement | undefined) => {
   const move = async (params: SortableMove): Promise<void> => {
+    const focus = rowElement(params.id) === document.activeElement ? captureFocus() : undefined;
+
     try {
       await app.rpc("rail.move", params);
       rail.commandFailure.acknowledge(params.id);
@@ -42,6 +54,9 @@ export const createMove = ({ app, rail }: Pick<ConnectedProject, "app" | "rail">
 
         rail.setSectionOpen(node?.opening_prompt?.trim() ? "modes" : "workstreams", true);
       }
+
+      await rail.settled();
+      focus?.(() => rowElement(params.id)?.focus({ preventScroll: true }));
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       rail.commandFailure.show(error.message, params.id, "rail", () => { void move(params); });
