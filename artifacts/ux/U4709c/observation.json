@@ -1,0 +1,261 @@
+{
+  "scenarios": [
+    "U4709a",
+    "U4709b",
+    "U4709c"
+  ],
+  "base": "8f1b6133451146b4b602c3df60e9e262def172c6",
+  "head": "57f147ba93777a9ffb4f6ce4a0ba26de22a7beb9",
+  "observer": "isolated headless agent-browser; fresh profile; dark; tree-40 and agents-10; 1280x820 and 1512x950",
+  "baselinePreparation": "Only U4709 capture registration added to the separate main checkout.",
+  "validation": {
+    "ready": "pass",
+    "typecheck": "pass",
+    "focusedTests": 146,
+    "captureTests": 39
+  },
+  "screenCounts": {
+    "base": 40,
+    "head": 56
+  },
+  "checkReadings": 1440,
+  "checkFailures": 0,
+  "measurements": [
+    {
+      "state": "agents-10-pads-1280-rest",
+      "rows": 8,
+      "ageRightEdgeSpreadPx": 0,
+      "figures": [
+        "tabular-nums"
+      ],
+      "rowHeightsPx": [],
+      "minAgeToOpenGapPx": 8
+    },
+    {
+      "state": "agents-10-pads-1512-rest",
+      "rows": 8,
+      "ageRightEdgeSpreadPx": 0,
+      "figures": [
+        "tabular-nums"
+      ],
+      "rowHeightsPx": [],
+      "minAgeToOpenGapPx": 8
+    },
+    {
+      "state": "agents-10-todos-1280-rest",
+      "rows": 15,
+      "ageRightEdgeSpreadPx": 0,
+      "figures": [
+        "tabular-nums"
+      ],
+      "rowHeightsPx": [
+        32
+      ],
+      "minAgeToOpenGapPx": 8
+    },
+    {
+      "state": "agents-10-todos-1512-rest",
+      "rows": 15,
+      "ageRightEdgeSpreadPx": 0,
+      "figures": [
+        "tabular-nums"
+      ],
+      "rowHeightsPx": [
+        32
+      ],
+      "minAgeToOpenGapPx": 8
+    },
+    {
+      "state": "tree-40-pads-1280-rest",
+      "rows": 10,
+      "ageRightEdgeSpreadPx": 0,
+      "figures": [
+        "tabular-nums"
+      ],
+      "rowHeightsPx": [],
+      "minAgeToOpenGapPx": 8
+    },
+    {
+      "state": "tree-40-pads-1512-rest",
+      "rows": 10,
+      "ageRightEdgeSpreadPx": 0,
+      "figures": [
+        "tabular-nums"
+      ],
+      "rowHeightsPx": [],
+      "minAgeToOpenGapPx": 8
+    },
+    {
+      "state": "tree-40-todos-1280-rest",
+      "rows": 21,
+      "ageRightEdgeSpreadPx": 0,
+      "figures": [
+        "tabular-nums"
+      ],
+      "rowHeightsPx": [
+        32
+      ],
+      "minAgeToOpenGapPx": 8
+    },
+    {
+      "state": "tree-40-todos-1512-rest",
+      "rows": 21,
+      "ageRightEdgeSpreadPx": 0,
+      "figures": [
+        "tabular-nums"
+      ],
+      "rowHeightsPx": [
+        32
+      ],
+      "minAgeToOpenGapPx": 8
+    }
+  ],
+  "recordings": [
+    "interaction-pads-1280-actions.webm",
+    "interaction-pads-1280-rows.webm",
+    "interaction-pads-1512-actions.webm",
+    "interaction-pads-1512-rows.webm",
+    "interaction-todos-1280-actions.webm",
+    "interaction-todos-1280-rows.webm",
+    "interaction-todos-1512-actions.webm",
+    "interaction-todos-1512-rows.webm"
+  ],
+  "states": {
+    "base": [
+      "agents-10-pads-1280-failure",
+      "agents-10-pads-1280-focus",
+      "agents-10-pads-1280-hover",
+      "agents-10-pads-1280-rest",
+      "agents-10-pads-1280-selected",
+      "agents-10-pads-1512-failure",
+      "agents-10-pads-1512-focus",
+      "agents-10-pads-1512-hover",
+      "agents-10-pads-1512-rest",
+      "agents-10-pads-1512-selected",
+      "agents-10-todos-1280-failure",
+      "agents-10-todos-1280-focus",
+      "agents-10-todos-1280-hover",
+      "agents-10-todos-1280-rest",
+      "agents-10-todos-1280-selected",
+      "agents-10-todos-1512-failure",
+      "agents-10-todos-1512-focus",
+      "agents-10-todos-1512-hover",
+      "agents-10-todos-1512-rest",
+      "agents-10-todos-1512-selected",
+      "tree-40-pads-1280-failure",
+      "tree-40-pads-1280-focus",
+      "tree-40-pads-1280-hover",
+      "tree-40-pads-1280-rest",
+      "tree-40-pads-1280-selected",
+      "tree-40-pads-1512-failure",
+      "tree-40-pads-1512-focus",
+      "tree-40-pads-1512-hover",
+      "tree-40-pads-1512-rest",
+      "tree-40-pads-1512-selected",
+      "tree-40-todos-1280-failure",
+      "tree-40-todos-1280-focus",
+      "tree-40-todos-1280-hover",
+      "tree-40-todos-1280-rest",
+      "tree-40-todos-1280-selected",
+      "tree-40-todos-1512-failure",
+      "tree-40-todos-1512-focus",
+      "tree-40-todos-1512-hover",
+      "tree-40-todos-1512-rest",
+      "tree-40-todos-1512-selected"
+    ],
+    "head": [
+      "agents-10-pads-1280-event",
+      "agents-10-pads-1280-failure",
+      "agents-10-pads-1280-focus",
+      "agents-10-pads-1280-hover",
+      "agents-10-pads-1280-rest",
+      "agents-10-pads-1280-selected",
+      "agents-10-pads-1280-tick",
+      "agents-10-pads-1512-event",
+      "agents-10-pads-1512-failure",
+      "agents-10-pads-1512-focus",
+      "agents-10-pads-1512-hover",
+      "agents-10-pads-1512-rest",
+      "agents-10-pads-1512-selected",
+      "agents-10-pads-1512-tick",
+      "agents-10-todos-1280-event",
+      "agents-10-todos-1280-failure",
+      "agents-10-todos-1280-focus",
+      "agents-10-todos-1280-hover",
+      "agents-10-todos-1280-rest",
+      "agents-10-todos-1280-selected",
+      "agents-10-todos-1280-tick",
+      "agents-10-todos-1512-event",
+      "agents-10-todos-1512-failure",
+      "agents-10-todos-1512-focus",
+      "agents-10-todos-1512-hover",
+      "agents-10-todos-1512-rest",
+      "agents-10-todos-1512-selected",
+      "agents-10-todos-1512-tick",
+      "tree-40-pads-1280-event",
+      "tree-40-pads-1280-failure",
+      "tree-40-pads-1280-focus",
+      "tree-40-pads-1280-hover",
+      "tree-40-pads-1280-rest",
+      "tree-40-pads-1280-selected",
+      "tree-40-pads-1280-tick",
+      "tree-40-pads-1512-event",
+      "tree-40-pads-1512-failure",
+      "tree-40-pads-1512-focus",
+      "tree-40-pads-1512-hover",
+      "tree-40-pads-1512-rest",
+      "tree-40-pads-1512-selected",
+      "tree-40-pads-1512-tick",
+      "tree-40-todos-1280-event",
+      "tree-40-todos-1280-failure",
+      "tree-40-todos-1280-focus",
+      "tree-40-todos-1280-hover",
+      "tree-40-todos-1280-rest",
+      "tree-40-todos-1280-selected",
+      "tree-40-todos-1280-tick",
+      "tree-40-todos-1512-event",
+      "tree-40-todos-1512-failure",
+      "tree-40-todos-1512-focus",
+      "tree-40-todos-1512-hover",
+      "tree-40-todos-1512-rest",
+      "tree-40-todos-1512-selected",
+      "tree-40-todos-1512-tick"
+    ]
+  },
+  "checks": {
+    "base": {
+      "D1": 40,
+      "D10": 40,
+      "D11": 40,
+      "D12": 40,
+      "D13": 40,
+      "D14": 40,
+      "D16": 40,
+      "D2": 40,
+      "D3": 40,
+      "D4": 40,
+      "D5": 40,
+      "D6": 40,
+      "D7": 40,
+      "D8": 40,
+      "D9": 40
+    },
+    "head": {
+      "D1": 56,
+      "D10": 56,
+      "D11": 56,
+      "D12": 56,
+      "D13": 56,
+      "D14": 56,
+      "D16": 56,
+      "D2": 56,
+      "D3": 56,
+      "D4": 56,
+      "D5": 56,
+      "D6": 56,
+      "D7": 56,
+      "D8": 56,
+      "D9": 56
+    }
+  }
+}

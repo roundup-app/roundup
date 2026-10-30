@@ -1,3 +1,4 @@
+import { createNow, DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
@@ -34,10 +35,11 @@ const mount = async (project = "p") => {
   const connected = await connectProject(app, { name: project, path: `/${project}` }, () => true, () => 0);
   await connected.rail.settled();
   render(() => {
+    const now = createNow(() => 0, () => false);
     const frame = createShelfFrame(() => null, () => true, () => {});
     const tabs = createShelfTabs(frame);
 
-    return <ConnectedProjectContext.Provider value={connected}><Tabs.RootProvider value={tabs}><ProjectShelfTabs frame={frame} onToggle={() => {}} /><Shelf open={() => true} /><Switcher onFailure={() => {}} onOpen={() => {}} /></Tabs.RootProvider></ConnectedProjectContext.Provider>;
+    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}><Tabs.RootProvider value={tabs}><ProjectShelfTabs frame={frame} onToggle={() => {}} /><Shelf open={() => true} /><Switcher onFailure={() => {}} onOpen={() => {}} /></Tabs.RootProvider></ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
   });
 
   return { app, connected, store, pads, tree };
