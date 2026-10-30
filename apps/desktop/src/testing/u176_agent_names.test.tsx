@@ -1,4 +1,5 @@
 import { copy as recoveryCopy } from "../sharedCopy";
+import { copy as railCopy } from "../rail/copy";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { resolve } from "node:path";
@@ -202,7 +203,7 @@ describe("u2773 Rail task destinations", () => {
     await waitFor(() => expect(document.querySelector(`[data-id="${replacement.id}"] .name`)).not.toBeNull());
     const calls = vi.spyOn(left, "rpc");
     submit();
-    expect(screen.getByRole("alert")).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toContain(railCopy.railDraftUnavailable);
     expect(task().value).toBe(" exact removed\n😀 ");
     expect(replacement.id).not.toBe(home);
     expect(calls.mock.calls.filter(([method]) => method === "agent.spawn" || method === "message.send")).toEqual([]);
@@ -243,7 +244,8 @@ describe("u2773 Rail persisted edits", () => {
     fireEvent.keyDown(name, { key: "Enter" });
     expect((await app.rpc("rail.tree", null)).find((entry) => entry.id === node.id)?.name).toBe("Changed elsewhere");
     await app.rpc("rail.remove", { id: node.id });
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: recoveryCopy.draftField("name") })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: recoveryCopy.draftField("name"), exact: true })).toBeNull());
+    expect(screen.getByText(railCopy.railDraftUnavailable)).toBeDefined();
     expect(screen.getAllByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).map((field) => field.value)).toContain(" exact e\u0301 😀 ");
     expect(draftStorage(first.dir).list().find((entry) => entry.value.text === " exact e\u0301 😀 ")?.destination.object).toBe(node.id);
   }, 120_000);
