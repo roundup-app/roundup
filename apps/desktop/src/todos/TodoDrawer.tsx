@@ -252,11 +252,15 @@ export const TodoDrawer = (props: {
     setDeleteRefused(0);
     const id = props.id;
     const opening = drawer.content();
+    const focus = captureFocus();
+    const close = document.activeElement?.closest(".drawer")?.querySelector<HTMLElement>(".close");
     setDeleting(true);
-    void drafts.todoUndo.remove([id], `todo:${id}`).then(removed => {
+    void drafts.todoUndo.remove([id], `todo:${id}`).then(async removed => {
       if (removed) { setRemovedByMe(true);
+        await props.todos.reload();
 
  if (drawer.content() === opening) {
+   focus(() => { if (document.activeElement === document.body) close?.focus({ preventScroll: true }); });
    drawer.close("key");
    queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
  } }
