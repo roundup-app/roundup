@@ -9,7 +9,7 @@ import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
 
-// U4896 is a rendered policy observer: geometry is evidence for the critic, never a layout assertion.
+// Rail policy captures provide rendered evidence for the critic, never layout assertions.
 for (const id of ["U4896", "U4898"]) {
 it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async () => {
   const root = resolve("../..");
@@ -103,9 +103,10 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                 const states=new Set();
                 const selected=rows.filter(row=>{const state=row.querySelector('.row-state .glyph')?.getAttribute('aria-label'); if(!state||states.has(state))return false; states.add(state); return true;});
                 const owned=rows.find(row=>row.querySelector('.rail-pads-control'));
-                return [...new Set([...selected, ...(owned?[owned]:[])])].map(row=>'.rail-row[data-id="'+row.dataset.id+'"]');
+                return [...new Set([...selected, ...(owned?[owned]:[])])].map(row=>'.rail-row[data-id="'+row.dataset.id+'"]').concat(document.querySelector('.rail-section[aria-label="AGENTS"] .rail-fold') ? ['.rail-section[aria-label="AGENTS"] .rail-fold'] : []);
               })()`);
               for (const [index, selector] of ['.rail-section[aria-label="WORKSTREAMS"] .section-head', '.rail-section[aria-label="MODES"] .section-head', '.rail-section[aria-label="AGENTS"] .section-head', '.rail-row:has(.mode-mark)', '.rail-actions', ...neighbours].entries()) {
+                await browser("hover", selector);
                 await browser("screenshot", selector, join(dir, `${prefix}-contact-${index}.png`));
               }
               const mode = '.rail-row:has(.mode-mark)';
