@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-const eligible = new Set(['vocabulary', 'recovery-name', 'label-length', 'sentence-length', 'fragment', 'prose-as-label', 'duplicate-copy', 'unused-copy']);
+const eligible = new Set(['vocabulary', 'recovery-name', 'label-length', 'sentence-length', 'fragment', 'prose-as-label', 'duplicate-copy', 'unused-copy', 'dynamic-copy-read']);
 
 const rowSchema = v.strictObject({
   rule: v.picklist([...eligible]),

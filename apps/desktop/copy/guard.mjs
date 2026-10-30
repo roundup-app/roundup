@@ -200,8 +200,12 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
         const keys = argument?.type === 'StringLiteral' || argument?.type === 'NumericLiteral' ? [String(argument.value)]
           : argument ? keyTypes(caller.file, argument.start, argument.end) : null;
 
-        if (!keys) report('dynamic-copy-read', caller.file, bound.identifier.name);
-        else for (const key of keys) readExport([...parts, key], label);
+        if (!keys) {
+          const entry = entries.get(entryId(module, exportName, parts[0]));
+          const text = `${argument ? caller.source.slice(argument.start, argument.end) : ''}\n${entry ? entry.module.source.slice(entry.node.start, entry.node.end) : ''}`;
+          report('dynamic-copy-read', caller.file, `${caller.file}:${parts.join('.')}`, text, '0');
+          readExport([...parts, '*'], label);
+        } else for (const key of keys) readExport([...parts, key], label);
         continue;
       }
 

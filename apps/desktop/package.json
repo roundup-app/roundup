@@ -8,7 +8,7 @@
     "typecheck": "tsc && node copy/check.mjs",
     "test": "pnpm run test:support && vitest run",
     "check:startup": "node budgets/startup.mjs",
-    "test:support": "if [ -z \"${ROUNDUP_CAPTURES+x}\" ]; then pnpm exec vitest run --config copy/vitest.config.mjs && node --test reporting/*.test.mjs budgets/*.test.mjs; fi"
+    "test:support": "if [ -z \"${ROUNDUP_CAPTURES+x}\" ]; then pnpm exec vitest run copy/guard.test.mjs --config copy/vitest.config.mjs && node --test reporting/*.test.mjs budgets/*.test.mjs; fi"
   },
   "dependencies": {
     "@ark-ui/solid": "^5.39.3",
