@@ -234,3 +234,5 @@ Given the complete authored stylesheet set after the audit, when `pnpm lint:styl
 
 
 **U3480 Terminal pane menu acceptance is retired.** Policy: #3529 removes the pane Copy/Paste/Send Menu entirely, including its reopening and note regressions, tests and captures. U3295b's surviving shared Menu/Dialog dismissal and Dialog-owned controls remain required; no Terminal Menu is kept to exercise them. U3529a–d in `ui-text-selection.md` govern selection, gestures and retained old notes.
+
+Observer need (T3779c): `testing/u362_todo_drag.test.ts::u137_compound_ground_never_silently_ignores_full_coverage` feeds a compound layered background to the production Checks. Real Chromium computes the nested transparent button’s rendered background and text contrast; the assertion checks D5/D10 reject that low-contrast input, rather than asserting a product layout or copied Token value. jsdom has no rendered background/geometry for this Check.
