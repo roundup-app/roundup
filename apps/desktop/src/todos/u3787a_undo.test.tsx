@@ -638,3 +638,30 @@ it("u3787a_pending_restore_disables_history_until_acknowledgement", async () => 
   await waitFor(() => expect(undo.redoAvailable("todo:5")).toBe(true));
   expect(undo.redoLabel("todo:5")).toBe("Redo Delete Todo");
 });
+
+
+it("u3787a_edit_menu_tracks_focused_history", async () => {
+  const { app, remove, connections } = await mount();
+  await remove("/a");
+  const history = connections.get("/a")!.drafts.todoUndo;
+  await waitFor(() => expect(history.pending()).toBe(false));
+  const destination = document.createElement("button");
+  destination.dataset.historyRegion = "todo:5";
+  document.body.append(destination);
+  destination.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe("Undo Delete Todo"));
+  expect(screen.queryByText(DELETED)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
+  app.of("/a").handlers["todo.redo"] = p => ({ operation: p.operation, deleted: [5], missing: [], state: "deleted" });
+  undoKey();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘Z")?.label).toBe("Redo Delete Todo"));
+  openProjectPage("action:chord:⇧⌘Z", "/a");
+  await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.redo")).toHaveLength(1));
+  destination.dataset.historyRegion = "pads";
+  destination.blur(); destination.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.enabled).toBe(false));
+  undoKey();
+  expect(app.of("/a").calls.filter(call => call.method === "todo.restore")).toHaveLength(1);
+  destination.remove();
+});
