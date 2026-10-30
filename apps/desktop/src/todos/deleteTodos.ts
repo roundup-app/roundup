@@ -73,6 +73,15 @@ export function createTodoUndo() {
 
   const [redoes, setRedoes] = createSignal<Redo[]>([]);
   const redoUnknown = () => redoes().some(action => action.state === "unknown");
+
+  const actionName = (action: Operation | Redo) => {
+    if (action.kind === "rail") return `${copy.remove} ${action.name}`;
+
+    const count = action.kind === "todos" ? action.receipt.deleted.length : "receipts" in action ? action.receipts.length : action.members.length;
+
+    return copy.deleteAction(count, action.kind === "todos" ? copy.todo : copy.pad);
+  };
+
   const clearRedoes = (region: string) => setRedoes(all => all.map(action => ({ ...action, regions: action.regions.filter(owner => owner !== region) })).filter(action => action.regions.length > 0));
   const [pending, setPending] = createSignal(false);
   const [failure, setFailure] = createSignal<{ kind: "delete" | "restore"; message: string } | null>(null);
@@ -446,6 +455,9 @@ export function createTodoUndo() {
     } finally { setPending(false); }
   };
 
+  const available = (region?: string) => !pending() && stack().some(action => region === undefined || action.regions.includes(region)) && !redoUnknown() && !uncertain() && !padPending().length && !railPending();
+  const redoAvailable = (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && !uncertain() && !padPending().length && !railPending();
+
   return {
     reconnect(app: AppSeam) {
       connection = app;
@@ -479,8 +491,17 @@ export function createTodoUndo() {
 
       return problem && (problem.kind === "restore" || uncertain() || padPending().length || railPending()) ? problem.message : null;
     },
-    available: (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !redoUnknown() && !uncertain() && !padPending().length && !railPending(),
-    redoAvailable: (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && !uncertain() && !padPending().length && !railPending(),
+    undoLabel: (region?: string) => {
+      const action = available(region) ? stack().findLast(item => region === undefined || item.regions.includes(region)) : undefined;
+
+      return action ? copy.undoAction(actionName(action)) : copy.todoUndo;
+    },
+    redoLabel: (region?: string) => {
+      const action = redoAvailable(region) ? redoes().findLast(item => region === undefined || item.regions.includes(region)) : undefined;
+
+      return action ? copy.redoAction(actionName(action)) : copy.redo;
+    },
+    available, redoAvailable,
     retryDelete: () => redoUnknown() ? redo(redoes().findLast(action => action.state === "unknown")!.regions[0]) : railPending() ? removeRail(railPending()!.id, railPending()!.name) : padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
     uncertain: () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending(),
     ids: () => uncertain() ?? [],

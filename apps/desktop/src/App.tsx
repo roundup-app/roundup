@@ -242,6 +242,7 @@ export const App = (props: {
       return {
         available: () => path !== null && projects.active() === path && undo !== null && undo.available() && !undo.pending()
           && !focus?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
+        label: undo?.undoLabel() ?? copy.todoUndo,
         invoke: () => { void undo!.undo(); },
       };
     },
