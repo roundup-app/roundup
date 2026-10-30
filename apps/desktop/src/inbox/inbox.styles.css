@@ -39,3 +39,8 @@
 .inbox-row:is([data-selected="true"], :focus-visible):hover { background: var(--selected-hover); color: var(--text); }
 
 .inbox { flex: 1; min-height: 0; }
+
+.inbox-actions { opacity: 0; }
+.inbox-head:focus-within .inbox-actions,
+.inbox-item:has([data-selected="true"]) .inbox-actions,
+.inbox-item:has([aria-expanded="true"]) .inbox-actions { opacity: 1; }

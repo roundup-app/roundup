@@ -170,7 +170,7 @@ it.each(["A", "P", "C", "J", "B", "T", "I"].flatMap(keys => (["key", "pointer"] 
 
     if (keys === "T") await screen.findByRole("textbox", { name: "Capture a Todo" });
 
-    if (keys === "I") await screen.findByRole("region", { name: "Inbox" });
+    if (keys === "I") await screen.findByRole("region", { name: "Needs you" });
     expect(leaderArmed()).toBe(false);
     expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
   },

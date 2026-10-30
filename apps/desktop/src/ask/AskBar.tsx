@@ -219,7 +219,6 @@ export const AskBar = (props: {
   };
 
   createEffect(() => { if (over() && modalOutside(panel)) close(false); });
-  createEffect(() => { if (connected.hasView("attention")) untrack(() => setOpening(null)); });
 
   const open = (): void => {
     if (modalOpen()) return;
