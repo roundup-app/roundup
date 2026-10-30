@@ -1,12 +1,13 @@
-/* U391: the footer's height (U44); no row reserves scroll room for it now that it sits below the list. The Terminal tabs' row (U2340d) is the same height. */
+/* U4898: three creation rows retain the existing footer row height. */
 :root {
-  --rail-actions-height: calc(var(--space-5) + var(--space-4));
+  --rail-actions-height: calc((var(--space-5) + var(--space-4)) * 3);
 }
 
 /* U391: the footer is the Rail's last child, outside the scrolling list, and reaches both of the Rail's edges (the Rail's own padding is the list's). One hairline above it (D8). */
 .rail-actions {
   display: flex;
   flex: none;
+  flex-direction: column;
   align-items: stretch;
   justify-content: space-between;
   height: var(--rail-actions-height);
@@ -19,9 +20,10 @@
 }
 
 .rail-actions button {
-  flex: none;
   justify-content: flex-start;
-  min-height: calc(var(--space-5) + var(--space-1));
+  min-height: 0;
+  flex: 1;
+  gap: var(--space-3);
   --button-lead: 0;
   --button-inline: 0;
 }
@@ -84,7 +86,7 @@
   min-height: inherit;
   display: flex;
   align-items: center;
-  --rail-gap: var(--space-2);
+  --rail-gap: var(--space-3);
   gap: var(--rail-gap);
   white-space: pre;
 }
@@ -215,10 +217,11 @@
   --rail-step: var(--tree-step);
   /* The leading gap keeps every glyph clear of the tree's connecting lines. */
   --rail-edge: var(--space-2);
-  --rail-inset: var(--rail-edge);
+  /* Overview's space-3 inset plus space-1 tile padding. */
+  --rail-inset: var(--space-4);
   --rail-slot: var(--space-5);
   --rail-section-gap: var(--space-4);
-  --tree-origin: calc(var(--rail-edge) + var(--space-4) / 2);
+  --tree-origin: calc(var(--rail-inset) + var(--space-4) / 2);
 }
 
 /* U391: the failure line sits directly above the footer, outside the list. */
@@ -419,7 +422,7 @@
   }
 
  .rail-row .line {
-    --rail-gap: var(--space-1);
+    --rail-gap: var(--space-3);
   }
 }
 
@@ -833,9 +836,11 @@
 
 .rail .section-head { padding-inline: var(--space-4); }
 
-/* U4896: the section icon and depth-zero mark share an edge; depth never moves the trailing slot. */
+/* U4898: Overview anchors the leading column; trailing slots keep their edge. */
 .rail-tree .section-head {
-  padding-inline: var(--rail-edge);
+  padding-inline-start: var(--rail-inset);
+  padding-inline-end: var(--rail-edge);
+  column-gap: var(--space-3);
 }
 .rail-tree [data-part="branch-indicator"] {
   display: inline-flex;
