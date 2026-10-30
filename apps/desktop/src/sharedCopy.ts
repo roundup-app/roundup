@@ -188,6 +188,6 @@ export const copy = {
   unseenMark: "●",
   unreadResult: "Unread result",
   moveTo: "Move to…",
-  inlineCodeAction: "Code replaces formatting",
+  inlineCodeAction: "Inline code",
 } as const;
 
