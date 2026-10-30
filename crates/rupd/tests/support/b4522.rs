@@ -1,14 +1,14 @@
 use super::*;
 
-// c54017c92's production sequence has 44 positions, including its frozen ten-entry head.
+// T4902 removes one entry from c54017c92's 44-position sequence and shifts Pad deletion to 38.
 fn b4522_history(dir: &Path, version: usize, skipped: bool) {
     let mut db = Connection::open(dir.join("project.db")).unwrap();
     let sequence = migrations()
         .into_iter()
-        .take(44)
+        .take(43)
         .enumerate()
         .map(|(i, m)| {
-            if skipped && i == 39 {
+            if skipped && i == 38 {
                 M::up("-- observed skipped Pad migration")
             } else {
                 m
@@ -44,7 +44,7 @@ async fn b4522_call(
 #[tokio::test]
 async fn b4522_earlier_project_versions_support_pad_deletion() {
     use serde_json::json;
-    for version in 0..=44 {
+    for version in 0..=43 {
         let dir = tempfile::tempdir().unwrap();
         b4522_history(dir.path(), version, false);
         let daemon = crate::test_daemon(dir.path()).unwrap();
@@ -79,7 +79,7 @@ async fn b4522_earlier_project_versions_support_pad_deletion() {
 async fn b4522_skipped_pad_migration_recovers_on_open() {
     use serde_json::json;
     let dir = tempfile::tempdir().unwrap();
-    b4522_history(dir.path(), 44, true);
+    b4522_history(dir.path(), 43, true);
     let original;
     let publication;
     let deletion;
@@ -131,7 +131,7 @@ async fn b4522_skipped_pad_migration_recovers_on_open() {
 async fn b4522_existing_pad_deletion_survives_repair() {
     use serde_json::json;
     let dir = tempfile::tempdir().unwrap();
-    b4522_history(dir.path(), 44, false);
+    b4522_history(dir.path(), 43, false);
     // Use the installed Pad owner on the actual pre-repair schema to retain an operation.
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
     let actor = contracts::Actor::user();
