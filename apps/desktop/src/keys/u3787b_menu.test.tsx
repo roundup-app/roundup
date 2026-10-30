@@ -179,7 +179,7 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
   expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
 });
 
-it.each(["terminal", "rail row", "Shelf row", "Pad row", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
+it.each(["terminal", "rail row", "Project tab", "Shelf row", "Pad row", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
   const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
@@ -201,8 +201,10 @@ it.each(["terminal", "rail row", "Shelf row", "Pad row", "triage"])("u3787b_menu
     document.querySelector<HTMLButtonElement>('[data-pad="Plan"] .pad-name')!.focus();
   }
 
+  if (place === "Project tab") document.querySelector<HTMLButtonElement>('.project-tab[data-path="/p"] [role="tab"]')!.focus();
+
   const focus = document.activeElement!;
-  const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : (place === "rail row" || place === "Pad row") ? "action:chord:F2" : "action:chord:⌘=";
+  const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : (place === "rail row" || place === "Pad row" || place === "Project tab") ? "action:chord:F2" : "action:chord:⌘=";
   await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id === expected)).toBe(true));
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
   const shown = new Map(menuCommands(projectMenu.items).filter(item => item.enabled && item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
@@ -386,4 +388,36 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed
   expect(captured.available()).toBe(false);
   expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2");
   expect(daemon.calls.filter(call => call.method === "todo.create" || call.method === "terminal.write")).toEqual([]);
+});
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename from %s captures the focused tab", async source => {
+  const { app } = await mountNavigation(true, 1);
+  const target = document.querySelector<HTMLButtonElement>('.project-tab[data-path="/p"] [role="tab"]')!;
+  target.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
+  const captured = captureActions(target).find(action => action.value === "action:chord:F2")!;
+  expect(document.activeElement).toBe(target);
+  const rename = vi.spyOn(app, "renameProject");
+
+  if (source === "key") fireEvent.keyDown(target, { key: "F2", code: "F2" });
+  else openProjectPage("action:chord:F2", "/p");
+
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  expect(field.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
+  expect(rename).not.toHaveBeenCalled();
+  expect(captured.available()).toBe(false);
+  captured.run();
+  openProjectPage("action:chord:F2", "/p");
+  expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([field]);
+  fireEvent.input(field, { target: { value: "Renamed Project" } });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(rename).toHaveBeenCalledExactlyOnceWith("/p", "Renamed Project", "p"));
+  expect(document.activeElement?.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
+  const retained = captureActions(document.activeElement).find(action => action.value === "action:chord:F2")!;
+  screen.getByRole("textbox", { name: "Ask" }).focus();
+  expect(retained.available()).toBe(false);
+  retained.run();
+  openProjectPage("action:chord:F2", "/p");
+  expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([]);
 });
