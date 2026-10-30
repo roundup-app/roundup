@@ -207,8 +207,6 @@
 {"file":"apps/desktop/src/pads/u149_drawing_block.test.tsx","test":"u149 a Drawing renders and edits in the Pad > u149_a_scene_without_elements_is_rejected_with_one_error","identity":"f163057e4e301f1357d95db314233374bdfa9033922d1758e0a959086a125034"}
 {"file":"apps/desktop/src/pads/u149_drawing_block.test.tsx","test":"%s","identity":"97653550ed483e4cb1dfaaef651920fdee5d4e5a054e7cc39a5464454741151c"}
 {"file":"apps/desktop/src/pads/u18_pad_list.test.tsx","test":"u18 list and ownership > u18_an_older_pad_list_reply_that_arrives_late_never_wins","identity":"a4805243cdef184e73bb65d25df95c142fa88ef3f545056c444e2b1548b9c354"}
-{"file":"apps/desktop/src/pads/u19_pad_create.test.tsx","test":"u19 create > u19_a_conflict_shows_the_message_and_keeps_the_field","identity":"c0d8cd348feedf6decb001c4edec36d2c3520cd06a098ae5f6b50ea8be94f983"}
-{"file":"apps/desktop/src/pads/u19_pad_create.test.tsx","test":"u19 create > u19_a_conflict_shows_the_message_and_keeps_the_field","identity":"06643ed24524bacb4f132be6f5fbaa7885bea6a20bd8cd683ca4328812fccb9f"}
 {"file":"apps/desktop/src/pads/u20_pad_drawer.test.tsx","test":"u20 open and edit > u20_pad_changed_for_the_open_pad_calls_pad_list_not_pad_read_and_refreshes_its_text","identity":"6a2b4ca2318e92346705f7710c4445fce5c5a8e66d34828e90faceb1fbe3cc60"}
 {"file":"apps/desktop/src/pads/u20_pad_drawer.test.tsx","test":"u20 open and edit > u20_an_older_pad_list_reply_that_arrives_late_never_wins","identity":"ea881141046e996f0635f03c8b8fcb854709241d6f1cd5e730d152e4c02730d3"}
 {"file":"apps/desktop/src/pads/u20_pad_drawer.test.tsx","test":"u20 open and edit > u20_an_older_pad_list_reply_that_arrives_late_never_wins","identity":"0fe98e7cfcc2a941685a6c56a8c08f8dae72377a95c2ee72c056a884598de609"}
