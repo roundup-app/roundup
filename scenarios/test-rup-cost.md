@@ -28,7 +28,7 @@ Baseline: `rup` binaries on green `check` run 39378452452, 341 s together. The r
 | `dv2_publish_failures` | `rup::deliverables` | 46.7 |
 | `n7_launch_sites_clean_on_success_and_failure` | `rup::project_data` | 30.3 |
 | `m1_list_tools_send_null_params_to_the_daemon` | `rup::mcp` | 20.1 |
-| `m3_a_call_the_daemon_never_answers_exits_1_saying_it_may_have_been_applied` | `rup::mcp` | 20.1 |
+| `m5159a_a_slow_call_fails_alone_and_the_shim_stays_up` | `rup::mcp` | 20.1 |
 | `x14_ten_busy_terminals_do_not_lag_rail_events` | `rup::x14` | 16.0 |
 | `o12_the_door_spawns_with_order_and_the_users_words` | `rup::o12` | 10.2 |
 | `i7_a_daemon_that_never_answers_exits_1_in_ten_seconds` | `rup::cli` | 10.2 |

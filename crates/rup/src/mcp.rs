@@ -76,19 +76,12 @@ impl Offered {
 enum Gone {
     /// Nothing was sent.
     Unreachable(String),
-    /// The method was sent and got no answer, so it may or may not have been applied.
-    Silent,
 }
 
 impl std::fmt::Display for Gone {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Gone::Unreachable(why) => f.write_str(why),
-            Gone::Silent => write!(
-                f,
-                "no answer within {}s; the call may have been applied",
-                CALL_TIMEOUT.as_secs()
-            ),
         }
     }
 }
@@ -476,9 +469,16 @@ impl Shim {
             Ok(display) => display,
             Err(error) => return Ok(Err(error)),
         };
-        let result = tokio::time::timeout(CALL_TIMEOUT, client.request(offer.method, &params))
-            .await
-            .map_err(|_| Gone::Silent)?;
+        // M5159a: a silent Daemon fails this call alone; the shim stays up for the next one.
+        let Ok(result) =
+            tokio::time::timeout(CALL_TIMEOUT, client.request(offer.method, &params)).await
+        else {
+            return Ok(Err(RpcError::unknown_outcome(format!(
+                "{} got no answer from the Daemon within {} s; the work may still finish",
+                offer.tool.name,
+                CALL_TIMEOUT.as_secs()
+            ))));
+        };
         let result = match result {
             Ok(result) => display_data(&client, offer.method, result).await,
             Err(error) => Err(error),
@@ -551,7 +551,6 @@ impl ServerHandler for Shim {
             Err(gone) => {
                 let applied = match gone {
                     Gone::Unreachable(_) => "; the call was not sent",
-                    Gone::Silent => "",
                 };
                 Ok(CallToolResult::error(vec![ContentBlock::text(format!(
                     "{}: {gone}{applied}",
