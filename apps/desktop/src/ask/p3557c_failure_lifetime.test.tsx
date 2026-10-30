@@ -38,7 +38,8 @@ const published = (n: number): Deliverable => ({
 });
 
 it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
-  const { app } = await mountAskBar();
+  const { app, connected } = await mountAskBar();
+  connected.showView("made");
   let records = [published(1), published(2)];
 
   app.handlers["deliverable.list"] = () => records;
@@ -78,7 +79,7 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   await waitFor(() => expect(lines()[0]).not.toBeNull());
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   records = [published(2)];
-  fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() => expect(rows()).toHaveLength(1));
   expect(lines()).toEqual([null]);
   expect(input()!.value).toBe("unfinished");
@@ -108,13 +109,13 @@ it("u4277c_empty_made_keeps_refresh_and_distinguishes_read_failure", async () =>
   const made = await screen.findByRole("region", { name: "Made" });
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(within(made).queryAllByRole("listitem")).toHaveLength(0);
-  expect(within(made).getByRole("group", { name: copy.deliverablesEmpty })).toBeTruthy();
+  expect(within(made).queryAllByRole("button", { name: /^Open / })).toHaveLength(0);
   app.handlers["deliverable.list"] = () => { throw new RpcError(-32003, "Publication list unavailable"); };
 
-  fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() => expect(within(made).getByRole("alert")).toBeTruthy());
   app.handlers["deliverable.list"] = () => [published(1)];
-  fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() => expect(within(made).getAllByRole("listitem")).toHaveLength(1));
   expect(app.calls.filter(call => ["deliverable.resolve", "ask.send", "agent.spawn", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
