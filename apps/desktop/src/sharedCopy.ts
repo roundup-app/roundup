@@ -3,6 +3,8 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 
 const dismiss = "Dismiss";
+const running = "Running";
+const failed = "Failed";
 
 const rpcFailures = new Map<number, string>([
   [-32700, "The request could not be read. Try again."], [-32601, "This action is unavailable. Check for an update."],
@@ -27,6 +29,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  running,
   addTodo: "Add Todo",
   terminalPreparationCancelled: "Terminal preparation cancelled",
   resources: "Resources",
@@ -57,7 +60,7 @@ export const copy = {
   unfinishedWork: "Unfinished work",
   copyProjectName: "Copy name",
   currentDraft: "Current",
-  draftStatus: { draft: "Unsubmitted", pending: "Pending", failed: "Failed", unknown: "Completion unknown" },
+  draftStatus: { draft: "Unsubmitted", pending: "Pending", failed, unknown: "Completion unknown" },
   originalUnavailable: "Original object unavailable",
   storageRetry: "Retry storage only",
   discardRevision: "Discard",
@@ -148,7 +151,7 @@ export const copy = {
   doorStopped: (name: string) => `${name} stopped`,
   doorStoppedWithExit: (name: string, value1: CopyValue) => `${name} stopped, ${value1}`,
   worktreeCiText: (state: WorktreeCiState, stale: boolean, label = false) => {
-    const value = { passed: "Passed", failed: "Failed", running: "Running", "no-ci": "No CI", conflicts: "Conflicts", error: "Error", unknown: "Unknown" }[state];
+    const value = { passed: "Passed", failed, running, "no-ci": "No CI", conflicts: "Conflicts", error: "Error", unknown: "Unknown" }[state];
 
     return `${label && state !== "no-ci" ? `CI ${value.toLowerCase()}` : value}${stale ? ", stale" : ""}`;
   },
