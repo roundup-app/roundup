@@ -66,7 +66,16 @@ fn first_line_hiding(stderr: &str, secrets: Vec<String>) -> String {
 }
 
 async fn gh(dir: &std::path::Path, args: &[&str], stdin: Option<&str>) -> Result<String, RpcError> {
-    run("gh".as_ref(), dir, args, stdin).await
+    run(&program(), dir, args, stdin).await
+}
+
+/// The `gh` on the Daemon's `PATH`; a test names a fake on its own thread.
+fn program() -> std::ffi::OsString {
+    #[cfg(test)]
+    if let Some(fake) = tests::FAKE.with(|fake| fake.borrow().clone()) {
+        return fake.into();
+    }
+    "gh".into()
 }
 
 /// `program` is `gh` itself; a test names a fake.
@@ -281,7 +290,146 @@ impl Daemon {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::os::unix::fs::PermissionsExt;
+
+    thread_local! {
+        pub(super) static FAKE: std::cell::RefCell<Option<std::path::PathBuf>> = const { std::cell::RefCell::new(None) };
+    }
+
+    const PR_JSON: &str = r#"{"number":7,"url":"https://github.com/o/r/pull/7","title":"T","body":"B","state":"OPEN","isDraft":true,"autoMergeRequest":null,"headRefOid":"abc","mergedAt":null}"#;
+
+    /// A Daemon whose Project folder is `project` and whose `gh` is a fake that prints `view` for
+    /// `pr view` and `issue view`; returns the fake's folder to read its argv.
+    fn daemon_with_gh(view: &str) -> (tempfile::TempDir, tempfile::TempDir, Daemon) {
+        let bin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        let fake = fake_gh(
+            bin.path(),
+            &format!("[ \"$2\" = view ] && echo '{view}'; exit 0"),
+        );
+        FAKE.with(|f| *f.borrow_mut() = Some(fake));
+        let daemon = crate::tests::daemon_in(project.path());
+        (bin, project, daemon)
+    }
+
+    async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, RpcError> {
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = Conn {
+            actor: Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        daemon.github(&mut conn, method, params).await
+    }
+
+    fn argv(bin: &tempfile::TempDir) -> String {
+        std::fs::read_to_string(bin.path().join("gh.argv")).unwrap_or_default()
+    }
+
+    #[tokio::test]
+    async fn a5168a_pr_get_runs_one_view_and_parses_every_field() {
+        let (bin, _project, daemon) = daemon_with_gh(PR_JSON);
+        let pr = call(&daemon, "github.prGet", json!({"number": 7}))
+            .await
+            .unwrap();
+        assert_eq!(pr["state"], "open");
+        assert_eq!(pr["draft"], true);
+        assert_eq!(pr["autoMerge"], false);
+        assert_eq!(pr["head"], "abc");
+        assert_eq!(pr["mergedAt"], Value::Null);
+        assert_eq!(argv(&bin).lines().count(), 1);
+        assert!(argv(&bin).starts_with("pr view 7 --json"));
+    }
+
+    #[tokio::test]
+    async fn a5168a_issue_get_parses_labels_and_state_reason() {
+        let json = r#"{"number":3,"url":"u","title":"T","body":"B","state":"CLOSED","labels":[{"name":"wontfix"}],"stateReason":"NOT_PLANNED"}"#;
+        let (_bin, _project, daemon) = daemon_with_gh(json);
+        let issue = call(&daemon, "github.issueGet", json!({"number": 3}))
+            .await
+            .unwrap();
+        assert_eq!(issue["state"], "closed");
+        assert_eq!(issue["labels"], json!(["wontfix"]));
+        assert_eq!(issue["stateReason"], "NOT_PLANNED");
+    }
+
+    #[tokio::test]
+    async fn a5168b_set_body_sends_the_body_on_stdin_and_returns_the_new_state() {
+        let (bin, _project, daemon) = daemon_with_gh(PR_JSON);
+        let pr = call(
+            &daemon,
+            "github.prSetBody",
+            json!({"number": 7, "body": "new $(x) body"}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(pr["number"], 7);
+        assert!(argv(&bin).starts_with("pr edit 7 --body-file -"));
+        assert!(argv(&bin).contains("pr view 7"));
+    }
+
+    #[tokio::test]
+    async fn a5168b_an_empty_body_runs_no_gh() {
+        let (bin, _project, daemon) = daemon_with_gh(PR_JSON);
+        let err = call(
+            &daemon,
+            "github.prSetBody",
+            json!({"number": 7, "body": ""}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(err.code, code::INVALID_PARAMS);
+        assert_eq!(argv(&bin), "");
+    }
+
+    #[tokio::test]
+    async fn a5168b_ready_and_auto_merge_run_their_one_command() {
+        let (bin, _project, daemon) = daemon_with_gh(PR_JSON);
+        call(&daemon, "github.prReady", json!({"number": 7}))
+            .await
+            .unwrap();
+        call(&daemon, "github.prAutoMerge", json!({"number": 7}))
+            .await
+            .unwrap();
+        let lines = argv(&bin);
+        assert_eq!(lines.matches("pr ready 7").count(), 1);
+        assert_eq!(lines.matches("pr merge 7 --auto --merge").count(), 1);
+    }
+
+    #[tokio::test]
+    async fn a5168b_a_repeat_runs_no_write() {
+        let json = PR_JSON
+            .replace("\"isDraft\":true", "\"isDraft\":false")
+            .replace(
+                "\"autoMergeRequest\":null",
+                "\"autoMergeRequest\":{\"mergeMethod\":\"MERGE\"}",
+            );
+        let (bin, _project, daemon) = daemon_with_gh(&json);
+        call(&daemon, "github.prReady", json!({"number": 7}))
+            .await
+            .unwrap();
+        let pr = call(&daemon, "github.prAutoMerge", json!({"number": 7}))
+            .await
+            .unwrap();
+        assert_eq!(pr["autoMerge"], true);
+        assert!(!argv(&bin).contains("pr ready"));
+        assert!(!argv(&bin).contains("pr merge"));
+    }
+
+    #[tokio::test]
+    async fn a5168b_a_closed_pr_is_a_conflict_and_runs_no_write() {
+        let (bin, _project, daemon) = daemon_with_gh(&PR_JSON.replace("OPEN", "MERGED"));
+        for method in ["github.prReady", "github.prAutoMerge"] {
+            let err = call(&daemon, method, json!({"number": 7}))
+                .await
+                .unwrap_err();
+            assert_eq!(err.code, code::CONFLICT);
+        }
+        assert!(!argv(&bin).contains("pr ready"));
+        assert!(!argv(&bin).contains("pr merge"));
+    }
 
     /// A fake `gh` that records its argv, directory and stdin, then runs `body`.
     fn fake_gh(dir: &std::path::Path, body: &str) -> std::path::PathBuf {
