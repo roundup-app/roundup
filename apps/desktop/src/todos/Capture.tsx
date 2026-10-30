@@ -161,7 +161,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     const retry = stranded?.title === title && home !== null ? stranded : null;
 
     stranded = null;
-    const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner, refs: [] };
+    const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner, refs: [], priority: null };
     const hide = todos.show(row);
 
     props.onFile?.();

@@ -16,6 +16,7 @@ mod history;
 mod home;
 mod ordering;
 mod ownership;
+mod priority;
 mod references;
 mod updated_at;
 mod values;

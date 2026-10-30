@@ -34,21 +34,23 @@ it("u2539b_drawer_keeps_attention_reachable", async () => {
   fireEvent.click(row);
   fireEvent.keyDown(row.closest("button")!, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(connected().drawer.content()).not.toBeNull());
-  const attention = document.querySelector<HTMLButtonElement>(".overview-entry");
+  const attention = document.querySelector<HTMLButtonElement>(".inbox-row");
   expect(attention).not.toBeNull();
-  fireEvent.click(attention!);
+  fireEvent.click(within(attention!.closest("li")!).getByRole("button", { name: "Open" }));
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
 });
 
 it("u2539b_selected_agent_returns_to_landing", async () => {
   const { connected } = await mount();
-  fireEvent.click(await waitFor(() => {
-    const entry = document.querySelector<HTMLButtonElement>(".overview-entry");
 
+  const row = await waitFor(() => {
+    const entry = document.querySelector<HTMLButtonElement>(".inbox-row");
     expect(entry).not.toBeNull();
 
-    return entry!;
-  }));
+    return entry!.closest("li")!;
+  });
+
+  fireEvent.click(within(row).getByRole("button", { name: "Open" }));
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
   fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
@@ -146,7 +148,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
     expect(document.querySelector(".todos-tab")).not.toBeNull();
   } else if (task === "inbox") {
     runLeader("KeyI");
-    await screen.findByRole("region", { name: "Inbox" });
+    await screen.findByRole("region", { name: "Needs you" });
     expect(document.querySelector(".inbox")).not.toBeNull();
   } else if (task === "assign") {
     leader("KeyB");
@@ -309,7 +311,7 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
   connected().rail.select("a0");
   expect(places().length).toBeLessThanOrEqual(3);
   leader("KeyI");
-  await screen.findByRole("region", { name: "Inbox" });
+  await screen.findByRole("region", { name: "Needs you" });
   expect(places().length).toBeLessThanOrEqual(3);
 });
 

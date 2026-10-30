@@ -32,6 +32,7 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   home: null,
   owner: null,
   refs: [],
+  priority: null,
   ...over,
 });
 
