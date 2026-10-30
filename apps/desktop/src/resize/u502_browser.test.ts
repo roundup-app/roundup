@@ -30,13 +30,13 @@ afterAll(async () => {
   await page?.close();
 });
 
-const EDGES = { rail: { label: "Resize Rail", panel: ".rail", min: 252, max: 480, reset: 288 }, shelf: { label: "Resize work items", panel: ".shelf", min: 240, max: 560, reset: 320 } } as const;
+const EDGES = { rail: { label: "Resize Rail", panel: ".rail", min: 252, max: 480, reset: 288 }, shelf: { label: "Resize Bench", panel: ".shelf", min: 240, max: 560, reset: 320 } } as const;
 
 type Edge = (typeof EDGES)[keyof typeof EDGES];
 
 const load = async (width: number) => {
   await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", width, 800);
-  await page.until(`() => Boolean(document.querySelector('.rail-actions button')) && Boolean(document.querySelector('[aria-label="Resize work items"]'))`);
+  await page.until(`() => Boolean(document.querySelector('.rail-actions button')) && Boolean(document.querySelector('[aria-label="Resize Bench"]'))`);
   // Count each committed write of the saved widths, the one place a commit leaves a trace.
   await page.call(`() => { window.__commits = 0; const set = Storage.prototype.setItem; Storage.prototype.setItem = function (key, value) { if (String(key).startsWith('roundup:widths:')) window.__commits += 1; return set.call(this, key, value); }; }`);
 };
@@ -128,9 +128,9 @@ run("u502 resize edges use Ark Splitter", () => {
     await page.press("Enter", "Enter");
     await settled(EDGES.shelf, 320);
     await page.press("k", "KeyK", META);
-    await page.press("s", "KeyS");
-    await page.until(`() => !document.querySelector('[aria-label="Resize work items"]') || document.querySelector('[aria-label="Resize work items"]').closest("[hidden]") !== null`);
-    expect(await page.call<boolean>(`() => { const edge = document.querySelector('[aria-label="Resize work items"]'); return !edge || edge.tabIndex < 0 || edge.closest("[hidden]") !== null; }`)).toBe(true);
+    await page.press("b", "KeyB");
+    await page.until(`() => !document.querySelector('[aria-label="Resize Bench"]') || document.querySelector('[aria-label="Resize Bench"]').closest("[hidden]") !== null`);
+    expect(await page.call<boolean>(`() => { const edge = document.querySelector('[aria-label="Resize Bench"]'); return !edge || edge.tabIndex < 0 || edge.closest("[hidden]") !== null; }`)).toBe(true);
   });
 
   it("u502_drag_commit_and_cancel", async () => {

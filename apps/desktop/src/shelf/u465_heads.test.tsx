@@ -29,7 +29,7 @@ const mount = async () => {
     </ConnectedProjectContext.Provider>;
   });
 
-  return within(await screen.findByRole("tablist", { name: "Work items" })).getAllByRole("tab");
+  return within(await screen.findByRole("tablist", { name: "Bench" })).getAllByRole("tab");
 };
 
 // Left/Right and Home/End selection runs on real key events in u491a_browser.test.ts; Ark's selection follows focus on requestAnimationFrame, which jsdom does not order like a browser.

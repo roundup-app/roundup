@@ -2,7 +2,7 @@
 CREATE TABLE pad_sources (
     incarnation INTEGER PRIMARY KEY AUTOINCREMENT,
     pad_key TEXT UNIQUE,
-    deletion TEXT CHECK (deletion IN ('user', 'owner', 'cleanup')),
+    deletion TEXT CHECK (deletion IN ('user', 'cleanup')),
     CHECK ((pad_key IS NOT NULL AND deletion IS NULL)
         OR (pad_key IS NULL AND deletion IS NOT NULL))
 );

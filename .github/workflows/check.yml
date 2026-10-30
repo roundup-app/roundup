@@ -107,6 +107,9 @@ jobs:
           }
           JS
             files=$(grep -c '\.test\.tsx\?$' "$RUNNER_TEMP/web-files.txt" || true)
+            # Capture metadata reached 70 serial heavy files on #4987: two file-count shards both exceeded
+            # 15 min (run 40970178062). Use the full matrix when Vitest selects its heavy project.
+            if grep -q '^\[heavy\] ' "$RUNNER_TEMP/web-files.txt"; then files=all; fi
           fi
           echo "web_shards=$(python3 loop/affected.py shards "$files")" >>"$GITHUB_OUTPUT"
 

@@ -112,7 +112,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     });
 
     await expect.poll(() => app.rpc("pad.list", null), { timeout: 30_000 }).toMatchObject([
-      { name: "agent-work", owner: { kind: "agent", id: agent.id }, home: home.id, text: visualSource, revision: 1 },
+      { name: "agent-work", home: home.id, text: visualSource, revision: 1 },
     ]);
 
     const openRealPad = async () => {
@@ -143,7 +143,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await browser("wait", "[data-state=saved]");
     const expected = `Reviewed ${visualSource}`;
 
-    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, owner: { kind: "agent" } });
+    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2 });
     await browser("click", ".drawer .close");
     await real.restart();
     await openRealPad();
