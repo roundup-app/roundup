@@ -16,6 +16,8 @@ import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { Todos } from "./Todos";
 import { useTodoList } from "./todoList";
+// Resolve the lazy editor fixture before the first Drawer opens, as padsFixture does.
+import "../pads/PadRichEditor";
 import type { TodosState } from "./state";
 import { Rail } from "../rail/Rail";
 
