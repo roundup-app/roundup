@@ -36,6 +36,36 @@ Rendered observer (policy, implementation only): use the isolated headless U26 h
 
 Run `just capture U4896` after adding its capture coverage. Leave paired immutable main/head revisions, PNG files and Check readings under `artifacts/ux/U4896/base/` and `head/`, labelled by theme, Rail width and state; images/videos remain uncommitted. Record a section/row-kind audit with the measured leading edges (including connector paint), trailing centres, section/row gaps and their Token sources, plus pass/fail for each numbered clause. For selected and unselected Workstream and Agent rows, capture rest (pointer outside the row, focus outside the row), hover only, focus-within only and return to rest; record action visibility for each state. On a selected row, Tab through every action and activate with Enter or Space, recording focus, command calls and unchanged selection; verify hiding after both hover and focus leave. Include keyboard collapse/reopen and the dense failure state; every audit row identifies its capture. Missing geometry or an unobserved required row kind is not a pass. Use DOM boxes and computed styles for measurements and paired captures for the critic; keep layout/colour/exact-copy assertions out of UI tests (AGENTS.md rule 10). This observes Chromium rendering only; the user reports what they meet on the Mac. This specification changes no production styles and requires no current capture or Mac-only observation; implementation remains in the dependent work Issue.
 
+**U5147a Rail chevrons and grips mirror the leading glyph column.** Journey stage: Understand (`.agents/data/journey.md`, “What must work”). Narrows U4896 clause 2 (this file): the shared trailing column keeps its alignment and gains the position below. Row heights, U4898's leading column, selection, folding, drag and row actions stay as they are. No contract, RPC, App seam command, glossary term or new Token.
+
+Given U26's `tree-40` with `payments` made a Mode through `window.__fake.app.handlers["workstream.setOpeningPrompt"]`, so WORKSTREAMS, MODES and AGENTS all render, at 1512×950 in dark with the Rail at 252, 288 and 480 CSS px, when the Rail renders at rest, then (policy, design critic):
+
+1. Let `E` be the right edge of `.rail-scroll`'s box: the Rail's inner right edge, inside its 1 px border. The centre x of each section head's collapse chevron and of each row's grip, at every depth, is `E − 24` within 1 CSS px. Measure the 16 px icons, not their control boxes.
+2. 24 is the leading column's centre offset: U4898's Overview tile centres 24 CSS px from the Rail's left edge.
+
+On main `e78bbc345` both centres sit at `E − 20` at all three widths (459 at a 480 Rail).
+
+**U5147b a hairline separates Rail sections.** Journey stage: Understand. Narrows U4896 clause 3 (this file): each gap between sections keeps its height and gains one line. U172's (`ui-buttons.md`) divider between root Workstream blocks inside a section is unchanged, and section heads keep U4898's icons.
+
+Given U5147a's fixture with every section expanded, then with MODES collapsed, then U26's `agents-10` with only AGENTS, when the Rail renders at rest, then (policy, design critic):
+
+1. Let gap `G` run from the preceding section's last visible row box bottom (its head box bottom when collapsed) to the next section head's box top, as U4896 clause 3 measures it. `G` stays `--rail-section-gap`.
+2. Exactly one line lies inside each `G`. It is an element or pseudo-element `--hairline-width` high, painted `--hairline`. Its top sits at `G`'s top plus `(G − 1) / 2`, its left edge 12 CSS px from the Rail's left edge and its right edge at `E − 12`, each within 1 CSS px. The 12 is `--space-3`.
+3. No such line lies between Overview and the first section or between the last section and the creation footer. One visible section paints none.
+4. Hover, focus-within and selection neither hide nor move it.
+
+On main `e78bbc345` each `G` is 16 CSS px and holds no line.
+
+**Targets.** `docs/design/targets/U5147/` holds the designer's Pencil frames at 1512×950 in dark with a 480 Rail: `2-rail-glyph-column-after.png` (U5147a) and `3b-rail-sections-hairline-rule.png` (U5147b), each with a `-redline` copy. The numbers above decide; the images are reference only. Pencil set the text in Inter, not SF Pro, so a pixel comparison fails on type alone. These are not targets: the creation footer drawn as one row (main stacks it, U4898 “One leading column”), the typeface, the selected-row wash, and every pane outside the Rail.
+
+Observer (policy, implementation only): U26's harness in an isolated headless `agent-browser` session with a fresh profile, 1512×950, dark. Read boxes with `getBoundingClientRect` and computed styles, never screenshot pixels. Run `just capture U5147a,U5147b` after adding its capture coverage, and leave paired main/head PNGs and Check readings under `artifacts/ux/U5147/base/` and `head/`, uncommitted. Record `E`, each centre, each `G` and each line box per width and state. Add no layout test (AGENTS.md rule 10). The Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
+
+Regression (policy): Moves D2 (Token spacing and alignment). Every Check passing on main still passes; add no new Check. Baseline Checks and observers on main:
+
+1. D2: `docs/design-system.md`, “The checks” and “Rail section edges and spacing (U4896)”; readings in `apps/desktop/src/testing/checks.ts`, `runChecks`.
+2. Trailing column and section gap: this file, U4896 clauses 2 and 3; `apps/desktop/src/rail/Rail.tsx`, `Rail`, and `apps/desktop/src/rail/RailRow.tsx`, `RailRow`.
+3. Root Workstream divider: `scenarios/ui-buttons.md`, U172; `apps/desktop/src/rail/RailRow.tsx`, `RailRow` (`rootDivider`).
+
 **U4644 the Rail hides empty sections and offers both starts.** Journey stage: Enter (`.agents/data/journey.md`, “What must work”). This amends U447's section heading and U4464's empty-Rail action only: the Rail has two actions; other empty views retain U4464's structure and action rules. It narrows U33 only while the empty Rail view is showing, as specified below. No new domain term, RPC, App seam command or Token; no art change. Open Doodles delivery remains #4610's work, and #4547 owns the later Workstreams/Modes/Agents sections and moving a free Agent into a Workstream.
 
 Given an open Project after its first successful `rail.tree` answer, then:

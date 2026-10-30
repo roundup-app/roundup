@@ -49,6 +49,8 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - Choosing from other items is a menu. Picking one item from a list of others (a blocker, an Agent, a Model) opens the shared `apps/desktop/src/ui/Combobox.tsx`: floating, anchored to its trigger, filtered by typing, closed by Escape with focus back on the trigger. It never expands the list inline in the page.
 - Actions sit on their row. A row's text actions sit on the baseline of the row's first line, within 1 px.
 - A modal's centre sits at the window's centre within 1 px on both axes; only `ui/Dialog.tsx` positions a modal (#3083).
+- Rail chevrons and grips mirror the leading glyph column: each centres 24 CSS px from the Rail's inner right edge, within 1 px, as the Overview tile centres 24 px from its left edge (U5147a). Block only a head where origin/main meets this line.
+- A hairline separates Rail sections: one `--hairline-width` `--hairline` line centred in each gap between visible sections, from 12 px after the Rail's left edge to 12 px before its inner right edge, within 1 px; none above the first section or below the last (U5147b). Block only a head where origin/main meets this line.
 
 - D1 (#3789, row interaction): a primary click selects a Todo, Pad or Rail row; Return or its Open button opens; double-click/F2 renames. A drag or rename gesture never opens. Apply U3789a to Shelf rows and owned-item leaves alike.
 - D2 (#3789, Todo add): one key or click focuses one line; text plus Return files into the selected scope. Opening/typing never expands an owner group; only the field, accepted new row and newly nonempty destination group mount, with existing counts/empty feedback updated (U3789b).
