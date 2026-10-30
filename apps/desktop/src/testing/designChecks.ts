@@ -1,4 +1,4 @@
-type Alignment = { row: string; inset: number };
+type Alignment = { row: string; inset: number; expected: number };
 
 type Reading = string | { pressFeedback: string } | { controls: number; feedback: string } | { rows: number; cue?: string } | { cue: string; rule: string } | { expected: number; readings: Alignment[] };
 
@@ -90,9 +90,11 @@ export function rowAlignmentCheck(doc: Document) {
       : row.matches('.todo-list [role=treeitem]') ? Math.max(0, Number(row.getAttribute("aria-level")) - 1) * parseFloat(rowStyle.getPropertyValue("--tree-step")) : 0;
 
     const inset = name.getBoundingClientRect().left - row.getBoundingClientRect().left - indent;
-    readings.push({ row: nameOf(row), inset });
+    const overviewLabel = rail ? row.closest(".rail")?.querySelector(".overview-tile + span") : null;
+    const target = overviewLabel ? overviewLabel.getBoundingClientRect().left - row.getBoundingClientRect().left : expected;
+    readings.push({ row: nameOf(row), inset, expected: target });
 
-    if (!Number.isFinite(inset) || !Number.isFinite(expected) || Math.abs(inset - expected) > 1) return result({ expected, readings }, nameOf(row), false);
+    if (!Number.isFinite(inset) || !Number.isFinite(target) || Math.abs(inset - target) > 1) return result({ expected: target, readings }, nameOf(row), false);
   }
 
   return result({ expected, readings });
