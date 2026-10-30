@@ -17,6 +17,8 @@ use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
 
+#[path = "mcp/reconnect.rs"]
+mod reconnect;
 #[path = "mcp/removed_questions.rs"]
 mod removed_questions;
 #[path = "mcp/tool_lists.rs"]
@@ -443,89 +445,6 @@ async fn m3_a_call_the_daemon_never_answers_fails_saying_it_may_have_been_applie
     assert_eq!(result.is_error, Some(true));
     assert!(error_text(&result).contains("may have been applied"));
     assert!(shim.child.try_wait().unwrap().is_none());
-}
-
-/// A stand-in Daemon that answers `null` to everything on `socket`; aborting it frees the socket.
-fn answering_daemon(socket: &Path) -> tokio::task::JoinHandle<()> {
-    let _ = std::fs::remove_file(socket);
-    let listener = UnixListener::bind(socket).unwrap();
-    tokio::spawn(async move {
-        loop {
-            let (stream, _) = listener.accept().await.unwrap();
-            tokio::spawn(async move {
-                let (read, mut write) = stream.into_split();
-                let mut lines = BufReader::new(read).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    let request: Value = serde_json::from_str(&line).unwrap();
-                    let reply = json!({ "jsonrpc": "2.0", "id": request["id"], "result": [] });
-                    write_line(&mut write, &reply).await;
-                }
-            });
-        }
-    })
-}
-
-#[tokio::test]
-async fn m5179_a_closed_daemon_fails_the_call_and_the_shim_stays_up() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let daemon = answering_daemon(&socket);
-    let mut shim = spawn_shim(&socket, "a1").await;
-    assert_eq!(
-        shim.call("todo_list", json!({})).await.is_error,
-        Some(false)
-    );
-    daemon.abort();
-    let _ = daemon.await;
-
-    let result = shim.call("todo_list", json!({})).await;
-
-    assert_eq!(result.is_error, Some(true));
-    let message = error_text(&result);
-    assert!(
-        message.contains("todo_list") && message.contains("not sent"),
-        "{message}"
-    );
-    assert!(shim.child.try_wait().unwrap().is_none());
-}
-
-#[tokio::test]
-async fn m5179_the_next_call_reaches_the_reopened_daemon() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let daemon = answering_daemon(&socket);
-    let shim = spawn_shim(&socket, "a1").await;
-    daemon.abort();
-    let _ = daemon.await;
-    assert_eq!(shim.call("todo_list", json!({})).await.is_error, Some(true));
-
-    let _reopened = answering_daemon(&socket);
-
-    assert_eq!(
-        shim.call("todo_list", json!({})).await.is_error,
-        Some(false)
-    );
-}
-
-#[tokio::test]
-async fn m5179_each_call_while_the_daemon_is_down_fails_promptly() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let daemon = answering_daemon(&socket);
-    let shim = spawn_shim(&socket, "a1").await;
-    daemon.abort();
-    let _ = daemon.await;
-
-    for _ in 0..3 {
-        let result = shim.call("todo_list", json!({})).await;
-        assert_eq!(result.is_error, Some(true));
-        // The error text never tells the Agent to restart roundup or reconnect (m5179_no_error_asks_for_an_mcp_reconnect).
-        let message = error_text(&result);
-        assert!(
-            !message.contains("/mcp") && !message.contains("Restart roundup"),
-            "{message}"
-        );
-    }
 }
 
 #[tokio::test]
