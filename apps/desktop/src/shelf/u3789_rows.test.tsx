@@ -2,9 +2,12 @@ import { nextTick } from "@zag-js/dom-query";
 import { copy } from "../copy";
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { settled } from "../rail/railFixture";
+import type { Todo } from "@contracts/todo/Todo";
 import type { CreateParams } from "@contracts/todo/CreateParams";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+import { NOW_TICK_MS } from "../state/clock";
+import { USER } from "../testing/nodes";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { SeedName } from "../testing/seeds";
@@ -13,7 +16,7 @@ import { showEverythingInApp } from "../testing/showEverything";
 import { createProjectDrafts } from "../state/connectedProject";
 import { gate, rpcCalls } from "../testing/appFixture";
 
-const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"], withWorktree = false, tab: "Todos" | "Pads" = copy.todos) => {
+const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["backend", "auth", "payments", "migrate", "tokens", "logins", "docs", "agent-1", "agent-4"], withWorktree = false, tab: "Todos" | "Pads" = copy.todos, clock = () => 0, prepare?: (controls: ReturnType<typeof seedApp>) => Promise<void>) => {
   const controls = seedApp(seed, 0);
 
   if (seed === "tree-40") {
@@ -23,9 +26,10 @@ const open = async (seed: SeedName = "tree-40", rows: readonly string[] = ["back
     controls.app.handlers["rail.tree"] = () => tree.filter(node => rows.includes(node.id));
   }
 
+  await prepare?.(controls);
   const drafts = createProjectDrafts();
   const emulators = fakeEmulators();
-  const view = render(() => <App app={controls.app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
+  const view = render(() => <App app={controls.app} drafts={drafts} reducedMotion={() => true} clock={clock} createEmulator={emulators.factory} />);
   await showEverythingInApp(undefined, tab);
 
   return { ...controls, view, drafts, emulators };
@@ -567,4 +571,101 @@ it("u4275b_row_actions_keep_menu_semantics_resume", async () => {
   await waitFor(() => expect(row.querySelector('[aria-label="Resume"]')).not.toBeNull());
   fireEvent.click(row.querySelector('[aria-label="Resume"]')!);
   await waitFor(() => expect(rpcCalls(app, "agent.resume")).toEqual([{id:"tokens"}]));
+});
+
+
+const ageFixture = async ({app}: ReturnType<typeof seedApp>) => {
+  const todos = (await app.rpc("todo.list", null)).slice(0, 2);
+  const pads = (await app.rpc("pad.list", null)).slice(0, 2);
+  app.handlers["todo.list"] = () => todos;
+  app.handlers["pad.list"] = () => pads;
+};
+
+const itemRow = (kind: "todos" | "pads") => document.querySelector<HTMLElement>(kind === "todos" ? '.todos-tab [data-todo="1"]' : '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"]')!;
+
+it.each(["todos", "pads"] as const)("u4709a_rows_use_updated_at_%s", async kind => {
+  const now = new Date(2026, 9, 30, 12).getTime();
+  await open("tree-40", ["payments"], false, kind === "todos" ? copy.todos : copy.pads, () => now, async (controls) => {
+    await ageFixture(controls);
+    const {app} = controls;
+    if (kind === "todos") {
+      const items = await app.rpc("todo.list", null);
+      app.handlers["todo.list"] = () => items.map(item => ({...item, created_at: 0, updated_at: now - 300000}));
+    } else {
+      const items = await app.rpc("pad.list", null);
+      app.handlers["pad.list"] = () => items.map(item => ({...item, updated_at: new Date(2026, 8, 12, 12).getTime()}));
+    }
+  });
+  expect(itemRow(kind).querySelector(".item-age")?.textContent).toBe(kind === "todos" ? "5m" : "2026-09-12");
+});
+
+it.each(["todos", "pads"] as const)("u4709b_live_tick_updates_resting_rows_%s", async kind => {
+  let now = 59000;
+  vi.useFakeTimers({toFake: ["setInterval", "clearInterval"]});
+  const {app, view} = await open("tree-40", ["payments"], false, kind === "todos" ? copy.todos : copy.pads, () => now, ageFixture);
+  const before = app.calls.length;
+  expect(itemRow(kind).querySelector(".item-age")?.textContent).toBe("now");
+  try {
+    now = 60000;
+    await vi.advanceTimersByTimeAsync(NOW_TICK_MS);
+    expect(itemRow(kind).querySelector(".item-age")?.textContent).toBe("1m");
+    expect(app.calls.slice(before)).toEqual([]);
+  } finally { view.unmount(); vi.useRealTimers(); }
+});
+
+it.each(["todos", "pads"] as const)("u4709b_events_update_create_and_rename_rows_%s", async kind => {
+  const now = 7200000;
+  const {app, emit} = await open("tree-40", ["payments"], false, kind === "todos" ? copy.todos : copy.pads, () => now, ageFixture);
+  const existing = document.querySelector<HTMLElement>(kind === "todos" ? '.todos-tab [data-todo="2"]' : '.pads-tab [data-pad="pad-0"]')!;
+  const nameButton = existing.querySelector<HTMLElement>(kind === "todos" ? ".todo-row-button" : ".pad-name")!;
+  fireEvent.click(nameButton);
+  await settled();
+  const selected = existing.getAttribute("data-selected");
+  const folds = () => [...document.querySelectorAll('[data-shelf-group]')].map(row => [row.getAttribute('data-shelf-group'), row.getAttribute('aria-expanded')]);
+  const beforeFolds = folds();
+  const before = app.calls.length;
+  if (kind === "todos") {
+    const items = await app.rpc("todo.list", null);
+    const changed = {...items.find(item => item.id === 1)!, title:"Accepted rename", updated_at:now - 300000};
+    const made = {...changed, id:99, title:"Accepted new item"};
+    app.handlers["todo.list"] = () => [...items.filter(item => item.id !== 1), changed, made];
+    emit({actor:USER, name:"todo.updated", data:changed});
+    emit({actor:USER, name:"todo.created", data:made});
+  } else {
+    const items = await app.rpc("pad.list", null);
+    const changed = {...items.find(item => item.name === "a-pad-with-a-very-long-name-here")!, name:"Accepted rename", updated_at:now - 300000};
+    const made = {...changed, name:"Accepted new item", incarnation:"new-identity"};
+    app.handlers["pad.list"] = () => [...items.filter(item => item.incarnation !== changed.incarnation), changed, made];
+    emit({actor:USER, name:"pad.changed", data:{name:changed.name}});
+    emit({actor:USER, name:"pad.changed", data:{name:made.name}});
+  }
+  const renamed = await screen.findByText("Accepted rename");
+  const created = await screen.findByText("Accepted new item");
+  expect(renamed.closest('.shelf-row')?.querySelector('.item-age')?.textContent).toBe("5m");
+  expect(created.closest('.shelf-row')?.querySelector('.item-age')?.textContent).toBe("5m");
+  expect(existing.getAttribute("data-selected")).toBe(selected);
+  expect(document.activeElement).toBe(nameButton);
+  expect(folds()).toEqual(beforeFolds);
+  expect(document.querySelector('.drawer[data-open=true]')).toBeNull();
+  expect(app.calls.slice(before).filter(call => !['todo.list','todo.listHanded','pad.list'].includes(call.method))).toEqual([]);
+});
+
+it("u4709a_rows_use_updated_at_after_pending_todo_is_filed", async () => {
+  const {app, emit} = await open("tree-40", ["payments"], false, copy.todos, () => 600000, ageFixture);
+  const reply = gate<Todo>();
+  app.handlers["todo.create"] = () => reply.promise;
+  fireEvent.click(document.querySelector('.shelf-add')!);
+  const field = await screen.findByRole("textbox", {name:/new todo/i});
+  fireEvent.input(field, {target:{value:"Pending age"}});
+  fireEvent.keyDown(field, {key:"Enter"});
+  await waitFor(() => expect(document.querySelector('[data-pending=true]')).not.toBeNull());
+  expect(document.querySelector('[data-pending=true] .item-age')).toBeNull();
+  const made: Todo = {id:99,title:"Pending age",body:"",done:false,blockers:[],blocked:false,created_at:0,updated_at:300000,creator:USER,home:null,owner:null,refs:[],priority:null};
+  app.handlers["todo.list"] = () => [made];
+  emit({actor:USER,name:"todo.created",data:made});
+  reply.resolve(made);
+  await waitFor(() => expect(document.querySelector('[data-pending=true]')).toBeNull());
+  const group = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+  if (group?.getAttribute('aria-expanded') === 'false') fireEvent.click(group);
+  await waitFor(() => expect(document.querySelector('[data-todo="99"] .item-age')?.textContent).toBe("5m"));
 });
