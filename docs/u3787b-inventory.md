@@ -447,8 +447,10 @@ responder availability, captured target/focus, menu/key dispatch, Close's actual
 window and exclusive projected ownership. The existing registry/Tauri observers
 retain their captured Project and unavailable/removed-owner proofs.
 
-Local Linux: `pnpm install` passed; the U3787b menu, U2241 modifier and U101 clipboard
-files passed all 40 tests. `cargo test -p native --locked` and native clippy passed
+Local Linux: `pnpm install` and `just ready` passed; the U3787b menu, U2241 modifier and U101 clipboard
+files passed all 40 tests. All 140 desktop Rust observers passed across the initial
+run and the five-observer rerun after building their required rupd/rup binaries.
+Native macOS-target compile/clippy also passed from Linux. `cargo test -p native --locked` and native clippy passed
 on Linux; that platform runs no AppKit probe and establishes no native pass.
 macOS CI must run this implementation before native success is recorded. Earlier
 #4278 native observations and #4965 failed alignment observations keep their
@@ -465,10 +467,10 @@ Native rendered observer, on build `136436470b07a0c5a0cb87b8969f44481591f33f`:
    the menu and chord separately: each opens the registered Terminal Find once,
    with no Terminal input. Leave/remove that owner: it must no longer act.
    #3853 owns that UI; do not infer a delivered Terminal Find UI from this probe.
-3. Open two App windows, activate the second, then use File > Close Window and,
-   in another round, Cmd+W. Each closes only the active window, never a Project.
-   With no available window Close must be disabled. Check the same File/Edit
-   menus at startup with no Project. Menu opening alone must not move focus.
+3. Use File > Close Window and, in another launch, Cmd+W. Each must close
+   the actual App window without becoming a Project-close command. The native
+   harness separately checks two-window targeting and no-window availability.
+   Check File/Edit at startup with no Project. Menu opening must not move focus.
 4. Exercise Terminal selection Copy, editor cut/paste, configured quick-add and
    a leader-hint Project item. They must retain their existing single action and
    focus; a sequence hint must register no accelerator of its own.
@@ -476,3 +478,7 @@ Native rendered observer, on build `136436470b07a0c5a0cb87b8969f44481591f33f`:
 These steps decide native displayed keys and integrated window/editor/Terminal
 behavior. CI's raw AppKit harness and separate real-registry/Tauri event tests
 are recorded independently; Linux/Chromium cannot establish this native rendering.
+
+The focus-changing native probe shares nextest’s existing `native-app` group with
+the desktop AppKit observers. `.config/nextest.toml` changes scheduling only;
+no observer is skipped and no assertion or timeout is weakened.
