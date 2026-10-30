@@ -226,7 +226,9 @@ def reopen_fake():
     # U461a keeps every passing Check, including the selected blocker line.
     for check, before in baseline_checks.items():
         if before['status'] == 'pass':
+            assert reopened['checks'][check]['status'] == 'pass', reopened
     for check in ['D2', 'D5', 'D6']:
+        assert reopened['checks'][check]['status'] == 'pass', reopened
     save('U461a', 'drawer-reopened-1512-dark', reopened)
     browser('click', '.drawer .close')
     wait('document.querySelector(".drawer").getAttribute("data-open")==="false"')
