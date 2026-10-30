@@ -140,8 +140,10 @@ it.each(["hover", "focus"])("u477_disabled_icon_button_shows_its_name_%s", async
   if (input === "focus") expect(document.activeElement).toBe(button);
 });
 
-it.each([0, 1])("u477_disabled_icon_button_does_not_act_click_detail_%s", detail => {
+it("u477_disabled_icon_button_does_not_act", () => {
   render(u474Fixture);
-  fireEvent.click(screen.getByRole("button", { name: "Unavailable action" }), { detail });
+  const button = screen.getByRole("button", { name: "Unavailable action" });
+
+  for (const detail of [0, 1]) fireEvent.click(button, { detail });
   expect(Number(screen.getByLabelText("Actions taken").textContent)).toBe(0);
 });
