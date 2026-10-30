@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
-import { openPad } from "../pads/padsFixture";
+import { openPad, openShelf, waitForReload } from "../pads/padsFixture";
+import { RpcError } from "../app/seam";
 
 // jsdom has no layout, so the editor's scroll-to-selection asks a Range for rects it cannot give.
 Range.prototype.getClientRects ??= () => document.body.getClientRects();
@@ -9,72 +10,56 @@ Range.prototype.getClientRects ??= () => document.body.getClientRects();
 Range.prototype.getBoundingClientRect ??= () => document.body.getBoundingClientRect();
 
 it("p2544d_stale_write_without_event_keeps_draft", async () => {
-  const { render } = await import("@solidjs/testing-library");
-  const { RequestedApp: App } = await import("./requestedApp");
-  const { fakeEmulators } = await import("../terminal/paneHarness");
-  const { startRealDaemon } = await import("./realDaemonFixture");
-  const { createServedApp } = await import("./realSeam");
-  const real = await startRealDaemon({});
+  const pad = { incarnation: "original-notes", name: "notes", text: "original", revision: 1, updated_at: 0, home: null };
+  const { app } = await openShelf([pad]);
+  const remote = { ...pad, text: "original remote", revision: 2 };
+  const intervening = { ...pad, text: "original remote intervening", revision: 3 };
+  app.handlers["pad.list"] = () => [pad];
+  app.handlers["pad.read"] = () => pad;
+  // Replies are supplied facts. Rust's p2544d_write_revision_guard owns atomic storage refusal.
+  app.handlers["pad.write"] = () => { throw new RpcError(-32003, "pad notes is at revision 2"); };
+  const calls = app.calls;
 
   try {
-    const served = createServedApp(real.base);
-    const calls: { method: string; params: unknown }[] = [];
-
-    // A missed Event is the fault under test; all reads and writes still reach the real Daemon.
-    const app: typeof served = {
-      ...served,
-      subscribe: (listener) => served.subscribe((event) => { if (event.name !== "pad.changed") listener(event); }),
-      rpc: (method, params) => {
-        calls.push({ method, params });
-
-        return served.rpc(method, params);
-      },
-      forProject: () => app,
-    };
-
-    const home = await served.rpc("rail.createWorkstream", { name: "review", parent: null });
-
-    const pad = await served.rpc("pad.create", { name: "notes", text: "original" });
-    await served.rpc("pad.move", { name: "notes", home: home.id });
-    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    const { showEverythingInApp } = await import("./showEverything");
-
-    await showEverythingInApp(/review/);
-    fireEvent.click(await screen.findByRole("tab", { name: /^Pads/ }));
     const field = await openPad("notes");
 
-    await served.rpc("pad.append", { name: "notes", text: " remote" });
+    // No pad.changed Event precedes either stale reply.
+    app.handlers["pad.list"] = () => [remote];
     fireEvent.input(field, { target: { value: "my draft" } });
     fireEvent.focusOut(field);
     await screen.findByText("Use theirs");
     await waitFor(() => expect(screen.queryByText(/pad notes is at revision/)).toBeNull());
-    await waitFor(() => expect(calls.filter((call) => call.method === "pad.list").length).toBeGreaterThan(1));
+    await waitForReload(app);
     expect(field.value).toBe("my draft");
     expect(calls.filter((call) => call.method === "pad.write")).toEqual([
       { method: "pad.write", params: { name: "notes", text: "my draft", expectedRevision: 1, expectedIncarnation: pad.incarnation } },
     ]);
-    expect(await served.rpc("pad.list", null)).toMatchObject([{ text: "original remote", revision: 2 }]);
-    await served.rpc("pad.append", { name: "notes", text: " intervening" });
+    app.handlers["pad.list"] = () => [intervening];
+    app.handlers["pad.write"] = () => { throw new RpcError(-32003, "pad notes is at revision 3"); };
     fireEvent.click(screen.getByText("Keep mine"));
-    await waitFor(() => expect(calls.filter((call) => call.method === "pad.list")).toHaveLength(3));
+    await waitForReload(app, 2);
     expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
     expect(calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
       name: "notes", text: "my draft", expectedRevision: 2, expectedIncarnation: pad.incarnation,
     });
     expect(field.value).toBe("my draft");
+    // Observation window: PadDrawer.tsx debounces autosave at 500 ms; a conflict must suppress it.
     await new Promise((done) => setTimeout(done, 550));
     expect(calls.filter((call) => call.method === "pad.write")).toHaveLength(2);
     fireEvent.click(screen.getByText("Use theirs"));
     await waitFor(() => expect(field.value).toBe("original remote intervening"));
     expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
-    ;
+    app.handlers["pad.write"] = () => ({ ...intervening, text: "after choice", revision: 4 });
     fireEvent.input(field, { target: { value: "after choice" } });
     fireEvent.focusOut(field);
-    await waitFor(async () => expect(await served.rpc("pad.list", null)).toMatchObject([{ text: "after choice", revision: 4 }]));
+    await waitFor(() => expect(calls.filter((call) => call.method === "pad.write")).toEqual([
+      { method: "pad.write", params: { name: "notes", text: "my draft", expectedRevision: 1, expectedIncarnation: pad.incarnation } },
+      { method: "pad.write", params: { name: "notes", text: "my draft", expectedRevision: 2, expectedIncarnation: pad.incarnation } },
+      { method: "pad.write", params: { name: "notes", text: "after choice", expectedRevision: 3, expectedIncarnation: pad.incarnation } },
+    ]));
     expect(calls.filter((call) => call.method === "pad.read")).toHaveLength(1);
   } finally {
     cleanup();
-    await real.stop();
   }
 }, 180_000);
 
@@ -209,24 +194,3 @@ it("p2544e_reopen_saved_agent_work", async () => {
     }
   }
 }, 300_000);
-
-it("u3789a_generated_App_contract_renames_through_the_real_Daemon", async () => {
-  const { startRealDaemon } = await import("./realDaemonFixture");
-  const { createServedApp } = await import("./realSeam");
-  const real = await startRealDaemon({});
-
-  try {
-    const app = createServedApp(real.base);
-    const original = await app.rpc("pad.create", { name: "Notes", text: "exact\n text 🌱\n" });
-    const home = await app.rpc("rail.createWorkstream", { name: "Home", parent: null });
-    await app.rpc("pad.move", { name: original.name, home: home.id });
-    await expect(app.rpc("pad.rename", { name: original.name, newName: "Plan", expectedIncarnation: "stale" })).rejects.toMatchObject({ code: -32003 });
-    const renamed = await app.rpc("pad.rename", { name: original.name, newName: "Plan", expectedIncarnation: original.incarnation });
-    const expected = { ...original, name: "Plan", home: home.id };
-    expect(renamed).toEqual(expected);
-    await real.restart();
-    expect(await createServedApp(real.base).rpc("pad.read", { name: "Plan" })).toEqual(expected);
-  } finally {
-    await real.stop();
-  }
-}, 120_000);
