@@ -26,7 +26,7 @@ export const copy = {
   changedBy: "Changed by ",
   keepMine: "Keep mine",
   useTheirs: "Use theirs",
-  bold: "Bold",
+  bold: sharedCopy.bold,
   italic: sharedCopy.italic,
   inlineCode: sharedCopy.inlineCode,
   bulletList: "Bullet list",

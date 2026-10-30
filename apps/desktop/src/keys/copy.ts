@@ -1,6 +1,7 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  bold: sharedCopy.bold,
   italic: sharedCopy.italic,
   inlineCode: sharedCopy.inlineCode,
   find: "Find…",
@@ -27,7 +28,7 @@ export const copy = {
   rename: sharedCopy.rename,
   projects: sharedCopy.projects,
   help: "Help",
-  helpScope: { app: "App", leader: "Leader", terminals: "Agent Terminal or Bubble", rail: "Rail row", shelf: "Bench", todos: "Todos view", triage: "Triage" },
+  helpScope: { app: "App", editor: "Pad editor", leader: "Leader", terminals: "Agent Terminal or Bubble", rail: "Rail row", shelf: "Bench", todos: "Todos view", triage: "Triage" },
   helpBubbleScope: { M: "Minimise or restore focused Bubble", W: "Close focused Bubble" },
   helpRowScope: { O: "Assign", D: "Delete focused Todo or Pad", E: "Export focused Pad" },
   closeShelf: sharedCopy.closeShelf,
