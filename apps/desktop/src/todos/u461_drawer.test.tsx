@@ -16,7 +16,7 @@ const open = async () => {
   const mounted = await mountTodos([todo(1, { title: "Ship", body: "Read this\nThen this" })]);
   { const row = await screen.findByRole("button", { name: "Idle #1 Ship" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  await within(panel()).findByText("Blocker");
+  await within(panel()).findByRole("button", { name: /^Blocked by/ });
 
   return mounted;
 };
@@ -45,14 +45,18 @@ it("u461_delete_failure_is_retryable", async () => {
   let reject!: (error: RpcError) => void;
   app.handlers["todo.delete"] = () => new Promise((_, fail) => { reject = fail; });
 
-  fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
-  fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
+  fireEvent.click(within(panel()).getByRole("button", { name: "More actions" }));
+
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
+  fireEvent.click(within(panel()).getByRole("button", { name: "More actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
 
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   reject(new RpcError(-32003, "Delete failed"));
   await screen.findByText("Delete failed");
   app.handlers["todo.delete"] = (params) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" });
-  fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
+  fireEvent.click(within(panel()).getByRole("button", { name: "More actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
 
   await waitFor(() => expect(connected.drawer.content()).toBeNull());
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(2);

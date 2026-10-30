@@ -14,11 +14,6 @@
   min-width: 0;
 }
 .todo-detail-title .todo-editable { flex: 0 1 auto; min-width: 0; }
-.todo-delete {
-  position: absolute;
-  top: var(--space-2);
-  right: calc(var(--space-4) + var(--space-6) * 2);
-}
 .todo-history { display: flex; flex-direction: column; gap: var(--space-2); }
 .todo-history-line { display: flex; align-items: center; gap: var(--space-1); align-self: flex-start; }
 .todo-history-count { font-weight: 600; }
@@ -68,13 +63,6 @@
 .todo-comments-send { display: flex; justify-content: flex-end; }
 
 .todo-dependencies { display: flex; flex-direction: column; gap: var(--space-2); }
-
-.todo-detail .todo-detail-body,
-.todo-detail .todo-dependencies,
-.todo-detail .todo-history,
-.todo-detail .todo-comments,
-.todo-detail .todo-refs,
-.todo-detail p { margin-left: var(--space-5); }
 
 .todo-draft-recovery {
   display: contents;
@@ -131,3 +119,34 @@
   overflow: visible;
 }
 .todo-delete-feedback .reserved-status { white-space: normal; }
+
+/* U4698d: the header owns navigation; document content follows one reading edge. */
+.drawer:has(.todo-header) { padding: 0; overflow: hidden; }
+.drawer:has(.todo-header) .todo-detail { width: 100%; max-width: none; align-self: stretch; overflow: auto; overscroll-behavior: contain; align-items: center; min-height: 0; gap: var(--space-4); padding-bottom: var(--space-5); }
+.todo-header { position: sticky; top: 0; z-index: var(--layer-drawer); display: flex; align-items: center; gap: var(--space-3); min-height: calc(var(--space-6) + var(--space-2)); padding: var(--space-2) var(--space-6) var(--space-2) var(--reading-gutter); padding-inline-end: var(--space-4); background: var(--ground); border-bottom: var(--hairline-width) solid var(--hairline); }
+.todo-breadcrumb { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 1; color: var(--grey); font-size: var(--text-small); }
+.todo-breadcrumb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-header-actions { margin-inline-end: var(--space-6); display: flex; flex: none; align-items: center; gap: var(--space-2); }
+.todo-detail-title { font-size: var(--text-pad-heading); line-height: 1.3; font-weight: 600; padding-top: var(--space-5); }
+.todo-detail-title .todo-editable { width: 100%; }
+.todo-detail :is(.todo-detail-title, .todo-meta, .todo-detail-body, .todo-refs, .todo-comments, .todo-history) { box-sizing: border-box; width: 100%; max-width: var(--reading-width); padding-inline: var(--reading-gutter); margin-inline: 0; }
+.todo-meta { display: flex; align-items: center; gap: var(--space-4); overflow-x: auto; overscroll-behavior: contain; flex-shrink: 0; padding-bottom: var(--space-2); }
+.todo-meta :is(button, label) { white-space: nowrap; flex-shrink: 0; }
+.todo-meta-chip, .todo-meta-state { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-body); }
+.todo-detail .todo-delete-feedback { align-self: stretch; flex-shrink: 0; padding-inline: var(--reading-gutter); block-size: auto; max-block-size: none; min-height: calc(var(--line) * 2); }
+.todo-detail-body { font-size: var(--text-title); line-height: var(--line); }
+.todo-detail + .todo-draft-recovery { margin: 0; }
+
+.todo-breadcrumb span:first-child { white-space: nowrap; max-width: 30%; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; }
+.todo-detail-title { font-size: var(--text-title); font-weight: 400; }
+.todo-detail-title .todo-editable { font-size: var(--text-pad-heading); line-height: 1.3; font-weight: 600; }
+.todo-meta { font-size: var(--text-title); }
+.todo-header { align-self: stretch; flex-shrink: 0; box-sizing: border-box; padding-inline-start: var(--reading-gutter); }
+
+/* The shared editor scrolls with the document; its toolbar clears the sticky header. */
+.todo-detail .todo-detail-body { padding-inline: 0; flex-shrink: 0; }
+.todo-detail-body .pad-editor { overflow: visible; }
+.todo-detail-body .milkdown-top-bar { top: calc(var(--space-6) + var(--space-2)); z-index: 1; }
+.todo-detail-body .todo-add-notes { margin-inline: var(--reading-gutter); }
+
+.drawer:has(.todo-header) .drawer-controls { z-index: var(--layer-popover); }
