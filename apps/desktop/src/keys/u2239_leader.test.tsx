@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { openTabs, projectTabs, rowSelected, tab } from "../header/stripFixture";
 import { agent } from "../testing/nodes";
 import { callsTo } from "../terminal/paneHarness";
+import { RpcError } from "../app/seam";
 import { Leader } from "./Leader";
 import { leaderArmed, registerKeys } from "./registry";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -139,16 +140,35 @@ describe("u2239 the leader takes the next key", () => {
     expect(leaderArmed()).toBe(false);
   });
 
+  it("u2240_the_panel_keeps_focus_and_the_failure", async () => {
+    const { app } = await open();
+    const failure = new RpcError(-32003, "Leader observer rejected send: complete failure remains visible");
+
+    app.of("/Users/me/web").handlers["rail.createWorkstream"] = () => { throw failure; };
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Workstream", exact: true }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(failure.message));
+    const focus = screen.getByRole("button", { name: "Add Workstream", exact: true });
+
+    focus.focus();
+
+    key("KeyK", { metaKey: true }, focus);
+    expect(document.querySelector(".hint-line.leader")).not.toBeNull();
+    expect(document.activeElement).toBe(focus);
+    expect(screen.getByRole("alert").textContent).toContain(failure.message);
+    key("Escape", {}, focus);
+    expect(document.querySelector(".hint-line.leader")).toBeNull();
+    expect(document.activeElement).toBe(focus);
+    expect(screen.getByRole("alert").textContent).toContain(failure.message);
+  });
+
   it("u2240_the_panel_lists_the_table_and_follows_the_wait", async () => {
     await open();
-    const focus = document.activeElement;
-
     expect(document.querySelector(".leader")).toBeNull();
     arm();
 
     const panel = document.querySelector(".hint-line.leader")!;
 
-    expect(document.activeElement).toBe(focus);
     expect(panel.querySelectorAll("button:enabled").length).toBeGreaterThan(0);
     key("Escape");
     expect(document.querySelector(".leader")).toBeNull();
