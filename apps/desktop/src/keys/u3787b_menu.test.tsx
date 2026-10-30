@@ -490,12 +490,12 @@ it.each([
   if (source === "key") fireEvent.keyDown(surface, { key, code, metaKey: true, shiftKey, altKey });
   else openProjectPage(`action:chord:${chord}`);
 
-  expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
+  expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
   expect(document.activeElement).toBe(surface);
   screen.getByRole("textbox", { name: "Ask" }).focus();
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage(`action:chord:${chord}`);
-  expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
+  expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });

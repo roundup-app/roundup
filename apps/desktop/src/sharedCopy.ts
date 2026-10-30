@@ -33,6 +33,10 @@ export const labels = new Map([
 export const copy = {
   bold: "Bold",
   italic: "Italic",
+  quote: "Quote",
+  bulletList: "Bullet list",
+  numberedList: "Numbered list",
+  codeBlock: "Code block",
   running,
   addTodo: "Add Todo",
   terminalPreparationCancelled: "Terminal preparation cancelled",
