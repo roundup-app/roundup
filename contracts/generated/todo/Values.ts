@@ -9,6 +9,4 @@ export type Values = {
 	blockers: number[],
 	/**  A change recorded before owners existed reads `None`. */
 	owner: Actor.Actor | null,
-	/**  A change recorded before estimates existed reads `None`. */
-	estimate_minutes: number | null,
 };

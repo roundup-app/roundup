@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 //! A3308: a supervisor answers Auto through the public MCP and schema-derived CLI.
 #[path = "common/served.rs"]
 mod common;
@@ -39,10 +40,7 @@ impl Auto {
             .unwrap();
         let owner = json!({"kind":"agent","id":child["id"],"parent":null});
         let todo = user
-            .request(
-                "todo.create",
-                json!({"title":"Ship the fix","estimate_minutes":45}),
-            )
+            .request("todo.create", json!({"title":"Ship the fix"}))
             .await
             .unwrap();
         user.request("todo.move", json!({"id":todo["id"],"home":door}))
