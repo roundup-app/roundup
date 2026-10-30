@@ -85,6 +85,7 @@ mod tests {
             owner: None,
             refs: vec![],
             estimate_minutes: None,
+            priority: None,
         }
     }
 

@@ -679,3 +679,109 @@ async fn t4597_both_roles_read_the_surfaces_they_write() {
         }
     }
 }
+
+#[tokio::test(start_paused = true)]
+async fn u4698c_mcp_sets_priority_as_the_authenticated_actor() {
+    for door in [false, true] {
+        let (_dir, shim, user, state) = reply_fixture(door).await;
+        let offered = shim.client.list_all_tools().await.unwrap();
+        for name in ["todo_create", "todo_update"] {
+            let schema = &offered
+                .iter()
+                .find(|t| t.name == name)
+                .unwrap()
+                .input_schema;
+            assert!(
+                !schema["required"]
+                    .as_array()
+                    .unwrap()
+                    .contains(&json!("priority"))
+            );
+            let defs = &schema["$defs"]["Priority"]["enum"];
+            assert_eq!(defs, &json!(["low", "medium", "high", "urgent"]));
+            assert!(
+                schema["properties"]["priority"]
+                    .to_string()
+                    .contains("null")
+            );
+        }
+        let old = shim
+            .value("todo_create", json!({"title":"old caller"}))
+            .await;
+        assert_eq!(old["priority"], Value::Null);
+        for priority in [
+            json!(null),
+            json!("low"),
+            json!("medium"),
+            json!("high"),
+            json!("urgent"),
+        ] {
+            let todo = shim.value("todo_create", json!({"title":"Agent priority","priority":priority,"actor":{"kind":"user","id":"you"}})).await;
+            let id = todo["id"].clone();
+            assert_eq!(todo["priority"], priority);
+            shim.value("todo_update", json!({"id":id,"title":"kept"}))
+                .await;
+            assert_eq!(
+                shim.value("todo_get", json!({"id":id})).await["priority"],
+                priority
+            );
+            assert_eq!(
+                shim.value("todo_list", json!({}))
+                    .await
+                    .as_array()
+                    .unwrap()
+                    .last()
+                    .unwrap()["priority"],
+                priority
+            );
+            for patch in [json!("urgent"), json!(null), priority] {
+                assert_eq!(
+                    shim.value("todo_update", json!({"id":id,"priority":patch}))
+                        .await["priority"],
+                    patch
+                );
+            }
+            let history = user
+                .request("todo.getHistory", json!({"id":id}))
+                .await
+                .unwrap();
+            for change in history["changes"].as_array().unwrap() {
+                assert_eq!(
+                    change["actor"],
+                    json!({"kind":"agent","id":"1","parent":null})
+                );
+            }
+            let before = shim.value("todo_list", json!({})).await;
+            for bad in [
+                json!(""),
+                json!("Low"),
+                json!("critical"),
+                json!(0),
+                json!(5),
+                json!(1.5),
+                json!(true),
+                json!([]),
+                json!({}),
+            ] {
+                for (tool, params) in [
+                    ("todo_create", json!({"title":"bad","priority":bad})),
+                    ("todo_update", json!({"id":id,"title":"bad","priority":bad})),
+                ] {
+                    assert_eq!(shim.call(tool, params).await.is_error, Some(true));
+                }
+            }
+            assert_eq!(shim.value("todo_list", json!({})).await, before);
+            assert_eq!(
+                user.request("todo.getHistory", json!({"id":id}))
+                    .await
+                    .unwrap(),
+                history
+            );
+        }
+        assert_eq!(*state.terminal_writes.lock().unwrap(), 0);
+        assert_eq!(
+            serde_json::to_value(shim.client.list_all_tools().await.unwrap()).unwrap(),
+            serde_json::to_value(offered).unwrap()
+        );
+    }
+}
