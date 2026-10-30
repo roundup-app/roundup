@@ -9,7 +9,7 @@ const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 const openMenu = async (todos = [todo(1, { title: "alpha" }), todo(2, { title: "beta" }), todo(3, { title: "gamma" })], id = 1) => {
   const mounted = await mountTodos(todos);
   fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) }), { key: "Enter" });
-  const button = await within(panel()).findByRole("button", { name: /Blocker/ });
+  const button = await within(panel()).findByRole("button", { name: /^Blocked by/ });
   fireEvent.click(button);
   await screen.findByRole("combobox");
 
@@ -44,5 +44,5 @@ it("u3728_blocker_menu_filters_picks_and_escapes", async () => {
 it("u3515c_blockers_exclude_self_existing_and_transitive_cycles", async () => {
   // 2 waits on 1 (a cycle if 1 waited on 2); 3 waits on 2 (a longer cycle); 4 is already a blocker of 1; 5 is free.
   await openMenu([todo(4), todo(1, { blockers: [4], blocked: true }), todo(2, { blockers: [1], blocked: true }), todo(3, { blockers: [2], blocked: true }), todo(5, { title: "free" })], 1);
-  expect(rows()).toEqual(["free#5"]);
+  expect(rows()).toEqual(["todo 4#4", "free#5"]);
 });

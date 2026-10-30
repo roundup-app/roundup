@@ -41,7 +41,7 @@ it("t4905_pending_rows_cannot_mutate_items_blocker_or_bulk_target", async () => 
   todos.show(pending);
   fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
   const drawer = await screen.findByRole("complementary", { name: "Drawer" });
-  fireEvent.click(await within(drawer).findByRole("button", { name: /Blocker/ }));
+  fireEvent.click(await within(drawer).findByRole("button", { name: /^Blocked by/ }));
   const input = await screen.findByRole("combobox");
   fireEvent.input(input, { target: { value: "pending" } });
   await waitFor(() => expect(screen.queryAllByRole("option")).toEqual([]));

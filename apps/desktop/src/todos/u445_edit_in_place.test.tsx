@@ -15,7 +15,7 @@ const open = async () => {
 describe("u445 edit in place", () => {
   it("u445_a_long_title_wraps_as_shown", async () => {
     await open();
-    fireEvent.dblClick(within(drawer()).getByText("t".repeat(300)));
+    fireEvent.dblClick(document.querySelector(".todo-detail-title p[tabindex]")!);
     const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
 
     fireEvent.input(field, { target: { value: "a\nb" } });
