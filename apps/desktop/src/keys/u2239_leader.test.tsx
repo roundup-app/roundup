@@ -146,9 +146,9 @@ describe("u2239 the leader takes the next key", () => {
 
     app.of("/Users/me/web").handlers["rail.createWorkstream"] = () => { throw failure; };
 
-    fireEvent.click(screen.getByRole("button", { name: "Add Workstream", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Workstream" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(failure.message));
-    const focus = screen.getByRole("button", { name: "Add Workstream", exact: true });
+    const focus = screen.getByRole("button", { name: "Add Workstream" });
 
     focus.focus();
 
