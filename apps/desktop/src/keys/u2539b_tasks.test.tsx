@@ -42,7 +42,13 @@ it("u2539b_drawer_keeps_attention_reachable", async () => {
 
 it("u2539b_selected_agent_returns_to_landing", async () => {
   const { connected } = await mount();
-  fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
+  fireEvent.click(await waitFor(() => {
+    const entry = document.querySelector<HTMLButtonElement>(".overview-entry");
+
+    expect(entry).not.toBeNull();
+
+    return entry!;
+  }));
   await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
   fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
   await waitFor(() => expect(connected().rail.selected()).toBeNull());
@@ -61,7 +67,7 @@ it("u2539b_other_project_attention_opens_its_requesting_terminal", async () => {
   await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal="t-other"]')).not.toBeNull());
 });
 
-it.each(["resources", "reactions", "made"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
+it.each(["resources"])("u2539b_landing_opens_requested_surfaces_and_returns: %s", async view => {
   const { connected } = await mount();
 
   if (view === "resources") {
@@ -328,20 +334,21 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(0);
 });
 
-it.each([false, true].flatMap(reverse => [false, true].map(closeReactions => ({ reverse, closeReactions }))))("u4276a_requested_screens_close_independently: $reverse $closeReactions", async ({ reverse, closeReactions }) => {
+it.each([false, true])("u4276a_reactions_section_preserves_terminal_and_selection: %s", async reverse => {
   const { connected, daemon } = await mount();
+  const draft = document.querySelector<HTMLTextAreaElement>(".ask-input")!;
+  fireEvent.input(draft, { target: { value: "keep exact\n unfinished" } });
   const order = reverse ? ["made", "reactions"] : ["reactions", "made"];
 
-  for (const view of order) openProjectPage(`view:${view}`, "/p");
-  await screen.findByRole("button", { name: "Close Reactions" });
-  await screen.findByRole("button", { name: "Close Made" });
-  const selection = connected().rail.selected();
-  fireEvent.click(screen.getByRole("button", { name: closeReactions ? "Close Reactions" : "Close Made" }));
-  expect(connected().hasView(closeReactions ? "made" : "reactions")).toBe(true);
-  expect(connected().hasView(closeReactions ? "reactions" : "made")).toBe(false);
-  expect(connected().rail.selected()).toBe(selection);
-  await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".ask-input")));
-  expect(daemon.calls.filter(call => ["terminal.close", "reaction.stop", "reaction.run", "reaction.create"].includes(call.method))).toHaveLength(0);
+  for (const view of order) {
+    openProjectPage(`view:${view}`, "/p");
+    await waitFor(() => expect(document.querySelector(`[data-part=item-trigger][aria-expanded=true]`)?.textContent).toBe(view === "made" ? "Made" : "Reactions"));
+    expect(document.querySelectorAll('[data-part=item-trigger][aria-expanded=true]')).toHaveLength(1);
+  }
+
+  expect(connected().rail.selected()).toBeNull();
+  expect(document.querySelector<HTMLTextAreaElement>(".ask-input")!.value).toBe("keep exact\n unfinished");
+  expect(daemon.calls.filter(call => ["terminal.close", "reaction.stop", "reaction.run", "reaction.create", "ask.send", "terminal.write"].includes(call.method))).toHaveLength(0);
 });
 
 it("u4274b_project_menu_omits_navigation_toggles", async () => {
