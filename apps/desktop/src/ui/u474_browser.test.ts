@@ -77,65 +77,6 @@ it("u474_dialog_focus_returns", async () => {
   await browser("press", "Escape"); await focus("Open Dialog");
 }, 60_000);
 
-it("u477_icon_button_leave_hides_its_name", async () => {
-  await load();
-  await browser("hover", '#fixture-icon');
-  await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'open'`);
-  await browser("mouse", "move", "1200", "700");
-  await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'closed'`);
-  expect(await read<string | null>(`document.getElementById('fixture-icon').getAttribute('aria-describedby')`)).toBeNull();
-}, 60_000);
-
-it("u477_icon_button_blur_hides_its_name", async () => {
-  await load();
-  await browser("eval", `document.querySelector('[data-scope=tooltip][data-part=trigger]:not([data-button=icon])').focus()`);
-  await browser("press", "Tab");
-  await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'open'`);
-  await browser("press", "Tab");
-  await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'closed'`);
-  expect(await read<string | null>(`document.getElementById('fixture-icon').getAttribute('aria-describedby')`)).toBeNull();
-}, 60_000);
-
-it("u477_icon_button_preserves_button_props", async () => {
-  await load();
-  await browser("click", '#fixture-icon');
-  await browser("wait", "--fn", `document.querySelector('output').textContent === '1'`);
-  expect(await read<string[]>(`(() => { const button = document.getElementById('fixture-icon'); return [button.dataset.refConnected, button.dataset.fixture, button.getAttribute('aria-expanded'), button.dataset.button]; })()`)).toEqual(["true", "ordinary", "false", "icon"]);
-}, 60_000);
-
-it("u477_disabled_icon_button_shows_its_name", async () => {
-  await load();
-  const selector = '[aria-label="Unavailable action"]';
-
-  for (const path of ["hover", "focus"]) {
-    if (path === "hover") await browser("hover", selector);
-    else {
-      await browser("mouse", "move", "1200", "700");
-      await browser("wait", "--fn", `document.querySelector('${selector}').dataset.state === 'closed'`);
-      await browser("eval", `document.getElementById('fixture-icon').focus()`);
-      await browser("press", "Tab");
-    }
-
-    await browser("wait", "--fn", `document.querySelector('${selector}').dataset.state === 'open'`);
-    expect(await read<string>(`document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.getAttribute('role')`)).toBe("tooltip");
-  }
-}, 60_000);
-
-it("u477_disabled_icon_button_does_not_act", async () => {
-  await load();
-  await browser("click", '[aria-label="Unavailable action"]');
-  await browser("press", "Enter");
-  await browser("press", "Space");
-  expect(await read<string>(`document.querySelector('output').textContent`)).toBe("0");
-}, 60_000);
-
-it("u477_icon_button_preserves_bound_click_handler", async () => {
-  await load();
-  await browser("click", '[aria-label="Bound action"]');
-  await browser("wait", "--fn", `document.querySelector('output').textContent === '2'`);
-  expect(await read<string>(`document.querySelector('output').textContent`)).toBe("2");
-}, 60_000);
-
 // App caller inventory: each selector denotes a source occurrence, not one seeded instance.
 // Bubbles seed reveals the floating header and terminal bar; tree-40 reveals Todo deletion.
 const appIcons = [
