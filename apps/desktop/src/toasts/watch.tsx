@@ -108,7 +108,7 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
         item: `agent:${id}`,
         kind: status.kind,
         name: node?.name ?? id,
-        line: status.kind === "error" ? copy.failedStatus : copy.needsYou,
+        line: status.kind === "error" ? status.label : copy.needsYou,
         selected: isActive() && rail.selected() === id,
         open: openAgent(id),
       });
