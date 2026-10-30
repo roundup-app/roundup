@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const plugin = resolve(repo, "tools/oxlint/anti-slop/index.ts");
-const lint = resolve(repo, "tools/oxlint/anti-slop/web-assertions/lint.mjs");
 
 const exception = {
   file: "fixture.test.tsx", test: "t3779a_real_clock", scenario: "T3779a",
@@ -127,11 +126,14 @@ for (const [name, source, status, diagnostic, exceptions = [], filename = "fixtu
     const dir = mkdtempSync(resolve(tmpdir(), ".timeout-fixture-"));
     const file = resolve(dir, filename);
     const config = resolve(dir, "config.json");
-    writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
+    const entries = exceptions.map(entry => ({ ...entry, file: entry.file === "fixture.test.tsx" ? relative(dir, file) : entry.file }));
+    // CI run 41006963235 spent 40 minutes re-auditing the repo for these fixtures.
+    // Keep the real lint entry point, with only this synthetic project as its root.
+    writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${resolve(repo, "tools/oxlint/anti-slop/web-assertions/lint.mjs")}` } }));
     writeFileSync(file, 'import { test, test as check, describe, vi, beforeAll, expect } from "vitest";\n' + source);
     writeFileSync(config, JSON.stringify({
       jsPlugins: [{ name: "anti-slop", specifier: plugin }],
-      rules: { "anti-slop/bounded-test-timeout": ["error", { exceptions }] },
+      rules: { "anti-slop/bounded-test-timeout": ["error", { exceptions: entries }] },
     }));
     try {
       const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
