@@ -61,8 +61,8 @@ it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_i
   }
 });
 
-it("r21_backlogged_output_rests_as_long_as_each_chunk_took", async () => {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+it("r21_backlogged_output_yields_to_each_display_frame", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "requestAnimationFrame", "cancelAnimationFrame"] });
 
   const { app, connected } = await connectFakeProject([node("flood")], [info("t-flood")]);
   const { factory, made } = fakeEmulators();
@@ -91,9 +91,10 @@ it("r21_backlogged_output_rests_as_long_as_each_chunk_took", async () => {
     expect(chunks()).toEqual(["one"]);
     await vi.advanceTimersByTimeAsync(6);
     expect(chunks()).toEqual(["one"]);
-    await vi.advanceTimersByTimeAsync(5);
+    // Timer turns before the next display frame must not restart the flood.
+    await vi.advanceTimersByTimeAsync(6);
     expect(chunks()).toEqual(["one"]);
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersToNextFrame();
     expect(chunks()).toEqual(["one", "two"]);
   } finally {
     screens.dispose();
@@ -103,7 +104,7 @@ it("r21_backlogged_output_rests_as_long_as_each_chunk_took", async () => {
 });
 
 it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "requestAnimationFrame", "cancelAnimationFrame"] });
 
   const { app, connected } = await connectFakeProject([node("flood")], [info("t-flood")]);
   const { factory, made } = fakeEmulators();
