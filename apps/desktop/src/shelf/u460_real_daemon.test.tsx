@@ -13,6 +13,7 @@ it("u460_bulk_delete_targets_only_the_chosen_rows_across_homes", async () => {
     todo(2, { home: "chosen-home" }),
     todo(3, { home: "other-home", blockers: [1, 2], blocked: true }),
   ]);
+
   fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }), { metaKey: true });
   await askToDelete(2);
