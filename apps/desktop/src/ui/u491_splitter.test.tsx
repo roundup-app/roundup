@@ -62,3 +62,34 @@ it("u491_disposal_during_drag_leaves_no_callbacks_or_work", async () => {
   expect(commit).not.toHaveBeenCalled();
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it("u491_keys_limits_and_reset_commit_the_final_pixels_once", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0, width: 1280, height: 800, right: 1280, bottom: 800, toJSON() {} });
+  const [width, setWidth] = createSignal(288);
+  const commit = vi.fn((pixels: number) => { setWidth(pixels); });
+
+  render(() => <div data-layout-root=""><section data-layout-panel="rail" /><section data-layout-panel="centre" /><section data-layout-panel="shelf" hidden />
+    <Splitter side={{ label: "Rail width", direction: 1, min: 252, fallback: 288, now: width, room: () => 480, preview() {}, commit }} />
+  </div>);
+  const edge = screen.getByRole("separator", { name: "Rail width" });
+
+  edge.focus();
+  await vi.advanceTimersByTimeAsync(0);
+
+  for (const [key, shiftKey, pixels] of [["ArrowRight", false, 304], ["ArrowRight", true, 368], ["End", false, 480], ["Home", false, 252], ["Enter", false, 288]] as const) {
+    commit.mockClear();
+    fireEvent.keyDown(edge, { key, shiftKey });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(commit).toHaveBeenCalledExactlyOnceWith(pixels);
+    expect(Number(edge.getAttribute("aria-valuenow"))).toBe(pixels);
+  }
+
+  fireEvent.keyDown(edge, { key: "Home" });
+  await vi.advanceTimersByTimeAsync(0);
+  commit.mockClear();
+  fireEvent.dblClick(edge);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(commit).toHaveBeenCalledExactlyOnceWith(288);
+});
