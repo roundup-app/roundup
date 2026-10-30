@@ -1,9 +1,6 @@
 .inbox { display: flex; flex-direction: column; gap: var(--space-3); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .inbox-title { min-height: var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.inbox h2 { font: inherit; font-weight: 600; margin: 0; }
 .inbox-group { display: flex; flex-direction: column; gap: var(--space-1); }
-.inbox-group-head { display: flex; align-items: baseline; gap: var(--space-2); }
-.inbox-group-head h3 { font: inherit; font-size: var(--text-small); font-weight: 600; margin: 0; color: var(--grey); }
 .inbox-count { font-size: var(--text-small); color: var(--grey); font-variant-numeric: tabular-nums; }
 .inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .inbox-item { display: block; }
@@ -24,7 +21,7 @@
 .inbox-item [data-part="content"] { overflow: hidden; }
 .inbox-item [data-part="content"][data-state="open"] { animation: inbox-expand var(--duration-todo) var(--easing-out); }
 .inbox-item [data-part="content"][data-state="closed"] { animation: inbox-collapse var(--duration-todo) var(--easing-out); }
-.inbox-actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
+.inbox-actions { display: flex; gap: var(--space-2); flex-shrink: 0; margin-inline-start: var(--space-3); }
 .inbox-body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-1) 0 var(--space-2) var(--space-5); }
 .inbox-step { margin: 0; }
 .inbox-comment { width: 100%; }
