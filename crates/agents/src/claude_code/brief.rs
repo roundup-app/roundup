@@ -336,10 +336,30 @@ const TOOLS: &[(&str, &str)] = &[
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest and M10's `checkpoint_write`.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 7] = [
+const DOOR_TOOLS_EXTRA: [(&str, &str); 12] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
+    ),
+    (
+        "github_pr_get",
+        "read a PR of the Project's repository as GitHub holds it now: state, draft, auto-merge, head and body",
+    ),
+    (
+        "github_issue_get",
+        "read an Issue of the Project's repository as GitHub holds it now: state, labels and body",
+    ),
+    (
+        "github_pr_set_body",
+        "replace a PR's body; the answer is the PR as it now stands",
+    ),
+    (
+        "github_pr_ready",
+        "mark a draft PR ready for review; a PR already ready is left as it is",
+    ),
+    (
+        "github_pr_auto_merge",
+        "enable auto-merge on an open PR; one already enabled is left as it is",
     ),
     (
         "checkpoint_write",
@@ -430,6 +450,8 @@ Keep each Checkpoint to the facts needed to understand that point in the work.
 Never add a child limit asking the user to approve an action they already authorized, such as asking before each `gh issue create`. Preserve their actual limits and the vendor's permission mechanism.
 
 Include in child orders: report blocks and the decision needed to this Door with `message_send`; ask the user only for decisions that are theirs alone, and leave vendor permission prompts to them.
+
+Read a PR's or an Issue's state with `github_pr_get` or `github_issue_get` before you state it to the user or ask the user to act on it. Do a GitHub errand those tools cover (`github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) yourself; never ask the user to run `gh` for it. An ask to the user names only what the user alone can do, and you do not restate it unless something changed since you made it.
 ";
 
 /// M13: how to read a Terminal without flooding the context.
