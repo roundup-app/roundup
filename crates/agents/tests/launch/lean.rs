@@ -689,6 +689,14 @@ async fn lc17_a_lean_child_loads_no_claude_md_by_itself() {
                 .unwrap();
         assert_eq!(brief.matches("PROJECT_TOKEN").count(), 1, "{row:?}");
         assert_eq!(brief.matches("USER_GLOBAL_TOKEN").count(), 1, "{row:?}");
+        if row == Role::Door {
+            assert!(brief.find("two or more steps").unwrap() < brief.find("## Tools").unwrap());
+        } else {
+            assert!(
+                !brief.contains("two or more steps"),
+                "membership is delivered by E3, not the shared Brief"
+            );
+        }
     }
 }
 
