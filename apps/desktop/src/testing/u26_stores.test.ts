@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; existing non-duration proofs below remain.
 import { describe, expect, it } from "vitest";
 import type { EventData } from "@contracts/EventData";
 import type { Pad } from "@contracts/pad/Pad";
@@ -19,7 +20,6 @@ const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   home: null,
   owner: null,
   refs: [],
-  estimate_minutes: null,
   ...over,
 });
 

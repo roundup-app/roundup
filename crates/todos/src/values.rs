@@ -22,7 +22,6 @@ impl Todos {
             &p.blockers.unwrap_or_default(),
             &ctx.actor,
             owner.as_ref(),
-            valid_estimate(p.estimate_minutes)?,
             ctx.touches.sequence().map_err(RpcError::internal)?,
         )?;
         ctx.touch(Verb::Wrote, &item(todo.id))?;
@@ -31,26 +30,17 @@ impl Todos {
     }
 
     pub(super) fn update(&self, ctx: &Ctx, p: UpdateParams) -> Result<Value, RpcError> {
-        if p.title.is_none() && p.body.is_none() && p.estimate_minutes.is_none() {
+        if p.title.is_none() && p.body.is_none() {
             return Err(RpcError::new(
                 rpc::code::INVALID_PARAMS,
-                "update needs a title, a body or an estimate",
+                "update needs a title or a body",
             ));
         }
-        valid_estimate(p.estimate_minutes.flatten())?;
         let store = self.store()?;
-        if p.title.is_none() && p.body.is_none() {
-            let todo = store.get(p.id)?;
-            if p.estimate_minutes == Some(todo.estimate_minutes) {
-                store.require_change(p.id, p.expected_change)?;
-                return reply(&todo);
-            }
-        }
         let todo = store.update(
             p.id,
             p.title.as_deref(),
             p.body.as_deref(),
-            p.estimate_minutes,
             p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
             &ctx.actor,
@@ -121,16 +111,5 @@ impl Todos {
 fn emit_unblocked(ctx: &Ctx, before: &BTreeSet<u32>, after: &BTreeSet<u32>) {
     for id in before.difference(after) {
         ctx.emit(EventData::TodoUnblocked(TodoId { id: *id }));
-    }
-}
-
-/// T29: an estimate is 1 to 1440 whole minutes.
-fn valid_estimate(minutes: Option<u32>) -> Result<Option<u32>, RpcError> {
-    match minutes {
-        Some(0 | 1441..) => Err(RpcError::new(
-            rpc::code::INVALID_PARAMS,
-            "estimate_minutes is 1 to 1440",
-        )),
-        _ => Ok(minutes),
     }
 }
