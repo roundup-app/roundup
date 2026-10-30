@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; existing non-duration proofs below remain.
 //! B22, B23: the caps on pushed digests and what survives a restart. `top` is a Door that is
 //! `working`, so every push to it waits as `pending`. The clock is fake.
 
@@ -608,7 +609,6 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
             home: Some("top".into()),
             owner: None,
             refs: vec![],
-            estimate_minutes: None,
         });
         let changes = seen.changed(&digest::Sources {
             touches: Vec::new(),

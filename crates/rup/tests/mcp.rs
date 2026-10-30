@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 #[path = "common/served.rs"]
 mod common;
 
@@ -1189,36 +1190,32 @@ async fn t28_an_agent_adds_and_removes_a_ref_over_mcp_and_cli() {
     assert_eq!(todo["refs"], json!([]));
 }
 
+// T4902 retires T29; t4902_public_todo_contract_has_no_duration proves the replacement contract.
+
 #[tokio::test]
-async fn t29_mcp_todo_update_sets_the_estimate() {
+async fn t4902_public_todo_contract_has_no_duration() {
     let project = start_daemon();
-    let user = client_as(&project.socket, Actor::user()).await;
-    user.request("todo.create", json!({"title": "ship"}))
-        .await
-        .unwrap();
     let shim = spawn_shim(&project.socket, "a1").await;
-
-    let result = shim
-        .call("todo_update", json!({"id": 1, "estimate_minutes": 45}))
+    let tools = shim.client.list_all_tools().await.unwrap();
+    for tool in tools.iter().filter(|tool| tool.name.starts_with("todo_")) {
+        let wire = serde_json::to_value(tool).unwrap();
+        assert!(!wire.to_string().contains("estimate_minutes"), "{wire}");
+    }
+    let created = shim
+        .call("todo_create", json!({"title":"ship", "body":"keep"}))
         .await;
-
-    assert_ne!(result.is_error, Some(true));
-    assert_eq!(text(&result)["estimate_minutes"], 45);
-    let history = user
-        .request("todo.getHistory", json!({"id": 1}))
-        .await
-        .unwrap();
-    assert_eq!(history["changes"][1]["actor"], json!(agent("a1")));
-    assert_eq!(history["changes"][1]["after"]["estimate_minutes"], 45);
-    let touches = user
-        .request("provenance.history", json!({"item": "todo:1"}))
-        .await
-        .unwrap();
-    assert!(
-        touches
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|t| t["verb"] == "wrote" && t["actor"] == json!(agent("a1")))
-    );
+    assert_ne!(created.is_error, Some(true));
+    let made = text(&created);
+    assert!(made.get("estimate_minutes").is_none());
+    let updated = shim
+        .call("todo_update", json!({"id":made["id"], "title":"saved"}))
+        .await;
+    assert_ne!(updated.is_error, Some(true));
+    let got = shim.call("todo_get", json!({"id":made["id"]})).await;
+    assert_ne!(got.is_error, Some(true));
+    let got = text(&got);
+    assert!(got.get("estimate_minutes").is_none());
+    assert_eq!(got["title"], "saved");
+    assert_eq!(got["body"], "keep");
+    assert_eq!(got["creator"], json!(agent("a1")));
 }
