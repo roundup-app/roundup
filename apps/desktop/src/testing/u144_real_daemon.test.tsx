@@ -187,7 +187,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     await openFile("same.ts");
     await saveNote("first exact comment");
     await saveNote("second exact comment");
-    fireEvent.click(screen.getByRole("button", { name: "Send notes to First" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to First" }));
     const messages = async () => (await app.rpc("message.list", { to: first.id, status: null })).filter(message => message.from.kind === "user");
     await waitFor(async () => expect(await messages()).toHaveLength(1), { timeout: 20_000 });
     const accepted = (await messages())[0]!;
