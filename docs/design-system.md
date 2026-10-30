@@ -193,12 +193,12 @@ Except D18 and D19, each check is measured from computed style and the DOM of th
 
 D19 is critic-only specification policy; it adds no DOM, SVG-path or pixel assertion. Apply it to every PR adding or changing an icon, including a direct library import, status mark, dynamic name or wrapper caller. Resolve every alternative, assign its existing glossary term and role (identity, state or action), then compare the changed glyph with all inventory rows. The same action across objects is one concept; two object terms are not. Bare circles, dots, squares and rotated squares form the status families; compound drawings such as `bot` and `workflow` do not become bare squares because they contain square nodes. Render each changed icon beside its actual neighbours at its production size in both themes. The critic's explicit D19 approval is the only outside visual acceptance; no user or Mac-only check is added. U4898 specifies the paired Rail captures and retains all other passing Checks.
 
-This inventory records main's callers before U4898 implementation; arrows state the specified replacement, not an implemented claim. Paths are relative to `apps/desktop/src`. Multiple call sites with one glyph/role share a row; alternatives are listed explicitly. Refresh the table from the implementing checkout before critic review. Existing cross-term uses are visible here, not evidence that D19 already passes; each changed glyph must be compared against the entire table.
+This inventory records the U4898 implementation checkout, audited across all `Icon` callers, their dynamic providers, direct Lucide imports and non-Icon state marks. Paths are relative to `apps/desktop/src`. Multiple call sites with one glyph/role share a row; alternatives are listed explicitly. Existing cross-term uses are visible here, not evidence that D19 already passes; each changed glyph must be compared against the entire table.
 
 | Glyph / alternatives | Glossary term and meaning | Call sites / resolved providers |
 |---|---|---|
-| `circle` → `bot` | Agent — section identity | `rail/Rail.tsx`, `sections` AGENTS |
-| `diamond` → `workflow` | Mode — section/row/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode; `rail/RailRow.tsx`, `mode-mark` |
+| `bot` | Agent — section identity | `rail/Rail.tsx`, `sections` AGENTS |
+| `workflow` | Mode — section/row/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode; `rail/RailRow.tsx`, `mode-mark` |
 | `messages` | Workstream — section/create identity | `rail/Rail.tsx`, WORKSTREAMS and New Workstream |
 | `circle` | Agent — create action identity | `rail/Rail.tsx`, New Agent |
 | `layout-dashboard` | Project — overview navigation | `rail/Rail.tsx`, overview tile |
@@ -225,7 +225,7 @@ This inventory records main's callers before U4898 implementation; arrows state 
 | Direct Lucide `maximize` / `minimize` / `x` | Drawer / Shelf — resize / close actions | `drawer/DrawerHost.tsx`; `app/Layout.tsx` |
 | Direct `arrow-up-right`; `list-checks`; `grip-vertical` | Todo — open; Todo — triage; Pad order / Rail / Todo — reorder | `todos/OpenRow.tsx`; `todos/Todos.tsx`; `ui/sortable.tsx` |
 | Direct `hourglass`; `check` / `minus`; `chevron-down`; radio dot / switch thumb | App / Project — loading; Todo or form value — checked / mixed; form choice — disclosure; selected/on state | `App.tsx`, `ui/Deferred.tsx`; `ui/Checkbox.tsx`, `ui/Form.tsx`, `ui/Combobox.tsx`, `ui/Select.tsx`; `ui/RadioGroup.css`, `ui/Switch.css` |
-| Fixture `○`, literal `+` / `×` | Glyph / Project — test-only row mark and controls | `ui/u483Fixture.tsx`; `ui/u474Fixture.tsx`; excluded from production meaning decisions |
+| Fixture `○`, literal `+` / `×` | Glyph / Project — test-only row mark and controls | `ui/u483Fixture.tsx`; `ui/u474Fixture.tsx`, `ui/u491Fixture.tsx` (Kind Glyph and Toast); excluded from production meaning decisions |
 
 
 ## Icon and text centring (U86)
