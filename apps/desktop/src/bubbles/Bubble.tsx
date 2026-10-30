@@ -7,7 +7,7 @@ import { registerKeys } from "../keys/registry";
 import { Panel } from "../ui/Panel";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Screens } from "../terminal/screens";
 import { clamped, resizedAbout, STEP, toggledFill, ZONES } from "./places";
 import type { Place, Extent, Zone } from "./places";

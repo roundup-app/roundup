@@ -7,7 +7,7 @@ import { captureFocus } from "../keys/focus";
 import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";

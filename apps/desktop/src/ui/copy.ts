@@ -1,0 +1,25 @@
+import { copy as sharedCopy } from "../sharedCopy";
+
+export const copy = {
+  railDraftConflict: sharedCopy.railDraftConflict,
+  deliverableUnavailable: sharedCopy.deliverableUnavailable,
+  draftRetention: sharedCopy.draftRetention,
+  copyDraftFailure: sharedCopy.copyDraftFailure,
+  minimise: sharedCopy.minimise,
+  close: sharedCopy.close,
+  cancel: sharedCopy.cancel,
+  newAgent: sharedCopy.newAgent,
+  nativeRemovalAlertUnavailable: "Native removal alert unavailable; retry",
+  copied: sharedCopy.copied,
+  surfaceLoadFailed: (label: string) => `${label} could not load; retry.`,
+  surfaceLoading: (label: string) => `Loading ${label}…`,
+  retry: sharedCopy.retry,
+  name: sharedCopy.name,
+  openFolder: sharedCopy.openFolder,
+  resizeUnavailable: "Resizing is unavailable in this view.",
+  noMatch: sharedCopy.noMatch,
+  sendToAgentMenu: sharedCopy.sendToAgentMenu,
+  linkUrl: sharedCopy.linkUrl,
+  linkNote: sharedCopy.linkNote,
+  copyLink: sharedCopy.copyLink,
+} as const;

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { App } from "../App";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createFakeApp } from "../testing/fakeApp";
 import { openProjectPage } from "../testing/menuProbe";
 import { agent, workstream } from "../testing/nodes";

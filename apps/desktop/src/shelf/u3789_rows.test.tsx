@@ -1,5 +1,5 @@
 import { nextTick } from "@zag-js/dom-query";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
 import { settled } from "../rail/railFixture";
 import { mountTodos, todo } from "../todos/testHarness";

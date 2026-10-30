@@ -1,6 +1,6 @@
 import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { mountCentre } from "../testing/centreFixture";
 import { agent, door, workstream } from "../testing/nodes";
 

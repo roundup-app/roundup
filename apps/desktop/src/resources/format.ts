@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** U408: what the Resource strip prints for a missing, negative or non-finite value. */
 export const MISSING = copy.missing;

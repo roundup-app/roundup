@@ -6,7 +6,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Switch } from "../ui/Switch";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "./failureOf";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** U3309: number hints follow the same authoritative Rail order as owner assignment. */
 export const createDelegateBoard = () => {
