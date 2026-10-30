@@ -50,7 +50,7 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - Actions sit on their row. A row's text actions sit on the baseline of the row's first line, within 1 px.
 - A modal's centre sits at the window's centre within 1 px on both axes; only `ui/Dialog.tsx` positions a modal (#3083).
 - Rail chevrons and grips mirror the leading glyph column: each centres 24 CSS px from the Rail's inner right edge, within 1 px, as the Overview tile centres 24 px from its left edge (U5147a). Applies to a head whose `Scenarios:` line names U5147a, and to every head once origin/main meets it.
-- A hairline separates Rail sections: one `--hairline-width` `--hairline` line centred in each gap between visible sections, within 1 px; none above the first section or below the last (U5147b). Applies to a head whose `Scenarios:` line names U5147b, and to every head once origin/main meets it.
+- A hairline separates Rail sections: one `--hairline-width` `--hairline` line centred in each gap between visible sections, within 1 px, spanning the Rail's inner width as U172's root Workstream divider does; none above the first section or below the last (U5147b). Applies to a head whose `Scenarios:` line names U5147b, and to every head once origin/main meets it.
 - A Mode row carries no section mark: only the MODES head and New Mode draw `workflow` (U5147c). Applies to a head whose `Scenarios:` line names U5147c, and to every head once origin/main meets it.
 
 - D1 (#3789, row interaction): a primary click selects a Todo, Pad or Rail row; Return or its Open button opens; double-click/F2 renames. A drag or rename gesture never opens. Apply U3789a to Shelf rows and owned-item leaves alike.
