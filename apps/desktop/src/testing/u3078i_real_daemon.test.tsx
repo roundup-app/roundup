@@ -9,6 +9,7 @@ import { progressSeed } from "./progressSeed";
 it("u3078i_reopen_keeps_an_accepted_resume_read_only", async () => {
   const seed = progressSeed({ project: "/p", agent: "a" });
   let accepted = false;
+
   const { app } = await mountApp(fake => {
     fake.handlers["message.progress"] = () => seed.progress;
     fake.handlers["message.reconcileWork"] = () => accepted
@@ -24,6 +25,7 @@ it("u3078i_reopen_keeps_an_accepted_resume_read_only", async () => {
       };
     };
   });
+
   const writes = () => app.calls.filter(call => ["message.send", "message.resumeWork", "agent.spawn", "agent.resume", "agent.setOrder", "terminal.write"].includes(call.method));
 
   select("alpha");
