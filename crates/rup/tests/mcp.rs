@@ -12,7 +12,7 @@ use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult, ProtocolVersion};
 use rmcp::service::{RoleClient, RunningService};
 use serde_json::{Value, json};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
@@ -429,35 +429,38 @@ async fn m3_a_daemon_that_never_answers_exits_nonzero_with_one_line_naming_the_s
 }
 
 #[tokio::test]
-async fn m3_a_call_the_daemon_never_answers_exits_1_saying_it_may_have_been_applied() {
+async fn m5159a_a_slow_call_fails_alone_and_the_shim_stays_up() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("fake.sock");
     let _requests = fake_daemon(
         &socket,
-        &["daemon.identify", "agent.channelUp", "rail.tree"],
+        &["daemon.identify", "agent.channelUp", "rail.tree", "todo.list"],
     );
     let mut shim = spawn_shim(&socket, "a1").await;
-    let peer = shim.client.peer().clone();
 
-    tokio::spawn(async move {
-        peer.call_tool_once(CallToolRequestParams::new("todo_list"))
-            .await
-    });
+    let slow = shim.call("todo_create", json!({ "title": "x" })).await;
 
-    let status = tokio::time::timeout(BOUND, shim.child.wait())
-        .await
-        .expect("the shim exited")
-        .unwrap();
-    assert_eq!(status.code(), Some(1));
-    let mut stderr = String::new();
-    shim.child
-        .stderr
-        .take()
-        .unwrap()
-        .read_to_string(&mut stderr)
-        .await
-        .unwrap();
-    assert!(stderr.contains("may have been applied"), "{stderr}");
+    assert_eq!(slow.is_error, Some(true));
+    let message = error_text(&slow);
+    assert!(message.contains("todo_create"), "{message}");
+    assert!(message.contains("10 s"), "{message}");
+    assert!(message.contains("may still finish"), "{message}");
+    assert_eq!(shim.child.try_wait().unwrap(), None, "the shim exited");
+    assert_eq!(shim.call("todo_list", json!({})).await.is_error, Some(false));
+}
+
+#[tokio::test]
+async fn m5159a_a_mute_rail_read_fails_one_call() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fake.sock");
+    let _requests = fake_daemon(&socket, &["daemon.identify", "agent.channelUp", "todo.list"]);
+    let mut shim = spawn_shim(&socket, "a1").await;
+
+    let discard = shim.call("agent_discard", json!({ "id": "a2" })).await;
+
+    assert_eq!(discard.is_error, Some(true));
+    assert_eq!(shim.child.try_wait().unwrap(), None, "the shim exited");
+    assert_eq!(shim.call("todo_list", json!({})).await.is_error, Some(false));
 }
 
 #[tokio::test]
