@@ -29,7 +29,6 @@ export const labels = new Map([
 export const copy = {
   bold: "Bold",
   italic: "Italic",
-  inlineCode: "Inline code",
   addTodo: "Add Todo",
   terminalPreparationCancelled: "Terminal preparation cancelled",
   resources: "Resources",

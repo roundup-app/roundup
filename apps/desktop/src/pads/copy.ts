@@ -28,7 +28,7 @@ export const copy = {
   useTheirs: "Use theirs",
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
-  inlineCode: sharedCopy.inlineCode,
+  inlineCode: "Inline code",
   bulletList: "Bullet list",
   numberedList: "Numbered list",
   checklist: "Checklist",
