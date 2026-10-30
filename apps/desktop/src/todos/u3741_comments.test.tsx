@@ -19,7 +19,7 @@ const line = (id: number, author: Actor, body: string, read = true): Comment => 
 const open = async () => {
   { const focusedRow = await screen.findByRole("button", { name: /^Idle #1 / }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
-  await within(panel()).findByRole("region", { name: /^Comments · / });
+  await within(panel()).findByRole("region", { name: "Activity" });
 };
 
 it("u3741_the_thread_reads_oldest_first_with_authors", async () => {
@@ -28,14 +28,14 @@ it("u3741_the_thread_reads_oldest_first_with_authors", async () => {
   await open();
   const thread = await within(panel()).findAllByText(/first|second|日本語/);
   expect(thread.map((node) => node.textContent)).toEqual(["first", "second\nwith a break", "ünï 日本語"]);
-  const section = within(panel()).getByRole("region", { name: "Comments · 3" });
+  const section = within(panel()).getByRole("region", { name: "Activity" });
   expect(within(section).getAllByText(/^(Me|builder)$/).map((node) => node.textContent)).toEqual(["Me", "builder", "Me"]);
 });
 
 it("u3741_a_todo_with_no_comments_shows_the_field_alone", async () => {
   const m = await mountTodos([todo(1)]);
   await open();
-  const section = within(panel()).getByRole("region", { name: "Comments · 0" });
+  const section = within(panel()).getByRole("region", { name: "Activity" });
   expect(within(section).queryAllByText(/./, { selector: ".todo-comment" })).toHaveLength(0);
   expect(within(section).getByRole("textbox", { name: "Write a comment" })).toBeTruthy();
   expect(within(section).getByRole("button", { name: "Comment" }).getAttribute("aria-disabled") === "true").toBe(true);
@@ -55,21 +55,22 @@ it("u3741_a_comment_is_sent_once_and_kept_on_failure", async () => {
   fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
   await within(panel()).findByText("keep me", { selector: ".todo-comment-body" });
   expect(field.value).toBe("");
-  expect(within(panel()).getByRole("region", { name: "Comments · 1" })).toBeTruthy();
+  expect(within(panel()).getByRole("region", { name: "Activity" })).toBeTruthy();
   expect(todoCallsTo(m.app, "todo.comment").map((call) => call.params)).toEqual([{ id: 1, body: "keep me" }, { id: 1, body: "keep me" }]);
   expect(m.store.comments!.get(1)).toHaveLength(1);
 });
 
-it("u3741_reply_focuses_the_field_and_sends_an_ordinary_comment", async () => {
+it("u4698e_reply_keeps_the_todo_destination", async () => {
   const m = await mountTodos([todo(1)]);
-  m.store.comments!.set(1, [line(1, AGENT, "which branch?", false)]);
+  m.store.comments!.set(1, [line(1, AGENT, "which branch?", false), ...Array.from({ length: 21 }, (_, index) => line(index + 2, USER_ACTOR, `Later ${index}`))]);
   await open();
+  fireEvent.click(await within(panel()).findByRole("button", { name: /older entr/ }));
   fireEvent.click(await within(panel()).findByRole("button", { name: "Reply" }));
   const field = within(panel()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
   expect(document.activeElement).toBe(field);
   fireEvent.input(field, { target: { value: "main" } });
   fireEvent.click(within(panel()).getByRole("button", { name: "Comment" }));
-  await waitFor(() => expect(m.store.comments!.get(1)!.map((comment) => comment.author.kind)).toEqual(["agent", "user"]));
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.comment").map(call => call.params)).toEqual([{ id: 1, body: "main" }]));
 });
 
 it("u3741_opening_marks_unread_comments_read_once", async () => {
@@ -154,7 +155,7 @@ it("u3776_a_new_comment_is_announced_politely_and_the_opening_ones_are_not", asy
   m.store.comments!.set(1, [line(1, AGENT, "old")]);
   await open();
   await within(panel()).findByText("old");
-  const comments = within(panel()).getByRole("region", { name: /^Comments · / });
+  const comments = within(panel()).getByRole("region", { name: "Activity" });
   const live = within(comments).getByRole("status");
   expect(live.getAttribute("aria-live")).toBe("polite");
   expect(live.textContent).toBe("");
