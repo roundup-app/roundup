@@ -186,3 +186,19 @@ describe("u3740 the field shows the Owner and Home", () => {
     expect(callsTo(app, "todo.create")).toHaveLength(2);
   });
 });
+
+describe("u5171 Help names the arrows", () => {
+  it("u5171_help_names_left_and_right_for_rows", async () => {
+    await mount();
+
+    fireEvent.keyDown(screen.getByTestId("rail"), { key: "?", shiftKey: true });
+
+    const chips = await waitFor(() => {
+      const found = [...document.querySelectorAll(".help .key-chips")].map((chip) => chip.textContent);
+      expect(found.length).toBeGreaterThan(0);
+      return found;
+    });
+
+    expect(chips).toContain("← →");
+  });
+});
