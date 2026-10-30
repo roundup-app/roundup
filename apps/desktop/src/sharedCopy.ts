@@ -2,6 +2,8 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 
 
+const dismiss = "Dismiss";
+
 const rpcFailures = new Map<number, string>([
   [-32700, "The request could not be read. Try again."], [-32601, "This action is unavailable. Check for an update."],
   [-32602, "Check the input and try again."], [-32603, "Completion is unconfirmed. Check before trying again."],
@@ -42,8 +44,8 @@ export const copy = {
     "source-unknown": "Unavailable: source access could not be verified.",
     "materialization-failed": "Unavailable: could not prepare the retained revision for opening.",
   },
-  dismissFailure: "Dismiss",
-  dismiss: "Dismiss",
+  dismissFailure: dismiss,
+  dismiss,
   retryStorage: "Try again",
   draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? "Unfinished work",
   draftField: (field: string) => ({ originalName: "Original name", document: "Editor document", editorSource: "Original editor source", editorCaret: "Editor selection context", source: "Source", base: "Original source", name: "Name", title: "Title", ask: "Ask", done: "Done", password: "Password", body: "Text", text: "Text", content: "Text", limits: "Limits" })[field] ?? "Stored value",
@@ -64,6 +66,7 @@ export const copy = {
   openEvidence: (value1: CopyValue) => `Open ${value1}`,
   recoverNotes: "Recover notes",
   todoUndo: "Undo",
+  redo: "Redo",
   todoDeleteRetry: "Check deletion",
   moveUp: "Move up",
   moveDown: "Move down",
