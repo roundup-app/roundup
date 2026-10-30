@@ -12,7 +12,8 @@ it("u4698d_header_navigates_the_visible_order_without_mutating", async () => {
   const { app, store, todos } = await mountTodos([todo(7), todo(3), todo(9), todo(4, { done: true })]);
   store.todos = [store.todos.find(todo => todo.id === 7)!, store.todos.find(todo => todo.id === 3)!, store.todos.find(todo => todo.id === 9)!, store.todos.find(todo => todo.id === 4)!];
   await todos.reload();
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #3 todo 3" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Idle #3 todo 3" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   fireEvent.click(await within(panel).findByRole("button", { name: "Previous Todo" }));
   await within(panel).findByRole("checkbox", { name: "Complete todo 7" });
@@ -29,7 +30,8 @@ it("u4698d_header_navigates_the_visible_order_without_mutating", async () => {
 
 it("u4698d_header_copies_only_the_displayed_identity", async () => {
   const { app } = await mountTodos([todo(3)]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #3 todo 3" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Idle #3 todo 3" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   fireEvent.click(await within(panel).findByRole("button", { name: "Copy Todo id" }));
   await waitFor(() => expect(app.clipboardWrites).toEqual(["#3"]));
@@ -38,7 +40,8 @@ it("u4698d_header_copies_only_the_displayed_identity", async () => {
 
 it.each([null, "low", "medium", "high", "urgent"] as const)("u4698d_meta_changes_only_the_selected_priority_%s", async priority => {
   const { app } = await mountTodos([todo(3, { priority })]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #3 todo 3" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Idle #3 todo 3" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   fireEvent.click(await within(panel).findByRole("button", { name: "Priority" }));
   const next = priority === null ? "urgent" : null;
@@ -48,7 +51,8 @@ it.each([null, "low", "medium", "high", "urgent"] as const)("u4698d_meta_changes
 
 it("u4698d_blocking_changes_the_dependent_edge_and_keeps_its_other_blockers", async () => {
   const { app } = await mountTodos([todo(1), todo(2, { blockers: [3] }), todo(3)]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Idle #1 todo 1" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   fireEvent.click(await within(panel).findByRole("button", { name: /^Blocking/ }));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
@@ -57,7 +61,8 @@ it("u4698d_blocking_changes_the_dependent_edge_and_keeps_its_other_blockers", as
 
 it("u4698d_more_actions_escape_returns_focus_without_mutating", async () => {
   const { app } = await mountTodos([todo(3)]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #3 todo 3" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Idle #3 todo 3" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   const more = await within(panel).findByRole("button", { name: "More actions" });
   more.focus(); fireEvent.click(more);
@@ -69,7 +74,8 @@ it("u4698d_more_actions_escape_returns_focus_without_mutating", async () => {
 
 it("u2773a_todos_header_navigation_keeps_the_exact_title_draft", async () => {
   const { app, connected } = await mountTodos([todo(1), todo(2)]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Idle #1 todo 1" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   fireEvent.dblClick(await within(panel).findByText("todo 1", { selector: "p" }));
   const field = within(panel).getByRole("textbox", { name: "Title" });
@@ -102,7 +108,8 @@ it("u4698d_header_without_a_list_navigates_only_the_current_home", async () => {
 
 it("u4698d_owner_escape_returns_to_the_meta_trigger_without_assignment", async () => {
   const { app } = await mountTodos([todo(1)]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Idle #1 todo 1" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   const owner = await within(panel).findByRole("button", { name: "Unassigned" });
   owner.focus();
