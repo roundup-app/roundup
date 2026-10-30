@@ -42,8 +42,16 @@ arrive = r"""(async () => {
 def open_drawer():
     browser('open', origin + '/harness.html?seed=tree-40')
     browser('set', 'viewport', '1512', '950')
-    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
-    evaluate("(async()=>{await window.__fake.app.rpc('todo.comment',{id:5,body:'Opening'});document.querySelector('[data-id=\"5\"] .row-head button').click()})()")
+    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    if evaluate("document.querySelector('.window').dataset.shelf === 'closed'"):
+        browser('press', 'Meta+k')
+        browser('wait', '.hint-line.leader')
+        browser('press', 'b')
+    browser('wait', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
+    browser('click', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
+    browser('wait', '.shelf [data-todo="5"] .todo-open')
+    evaluate("window.__fake.app.rpc('todo.comment',{id:5,body:'Opening'})")
+    browser('click', '.shelf [data-todo="5"] .todo-open')
     browser('wait', '--fn', 'document.querySelectorAll(".todo-comment").length===1')
     evaluate('document.fonts.ready.then(()=>true)')
 

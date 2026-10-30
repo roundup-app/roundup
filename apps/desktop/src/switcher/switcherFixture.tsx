@@ -1,5 +1,5 @@
 import { leaderKey } from "../keys/leaderFixture";
-import { render } from "@solidjs/testing-library";
+import { render, waitFor } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -69,6 +69,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
   });
 
   await connected.rail.settled();
+  await waitFor(() => { if (!app.calls.some(call => call.method === "todo.unread")) throw new Error("Overview comments have not started loading"); });
 
   return { app, connected, emulators, failures };
 };

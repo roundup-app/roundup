@@ -41,7 +41,7 @@ export const OverviewSections = (props: {
 
     if (!props.ready) return;
 
-    if (requested !== "made" && requested !== "reactions" && requested !== "asks" && requested !== "workstreams") return;
+    if (requested !== "attention" && requested !== "made" && requested !== "reactions" && requested !== "asks" && requested !== "workstreams") return;
 
     if (requested === "workstreams" && workstreamsOpen) return;
     workstreamsOpen = connected.hasView("workstreams");
