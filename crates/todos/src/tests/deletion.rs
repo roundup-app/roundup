@@ -375,11 +375,17 @@ async fn u3787a_coordinated_restore_refusal_rolls_back_every_participant() {
     .unwrap();
     let error = h
         .todos
-        .restore_with(&Actor::user(), "coordinated-restore", 0, |tx| {
-            tx.execute("UPDATE todos SET title='coordinator change' WHERE id=1", [])
-                .map_err(RpcError::internal)?;
-            Err(RpcError::conflict("coordinator refused"))
-        })
+        .restore_with(
+            &Actor::user(),
+            "coordinated-restore",
+            0,
+            |tx| {
+                tx.execute("UPDATE todos SET title='coordinator change' WHERE id=1", [])
+                    .map_err(RpcError::internal)?;
+                Err(RpcError::conflict("coordinator refused"))
+            },
+            |_| Ok(()),
+        )
         .unwrap_err();
     assert_eq!(error.code, code::CONFLICT);
     assert_eq!(

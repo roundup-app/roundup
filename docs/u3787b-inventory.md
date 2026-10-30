@@ -229,3 +229,28 @@ combined dispatch observations against the complete implementation SHA. No nativ
 completion is claimed. macOS check 40941756743 at
 `d780754c8e12a9cf4e81e25cee8ff682a8986a8c` passed mac and mac-clippy; earlier native
 records retain their original scope and SHA.
+
+## Captured Todo nesting
+
+The production `RowButton` now registers Tab and Shift+Tab through its existing
+row layer and `nest` callback. The Project menu discovers the same captured
+nesting plan; focus leaving the row, lifting it, opening a modal or losing the
+available nesting operation refuses that capture. A row with no nesting operation
+keeps ordinary Tab navigation. Plain Tab hints still register no native accelerator.
+
+`u3787b_nesting_captures_the_focused_todo_once` uses the connected production App
+and menu-event seam for both directions and entry paths: one `todo.setBlockers`
+for the focused Todo, unchanged focus during menu projection, no action from the
+retained capture or menu after an editor takes focus. Existing U3709/U3711 proofs
+retain ordinary Tab navigation, dependency identity, cycle refusal and visible
+failure; no test is removed or retired. The existing Tauri
+`u2539b_native_menu_projects_the_task_chords` also forwards both nesting commands
+for two Projects. This extends the accepted #4877 work through main's merged
+continuations, without changing accepted menu grouping or context menus.
+
+Main check [40981393565](https://github.com/roundup-app/roundup/actions/runs/40981393565)
+at `7595b070bbb91dae1c3c2fc5d2d2970f48461250` passed mac and mac-clippy.
+This is CI evidence only; earlier native observations keep their original scope.
+Complete assignment/library/native inventory, responder Find/Close availability
+and final native displayed-key/combined-dispatch observations remain on #4308.
+This slice closes neither #4308 nor #3843.
