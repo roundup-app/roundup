@@ -126,7 +126,6 @@ impl Store {
         blockers: &[u32],
         creator: &Actor,
         owner: Option<&Actor>,
-        estimate_minutes: Option<u32>,
         priority: Option<Priority>,
         after_touch: i64,
     ) -> Result<Todo, RpcError> {
@@ -137,16 +136,18 @@ impl Store {
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
         tx.execute(
-            "INSERT INTO todos (title, body, created_at, updated_at, creator, owner, estimate_minutes, priority, pos)
-             VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6, ?7, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
+            "INSERT INTO todos (title, body, created_at, updated_at, creator, owner, priority, pos)
+             VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
             params![
                 title,
                 body,
                 created_at,
                 creator_json(creator),
                 owner.map(creator_json),
-                estimate_minutes,
-                priority.map(|value| serde_json::to_string(&value)).transpose().map_err(RpcError::internal)?
+                priority
+                    .map(|value| serde_json::to_string(&value))
+                    .transpose()
+                    .map_err(RpcError::internal)?
             ],
         )
         .map_err(RpcError::internal)?;
@@ -161,7 +162,7 @@ impl Store {
         let row = self
             .db
             .query_row(
-                "SELECT title, body, done, created_at, updated_at, creator, home, owner, estimate_minutes, priority, EXISTS(
+                "SELECT title, body, done, created_at, updated_at, creator, home, owner, priority, EXISTS(
                     SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
                     WHERE b.todo = todos.id AND o.done = 0
                 ) FROM todos WHERE id = ?1",
@@ -176,27 +177,15 @@ impl Store {
                         r.get::<_, String>(5)?,
                         r.get(6)?,
                         r.get::<_, Option<String>>(7)?,
-                        r.get(8)?,
-                        r.get::<_, Option<String>>(9)?,
-                        r.get(10)?,
+                        r.get::<_, Option<String>>(8)?,
+                        r.get(9)?,
                     ))
                 },
             )
             .optional()
             .map_err(RpcError::internal)?;
-        let (
-            title,
-            body,
-            done,
-            created_at,
-            updated_at,
-            creator,
-            home,
-            owner,
-            estimate_minutes,
-            priority,
-            blocked,
-        ) = row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
+        let (title, body, done, created_at, updated_at, creator, home, owner, priority, blocked) =
+            row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
         Ok(Todo {
             id,
             title,
@@ -213,7 +202,6 @@ impl Store {
                 .transpose()
                 .map_err(RpcError::internal)?,
             refs: self.refs(id)?,
-            estimate_minutes,
             priority: priority
                 .map(|text| serde_json::from_str(&text))
                 .transpose()
@@ -275,7 +263,6 @@ impl Store {
         id: u32,
         title: Option<&str>,
         body: Option<&str>,
-        estimate_minutes: Option<Option<u32>>,
         priority: Option<Option<Priority>>,
         expected_change: Option<u32>,
         after_touch: i64,
@@ -290,8 +277,8 @@ impl Store {
         self.require_change(id, expected_change)?;
         self.db
             .execute(
-                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body), estimate_minutes = ?4, priority = ?5 WHERE id = ?1",
-                params![id, title, body, estimate_minutes.unwrap_or(current.estimate_minutes), priority.unwrap_or(current.priority).map(|value| serde_json::to_string(&value)).transpose().map_err(RpcError::internal)?],
+                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body), priority = ?4 WHERE id = ?1",
+                params![id, title, body, priority.unwrap_or(current.priority).map(|value| serde_json::to_string(&value)).transpose().map_err(RpcError::internal)?],
             )
             .map_err(RpcError::internal)?;
         self.record_change(id, Some(before), after_touch, actor)?;
@@ -764,7 +751,6 @@ pub(super) fn values(todo: &Todo) -> Values {
         done: todo.done,
         blockers: todo.blockers.clone(),
         owner: todo.owner.clone(),
-        estimate_minutes: todo.estimate_minutes,
         priority: todo.priority,
     }
 }

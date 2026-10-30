@@ -246,7 +246,7 @@ async fn u4698c_standalone_priority_survives_reopen() {
         include_str!("../../migrations/005/up.sql"),
         include_str!("../../migrations/006/up.sql"),
         include_str!("../../migrations/007/up.sql"),
-        include_str!("../../migrations/008/up.sql"),
+        "-- T4902: retired T29; retain the migration slot.",
         include_str!("../../migrations/009/up.sql"),
         include_str!("../../migrations/010/up.sql"),
     ];

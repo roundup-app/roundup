@@ -759,7 +759,7 @@ export type todo_CreateParams = { title: string, body: string | null, blockers: 
 
 owner?: Actor, 
 
-estimate_minutes?: number, priority?: "low" | "medium" | "high" | "urgent" | null, };
+priority?: "low" | "medium" | "high" | "urgent" | null, };
 
 export type todo_HandParams = { agent: string, };
 
@@ -795,19 +795,19 @@ owner: Actor | null,
 
 refs: Array<string>, 
 
-estimate_minutes: number | null, priority: "low" | "medium" | "high" | "urgent" | null, };
+priority: "low" | "medium" | "high" | "urgent" | null, };
 
 export type todo_TodoId = { id: number, };
 
 export type todo_UnreadComment = { todo: number, title: string, comment: todo_Comment, };
 
-export type todo_UpdateParams = { id: number, title: string | null, body: string | null, estimate_minutes?: number | null, priority?: "low" | "medium" | "high" | "urgent" | null, expected_change?: number, };
+export type todo_UpdateParams = { id: number, title: string | null, body: string | null, priority?: "low" | "medium" | "high" | "urgent" | null, expected_change?: number, };
 
 export type todo_Values = { title: string, body: string, done: boolean, blockers: Array<number>, 
 
 owner: Actor | null, 
 
-estimate_minutes: number | null, priority: "low" | "medium" | "high" | "urgent" | null, };
+priority: "low" | "medium" | "high" | "urgent" | null, };
 
 export type workstream_AutoParams = { id: string, auto: boolean, };
 

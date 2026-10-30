@@ -40,8 +40,6 @@ pub struct Todo {
     /// Links to Pads and Pad sections (T27), in the order added. A Todo from before refs reads none.
     #[serde(default)]
     pub refs: Vec<String>,
-    /// T29: expected work in minutes (1 to 1440); `None` is no estimate. A Todo from before this field reads as `None`.
-    pub estimate_minutes: Option<u32>,
     /// U4698c: unset is no priority.
     #[serde(default)]
     pub priority: Option<Priority>,
@@ -64,9 +62,6 @@ pub struct CreateParams {
     /// Omitted or `None` is Unassigned.
     #[specta(optional, type = Owner)]
     pub owner: Option<Owner>,
-    /// T29: whole minutes, 1 to 1440; omitted or `None` is no estimate.
-    #[specta(optional, type = u32)]
-    pub estimate_minutes: Option<u32>,
     /// U4698c: unset is no priority.
     #[serde(default)]
     #[specta(optional, type = Option<Priority>)]
@@ -94,16 +89,13 @@ pub struct TodoId {
     pub id: u32,
 }
 
-/// Changes title/body/estimate/priority. `estimate_minutes` is whole minutes 1 to 1440 (T29); `null` clears it, omitted leaves it. `expected_change` is the last captured History Change sequence;
+/// Changes title/body/priority. `expected_change` is the last captured History Change sequence;
 /// mismatch is CONFLICT, a removed Todo is NOT_FOUND, and omission is unconditional.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct UpdateParams {
     pub id: u32,
     pub title: Option<String>,
     pub body: Option<String>,
-    #[serde(default, deserialize_with = "present")]
-    #[specta(optional, type = Option<specta_typescript::Number>)]
-    pub estimate_minutes: Option<Option<u32>>,
     /// Omitted preserves priority; null clears it; otherwise low, medium, high or urgent.
     #[serde(
         default,
@@ -158,9 +150,6 @@ pub struct Values {
     /// A change recorded before owners existed reads `None`.
     #[serde(default)]
     pub owner: Option<Actor>,
-    /// A change recorded before estimates existed reads `None`.
-    #[serde(default)]
-    pub estimate_minutes: Option<u32>,
     /// U4698c: unset is no priority.
     #[serde(default)]
     pub priority: Option<Priority>,
