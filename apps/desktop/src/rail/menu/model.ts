@@ -150,7 +150,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
       if (result.kind === "refused") throw result.error;
 
-      if (result.kind === "pending") rail.hold(current.node.id, { kind: "remove" });
+      if (result.kind === "pending") rail.keepAsked(current.node.id, { kind: "remove" });
       else current.removed?.();
     }, current.node.id);
 
