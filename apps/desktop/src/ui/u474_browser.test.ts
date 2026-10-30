@@ -142,7 +142,7 @@ const appIcons = [
   { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Minimise"]' },
   { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Close"]' },
   { seed: "bubbles", selector: '.terminal-tab-pair button[data-button="icon"]' },
-  { seed: "tree-40", selector: '.todo-delete' },
+  { seed: "tree-40", selector: '.todo-header [aria-label="More actions"]' },
 ];
 
 const loadAppIcon = async (base: string, seed: string, selector: string) => {
