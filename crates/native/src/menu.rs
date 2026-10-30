@@ -48,6 +48,7 @@ fn hint_stop(menu_width: f64, right_inset: f64, hint_width: f64) -> f64 {
 struct ItemViewState {
     cell: Retained<AnyObject>,
     column: Retained<AnyObject>,
+    column_index: Option<isize>,
     hint: Option<Retained<AnyObject>>,
     hover: Cell<bool>,
 }
@@ -77,7 +78,16 @@ define_class!(
                 // NSMenuItemCell strongly retains menuItem; keep no item → view → cell cycle.
                 let _: () = msg_send![&*state.cell, setMenuItem: std::ptr::null::<AnyObject>()];
                 if let Some(hint) = &state.hint {
+                    if let Some(index) = state.column_index {
+                        let menu: Retained<AnyObject> = msg_send![&*item, menu];
+                        let reference: Retained<AnyObject> = msg_send![&*menu, itemAtIndex: index];
+                        let _: () = msg_send![&*state.column, setMenuItem: &*reference];
+                        let _: () = msg_send![&*state.column, calcSize];
+                    }
                     let column: NSRect = msg_send![&*state.column, keyEquivalentRectForBounds: bounds];
+                    if state.column_index.is_some() {
+                        let _: () = msg_send![&*state.column, setMenuItem: std::ptr::null::<AnyObject>()];
+                    }
                     let size: NSSize = msg_send![&**hint, size];
                     let inset = bounds.size.width - column.origin.x - column.size.width;
                     let point = NSPoint::new(
@@ -202,6 +212,11 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
         let _: () = msg_send![&*column, setFont: &*font];
         let _: () = msg_send![&*column, calcSize];
         let count: isize = msg_send![submenu, numberOfItems];
+        let column_index = (0..count).find(|index| {
+            let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: *index];
+            let key: Retained<NSString> = msg_send![&*item, keyEquivalent];
+            !key.is_empty()
+        });
         for index in 0..count {
             let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
             let separator: bool = msg_send![&*item, isSeparatorItem];
@@ -237,6 +252,7 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
             let view = ItemView::alloc(main).set_ivars(ItemViewState {
                 cell,
                 column: column.clone(),
+                column_index,
                 hint,
                 hover: Cell::new(false),
             });
