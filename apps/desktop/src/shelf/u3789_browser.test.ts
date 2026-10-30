@@ -31,7 +31,12 @@ const shot = async (id: string, stage: string, step: string) => {
       writeFileSync(join(folder, `${step}.geometry.json`), JSON.stringify({sha: stage === "head" ? process.env.U4335_HEAD_SHA : process.env.U4335_BASE_SHA, seed: step, indentToken: "--space-5", rows: geometry}) + "\n");
     }
 
-    const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
+    if (id === "U4908") {
+      const columns = await read(`Array.from(document.querySelectorAll('.shelf-group-control, .shelf-row')).filter(row => row.checkVisibility()).map(row => ({name:row.textContent, mark:row.querySelector('[data-part=branch-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(), title:row.querySelector('.shelf-group-name, .shelf-title, .entry-field')?.getBoundingClientRect().toJSON(), count:row.querySelector('.shelf-group-count')?.getBoundingClientRect().toJSON()}))`);
+      writeFileSync(join(folder, `${step}.columns.json`), JSON.stringify(columns) + "\n");
+    }
+
+    const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .shelf-glyph .icon')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
     writeFileSync(join(folder, `${step}.rows.json`), JSON.stringify(boxes) + "\n");
   }
 
@@ -389,6 +394,16 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
         }
       }
 
+      await browser("set", "viewport", "1280", "820");
+
+      for (const kind of ["todos", "pads"]) {
+        await browser("click", `#shelf-tab-${kind}`);
+        await wait(`document.querySelector('.${kind}-tab')`);
+        await shot("U4908", stage, `${seed}-${kind}-1280`);
+      }
+
+      await browser("set", "viewport", "1512", "950");
+
       if (video) await browser("record", "stop");
     }
   }
@@ -398,21 +413,25 @@ it("u4275a_u4275b_u4275c_dense_row_captures", async () => {
 it.each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activation => ({ kind, activation }))))("u4908_open_button_opens_chosen_item_once_$kind/$activation", async ({ kind, activation }) => {
   await load("tree-40");
   await overview();
+
   if (kind === "pad") {
     await browser("click", "#shelf-tab-pads");
     await wait("document.querySelector('.pads-tab')");
   }
+
   await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
   const selector = kind === "pad" ? '.pads-tab [data-pad="a-pad-with-a-very-long-name-here"] .todo-open' : '.todos-tab [data-todo="1"] .todo-open';
   // Read the role/name before activating: a missing Pad action is the red case.
   expect(await read(`(() => { const button = document.querySelector('${selector}'); return button ? {role:button.tagName, name:button.getAttribute('aria-label')} : null; })()`)).toEqual({role:"BUTTON", name:kind === "pad" ? "Open a-pad-with-a-very-long-name-here" : "Open todo 1"});
   await browser("eval", "window.__fake.app.calls.length = 0");
+
   if (activation === "pointer") await browser("click", selector);
   else {
     await browser("focus", selector);
     await wait(`document.activeElement === document.querySelector('${selector}')`);
     await browser("press", activation);
   }
+
   await wait("document.querySelector('.drawer[data-open=true]')");
   const method = kind === "pad" ? "pad.read" : "todo.getHistory";
   expect(await read(`window.__fake.app.calls.filter(call => call.method === '${method}').map(call => call.params)`)).toEqual([kind === "pad" ? {name:"a-pad-with-a-very-long-name-here"} : {id:1}]);
@@ -424,12 +443,16 @@ it.each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activa
 it.skipIf(!captureDir("U4908"))("u4908_paired_row_columns_and_actions", async () => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
+
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     const stage = base ? "base" : "head";
+
     for (const seed of ["tree-40", "agents-10"]) {
       await load(seed, base);
       const video = !base && seed === "tree-40" ? captureDir("U4908") : null;
+
       if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", "interaction.webm")); await wait("window.__fake && document.querySelector('.rail-tree')"); }
+
       await overview();
       await dense();
       await browser("eval", `(async () => {
@@ -440,6 +463,7 @@ it.skipIf(!captureDir("U4908"))("u4908_paired_row_columns_and_actions", async ()
           parent = todo.id;
         }
       })()`);
+
       for (const kind of ["todos", "pads"]) {
         await browser("click", `#shelf-tab-${kind}`);
         await wait(`document.querySelector('.${kind}-tab')`);
@@ -470,6 +494,17 @@ it.skipIf(!captureDir("U4908"))("u4908_paired_row_columns_and_actions", async ()
         await shot("U4908", stage, `${seed}-${kind}-failure`);
         await browser("press", "Escape");
       }
+
+      await browser("set", "viewport", "1280", "820");
+
+      for (const kind of ["todos", "pads"]) {
+        await browser("click", `#shelf-tab-${kind}`);
+        await wait(`document.querySelector('.${kind}-tab')`);
+        await shot("U4908", stage, `${seed}-${kind}-1280`);
+      }
+
+      await browser("set", "viewport", "1512", "950");
+
       if (video) await browser("record", "stop");
     }
   }
