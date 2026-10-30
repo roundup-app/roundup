@@ -126,7 +126,12 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
         let f = std::sync::Arc::new(Fixture::running("exec sleep 30"));
         let barrier = f.workstream("barrier", None).await;
         let id = match case {
-            "explicit spawn" => f.spawn_named(Some("mine"), None).await.unwrap().id,
+            "explicit spawn" => {
+                f.spawn_named(Some("mine"), Some("fix the build"))
+                    .await
+                    .unwrap()
+                    .id
+            }
             "starting rename" => {
                 let config = hold_starts(&f);
                 let spawning = {
