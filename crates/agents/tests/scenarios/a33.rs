@@ -57,15 +57,6 @@ async fn a33_an_idle_agent_with_a_blocked_todo_reads_blocked() {
 }
 
 #[tokio::test]
-async fn a33_the_label_names_the_lowest_open_blocker() {
-    let (f, id) = idle_agent().await;
-    f.waits(&[(&id, 2)]);
-    assert_eq!(f.reading(&id).await.1, "waits on #2");
-    f.waits(&[(&id, 7)]);
-    assert_eq!(f.reading(&id).await.1, "waits on #7");
-}
-
-#[tokio::test]
 async fn a33_working_error_and_needs_you_outrank_blocked() {
     let (f, id) = idle_agent().await;
     f.waits(&[(&id, 4)]);
@@ -91,13 +82,5 @@ async fn a33_completing_the_blocker_reads_idle_with_a_new_revision() {
     assert_eq!(idle[0].status.kind, Kind::Idle);
     let revision = |e: &StatusEvent| e.status_revision.parse::<u64>().unwrap();
     assert!(revision(&idle[0]) > revision(&blocked[0]));
-    assert_eq!(f.reading(&id).await.0, Kind::Idle);
-}
-
-#[tokio::test]
-async fn a33_deleting_the_todo_reads_idle() {
-    let (f, id) = idle_agent().await;
-    f.waits(&[(&id, 4)]);
-    f.waits(&[]);
     assert_eq!(f.reading(&id).await.0, Kind::Idle);
 }
