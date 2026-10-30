@@ -117,6 +117,5 @@ it("u4698d_rich_body_saves_the_selected_todo_and_keeps_a_refused_draft", { retry
   await browser("wait", '.drawer .todo-detail-body .ProseMirror');
   expect(await evaluate(`window.__fake.app.calls.filter(call => call.method === 'todo.update' && call.params.body?.startsWith('Exact body')).map(call => ({ id: call.params.id, body: call.params.body }))`)).toEqual([
     { id: 1, body: "Exact body retained after refusal" },
-    { id: 1, body: "Exact body retained after refusal" },
   ]);
 });
