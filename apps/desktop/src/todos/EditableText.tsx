@@ -125,9 +125,20 @@ export const EditableText = (props: {
   });
   createEffect(() => props.onFailure?.(failure(), () => setFailure(null)));
 
-  let shown: HTMLElement | undefined;
+  let container: HTMLDivElement | undefined;
+  const shown = () => container?.querySelector<HTMLElement>("p[tabindex], .todo-add-notes");
+  let savedFocus: ReturnType<typeof captureFocus> | undefined;
+  createEffect(on(() => props.todo[props.name], () => {
+    const focus = savedFocus;
+    savedFocus = undefined;
 
-  const startWith = (width = shown?.getBoundingClientRect().width ?? 0) => {
+    // The value change can run before Solid replaces Add notes with the saved prose.
+    queueMicrotask(() => {
+      if (alive && (document.activeElement === document.body || document.activeElement === shown()) && connected.drawer.content() === content) focus?.(() => shown()?.focus());
+    });
+  }, { defer: true }));
+
+  const startWith = (width = shown()?.getBoundingClientRect().width ?? 0) => {
     captureFocus(true);
 
     const saved = props.revision === undefined
@@ -209,9 +220,8 @@ export const EditableText = (props: {
       retain();
     });
 
-    const submit = async () => {
+    const submit = async (destination?: EventTarget | null) => {
       if (left) return;
-      const retryFocus = captureFocus();
       left = true;
 
       if (element.value === started.form.base && !started.recovered) {
@@ -239,7 +249,17 @@ export const EditableText = (props: {
       }
 
       const submission = connected.drafts.submit(draft.revision);
+
+      const restoreFocus = element.parentElement?.contains(document.activeElement)
+        || (destination instanceof Node && element.parentElement?.contains(destination));
+
       setEditing(null);
+      const retryFocus = captureFocus();
+
+      if (restoreFocus) {
+        savedFocus = captureFocus();
+        queueFocus(() => shown()?.focus());
+      }
 
       if (!(await submission)) {
         setFailure(copy.draftStatus[draft.status]);
@@ -252,16 +272,22 @@ export const EditableText = (props: {
         await props.commit(submittedValue, started.form.expected_change);
         connected.drafts.settle(draft.revision, "acknowledged");
 
-        if (alive) { setFailure(null); props.onSaved?.(); }
+        if (alive) {
+          setFailure(null); props.onSaved?.();
+
+          // A first body save replaces Add notes with prose after acknowledgement.
+          if (restoreFocus && document.activeElement === document.body && connected.drawer.content() === content) retryFocus(() => shown()?.focus());
+        }
       } catch (error) {
         if (!(error instanceof Error)) throw error;
+        savedFocus = undefined;
         connected.drafts.settle(draft.revision, outcomeOf(error));
 
         if (alive) {
           setFailure(error.message);
 
           if (outcomeOf(error) === "failed" && connected.drawer.content() === content && editing() === null && !records().some(record => record.status === "draft")
-            && (document.activeElement === null || document.activeElement === document.body)) retryFocus(() => startWith(started.width));
+            && (document.activeElement === null || document.activeElement === document.body || document.activeElement === shown())) retryFocus(() => startWith(started.width));
         }
       }
     };
@@ -272,7 +298,7 @@ export const EditableText = (props: {
 
         if (element.value !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
-        queueFocus(() => shown?.focus());
+        queueFocus(() => shown()?.focus());
       } else if (event.key === "Enter" && (!props.multiline || event.metaKey || event.ctrlKey)) {
         event.preventDefault(); void submit();
       }
@@ -286,7 +312,7 @@ export const EditableText = (props: {
       queueMicrotask(() => {
         if (!alive || connected.drawer.content() !== content || started.recovered
           || (target instanceof Element && (target.closest(".close, .todo-draft-recovery, [data-dismiss-failure]") || !target.closest(".drawer")))) return;
-        void submit();
+        void submit(target);
       });
     });
     // Explicit Save authorizes restored work; restoration alone never resumes blur submission.
@@ -295,7 +321,7 @@ export const EditableText = (props: {
   };
 
   return (
-    <div class="todo-editable">
+    <div class="todo-editable" ref={container}>
     <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())}><Show when={!retentionFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
     <Show
       when={editing()}
@@ -304,7 +330,6 @@ export const EditableText = (props: {
           when={props.name === "body" && props.todo.body === ""}
           fallback={
             <p
-              ref={(element) => { shown = element; }}
               tabIndex={0}
               onDblClick={() => startWith()}
               onKeyDown={(key) => {
@@ -319,7 +344,7 @@ export const EditableText = (props: {
           }
         >
           {/* U3732: an empty body offers its own edit, where the body will read. */}
-          <button ref={(element) => { shown = element; }} data-button="quiet" type="button" class="word todo-add-notes" onClick={() => startWith(0)}>{copy.addNotes}</button>
+          <button data-button="quiet" type="button" class="word todo-add-notes" onClick={() => startWith(0)}>{copy.addNotes}</button>
         </Show>
       }
       keyed

@@ -57,6 +57,7 @@ impl Daemon {
                     | "todo.delete"
                     | "todo.deletion"
                     | "todo.restore"
+                    | "todo.redo"
                     | "rail.remove"
                     | "rail.deletion"
                     | "rail.restore"
@@ -153,7 +154,7 @@ impl Daemon {
         ) {
             self.before_prompt_effect(&conn.actor, method).await?;
         }
-        if method == "todo.restore" && conn.actor.kind != ActorKind::User {
+        if matches!(method, "todo.restore" | "todo.redo") && conn.actor.kind != ActorKind::User {
             return Err(RpcError::forbidden("only the user restores deleted Todos"));
         }
         let owner = contracts::methods::owner_namespace(method).unwrap_or(namespace);
@@ -277,7 +278,7 @@ impl Daemon {
             self.reset_orphaned_pad_homes().await?;
             return outcome;
         }
-        if method == "pad.delete" && outcome.is_ok() {
+        if matches!(method, "pad.delete" | "pad.redoDelete") && outcome.is_ok() {
             self.publications.invalidate_revoked()?;
         }
         outcome

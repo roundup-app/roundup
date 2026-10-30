@@ -22,10 +22,6 @@ const lines = (change: Change, agentName: (id: string) => string): string[] => {
 
   if (before && before.done !== after.done) text.push(after.done ? copy.changeDone : copy.changeReopened);
 
-  if ((before?.estimate_minutes ?? null) !== after.estimate_minutes) {
-    text.push(after.estimate_minutes === null ? copy.changeEstimateCleared : copy.changeEstimated(after.estimate_minutes));
-  }
-
   const added = after.blockers.filter((id) => !before?.blockers.includes(id));
   const removed = before?.blockers.filter((id) => !after.blockers.includes(id)) ?? [];
 

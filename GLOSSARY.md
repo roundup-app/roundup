@@ -104,7 +104,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
 | Remove all (`agent::RemoveScope::All`) | Remove all | — |
 | Hint line | same | — |
-| Shelf | work items | — |
+| Shelf | Bench | — |
 | Scrim | same | — |
 | Resize edge | same | — |
 | Inbox | same | — |
@@ -152,6 +152,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ink | same | — |
 | Chip | same | — |
 | Live line | same | — |
+
+**Glyph.** The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ⊖ ◔ ○ ✓`.
 
 ### Agents at work
 
@@ -262,6 +264,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
+| Todo deletion redo (`RedoParams`, `todo.redo`, `Deletion.restoration`) | Redo | — |
 | History (`History`) | same | — |
 | Get History (`todo.getHistory`) | same | — |
 | Values (`Values`) | same | — |
@@ -342,6 +345,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |
 | Native open (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`) | same | — |
 | Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | — (not a name: same-name recreation) |
+| Pad deletion redo (`RedoDeleteParams`, `restoredOperation`, `restored_operation`, `expectedHome`, `expected_home`, `pad.redoDelete`) | Redo Delete Pad | — |
 | Pad order (`pad.reorder`, `pad::ReorderParams`) | same | — |
 
 ### First-run facts
