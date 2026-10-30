@@ -48,6 +48,10 @@ export type RailState = {
   clearStorageFailure(): void;
   select(id: string | null): void;
   nameOf(actor: Actor): string;
+  /** U5172a: the change asked of Row `id` that the Daemon has not yet confirmed, or `null`. */
+  pendingOf(id: string): PendingChange | null;
+  /** U5172a: keeps the asked change on Row `id`, marked, until an Event or a re-read settles it. */
+  hold(id: string, change: PendingChange): void;
   /** The message of the last failed fetch, until a later fetch succeeds. */
   failure(): string | null;
   /** Fetches the current tree after a write found that its row had already gone; `terminals` also refetches `terminal.list`, so a missed exit shows. */
@@ -55,6 +59,9 @@ export type RailState = {
   /** Resolves when no fetch is in flight and no queued Event is left to apply. */
   settled(): Promise<void>;
 };
+
+/** U5172a: a change the App asked and the Daemon has not answered. A rename shows `asked` over the `base` name. */
+export type PendingChange = { kind: "rename"; asked: string; base: string } | { kind: "remove" };
 
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
@@ -100,6 +107,25 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream))));
   };
 
+  const [held, setHeld] = createStore<Record<string, PendingChange>>({});
+
+  /** U5172a: a read or Event settles a held change: confirmed clears the mark, a contradicting name shows the Daemon's with one failure, an unchanged row stays marked. */
+  const reconcileHeld = (tree: readonly RailNode[]) => {
+    for (const [id, change] of Object.entries(held)) {
+      const node = tree.find(each => each.id === id);
+
+      if (node === undefined) {
+        setHeld(id, undefined!);
+        continue;
+      }
+
+      if (change.kind !== "rename" || node.name === change.base) continue;
+      setHeld(id, undefined!);
+
+      if (node.name !== change.asked) commandFailure.show(copy.changeDidNotApply(change.asked), id, "rail");
+    }
+  };
+
   let pending = 0;
   let queued: DaemonEvent[] = [];
   let latest: Promise<void> = Promise.resolve();
@@ -121,7 +147,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     const tree = await app.rpc("rail.tree", null);
 
     batch(() => {
-      setModel("tree", reconcile(tree, { key: "id" }));
+      reconcileHeld(tree);
+      setModel("tree", reconcile(tree.map(node => { const change = held[node.id]; return change?.kind === "rename" ? { ...node, name: change.asked } : node; }), { key: "id" }));
 
       for (const node of tree) {
         if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(node.id, "observedLive", true);
@@ -210,6 +237,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         queued.push(event);
       } else if (event.name === "rail.changed") {
         fetching(fetchTree);
+      } else if (event.name === "rail.renamed") {
+        const row = model.tree.find(node => node.id === event.data.id);
+
+        if (row !== undefined) reconcileHeld([{ ...row, name: event.data.name }]);
+        setModel("tree", node => node.id === event.data.id, "name", event.data.name);
       } else if (event.name === "agent.status") {
         setModel("tree", (node) => node.id === event.data.id && node.attempt === event.data.attempt && node.status_revision !== null && BigInt(event.data.status_revision) > BigInt(node.status_revision), { status: event.data.status, status_revision: event.data.status_revision });
       } else if (event.name === "agent.toolCall") {
@@ -329,6 +361,12 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const code = model.exited[node.terminal_id] ?? null;
 
       return code === null ? { kind: "signal" } : { kind: "code", code };
+    },
+    pendingOf: (id) => held[id] ?? null,
+    hold: (id, change) => {
+      setHeld(id, change);
+
+      if (change.kind === "rename") setModel("tree", node => node.id === id, "name", change.asked);
     },
     failure,
     refresh: async (options) => {

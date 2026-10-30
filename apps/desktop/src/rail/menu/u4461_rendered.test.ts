@@ -93,7 +93,7 @@ it("u4461_removal_failure_keeps_the_captured_workstream_in_the_rendered_app", as
 
   await lane.capture("U4461", "question-request");
   await lane.evaluate(`(() => {
-    window.__fake.app.handlers['rail.remove'] = () => { throw new Error('Stop failed. Retry Remove.'); };
+    window.__fake.app.handlers['rail.remove'] = () => { throw window.__fake.refusal(-32003, 'Stop failed. Retry Remove.'); };
     window.__question.answer('all');
     return true;
   })()`);

@@ -159,7 +159,7 @@ export const RailRowView = (props: {
     "data-multiple": props.multiple ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
     "data-worktree": props.row.node.worktree ? "true" : undefined,
-    "data-editing": props.editing, "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
+    "data-editing": props.editing, "aria-busy": connected.rail.pendingOf(props.row.node.id) ? true : undefined, "data-kind": kind() ?? undefined, "data-lifted": props.lifted,
     style: { "--tree-depth": props.row.depth, "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
     onDblClick: (event: MouseEvent) => {
       if (!(event.target instanceof Element) || event.target.closest("button, input") || props.lifted) return;
