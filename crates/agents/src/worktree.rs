@@ -215,9 +215,9 @@ impl Git {
         Err(failed(String::from_utf8_lossy(&output.stderr)))
     }
 
-    fn update_refs(&self, dir: &Path, input: &str) -> Result<(), RpcError> {
+    fn update_refs(&self, project: &Path, input: &str) -> Result<(), RpcError> {
         let output = self
-            .output(dir, &["update-ref", "--stdin"], Some(input))
+            .output(project, &["update-ref", "--stdin"], Some(input))
             .map_err(failed)?;
         if !output.status.success() {
             return Err(failed(String::from_utf8_lossy(&output.stderr)));
