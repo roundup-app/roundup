@@ -1,4 +1,4 @@
-import { copy } from "./copy";
+import { copy } from "./app/copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { door, workstream } from "./testing/nodes";
@@ -15,9 +15,13 @@ import { dirname, join, posix } from "node:path";
 const ROOT = join(process.cwd(), "src");
 
 const files = () => readdirSync(ROOT, { recursive: true, encoding: "utf8" }).filter((file) => /\.tsx?$/.test(file));
+
 const catalogue = (file: string) => /(?:^|\/)copy\.ts$|^sharedCopy\.ts$/.test(file);
+
 const production = (file: string) => !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$)/.test(file);
+
 const sources = () => files().filter((file) => production(file) && !catalogue(file));
+
 const owner = (file: string) => file.includes("/") ? file.split("/")[0]! : "app";
 
 it("u471_copy_modules_belong_to_their_surfaces", () => {
@@ -40,6 +44,7 @@ it("u471_copy_modules_belong_to_their_surfaces", () => {
 
       if (target === "sharedCopy.ts") {
         expect(catalogue(file), file).toBe(true);
+
         return;
       }
 
@@ -47,8 +52,8 @@ it("u471_copy_modules_belong_to_their_surfaces", () => {
     });
 
     if (!catalogue(file) || file === "sharedCopy.ts") continue;
-    visit(parse(source, { sourceType: "module", plugins: ["typescript"] }), [], (node) => {
-      if (node.type === "SpreadElement") throw new Error(`${file}: catalogue spreads hide ownership`);
+    visit(parse(source, { sourceType: "module", plugins: ["typescript"] }), [], (node, ancestors) => {
+      if (node.type === "SpreadElement" && ancestors.at(-1)?.type === "ObjectExpression") throw new Error(`${file}: catalogue spreads hide ownership`);
 
       if (node.type === "MemberExpression" && node.object.type === "Identifier" && node.object.name === "sharedCopy" && node.property.type === "Identifier") {
         const users = sharedUses.get(node.property.name) ?? new Set<string>();
@@ -57,6 +62,14 @@ it("u471_copy_modules_belong_to_their_surfaces", () => {
       }
     });
   }
+
+  const sharedKeys: string[] = [];
+  visit(parse(readFileSync(join(ROOT, "sharedCopy.ts"), "utf8"), { sourceType: "module", plugins: ["typescript"] }), [], (node) => {
+    if (node.type !== "VariableDeclarator" || node.id.type !== "Identifier" || node.id.name !== "copy" || node.init?.type !== "TSAsExpression" || node.init.expression.type !== "ObjectExpression") return;
+
+    for (const property of node.init.expression.properties) if (property.type === "ObjectProperty" && property.key.type === "Identifier") sharedKeys.push(property.key.name);
+  });
+  expect([...sharedUses.keys()].sort()).toEqual(sharedKeys.sort());
 
   for (const [key, users] of sharedUses) expect(users.size, key).toBeGreaterThan(1);
 });

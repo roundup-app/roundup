@@ -8,7 +8,7 @@ import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } 
 import type { Todo } from "@contracts/todo/Todo";
 import { createCutTitle } from "../ui/cutTitle";
 import type { ActivationSource } from "../keys/registry";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { ReservedLine } from "../ink/ReservedLine";

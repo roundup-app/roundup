@@ -1,4 +1,4 @@
-import { copy as appCopy } from "../copy";
+import { copy as appCopy } from "./copy";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
 type Loader = () => Promise<EmulatorFactory>;

@@ -1,5 +1,5 @@
 import { ReservedLine } from "../ink/ReservedLine";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ToastProvider } from "../ui/Toast";
 import type { ToastQueue } from "./queue";
 import "./styles.css";

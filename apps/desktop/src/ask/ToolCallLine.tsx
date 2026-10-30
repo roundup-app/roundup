@@ -1,7 +1,7 @@
 import { CopyButton } from "../ui/CopyButton";
 import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js";
 import type { ToolCall } from "@contracts/agent/ToolCall";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Collapsible } from "../ui/Collapsible";
 import { Tip } from "../ui/Tip";
 import { useConnectedProject } from "../state/connectedProject";

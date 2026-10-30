@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { AskBar } from "./AskBar";
 

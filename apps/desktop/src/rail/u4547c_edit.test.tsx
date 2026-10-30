@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { workstream, agent, door } from "../testing/nodes";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 

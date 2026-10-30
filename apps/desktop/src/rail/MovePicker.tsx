@@ -4,7 +4,7 @@ import { createSignal, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Combobox } from "../ui/Combobox";
 import { Popover } from "../ui/Popover";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { captureFocus, queueFocus } from "../keys/focus";
 
 export const MovePicker = (props: {

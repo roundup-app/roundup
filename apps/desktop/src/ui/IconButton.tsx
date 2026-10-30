@@ -1,7 +1,7 @@
 import { mergeProps, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Chord } from "../keys/chords";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { Tooltip } from "./Tooltip";
 
