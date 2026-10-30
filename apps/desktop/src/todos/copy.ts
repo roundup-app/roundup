@@ -66,7 +66,7 @@ export const copy = {
   createWorkstream: "Create",
   assign: sharedCopy.assign,
   assignTodo: sharedCopy.assignTodo,
-  addTodo: "Add Todo",
+  addTodo: sharedCopy.addTodo,
   addTodoTo: (group: CopyValue) => `add todo to ${group}`,
   ownersFor: (id: CopyValue) => `Owners for #${id}`,
   doneCount: sharedCopy.doneCount,

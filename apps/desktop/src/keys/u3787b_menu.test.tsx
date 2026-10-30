@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { showEverythingInApp } from "../testing/showEverything";
-import { info, USER } from "../testing/nodes";
+import { agent, info, USER, workstream } from "../testing/nodes";
 import { padHandlers } from "../testing/stores";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
@@ -331,4 +331,59 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Rename from 
   expect(daemon.calls.filter(call => call.method === "pad.rename" || call.method === "pad.write")).toEqual([]);
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement?.closest("[data-pad]")?.getAttribute("data-pad")).toBe("Focused"));
+});
+
+
+const creationScope = async () => {
+  const fixture = await mountNavigation(true, 0);
+  fixture.nodes.push(workstream("home"), agent("a1", "idle", "ready", { parent: "home" }), agent("a2", "idle", "ready", { parent: "home" }));
+  fixture.daemon.emit({ actor: USER, name: "rail.changed" });
+  await waitFor(() => expect(fixture.connected().rail.nodes).toHaveLength(3));
+
+  return fixture;
+};
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s retains its scope", async source => {
+  const { connected, daemon } = await creationScope();
+  await showEverythingInApp();
+  connected().rail.select("a1");
+  const list = document.querySelector<HTMLElement>(".todos-tab")!;
+  list.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:N")?.shortcut).toBe("N"));
+  const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
+  expect(document.activeElement).toBe(list);
+
+  if (source === "key") fireEvent.keyDown(list, { key: "n", code: "KeyN" });
+  else openProjectPage("action:chord:N");
+
+  const field = await screen.findByRole("textbox", { name: "New Todo title" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  expect(projectMenu.items.some(item => item.id === "action:chord:N")).toBe(false);
+  expect(fireEvent.keyDown(field, { key: "n", code: "KeyN" })).toBe(true);
+  captured.run();
+  openProjectPage("action:chord:N");
+  fireEvent.input(field, { target: { value: "Captured work" } });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.create").map(call => call.params)).toEqual([
+    { title: "Captured work", body: null, blockers: null, owner: { kind: "agent", id: "a1", parent: null } },
+  ]));
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.move").map(call => call.params)).toEqual([{ id: 2, home: "home" }]));
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+});
+
+
+it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed scope", async () => {
+  const { connected, daemon } = await creationScope();
+  await showEverythingInApp();
+  const list = document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
+  list.focus();
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:N")).toBe(true));
+  const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
+  connected().rail.select("a2");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
+  captured.run();
+  openProjectPage("action:chord:N");
+  expect(captured.available()).toBe(false);
+  expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2");
+  expect(daemon.calls.filter(call => call.method === "todo.create" || call.method === "terminal.write")).toEqual([]);
 });

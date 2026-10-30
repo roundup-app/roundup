@@ -39,6 +39,7 @@ export const CHORDS: readonly Chord[] = [
   { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true, hint: { label: copy.assign, at: { shelf: 2 } } },
   { keys: "⏎", what: copy.openDraft, presses: ["Enter"], inShelf: true },
 
+  { keys: "N", what: copy.addTodo, presses: ["KeyN"], inShelf: true },
   { keys: "O", what: copy.assignTodo, presses: ["KeyO"], inShelf: true, hint: { label: copy.assign, at: { shelf: 1 } } },
   { keys: "M", what: copy.maximise, presses: ["KeyM"], inShelf: true, hint: { label: copy.maximise, at: { shelf: 0 } } },
   { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 3 } } },
