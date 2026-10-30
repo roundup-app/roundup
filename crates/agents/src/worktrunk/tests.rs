@@ -807,7 +807,7 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
             .clone()
     };
     let pass = r#"[{"name":"check","bucket":"pass"}]"#;
-    let head = "1".repeat(40);
+    let head = git(repo.path(), &["rev-parse", "HEAD"]);
 
     let (_a, a) = gh("https://github.com/acme/one/pull/23", &head, pass, 0);
     publish_read(&a);
@@ -843,6 +843,29 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
     assert_eq!(waiting["head"], head);
     assert!(waiting["read_at"].as_u64().unwrap() > 0);
     assert!(waiting["revision"].is_null());
+    // A fix is committed and pushed while the full collector is still cooling down.
+    let remote = tempfile::tempdir().unwrap();
+    git(remote.path(), &["init", "--bare"]);
+    git(repo.path(), &["remote", "add", "origin", remote.path().to_str().unwrap()]);
+    git(repo.path(), &["push", "origin", "main"]);
+    git(repo.path(), &["commit", "--allow-empty", "-m", "fix"]);
+    git(repo.path(), &["push", "origin", "main"]);
+    let pushed = git(repo.path(), &["rev-parse", "HEAD"]);
+    let after_push = evidence().await;
+    assert!(
+        after_push["stale"] == true || after_push["head"] != head,
+        "the cached pre-fix head still authorizes activation: {after_push}"
+    );
+    // Even a normally answering forge can lag the push; it cannot restore old authority.
+    publish_read(&d);
+    assert_eq!(evidence().await["stale"], true);
+    let (_fresh, fresh) = gh("https://github.com/acme/two/pull/23", &pushed, pending, 8);
+    publish_read(&fresh);
+    let current = evidence().await;
+    assert_eq!(current["head"], pushed);
+    assert_eq!(current["stale"], false);
+    assert_eq!(current["state"], "incomplete");
+    assert_eq!(current["checks"], json!([]));
     // Worktrunk and gh must name the same PR before any head can be attributed to it.
     for rows in [pass, pending] {
         let (_other, other) = gh("https://github.com/acme/two/pull/24", &head, rows, 0);
