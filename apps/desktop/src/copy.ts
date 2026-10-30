@@ -148,6 +148,13 @@ export const clockTime = new Intl.DateTimeFormat("en-GB", {
 const removalPlurals = new Intl.PluralRules("en");
 
 export const copy = {
+  age: {
+    now: "now",
+    minutes: (value: number) => `${value}m`,
+    hours: (value: number) => `${value}h`,
+    days: (value: number) => `${value}d`,
+    weeks: (value: number) => `${value}w`,
+  },
   find: "Find…",
   terminalDestinationUnavailable: "Terminal could not open: its font or layout was not ready. Retry.",
   terminalPreparationUnavailable: "Terminal could not open: its renderer was not available. Retry.",
