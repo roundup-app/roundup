@@ -14,6 +14,9 @@ const title = "UnbrokenTitle".repeat(16).slice(0, 200);
 const openDocument = async (width: number, height: number, recording = false) => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
 
+  // Screenshots during recording restore its starting viewport. Size that context first.
+  await browser("set", "viewport", String(width), String(height));
+
   if (output && recording) {
     mkdirSync(output, { recursive: true });
     await browser("record", "start", join(output, `todo-${width}.webm`));
