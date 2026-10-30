@@ -31,7 +31,7 @@ it("u2773c_todos_external_change_keeps_original_blocker_base", async () => {
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
   await screen.findByRole("region", { name: "Todo history" });
-  fireEvent.click(screen.getByText("Blocker"));
+  fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32003, "conflict"));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
   await screen.findByText("conflict");
@@ -44,8 +44,9 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
   await screen.findByRole("region", { name: "Todo history" });
-  fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("base"));
-  const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  fireEvent.dblClick(await within(screen.getByRole("complementary", { name: "Drawer" })).findByText("base"));
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
   const text = "  e\u0301 🧪\nnext line  ";
   fireEvent.input(field, { target: { value: text } });
   field.setSelectionRange(2, 5, "backward");
@@ -53,8 +54,8 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   connected.drawer.close("key");
   { const row = screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("base"));
-  const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  fireEvent.dblClick(await within(screen.getByRole("complementary", { name: "Drawer" })).findByText("base"));
+  const restored = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(restored.selectionStart).toBe(2));
   expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([text, 2, 5, "backward"]);
   fireEvent.blur(restored);
@@ -94,11 +95,14 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   await screen.findByRole("region", { name: "Todo history" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
-  fireEvent.dblClick(within(drawer).getByText("base"));
-  fireEvent.input(screen.getByRole("textbox", { name: "Body" }), { target: { value: "  A\n🧪  " } });
+  fireEvent.dblClick(await within(drawer).findByText("base"));
+  const first = await screen.findByRole("textbox", { name: "Body" });
+  await waitFor(() => expect(document.activeElement).toBe(first));
+  fireEvent.input(first, { target: { value: "  A\n🧪  " } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  fireEvent.dblClick(within(drawer).getByText("base"));
-  const newer = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  fireEvent.dblClick(await within(drawer).findByText("base"));
+  const newer = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  await waitFor(() => expect(document.activeElement).toBe(newer));
 
   fireEvent.input(newer, { target: { value: "  B\nnewer  " } });
 
@@ -168,14 +172,14 @@ it("u2773a_todos_title_survives_escape_without_submission", async () => {
   await screen.findByRole("region", { name: "Todo history" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
-  fireEvent.dblClick(within(drawer).getByText("original"));
+  fireEvent.dblClick(within(drawer).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
 
   fireEvent.input(field, { target: { value: "  title e\u0301 🧪  " } });
   field.setSelectionRange(1, 5, "backward");
   fireEvent.select(field);
   fireEvent.keyDown(field, { key: "Escape" });
-  fireEvent.dblClick(within(drawer).getByText("original"));
+  fireEvent.dblClick(within(drawer).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   const recovered = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
 
   await waitFor(() => expect(recovered.selectionStart).toBe(1));
@@ -231,7 +235,7 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
   await screen.findByRole("region", { name: "Todo history" });
-  fireEvent.click(screen.getByText("Blocker"));
+  fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
   await screen.findByText("conflict");
   fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
@@ -248,7 +252,7 @@ it("u2773a_todos_blocker_choice_survives_a_failed_incoming_history_read", async 
   const rejections: ((error: Error) => void)[] = [];
 
   app.handlers["todo.getHistory"] = () => new Promise((_resolve, fail) => { rejections.push(fail); });
-  fireEvent.click(screen.getByText("Blocker"));
+  fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
   await waitFor(() => expect(connected.drafts.list().map(draft => draft.value.blockers)).toEqual([["2"]]));
   await waitFor(() => expect(rejections).toHaveLength(1));
@@ -331,7 +335,7 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
   await screen.findByRole("region", { name: "Todo history" });
-  fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original"));
+  fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
   app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32003, "refused"));
   document.activeElement instanceof HTMLElement && document.activeElement.blur();
@@ -469,9 +473,11 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const calls = [...app.calls];
   connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: a.revision }} />, "key");
   const drawer = within(await screen.findByRole("complementary", { name: "Drawer" }));
-  expect((await drawer.findByText(form.title.trim())).textContent).toBe(form.title);
+  expect((await drawer.findByText(form.title.trim(), { selector: "p" })).textContent).toBe(form.title);
   expect(drawer.getByText(form.body.replaceAll("\n", " ").trim()).textContent).toBe(form.body);
-  expect(drawer.getByRole<HTMLButtonElement>("button", { name: "Remove blocker #2" }).disabled).toBe(false);
+  fireEvent.click(drawer.getByRole("button", { name: /^Blocked by/ }));
+  expect(await screen.findByRole("option", { name: /#2/ })).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
   expect(connected.drafts.list()).toEqual(before);
   expect(app.calls).toEqual(calls);
   fireEvent.click(drawer.getByRole("button", { name: "Save" }));

@@ -362,12 +362,12 @@ it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal"
   await read(`document.querySelector('.shelf [data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click()`);
   await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
   await openRow(`[data-todo="${await read<number>('window.newTodo')}"] .todo-row-button`);
-  await wait(`!!document.querySelector('.drawer .todo-add-notes')`);
+  await wait(`!!document.querySelector('.drawer .todo-detail-title p[tabindex]')`);
   await read(`(() => {
     const queue = window.queueMicrotask, queued = [];
     window.queueMicrotask = task => queued.push(task);
-    document.querySelector('.drawer .todo-add-notes').focus();
-    document.querySelector('.drawer .todo-add-notes').click();
+    document.querySelector('.drawer .todo-detail-title p[tabindex]').focus();
+    document.querySelector('.drawer .todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}));
     window.queueMicrotask = queue;
     window.editorMounted = document.querySelector('.drawer textarea');
     window.restoreEditor = () => queued.forEach(task => queue(task));

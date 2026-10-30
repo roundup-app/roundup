@@ -1,7 +1,7 @@
 // T4902 retires T29 duration setup; existing non-duration proofs below remain.
 import { createNow, DisplayClockContext } from "../state/clock";
-import { createSignal } from "solid-js";
-import { expect } from "vitest";
+import { createSignal, onMount, Show } from "solid-js";
+import { expect, vi } from "vitest";
 import { within, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -16,8 +16,41 @@ import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { Todos } from "./Todos";
 import { useTodoList } from "./todoList";
+// Resolve the lazy editor fixture before the first Drawer opens, as padsFixture does.
+import "../pads/PadRichEditor";
 import type { TodosState } from "./state";
 import { Rail } from "../rail/Rail";
+
+// U4698d's browser observer exercises Milkdown itself; these fixtures keep real draft/RPC settlement
+// and substitute only the shared editor handle, as the Pad failure-lifetime fixtures do.
+// eslint-disable-next-line anti-slop/no-module-mocking
+vi.mock("../pads/PadRichEditor", async (original) => {
+  const actual = await original<typeof import("../pads/PadRichEditor")>();
+
+  return { default: (props: import("solid-js").ComponentProps<typeof import("../pads/PadRichEditor").default>) => {
+  if (props.label === undefined) return <actual.default {...props} />;
+  let field: HTMLTextAreaElement | undefined;
+  const [text, setText] = createSignal(props.text);
+  let base = props.text;
+  onMount(() => {
+    if (!props.initialFocus) return;
+    props.onReady({
+      getText: () => field!.value,
+      setText: value => { base = value; setText(value); },
+      focus: () => field!.focus(),
+      unchanged: () => field!.value === base,
+      snapshot: () => ({ source: base, text: field!.value, document: "{}", trailingCaret: false }),
+      restoreDocument: () => true,
+      selection: () => ({ start: field!.selectionStart, end: field!.selectionEnd, direction: field!.selectionDirection }),
+      restoreSelection: selection => field!.setSelectionRange(selection.start, selection.end, selection.direction),
+      scrollToHeading: () => {},
+    });
+  });
+
+  return <Show when={!!props.initialFocus} fallback={<p tabIndex={0}>{props.text}</p>}><textarea ref={field} aria-label={props.label} spellcheck={false} autocorrect="off" autocapitalize="off" value={text()}
+    onInput={event => { setText(event.currentTarget.value); props.onChange(); props.onText(text()); }}
+    onSelect={() => props.onSelection?.()} onBlur={event => props.onBlur(event.relatedTarget)} /></Show>;
+} }; });
 
 export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   id,
