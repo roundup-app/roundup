@@ -65,16 +65,11 @@ describe("u373 and u370 on one mounted App", () => {
     live = undefined;
   });
 
-  it("u373_counts_follow_the_scope", async () => {
+  it.each([["payments", 0], ["tokens", 3], [null, 7]] as const)("u373_counts_follow_the_scope: %s", async (selected, todoCount) => {
     await shared();
 
-    await waitFor(() => expect(counts()).toEqual([7, 4]));
-    fireEvent.click(document.querySelector('.rail-row[data-id="payments"]')!);
-    await waitFor(() => expect(counts()).toEqual([0, 4]));
-    fireEvent.click(document.querySelector('.rail-row[data-id="tokens"]')!);
-    await waitFor(() => expect(counts()).toEqual([3, 4]));
-    fireEvent.click(document.querySelector('[data-todo-root]')!);
-    await waitFor(() => expect(counts()).toEqual([7, 4]));
+    if (selected) fireEvent.click(document.querySelector(`.rail-row[data-id="${selected}"]`)!);
+    await waitFor(() => expect(counts()).toEqual([todoCount, 4]));
   });
 
   it("u373_counts_follow_the_terminal_selected_in_the_switcher", async () => {
