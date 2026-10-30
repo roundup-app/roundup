@@ -129,6 +129,7 @@ it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening",
     await waitFor(() => expect(heading.hasAttribute("data-focus")).toBe(true));
     fireEvent.click(heading);
   }
+
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
   expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)]).map(row => row.textContent)).toEqual([rows[1]!.textContent]);
   expect(app.openedTargets).toEqual([]);

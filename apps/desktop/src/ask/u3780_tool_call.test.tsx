@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { copy } from "../copy";
 import type { ToolCall } from "@contracts/agent/ToolCall";
 import { agent, door, event } from "../testing/nodes";
 import { mountAskBar as mountQuietAskBar } from "./askFixture";
@@ -187,7 +188,8 @@ const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
   const mounted = await mountQuietAskBar(...args);
   mounted.connected.showView(null);
   mounted.connected.showView("workstreams");
-  if (args[1] == null) await vi.waitFor(() => expect(screen.getByRole("region", { name: "Project overview" })).toBeTruthy(), { interval: 0 });
+
+  if (args[1] == null) await vi.waitFor(() => expect(screen.getByRole("region", { name: copy.projectOverview })).toBeTruthy(), { interval: 0 });
 
   return mounted;
 };

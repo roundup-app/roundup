@@ -46,6 +46,7 @@ const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
   const mounted = await mountQuietAskBar(...args);
   mounted.connected.showView(null);
   mounted.connected.showView("workstreams");
+
   if (args[1] == null) await screen.findByRole("region", { name: "Project overview" });
 
   return mounted;
