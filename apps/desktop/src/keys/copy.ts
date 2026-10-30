@@ -3,6 +3,9 @@ import { copy as sharedCopy } from "../sharedCopy";
 const assignOrAsk = "Assign / Ask";
 
 export const copy = {
+  bold: sharedCopy.bold,
+  italic: sharedCopy.italic,
+  inlineCode: sharedCopy.inlineCodeAction,
   find: "Find…",
   addTodo: sharedCopy.addTodo,
   switchProject: sharedCopy.switchProject,
@@ -20,7 +23,7 @@ export const copy = {
   rename: sharedCopy.rename,
   projects: sharedCopy.projects,
   help: "Help",
-  helpScope: { app: "App", leader: "Leader", terminals: "Terminals and Bubbles", rail: "Rail row", shelf: sharedCopy.shelfLabel, todos: "Todos view", triage: "Triage" },
+  helpScope: { app: "App", leader: "Leader", terminals: "Terminals and Bubbles", rail: "Rail row", shelf: sharedCopy.shelfLabel, todos: "Todos view", triage: "Triage", editor: "Pad editor focus" },
   helpBubbleScope: { M: "Toggle focused Bubble", W: "Close focused Bubble" },
   helpRowScope: { O: sharedCopy.assign, D: "Delete focused item", E: "Export focused Pad" },
   closeShelf: sharedCopy.closeShelf,
