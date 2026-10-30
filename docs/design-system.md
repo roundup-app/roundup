@@ -202,8 +202,7 @@ This inventory records the U4898 implementation checkout, audited across all `Ic
 | `messages` | Workstream — section/create identity | `rail/Rail.tsx`, WORKSTREAMS and New Workstream |
 | `circle` | Agent — create action identity | `rail/Rail.tsx`, New Agent |
 | `layout-dashboard` | Project — overview navigation | `rail/Rail.tsx`, overview tile |
-| `diamond` | Pad / Todo — open owned content, not Mode | `rail/pads/AgentPads.tsx`, `PadsControl` |
-| `diamond` / `owned` (`diamond-plus`) | Owner — user / Agent or extension | `ink/OwnerMark.tsx`, `OwnerMark` |
+| `diamond` | Todo — open created content, not Mode | `rail/pads/AgentPads.tsx`, `PadsControl` |
 | `circle`; `check`; `diamond`; `x` | Progress / Result check / Result report — older or pending; accepted, checked or completed; unknown effect; not performed or unavailable | `orders/WorkProgress.tsx`, result state branches (existing cross-term overlaps) |
 | `check` / `order` (`file-text`) | Todo / Pad — Shelf identity; Pad row identity | `shelf/Shelf.tsx`, `ShelfTabs` through `ink/SectionHead.tsx`; `shelf/frame.ts`, `SHELF_TABS` / `PAD_ICON`; `pads/Pads.tsx` |
 | `right` / `down` | Rail / Shelf / Todo / Draft / Deliverable — disclose content | `rail/RailRow.tsx`; `rail/Rail.tsx`, both recovery summaries; `ink/SectionHead.tsx`, branch indicator; `shelf/OwnerGroups.tsx`; `todos/Todos.tsx`, dependency trigger; `todos/TodoHistory.tsx`; `ui/Disclosure.tsx`; `ask/AskBar.tsx`, Made trigger and target summary; `todos/NewWorkstream.tsx`, picker trigger |
