@@ -9,7 +9,7 @@ Module: `apps/desktop` (webview). Acceptance for Issue #4708, Decisions 2 and 3 
 - **Shared x.** At every depth, in both lists, glyphs (Todo state glyphs and Pad icons) and group chevrons share one x, and titles and group names share one x, each within 1 CSS px. Pad and Todo titles at the same depth share one x. Hover, focus and selection move none of them.
 - **Tokens.** Colours, sizes and spacing read existing Tokens; add no literal. The Pad rows' `glyph={null}` is replaced, not worked around with padding.
 
-Policy: this amends U4707's clause "Pad rows pass `glyph={null}` and leave no empty column before the name"; the depth-0 title still starts 48 CSS px from the panel edge. No contract, App command or Daemon change; the Todo tick, grip, open arrow, dependency elbows, live updates and 32px rows are unchanged.
+Policy: this amends U4707's clause "Pad rows pass `glyph={null}` and leave no empty column before the name"; the depth-0 title starts where U5147d (`ui-row-inset.md`) puts it, 44 CSS px from the panel edge. No contract, App command or Daemon change; the Todo tick, grip, open arrow, dependency elbows, live updates and 32px rows are unchanged.
 
 Observer (policy): U26's harness in an isolated headless `agent-browser` session with a fresh profile, dark, at both viewports above. Run `just capture U4708` and leave the Todos and Pads lists with their group heads, at depths 0–3, under `artifacts/ux/U4708/`, following `.agents/data/harness.md`, **Captures**; commit no image or video. Read `window.__checks()` on the densest seed. The Linux/Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
 
