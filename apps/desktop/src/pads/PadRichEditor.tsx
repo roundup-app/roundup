@@ -99,7 +99,7 @@ export default function PadRichEditor(props: {
   let restoreAgain = () => {};
 
   let ready = false;
-  let topBarItems: { label: string; keys?: string }[] = [];
+  let topBarItems: { label: string; keys: string | undefined }[] = [];
   const [commandState, setCommandState] = createSignal(0);
   const [failure, setFailure] = createSignal<string | null>(null);
 
