@@ -43,10 +43,10 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         .into_iter()
         .enumerate()
         .find_map(|(index, item)| {
-            if let MenuItemKind::Submenu(edit) = item {
-                if edit.text().ok().as_deref() == Some("Edit") {
-                    return Some((index, edit));
-                }
+            if let MenuItemKind::Submenu(edit) = item
+                && edit.text().ok().as_deref() == Some("Edit")
+            {
+                return Some((index, edit));
             }
             None
         });
