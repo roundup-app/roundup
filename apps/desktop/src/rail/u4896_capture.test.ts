@@ -81,7 +81,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
           if (id === "U4898") {
             for (const seed of ["agents-10", "tree-40"]) {
               const prefix = `${theme}-${width}-${seed}`;
-              await browser("set", "media", "color-scheme", theme);
+              await browser("set", "media", theme);
               await browser("open", new URL(`/harness.html?seed=${seed}&view=workstreams`, origin).href);
               await wait("!!window.__fake && !!document.querySelector('.rail-row')");
               await read(`document.querySelector('.window').style.setProperty('--rail-width','${width}px')`);
