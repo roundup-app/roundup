@@ -38,6 +38,96 @@ async fn a4452b_first_user_message_is_the_users_words() {
     assert_eq!(f.changed(), 1);
 }
 
+#[tokio::test]
+async fn a9_later_prompts_never_rename_the_agent() {
+    let mut f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    f.submit(&node.id, "fix the build").await;
+    f.changed();
+
+    f.submit(&node.id, "now write the docs").await;
+
+    assert_eq!(f.name_of(&node.id).await, "fix-build");
+    assert_eq!(f.changed(), 0);
+}
+
+#[tokio::test]
+async fn a9_a_prompt_with_no_words_left_keeps_the_name_and_still_counts_as_the_first() {
+    let mut f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    f.changed();
+
+    f.submit(&node.id, "please, the...").await;
+    f.submit(&node.id, "fix the build").await;
+
+    assert_eq!(f.name_of(&node.id).await, "new-agent");
+    assert_eq!(f.changed(), 0);
+}
+
+#[tokio::test]
+async fn a9_a_rename_before_the_first_prompt_wins() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    f.call("rail.rename", json!({"id": node.id, "name": "mine"}))
+        .await
+        .unwrap();
+
+    f.submit(&node.id, "fix the build").await;
+
+    assert_eq!(f.name_of(&node.id).await, "mine");
+}
+
+#[tokio::test]
+async fn a9_a_door_keeps_its_workstreams_name() {
+    let f = Fixture::running("sleep 30");
+    let team = f.workstream("team", None).await;
+    f.call("rail.startDoor", json!({"id": team})).await.unwrap();
+
+    f.submit(&team, "fix the build").await;
+
+    assert_eq!(f.name_of(&team).await, "team");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a9_a_rename_while_the_agent_is_still_starting_wins_over_the_first_prompt() {
+    let f = std::sync::Arc::new(Fixture::running("sleep 30"));
+    let config = hold_starts(&f);
+    let spawning = {
+        let f = std::sync::Arc::clone(&f);
+        tokio::spawn(async move { f.spawn(None, None).await })
+    };
+    let tree = f.until(|t| !t.is_empty()).await;
+    let id = tree[0].id.clone();
+    f.call("rail.rename", json!({"id": id, "name": "mine"}))
+        .await
+        .unwrap();
+    release(config).await;
+    spawning.await.unwrap().unwrap();
+
+    f.submit(&id, "fix the build").await;
+
+    assert_eq!(f.name_of(&id).await, "mine");
+}
+
+#[tokio::test]
+async fn u176_agents_with_one_prompt_are_numbered_among_their_siblings() {
+    let f = Fixture::running("sleep 30");
+    let mut names = Vec::new();
+    for _ in 0..3 {
+        let node = f.spawn(None, None).await.unwrap();
+        f.submit(&node.id, "what should this do").await;
+        names.push(f.name_of(&node.id).await);
+    }
+    assert_eq!(
+        names,
+        [
+            "what-should-this",
+            "what-should-this-2",
+            "what-should-this-3"
+        ]
+    );
+}
+
 impl Fixture {
     async fn spawn_named(
         &self,
@@ -52,6 +142,26 @@ impl Fixture {
 }
 
 #[tokio::test]
+async fn a27_three_same_tag_siblings_are_named_by_their_text() {
+    let f = Fixture::running("sleep 30");
+    let mut ids = Vec::new();
+    for text in ["Fix the login bug", "Write the docs", "Tune the cache"] {
+        let node = f.spawn(None, None).await.unwrap();
+        f.submit(
+            &node.id,
+            &format!(r#"<pasted_content id="x">{text}</pasted_content>"#),
+        )
+        .await;
+        ids.push(node.id);
+    }
+    let mut names = Vec::new();
+    for id in &ids {
+        names.push(f.name_of(id).await);
+    }
+    assert_eq!(names, ["fix-login-bug", "write-docs", "tune-cache"]);
+}
+
+#[tokio::test]
 async fn a28_a_given_name_is_the_rail_name() {
     let f = Fixture::running("sleep 30");
     let node = f
@@ -60,6 +170,17 @@ async fn a28_a_given_name_is_the_rail_name() {
         .unwrap();
     assert_eq!(node.name, "fix refresh race");
     assert_eq!(f.name_of(&node.id).await, "fix refresh race");
+}
+
+#[tokio::test]
+async fn a28_a_given_name_survives_the_first_prompt() {
+    let f = Fixture::running("sleep 30");
+    let node = f
+        .spawn_named(Some("mine"), Some("fix the build"))
+        .await
+        .unwrap();
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "mine");
 }
 
 #[tokio::test]
@@ -88,6 +209,23 @@ async fn a28_a_spawn_without_a_name_is_named_by_a9() {
     let f = Fixture::running("sleep 30");
     let node = f.spawn_named(None, None).await.unwrap();
     assert_eq!(node.name, "new-agent");
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "fix-build");
+}
+
+#[tokio::test]
+async fn a44_a_clarification_steer_names_no_agent() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+
+    f.submit(
+        &node.id,
+        "What should this Agent do?\n\nFind the intent and elicit what is missing, asking whom \
+         `agent_context` names under `ask`. Then record a Work order with `agent_set_order`.",
+    )
+    .await;
+    assert_eq!(f.name_of(&node.id).await, "new-agent");
+
     f.submit(&node.id, "fix the build").await;
     assert_eq!(f.name_of(&node.id).await, "fix-build");
 }
@@ -126,12 +264,7 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
         let f = std::sync::Arc::new(Fixture::running("exec sleep 30"));
         let barrier = f.workstream("barrier", None).await;
         let id = match case {
-            "explicit spawn" => {
-                f.spawn_named(Some("mine"), Some("fix the build"))
-                    .await
-                    .unwrap()
-                    .id
-            }
+            "explicit spawn" => f.spawn_named(Some("mine"), None).await.unwrap().id,
             "starting rename" => {
                 let config = hold_starts(&f);
                 let spawning = {
@@ -174,16 +307,8 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
             }
             _ => {}
         }
-        let name_before = match case {
-            "later prompt" => "first-name",
-            "explicit spawn" | "explicit rename" | "starting rename" => "mine",
-            "Door" => "barrier",
-            _ => "new-agent",
-        };
-        assert_eq!(f.name_of(&id).await, name_before, "{case}: setup");
         // Attach after setup naming; only the guarded prompt belongs to this window.
         let mut events = f.bus.subscribe();
-        let mut rail_events = f.bus.subscribe();
         let prompt = match case {
             "no words" => "please, the...",
             "same name" => "new agent",
@@ -193,27 +318,12 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
             _ => "fix the build",
         };
         f.submit(&id, prompt).await;
-        assert_eq!(f.name_of(&id).await, name_before, "{case}");
         assert!(crate::common::renames(&mut events).is_empty(), "{case}");
-        let changed = std::iter::from_fn(|| rail_events.try_recv().ok())
-            .filter(|event| matches!(event.data, contracts::EventData::RailChanged))
-            .count();
-        // A same-name first prompt retains its existing Rail notification.
-        assert_eq!(changed, usize::from(case == "same name"), "{case}");
         let mut expected = Vec::new();
         if matches!(case, "no words" | "Clarification") {
             f.submit(&id, "fix the build").await;
-            let name_after = if case == "Clarification" {
+            if case == "Clarification" {
                 expected.push((id.clone(), "fix-build".into()));
-                "fix-build"
-            } else {
-                name_before
-            };
-            assert_eq!(f.name_of(&id).await, name_after, "{case}");
-            if case == "no words" {
-                while let Ok(event) = rail_events.try_recv() {
-                    assert!(!matches!(event.data, contracts::EventData::RailChanged));
-                }
             }
         }
         f.call(

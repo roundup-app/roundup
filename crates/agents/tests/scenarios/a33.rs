@@ -93,3 +93,11 @@ async fn a33_completing_the_blocker_reads_idle_with_a_new_revision() {
     assert!(revision(&idle[0]) > revision(&blocked[0]));
     assert_eq!(f.reading(&id).await.0, Kind::Idle);
 }
+
+#[tokio::test]
+async fn a33_deleting_the_todo_reads_idle() {
+    let (f, id) = idle_agent().await;
+    f.waits(&[(&id, 4)]);
+    f.waits(&[]);
+    assert_eq!(f.reading(&id).await.0, Kind::Idle);
+}
