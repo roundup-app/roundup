@@ -65,3 +65,34 @@ it("u3787a_app_and_fake_carry_the_original_operation_through_the_real_daemon", a
   expect(await app.rpc("rail.tree", null)).toEqual(before);
   expect(await fake.rpc("rail.remove", { id: node.id, operation: "app-captured" })).toEqual(restored);
 });
+
+// U3787a names real identity/authority and receipt readback; helper-only mocks cannot prove redo.
+it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_restored_operation_%s", async kind => {
+  const app = createServedApp(real.base);
+  const connected = await connectProject(app, { name: "redo", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+
+  try {
+    const chosen = await app.rpc("todo.create", { title: `chosen ${kind}`, body: null, blockers: null });
+    const arrival = await app.rpc("todo.create", { title: `arrival ${kind}`, body: null, blockers: null });
+    const pad = await app.rpc("pad.create", { name: `redo-${kind}`, text: "original é 🧭" });
+    const node = await app.rpc("rail.createWorkstream", { name: `redo-${kind}`, parent: null });
+
+    if (kind === "todos") await undo.remove([chosen.id]);
+    else if (kind === "pads") await undo.removePads([pad]);
+    else await undo.removeRail(node.id, node.name);
+
+    await undo.undo();
+    // Redo consumes an acknowledged restoration, and another Undo consumes the new receipt.
+    await undo.redo();
+    expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(kind !== "todos");
+    expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(kind !== "pads");
+    expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(kind !== "rail");
+    expect((await app.rpc("todo.list", null)).some(row => row.id === arrival.id)).toBe(true);
+    await undo.undo();
+    expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(true);
+    expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
+    expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(true);
+    expect(undo.failure()).toBe(null);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
