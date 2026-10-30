@@ -119,6 +119,7 @@ it.each(["rail", "centre", "shelf", "triage", "ask", "pad", "drawer", "watch", "
  return row!; });
 
       if (place === "drawer") {
+        target.focus();
         fireEvent.keyDown(target, { key: "Enter", code: "Enter" });
         target = await waitFor(() => { const input = document.querySelector<HTMLElement>(".drawer[data-open=true] textarea, .drawer[data-open=true] input"); expect(input).not.toBeNull();
 

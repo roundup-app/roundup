@@ -8,7 +8,8 @@ const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async () => {
   await mountTodos([todo(5, { title: "t".repeat(300), body: "one\ntwo" })], true);
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5/ }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   await within(drawer()).findByText("one two", { exact: false }).catch(() => undefined);
 };
 

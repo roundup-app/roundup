@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
@@ -17,10 +17,12 @@ interface Rig {
  * The real App on a Vite server and one agent-browser session, for the U369/U371 browser tests. Each test file calls it
  * once at its top level (it registers the file's hooks), so the sequencer can give each file to its own shard slot.
  */
-export function shelfBrowser() {
+export function shelfBrowser(initScript?: string) {
   const profile = mkdtempSync(join(tmpdir(), "u371-browser-"));
   const session = `u371-${basename(profile)}`;
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
+
+  if (initScript) writeFileSync(join(profile, "init.js"), initScript);
+  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...(initScript ? ["--init-script", join(profile, "init.js")] : []), ...args], { timeout: 60_000 })).stdout;
   const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script));
   const rig: Rig = { server: undefined! };
 
