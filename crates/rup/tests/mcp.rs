@@ -1222,3 +1222,31 @@ async fn t29_mcp_todo_update_sets_the_estimate() {
             .any(|t| t["verb"] == "wrote" && t["actor"] == json!(agent("a1")))
     );
 }
+
+#[tokio::test]
+async fn t4902_public_todo_contract_has_no_duration() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    for tool in tools.iter().filter(|tool| tool.name.starts_with("todo_")) {
+        let wire = serde_json::to_value(tool).unwrap();
+        assert!(!wire.to_string().contains("estimate_minutes"), "{wire}");
+    }
+    let created = shim
+        .call("todo_create", json!({"title":"ship", "body":"keep"}))
+        .await;
+    assert_ne!(created.is_error, Some(true));
+    let made = text(&created);
+    assert!(made.get("estimate_minutes").is_none());
+    let updated = shim
+        .call("todo_update", json!({"id":made["id"], "title":"saved"}))
+        .await;
+    assert_ne!(updated.is_error, Some(true));
+    let got = shim.call("todo_get", json!({"id":made["id"]})).await;
+    assert_ne!(got.is_error, Some(true));
+    let got = text(&got);
+    assert!(got.get("estimate_minutes").is_none());
+    assert_eq!(got["title"], "saved");
+    assert_eq!(got["body"], "keep");
+    assert_eq!(got["creator"], json!(agent("a1")));
+}

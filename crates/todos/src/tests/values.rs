@@ -420,3 +420,52 @@ async fn t31_the_user_updates_an_agent_owned_todo() {
     assert_eq!(h.events(), ["todo.updated 1", "todo.updated 1"]);
     assert!(h.touches(1).contains(&(Verb::Wrote, "you".to_owned())));
 }
+
+#[tokio::test]
+async fn t4902_todo_values_and_history_have_no_duration() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = Harness::new(dir.path());
+    let created = made(&h, json!({"title":"ship", "body":"keep"})).await;
+    assert!(created.get("estimate_minutes").is_none());
+    assert!(h.event_data().get("estimate_minutes").is_none());
+    for (method, params) in [
+        ("todo.update", json!({"id":1,"title":"saved"})),
+        ("todo.assign", json!({"id":1,"owner":agent("a")})),
+        ("todo.complete", json!({"id":1})),
+        ("todo.reopen", json!({"id":1})),
+        ("todo.move", json!({"id":1,"home":"w1"})),
+        ("todo.reorder", json!({"id":1,"before":null})),
+    ] {
+        let reply = h.call(method, params).await.unwrap();
+        assert!(reply.get("estimate_minutes").is_none(), "{method}: {reply}");
+        while let Ok(event) = h.events.try_recv() {
+            let wire = serde_json::to_value(event).unwrap();
+            assert!(!wire.to_string().contains("estimate_minutes"), "{wire}");
+        }
+    }
+    h.call("todo.delete", json!({"operation":"remove", "ids":[1]}))
+        .await
+        .unwrap();
+    h.call("todo.restore", json!({"operation":"remove"}))
+        .await
+        .unwrap();
+    let got = h.call("todo.get", json!({"id":1})).await.unwrap();
+    assert!(got.get("estimate_minutes").is_none());
+    assert_eq!(got["title"], "saved");
+    assert_eq!(got["body"], "keep");
+    assert_eq!(got["home"], "w1");
+    assert_eq!(got["owner"], json!(agent("a")));
+    let listed = h.call("todo.list", json!({})).await.unwrap();
+    assert_eq!(listed, json!([got]));
+    let history = changes(&h, 1).await;
+    assert!(
+        !history.to_string().contains("estimate_minutes"),
+        "{history}"
+    );
+    assert_eq!(history["changes"][1]["before"]["title"], "ship");
+    assert_eq!(history["changes"][1]["after"]["title"], "saved");
+    while let Ok(event) = h.events.try_recv() {
+        let wire = serde_json::to_value(event).unwrap();
+        assert!(!wire.to_string().contains("estimate_minutes"), "{wire}");
+    }
+}
