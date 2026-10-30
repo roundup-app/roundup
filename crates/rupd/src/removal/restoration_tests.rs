@@ -935,17 +935,52 @@ async fn u3787a_workstream_restores_home_pads_and_promoted_agents() {
 async fn u3787a_rail_redo_reuses_restored_identity_and_reconciles_reply() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = crate::test_daemon(dir.path()).unwrap();
-    let home = call(&daemon, "rail.createWorkstream", json!({"name":"chosen"})).await.unwrap();
+    let home = call(&daemon, "rail.createWorkstream", json!({"name":"chosen"}))
+        .await
+        .unwrap();
     let original = call(&daemon, "rail.tree", Value::Null).await.unwrap();
-    let removed = call(&daemon, "rail.remove", json!({"id":home["id"],"operation":"first"})).await.unwrap();
-    let restored = call(&daemon, "rail.restore", removed["deletion"].clone()).await.unwrap();
+    let removed = call(
+        &daemon,
+        "rail.remove",
+        json!({"id":home["id"],"operation":"first"}),
+    )
+    .await
+    .unwrap();
+    let restored = call(&daemon, "rail.restore", removed["deletion"].clone())
+        .await
+        .unwrap();
     let request = json!({"project":restored["deletion"]["project"],"source":"first","restoration":restored["deletion"]["restoration"],"operation":"again"});
     let redone = call(&daemon, "rail.redo", request.clone()).await.unwrap();
-    assert_eq!(call(&daemon, "rail.tree", Value::Null).await.unwrap(), json!([]));
+    assert_eq!(
+        call(&daemon, "rail.tree", Value::Null).await.unwrap(),
+        json!([])
+    );
     assert_eq!(call(&daemon, "rail.redo", request).await.unwrap(), redone);
-    assert_eq!(call(&daemon, "rail.deletion", redone["deletion"].clone()).await.unwrap(), redone);
-    assert_eq!(call(&daemon, "rail.remove", json!({"id":home["id"],"operation":"first"})).await.unwrap(), restored);
-    call(&daemon, "rail.restore", redone["deletion"].clone()).await.unwrap();
-    assert_eq!(call(&daemon, "rail.tree", Value::Null).await.unwrap(), original);
-    assert_eq!(call(&daemon, "terminal.list", Value::Null).await.unwrap(), json!([]));
+    assert_eq!(
+        call(&daemon, "rail.deletion", redone["deletion"].clone())
+            .await
+            .unwrap(),
+        redone
+    );
+    assert_eq!(
+        call(
+            &daemon,
+            "rail.remove",
+            json!({"id":home["id"],"operation":"first"})
+        )
+        .await
+        .unwrap(),
+        restored
+    );
+    call(&daemon, "rail.restore", redone["deletion"].clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        call(&daemon, "rail.tree", Value::Null).await.unwrap(),
+        original
+    );
+    assert_eq!(
+        call(&daemon, "terminal.list", Value::Null).await.unwrap(),
+        json!([])
+    );
 }

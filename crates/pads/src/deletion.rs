@@ -444,6 +444,24 @@ impl Pads {
             }
             events.push(EventData::PadChanged(PadName { name }));
         }
+        let mut q=db.prepare("SELECT id,home,incarnation FROM rail_removal_items WHERE operation=? AND kind='pad-home'").map_err(RpcError::internal)?;
+        let kept = q
+            .query_map([operation], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(RpcError::internal)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(RpcError::internal)?;
+        for (name, home, incarnation) in kept {
+            let changed=db.execute("UPDATE pads SET home=?2 WHERE name=?1 AND home IS NULL AND key=(SELECT pad_key FROM pad_sources WHERE CAST(incarnation AS TEXT)=?3)",rusqlite::params![name,home,incarnation]).map_err(RpcError::internal)?;
+            if changed != 0 {
+                events.push(EventData::PadChanged(PadName { name }));
+            }
+        }
         Ok((files, events))
     }
 
@@ -513,5 +531,73 @@ impl Drop for RemovalFiles {
                     .expect("restore staged Pad file after rejected removal");
             }
         }
+    }
+}
+
+impl Pads {
+    /// Stage only the retained Pad incarnations in the coordinator's transaction.
+    pub fn redo_workstream_in(
+        &self,
+        db: &Connection,
+        actor: &Actor,
+        prior: &str,
+        operation: &str,
+    ) -> Result<(RemovalFiles, Vec<EventData>), RpcError> {
+        let mut q=db.prepare("SELECT id,incarnation FROM rail_removal_items WHERE operation=? AND kind='pad' ORDER BY id").map_err(RpcError::internal)?;
+        let rows = q
+            .query_map([prior], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })
+            .map_err(RpcError::internal)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(RpcError::internal)?;
+        let mut files = RemovalFiles::default();
+        let mut events = Vec::new();
+        let store = self.store()?;
+        let enabled = store.files().map_err(RpcError::internal)?;
+        for (name, incarnation) in rows {
+            let pad = source(db, &name)
+                .map_err(RpcError::internal)?
+                .ok_or_else(|| RpcError::conflict("Restored Pad is unavailable"))?
+                .pad;
+            if enabled
+                && super::files::read(&self.files_dir, &name)?.is_some_and(|text| text != pad.text)
+            {
+                return Err(RpcError::conflict(
+                    "Pad mirror has external edits; import them before retrying Redo",
+                ));
+            }
+            let participant = retain(
+                db,
+                actor,
+                &DeleteParams {
+                    name: name.clone(),
+                    operation: None,
+                    expected_incarnation: Some(incarnation.clone()),
+                },
+            )?
+            .operation;
+            db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,incarnation,participant) VALUES(?,'pad',?,?,?,?)",rusqlite::params![operation,name,pad.home,incarnation,participant]).map_err(RpcError::internal)?;
+            if enabled {
+                files.stage(&self.files_dir, &name)?;
+            }
+            db.execute("DELETE FROM pads WHERE name=?", [&name])
+                .map_err(RpcError::internal)?;
+            events.push(EventData::PadDeleted(PadName { name }));
+        }
+        db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,incarnation) SELECT ?2,'pad-home',p.name,p.home,CAST(s.incarnation AS TEXT) FROM pads p JOIN pad_sources s ON s.pad_key=p.key WHERE p.home=(SELECT node FROM rail_deletions WHERE operation=?1)",rusqlite::params![prior,operation]).map_err(RpcError::internal)?;
+        let mut q = db
+            .prepare("SELECT id FROM rail_removal_items WHERE operation=? AND kind='pad-home'")
+            .map_err(RpcError::internal)?;
+        let kept = q
+            .query_map([operation], |r| r.get::<_, String>(0))
+            .map_err(RpcError::internal)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(RpcError::internal)?;
+        for name in kept {
+            events.push(EventData::PadChanged(PadName { name }));
+        }
+        db.execute("UPDATE pads SET home=NULL WHERE name IN (SELECT id FROM rail_removal_items WHERE operation=? AND kind='pad-home')",[operation]).map_err(RpcError::internal)?;
+        Ok((files, events))
     }
 }

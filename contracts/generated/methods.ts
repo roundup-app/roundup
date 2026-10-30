@@ -15,6 +15,7 @@ import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
 import type { NodeId as agent_NodeId } from "./agent/NodeId";
 import type { PromptParams as agent_PromptParams } from "./agent/PromptParams";
 import type { RailNode as agent_RailNode } from "./agent/RailNode";
+import type { RedoParams as agent_RedoParams } from "./agent/RedoParams";
 import type { Removal as agent_Removal } from "./agent/Removal";
 import type { RemoveParams as agent_RemoveParams } from "./agent/RemoveParams";
 import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
@@ -274,6 +275,7 @@ export type RpcMethods = {
   "daemon.getNaming": { params: null; result: project_NamingSettings };
   "daemon.setNaming": { params: project_NamingSettings; result: null };
   "rail.deletion": { params: agent_DeletionParams; result: agent_Removal | null };
+  "rail.redo": { params: agent_RedoParams; result: agent_Removal };
   "rail.restore": { params: agent_DeletionParams; result: agent_Removal };
   "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };
   "deliverable.list": { params: deliverable_ListParams; result: deliverable_Deliverable[] };

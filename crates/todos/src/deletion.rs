@@ -138,6 +138,7 @@ impl Todos {
             &p.operation,
             ctx.touches.sequence().map_err(RpcError::internal)?,
             |_| Ok(()),
+            |_| Ok(()),
         )?;
         publish(ctx, events)?;
         reply(&result)
@@ -153,6 +154,7 @@ impl Todos {
         operation: &str,
         after_touch: i64,
         coordinate: impl FnOnce(&Transaction<'_>) -> Result<(), RpcError>,
+        finish: impl FnOnce(&Transaction<'_>) -> Result<(), RpcError>,
     ) -> Result<(Deletion, Vec<EventData>), RpcError> {
         let store = self.store()?;
         let tx = store
@@ -229,6 +231,7 @@ impl Todos {
             )
             .map_err(RpcError::internal)?;
         }
+        finish(&tx)?;
         tx.commit().map_err(RpcError::internal)?;
         let events = restored
             .into_iter()
@@ -652,5 +655,67 @@ impl Todos {
                     .map(|todo| EventData::TodoUpdated(todo.into()))
             })
             .collect()
+    }
+}
+
+impl Todos {
+    /// Retain and remove the prior successful set and its restored Home/owner edges.
+    /// The coordinator's transaction has already checked the acknowledged boundary.
+    pub fn redo_workstream_in(
+        db: &Connection,
+        actor: &Actor,
+        source: &str,
+        operation: &str,
+    ) -> Result<Vec<EventData>, RpcError> {
+        let prior: String = db
+            .query_row(
+                "SELECT id FROM rail_removal_items WHERE operation=? AND kind='todo-operation'",
+                [source],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        let previous =
+            receipt(db, actor, &prior)?.ok_or_else(|| RpcError::not_found("Todo removal"))?;
+        let expected: Option<String> = db.query_row("SELECT json_extract(result,'$.restoredTargets') FROM todo_deletions WHERE operation=?",[&prior],|r|r.get(0)).map_err(RpcError::internal)?;
+        let chosen = serde_json::to_string(&previous.deleted).map_err(RpcError::internal)?;
+        if expected.as_deref() != Some(restored_targets(db, &chosen)?.as_str()) {
+            return Err(RpcError::conflict(
+                "Restored Todo graph changed; repair it before retrying Redo",
+            ));
+        }
+        let participant: String = db
+            .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
+            .map_err(RpcError::internal)?;
+        db.execute(
+            "INSERT INTO rail_removal_items(operation,kind,id) VALUES(?,'todo-operation',?)",
+            params![operation, participant],
+        )
+        .map_err(RpcError::internal)?;
+        let after_touch = db
+            .query_row("SELECT COALESCE(MAX(seq),0) FROM touches", [], |r| r.get(0))
+            .map_err(RpcError::internal)?;
+        let (_, events) = retain(
+            db,
+            actor,
+            &DeleteParams {
+                operation: participant,
+                ids: previous.deleted.clone(),
+            },
+            after_touch,
+            !previous.deleted.is_empty(),
+        )?;
+        db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,owner) SELECT ?2,kind,id,home,owner FROM rail_removal_items r WHERE operation=?1 AND ((kind='todo-home' AND EXISTS(SELECT 1 FROM todos t WHERE CAST(t.id AS TEXT)=r.id AND t.home=r.home)) OR (kind='todo-owner' AND EXISTS(SELECT 1 FROM todos t WHERE CAST(t.id AS TEXT)=r.id AND t.owner=r.owner)))",params![source,operation]).map_err(RpcError::internal)?;
+        db.execute("INSERT OR IGNORE INTO rail_removal_items(operation,kind,id,home) SELECT ?2,'todo-home',CAST(id AS TEXT),home FROM todos WHERE home=(SELECT node FROM rail_deletions WHERE operation=?1)",params![source,operation]).map_err(RpcError::internal)?;
+        db.execute("UPDATE todos SET home=NULL WHERE CAST(id AS TEXT) IN (SELECT id FROM rail_removal_items WHERE operation=? AND kind='todo-home')",[operation]).map_err(RpcError::internal)?;
+        let mut q=db.prepare("SELECT CAST(id AS INTEGER) FROM rail_removal_items WHERE operation=? AND kind='todo-owner'").map_err(RpcError::internal)?;
+        let ids = q
+            .query_map([operation], |r| r.get::<_, u32>(0))
+            .map_err(RpcError::internal)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(RpcError::internal)?;
+        for id in ids {
+            change_owner_in(db, &Actor::daemon(), id, None)?;
+        }
+        Ok(events)
     }
 }

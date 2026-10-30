@@ -91,6 +91,7 @@ export const CONTRACT = {
     "rail.deletion": "eee0740db6e84936",
     "rail.list": "eb63541f80cef748",
     "rail.move": "f2b63e102cb0cc02",
+    "rail.redo": "7c2bb87e5e957d47",
     "rail.remove": "aabd31b03d525482",
     "rail.rename": "9ac91873a4e7e835",
     "rail.restore": "604175d283a23c19",
