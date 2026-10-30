@@ -338,10 +338,12 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     const first = { dir: "/first" };
     const second = { dir: "/second" };
     const app = createFakeApp();
+
     app.add(first.dir);
     app.of(first.dir);
     const other = app.of(second.dir);
     const original = workstream("original", { name: "same name" });
+
     app.handlers["rail.tree"] = () => [original];
     other.handlers["rail.tree"] = () => [workstream("other", { name: "same name" })];
     app.chooseProjectPath = async () => (await app.projects()).some(project => project.path === second.dir) ? first.dir : second.dir;
@@ -350,11 +352,13 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     const exact = "  original e\u0301 🪁\nlast line  ";
     const target = () => ({ surface: "orders", object: original.id, recipient: original.id });
     const mount = () => render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+
     const openRecovery = async () => {
       await openMenu();
 
       return screen.findByRole("region", { name: "Unfinished work" });
     };
+
     const key = `roundup:drafts:${first.dir}`;
     const incompatible = { revision: "incompatible", destination: { surface: "todos", object: "42", recipient: null }, value: { title: false }, selection: null, status: "draft", policy: "ordinary" };
     const bytes = JSON.stringify({ version: 1, drafts: [incompatible] }, null, 2);
