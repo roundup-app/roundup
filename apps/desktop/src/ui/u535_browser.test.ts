@@ -76,13 +76,13 @@ it("u535_pointer_sets_parent", async () => {
   await dragToGapBelow("R", "P2", 0);
   await release();
   expect(await moves()).toEqual([{ id: "R", parent: null, index: 1 }]);
-  expect(await output("Order calls")).toBe("0");
+  expect(Number(await output("Order calls"))).toBe(0);
 
   await load();
   await dragToGapBelow("R", "P2", 1);
   await release();
   expect(await moves()).toEqual([{ id: "R", parent: "P", index: 2 }]);
-  expect(await output("Order calls")).toBe("0");
+  expect(Number(await output("Order calls"))).toBe(0);
 }, 90_000);
 
 it("u535_first_child_and_clamp", async () => {
