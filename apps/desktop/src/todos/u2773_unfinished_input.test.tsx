@@ -339,6 +339,7 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
   await screen.findByRole("region", { name: "Activity" });
+  await waitFor(() => expect(todoCallsTo(app, "todo.readHistory")).toHaveLength(1));
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
   app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32003, "refused"));
