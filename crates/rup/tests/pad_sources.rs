@@ -47,7 +47,7 @@ async fn dv3_revoked_access_survives_recreation_and_restart() {
 }
 
 #[tokio::test]
-async fn dv2_source_incarnation_survives_edits_owner_home_and_restart() {
+async fn dv2_source_incarnation_survives_edits_home_and_restart() {
     let mut project = daemon::start(&[]);
     let client = project.client().await;
     let home = client
@@ -78,11 +78,6 @@ async fn dv2_source_incarnation_survives_edits_owner_home_and_restart() {
         .request("pad.move", json!({"name":"notes", "home":home["id"]}))
         .await
         .unwrap();
-    let owner = json!({"kind":"agent", "id":"maker"});
-    client
-        .request("pad.setOwner", json!({"name":"notes", "owner":owner}))
-        .await
-        .unwrap();
     assert_eq!(
         source_state(&snapshot, first.incarnation).unwrap(),
         PadSourceState::Live(first.clone())
@@ -104,7 +99,6 @@ async fn dv2_source_incarnation_survives_edits_owner_home_and_restart() {
     assert_eq!(current.incarnation, first.incarnation);
     assert_eq!(current.pad.text, "two!");
     assert_eq!(current.pad.revision, 3);
-    assert_eq!(current.pad.owner.id, "maker");
     assert_eq!(current.pad.home.as_deref(), home["id"].as_str());
     assert_eq!(
         source_state(&db, i64::MAX).unwrap(),

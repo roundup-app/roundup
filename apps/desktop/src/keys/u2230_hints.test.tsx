@@ -60,7 +60,7 @@ const open = async () => {
     door("w", "idle", "idle", { name: "lead" }),
     ...["a", "b", "c"].map((id) => agent(id, id === "a" ? "needs-you" : "idle", "x", { parent: "w" })),
   ];
-  Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", owner: { kind: "user", id: "you", parent: null }, updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
+  Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
   app.handlers["terminal.list"] = () => listed;
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
@@ -112,7 +112,7 @@ const toPlace = async (place: "pad" | "drawer") => {
 
   if (document.querySelector<HTMLElement>(".window")!.dataset["shelf"] !== "open") {
     fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
-    fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "s", code: "KeyS" });
+    fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "b", code: "KeyB" });
   }
 
   showShelfTab("Pads");
@@ -143,54 +143,50 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
-  it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
-      for (const hint of hintsFor(place)) {
-        // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
-        cleanup();
-        endLeader();
-        const app = await open();
+  it.each(([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const).flatMap(([place, go]) => hintsFor(place).map(hint => [place, hint.keys, go, hint] as const)))("u2230_every_hint_names_a_bound_chord_in_%s: %s", async (place, _keys, go, hint) => {
+    // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
+    cleanup();
+    endLeader();
+    const app = await open();
 
-        await go();
+    await go();
 
-        const chord = CHORDS.find((row) => row.keys === hint.keys);
+    const chord = CHORDS.find((row) => row.keys === hint.keys);
 
-        expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
+    expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
 
-        if (hint.keys === "⌘⌫") await answerQuestion(true);
+    if (hint.keys === "⌘⌫") await answerQuestion(true);
 
-        if (hint.keys === "⌃⌘J") await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".pane-screen textarea")));
-        else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
-        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
-        else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
-        else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
-      }
+    if (hint.keys === "⌃⌘J") await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".pane-screen textarea")));
+    else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
+    else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
+    else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
+    else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
   });
 
-  it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")]] as const)("u4690_each_hint_runs_its_key_action_once_in_%s", async (place, go) => {
-      for (const hint of hintsFor(place)) {
-        // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
-        cleanup();
-        endLeader();
-        const app = await open();
+  it.each(([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")]] as const).flatMap(([place, go]) => hintsFor(place).map(hint => [place, hint.keys, go, hint] as const)))("u4690_each_hint_runs_its_key_action_once_in_%s: %s", async (place, _keys, go, hint) => {
+    // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
+    cleanup();
+    endLeader();
+    const app = await open();
 
-        await go();
+    await go();
 
-        const chord = CHORDS.find((row) => row.keys === hint.keys);
+    const chord = CHORDS.find((row) => row.keys === hint.keys);
 
-        const button = document.querySelector<HTMLButtonElement>(`.hint-line [data-hint="${chord!.keys}"]`)!;
-        expect(button.disabled).toBe(false);
-        fireEvent.pointerDown(button);
-        fireEvent.click(button);
+    const button = document.querySelector<HTMLButtonElement>(`.hint-line [data-hint="${chord!.keys}"]`)!;
+    expect(button.disabled).toBe(false);
+    fireEvent.pointerDown(button);
+    fireEvent.click(button);
 
-        if (hint.keys === "⌘⌫") await answerQuestion(true);
+    if (hint.keys === "⌘⌫") await answerQuestion(true);
 
-        if (hint.keys === "⌃⌘J") await waitFor(() => expect(rowOf("a").getAttribute("aria-selected")).toBe("true"));
-        else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
-        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
-        else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
-        else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
-        expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
-      }
+    if (hint.keys === "⌃⌘J") await waitFor(() => expect(rowOf("a").getAttribute("aria-selected")).toBe("true"));
+    else if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
+    else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
+    else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
+    else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
+    expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
   });
 
   it("u2230a_hints_follow_focus", async () => {

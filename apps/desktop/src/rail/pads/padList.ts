@@ -54,7 +54,7 @@ const open = (connected: ConnectedProject): Shared => {
         }
 
         batch(() => {
-          setState("pads", reconcile(listed.map(pad => ({ ...pad, owner: { ...pad.owner } })), { key: "incarnation" }));
+          setState("pads", reconcile(listed, { key: "incarnation" }));
           setRefetched(count => count + 1);
         });
         setFailure(null);

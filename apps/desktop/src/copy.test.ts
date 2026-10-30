@@ -37,7 +37,7 @@ const STRUCTURE = new Set([
   // U3309: physical key codes (including the generated Digit template) never render as copy.
   "ArrowUp", "ArrowDown", "Digit ",
   // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
-  "R", "KeyR", "D", "E", "O", "A", "X", "C", "Tab", "J K", "P", "KeyP", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
+  "R", "KeyR", "D", "E", "O", "A", "X", "C", "Tab", "J K", "P", "KeyP", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "B", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyB", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
   "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
   // U3529: display media and a recovery availability discriminant, never displayed copy.

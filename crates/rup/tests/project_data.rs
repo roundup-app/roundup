@@ -210,15 +210,6 @@ async fn dv2_retained_revision_n2_with_worktrees_on_only_the_worktree_folders_ap
 
     // DV2/DV3: cleaning a real maker Worktree cannot revoke its Project-stored Pad.
     let client = project.client().await;
-    client
-        .request(
-            "pad.setOwner",
-            json!({"name":"notes", "owner": {
-                "kind":"agent", "id":ids[0]
-            }}),
-        )
-        .await
-        .unwrap();
     let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     let before = pads::source(&db, "notes").unwrap().unwrap();
     let maker = project.client().await;
@@ -594,7 +585,7 @@ async fn dv2_preexisting_project_pads_gain_durable_source_incarnations() {
     for sql in historical {
         db.execute_batch(sql).unwrap();
     }
-    db.execute("INSERT INTO pads(key,name,owner,text,updated_at,home,revision) VALUES ('existing','existing',?1,?2,?3,NULL,1)",rusqlite::params![original["owner"].to_string(),original["text"].as_str().unwrap(),original["updated_at"].as_i64().unwrap()]).unwrap();
+    db.execute("INSERT INTO pads(key,name,text,updated_at,home,revision) VALUES ('existing','existing',?1,?2,NULL,1)",rusqlite::params![original["text"].as_str().unwrap(),original["updated_at"].as_i64().unwrap()]).unwrap();
     db.pragma_update(None, "user_version", 12).unwrap();
     project.restart(&[]);
     let first = pads::source(&db, "existing").unwrap().unwrap();
