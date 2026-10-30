@@ -753,7 +753,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await wait("document.querySelector('.window')?.dataset.shelf==='closed'");
         await capture("shelf-closed");
         await browser("press", "Meta+k");
-        await browser("press", "s");
+        await browser("press", "b");
         await wait("!!document.querySelector('.shelf')");
         await capture("shelf-open");
         await browser("click", "#shelf-tab-pads");
