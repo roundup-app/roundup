@@ -339,7 +339,6 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s
   await showEverythingInApp();
   connected().rail.select("a1");
   const list = document.querySelector<HTMLElement>(".todos-tab")!;
-  list.tabIndex = -1;
   list.focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:N")?.shortcut).toBe("N"));
   const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
@@ -367,8 +366,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s
 it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed scope", async () => {
   const { connected, daemon } = await mountNavigation(false, 0);
   await showEverythingInApp();
-  const list = document.querySelector<HTMLElement>(".todos-tab")!;
-  list.tabIndex = -1;
+  const list = document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
   list.focus();
   await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:N")).toBe(true));
   const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
