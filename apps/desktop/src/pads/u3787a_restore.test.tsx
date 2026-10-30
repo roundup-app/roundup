@@ -428,8 +428,10 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
   if (kind.startsWith("drawer-")) {
     fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
     const panel = screen.getByRole("complementary", { name: "Drawer" });
-    const button = await within(panel).findByRole("button", { name: isPad ? "Delete" : "Delete Todo" });
+    const button = await within(panel).findByRole("button", { name: isPad ? "Delete" : "More actions" });
     button.focus(); fireEvent.click(button);
+
+    if (!isPad) fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   } else if (kind === "clear-done") fireEvent.click(await screen.findByText("Clear done", { selector: "button" }));
   else if (kind === "todos" || kind === "pads") {
     const menus = menuProbe.count;
@@ -446,7 +448,8 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
   await waitFor(() => expect(document.activeElement?.closest<HTMLElement>("[data-history-region]")?.dataset.historyRegion).toBe(expectedRegion));
 
   const absent = () => {
-    expect(document.querySelector(".todo-undo")).toBeNull();
+    expect(document.querySelector(".todo-undo [role=alert]")).toBeNull();
+    expect(document.querySelector(".todo-undo button")).toBeNull();
     expect(screen.queryByText(/^Deleted(?:\s|·)/)).toBeNull();
     expect([...document.querySelectorAll("button")].filter(button => button.textContent === "Undo")).toEqual([]);
   };
@@ -468,7 +471,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
     const restoredRow = isPad ? (await screen.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await screen.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));
     restoredRow.focus();
     fireEvent.keyDown(restoredRow, { key: "Enter", code: "Enter" });
-    const button = await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: isPad ? "Delete" : "Delete Todo" });
+    const button = await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: isPad ? "Delete" : "More actions" });
     button.focus();
   }
 
