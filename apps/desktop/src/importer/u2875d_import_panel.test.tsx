@@ -464,7 +464,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
 
       if (await lane.evaluate("document.querySelector('.window')?.dataset.shelf !== 'open'")) {
         await lane.browser("press", "Meta+k");
-        await lane.browser("press", "s");
+        await lane.browser("press", "b");
       }
 
       await lane.until("document.querySelector('.window')?.dataset.shelf === 'open'");

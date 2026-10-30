@@ -13,6 +13,32 @@ const type = (text: string) => fireEvent.input(input()!, { target: { value: text
 const sent = (app: { calls: { method: string; params: unknown }[] }) => app.calls.filter((call) => call.method === "ask.send").map((call) => call.params);
 
 describe("u504 the Ask bar", () => {
+  it("u504_sections_toggle_as_one_accordion", async () => {
+    const { app, connected } = await mountAskBar();
+    connected.showView(null);
+
+    const headings = await waitFor(() => {
+      const buttons = [...document.querySelectorAll<HTMLButtonElement>(".overview-sections [data-part=item-trigger]")];
+      expect(buttons).toHaveLength(4);
+
+      return buttons;
+    });
+
+    await waitFor(() => expect(headings.map(button => button.getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]));
+    type("keep @ops exact\n unfinished");
+
+    for (const button of headings) {
+      button.focus();
+      await waitFor(() => expect(button.hasAttribute("data-focus")).toBe(true));
+      const wasOpen = button.getAttribute("aria-expanded") === "true";
+      fireEvent.click(button);
+      await waitFor(() => expect(headings.filter(head => head.getAttribute("aria-expanded") === "true")).toEqual(wasOpen ? [] : [button]));
+      expect(input()!.value).toBe("keep @ops exact\n unfinished");
+    }
+
+    expect(app.calls.filter(call => ["ask.send", "agent.start", "reaction.run", "terminal.write"].includes(call.method))).toEqual([]);
+  });
+
   it("u504_the_home_screen_is_the_ask_bar", async () => {
     const { connected } = await mountAskBar();
 
@@ -52,15 +78,45 @@ describe("u504 the Ask bar", () => {
 
     input()!.focus();
     type("@");
-    await waitFor(() => expect([...document.querySelectorAll(".app-mentions [role=option]")].map((item) => item.textContent)).toEqual(["lead", "ops", "docs"]));
+    const list = await screen.findByRole("listbox");
+    const options = within(list).getAllByRole("option");
+    const active = () => document.getElementById(input()!.getAttribute("aria-activedescendant") ?? "");
+
+    await waitFor(() => expect(active()).toBe(options[0]));
+    expect(input()!.getAttribute("aria-controls")).toBe(list.id);
+    press("ArrowUp", {}, input()!);
+    await waitFor(() => expect(active()).toBe(options[2]));
+    press("ArrowDown", {}, input()!);
+    await waitFor(() => expect(active()).toBe(options[0]));
+    press("ArrowDown", {}, input()!);
+    await waitFor(() => expect(active()).toBe(options[1]));
+    expect(document.activeElement).toBe(input());
 
     type("@OP");
     await waitFor(() => expect([...document.querySelectorAll(".app-mentions [role=option]")].map((item) => item.textContent)).toEqual(["ops"]));
 
     press("Enter", {}, input()!);
     await waitFor(() => expect(input()!.value).toBe("@ops "));
+    expect([input()!.selectionStart, input()!.selectionEnd]).toEqual([5, 5]);
     expect(sent(app)).toEqual([]);
     expect(document.querySelector(".app-mentions")).toBeNull();
+  });
+
+  it("u504_tab_keeps_the_keyboard_match_after_pointer_movement", async () => {
+    const { app } = await mountAskBar();
+    input()!.focus();
+    type("@");
+    const list = await screen.findByRole("listbox");
+    const options = within(list).getAllByRole("option");
+    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id));
+    fireEvent.pointerMove(options[2]!, { pointerType: "mouse" });
+    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id));
+    expect(press("Tab", {}, input()!).defaultPrevented).toBe(true);
+    await waitFor(() => expect(input()!.value).toBe("@lead "));
+    expect([input()!.selectionStart, input()!.selectionEnd]).toEqual([6, 6]);
+    expect(document.activeElement).toBe(input());
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(sent(app)).toEqual([]);
   });
 
   it.each(["home", "over"])("u504_escape_closes_mentions_and_keeps_the_draft_in_%s", async (mode) => {
@@ -74,10 +130,16 @@ describe("u504 the Ask bar", () => {
     await waitFor(() => expect(document.querySelector(".app-mentions")).toBeNull());
     expect(input()!.value).toBe("@");
     expect(document.activeElement).toBe(input());
+
+    if (mode === "over") {
+      press("Escape", {}, input()!);
+      await waitFor(() => expect(input()).toBeNull());
+    }
   });
 
   it("u504_click_picks_a_workstream", async () => {
     await mountAskBar();
+    input()!.focus();
     type("@");
 
     const option = await waitFor(() => {
@@ -88,10 +150,33 @@ describe("u504 the Ask bar", () => {
       return item!;
     });
 
+    fireEvent.pointerDown(option, { pointerType: "mouse", button: 0 });
+    expect(document.activeElement).toBe(input());
     fireEvent.click(option);
     await waitFor(() => expect(input()!.value).toBe("@lead "));
     expect(document.activeElement).toBe(input());
     expect(document.querySelector(".app-mentions")).toBeNull();
+  });
+
+  it("u504_equal_names_accept_the_chosen_workstream_identity", async () => {
+    const { app } = await mountAskBar([], null, [
+      workstream("one", { name: "First parent" }), workstream("two", { name: "Second parent" }),
+      workstream("first", { name: "Same", parent: "one" }), workstream("second", { name: "Same", parent: "two" }),
+    ]);
+
+    input()!.focus();
+    type("@same");
+
+    const options = within(await screen.findByRole("listbox")).getAllByRole("option");
+    expect(options).toHaveLength(2);
+    press("ArrowDown", {}, input()!);
+    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(options[1]!.id));
+    press("Enter", {}, input()!);
+    await waitFor(() => expect(input()!.value).toBe("@Same "));
+    type("@Same do this");
+    press("Enter", {}, input()!);
+    await waitFor(() => expect(sent(app)).toHaveLength(1));
+    expect(sent(app)[0]).toMatchObject({ text: "@Same do this", workstream: "second" });
   });
 
   it("u504_no_matching_workstream_closes_mentions", async () => {

@@ -21,7 +21,7 @@ node --test tools/oxlint/anti-slop/web-timeout/timeout.test.mjs
 
 `baseline.jsonl` records the actual lint exit, source revision, tool hash, analyzed
 file count and each diagnostic. Its App source equals merged base `b6fe73f76`;
-the recorded tool hash identifies the rule used for this audit. These observations
+the recorded tool hash identifies the rule used for this audit. Entries for tests cut by T3779c are pruned; the header retains the original audit metadata. These observations
 are **not** an allowlist or timing measurements. The printed locations help review;
 exception identity uses exact repository-relative file and full containing-suite /
 test title, never a line number. Parameterized tests use their static title template.
