@@ -202,7 +202,7 @@ for (const [name, source, forbidden] of [
   });
 }
 
-for (const change of ["unchanged", "stale", "navigation", "assertion", "dependency", "duplicate", "moved", "renamed", "helper", "navigation committed", "module navigation"]) {
+for (const change of ["unchanged", "stale", "navigation", "assertion", "dependency", "duplicate", "moved", "renamed", "helper", "navigation committed", "module navigation", "mutation"]) {
   test(`t3779b_assertion_boundary: Python baseline ${change}`, () => {
     const dir = mkdtempSync(resolve(tmpdir(), "roundup-python-baseline-"));
     const config = resolve(dir, "config.json");
@@ -217,6 +217,7 @@ for (const change of ["unchanged", "stale", "navigation", "assertion", "dependen
       mkdirSync(resolve(dir, directory), { recursive: true });
       writeFileSync(file, "export {};\n");
       writeFileSync(pythonFile, 'raise RuntimeError("Launcher must never execute")\ndef t3779b_fixture():\n    browser("click", "old")\n    size = evaluate("document.body.clientWidth")\n    assert size > 0\n    browser("close")\n');
+      if (change === "mutation") writeFileSync(pythonFile, readFileSync(pythonFile, "utf8").replace('size = evaluate("document.body.clientWidth")', 'size = {"value": evaluate("document.body.clientWidth")}').replace('assert size > 0', 'assert size["value"] > 0'));
       const audit = spawnSync("python3", [resolve(repo, directory, "python-audit.py"), dir], { encoding: "utf8" });
       assert.equal(audit.status, 0, audit.stderr);
       const row = JSON.parse(audit.stdout);
@@ -228,6 +229,7 @@ for (const change of ["unchanged", "stale", "navigation", "assertion", "dependen
       git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "baseline");
       git("update-ref", "refs/remotes/origin/main", "HEAD");
       const source = readFileSync(pythonFile, "utf8");
+      if (change === "mutation") writeFileSync(pythonFile, source.replace('    assert size["value"] > 0', '    size.update({"value": 900})\n    assert size["value"] > 0'));
       if (change === "helper") writeFileSync(pythonFile, 'def evaluate(script):\n    return 900\n' + source);
       if (change === "module navigation") {
         const moduleSource = source.replace('def t3779b_fixture():\n', '').replaceAll('    ', '');

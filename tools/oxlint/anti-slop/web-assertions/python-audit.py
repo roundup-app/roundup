@@ -172,8 +172,10 @@ for file in files:
                     headers.append([(field, ast.dump(value) if isinstance(value, ast.AST) else value)
                                     for field, value in ast.iter_fields(ancestor)
                                     if field not in {'body', 'orelse', 'finalbody', 'handlers'}])
-                definitions = {part.name: part for part in ast.walk(tree)
-                               if isinstance(part, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+                definitions = {}
+                for part in ast.walk(tree):
+                    if isinstance(part, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        definitions.setdefault(part.name, []).append(part)
                 pending = [part.id for part in ast.walk(node) if isinstance(part, ast.Name)]
                 for dependency in item['dependencies']:
                     pending.extend(part.id for part in ast.walk(ast.parse(dependency.strip())) if isinstance(part, ast.Name))
@@ -182,10 +184,17 @@ for file in files:
                     name = pending.pop()
                     if name in helpers or name not in definitions:
                         continue
-                    definition = definitions[name]
-                    helpers[name] = segment(source, definition)
-                    pending.extend(part.id for part in ast.walk(definition) if isinstance(part, ast.Name))
-                contexts.append((branches, headers, helpers))
+                    helpers[name] = [segment(source, definition) for definition in definitions[name]]
+                    for definition in definitions[name]:
+                        pending.extend(part.id for part in ast.walk(definition) if isinstance(part, ast.Name))
+                expressions = [node.test, *[ast.parse(dependency.strip()) for dependency in item['dependencies']]]
+                observed = {part.id for expression in expressions for part in ast.walk(expression) if isinstance(part, ast.Name)}
+                observed -= {part.func.id for expression in expressions for part in ast.walk(expression)
+                             if isinstance(part, ast.Call) and isinstance(part.func, ast.Name)}
+                effects = [segment(source, statement) for statement in ast.walk(tree)
+                           if isinstance(statement, ast.Expr) and statement.end_lineno < node.lineno
+                           and any(isinstance(part, ast.Name) and part.id in observed for part in ast.walk(statement))]
+                contexts.append((branches, headers, helpers, effects))
                 # A retained statement cannot cross the assertion. This catches
                 # moves even when navigation insertions shift its AST index.
                 before, after = set(), set()
