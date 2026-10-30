@@ -182,14 +182,14 @@
 }
 
 .shelf-row.todo-inset .shelf-text {
-  grid-column: 2;
+  grid-column: -2 / -1;
   grid-row: 1;
 }
 
 /* DOM order is row, tick box, blockers; drawing order keeps the Glyph first. */
 .shelf-row.todo-inset .shelf-head {
   min-width: 0;
-  grid-column: 2;
+  grid-column: -2 / -1;
   grid-row: 1;
 }
 
@@ -249,23 +249,7 @@
   z-index: var(--layer-menu);
 }
 
-/* U131: reserve tick and blocker slots even when absent; the row's padding
-   and column gap are included in the shared title inset. */
-.shelf-row:is(.todo-inset, .pad-inset) {
-  grid-template-columns: calc(var(--row-text-inset) - 2 * var(--space-2)) minmax(0, 1fr);
-  column-gap: var(--space-2);
-}
-
-.todo-inset .shelf-glyph {
-  margin-inline-start: var(--space-2);
-  justify-content: flex-end;
-}
-
-.pad-inset .shelf-glyph {
-  margin-inline-start: var(--space-2);
-  justify-content: flex-end;
-  color: var(--grey);
-}
+.pad-inset .shelf-glyph { color: var(--grey); }
 
 /* U3708: the tree row shares the title's ink feedback, without a hover box. */
 .todo-row[role="treeitem"] {
@@ -443,7 +427,7 @@
   box-sizing: border-box;
 }
 .todo-row .row-head {
-  grid-column: 2;
+  grid-column: -2 / -1;
   height: var(--space-5);
   align-items: center;
   position: relative;
@@ -490,9 +474,6 @@
   grid-template-columns: 0 minmax(0, 1fr);
 }
 
-.shelf-row.todo-row {
-  padding-inline-start: calc(var(--space-2) + var(--todo-depth) * var(--tree-step));
-}
 
 /* Todo names keep their existing ink tones inside the shared row paint. */
 .shelf-row.todo-row {
@@ -509,10 +490,6 @@
   outline: none;
 }
 .todo-row .todo-row-button[data-pressed="true"] { color: inherit; }
-.todo-row .todo-open { position: relative; z-index: 1; flex: none; }
-.todo-open svg { width: var(--space-4); height: var(--space-4); }
-
-.todo-open:focus-visible { color: var(--text); }
 
 /* Leave room beyond the trailing grip for sideways pointer nesting. */
 .todo-list,

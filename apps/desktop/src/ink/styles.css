@@ -71,8 +71,7 @@ p.ink[role="alert"] {
 .shelf-row {
   position: relative;
   display: grid;
-  grid-template-columns: var(--space-4) minmax(0, 1fr);
-  column-gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr);
   padding-top: var(--space-1);
   padding-bottom: var(--space-1);
   background-color: var(--transparent);
@@ -354,3 +353,13 @@ p.ink[role="alert"] {
 .section-head [data-part="branch-indicator"] { margin-left: auto; }
 
 .empty-state-actions [data-button] { font-size: var(--text-caption); white-space: nowrap; --button-inline: var(--space-2); }
+
+/* U4908: only a present mark owns a column and its gap. */
+.shelf-row:has(> .shelf-glyph) {
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-2);
+}
+.shelf-row:not(:has(> .shelf-glyph)) > :is(.shelf-head, .shelf-text) { grid-column: 1; }
+.todo-open { position: relative; z-index: 1; flex: none; }
+.todo-open svg { width: var(--space-4); height: var(--space-4); }
+.todo-open:focus-visible { color: var(--text); }
