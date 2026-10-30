@@ -101,7 +101,7 @@ jobs:
           import { createVitest } from 'vitest/node';
           const ctx = await createVitest({ related: process.env.SOURCES.split('\n'), watch: false, run: true });
           try {
-            for (const spec of await ctx.getRelevantTestSpecifications()) console.log(spec.moduleId);
+            for (const spec of await ctx.getRelevantTestSpecifications()) console.log(`[${spec.project.name}] ${spec.moduleId}`);
           } finally {
             await ctx.close();
           }
