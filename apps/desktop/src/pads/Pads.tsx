@@ -1,3 +1,4 @@
+import { Age } from "../shelf/Age";
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
 import { CopyButton, createCopyFeedback } from "../ui/CopyButton";
@@ -397,6 +398,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             </button>
             </Show>
             <Show when={!editing()}>
+              <Age updatedAt={pad.updated_at} />
               <OpenButton name={pad.name} onOpen={() => open("pointer")} />
               <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} onLift={() => props.onLift(pad)} />
             </Show>

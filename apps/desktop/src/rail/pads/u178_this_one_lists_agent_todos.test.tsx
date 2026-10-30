@@ -1,3 +1,4 @@
+import { DisplayClockContext } from "../../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
@@ -34,12 +35,12 @@ const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
   await showEverything(connected);
 
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
+    <DisplayClockContext.Provider value={() => () => 0}><ConnectedProjectContext.Provider value={connected}>
       <Rail />
       <Pads />
       <Todos />
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-    </ConnectedProjectContext.Provider>
+    </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
   ));
 
   await connected.rail.settled();
