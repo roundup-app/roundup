@@ -170,23 +170,40 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
       await page.resize(width, width === 1280 ? 820 : 950);
       const order = await ids();
 
-      const extra = await page.call<number>(`async (order, child) => {
-        const rpc = window.__fake.app.rpc;
-        const extra = await rpc('todo.create', {title:'Other blocker',body:null,blockers:null});
-        await rpc('todo.complete', {id:extra.id});
-        await rpc('todo.setBlockers', {id:order[1],blockers:child ? [order[0],extra.id] : [extra.id]});
-        await rpc('todo.update', {id:order[1],title:'Distance and blocker retention',body:null});
-        window.__mark = window.__fake.app.calls.length;
-        return extra.id;
-      }`, order, fraction < 0);
+      if (fraction < 0) {
+        await page.call(`async order => {
+          await window.__fake.app.rpc('todo.setBlockers', {id:order[1],blockers:[order[0]]});
+          window.__mark = window.__fake.app.calls.length;
+        }`, order);
+        await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
+      }
 
-      await page.until(`() => Array.from(document.querySelectorAll('.shelf .todo-row-button')).some(row => row.textContent.includes('Distance and blocker retention'))`);
       const from = await centre(1);
       await drag(from, {x: from.x + fraction * await treeStep(), y: from.y});
       await settled();
-      expect(await calls()).toEqual(fraction === 0.49 ? [] : [{method: "todo.setBlockers", params: {id: order[1], blockers: fraction < 0 ? [extra] : [order[0], extra]}}]);
+      expect(await calls()).toEqual(fraction === 0.49 ? [] : [{method: "todo.setBlockers", params: {id: order[1], blockers: fraction < 0 ? [] : [order[0]]}}]);
     }
   }, 60_000);
+
+  it("u4710b_pointer_nesting_retains_other_blockers", async () => {
+    await setup();
+    const order = await ids();
+
+    const extra = await page.call<number>(`async order => {
+      const rpc = window.__fake.app.rpc;
+      const extra = await rpc('todo.create', {title:'Other blocker',body:null,blockers:null,owner:{kind:'agent',id:'tokens',parent:null}});
+      await rpc('todo.setBlockers', {id:order[1],blockers:[extra.id]});
+      window.__mark = window.__fake.app.calls.length;
+      return extra.id;
+    }`, order);
+
+    await page.until(`() => document.querySelectorAll('.shelf .todo-row-button')[1].getAttribute('aria-label').toLowerCase().includes('blocked')`);
+    const from = await centre(1);
+    await drag(from, {x:from.x+await treeStep(),y:from.y});
+    await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c=>c.method === 'todo.setBlockers')`);
+    await settled();
+    expect(await calls()).toEqual([{method:'todo.setBlockers',params:{id:order[1],blockers:[order[0],extra]}}]);
+  });
 
   it("u4710b_u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
     await setup();
