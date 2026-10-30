@@ -514,3 +514,14 @@ availability, followed by final displayed-key and combined-dispatch observations
 The installed Milkdown commonmark preset supplies named formatting bindings such
 as Mod-b and Mod-i; Project-tab coverage does not claim those are projected.
 Keep ordinary text/list navigation control-owned. #4308 and #3843 remain open.
+
+Rendered comparison: `artifacts/ux/U3787b/project-rename/{base,head}/`, base
+`b059d3caff608510c6af775b888ef1b449e1d17d` (production sources match the
+`72d06639d848f3beb60cc812cd46d8c1155910b3` branch base), implementation
+`5af082bd8`. Dark 1512×950 tree-40/tabs-8/conflict resting screens and the dense
+retained-name rejection pass D1–D14. The existing Rename input has the same D6
+missing-hover failure and consequent D10 failure on base and head; delta passes,
+with D2/D5 and baseline D6 preserved. The isolated keyboard recording shows F2
+opening the existing editor and Escape returning to its tab. PNGs/video remain
+uncommitted. `just capture U3787b` exits 1 because its frozen capture table rejects
+that id; explicit isolated captures supply Chromium evidence only.
