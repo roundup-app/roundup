@@ -1,9 +1,11 @@
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { attentionOrder } from "../rail/attention";
 
-/** U3770a: the Agents of each section, in the order the section shows them. */
-export const sectionsOf = (nodes: readonly RailNode[]) => ({
-  needs: attentionOrder(nodes),
-  running: nodes.filter((node) => node.kind === "agent" && node.status?.kind === "working"),
-  done: nodes.filter((node) => node.kind === "agent" && node.status?.kind === "done").toSorted((a, b) => b.status!.since - a.status!.since),
-});
+/** Attention order establishes the groups; comment-only Agents follow in unread order. */
+export const sectionsOf = (nodes: readonly RailNode[], comments: readonly UnreadComment[]) => {
+  const attention = attentionOrder(nodes);
+  const ids = [...new Set([...attention.map(node => node.id), ...comments.map(row => row.comment.author.id)])];
+
+  return ids.map(id => ({ id, node: attention.find(node => node.id === id), comments: comments.filter(row => row.comment.author.id === id) }));
+};
