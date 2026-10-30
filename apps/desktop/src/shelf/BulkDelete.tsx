@@ -84,6 +84,10 @@ export const createBulkDelete = <Id,>(props: {
     if (returnTo?.isConnected) return returnTo;
 
     if (returnRegion?.isConnected) {
+      const firstRow = returnRegion.querySelector<HTMLElement>(".todo-row-button, .pad-name");
+
+      if (firstRow) return firstRow;
+
       if (!returnRegion.hasAttribute("tabindex")) returnRegion.tabIndex = -1;
 
       return returnRegion;

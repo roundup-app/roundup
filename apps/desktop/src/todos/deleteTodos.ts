@@ -466,6 +466,7 @@ export function createTodoUndo() {
       setStack(all => [...all]);
     },
     failure: () => failure()?.message ?? null,
+    dismiss: () => setFailure(null),
     feedbackFailure: () => {
       const problem = failure();
 

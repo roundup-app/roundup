@@ -637,8 +637,9 @@ export const App = (props: {
 
             const failure = () => projects.active() === path ? undo.feedbackFailure() : null;
 
-            return <ReservedLine overlay message={failure()}>
+            return <ReservedLine class="todo-undo" overlay message={failure()}>
               <Show when={undo.uncertain()}><button data-button="quiet" type="button" disabled={undo.pending()} onClick={() => void undo.retryDelete()}>{copy.todoDeleteRetry}</button></Show>
+              <button data-button="quiet" type="button" onClick={undo.dismiss}>{copy.dismissFailure}</button>
             </ReservedLine>;
           }}</For>
           <For each={keys()}>{path => {

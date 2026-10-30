@@ -66,7 +66,8 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         captureFocus()(() => host?.querySelector<HTMLElement>(".close")?.focus({ preventScroll: true }));
       } else if (wasOpen && !open) {
         const stayedInDrawer = host?.contains(document.activeElement) ?? false;
-        const toRefocus = savedFocus?.isConnected ? savedFocus : savedRegion;
+        const firstRow = savedRegion?.querySelector<HTMLElement>('.todo-row-button, .pad-name, [data-id][data-part="item"], [data-id] [data-part="branch-control"]');
+        const toRefocus = savedFocus?.isConnected ? savedFocus : firstRow ?? savedRegion;
 
         const regionDestination = toRefocus === savedRegion;
         savedFocus = null;
