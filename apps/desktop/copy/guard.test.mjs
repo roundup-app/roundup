@@ -1,8 +1,11 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { checkCopy } from "./guard.mjs";
-const ROOT = new URL("../src/", import.meta.url).pathname;
+
 import { join } from "node:path";
+
+const ROOT = new URL("../src/", import.meta.url).pathname;
+
 const fixture = (entries, body = "copy.message") => ({
   "app/copy.ts": `export const copy = { ${entries} };`,
   "app/view.ts": `import { copy } from './copy'; export const view = ${body};`,
@@ -72,7 +75,6 @@ it("u471_copy_guard_rejects_internal_vocabulary_in_helpers_and_branches", () => 
 
 it.each(["draft", "drafts", "retained work", "revision", "unfinished rail work"])("u471_copy_guard_uses_one_recovery_name_%s", text => {
   expect(rules(fixture(`message: () => true ? "Unfinished work" : ${JSON.stringify(text)}`))).toContain("recovery-name");
-  expect(rules(fixture('message: "Unfinished work"'))).toEqual([]);
 });
 
 it("u471_copy_allowlist_only_shrinks", () => {
@@ -152,4 +154,48 @@ it("u471_copy_guard_accepts_compiler_proven_key_unions", () => {
   const files = fixture('message: { open: "Open", close: "Close" }');
   files["app/view.ts"] = 'import {copy} from "./copy"; declare const key: "open" | "close"; export const view = copy.message[key];';
   expect(rules(files)).toEqual([]);
+});
+
+it("u471_copy_guard_tracks_named_catalogues_and_spread_consumers", () => {
+  const files = {
+    "copy.ts": 'import { railCopy } from "./copy/rail"; export const copy = { ...railCopy };',
+    "copy/rail.ts": 'export const railCopy = { message: "Storage" };',
+    "view.ts": 'import { copy } from "./copy"; export const view = copy.message;',
+  };
+
+  expect(rules(files)).toEqual([]);
+});
+
+it("u471_copy_guard_does_not_count_test_callers", () => {
+  const files = fixture('message: "Storage", dead: "Unused"');
+  files['app/view.test.ts'] = 'import {copy} from "./copy"; export const view = copy.dead;';
+  expect(rules(files)).toContain('unused-copy');
+});
+
+it("u471_copy_guard_accepts_the_recovery_name", () => {
+  expect(rules(fixture('message: "Unfinished work"'))).toEqual([]);
+});
+
+it("u471_copy_allowlist_rejects_an_additional_equal_violation", () => {
+  const files = {
+    ...fixture('message: "Storage"'),
+    "rail/copy.ts": 'export const copy = {message: "Storage"};',
+    "rail/view.ts": 'import {copy} from "./copy"; export const view = copy.message;',
+  };
+
+  const baseline = checkCopy(files).inventory;
+
+  const expanded = {
+    ...files,
+    "todos/copy.ts": files["rail/copy.ts"],
+    "todos/view.ts": files["rail/view.ts"],
+  };
+
+  expect(checkCopy(expanded, {baseline, previous: baseline}).diagnostics.map(each => each.rule)).toContain('duplicate-copy');
+});
+
+it("u471_copy_allowlist_rejects_a_changed_unused_value", () => {
+  const files = fixture('message: "Storage", dead: "Unused"');
+  const baseline = checkCopy(files).inventory;
+  expect(checkCopy(fixture('message: "Storage", dead: "Changed"'), {baseline, previous: baseline}).diagnostics.map(each => each.rule)).toContain('unused-copy');
 });
