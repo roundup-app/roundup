@@ -322,7 +322,14 @@ pub fn read_start_context(stdout: &str) -> Result<String, String> {
     let context = reply["hookSpecificOutput"]["additionalContext"]
         .as_str()
         .ok_or("start Context has no additionalContext")?;
-    Ok(session_start_context(&format!("{context}\n{brief}")))
+    // P10: only fixed guidance may precede the shared Brief; identity follows its cache prefix.
+    let (guidance, context) = match context.strip_suffix(WORKSTREAM_GUIDANCE) {
+        Some(context) => (WORKSTREAM_GUIDANCE, context),
+        None => ("", context),
+    };
+    Ok(session_start_context(&format!(
+        "{guidance}{brief}\n{context}"
+    )))
 }
 
 /// H20: typed outside the paste markers, so the model's first user message holds typed text that

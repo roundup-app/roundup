@@ -265,6 +265,10 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
         }
         if let Some(catalogue) = startup.find("## Tools") {
             assert!(startup.find("two or more steps").unwrap() < catalogue);
+            assert!(
+                startup.find("Your Rail name is").unwrap() > catalogue,
+                "variable identity follows the shared cache prefix"
+            );
         }
         let brief =
             std::fs::read_to_string(project.data_dir().join(format!("agents/{id}.brief.md")))
