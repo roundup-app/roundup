@@ -3,7 +3,8 @@
 On 2026-10-30, build `cbb6b05020067531f9e4b721f393f73c2d16629c` did **not** satisfy
 `e3_workstream_uses_todos_and_reaction_unprompted`. #5002 remains open, blocked by
 [#5051](https://github.com/roundup-app/roundup/issues/5051) (current-head activation)
-and [#5052](https://github.com/roundup-app/roundup/issues/5052) (Todos and keeper Pads).
+[#5052](https://github.com/roundup-app/roundup/issues/5052) (Todos and keeper Pads),
+and [#5054](https://github.com/roundup-app/roundup/issues/5054) (verification runtime).
 No Mac observation is needed to establish these failures.
 
 [The recording](2026-10-30.json) holds the fixture sources, exact prompt, all
@@ -107,6 +108,14 @@ P9/P10: one task prompt; no model evaluated the condition and no Agent polled.
 P13: real authenticated maker, reason and bounds; changed head invalidated rather
 than substituting success. No production behavior, contract or scenario changed.
 
-`pnpm install --frozen-lockfile` and the source build passed. `just ready` is
-recorded on the PR after completion. No helper/test code is added by this evidence
-PR; the real observation and clean archived-commit check exercise the fixture.
+`pnpm install --frozen-lockfile`, the source build, `pnpm lint --format json`
+(zero errors), `just lint-rust origin/main` (including `ALL PROOFS CHECK`),
+`loop/rules.sh vocab` and `git diff --check` passed. The immutable baseline
+reproduced both failures with exit 1; the fixed archived commit passed with exit 0.
+
+Full `just ready` did **not** complete: after more than eleven minutes it remained
+in unchanged T3779a fixtures, each repeating the whole Python audit. The observer
+stopped only its check process tree (exit 143); #5054 owns that measured repair.
+Neither the direct lint nor the Rust lint is presented as a full `just ready` pass.
+No helper/test code is added by this evidence PR; the real observation and clean
+archived-commit checks exercise the fixture.
