@@ -11,7 +11,7 @@ const files = Object.fromEntries(sourceFiles.map(file => [file, readFileSync(roo
 
 const glossary = readFileSync(new URL('../../../GLOSSARY.md', import.meta.url), 'utf8');
 
-const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+const git = args => execFileSync('git', args, { cwd: fileURLToPath(new URL('../../../', import.meta.url)), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 
 const base = git(['merge-base', 'origin/main', 'HEAD']).trim();
 
