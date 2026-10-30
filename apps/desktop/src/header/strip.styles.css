@@ -87,7 +87,7 @@
   width: var(--space-1);
 }
 
-.tab-mark-slot > .tab-mark {
+.tab-mark-slot .tab-mark {
   cursor: pointer;
 }
 
