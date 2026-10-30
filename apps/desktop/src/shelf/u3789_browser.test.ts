@@ -7,8 +7,10 @@ import type { Checks } from "../testing/checks";
 
 const shot = async (id: string, stage: string, step: string) => {
   const checks = await read<Checks>("window.__checks()");
+
   for (const directory of [captureDir(id), ...(id === "U4908" ? [captureDir("U4708")] : [])]) {
     if (!directory) continue;
+
     const folder = join(directory, stage);
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, `${step}.checks.json`), JSON.stringify(checks) + "\n");
@@ -145,6 +147,7 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
         parent = todo.id;
       }
     })()`);
+
     if (kind === "pads") await browser("click", "#shelf-tab-pads");
     await wait(`document.querySelector('.${kind}-tab')`);
     await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
