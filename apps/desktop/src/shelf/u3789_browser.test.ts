@@ -488,7 +488,7 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
   await browser("press", "Enter");
   await wait("document.querySelector('.drawer[data-open=true]')");
   await shot("U4908", stage, `${seed}-${kind}-opened`);
-  await browser("press", "Escape");
+  await browser("click", ".drawer[data-open=true] .close");
   await wait("!document.querySelector('.drawer[data-open=true]')");
   await browser("click", ".shelf-add");
   await wait("document.querySelector('.entry-field')");
