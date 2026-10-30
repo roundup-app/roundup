@@ -218,6 +218,130 @@ pub fn context_menu<R: Runtime>(
 pub(crate) mod tests {
     use super::*;
 
+    use objc2::{DefinedClass, MainThreadOnly, define_class, sel};
+    use objc2_app_kit::NSResponder;
+    use objc2_foundation::{NSObjectProtocol, NSPoint, NSRect};
+    use std::cell::Cell;
+
+    #[derive(Default)]
+    struct FindState {
+        available: Cell<bool>,
+        calls: Cell<usize>,
+    }
+
+    define_class!(
+        #[unsafe(super(NSResponder))]
+        #[thread_kind = MainThreadOnly]
+        #[ivars = FindState]
+        struct FindResponder;
+
+        unsafe impl NSObjectProtocol for FindResponder {}
+        impl FindResponder {
+            #[unsafe(method(acceptsFirstResponder))]
+            fn accepts(&self) -> bool { true }
+
+            #[unsafe(method(performTextFinderAction:))]
+            fn find(&self, _sender: &AnyObject) {
+                self.ivars().calls.set(self.ivars().calls.get() + 1);
+            }
+
+            #[unsafe(method(validateMenuItem:))]
+            fn validate(&self, _item: &AnyObject) -> bool {
+                self.ivars().available.get()
+            }
+        }
+    );
+
+    pub(crate) fn u3787b_native_responder_find_and_close_follow_availability() {
+        let main = MainThreadMarker::new().expect("main-thread harness");
+        // SAFETY: actual AppKit menus, windows, responders and events stay retained on
+        // the main thread. Restore the prior menu and close only these probe windows.
+        unsafe {
+            let class = |name: &std::ffi::CStr| AnyClass::get(name).expect("AppKit loaded");
+            let app: Retained<AnyObject> = msg_send![class(c"NSApplication"), sharedApplication];
+            let prior: Option<Retained<AnyObject>> = msg_send![&*app, mainMenu];
+            let menu: Retained<AnyObject> = msg_send![class(c"NSMenu"), new];
+            let mut submenus = Vec::new();
+            for title in ["File", "Edit", "Project"] {
+                let item: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+                let sub: Retained<AnyObject> = msg_send![class(c"NSMenu"), new];
+                let _: () = msg_send![&*item, setTitle: &*NSString::from_str(title)];
+                let _: () = msg_send![&*sub, setAutoenablesItems: false];
+                let _: () = msg_send![&*item, setSubmenu: &*sub];
+                let _: () = msg_send![&*menu, addItem: &*item];
+                submenus.push(sub);
+            }
+            let close: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+            let _: () = msg_send![&*close, setTitle: &*NSString::from_str("Close Window")];
+            let _: () = msg_send![&*close, setAction: sel!(performClose:)];
+            let _: () = msg_send![&*close, setKeyEquivalent: &*NSString::from_str("w")];
+            let _: () = msg_send![&*submenus[0], addItem: &*close];
+            let _: () = msg_send![&*app, setMainMenu: &*menu];
+            sync_responder_menu(&app);
+            let find: Retained<AnyObject> = msg_send![&*submenus[1], itemAtIndex: 0isize];
+            let windows = (0..2).map(|_| {
+                let window: Allocated<AnyObject> = msg_send![class(c"NSWindow"), alloc];
+                let window: Retained<AnyObject> = msg_send![window,
+                    initWithContentRect: NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(300.0, 200.0)),
+                    styleMask: 3usize, backing: 2usize, defer: false];
+                let _: () = msg_send![&*window, setReleasedWhenClosed: false];
+                window
+            }).collect::<Vec<_>>();
+            let responders = (0..2)
+                .map(|_| {
+                    let responder = FindResponder::alloc(main).set_ivars(FindState::default());
+                    let responder: Retained<FindResponder> = msg_send![super(responder), init];
+                    responder
+                })
+                .collect::<Vec<_>>();
+            for (index, window) in windows.iter().enumerate() {
+                let _: () =
+                    msg_send![&**window, makeKeyAndOrderFront: std::ptr::null::<AnyObject>()];
+                let accepted: bool = msg_send![&**window, makeFirstResponder: &*responders[index]];
+                assert!(accepted);
+                for available in [false, true] {
+                    responders[index].ivars().available.set(available);
+                    let _: () = msg_send![&*submenus[1], update];
+                    let enabled: bool = msg_send![&*find, isEnabled];
+                    assert_eq!(enabled, available);
+                    let number: isize = msg_send![&**window, windowNumber];
+                    let event: Retained<AnyObject> = msg_send![class(c"NSEvent"),
+                        keyEventWithType: 10usize, location: NSPoint::new(0.0, 0.0),
+                        modifierFlags: 1usize << 20, timestamp: 0.0f64, windowNumber: number,
+                        context: std::ptr::null::<AnyObject>(), characters: &*NSString::from_str("f"),
+                        charactersIgnoringModifiers: &*NSString::from_str("f"), isARepeat: false, keyCode: 3u16];
+                    let _: bool = msg_send![&*menu, performKeyEquivalent: &*event];
+                    assert_eq!(
+                        responders[index].ivars().calls.get(),
+                        usize::from(available)
+                    );
+                    let focused: Retained<AnyObject> = msg_send![&**window, firstResponder];
+                    assert!(std::ptr::eq(
+                        &*focused,
+                        (&*responders[index]) as *const FindResponder as *const AnyObject
+                    ));
+                }
+            }
+            let _: () = msg_send![&*submenus[0], update];
+            let enabled: bool = msg_send![&*close, isEnabled];
+            assert!(enabled);
+            let _: () = msg_send![&*submenus[0], performActionForItemAtIndex: 0isize];
+            let visible: bool = msg_send![&*windows[1], isVisible];
+            let other_visible: bool = msg_send![&*windows[0], isVisible];
+            assert!(
+                !visible && other_visible,
+                "Close targets the actual key window"
+            );
+            let _: () = msg_send![&*windows[0], close];
+            let _: () = msg_send![&*submenus[0], update];
+            let _: () = msg_send![&*submenus[1], update];
+            let close_enabled: bool = msg_send![&*close, isEnabled];
+            let find_enabled: bool = msg_send![&*find, isEnabled];
+            assert!(!close_enabled && !find_enabled);
+            let _: () = msg_send![&*app, setMainMenu: prior.as_deref()];
+        }
+    }
+
     pub(crate) fn u4462_the_hint_takes_the_key_equivalent_colour_and_font() {
         let _main = MainThreadMarker::new().expect("native test harness runs on the main thread");
         // SAFETY: AppKit objects stay retained on the main thread for the whole probe.
