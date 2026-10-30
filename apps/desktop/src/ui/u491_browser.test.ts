@@ -24,6 +24,7 @@ const tabTo = async (selector: string) => {
   expect(await read<boolean>(`document.activeElement?.matches('${selector}')`)).toBe(true);
 };
 
+
 it("u491_keys_limits_and_reset_Resize Rail", async () => {
   const name = "Resize Rail";
   const expected = [304, 368, 480, 252, 288];
@@ -106,7 +107,7 @@ it("u492_tab_leaves_toast_for_next_document_control", async () => {
   await wait(`document.querySelector('.app-toast-action')`);
   await browser("focus", ".app-toast-action");
   await browser("press", "Tab");
-  expect(await read<boolean>(`document.activeElement === document.querySelectorAll('[role=separator]')[1]`)).toBe(true);
+  expect(await read<boolean>(`document.activeElement?.matches('.shelf-edge')`)).toBe(true);
   await browser("press", "Shift+Tab");
   expect(await read<boolean>(`document.activeElement?.matches('.app-toast-action')`)).toBe(true);
 }, 90_000);
