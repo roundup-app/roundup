@@ -187,6 +187,7 @@ it("u2539b_native_menu_projects_the_task_chords", async () => {
   const { daemon, connected } = await mount();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:J")?.enabled).toBe(true));
   expect(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut])).toEqual([
+    ["action:chord:⌘Z", "⌘Z"], ["action:chord:⇧⌘Z", "⇧⌘Z"],
     ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌘T", "⌘T"], ["action:chord:⌃⌘J", "⌃⌘J"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
     ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
     ["action:leader:⇧J", "⌘K ⇧J"], ["action:leader:K", "⌘K K"],
@@ -320,7 +321,7 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 it("u4278a_unavailable_actions_are_hidden_or_explain_on_use", async () => {
   const { daemon } = await mount(true);
   await waitFor(() => expect(projectMenu.items.some(item => ["action:leader:C", "action:leader:A", "action:leader:J", "view:resources"].includes(item.id))).toBe(false));
-  expect(projectMenu.items.every(item => item.enabled)).toBe(true);
+  expect(projectMenu.items.filter(item => !item.enabled).map(item => item.id)).toEqual(["action:chord:⌘Z", "action:chord:⇧⌘Z"]);
   openProjectPage("action:leader:C", "/p");
   openProjectPage("action:leader:A", "/p");
   openProjectPage("action:leader:J", "/p");
@@ -332,7 +333,7 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
   const app = createFakeApp();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await waitFor(() => expect(projectMenu.path).toBeNull());
-  expect(projectMenu.items).toEqual([]);
+  expect(projectMenu.items.map(item => [item.id, item.enabled])).toEqual([["action:chord:⌘Z", false], ["action:chord:⇧⌘Z", false]]);
   openProjectPage("action:chord:⌘N", "/p");
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(0);
 });
