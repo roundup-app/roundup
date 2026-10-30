@@ -3,10 +3,10 @@ import ast
 import hashlib
 import json
 import os
-from pathlib import Path
-import sys
-import subprocess
 from collections import Counter
+from pathlib import Path
+import subprocess
+import sys
 from functools import cache
 
 root = Path(sys.argv[1]).resolve()
@@ -15,13 +15,15 @@ for directory, children, names in os.walk(root):
     children[:] = [name for name in children if name not in {'node_modules', '.git', 'target', '.venv'}]
     files.extend(Path(directory) / name for name in names if name.endswith('.test.py'))
 files.sort()
+
+
 @cache
 def segment(content, node):
     return ast.get_source_segment(content, node)
 
 
-def audit(content, file):
-    tree = ast.parse(content, filename=str(file))
+def inventory(content, filename, matching=False):
+    tree = ast.parse(content, filename=filename)
     parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
     # Follow assignments conservatively across scopes; ambiguous names need review.
     assignments = {}
@@ -72,6 +74,68 @@ def audit(content, file):
             child = parent
         owner_source = content if isinstance(owner, ast.Module) else segment(content, owner)
         identity = hashlib.sha256(json.dumps([assertion, dependencies, owner_source, path], ensure_ascii=False).encode()).hexdigest()
+        context, extra_dependencies, anchors = [], [], {}
+        if matching:
+            # Matching metadata never replaces the permission hash. It proves which
+            # exact historical assertion an unchanged current occurrence belongs to.
+            context = []
+            child = node
+            while child is not tree:
+                parent = parents[child]
+                header = {field: ast.dump(value, include_attributes=False) if isinstance(value, ast.AST) else value
+                          for field, value in ast.iter_fields(parent)
+                          if field not in {'body', 'orelse', 'finalbody', 'handlers'} and not isinstance(value, list)}
+                branch = next((field for field, value in ast.iter_fields(parent)
+                               if isinstance(value, list) and child in value), None)
+                context.insert(0, [type(parent).__name__, header, branch])
+                child = parent
+            # Include callable definitions and writes that the assignment-only legacy
+            # inventory did not hash. An edited helper cannot reuse its caller's grant.
+            extra_dependencies = set()
+            pending = list(visited)
+            seen = set()
+            while pending:
+                name = pending.pop()
+                if name in seen:
+                    continue
+                seen.add(name)
+                for part in ast.walk(tree):
+                    relevant = isinstance(part, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and part.name == name
+                    relevant = relevant or isinstance(part, (ast.Import, ast.ImportFrom)) and any(
+                        (alias.asname or alias.name.split('.')[0]) == name for alias in part.names)
+                    if isinstance(part, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+                        targets = part.targets if isinstance(part, ast.Assign) else [part.target]
+                        relevant = relevant or any(isinstance(item, ast.Name) and item.id == name
+                                                   for target in targets for item in ast.walk(target))
+                    if isinstance(part, ast.Expr) and isinstance(part.value, ast.Call):
+                        call = part.value
+                        inputs = [*call.args, *[keyword.value for keyword in call.keywords]]
+                        if isinstance(call.func, ast.Attribute):
+                            inputs.append(call.func.value)
+                        relevant = relevant or any(isinstance(item, ast.Name) and item.id == name
+                                                   for value in inputs for item in ast.walk(value))
+                    if relevant:
+                        extra_dependencies.add(segment(content, part))
+                        pending.extend(item.id for item in ast.walk(part) if isinstance(item, ast.Name))
+                        ancestor = parents.get(part)
+                        while ancestor is not None:
+                            # Branch/loop inputs select the observed assignment;
+                            # hashing only its value would authorize a different observation.
+                            for field in ('test', 'iter', 'target', 'items', 'type', 'subject', 'pattern', 'guard'):
+                                value = getattr(ancestor, field, None)
+                                for header in value if isinstance(value, list) else [value]:
+                                    if isinstance(header, ast.AST):
+                                        extra_dependencies.add(ast.dump(header, include_attributes=False))
+                                        pending.extend(item.id for item in ast.walk(header) if isinstance(item, ast.Name))
+                            ancestor = parents.get(ancestor)
+            extra_dependencies = sorted(extra_dependencies)
+            # Unchanged statements anchor the assertion on both sides. Insertions or
+            # replacements elsewhere may shift lines; crossing an existing anchor is a move.
+            anchors = {}
+            for part in ast.walk(owner):
+                if isinstance(part, ast.stmt) and not any(isinstance(item, ast.stmt) for item in ast.iter_child_nodes(part)):
+                    text = segment(content, part)
+                    anchors.setdefault(text, []).append(-1 if part.lineno < node.lineno else 1 if part.lineno > node.lineno else 0)
         scripts = []
         for dependency in [node, *[assignment for values in assignments.values() for assignment in values if segment(content, assignment) in dependencies]]:
             for call in ast.walk(dependency):
@@ -112,113 +176,62 @@ def audit(content, file):
             pattern = part.args[0].value if isinstance(part.args[0], ast.Constant) else None
             if isinstance(pattern, str) and (method == 'fullmatch' or method in {'match', 'search'} and pattern.startswith('^') and pattern.endswith('$')):
                 literal_comparison = True
-        yield dict(file=str(file.relative_to(root)), line=node.lineno,
-                              test=' > '.join(names) or '<module>', identity=identity,
-                              kinds=['python-review'], assertion=assertion, dependencies=dependencies, scripts=sorted(set(scripts)), literalComparison=literal_comparison,
-                   match=(assertion, dependencies, names), node=node, tree=tree)
+        yield dict(file=filename, line=node.lineno,
+                   test=' > '.join(names) or '<module>', identity=identity,
+                   kinds=['python-review'], assertion=assertion, dependencies=dependencies,
+                   scripts=sorted(set(scripts)), literalComparison=literal_comparison,
+                   match=[assertion, dependencies, context, extra_dependencies], anchors=anchors)
 
 
-# Reuse only an exact, unambiguous base assertion. Legacy identity bytes and
-# baseline permissions stay intact; unrelated statements are not permissions.
-base = subprocess.run(['git', 'merge-base', 'HEAD', 'origin/main'], cwd=root,
-                      text=True, capture_output=True, timeout=30)
-revision = base.stdout.strip()
-if base.returncode == 0:
-    source_record = subprocess.run(
-        ['git', 'show', revision + ':tools/oxlint/anti-slop/web-assertions/baseline-source.json'],
-        cwd=root, text=True, capture_output=True, timeout=30)
-    if source_record.returncode == 0:
-        revision = json.loads(source_record.stdout)['sourceRevision']
-        available = subprocess.run(['git', 'cat-file', '-e', revision + '^{commit}'],
-                                   cwd=root, text=True, capture_output=True, timeout=30)
-        if available.returncode != 0:
-            raise RuntimeError('Cannot read the recorded Python assertion source: ' + available.stderr)
+def git(*args):
+    return subprocess.run(['git', *args], cwd=root, text=True, capture_output=True, timeout=30)
+
+
+baseline_file = 'tools/oxlint/anti-slop/web-assertions/baseline.jsonl'
+baseline = [json.loads(line) for line in (root / baseline_file).read_text().splitlines() if line] if (root / baseline_file).exists() else []
+base = git('merge-base', 'HEAD', 'origin/main') if baseline else None
+history = None
 for file in files:
-    content = file.read_text()
-    rows = list(audit(content, file))
-    original = None
-    if base.returncode == 0:
-        result = subprocess.run(['git', 'show', revision + ':' + str(file.relative_to(root))],
-                                cwd=root, text=True, capture_output=True, timeout=30)
-        if result.returncode == 0:
-            original = result.stdout
-    previous = list(audit(original, file)) if original is not None else []
-    current_counts = Counter(json.dumps(row['match']) for row in rows)
-    previous_counts = Counter(json.dumps(row['match']) for row in previous)
+    filename = str(file.relative_to(root))
+    rows = list(inventory(file.read_text(), filename))
+    entries = [entry for entry in baseline if entry['file'] == filename]
+    unmatched = {entry['identity'] for entry in entries} - {row['identity'] for row in rows}
+    if entries and base is not None and base.returncode == 0:
+        rows = list(inventory(file.read_text(), filename, matching=True))
+        if history is None:
+            history = git('log', '--format=%H', base.stdout.strip(), '--', baseline_file).stdout.splitlines()
+            source_record = git('show', base.stdout.strip() + ':tools/oxlint/anti-slop/web-assertions/baseline-source.json')
+            if source_record.returncode == 0:
+                revision = json.loads(source_record.stdout)['sourceRevision']
+                available = git('cat-file', '-e', revision + '^{commit}')
+                if available.returncode != 0:
+                    raise RuntimeError('Cannot read the recorded Python assertion source: ' + available.stderr)
+                history.insert(0, revision)
+        counts = Counter(json.dumps([row['test'], row['match']], sort_keys=True) for row in rows)
+        for revision in history:
+            source = git('show', revision + ':' + filename)
+            if source.returncode != 0:
+                continue
+            original = list(inventory(source.stdout, filename, matching=True))
+            original_counts = Counter(json.dumps([row['test'], row['match']], sort_keys=True) for row in original)
+            for old in original:
+                if old['identity'] in {entry['identity'] for entry in entries}:
+                    for current in rows:
+                        if current['identity'] == old['identity'] and current['match'] != old['match']:
+                            current['identity'] = hashlib.sha256((current['identity'] + file.read_text()).encode()).hexdigest()
+                if old['identity'] not in unmatched:
+                    continue
+                key = json.dumps([old['test'], old['match']], sort_keys=True)
+                if counts[key] != 1 or original_counts[key] != 1:
+                    continue
+                current = next(row for row in rows if json.dumps([row['test'], row['match']], sort_keys=True) == key)
+                shared = current['anchors'].keys() & old['anchors'].keys()
+                if any(current['anchors'][text] != old['anchors'][text] for text in shared):
+                    continue
+                current['identity'] = old['identity']
+                unmatched.remove(old['identity'])
+            if not unmatched:
+                break
     for row in rows:
-        key = json.dumps(row['match'])
-        candidates = [old for old in previous if old['match'] == row['match']]
-        if current_counts[key] == previous_counts[key] == 1 and content != original:
-            old = candidates[0]
-            # Keep control flow and called helper definitions pinned too.
-            contexts = []
-            sides = []
-            statement_counts = []
-            for source, item in [(original, old), (content, row)]:
-                node, tree = item['node'], item['tree']
-                parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
-                ancestors = []
-                child = node
-                parent = parents.get(node)
-                branches = []
-                while parent is not None:
-                    branches.append(next(field for field, value in ast.iter_fields(parent)
-                                         if value is child or isinstance(value, list) and child in value))
-                    ancestors.append(parent)
-                    child = parent
-                    parent = parents.get(parent)
-                headers = []
-                for ancestor in ancestors:
-                    headers.append([(field, ast.dump(value) if isinstance(value, ast.AST) else value)
-                                    for field, value in ast.iter_fields(ancestor)
-                                    if field not in {'body', 'orelse', 'finalbody', 'handlers'}])
-                definitions = {}
-                for part in ast.walk(tree):
-                    if isinstance(part, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                        definitions.setdefault(part.name, []).append(part)
-                pending = [part.id for part in ast.walk(node) if isinstance(part, ast.Name)]
-                for dependency in item['dependencies']:
-                    pending.extend(part.id for part in ast.walk(ast.parse(dependency.strip())) if isinstance(part, ast.Name))
-                helpers = {}
-                while pending:
-                    name = pending.pop()
-                    if name in helpers or name not in definitions:
-                        continue
-                    helpers[name] = [segment(source, definition) for definition in definitions[name]]
-                    for definition in definitions[name]:
-                        pending.extend(part.id for part in ast.walk(definition) if isinstance(part, ast.Name))
-                expressions = [node.test, *[ast.parse(dependency.strip()) for dependency in item['dependencies']]]
-                observed = {part.id for expression in expressions for part in ast.walk(expression) if isinstance(part, ast.Name)}
-                observed -= {part.func.id for expression in expressions for part in ast.walk(expression)
-                             if isinstance(part, ast.Call) and isinstance(part.func, ast.Name)}
-                effects = [segment(source, statement) for statement in ast.walk(tree)
-                           if isinstance(statement, ast.Expr) and statement.end_lineno < node.lineno
-                           and any(isinstance(part, ast.Name) and part.id in observed for part in ast.walk(statement))]
-                contexts.append((branches, headers, helpers, effects))
-                # A retained statement cannot cross the assertion. This catches
-                # moves even when navigation insertions shift its AST index.
-                before, after = set(), set()
-                counts = Counter()
-                for statement in ast.walk(tree):
-                    if not isinstance(statement, ast.stmt) or statement is node or statement in ancestors:
-                        continue
-                    text = segment(source, statement)
-                    counts[text] += 1
-                    if statement.end_lineno < node.lineno:
-                        before.add(text)
-                    elif statement.lineno > node.end_lineno:
-                        after.add(text)
-                sides.append((before, after))
-                statement_counts.append(counts)
-            unique = {text for text, count in statement_counts[0].items()
-                      if count == statement_counts[1][text] == 1}
-            crossed = (sides[0][0] & sides[1][1] | sides[0][1] & sides[1][0]) & unique
-            if contexts[0] == contexts[1] and not crossed:
-                row['identity'] = old['identity']
-            else:
-                row['identity'] = hashlib.sha256((row['identity'] + content).encode()).hexdigest()
-        elif candidates and content != original and current_counts[key] != previous_counts[key]:
-            row['identity'] = hashlib.sha256((row['identity'] + content).encode()).hexdigest()
-        for field in ['match', 'node', 'tree']:
-            row.pop(field)
+        del row['match'], row['anchors']
         print(json.dumps(row, ensure_ascii=False))

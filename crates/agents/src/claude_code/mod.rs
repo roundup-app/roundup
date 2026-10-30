@@ -23,7 +23,7 @@ use serde_json::Value;
 
 use crate::{AgentAdapter, Observation};
 
-pub use brief::Role;
+pub use brief::{Role, WORKSTREAM_GUIDANCE};
 pub(crate) use discovery::ImportCandidate;
 pub use launch::{Folders, INTENT_MISSING, Launcher, STATE_EVENTS, settings_marker};
 pub use models::{Lean, Pair, efforts, engines, models};
@@ -322,7 +322,14 @@ pub fn read_start_context(stdout: &str) -> Result<String, String> {
     let context = reply["hookSpecificOutput"]["additionalContext"]
         .as_str()
         .ok_or("start Context has no additionalContext")?;
-    Ok(session_start_context(&format!("{brief}\n{context}")))
+    // P10: only fixed guidance may precede the shared Brief; identity follows its cache prefix.
+    let (guidance, context) = match context.strip_suffix(WORKSTREAM_GUIDANCE) {
+        Some(context) => (WORKSTREAM_GUIDANCE, context),
+        None => ("", context),
+    };
+    Ok(session_start_context(&format!(
+        "{guidance}{brief}\n{context}"
+    )))
 }
 
 /// H20: typed outside the paste markers, so the model's first user message holds typed text that
