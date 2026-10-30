@@ -226,16 +226,26 @@ it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr
   const { browser, evaluate, wait, close } = await reactionBrowser();
   const server = await appServer();
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
-  const dirs = ["NR9", "U4276a", "U4276b", "U4276c"].filter(id => captureDir(id)).map(id => join(captureDir(id)!, phase));
+
+  const dirs = ["NR9", "U4276a", "U4276b", "U4276c"].flatMap(id => {
+    const dir = captureDir(id);
+
+    return dir ? [join(dir, phase)] : [];
+  });
+
   for (const dir of dirs) await mkdir(dir, { recursive: true });
+
   const capture = async (step: string) => {
     const checks: Checks = await evaluate("window.__checks()");
+
     for (const dir of dirs) {
       await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(checks));
       await browser("screenshot", join(dir, `${step}.png`));
     }
+
     for (const id of CHECK_IDS) expect(checks[id], `${step} ${id}`).toMatchObject({ status: "pass" });
   };
+
   try {
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
@@ -277,6 +287,7 @@ it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr
     await wait("!!document.querySelector('[data-reaction-opener=nr9-0]')");
     await browser("click", "[data-reaction-opener=nr9-0]");
     await wait("!!document.querySelector('.reaction-detail')");
+
     for (const [method, label] of [["reaction.run", "Run now"], ["reaction.stop", "Stop"]]) {
       await evaluate(`window.__nr9.app.handlers['${method}'] = () => { throw new Error('Project access was refused. Restore access, then try ${label} again.'); }`);
       await evaluate(`[...document.querySelectorAll('.reaction-actions button')].find(b => b.textContent === '${label}').click()`);
@@ -290,6 +301,7 @@ it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr
   } finally {
     try {
       await browser("record", "stop");
+
       for (const dir of dirs.slice(1)) await copyFile(join(dirs[0]!, "overview.webm"), join(dir, "overview.webm"));
     } finally { await close(); await server.close(); }
   }

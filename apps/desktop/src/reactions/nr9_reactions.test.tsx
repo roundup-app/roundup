@@ -177,7 +177,7 @@ it("u4276c_list_opens_exact_reaction", async () => {
   const { app } = await mount(() => records, [workstream("alpha"), workstream("beta"), agent("maker-a", "idle", "ready", { name: "Same maker", parent: "alpha" }), agent("maker-b", "idle", "ready", { name: "Same maker", parent: "beta" })]);
   fireEvent.click(await screen.findByRole("button", { name: /Ship it.*beta/ }));
   await screen.findByText("second");
-  expect(screen.getByText("Second prerequisite")).toBeTruthy();
+  expect(screen.getByText(records[1]!.reason!)).toBeTruthy();
   expect(screen.getByText(copy.reactionActor("agent", copy.draftIdentity("Same maker", "beta")))).toBeTruthy();
   expect(app.calls.filter(call => call.method === "reaction.get").map(call => call.params)).toEqual([{ id: "r2" }]);
   fireEvent.click(screen.getByRole("button", { name: "Close Ship it" }));
@@ -375,6 +375,7 @@ it.each(["reaction.stop", "reaction.run"] as const)("nr9_list_actions_keep_selec
   const row = (await screen.findByRole("button", { name: /Ship it.*beta/ })).closest("li")!;
   const action = () => within(row).getByRole("button", { name: method === "reaction.stop" ? copy.reactionStop : copy.reactionRun });
   app.handlers[method] = () => { throw new Error("Access refused. Restore access and retry."); };
+
   fireEvent.click(action());
   await within(row).findByRole("alert", { name: "Access refused. Restore access and retry." });
   app.handlers[method] = () => records[1]!;
