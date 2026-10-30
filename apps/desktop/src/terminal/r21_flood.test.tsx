@@ -3,6 +3,8 @@ import { node, info, terminal } from "../testing/nodes";
 import { fromBase64 } from "./base64";
 import { connectFakeProject, fakeEmulators, subscribed } from "./paneHarness";
 import { createScreens } from "./screens";
+import * as xtermModule from "@xterm/xterm";
+import { createXtermEmulators } from "./emulator";
 
 it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_input_path ($status)", async (item) => {
   const { app, connected } = await connectFakeProject([item, node("flood")], [info("t-a"), info("t-flood")]);
@@ -144,6 +146,42 @@ it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
   } finally {
     screens.dispose();
     document.body.replaceChildren();
+    vi.useRealTimers();
+  }
+});
+
+
+it("r21_flood_gutters_draw_once_per_frame_without_losing_turn_selection", async () => {
+  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+  vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+  const created = vi.spyOn(xtermModule, "Terminal");
+  const emulator = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }))("flood");
+  const terminal = created.mock.instances[0]!;
+  const host = document.body.appendChild(document.createElement("div"));
+  const write = (text: string) => new Promise<void>(resolve => emulator.write(new TextEncoder().encode(text), resolve));
+
+  try {
+    emulator.show(host, false);
+    terminal.resize(80, 5);
+    await write("\x1b]133;A\x07$ yes\x1b]133;C\x07\r\n");
+    vi.advanceTimersToNextFrame();
+    const screen = host.querySelector<HTMLElement>(".xterm-screen")!;
+    const reads = vi.spyOn(screen, "clientHeight", "get").mockReturnValue(100);
+    const output = Array.from({ length: 200 }, (_, i) => `flood ${i}\r\n`).join("");
+
+    await write(output);
+    // xterm's render event, rather than each scrolled row or parse callback,
+    // owns the gutter's layout read and writes.
+    expect(reads).not.toHaveBeenCalled();
+    vi.advanceTimersToNextFrame();
+    expect(reads).toHaveBeenCalledTimes(1);
+    host.querySelector<HTMLButtonElement>(".turn-gutter")!.click();
+    expect(emulator.selection()).toBe("$ yes\n" + output.replaceAll("\r", "").trimEnd());
+  } finally {
+    emulator.dispose();
+    host.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   }
 });
