@@ -1,28 +1,55 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
 import type { Checks } from "../testing/checks";
 
-const shot = async (id: string, stage: string, step: string) => {
-  const checks = await read<Checks>("window.__checks()");
+const ageCaptures = () => ["U4709a", "U4709b", "U4709c"].flatMap(id => {
+  const dir = captureDir(id);
 
-  for (const directory of [captureDir(id), ...(id === "U4908" ? [captureDir("U4708")] : [])]) {
+  return dir ? [dir] : [];
+});
+
+const shot = async (id: string, stage: string, step: string): Promise<Checks> => {
+  const {checks, columns, boxes} = await read<{checks: Checks; columns: unknown; boxes: unknown}>(`({
+    checks: window.__checks(),
+    columns: Array.from(document.querySelectorAll('.shelf-group-control, .shelf-row'))
+      .filter(row => row.checkVisibility()).map(row => ({
+        name: row.textContent,
+        mark: row.querySelector('[data-part=branch-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(),
+        title: row.querySelector('.shelf-group-name, .shelf-title, .entry-field')?.getBoundingClientRect().toJSON(),
+        age: row.querySelector('.item-age')?.getBoundingClientRect().toJSON(),
+        figures: row.querySelector('.item-age') && getComputedStyle(row.querySelector('.item-age')).fontVariantNumeric,
+        open: row.querySelector('.todo-open')?.getBoundingClientRect().toJSON(),
+        grip: row.querySelector('.sortable-handle')?.getBoundingClientRect().toJSON(),
+        count: row.querySelector('.shelf-group-count')?.getBoundingClientRect().toJSON()
+      })),
+    boxes: Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({
+      id: row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation,
+      box: row.getBoundingClientRect().toJSON(),
+      state: row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .shelf-glyph .icon')?.getBoundingClientRect().toJSON(),
+      name: row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(),
+      controls: Array.from(row.querySelectorAll('button,input[type=checkbox]'))
+        .filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true}))
+        .map(control => control.getAttribute('aria-label'))
+    }))
+  })`);
+
+  let picture: string | undefined;
+
+  for (const directory of [captureDir(id), ...(id === "U4908" ? [captureDir("U4708"), ...ageCaptures()] : [])]) {
     if (!directory) continue;
-
     const folder = join(directory, stage);
-    mkdirSync(folder, { recursive: true });
+    mkdirSync(folder, {recursive:true});
     writeFileSync(join(folder, `${step}.checks.json`), JSON.stringify(checks) + "\n");
-    await browser("screenshot", join(folder, `${step}.png`));
 
-    if (id === "U4908") {
-      const columns = await read(`Array.from(document.querySelectorAll('.shelf-group-control, .shelf-row')).filter(row => row.checkVisibility()).map(row => ({name:row.textContent, mark:row.querySelector('[data-part=branch-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(), title:row.querySelector('.shelf-group-name, .shelf-title, .entry-field')?.getBoundingClientRect().toJSON(), count:row.querySelector('.shelf-group-count')?.getBoundingClientRect().toJSON()}))`);
-      writeFileSync(join(folder, `${step}.columns.json`), JSON.stringify(columns) + "\n");
-    }
-
-    const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .shelf-glyph .icon')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
+    if (id === "U4908") writeFileSync(join(folder, `${step}.columns.json`), JSON.stringify(columns) + "\n");
     writeFileSync(join(folder, `${step}.rows.json`), JSON.stringify(boxes) + "\n");
+    const target = join(folder, `${step}.png`);
+
+    if (picture) copyFileSync(picture, target);
+    else { await browser("screenshot", target); picture = target; }
   }
 
   return checks;
@@ -112,18 +139,20 @@ it.each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activa
 
 
 // Policy observer: pictures and Check readings are judged by the design critic.
-it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "agents-10"].flatMap(seed => ["todos", "pads"].map(kind => ({base, seed, kind})))))("u4908_paired_row_columns_and_actions_$base/$seed/$kind", async ({base, seed, kind}) => {
+it.skipIf(!captureDir("U4908") && !ageCaptures().length).each([true, false].flatMap(base => ["tree-40", "agents-10"].flatMap(seed => ["todos", "pads"].flatMap(kind => [1512, 1280].flatMap(width => ["rows", "actions"].map(part => ({base, seed, kind, width, part})))))))("u4908_paired_row_columns_and_actions_$base/$seed/$kind/$width/$part", async ({base, seed, kind, width, part}) => {
   if (base && !process.env.U500_BASE_ROOT) return;
   const stage = base ? "base" : "head";
-  await browser("set", "viewport", "1512", "950");
+  const prefix = `${seed}-${kind}-${width}`;
+  await browser("set", "viewport", String(width), width === 1280 ? "820" : "950");
   await browser("set", "media", "dark");
   await load(seed, base);
-  const video = !base && seed === "tree-40" ? captureDir("U4908") : null;
+  const video = !base && seed === "tree-40" ? (captureDir("U4908") ?? ageCaptures()[0]) : null;
 
-  if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", `interaction-${kind}.webm`)); await wait("window.__fake && document.querySelector('.rail-tree')"); }
+  if (video) { mkdirSync(join(video, "head"), {recursive:true}); await browser("record", "start", join(video, "head", `interaction-${kind}-${width}-${part}.webm`)); await wait("window.__fake && document.querySelector('.rail-tree')"); }
 
   try {
-    // Recording starts a fresh browser context, so restore the observer media there.
+    // Recording starts a fresh browser context, so restore its viewport and media.
+    await browser("set", "viewport", String(width), width === 1280 ? "820" : "950");
     await browser("set", "media", "dark");
     await wait("matchMedia('(prefers-color-scheme: dark)').matches");
     await overview();
@@ -147,6 +176,20 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
       }
     })()`);
 
+    if (ageCaptures().length) await browser("eval", `(async () => {
+      const app = window.__fake.app;
+      const now = Date.now();
+      const ages = [45000,330000,7230000,518430000,1814430000,2505600000];
+      const todos = (await app.rpc('todo.list', null)).map((item, i) => ({...item,updated_at:now-ages[i%ages.length]}));
+      for (let i=0; i<6; i++) await app.rpc('pad.create',{name:'Age example '+i,text:null});
+      const pads = (await app.rpc('pad.list', null)).map((item, i) => ({...item,updated_at:now-ages[i%ages.length]}));
+      app.handlers['todo.list'] = () => todos;
+      app.handlers['pad.list'] = () => pads;
+      window.__ageTime = now;
+      for (const item of todos) window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'todo.updated',data:item});
+      for (const item of pads) window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'pad.changed',data:{name:item.name}});
+    })()`);
+
     if (kind === "pads") await browser("click", "#shelf-tab-pads");
     await wait(`document.querySelector('.${kind}-tab')`);
     await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
@@ -155,37 +198,72 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
     await browser("scrollintoview", row);
     await browser("mouse", "move", "1", "1");
     await browser("eval", "document.activeElement.blur()");
-    await shot("U4908", stage, `${seed}-${kind}-rest`);
-    await browser("hover", row);
-    await shot("U4908", stage, `${seed}-${kind}-hover`);
-    await browser("focus", row);
-    await shot("U4908", stage, `${seed}-${kind}-focus`);
-    await browser("click", row);
-    await shot("U4908", stage, `${seed}-${kind}-selected`);
 
-    await browser("press", "Enter");
-    await wait("document.querySelector('.drawer[data-open=true]')");
+    if (part === "rows") {
+      await shot("U4908", stage, `${prefix}-rest`);
 
-    if (kind === "pads") await browser("eval", "import('/src/pads/PadRichEditor.tsx').then(() => true)");
+      if (!base && ageCaptures().length) {
+        await browser("eval", "Date.now = () => window.__ageTime + 60000");
+        await wait(`Array.from(document.querySelectorAll('.${kind}-tab .item-age')).some(age => age.textContent === '1m')`);
+        await shot("U4908", stage, `${prefix}-tick`);
+        await browser("eval", `(async () => {
+          const app = window.__fake.app;
+          if ('${kind}' === 'todos') {
+            const items = await app.rpc('todo.list', null);
+            items[0].updated_at = Date.now() - 300000;
+            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'todo.updated',data:{...items[0]}});
+          } else {
+            const items = await app.rpc('pad.list', null);
+            items[0].updated_at = Date.now() - 300000;
+            window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'pad.changed',data:{name:items[0].name}});
+          }
+        })()`);
+        await wait(`Array.from(document.querySelectorAll('.${kind}-tab .item-age')).some(age => age.textContent === '5m')`);
+        await shot("U4908", stage, `${prefix}-event`);
+      }
 
-    await shot("U4908", stage, `${seed}-${kind}-opened`);
-    await browser("click", ".drawer[data-open=true] .close");
-    await wait("!document.querySelector('.drawer[data-open=true]')");
-    await browser("click", ".shelf-add");
-    await wait("document.querySelector('.entry-field')");
-    await shot("U4908", stage, `${seed}-${kind}-add`);
-    await browser("fill", ".entry-field", "Rejected item");
-    await browser("eval", `(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.handlers['${kind === "todos" ? "todo.create" : "pad.create"}'] = () => {throw new RpcError(-32003, 'Creation refused; change the name and try again.');}; })()`);
-    await browser("press", "Enter");
-    await wait("document.body.textContent.includes('Creation refused')");
-    await browser("hover", `.${kind}-tab .ink[role=alert]`);
-    await wait("Array.from(document.querySelectorAll('[role=tooltip]')).some(tip => tip.checkVisibility() && tip.textContent.includes('Creation refused'))");
-    await shot("U4908", stage, `${seed}-${kind}-failure`);
-    await browser("press", "Escape");
+      await browser("hover", row);
+      await shot("U4908", stage, `${prefix}-hover`);
+      await browser("focus", row);
+      await shot("U4908", stage, `${prefix}-focus`);
+      await browser("click", row);
+      await shot("U4908", stage, `${prefix}-selected`);
+
+    } else {
+      if (!ageCaptures().length) {
+        await browser("focus", row);
+        await wait(`document.activeElement === document.querySelector('${row}')`);
+        await browser("press", "Enter");
+        await wait("document.querySelector('.drawer[data-open=true]')");
+
+        if (kind === "pads") await browser("eval", "import('/src/pads/PadRichEditor.tsx').then(() => true)");
+
+        await shot("U4908", stage, `${prefix}-opened`);
+        await browser("click", ".drawer[data-open=true] .close");
+        await wait("!document.querySelector('.drawer[data-open=true]')");
+        await browser("click", ".shelf-add");
+        await wait("document.querySelector('.entry-field')");
+        await shot("U4908", stage, `${prefix}-add`);
+        await browser("press", "Escape");
+        await wait("!document.querySelector('.entry-field')");
+      }
+
+      await browser("focus", row);
+      await wait(`document.activeElement === document.querySelector('${row}')`);
+      await browser("press", "F2");
+      await wait("document.querySelector('.row-name-editor input[aria-busy=false]')");
+      await browser("fill", ".row-name-editor input", "Rejected name");
+      await browser("eval", `(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.handlers['${kind === "todos" ? "todo.update" : "pad.rename"}'] = () => {throw new RpcError(-32003, 'Rename refused; change the name and try again.');}; })()`);
+      await browser("press", "Enter");
+      await wait("document.body.textContent.includes('Rename refused')");
+      await browser("press", "Escape");
+      await wait("!document.querySelector('.row-name-editor')");
+      await browser("hover", `.${kind}-tab .ink[role=alert]`);
+      await shot("U4908", stage, `${prefix}-failure`);
+      await browser("press", "Escape");
+    }
   } finally {
     if (video) await browser("record", "stop");
   }
 
-  await browser("set", "viewport", "1280", "820");
-  await shot("U4908", stage, `${seed}-${kind}-1280`);
 }, 60_000);
