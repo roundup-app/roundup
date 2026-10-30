@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { VisualMount } from "./visualBlocks";
 
 /** The calls the Pad makes of Mermaid. */

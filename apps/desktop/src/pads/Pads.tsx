@@ -6,7 +6,7 @@ import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { NameField, Editable } from "../ui/Editable";
 import { createCutTitle } from "../ui/cutTitle";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";

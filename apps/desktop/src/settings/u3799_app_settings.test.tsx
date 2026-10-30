@@ -49,7 +49,7 @@ it("u3800_close_returns_the_center_and_focus", async () => {
 it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "⌃⇧F13"]])("u3804_a_new_chord_opens_the_field_and_help_lists_it_%s", async (code, key, label) => {
   const { seedApp } = await import("../testing/seeds");
   const { HELP_ROWS } = await import("../keys/chords");
-  const { copy } = await import("../copy");
+  const { copy } = await import("./copy");
   const controls = seedApp("tree-40", Date.now());
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");

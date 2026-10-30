@@ -2,7 +2,7 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { queueFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";

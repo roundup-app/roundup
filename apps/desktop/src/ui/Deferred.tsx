@@ -1,6 +1,6 @@
 import Hourglass from "lucide-solid/icons/hourglass";
 import { createResource, ErrorBoundary, Show, Suspense, type JSX } from "solid-js";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 

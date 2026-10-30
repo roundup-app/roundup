@@ -1,7 +1,7 @@
 import { animate } from "motion";
 import { createComputed, createEffect, createSignal, on, onCleanup, Show, useContext } from "solid-js";
 import { createReducedMotion, ReducedMotionContext } from "../app/reducedMotion";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "./glyph";
 

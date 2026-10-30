@@ -6,7 +6,7 @@ import { captureFocus } from "../keys/focus";
 import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createContext, createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { Portal } from "solid-js/web";

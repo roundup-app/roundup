@@ -1,4 +1,4 @@
-import { copy } from "../../copy";
+import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { Pad } from "@contracts/pad/Pad";

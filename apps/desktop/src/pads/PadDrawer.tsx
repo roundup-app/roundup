@@ -6,7 +6,7 @@ import { createCutTitle } from "../ui/cutTitle";
 import { IconButton } from "../ui/IconButton";
 import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Icon } from "../ink/Icon";
 import { createEffect, createMemo, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 import type { Accessor } from "solid-js";
