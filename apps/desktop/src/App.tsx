@@ -11,7 +11,7 @@ import { AppSettings } from "./settings/AppSettings";
 import { appSettings, applyAppAppearance } from "./settings/preferences";
 import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
-import { CHORDS, LEADER } from "./keys/chords";
+import { CHORDS, LEADER, shortcutLabel } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
@@ -481,15 +481,16 @@ export const App = (props: {
 
     return [
       ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => row.keys !== copy.leaderChord), ...LEADER.filter(row => row.keys !== "T")].map(row => {
+      ...[...CHORDS.filter(row => row.keys !== copy.leaderChord), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
-        const action = actions.find(action => action.value === id && action.available());
 
-        const item: MenuItem = { id, label: row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
+        return actions.filter(action => (action.value === id || action.value.startsWith(`${id}:`)) && action.available()).map(action => {
+          const item: MenuItem = { id: action.value, label: row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action.label, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: available || row.keys === "⌘O" };
 
-        if (!("inRail" in row && row.inRail && row.keys === "R")) item.shortcut = "press" in row ? `⌘K ${row.keys}` : row.keys;
+          if (!("inRail" in row && row.inRail && row.keys === "R")) item.shortcut = "press" in row ? `⌘K ${row.keys}` : action.press ? shortcutLabel(action.press) : row.keys;
 
-        return item;
+          return item;
+        });
       }),
     ].filter((item, at, all) => item.enabled && all.findIndex(other => other.enabled && other.id === item.id) === at);
   });

@@ -110,7 +110,7 @@ export const createOwnerKeys = (source: {
 
       return {
         label: `${at + 1} ${action.what}: ${target?.name ?? ""}`,
-        available: () => source.active() && focus?.isConnected === true && todo !== undefined && focused(focus)?.id === todo.id
+        available: () => source.active() && focus?.isConnected === true && document.activeElement === focus && todo !== undefined && focused(focus)?.id === todo.id
           && target !== undefined && owners().some(owner => sameOwner(owner.actor, target.actor))
           && !sameOwner(source.todos.byId().get(todo.id)?.owner ?? null, target.actor),
         invoke: () => { if (todo && target) void source.assign(todo.id, target.actor); },

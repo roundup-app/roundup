@@ -254,3 +254,37 @@ This is CI evidence only; earlier native observations keep their original scope.
 Complete assignment/library/native inventory, responder Find/Close availability
 and final native displayed-key/combined-dispatch observations remain on #4308.
 This slice closes neither #4308 nor #3843.
+
+## Numbered assignment projection
+
+The Project projection now includes each available registration beneath a
+catalogue chord, including the existing `1–9` registrations with their distinct
+`Digit1` through `Digit9` ids. Each item keeps its captured destination label and
+shows its own digit as a hint; it installs no native accelerator. Retained
+assignment captures refuse invocation after focus leaves the captured row. Selection uses
+the existing Project event and `captureActions` route. Catalogue order, accepted
+Project grouping and context-menu construction stay intact.
+
+`u3787b_numbered_assignment_captures_one_todo_and_owner` drives ninth-Agent
+assignment by key and menu through the connected production App, pinning the Todo,
+Agent identity, one assignment and zero Terminal writes. The inventory observer
+now also visits the Shelf and triage. The existing Tauri forwarding observer adds
+both numbered ids for two Projects; the existing no-accelerator proof includes
+plain `1` and `9`. The first-Agent variants of this new proof repeat its numbered registration path;
+the ninth-Agent variants retain equivalence and the nine-item inventory assertion.
+No earlier proof is removed or retired.
+
+This continues #4877 through the merged continuations. The installed tinykeys
+registry already owns these per-press captures; Tauri's existing menu items and
+native plain-key hint construction are reused without another dispatcher.
+Read installed Tauri 2.12.1 `Menu::default` and muda 0.20.0's Close Window action:
+Close Window remains the platform `performClose:` responder. Tauri still supplies
+no Find predefined item; native responder integration remains required.
+
+Main check 40981393565, SHA `7595b070bbb91dae1c3c2fc5d2d2970f48461250`,
+has passing `mac` and `mac-clippy` jobs. This is compilation evidence only.
+Earlier #4278 native evidence retains its original scope and SHA. Remaining on
+#4308: the complete library/native command inventory, responder Find integration
+and actual Find/Close availability, followed by native displayed-key/alignment
+and combined AppKit/webview dispatch observations at the complete implementation
+SHA. No new native result is claimed; #4308 and #3843 remain open.
