@@ -64,6 +64,8 @@ pub fn build<R: Runtime>(
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
         .setup(move |app| {
+            #[cfg(target_vendor = "apple")]
+            native::project_menu_hints(app.handle(), Vec::new())?;
             let state = app.state::<AppState>();
             match app.path().app_data_dir() {
                 Ok(dir) => state.use_data_dir(dir),

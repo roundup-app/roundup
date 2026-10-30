@@ -52,7 +52,7 @@ max-threads = 1
 
 [[profile.default.overrides]]
 platform = 'cfg(target_os = "macos")'
-filter = 'package(desktop) & binary(s2297a)'
+filter = '(package(desktop) & binary(s2297a)) | (package(native) & test(=u3787b_native_responder_find_and_close_follow_availability))'
 test-group = 'native-app'
 
 # L89: the Rust lanes. A lane runs the test binaries its profile names, packed so the lanes' replayed test time (the

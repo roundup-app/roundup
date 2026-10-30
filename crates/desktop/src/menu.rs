@@ -222,6 +222,9 @@ pub fn select_project_menu<R: Runtime>(
         }
         #[cfg(target_vendor = "apple")]
         native::project_menu_hints(&app, hints).map_err(internal)?;
+    } else {
+        #[cfg(target_vendor = "apple")]
+        native::project_menu_hints(&app, Vec::new()).map_err(internal)?;
     }
     *app.state::<ProjectMenu>()
         .0

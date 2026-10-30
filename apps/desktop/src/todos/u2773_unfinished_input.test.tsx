@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
@@ -5,7 +6,7 @@ import { RpcError } from "../app/seam";
 import { Todos } from "./Todos";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TodoDrawer } from "./TodoDrawer";
-import { mountTodos, todo } from "./testHarness";
+import { mountTodos, todo, todoCallsTo } from "./testHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -23,14 +24,14 @@ it("u2773a_todos_restores_exact_work_after_hiding_creation", async () => {
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   const restored = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
   expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([text, 2, 5, "backward"]);
-  expect(app.calls.filter(call => call.method === "todo.create")).toEqual([]);
+  expect(app.calls.filter(call => call.method === "todo.create" || call.method === "todo.comment")).toEqual([]);
 });
 
 it("u2773c_todos_external_change_keeps_original_blocker_base", async () => {
   const { app, connected } = await mountTodos([todo(1), todo(2)]);
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  await screen.findByRole("region", { name: "Todo history" });
+  await screen.findByRole("region", { name: "Activity" });
   fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32003, "conflict"));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
@@ -43,7 +44,7 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   const { app, connected } = await mountTodos([todo(1, { body: "base" })]);
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  await screen.findByRole("region", { name: "Todo history" });
+  await screen.findByRole("region", { name: "Activity" });
   fireEvent.dblClick(await within(screen.getByRole("complementary", { name: "Drawer" })).findByText("base"));
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(document.activeElement).toBe(field));
@@ -92,7 +93,7 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   app.handlers["todo.update"] = () => new Promise((resolve, fail) => { acknowledge = resolve; reject = fail; });
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  await screen.findByRole("region", { name: "Todo history" });
+  await screen.findByRole("region", { name: "Activity" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   fireEvent.dblClick(await within(drawer).findByText("base"));
@@ -128,7 +129,7 @@ it("u2773b_todos_discard_removes_only_selected_revision_across_reopen", async ()
   fireEvent.keyDown(field, { key: "Enter" });
   await screen.findByText("Failed");
   fireEvent.input(field, { target: { value: "  newer B 🧪  " } });
-  fireEvent.click(within(screen.getByRole("region", { name: "Todo · new" })).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Todo · new" })).getByRole("button", { name: recoveryCopy.discardRevision }));
   await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${connected.project.path}`)!).drafts).toContainEqual(expect.objectContaining({ value: expect.objectContaining({ title: "  newer B 🧪  " }) })));
   const path = connected.project.path;
 
@@ -141,18 +142,22 @@ it("u2773b_todos_discard_removes_only_selected_revision_across_reopen", async ()
   expect(restored.app.calls.filter(call => call.method === "todo.create")).toEqual([]);
 });
 
-it("u2773e_todos_recovery_actions_keep_surface_draft", async () => {
-  const { connected, app } = await mountTodos([]);
+it.each(["creation", "comment"])("u2773e_todos_recovery_actions_keep_surface_draft_%s", async surface => {
+  const { connected, app } = await mountTodos(surface === "comment" ? [todo(1)] : []);
 
-  fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
-  const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  if (surface === "comment") {
+    const row = await screen.findByRole("button", { name: /^Idle #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+    await screen.findByRole("textbox", { name: "Write a comment" });
+  } else fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
+
+  const field = screen.getByRole<HTMLInputElement>("textbox", { name: surface === "comment" ? "Write a comment" : "New Todo title" });
   const stored = localStorage.getItem(`roundup:drafts:${connected.project.path}`);
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   const writeText = vi.fn().mockResolvedValue(undefined);
 
   vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   fireEvent.input(field, { target: { value: "  exact 🧪  " } });
-  expect(await screen.findByRole("alert")).toBeTruthy();
+  await screen.findByRole("alert");
   fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
   expect(writeText).toHaveBeenCalledWith("  exact 🧪  ");
   expect(localStorage.getItem(`roundup:drafts:${connected.project.path}`)).toBe(stored);
@@ -160,8 +165,8 @@ it("u2773e_todos_recovery_actions_keep_surface_draft", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
   await waitFor(() => expect(connected.drafts.problem()).toBeNull());
   expect(field.value).toBe("  exact 🧪  ");
-  expect(JSON.parse(localStorage.getItem(`roundup:drafts:${connected.project.path}`)!).drafts[0].value.title).toBe("  exact 🧪  ");
-  expect(app.calls.filter(call => call.method === "todo.create")).toEqual([]);
+  expect(JSON.parse(localStorage.getItem(`roundup:drafts:${connected.project.path}`)!).drafts[0].value[surface === "comment" ? "text" : "title"]).toBe("  exact 🧪  ");
+  expect(app.calls.filter(call => call.method === "todo.create" || call.method === "todo.comment")).toEqual([]);
 });
 
 it("u2773a_todos_title_survives_escape_without_submission", async () => {
@@ -169,7 +174,7 @@ it("u2773a_todos_title_survives_escape_without_submission", async () => {
 
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  await screen.findByRole("region", { name: "Todo history" });
+  await screen.findByRole("region", { name: "Activity" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   fireEvent.dblClick(within(drawer).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
@@ -218,7 +223,7 @@ it("u2773b_todos_discard_current_does_not_restore_it_on_escape", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
   fireEvent.input(screen.getByRole("textbox", { name: "New Todo title" }), { target: { value: "discard this" } });
   fireEvent.keyDown(screen.getByRole("textbox", { name: "New Todo title" }), { key: "Escape" });
-  fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(screen.getByRole("button", { name: recoveryCopy.discardRevision }));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   const reopened = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
@@ -234,7 +239,7 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
   app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32003, "conflict"));
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  await screen.findByRole("region", { name: "Todo history" });
+  await screen.findByRole("region", { name: "Activity" });
   fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
   await screen.findByText("conflict");
@@ -248,7 +253,7 @@ it("u2773a_todos_blocker_choice_survives_a_failed_incoming_history_read", async 
 
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  await screen.findByRole("region", { name: "Todo history" });
+  await screen.findByRole("region", { name: "Activity" });
   const rejections: ((error: Error) => void)[] = [];
 
   app.handlers["todo.getHistory"] = () => new Promise((_resolve, fail) => { rejections.push(fail); });
@@ -304,7 +309,7 @@ it("u2773e_todos_incompatible_form_keeps_original_bytes_and_newer_work", async (
   fireEvent.click(recovery.getByRole("button", { name: "Copy Todo" }));
   expect(writeText).toHaveBeenCalledWith(exact);
   fireEvent.click(recovery.getByRole("button", { name: "Retry storage only" }));
-  fireEvent.click(within(await screen.findByRole("region", { name: "Todo · 42" })).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(await screen.findByRole("region", { name: "Todo · 42" })).getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(localStorage.getItem(key)).toBe(bytes);
   expect(field.value).toBe(exact);
   expect(connected.drafts.list().find(draft => draft.revision === "independent")).toEqual(independent);
@@ -334,7 +339,8 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
   const { app, connected } = await mountTodos([todo(1, { title: "original" })]);
   { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
 
-  await screen.findByRole("region", { name: "Todo history" });
+  await screen.findByRole("region", { name: "Activity" });
+  await waitFor(() => expect(todoCallsTo(app, "todo.readHistory")).toHaveLength(1));
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
   app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32003, "refused"));
@@ -448,7 +454,7 @@ it("u3021c_todo_creation_discard_from_another_control_closes_the_selected_editor
   const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
   // The Shelf's recovery control is mounted separately from the recovered creation editor.
-  fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", description: /discard A/ })[0]!);
+  fireEvent.click(screen.getAllByRole("button", { name: recoveryCopy.discardRevision, description: /discard A/ })[0]!);
   expect(field.isConnected).toBe(false);
   fireEvent.keyDown(field, { key: "Escape" });
   opened.unmount();
@@ -561,4 +567,37 @@ it.each(["project", "facts-project", "object", "home", "removed"] as const)("u30
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(app.calls).toEqual(calls);
   expect(connected.drafts.list()).toEqual([a]);
+});
+
+it.each(["acknowledged", "failed"] as const)("u4698e_composer_keeps_existing_send_and_draft_contract_%s", async outcome => {
+  const open = async () => {
+    const row = await screen.findByRole("button", { name: /^Idle #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+    await screen.findByRole("textbox", { name: "Write a comment" });
+  };
+
+  const path = `/activity-draft/${crypto.randomUUID()}`;
+  const m = await mountTodos([todo(1)], true, [], false, path);
+  await open();
+  const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+  let resolve!: (value: import("@contracts/todo/Comment").Comment) => void;
+  let reject!: (error: Error) => void;
+  m.app.handlers["todo.comment"] = () => new Promise((yes, no) => { resolve = yes; reject = no; });
+  const a = "  A é\n雪 😀  "; const b = " B newer\n日本語 ";
+  fireEvent.input(field, { target: { value: a } });
+  fireEvent.keyDown(field, { key: "Enter" });
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.comment")).toHaveLength(1));
+  fireEvent.input(field, { target: { value: b } });
+
+  if (outcome === "failed") reject(new RpcError(-32003, "Cannot send A"));
+  else resolve({ id: 99, body: a, created_at: 0, read: true, author: { kind: "user", id: "you", parent: null } });
+  await waitFor(() => expect(m.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  expect(field.value).toBe(b);
+  expect(m.connected.drafts.list().filter(draft => draft.destination.recipient === "comment").map(draft => draft.value.text)).toEqual(outcome === "failed" ? [a, b] : [b]);
+  m.unmount();
+  const other = await mountTodos([todo(1)], true, [], false, path + "/other"); await open();
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe("");
+  other.unmount();
+  const restored = await mountTodos([todo(1)], true, [], false, path); await open();
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe(b);
+  expect(todoCallsTo(restored.app, "todo.comment")).toHaveLength(0);
 });
