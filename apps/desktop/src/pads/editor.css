@@ -1,3 +1,398 @@
-/* Editor defaults stay below the App's Token rules even when this lazy chunk loads last. */
-@import "@milkdown/crepe/theme/common/style.css" layer(editor);
-@import "@milkdown/crepe/theme/classic.css" layer(editor);
+/* Milkdown's optional theme is supplied here, using its existing component classes.
+   Do not import Crepe/ProseMirror themes: their literal declarations enter D1 even
+   when a later rule overrides them. Reading typography stays in reading.styles.css. */
+@layer editor {
+  .milkdown {
+    position: relative;
+    font-family: var(--font-ui);
+    font-size: var(--text-title);
+    color: var(--text);
+    background: var(--ground);
+  }
+  .milkdown * {
+    box-sizing: border-box;
+  }
+  .milkdown :is(button, input) {
+    font: inherit;
+    color: inherit;
+  }
+  .milkdown button {
+    cursor: pointer;
+  }
+  .milkdown :is(.milkdown-icon, .top-bar-inner, .top-bar-item, .top-bar-heading-button, .top-bar-chevron) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .milkdown svg {
+    width: var(--space-4);
+    height: var(--space-4);
+    fill: currentcolor;
+  }
+  .milkdown .ProseMirror {
+    position: relative;
+    white-space: break-spaces;
+    word-wrap: break-word;
+    font-variant-ligatures: none;
+  }
+  .milkdown .ProseMirror:focus {
+    outline: none;
+  }
+  .milkdown .ProseMirror li {
+    position: relative;
+  }
+  .milkdown .ProseMirror [draggable][contenteditable="false"] {
+    user-select: text;
+  }
+  .milkdown .ProseMirror-selectednode {
+    outline: var(--hairline-width) solid var(--accent);
+  }
+  .milkdown .ProseMirror-hideselection {
+    caret-color: transparent;
+  }
+  .milkdown .ProseMirror-hideselection *::selection {
+    background: transparent;
+  }
+  .milkdown img.ProseMirror-separator {
+    display: inline;
+    border: 0;
+    margin: 0;
+  }
+  .milkdown .ProseMirror img {
+    max-width: 100%;
+  }
+
+  .milkdown .top-bar-inner {
+    justify-content: flex-start;
+  }
+  .milkdown :is(.top-bar-item, .top-bar-heading-button) {
+    flex-shrink: 0;
+    color: var(--grey);
+    border: 0;
+    background: none;
+    border-radius: 0;
+  }
+  .milkdown :is(.top-bar-item, .top-bar-heading-button):hover {
+    color: var(--text);
+  }
+  .milkdown .top-bar-item.active {
+    color: var(--accent);
+  }
+  .milkdown .top-bar-divider {
+    width: var(--hairline-width);
+    background: var(--hairline);
+    flex-shrink: 0;
+  }
+  .milkdown .top-bar-heading-selector {
+    position: relative;
+    flex-shrink: 0;
+  }
+  .milkdown .top-bar-heading-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: var(--layer-menu);
+    min-width: var(--pad-menu-min-width);
+    padding: var(--space-2);
+    background: var(--surface);
+    border-radius: var(--radius-drawer);
+    box-shadow: var(--elevation);
+  }
+  .milkdown .top-bar-heading-option {
+    display: flex;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-small);
+    line-height: var(--line-menu);
+    white-space: nowrap;
+    background: none;
+    border: 0;
+    color: var(--grey);
+  }
+  .milkdown .top-bar-heading-option:hover {
+    color: var(--text);
+  }
+  .milkdown .top-bar-heading-option.active {
+    color: var(--accent);
+  }
+
+  .milkdown .milkdown-list-item-block {
+    display: block;
+    padding: 0;
+  }
+  .milkdown .milkdown-list-item-block > .list-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  .milkdown .list-item > .children {
+    min-width: 0;
+    flex: 1;
+  }
+  .milkdown .list-item .label-wrapper {
+    flex-shrink: 0;
+    min-width: var(--space-5);
+    min-height: var(--space-5);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    color: var(--grey);
+  }
+  .milkdown .list-item .label {
+    text-align: right;
+  }
+  .milkdown .list-item :is(.checked, .unchecked) {
+    cursor: pointer;
+  }
+  .milkdown .list-item .readonly {
+    cursor: default;
+  }
+
+  .milkdown :is(.milkdown-link-preview, .milkdown-link-edit) {
+    position: absolute;
+    z-index: var(--layer-menu);
+  }
+  .milkdown :is(.milkdown-link-preview, .milkdown-link-edit)[data-show="false"] {
+    display: none;
+  }
+  .milkdown :is(.link-preview, .link-edit) {
+    display: flex;
+    align-items: center;
+    padding: var(--space-2);
+    gap: var(--space-2);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: var(--radius-drawer);
+    box-shadow: var(--elevation);
+  }
+  .milkdown .link-display {
+    max-width: var(--pad-menu-min-width);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .milkdown .input-area {
+    min-width: 0;
+    width: var(--pad-menu-min-width);
+    font-size: var(--text-body);
+  }
+  .milkdown :is(.link-preview, .link-edit) .button {
+    display: flex;
+    padding: var(--space-1);
+    cursor: pointer;
+    color: var(--grey);
+  }
+  .milkdown :is(.link-preview, .link-edit) .button:hover {
+    color: var(--text);
+  }
+  .milkdown .link-edit .hidden {
+    visibility: hidden;
+  }
+
+  .milkdown .milkdown-block-handle {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .milkdown .milkdown-block-handle[data-show="false"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .milkdown .milkdown-slash-menu {
+    position: absolute;
+    z-index: var(--layer-menu);
+  }
+  .milkdown .milkdown-slash-menu[data-show="false"] {
+    display: none;
+  }
+  .milkdown .milkdown-slash-menu ul {
+    list-style: none;
+    margin: 0;
+  }
+  .milkdown .milkdown-slash-menu li {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .milkdown .tab-group ul {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .milkdown .menu-groups {
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .milkdown .menu-group + .menu-group::before {
+    content: '';
+    display: block;
+    height: var(--hairline-width);
+  }
+  .milkdown .crepe-placeholder::before {
+    position: absolute;
+    color: var(--grey);
+    pointer-events: none;
+    height: 0;
+    content: attr(data-placeholder);
+  }
+
+  /* The library owns table placement and drag state; only the paint is App-owned. */
+  .milkdown .milkdown-table-block {
+    display: block;
+    position: relative;
+    margin-block: 0 var(--space-4);
+    max-width: 100%;
+  }
+  .milkdown .tableWrapper {
+    overflow-x: auto;
+  }
+  .milkdown :is(td, th) {
+    position: relative;
+    box-sizing: border-box;
+  }
+  .milkdown .selectedCell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--selected);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .milkdown .column-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--space-1);
+    background: var(--accent);
+    pointer-events: none;
+  }
+  .milkdown .resize-cursor {
+    cursor: col-resize;
+  }
+  .milkdown .drag-preview {
+    position: absolute;
+    z-index: var(--layer-menu);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    opacity: 0.4;
+    outline: var(--hairline-width) solid var(--accent);
+  }
+  .milkdown .drag-preview[data-show="false"] {
+    display: none;
+  }
+  .milkdown .handle {
+    position: absolute;
+    font-size: var(--text-small);
+  }
+  .milkdown .handle[data-show="false"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .milkdown .cell-handle {
+    z-index: var(--layer-menu);
+    cursor: grab;
+    background: var(--surface);
+    color: var(--grey);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--elevation);
+  }
+  .milkdown .cell-handle[data-role="col-drag-handle"] {
+    transform: translateY(50%);
+    padding-inline: var(--space-1);
+    width: var(--space-6);
+    height: var(--space-4);
+  }
+  .milkdown .cell-handle[data-role="row-drag-handle"] {
+    transform: translateX(50%);
+    padding-block: var(--space-1);
+    width: var(--space-4);
+    height: var(--space-6);
+  }
+  .milkdown .cell-handle .button-group {
+    position: absolute;
+    transform: translateX(-50%);
+    left: 50%;
+    bottom: 100%;
+    display: flex;
+    background: var(--surface);
+    border-radius: var(--radius-drawer);
+    box-shadow: var(--elevation);
+  }
+  .milkdown .button-group[data-show="false"] {
+    display: none;
+  }
+  .milkdown .button-group button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: var(--space-1);
+    padding: var(--space-1);
+    color: var(--grey);
+  }
+  .milkdown .button-group button:hover {
+    color: var(--text);
+  }
+  .milkdown .line-handle {
+    z-index: 2;
+    background: var(--accent);
+  }
+  .milkdown .line-handle .add-button {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translate(-50%, -50%);
+    padding: 0;
+    width: var(--space-5);
+    height: var(--space-5);
+    color: var(--grey);
+    background: var(--surface);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--elevation);
+    cursor: pointer;
+  }
+  .milkdown .line-handle[data-role="x-line-drag-handle"] {
+    height: var(--hairline-width);
+  }
+  .milkdown .line-handle[data-role="y-line-drag-handle"] {
+    width: var(--hairline-width);
+  }
+  .milkdown .line-handle[data-display-type="indicator"] .add-button {
+    display: none;
+  }
+  .milkdown .milkdown-table-block.readonly .handle {
+    display: none;
+  }
+
+  /* Keep the native caret; CrepeBuilder does not enable a virtual cursor feature. */
+  .milkdown .ProseMirror-gapcursor {
+    display: none;
+    pointer-events: none;
+    position: absolute;
+  }
+  .milkdown .ProseMirror-gapcursor::after {
+    content: '';
+    display: block;
+    position: absolute;
+    width: var(--space-5);
+    border-top: var(--hairline-width) solid var(--text);
+  }
+  .milkdown .ProseMirror-focused .ProseMirror-gapcursor {
+    display: block;
+  }
+  .milkdown .crepe-drop-cursor {
+    background: var(--accent);
+    pointer-events: none;
+  }
+}
+
+/* Centre with flex alignment rather than computed auto margins: D2 can then
+   measure actual section spacing independently from the reading measure. */
+.pad-head,
+.pad-rich-editor.reading {
+  align-self: center;
+  margin-inline: 0;
+}
