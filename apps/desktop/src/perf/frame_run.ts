@@ -683,7 +683,7 @@ const prepare = async (app: AppSeam, workload: string, journal: LayerAction[], t
 
     if (fixture && document.querySelector<HTMLElement>("[data-layout-root]")?.dataset.shelf !== "open") {
       document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "k", code: "KeyK", metaKey: true, bubbles: true, cancelable: true }));
-      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "s", code: "KeyS", bubbles: true, cancelable: true }));
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "b", code: "KeyB", bubbles: true, cancelable: true }));
       await appears(() => document.querySelector(".shelf-groups"), "the scoped Shelf after the work-items command");
     }
 

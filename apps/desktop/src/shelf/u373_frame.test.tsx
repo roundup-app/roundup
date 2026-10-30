@@ -40,19 +40,19 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   await waitFor(() => expect(document.querySelector('[aria-label="Ask"]')).not.toBeNull());
 
   if (shelf().hidden) chord();
-  await waitFor(() => expect(shelf().querySelector('[role="tablist"][aria-label="Work items"]')).not.toBeNull());
+  await waitFor(() => expect(shelf().querySelector('[role="tablist"][aria-label="Bench"]')).not.toBeNull());
 
   return controls;
 };
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
+const tabs = () => within(screen.getByRole("tablist", { name: "Bench" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
-  leaderKey("KeyS", init, target);
+  leaderKey("KeyB", init, target);
 
 const counts = () => ["todos", "pads"].map(tab => Number(shelf().querySelector(`#shelf-tab-${tab} .shelf-count`)?.textContent ?? 0));
 
@@ -173,7 +173,7 @@ describe("u373 and u370 on one mounted App", () => {
     await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Pads").id));
   });
 
-  it("u370_leader_s_toggles_from_every_focus", async () => {
+  it("u370_leader_b_toggles_from_every_focus", async () => {
     const controls = await shared();
     const before = controls.app.calls.length;
     const field = document.body.appendChild(document.createElement("input"));
@@ -228,7 +228,7 @@ describe("u373 the Shelf has two tabs", () => {
     batch(cleanup);
     render(() => <App app={first.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findAllByRole("treeitem");
-    expect(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { selected: true }).id).toBe(chosen);
+    expect(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { selected: true }).id).toBe(chosen);
   });
 
   it("u373_a_bad_stored_value_means_todos", async () => {
