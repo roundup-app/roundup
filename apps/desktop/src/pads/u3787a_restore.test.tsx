@@ -222,3 +222,48 @@ it("u3787a_partial_pad_redo_retries_only_failed_members_as_one_undo_step", async
     expect(undo.available()).toBe(false);
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
+
+it("u3787a_region_history_retains_order_and_clears_only_its_redo", async () => {
+  const app = createServedApp(real.base);
+  const connected = await connectProject(app, { name: "regions", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+
+  try {
+    const first = await app.rpc("todo.create", { title: "first regional Todo", body: null, blockers: null });
+    const second = await app.rpc("todo.create", { title: "second regional Todo", body: null, blockers: null });
+    const third = await app.rpc("todo.create", { title: "new regional branch", body: null, blockers: null });
+    const pad = await app.rpc("pad.create", { name: "regional-pad", text: "keep this exact incarnation" });
+    await undo.remove([first.id], "todos");
+    await undo.removePads([pad], "pads");
+    await undo.remove([second.id], "todos");
+    await undo.undo("todos");
+    expect((await app.rpc("todo.list", null)).filter(row => [first.id, second.id].includes(row.id)).map(row => row.id)).toEqual([second.id]);
+    expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(false);
+    await undo.undo("pads");
+    await undo.remove([third.id], "todos");
+    await undo.redo("todos");
+    expect((await app.rpc("todo.list", null)).some(row => row.id === second.id)).toBe(true);
+    await undo.redo("pads");
+    expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(false);
+    await undo.undo("todos");
+    expect((await app.rpc("todo.list", null)).filter(row => [first.id, second.id, third.id].includes(row.id)).map(row => row.id)).toEqual([second.id, third.id]);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
+
+it("u3787a_empty_region_does_not_use_another_history", async () => {
+  const app = createServedApp(real.base);
+  const connected = await connectProject(app, { name: "empty region", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+
+  try {
+    const todo = await app.rpc("todo.create", { title: "stay deleted", body: null, blockers: null });
+    await undo.remove([todo.id], "todos");
+    expect(undo.available("pads")).toBe(false);
+    await undo.undo("pads");
+    expect((await app.rpc("todo.list", null)).some(row => row.id === todo.id)).toBe(false);
+    await undo.undo("todos");
+    expect(undo.redoAvailable("pads")).toBe(false);
+    await undo.redo("pads");
+    expect((await app.rpc("todo.list", null)).some(row => row.id === todo.id)).toBe(true);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
