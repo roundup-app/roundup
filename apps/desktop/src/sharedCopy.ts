@@ -25,6 +25,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  addTodo: "Add Todo",
   terminalPreparationCancelled: "Terminal preparation cancelled",
   resources: "Resources",
   switchProject: "Switch Project",
