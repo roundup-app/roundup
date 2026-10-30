@@ -69,6 +69,7 @@ const observerTable = {
   "src/rail/u4547a_browser.test.ts": ["U4547a"],
   "src/rail/u4547bc_browser.test.ts": ["U4547b", "U4547c"],
   "src/rail/u4547d_browser.test.ts": ["U4547d"],
+  "src/rail/u4547e_browser.test.ts": ["U4547e"],
   "src/rail/u4644_capture.test.ts": ["U4644"],
   "src/rail/u4896_capture.test.ts": { ids: ["U4896", "U4898", "U447"], aliases: { U447: "U4898" } },
   "src/rail/u522_browser.test.ts": ["U522"],
