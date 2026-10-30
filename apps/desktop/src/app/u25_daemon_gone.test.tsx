@@ -1,3 +1,4 @@
+import { copy as appCopy } from "./copy";
 import { cleanup, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -24,21 +25,21 @@ describe("u25 disconnected protections after U3791a recovery exhaustion", () => 
     const { app, header } = await openApp();
 
     app.exitDaemon({ code: 1, recovery: "waiting" });
-    expect(within(header).queryByText("Daemon exited 1")).toBeNull();
+    expect(within(header).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
     app.exitDaemon({ code: 1 });
 
-    expect(within(header).getByText("Daemon exited 1")).toBeTruthy();
-    expect(within(header).getByText("Daemon exited 1").className).toBe("ink");
+    expect(within(header).getByText(appCopy.daemonExit("exited 1"))).toBeTruthy();
+    expect(within(header).getByText(appCopy.daemonExit("exited 1")).className).toBe("ink");
   });
 
   it("u25_a_signal_exit_reads_by_signal", async () => {
     const { app, header } = await openApp();
 
     app.exitDaemon({ code: null, recovery: "waiting" });
-    expect(within(header).queryByText("Daemon exited by signal")).toBeNull();
+    expect(within(header).queryByText(appCopy.daemonExit("exited by signal"))).toBeNull();
     app.exitDaemon({ code: null });
 
-    expect(within(header).getByText("Daemon exited by signal").className).toBe("ink");
+    expect(within(header).getByText(appCopy.daemonExit("exited by signal")).className).toBe("ink");
   });
 
   it("u25_the_spawn_actions_are_disabled", async () => {

@@ -1,3 +1,4 @@
+import { copy as appCopy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -35,7 +36,7 @@ describe("u37 Reopen after the Daemon exits", () => {
 
     app.exitDaemon({ code: 1 });
 
-    expect(within(header).getByText("Daemon exited 1")).toBeTruthy();
+    expect(within(header).getByText(appCopy.daemonExit("exited 1"))).toBeTruthy();
     expect(within(header).getByRole("button", { name: "Reopen" }).className).toBe("word");
   });
 
@@ -105,7 +106,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     await waitFor(() => expect(within(header).queryByText("rupd stayed silent")).not.toBeNull());
 
     expect(within(header).getByText("rupd stayed silent").className).toBe("ink");
-    expect(within(header).queryByText("Daemon exited 1")).toBeNull();
+    expect(within(header).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
     expect(within(header).getByRole("button", { name: "Reopen" })).not.toBeNull();
   });
 

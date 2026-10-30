@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../app/copy";
 import { copy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -61,7 +62,7 @@ describe("u26 the harness seeds", () => {
 
     const line = await screen.findByRole("alert");
 
-    expect(line.textContent).toBe("Daemon exited 1");
+    expect(line.textContent).toBe(appCopy.daemonExit("exited 1"));
     expect(line.querySelector("svg.lucide-x")).not.toBeNull();
   });
 
@@ -79,7 +80,7 @@ describe("u26 the harness seeds", () => {
     const { app } = mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await screen.findByRole("tablist", { name: copy.leaderShortShelf });
+    await within(await rail()).findByText("agent-1");
     showShelfTab(copy.pads);
     await openPad("pad-0");
     expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);

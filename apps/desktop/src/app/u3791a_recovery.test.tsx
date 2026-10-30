@@ -1,3 +1,4 @@
+import { copy as appCopy } from "./copy";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
@@ -19,7 +20,7 @@ it("u3791a_daemon_third_failure_is_visible", async () => {
   await screen.findByText("Retained work");
   app.exitDaemon({ code: 1, recovery: "waiting" });
   expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull();
-  expect(screen.queryByText(/Daemon exited/)).toBeNull();
+  expect(screen.queryByText(new RegExp(appCopy.daemonExit("exited")))).toBeNull();
   expect(screen.getByText("Retained work")).toBeTruthy();
   app.exitDaemon({ code: 1, recovery: "waiting", cause: "Cannot start Daemon" });
   expect(screen.queryByText("Cannot start Daemon")).toBeNull();

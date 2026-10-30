@@ -186,5 +186,6 @@ export const copy = {
   unseenMark: "●",
   unreadResult: "Unread result",
   moveTo: "Move to…",
+  restartMode: "Restart Mode",
 } as const;
 
