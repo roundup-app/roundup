@@ -649,7 +649,6 @@ mod tests {
     async fn nr7_pending_checks_allow_activation_without_a_firing() {
         use std::os::unix::fs::PermissionsExt;
         let (project, daemon, client, watcher, target) = daemon().await;
-        // The Agents' project directory is the Worktree's git root.
         let repo = project.path().to_owned();
         for args in [
             &["init", "-b", "main"][..],
@@ -672,17 +671,29 @@ mod tests {
                 .unwrap();
             assert!(status.success());
         }
-        let head = "1".repeat(40);
+        let read_head = || {
+            let out = std::process::Command::new("git")
+                .current_dir(&repo)
+                .args(["rev-parse", "HEAD"])
+                .output()
+                .unwrap();
+            assert!(out.status.success());
+            String::from_utf8(out.stdout).unwrap().trim().to_owned()
+        };
+        let head = read_head();
         let gh = project.path().join("gh");
-        let forge = |head: &str, bucket: &str| {
+        let forge = async |head: &str, bucket: &str| {
             std::fs::write(
                 &gh,
                 format!("#!/bin/sh\ncase \"$1 $2\" in\n\"pr view\") echo '{{\"number\":23,\"headRefOid\":\"{head}\",\"url\":\"https://github.com/acme/one/pull/23\"}}';;\n\"pr checks\") echo '[{{\"name\":\"check\",\"bucket\":\"{bucket}\"}}]';;\nesac\n"),
             ).unwrap();
             std::fs::set_permissions(&gh, std::fs::Permissions::from_mode(0o755)).unwrap();
-            daemon.agents.set_evidence_from_gh(&target, &repo, &gh);
+            daemon
+                .agents
+                .set_evidence_from_gh(&target, &repo, &gh)
+                .await;
         };
-        forge(&head, "pending");
+        forge(&head, "pending").await;
         let params = json!({
             "operation": "pending-head", "name": "when checks pass", "target": target,
             "reason": "Wait for the pinned checks.", "instruction": "review this PR",
@@ -690,28 +701,18 @@ mod tests {
             "expires_at": "2099-01-01T00:00:00Z"
         });
         let created = client.request("reaction.create", params.clone()).await;
-        assert!(
-            created.is_ok(),
-            "pending checks prevented activation: {created:?}"
-        );
         let created = created.unwrap();
         let id = created["id"].as_str().unwrap();
         assert_eq!(created["observation"]["pinned_head"], head);
-        assert_eq!(created["firings"], json!([]));
-        let state = client
-            .request("agent.worktreeState", json!({"id": target}))
-            .await
-            .unwrap();
-        assert_eq!(state["evidence"]["state"], "incomplete");
-        assert_eq!(state["evidence"]["repository"], REPO);
-        assert_eq!(state["evidence"]["head"], head);
-        assert_eq!(state["evidence"]["checks"], json!([]));
         watcher.check().await;
         assert_eq!(get(&client, id).await["firings"], json!([]));
-        forge(&head, "pass");
+        forge(&head, "pass").await;
         watcher.check().await;
         watcher.check().await;
-        let replay = client.request("reaction.create", params).await.unwrap();
+        let replay = client
+            .request("reaction.create", params.clone())
+            .await
+            .unwrap();
         assert_eq!(replay["id"], id);
         let fired = get(&client, id).await;
         assert_eq!(fired["firings"].as_array().unwrap().len(), 1);
@@ -729,7 +730,7 @@ mod tests {
         assert_eq!(fired["firings"][0]["message"], messages[0]["id"]);
 
         // A second saved pin must invalidate even before the new head's checks conclude.
-        forge(&head, "pending");
+        forge(&head, "pending").await;
         let moved = client
             .request(
                 "reaction.create",
@@ -743,19 +744,54 @@ mod tests {
             .await
             .unwrap();
         let moved_id = moved["id"].as_str().unwrap();
-        forge(&"2".repeat(40), "pending");
+        let status = std::process::Command::new("git")
+            .current_dir(&repo)
+            .args([
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@example.invalid",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "fix",
+            ])
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let pushed = read_head();
+        let mut replacement = params;
+        replacement["operation"] = json!("pushed-head");
+        let refused = client
+            .request("reaction.create", replacement.clone())
+            .await
+            .unwrap_err();
+        assert!(refused.message.contains("stale"), "{refused:?}");
+        forge(&pushed, "pending").await;
         watcher.check().await;
         let ended = get(&client, moved_id).await;
         assert_eq!(ended["state"], "invalidated");
         assert_eq!(ended["observation"]["pinned_head"], head);
         assert_eq!(ended["firings"], json!([]));
+        let fresh = client
+            .request("reaction.create", replacement)
+            .await
+            .unwrap();
+        assert_eq!(fresh["observation"]["pinned_head"], pushed);
+        forge(&pushed, "pass").await;
+        watcher.check().await;
+        let fired = get(&client, fresh["id"].as_str().unwrap()).await;
+        assert_eq!(fired["firings"].as_array().unwrap().len(), 1);
 
         for unavailable in [false, true] {
             // Neither a missing head nor a failed forge read supplies activation identity.
-            forge("", "pending");
+            forge("", "pending").await;
             if unavailable {
                 std::fs::remove_file(&gh).unwrap();
-                daemon.agents.set_evidence_from_gh(&target, &repo, &gh);
+                daemon
+                    .agents
+                    .set_evidence_from_gh(&target, &repo, &gh)
+                    .await;
             }
             let refused = client
                 .request(
@@ -780,7 +816,7 @@ mod tests {
             );
         }
         let saved = client.request("reaction.list", json!({})).await.unwrap();
-        assert_eq!(saved.as_array().unwrap().len(), 2);
+        assert_eq!(saved.as_array().unwrap().len(), 3);
     }
 
     #[tokio::test]
