@@ -1,3 +1,4 @@
+import { DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
@@ -29,14 +30,16 @@ const mount = async (path = `/test-capture/${crypto.randomUUID()}`, onFile?: () 
 
   await showEverything(connected);
   render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
-      <button data-testid="before">before</button>
-      <Todos />
-      <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
-      <Leader />
-      <Capture onFile={onFile} />
-      <Help />
-    </ConnectedProjectContext.Provider>
+    <DisplayClockContext.Provider value={() => () => 0}>
+      <ConnectedProjectContext.Provider value={connected}>
+        <button data-testid="before">before</button>
+        <Todos />
+        <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
+        <Leader />
+        <Capture onFile={onFile} />
+        <Help />
+      </ConnectedProjectContext.Provider>
+    </DisplayClockContext.Provider>
   ));
 
   const before = screen.getByTestId("before");

@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { useDisplayNow } from "../state/clock";
 import "./age.css";
 
@@ -5,15 +6,15 @@ import "./age.css";
 export const age = (updatedAt: number, now: number): string => {
   const seconds = Math.max(0, now - updatedAt) / 1000;
 
-  if (seconds < 60) return "now";
+  if (seconds < 60) return copy.age.now;
 
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 3600) return copy.age.minutes(Math.floor(seconds / 60));
 
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 86400) return copy.age.hours(Math.floor(seconds / 3600));
 
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`;
+  if (seconds < 604800) return copy.age.days(Math.floor(seconds / 86400));
 
-  if (seconds < 2419200) return `${Math.floor(seconds / 604800)}w`;
+  if (seconds < 2419200) return copy.age.weeks(Math.floor(seconds / 604800));
   const date = new Date(updatedAt);
 
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;

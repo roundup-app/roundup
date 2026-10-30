@@ -1,3 +1,4 @@
+import { DisplayClockContext } from "../state/clock";
 import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
 import { showEverything, withScopeRow } from "../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
@@ -22,9 +23,11 @@ describe("u38 empty Todos", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
-        <Todos />
-      </ConnectedProjectContext.Provider>
+      <DisplayClockContext.Provider value={() => () => 0}>
+        <ConnectedProjectContext.Provider value={connected}>
+          <Todos />
+        </ConnectedProjectContext.Provider>
+      </DisplayClockContext.Provider>
     ));
 
     expect(screen.queryByRole("group", { name: /No Todos/ })).toBeNull();
@@ -63,9 +66,11 @@ describe("u38 empty Todos", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
-        <Todos />
-      </ConnectedProjectContext.Provider>
+      <DisplayClockContext.Provider value={() => () => 0}>
+        <ConnectedProjectContext.Provider value={connected}>
+          <Todos />
+        </ConnectedProjectContext.Provider>
+      </DisplayClockContext.Provider>
     ));
 
     await waitFor(() => expect(replies.length).toBe(1));
@@ -112,9 +117,11 @@ describe("u38 empty Todos", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
-        <Todos />
-      </ConnectedProjectContext.Provider>
+      <DisplayClockContext.Provider value={() => () => 0}>
+        <ConnectedProjectContext.Provider value={connected}>
+          <Todos />
+        </ConnectedProjectContext.Provider>
+      </DisplayClockContext.Provider>
     ));
 
     const exhausted = await screen.findByRole("alert");
@@ -144,9 +151,11 @@ describe("u38 empty Todos", () => {
     await showEverything(connected);
 
     render(() => (
-      <ConnectedProjectContext.Provider value={connected}>
-        <Todos />
-      </ConnectedProjectContext.Provider>
+      <DisplayClockContext.Provider value={() => () => 0}>
+        <ConnectedProjectContext.Provider value={connected}>
+          <Todos />
+        </ConnectedProjectContext.Provider>
+      </DisplayClockContext.Provider>
     ));
 
     expect((await screen.findByText(/daemon says no/)).textContent).toBe("daemon says no");
