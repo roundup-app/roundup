@@ -281,7 +281,8 @@ for (const entry of ["selection", "single", "drawer"] as const) {
       expect(screen.getByRole("button", { name: "second" }).getAttribute("aria-pressed")).toBe("true");
     } else if (entry === "single") { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     else {
-      fireEvent.keyDown(first, { key: "Enter" });
+      first.focus();
+      fireEvent.keyDown(first, { key: "Enter", code: "Enter" });
       fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "Delete" }));
     }
 
