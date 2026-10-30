@@ -294,7 +294,7 @@ SHA. No new native result is claimed; #4308 and #3843 remain open.
 Rendered evidence for the numbered-assignment continuation is under
 `artifacts/ux/U3787b/assignment/`: dark 1512×950 tree-40, tabs-8 and conflict,
 plus the focused assignment and dense refusal. All recorded Checks pass; the
-refusal shows its full cause/fix with the Todo retained. PNGs and the keyboard
+refusal shows its full cause/fix with the Todo retained. Screenshots and the keyboard
 assignment recording remain uncommitted. These are Chromium observations only.
 The menu observer's cleanup batches disposal of production registrations using
 Solid's existing `batch`, avoiding repeated menu projection during unmount.

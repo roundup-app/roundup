@@ -776,7 +776,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
         )
         .unwrap();
     }
-    // Version 42 precedes 0028-deliverable-files.sql and the Door prompt/restart columns.
+    // After T4902's removal, version 41 precedes 0028-deliverable-files.sql and Door columns.
     db.execute_batch("ALTER TABLE message_restarts DROP COLUMN session")
         .unwrap();
     db.execute_batch("ALTER TABLE nodes DROP COLUMN opening_prompt")
@@ -787,7 +787,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
     )
     .unwrap();
     db.execute_batch(daemon::INSTRUCTION_MESSAGES).unwrap();
-    // Version 42 also predates the removal of Clear-owned state.
+    // Version 41 also predates the removal of Clear-owned state.
     db.execute_batch("ALTER TABLE nodes ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
         ALTER TABLE marks ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
         CREATE TABLE iterations (door TEXT NOT NULL, iteration INTEGER NOT NULL, upto INTEGER NOT NULL, PRIMARY KEY (door, iteration));").unwrap();
@@ -796,7 +796,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
         "ALTER TABLE todos DROP COLUMN updated_at; ALTER TABLE deleted_todos DROP COLUMN updated_at;",
     )
     .unwrap();
-    db.pragma_update(None, "user_version", 42).unwrap();
+    db.pragma_update(None, "user_version", 41).unwrap();
     std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
     p.restart(&[]);
 }

@@ -1,3 +1,4 @@
+// T4902 retires T29 setup; A3308 still proves ordered once-only Auto delivery.
 use super::*;
 use crate::tests::{ask, daemon_in, daemon_with_launcher};
 
@@ -63,12 +64,7 @@ async fn door(daemon: &Daemon) -> String {
 }
 
 async fn todo(daemon: &Daemon, home: &str, title: &str, owner: Value) -> Value {
-    let todo = call(
-        daemon,
-        "todo.create",
-        json!({"title":title,"owner":owner,"estimate_minutes":45}),
-    )
-    .await;
+    let todo = call(daemon, "todo.create", json!({"title":title,"owner":owner})).await;
     call(daemon, "todo.move", json!({"id":todo["id"],"home":home})).await
 }
 
@@ -94,12 +90,6 @@ async fn a3308_auto_on_sends_each_unassigned_todo_to_the_door_once() {
     let second = todo(&daemon, &home, "Second task", Value::Null).await;
     call(
         &daemon,
-        "todo.update",
-        json!({"id":second["id"],"estimate_minutes":null}),
-    )
-    .await;
-    call(
-        &daemon,
         "todo.reorder",
         json!({"id":second["id"],"before":first["id"]}),
     )
@@ -112,14 +102,12 @@ async fn a3308_auto_on_sends_each_unassigned_todo_to_the_door_once() {
     .await;
     let sent = notices(&daemon, &home).await;
     assert_eq!(sent.len(), 2);
-    for (message, (todo, estimate)) in sent
-        .iter()
-        .zip([(&second, "no estimate"), (&first, "45 min")])
-    {
+    for (message, todo) in sent.iter().zip([&second, &first]) {
         let body = message["body"].as_str().unwrap();
         assert!(body.contains(todo["title"].as_str().unwrap()), "{body}");
         assert!(body.contains(&format!("Todo #{}", todo["id"])), "{body}");
-        assert!(body.contains(estimate), "{body}");
+        assert!(!body.to_lowercase().contains("estimate"), "{body}");
+        assert!(!body.contains(" min"), "{body}");
     }
     call(
         &daemon,
