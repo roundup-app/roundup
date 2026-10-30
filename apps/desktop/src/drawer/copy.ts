@@ -11,7 +11,7 @@ export const copy = {
   draftSurface: sharedCopy.draftSurface,
   hasDraftSurface: (surface: string) => draftSurfaceLabels.has(surface),
   recoverDrafts: sharedCopy.recoverDrafts,
-  recoverDraftsCount: (count: number) => `Unfinished work (${count})`,
+  recoverDraftsCount: (count: number) => `Recover unfinished work (${count})`,
   riskCause: { failed: "failed to save", unknown: "Save unconfirmed", draft: "Unsaved for reload", left: "left unsent", gone: "original removed" },
   draftTitle: (place: string, name: string) => `${place} "${name}"`,
   riskLine: sharedCopy.draftIdentity,
