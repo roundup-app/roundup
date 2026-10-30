@@ -78,13 +78,13 @@ declarations! { $;
         "agent.setModel": contracts::agent::SetModelParams => contracts::agent::RailNode, rpc_agent_set_model, none();
     }
     todos_methods["todo"] {
-        "todo.create": contracts::todo::CreateParams => contracts::todo::Todo, rpc_todo_create, all(schema(contracts::todo::CreateParams,"Create a Todo."));
+        "todo.create": contracts::todo::CreateParams => contracts::todo::Todo, rpc_todo_create, all(schema(contracts::todo::CreateParams,"Create a Todo. Optional priority: low, medium, high or urgent; omitted/null is unset."));
         "todo.get": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_get, all(schema(contracts::todo::TodoId,"Read one Todo."));
         "todo.listHanded": () => Vec<contracts::todo::Handed>, rpc_todo_list_handed, none();
         "todo.getHistory": contracts::todo::TodoId => contracts::todo::History, rpc_todo_get_history, none();
         "todo.readHistory": contracts::todo::ReadHistoryParams => (), rpc_todo_read_history, none();
         "todo.list": () => Vec<contracts::todo::Todo>, rpc_todo_list, all(empty("List every Todo."));
-        "todo.update": contracts::todo::UpdateParams => contracts::todo::Todo, rpc_todo_update, all(schema(contracts::todo::UpdateParams,"Change a Todo's title or body."));
+        "todo.update": contracts::todo::UpdateParams => contracts::todo::Todo, rpc_todo_update, all(schema(contracts::todo::UpdateParams,"Change a Todo's title, body or priority. Priority: low, medium, high or urgent; omitted preserves it, null clears it."));
         "todo.complete": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_complete, all(schema(contracts::todo::TodoId,"Mark a Todo done."));
         "todo.reopen": contracts::todo::TodoId => contracts::todo::Todo, rpc_todo_reopen, all(schema(contracts::todo::TodoId,"Reopen a done Todo."));
         "todo.setBlockers": contracts::todo::SetBlockersParams => contracts::todo::Todo, rpc_todo_set_blockers, all(schema(contracts::todo::SetBlockersParams,"Replace a Todo's whole blocker list."));

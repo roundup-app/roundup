@@ -23,6 +23,7 @@ const TODO: Todo = {
   home: null,
   owner: null,
   refs: [],
+  priority: null,
 };
 
 const NOT_FOUND = -32001;
