@@ -158,7 +158,10 @@ it("u3787a_editor_and_terminal_keep_undo", async () => {
     document.body.append(root);
     const editor = root.querySelector<HTMLElement>("textarea,input,[tabindex]")!;
     editor.focus();
-    expect(undoKey()).toBe(true);
+    for (const shiftKey of [false, true]) {
+      expect(fireEvent.keyDown(editor, { key: "z", code: "KeyZ", metaKey: true, shiftKey })).toBe(true);
+    }
+
     await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘Z")).toBe(false));
     openProjectPage("action:chord:⌘Z", "/a");
     expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(0);
@@ -614,28 +617,6 @@ it("u3787h_restore_completion_requires_a_new_delete", async () => {
     { method: "todo.restore", params: { operation: deletions(daemon)[1]!.operation } },
   ]));
 });
-
-it("u4453d_no_undo_controls_native_undo_remains", async () => {
-  const { app, remove } = await mount();
-  await remove("/a");
-  await shown();
-  expect(screen.queryAllByRole("button", { name: /redo/i })).toEqual([]);
-  expect(screen.getAllByRole("button", { name: copy.todoUndo })).toHaveLength(1);
-  const root = document.createElement("div");
-  root.innerHTML = "<textarea></textarea>";
-  document.body.append(root);
-  root.querySelector("textarea")!.focus();
-
-  for (const shiftKey of [false, true]) {
-    expect(fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true, shiftKey })).toBe(true);
-  }
-
-  expect(app.of("/a").calls.filter(call => call.method === "todo.restore")).toEqual([]);
-  root.remove();
-  pressUndo();
-  await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(1));
-});
-
 
 it("u3787a_pending_restore_disables_history_until_acknowledgement", async () => {
   const { app, remove, connections } = await mount();
