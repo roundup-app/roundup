@@ -23,16 +23,6 @@ pub(super) fn agent_digest() -> Offered {
     }
 }
 
-/// M10: only a Door writes a Checkpoint.
-pub(super) fn checkpoint_write() -> Offered {
-    Offered {
-        ..offered::<checkpoint::WriteParams>(
-            "checkpoint.write",
-            "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
-        )
-    }
-}
-
 /// B41: ask to be woken when named Agents finish. The caller is the Agent itself, so `id` is not a parameter.
 pub(super) fn agent_wake() -> Offered {
     offered::<agent::WakeParams>(
@@ -48,25 +38,6 @@ pub(super) fn agent_set_order() -> Offered {
         "agent.setOrder",
         "agent_set_order",
         "Replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.",
-    )
-}
-
-/// A35: a Door's rewind of its children, in two steps: read the plan, then rewind. The shim fills
-/// `id` with the Door's own id.
-pub(super) fn workstream_rewind_plan() -> Offered {
-    with_own_id::<workstream::RewindPlanParams>(
-        "workstream.rewindPlan",
-        "workstream_rewindPlan",
-        "Read what rewinding your Workstream to one of your Checkpoints would do, changing nothing: for each child (one named by `agent`, or all), whether it started after the Checkpoint and so would leave the Rail, and the files changed since.",
-    )
-}
-
-/// A35: the Door's rewind. `files` is required, and nothing but the conversations changes on `keep`.
-pub(super) fn workstream_rewind() -> Offered {
-    with_own_id::<workstream::RewindParams>(
-        "workstream.rewind",
-        "workstream_rewind",
-        "Rewind one child (`agent`) or every child of your Workstream to a Checkpoint you wrote. The turns after it leave each rewound Agent's context. `files` is `keep` to leave every file as it is, or `restore` to return each Worktree to its state at the Checkpoint; commits, pushes and Issues are never undone. A child that started after the Checkpoint leaves the Rail and keeps its Worktree.",
     )
 }
 

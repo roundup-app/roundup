@@ -140,17 +140,6 @@ impl Daemon {
         )
     }
 
-    pub(super) async fn rpc_rewind(
-        &self,
-        conn: &mut Conn,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        let children = self.rewind_children(&conn.actor, method, &params).await?;
-        self.rewind_call(&conn.actor, method, params, children)
-            .await
-    }
-
     pub(super) async fn rpc_queue(
         &self,
         conn: &mut Conn,

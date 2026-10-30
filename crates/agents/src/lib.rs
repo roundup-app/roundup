@@ -30,7 +30,6 @@ use tokio::time::{Instant, sleep_until};
 mod asks;
 mod auto;
 pub mod claude_code;
-pub mod marks;
 mod models;
 pub mod placement;
 mod pr_checks;

@@ -204,7 +204,6 @@ impl Daemon {
             }
             "terminal.read" if params["after"].is_null() => fields.push(("reader", false)),
             "project.importDiscover" | "project.importCommit" => fields.push(("agent", false)),
-            "workstream.rewind" | "workstream.rewindPlan" => fields.push(("agent", false)),
             "reaction.create" => fields.push(("target", false)),
             _ => {}
         }
