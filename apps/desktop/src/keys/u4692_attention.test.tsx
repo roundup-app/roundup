@@ -25,13 +25,19 @@ const key = (code: string, options: KeyboardEventInit = {}) => fireEvent.keyDown
 
 const draft = "  Exact unfinished 🦉\nkeep  ";
 
-const open = async (first = false) => {
+const open = async (first = false, nodes = [
+  workstream("home"),
+  agent("watch", "idle", "ready", { parent: "home" }),
+  door("door", "idle", "ready", { parent: "home" }),
+  workstream("nested", { parent: "home" }),
+  agent("need", "error", "Fix this", { parent: "nested" }),
+  agent("next", "needs-you", "Answer", { parent: "home" }),
+]) => {
   const app = createFakeApp();
 
   if (!first) { app.add("/other"); app.add("/p"); }
 
   const daemon = first ? app : app.of("/p");
-  const nodes = [workstream("home"), agent("watch", "idle", "ready", { parent: "home" }), door("door", "idle", "ready", { parent: "home" }), workstream("nested", { parent: "home" }), agent("need", "error", "Fix this", { parent: "nested" }), agent("next", "needs-you", "Answer", { parent: "home" })];
   daemon.handlers["rail.tree"] = () => nodes;
   daemon.handlers["terminal.list"] = () => [info("shell", { owner: "home", title: "shell" }), ...nodes.flatMap(node => node.terminal_id ? [info(node.terminal_id, { owner: node.id })] : [])];
   daemon.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
@@ -103,9 +109,9 @@ it.each(["rail", "centre", "shelf", "triage", "ask", "pad", "drawer", "watch", "
 
     if (place === "pad") {
       showShelfTab("Pads");
-      const pad = await screen.findByRole("button", { name: "notes" });
+      const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
       fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
-      target = await screen.findByRole("textbox", { name: "Pad body" });
+      target = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
     } else {
       if (place === "triage") fireEvent.click(await screen.findByRole("button", { name: "Triage" }));
       target = await waitFor(() => { const row = document.querySelector<HTMLElement>(".todo-row-button"); expect(row).not.toBeNull();
@@ -208,7 +214,7 @@ it.each(["help", "switcher", "capture", "recording"])("u4692_modal_layers_block_
 });
 
 it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surface => {
-  const { connected, daemon } = await open();
+  const { connected, daemon } = await open(false, [workstream("home"), agent("need", "needs-you", "Answer", { parent: "home" })]);
   let field: HTMLElement;
 
   if (surface === "ask") {
@@ -218,9 +224,9 @@ it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surf
     connected().drafts.edit({ surface: "pads", object: "notes-1", recipient: null }, { originalName: "notes", source: draft, base: "saved", baseRevision: 1 }, null, "ordinary");
     connected().rail.select("home");
     showShelfTab("Pads");
-    const pad = await screen.findByRole("button", { name: "notes" });
+    const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
     fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
-    field = await screen.findByRole("textbox", { name: "Pad body" });
+    field = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
   }
 
   const original = structuredClone(connected().drafts.list());
@@ -234,9 +240,9 @@ it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surf
     expect(await screen.findByRole("textbox", { name: "Ask" })).toHaveProperty("value", draft);
   } else {
     showShelfTab("Pads");
-    const pad = await screen.findByRole("button", { name: "notes" });
+    const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
     fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
-    await screen.findByRole("textbox", { name: "Pad body" });
+    await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
   }
 
   expect(connected().drafts.list()).toEqual(original);
