@@ -140,7 +140,7 @@ Given an Agent calling an offered tool through the built `rup mcp <agent-id>` ov
 
 **Checks on main.** Implementation preserves these numbered anchors:
 
-1. MCP data, error and continued-service behaviour: `crates/rup/tests/mcp.rs`, `m2_a_created_todo_is_a_touch_by_the_calling_agent`, `m2_a_daemon_error_is_a_tool_error_carrying_code_and_message` and `m2_the_server_keeps_serving_after_a_daemon_error`.
+1. MCP data, error and continued-service behaviour: `crates/rup/tests/mcp.rs`, `m2_a_created_todo_is_a_touch_by_the_calling_agent` and `m2_a_daemon_error_is_a_tool_error_and_the_server_keeps_serving`.
 2. An unanswered call fails that call alone and the work may still finish (M5159a): `crates/rup/tests/mcp.rs`, `m5159a_a_slow_call_fails_alone_and_the_shim_stays_up`.
 3. Project requests mean asked, not done: `scenarios/mcp.md`, heading M8; forwarding and result formatting: `crates/rup/src/mcp.rs`, `Shim::call` and `Shim::call_tool`.
 
