@@ -35,7 +35,7 @@ export const copy = {
   moveUp: sharedCopy.moveUp,
   moveDown: sharedCopy.moveDown,
   todos: sharedCopy.todos,
-  running: "Running",
+  running: sharedCopy.running,
   close: sharedCopy.close,
   drawer: sharedCopy.drawer,
   cancel: sharedCopy.cancel,
