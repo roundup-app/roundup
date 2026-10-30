@@ -84,8 +84,7 @@ describe("u504 the Ask bar", () => {
     const options = within(list).getAllByRole("option");
     await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id));
     fireEvent.pointerMove(options[2]!, { pointerType: "mouse" });
-    fireEvent.pointerLeave(options[2]!, { pointerType: "mouse" });
-    expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id);
+    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id));
     expect(press("Tab", {}, input()!).defaultPrevented).toBe(true);
     await waitFor(() => expect(input()!.value).toBe("@lead "));
     expect([input()!.selectionStart, input()!.selectionEnd]).toEqual([6, 6]);

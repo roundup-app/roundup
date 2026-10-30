@@ -1,14 +1,15 @@
-import "./Row.css";
 import { Combobox, createListCollection, useComboboxContext } from "@ark-ui/solid/combobox";
-import { createMemo, createSignal, For, Show, splitProps, type JSX } from "solid-js";
+import { createContext, createMemo, createSignal, useContext, For, Show, splitProps, type JSX } from "solid-js";
 import { mergeProps } from "@zag-js/solid";
 import { Portal } from "solid-js/web";
 import "./Combobox.css";
 import { floatingControl } from "./Dialog";
 
+const PointerHighlight = createContext<() => void>(() => undefined);
+
 type Mention = { value: string; label: string };
 
-/** A textarea suggestion list: Ark owns keyboard and pointer navigation and the input's active descendant. */
+/** A textarea suggestion list: Ark owns keyboard navigation, activation and the input's active descendant. */
 const Root = (props: {
   items: readonly Mention[];
   highlightedValue: string | null;
@@ -20,19 +21,27 @@ const Root = (props: {
 }) => {
   const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: item => item.value, itemToString: item => item.label }));
 
+  // Zag 1.45 reports pointer and keyboard highlights through the same callback.
+  // Keep the controlled keyboard choice while allowing item clicks and tooltip events.
+  let pointerEvent = false;
+  const notePointer = () => {
+    pointerEvent = true;
+    setTimeout(() => { pointerEvent = false; });
+  };
+
   const [element, setElement] = createSignal<HTMLElement>();
   const control = floatingControl({ get open() { return props.items.length > 0; }, onOpenChange: details => { if (!details.open) props.onDismiss(); } }, element);
 
-  return <Combobox.Root ref={setElement} collection={collection()} open={control.open()} inputValue={props.inputValue}
+  return <PointerHighlight.Provider value={notePointer}><Combobox.Root ref={setElement} collection={collection()} open={control.open()} inputValue={props.inputValue}
     value={[]} highlightedValue={props.highlightedValue} loopFocus inputBehavior="none" selectionBehavior="preserve"
     openOnClick={false} openOnKeyPress={false} positioning={{ placement: "bottom-start", gutter: 4, strategy: "fixed" }}
-    onHighlightChange={details => props.onHighlightChange(details.highlightedValue)}
+    onHighlightChange={details => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); }}
     onOpenChange={control.change}
     onValueChange={details => { const value = details.value[0];
 
       if (value !== undefined) props.onSelect(value); }}>
     {props.children}
-  </Combobox.Root>;
+  </Combobox.Root></PointerHighlight.Provider>;
 };
 
 const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onKeyDown"> & { open: boolean; onKey: (event: KeyboardEvent) => void }) => {
@@ -62,8 +71,8 @@ const Field = (props: Omit<JSX.TextareaHTMLAttributes<HTMLTextAreaElement>, "onK
 };
 
 const List = (props: { label: string; items: readonly Mention[]; row: (item: Mention) => JSX.Element }) => (
-  <Show when={props.items.length > 0}><Portal><Combobox.Positioner><Combobox.Content class="app-popover app-mentions-panel app-mentions app-combobox-list" aria-label={props.label}>
-    <For each={props.items}>{item => <Combobox.Item item={item} class="app-combobox-item row-wash"><Combobox.ItemText>{props.row(item)}</Combobox.ItemText></Combobox.Item>}</For>
+  <Show when={props.items.length > 0}><Portal><Combobox.Positioner><Combobox.Content class="app-popover app-mentions-panel app-mentions app-combobox-list" aria-label={props.label} on:pointermove={{ capture: true, handleEvent: useContext(PointerHighlight) }} on:pointerleave={{ capture: true, handleEvent: useContext(PointerHighlight) }}>
+    <For each={props.items}>{item => <Combobox.Item item={item} class="app-combobox-item"><Combobox.ItemText>{props.row(item)}</Combobox.ItemText></Combobox.Item>}</For>
   </Combobox.Content></Combobox.Positioner></Portal></Show>
 );
 

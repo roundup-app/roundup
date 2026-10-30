@@ -153,14 +153,15 @@
 
 .app-mentions-panel {
   box-sizing: border-box;
-  width: var(--ask-menu-width);
-  max-width: var(--available-width);
+  width: max-content;
+  max-width: min(var(--ask-menu-width), var(--available-width));
   z-index: var(--layer-menu);
   padding: var(--space-1);
 }
 
 .app-mentions {
   margin: 0;
+  color: var(--grey);
   max-height: var(--order-field-max-height);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -178,7 +179,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--grey);
+  color: inherit;
 }
 
 .app-combobox-item:hover .app-mention-name {
@@ -186,7 +187,8 @@
 }
 
 .app-mentions mark {
-  color: var(--text);
+  text-decoration: underline;
+  color: inherit;
   background: var(--transparent);
 }
 
