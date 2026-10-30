@@ -114,6 +114,8 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     }`, order);
 
     await page.until(`() => document.querySelector('.shelf [data-todo="' + window.__retainedId + '"] .todo-row-button').getAttribute('aria-label').toLowerCase().includes('blocked')`);
+    // A new owner group slides this row; its animation must finish before measuring the grip.
+    await page.call(`async () => { await Promise.all(document.querySelector('.shelf [data-todo="' + window.__retainedId + '"]').getAnimations().map(animation => animation.finished)); }`);
     const second = await centre(1);
 
     await drag(second, { x: second.x + await treeStep(), y: second.y });
