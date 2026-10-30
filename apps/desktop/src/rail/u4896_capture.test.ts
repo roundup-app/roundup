@@ -98,6 +98,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
               await wait("document.querySelectorAll('.rail-tree .section-head').length===3");
               await browser("mouse", "move", "1400", "900");
               await snap(`${prefix}-rest`);
+
               const neighbours = await read(`(() => {
                 const rows=[...document.querySelectorAll('.rail-row')];
                 const states=new Set();
@@ -105,10 +106,12 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                 const owned=rows.find(row=>row.querySelector('.rail-pads-control'));
                 return [...new Set([...selected, ...(owned?[owned]:[])])].map(row=>'.rail-row[data-id="'+row.dataset.id+'"]').concat(document.querySelector('.rail-section[aria-label="AGENTS"] .rail-fold') ? ['.rail-section[aria-label="AGENTS"] .rail-fold'] : []);
               })()`);
+
               for (const [index, selector] of ['.rail-section[aria-label="WORKSTREAMS"] .section-head', '.rail-section[aria-label="MODES"] .section-head', '.rail-section[aria-label="AGENTS"] .section-head', '.rail-row:has(.mode-mark)', '.rail-actions', ...neighbours].entries()) {
                 await browser("hover", selector);
                 await browser("screenshot", selector, join(dir, `${prefix}-contact-${index}.png`));
               }
+
               const mode = '.rail-row:has(.mode-mark)';
               await browser("click", `${mode} .name`);
               await browser("mouse", "move", "1400", "900");
@@ -119,6 +122,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
               await browser("mouse", "move", "1400", "900");
               await browser("focus", mode);
               await snap(`${prefix}-focus`);
+
               for (const label of ["MODES", "AGENTS"]) {
                 const head = `.rail-section[aria-label="${label}"] .section-head`;
                 await browser("focus", head);
@@ -129,17 +133,20 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                 await wait("document.activeElement.getAttribute('aria-expanded')==='true'");
                 await snap(`${prefix}-${label}-reopened`);
               }
+
               await read("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.')");
               await browser("click", ".rail-actions button");
               await wait("[...document.querySelectorAll('[role=alert]')].some(el=>el.textContent.includes('Workstream could not be created'))");
               await snap(`${prefix}-failure`);
-              const before = await read("window.__fake.app.calls.filter(c=>c.method===\'rail.createWorkstream\').length");
+              const before = await read("window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length");
               await browser("click", ".rail-actions button");
               await wait(`window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length>${before}`);
               await snap(`${prefix}-recovered`);
             }
+
             continue;
           }
+
           const prefix = `${theme}-${width}`;
           await browser("set", "media", "color-scheme", theme);
           await load(width);
