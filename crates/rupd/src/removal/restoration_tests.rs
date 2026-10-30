@@ -261,13 +261,6 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
             .await
             .unwrap();
     }
-    call(
-        &daemon,
-        "pad.setOwner",
-        json!({"name":"agent","owner":owner}),
-    )
-    .await
-    .unwrap();
     db.execute(
         "INSERT INTO workstream_queue(workstream,ord,after_todo) VALUES(?,0,2)",
         [home.as_str().unwrap()],
@@ -862,7 +855,7 @@ async fn u3787a_live_terminal_and_worktree_removal_never_advertise_undo() {
 }
 
 #[tokio::test]
-async fn u3787a_workstream_restores_promoted_agents_and_their_pad_incarnations() {
+async fn u3787a_workstream_restores_home_pads_and_promoted_agents() {
     use std::process::Command;
     let dir = tempfile::tempdir().unwrap();
     // A dirty retained Worktree makes A34 keep its finished Agent. No vendor starts.
@@ -898,22 +891,10 @@ async fn u3787a_workstream_restores_promoted_agents_and_their_pad_incarnations()
         .clone();
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute("INSERT INTO nodes(kind,name,parent,ord,worktree_path,worktree_branch,worktree_base) VALUES('agent','kept',?,0,?,'kept','base')",params![home.as_str().unwrap(),dir.path().to_str().unwrap()]).unwrap();
-    let owner = contracts::Actor {
-        kind: contracts::ActorKind::Agent,
-        id: db.last_insert_rowid().to_string(),
-        parent: Some(home.as_str().unwrap().into()),
-    };
     call(
         &daemon,
         "pad.create",
         json!({"name":"kept","text":"owned work"}),
-    )
-    .await
-    .unwrap();
-    call(
-        &daemon,
-        "pad.setOwner",
-        json!({"name":"kept","owner":owner}),
     )
     .await
     .unwrap();
@@ -931,8 +912,7 @@ async fn u3787a_workstream_restores_promoted_agents_and_their_pad_incarnations()
     .unwrap();
     assert_eq!(deletion["kept"][0]["reason"], "dirty");
     let moved = call(&daemon, "pad.list", Value::Null).await.unwrap();
-    assert!(moved[0]["home"].is_null());
-    assert_eq!(moved[0]["incarnation"], pads[0]["incarnation"]);
+    assert_eq!(moved, json!([]));
     call(&daemon, "rail.restore", deletion["deletion"].clone())
         .await
         .unwrap();

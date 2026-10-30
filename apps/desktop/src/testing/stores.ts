@@ -284,7 +284,6 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 });
 };
 
-const ownsPad = (pad: Pad, actor: Actor) => pad.owner.kind === actor.kind && pad.owner.id === actor.id;
 
 const padKey = (name: string) => caseFold(name.normalize("NFD"));
 
@@ -320,14 +319,13 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
 
       if (store.pads.some((pad) => padKey(pad.name) === padKey(name))) throw new RpcError(CONFLICT, `pad ${name} already exists`);
 
-      const created: Pad = { incarnation: crypto.randomUUID(), name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
+      const created: Pad = { incarnation: crypto.randomUUID(), name, text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
       store.pads = [...store.pads, created];
       announce({ name: "pad.changed", data: { name } });
 
       return { ...created };
     },
     "pad.write": ({ name, text, expectedIncarnation, expectedRevision }) => changePad(store, announce, name, (pad) => {
-      if (!ownsPad(pad, actor()) && actor().kind !== "user") throw new RpcError(-32002, "only the owner may rewrite a pad");
 
       if (expectedIncarnation != null && expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "the original pad creation changed");
 
@@ -338,7 +336,6 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
     "pad.rename": ({ name, newName, expectedIncarnation }) => {
       const pad = find(store.pads, (entry) => padKey(entry.name) === padKey(name), `pad ${name}`);
 
-      if (!ownsPad(pad, actor()) && actor().kind !== "user") throw new RpcError(-32002, "only the owner or the user may rename a pad");
 
       if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
 
@@ -362,18 +359,13 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
       if (pad.incarnation !== expectedIncarnation || pad.name !== name) throw new RpcError(CONFLICT, "the original pad creation changed");
       const target = before === null ? null : find(store.pads, entry => padKey(entry.name) === padKey(before), `pad ${before}`);
 
-      if (target && (target === pad || !ownsPad(target, pad.owner))) throw new RpcError(CONFLICT, "reorder needs another pad of the same owner");
+      if (target && (target === pad || target.home !== pad.home)) throw new RpcError(CONFLICT, "reorder needs another pad of the same Home");
       const order = store.pads.filter(entry => entry !== pad);
       order.splice(target ? order.indexOf(target) : order.length, 0, pad);
       store.pads = order;
       announce({ name: "pad.changed", data: { name } });
 
       return { ...pad };
-    },
-    "pad.setOwner": ({ name, owner }) => {
-      const selected = v.parse(v.unwrap(ownerActor), owner);
-
-      return changePad(store, announce, name, (pad) => ({ ...pad, owner: selected }));
     },
     "pad.delete": (p: DeleteParams) => {
       if (p.operation != null && (p.operation.length === 0 || p.operation.length > 256)) throw new RpcError(INVALID_PARAMS, "invalid deletion operation");
@@ -388,7 +380,6 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
 
       const pad = find(store.pads, (pad) => padKey(pad.name) === padKey(p.name), `pad ${p.name}`);
 
-      if (actor().kind !== "user" && !ownsPad(pad, actor())) throw new RpcError(-32002, "only the owner may delete this Pad");
 
       if (p.expectedIncarnation != null && p.expectedIncarnation !== pad.incarnation) throw new RpcError(CONFLICT, "Pad creation changed");
       const receipt: PadDeletion = { project, operation: p.operation ?? crypto.randomUUID(), pad: structuredClone(pad), restored: false };
