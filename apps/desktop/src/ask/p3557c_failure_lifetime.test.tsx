@@ -38,7 +38,8 @@ const published = (n: number): Deliverable => ({
 });
 
 it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
-  const { app } = await mountAskBar();
+  const { app, connected } = await mountAskBar();
+  connected.showView("made");
   let records = [published(1), published(2)];
 
   app.handlers["deliverable.list"] = () => records;

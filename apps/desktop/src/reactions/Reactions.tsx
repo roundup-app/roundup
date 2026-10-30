@@ -165,7 +165,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
             }} data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
               <span class="reaction-summary"><span class="reaction-name">{listName(reaction())}</span>
               <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health_code)}</span></span>
-              <span class="reaction-reason">{copy.reactionReason(copy.reactionActor(reaction().actor.kind, reaction().actor.kind === "agent" ? nameOf(reaction().actor.id) : null), reaction().instruction)}</span>
+              <span class="reaction-reason">{copy.reactionListReason(copy.reactionActor(reaction().actor.kind, reaction().actor.kind === "agent" ? nameOf(reaction().actor.id) : null), reaction().instruction)}</span>
             </button>
             <Show when={reaction().state === "active"}><button type="button" data-button="quiet" disabled={pending()} onClick={() => void act(reaction(), "reaction.stop")}>{copy.reactionStop}</button></Show>
           </li>;

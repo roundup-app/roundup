@@ -42,7 +42,7 @@ export const OverviewSections = (props: {
 
     if (requested !== "made" && requested !== "reactions" && requested !== "asks" && requested !== "workstreams") return;
     if (requested === "workstreams" && workstreamsOpen) return;
-    if (requested === "workstreams") workstreamsOpen = true;
+    workstreamsOpen = connected.hasView("workstreams");
     untrack(() => {
       if (requested !== "workstreams") connected.rail.select(null);
       setOpen([requested === "workstreams" ? "attention" : requested]);
