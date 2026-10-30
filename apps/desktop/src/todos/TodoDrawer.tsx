@@ -26,7 +26,7 @@ export const TodoDrawer = (props: {
   id: number;
   order?: readonly number[];
   /** The list that opened this Drawer keeps its acknowledged deletion available to Undo. */
-  region?: string;
+  region?: string | undefined;
   onNavigate?: (id: number) => void;
   onComment?: (focus: ReturnType<typeof captureFocus>) => void;
   todos: TodosState;
