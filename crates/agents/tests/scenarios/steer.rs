@@ -244,7 +244,8 @@ async fn a4452d_agent_authored_text_never_types() {
 async fn a4452c_only_the_user_sets_the_opening_prompt() {
     let f = frozen(Fixture::running(RECORD), Duration::from_secs(30));
     let workstream = f.workstream("team", None).await;
-    let params = json!({"id": workstream, "prompt": "hello"});
+    let prompt = "  Review e\u{301} 🧭\nKeep spacing  ";
+    let params = json!({"id": workstream, "prompt": prompt});
     for kind in [ActorKind::Agent, ActorKind::Ext] {
         let ctx = Ctx {
             actor: Actor {
@@ -266,7 +267,8 @@ async fn a4452c_only_the_user_sets_the_opening_prompt() {
     let f = f.reopen();
     let tree = f.tree().await;
     let node = tree.iter().find(|n| n.id == workstream).unwrap();
-    assert_eq!(node.opening_prompt.as_deref(), Some("hello"));
+    assert_eq!(node.name, "team");
+    assert_eq!(node.opening_prompt.as_deref(), Some(prompt));
 }
 
 #[tokio::test]
