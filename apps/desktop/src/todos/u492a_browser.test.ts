@@ -61,7 +61,8 @@ describe.each([[1512, "dark"], [1512, "light"]] as const)("u492a at %i %s", (wid
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
     await lane.until(`!document.querySelector('.shelf [data-todo="${first}"]') && !document.querySelector('.shelf [data-todo="${second}"]')`);
     expect(await lane.order()).toEqual([initial[2]]);
-    await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+    // BulkDelete returns focus after acknowledged readback; Undo belongs to that Shelf.
+    await lane.until("document.activeElement?.closest('[data-history-region]')?.dataset.historyRegion === 'shelf'");
     await lane.browser("press", "Meta+z");
     await lane.until(`!!document.querySelector('.shelf [data-todo="${first}"]') && !!document.querySelector('.shelf [data-todo="${second}"]')`);
     await read(lane, "undo");
