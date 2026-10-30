@@ -60,6 +60,8 @@ export const createBulkDelete = <Id,>(props: {
     setFailures(current => current.filter(({ target }) => targets.some(row => row.id === target.id)));
   }));
 
+  let returnRegion: HTMLElement | null = null;
+
   const ask = (done = false, focused?: Id) => {
     if (question() || props.blocked()) return;
     const targets = done ? props.done?.() ?? [] : props.targets().filter((target) => focused === undefined ? props.selected().includes(target.id) : target.id === focused);
@@ -67,6 +69,8 @@ export const createBulkDelete = <Id,>(props: {
     if (targets.length === 0) return;
     const unique = [...new Map(targets.map((target) => [target.id, { ...target }])).values()];
     returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    returnRegion = returnTo?.closest<HTMLElement>("[data-history-region]")
+      ?? returnTo?.closest(".shelf")?.querySelector<HTMLElement>(props.noun === "Todos" ? ".todos-tab" : ".pads-tab") ?? null;
     nextFocus = props.afterRemoval?.() ?? (() => null);
     setQuestion({ kind: "question", targets: unique, done });
     void confirm();
@@ -79,6 +83,16 @@ export const createBulkDelete = <Id,>(props: {
     if (next) return next;
 
     if (returnTo?.isConnected) return returnTo;
+
+    if (returnRegion?.isConnected) {
+      const firstRow = returnRegion.querySelector<HTMLElement>(".todo-row-button, .pad-name");
+
+      if (firstRow) return firstRow;
+
+      if (!returnRegion.hasAttribute("tabindex")) returnRegion.tabIndex = -1;
+
+      return returnRegion;
+    }
 
     if (deleteButton?.isConnected) return deleteButton;
 
