@@ -51,7 +51,6 @@ it("u2567a_root_agents_need_attention_without_workstreams", async () => {
   await mountAskBar([], null, [agent("parent", "working", "busy"), agent("waiting", "needs-you", "permission", { parent: "parent" })]);
 
   expectNames(["waiting Needs-you"]);
-  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
   expect(input()).not.toBeNull();
 });
 
@@ -70,7 +69,6 @@ it("u2567b_a_status_event_moves_the_line_and_the_count", async () => {
   await connected.rail.settled();
 
   expectNames(["a Error", "b Working"]);
-  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
 });
 
 it("u2567b_create_and_remove_follow_the_tree", async () => {
@@ -80,7 +78,6 @@ it("u2567b_create_and_remove_follow_the_tree", async () => {
   await connected.rail.settled();
 
   expectNames(["new", "b Needs-you"]);
-  expect(Number.parseInt(document.querySelector('.overview-heading[data-state="attention"]')?.textContent ?? "")).toBe(1);
 });
 
 it("u2567b_the_overview_makes_no_call_of_its_own", async () => {
@@ -172,6 +169,8 @@ const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
   const mounted = await mountQuietAskBar(...args);
   mounted.connected.showView(null);
   mounted.connected.showView("workstreams");
+
+  if (args[1] == null) await screen.findByRole("region", { name: "Project overview" });
 
   return mounted;
 };

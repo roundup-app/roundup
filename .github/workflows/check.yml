@@ -78,6 +78,11 @@ jobs:
           if [ -n "$CI3781_CACHE" ]; then rust_base=''; fi
           rust=$(python3 loop/affected.py rust "$rust_base")
           web=$(python3 loop/affected.py web "$BASE")
+          # The capture registry is imported by vite.config.ts and browser fixtures. Its 96-file selection
+          # timed out in two serial-heavy shards in run 40970125076; use the full configuration lane set.
+          if [ -n "$BASE" ] && ! git diff --quiet "$BASE" -- apps/desktop/src/testing/captures.ts; then
+            web=all
+          fi
           {
             echo "rust=${rust:+true}"
             echo "web=${web:+true}"
@@ -94,9 +99,18 @@ jobs:
         run: |
           files=all
           if [ -n "$COUNT" ]; then
-            # The test files vitest's module graph reaches from the diff. The shards partition whatever the lane runs,
-            # so a count short of `affected.py web`'s extra tests only makes a shard slower.
-            python3 loop/app-data.py pnpm --filter desktop exec vitest list --filesOnly --changed HEAD^1 >"$RUNNER_TEMP/web-files.txt"
+            # Count the same related selection test-web-since runs, including affected.py's source-reading tests.
+            # Run 40977204278 counted only --changed and timed out both undersized web shards after 15 minutes.
+            sources=$(python3 loop/affected.py web "$BASE")
+            SOURCES="$sources" python3 loop/app-data.py pnpm --filter desktop exec node --input-type=module - >"$RUNNER_TEMP/web-files.txt" <<'JS'
+          import { createVitest } from 'vitest/node';
+          const ctx = await createVitest({ related: process.env.SOURCES.split('\n'), watch: false, run: true });
+          try {
+            for (const spec of await ctx.getRelevantTestSpecifications()) console.log(`[${spec.project.name}] ${spec.moduleId}`);
+          } finally {
+            await ctx.close();
+          }
+          JS
             files=$(grep -c '\.test\.tsx\?$' "$RUNNER_TEMP/web-files.txt" || true)
             # Capture metadata reached 70 serial heavy files on #4987: two file-count shards both exceeded
             # 15 min (run 40970178062). Use the full matrix when Vitest selects its heavy project.
