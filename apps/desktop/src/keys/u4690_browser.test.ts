@@ -221,7 +221,7 @@ it.each(["agent", "bubble", "pad-filled", "pad-side"])("u4690a_pointer_keeps_sou
   expect(await read(`document.activeElement === window.__source`)).toBe(true);
 
   if (place.startsWith("pad-")) {
-    const choice = await point('.hint-line [data-hint="S"]');
+    const choice = await point('.hint-line [data-hint="B"]');
     await browser("mouse", "move", String(choice.x), String(choice.y));
     await browser("mouse", "down", "left");
     expect(await read(`document.activeElement === window.__source && !!document.querySelector('.hint-line.leader')`)).toBe(true);

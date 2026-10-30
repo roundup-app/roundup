@@ -23,11 +23,12 @@
 
 .app-combobox-item[data-highlighted],
 .app-combobox-item[data-row-selected=true] {
-  background-color: var(--sunken);
+  background-color: var(--selected);
 }
 
-/* A resting pointer moves no highlight: only typing and the arrows do, and a hovered row changes its text colour alone. */
-.app-combobox-item:hover:not([data-highlighted]) {
+/* Highlighted choices retain their selection wash under the pointer. */
+.app-combobox-item:hover:not([data-highlighted], [data-row-selected=true]) {
+  background-color: var(--transparent);
   color: var(--text);
 }
 
@@ -61,4 +62,9 @@
 
 .app-combobox-item[data-row-selected=true]:focus {
   background-color: var(--selected);
+}
+
+.app-mentions .app-combobox-item[data-highlighted] {
+  background-color: var(--transparent);
+  color: var(--accent);
 }

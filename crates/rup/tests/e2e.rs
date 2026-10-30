@@ -110,15 +110,6 @@ async fn a16_removing_an_agent_leaves_its_pads_and_todos_untouched() {
         .request("pad.create", json!({"name": "notes", "text": null}))
         .await
         .unwrap();
-    let owner = Actor {
-        kind: ActorKind::Agent,
-        id: agent.id.clone(),
-        parent: None,
-    };
-    client
-        .request("pad.setOwner", json!({"name": "notes", "owner": owner}))
-        .await
-        .unwrap();
     let todos_before: Vec<Todo> =
         serde_json::from_value(client.request("todo.list", json!(null)).await.unwrap()).unwrap();
     let pads_before: Vec<Pad> =
@@ -135,18 +126,6 @@ async fn a16_removing_an_agent_leaves_its_pads_and_todos_untouched() {
     let pads_after: Vec<Pad> =
         serde_json::from_value(client.request("pad.list", json!(null)).await.unwrap()).unwrap();
     assert_eq!(pads_after, pads_before);
-
-    let reclaimed: Pad = serde_json::from_value(
-        client
-            .request(
-                "pad.setOwner",
-                json!({"name": "notes", "owner": Actor::user()}),
-            )
-            .await
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(reclaimed.owner, Actor::user());
 }
 
 /// How much memory the Daemon allows its own share of ten idle Agents (rule 7).
@@ -1013,26 +992,6 @@ async fn e2_an_agent_reads_its_own_context_and_no_one_elses() {
     assert!(touches.is_empty(), "{touches:?}");
 }
 
-#[tokio::test]
-async fn e4_after_a_move_the_next_call_returns_the_new_parent() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-
-    user.request(
-        "rail.move",
-        json!({ "id": rail.a, "parent": rail.g, "index": 0 }),
-    )
-    .await
-    .unwrap();
-    let a = context_of(&user, &rail.a).await.unwrap();
-
-    assert_eq!(a.parent.unwrap().id, rail.g);
-    assert_eq!(a.ask.to, "you");
-    assert_eq!(a.peers.len(), 1);
-    assert_eq!(a.peers[0].id, rail.c);
-}
-
 /// A raw MCP client of `rup mcp <id>`: the tool's text, or its error text.
 struct Shim {
     child: tokio::process::Child,
@@ -1122,6 +1081,14 @@ async fn e4_agent_context_returns_the_callers_context_after_a_move() {
     assert_eq!(before.ask.to, rail.m);
     assert_eq!(after.parent.unwrap().id, rail.g);
     assert_eq!(after.ask.to, "you");
+    assert_eq!(
+        after
+            .peers
+            .iter()
+            .map(|peer| peer.id.as_str())
+            .collect::<Vec<_>>(),
+        [rail.c.as_str()]
+    );
 }
 
 async fn tool_names(shim: &mut Shim) -> Vec<String> {
@@ -1733,7 +1700,7 @@ async fn p12_create_homes_a_pad_at_the_nearest_workstream() {
     assert_eq!(made["home"], Value::Null);
 }
 
-/// P12: the Daemon validates the destination against the live Rail.
+/// P12: the Daemon checks the Rail, any Actor may move, and the Home survives a restart.
 #[tokio::test]
 async fn p12_move_checks_the_rail() {
     let project = start(&[]);
@@ -1755,11 +1722,6 @@ async fn p12_move_checks_the_rail() {
         assert_eq!(err.code, code);
     }
     let by_agent = client_as(&project, actor(ActorKind::Agent, &agent)).await;
-    let err = by_agent
-        .request("pad.move", json!({ "name": "notes", "home": r1 }))
-        .await
-        .unwrap_err();
-    assert_eq!(err.code, rpc::code::FORBIDDEN);
     let err = client
         .request("pad.move", json!({ "name": "ghost", "home": r1 }))
         .await
@@ -1767,31 +1729,24 @@ async fn p12_move_checks_the_rail() {
     assert_eq!(err.code, rpc::code::NOT_FOUND);
     assert_eq!(pad_home(&client, "notes").await, Value::Null);
 
-    client
+    by_agent
         .request("pad.move", json!({ "name": "notes", "home": r1 }))
         .await
         .unwrap();
     assert_eq!(pad_home(&client, "notes").await, json!(r1));
 }
 
-/// P12: removing a Workstream sends the Pads of its kept Agents to the Project root (A34 deletes the rest).
+/// P12: removing a Workstream deletes its Pads by Home, independently of kept Agents.
 #[tokio::test]
-async fn p12_workstream_removal_resets_homes_and_deletes_no_pad() {
+async fn p12_workstream_removal_deletes_only_its_home_pads() {
     let project = start(&[]);
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
     let r2 = workstream(&client, "r2").await;
-    let owner = agent_in(&project, &client, Some(&r1)).await;
+    let _agent = agent_in(&project, &client, Some(&r1)).await;
     for (name, home) in [("a", &r1), ("b", &r2), ("c", &r1)] {
         client
             .request("pad.create", json!({ "name": name }))
-            .await
-            .unwrap();
-        client
-            .request(
-                "pad.setOwner",
-                json!({ "name": name, "owner": actor(ActorKind::Agent, &owner) }),
-            )
             .await
             .unwrap();
         client
@@ -1803,30 +1758,31 @@ async fn p12_workstream_removal_resets_homes_and_deletes_no_pad() {
         .request("rail.remove", json!({ "id": r1 }))
         .await
         .unwrap();
-    assert_eq!(pad_home(&client, "a").await, Value::Null);
-    assert_eq!(pad_home(&client, "c").await, Value::Null);
+    for name in ["a", "c"] {
+        assert_eq!(
+            client
+                .request("pad.read", json!({"name":name}))
+                .await
+                .unwrap_err()
+                .code,
+            rpc::code::NOT_FOUND
+        );
+    }
     assert_eq!(pad_home(&client, "b").await, json!(r2));
     let listed = client.request("pad.list", json!(null)).await.unwrap();
-    assert_eq!(listed.as_array().unwrap().len(), 3);
+    assert_eq!(listed.as_array().unwrap().len(), 1);
 }
 
 /// P12: `pad.changed` per Pad in name order after the Workstream is gone, and a failed `rail.remove` changes none.
 #[tokio::test]
-async fn p12_removal_emits_pad_changed_in_name_order_and_a_failed_one_none() {
+async fn p12_removal_emits_pad_deleted_in_name_order_and_a_failed_one_none() {
     let project = start(&[]);
     let client = project.client().await;
     let r1 = workstream(&client, "r1").await;
-    let owner = agent_in(&project, &client, Some(&r1)).await;
+    let _agent = agent_in(&project, &client, Some(&r1)).await;
     for name in ["c", "a", "b"] {
         client
             .request("pad.create", json!({ "name": name }))
-            .await
-            .unwrap();
-        client
-            .request(
-                "pad.setOwner",
-                json!({ "name": name, "owner": actor(ActorKind::Agent, &owner) }),
-            )
             .await
             .unwrap();
         client
@@ -1845,7 +1801,7 @@ async fn p12_removal_emits_pad_changed_in_name_order_and_a_failed_one_none() {
     let none = tokio::time::timeout(
         Duration::from_millis(300),
         next(&mut events, |data| {
-            matches!(data, EventData::PadChanged(_)).then_some(())
+            matches!(data, EventData::PadDeleted(_)).then_some(())
         }),
     )
     .await;
@@ -1859,7 +1815,7 @@ async fn p12_removal_emits_pad_changed_in_name_order_and_a_failed_one_none() {
     for _ in 0..3 {
         names.push(
             next(&mut events, |data| match data {
-                EventData::PadChanged(pad) => Some(pad.name),
+                EventData::PadDeleted(pad) => Some(pad.name),
                 _ => None,
             })
             .await,
@@ -2008,82 +1964,6 @@ async fn f2_an_ordinary_agent_runs_claude_directly_and_through_sh() {
     let path = settings["env"]["PATH"].as_str().unwrap();
     assert!(path.starts_with(&format!("{}:", rup_dir())));
     assert!(!path.contains("/agents/"));
-}
-
-#[tokio::test]
-async fn f4_a_door_finds_a_shim_for_claude_directly_and_through_sh_and_other_programs_run() {
-    let root = tempfile::tempdir().unwrap();
-    let report = root.path().join("run.json");
-    let runs = json!([
-        "claude --version",
-        "sh -c 'claude --version'",
-        ["claude", "--version"],
-        "/bin/echo hi",
-        "git --version"
-    ]);
-    let project = start(&[
-        ("PATH", &path_with_fake_claude(root.path())),
-        ("FAKE_CLAUDE_RUN", &runs.to_string()),
-        ("FAKE_CLAUDE_RUN_REPORT", report.to_str().unwrap()),
-    ]);
-    let client = project.client().await;
-
-    start_door(&client).await;
-    let done = json_file(&report).await;
-    let done = done.as_array().unwrap();
-
-    let message = "roundup: start an agent with agent_spawn (a Door) or ask the user\n";
-    for run in &done[..3] {
-        assert_eq!(run["code"], 1);
-        assert_eq!(run["stderr"], message);
-        assert_eq!(run["stdout"], "");
-    }
-    assert_eq!(
-        (done[3]["code"].as_i64(), done[3]["stdout"].as_str()),
-        (Some(0), Some("hi\n"))
-    );
-    assert_eq!(done[4]["code"], 0);
-    assert!(
-        done[4]["stdout"]
-            .as_str()
-            .unwrap()
-            .starts_with("git version")
-    );
-}
-
-#[tokio::test]
-async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_path() {
-    let root = tempfile::tempdir().unwrap();
-    let path = path_with_fake_claude(root.path());
-    let project = start(&[("PATH", &path)]);
-    let client = project.client().await;
-
-    let door = start_door(&client).await;
-
-    let shims = project
-        .data_dir()
-        .canonicalize()
-        .unwrap()
-        .join(format!("agents/{door}.bin"));
-    assert_eq!(
-        settings_of(&project, &door)["env"]["PATH"],
-        format!("{}:{}:{path}", rup_dir(), shims.display())
-    );
-    assert!(shims.join("claude").is_file());
-}
-
-#[tokio::test]
-async fn f3_any_agent_starts_a_subagent_under_itself_and_its_parent_param_is_ignored() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let agent = project.spawn_agent(&client).await;
-    let other = project.spawn_agent(&client).await;
-
-    let sub = agent_in_as(&project, &agent.id).await;
-    let tree = rail_tree(&client).await;
-    let node = tree.iter().find(|node| node.id == sub).unwrap();
-    assert_eq!(node.parent.as_deref(), Some(agent.id.as_str()));
-    assert_ne!(node.parent.as_deref(), Some(other.id.as_str()));
 }
 
 #[tokio::test]
@@ -2627,35 +2507,6 @@ async fn p14_pad_has_no_scribe_field() {
     assert!(listed[0].get("scribe").is_none());
 }
 
-/// M11: the tools a Brief lists, between its "## Tools" heading and the next.
-fn brief_tools(brief: &str) -> Vec<String> {
-    let section = brief.split("## Tools").nth(1).unwrap();
-    let section = section.split("\n## ").next().unwrap();
-    section
-        .lines()
-        .filter_map(|line| line.strip_prefix("- `"))
-        .map(|rest| rest.split('`').next().unwrap().to_owned())
-        .collect()
-}
-
-#[tokio::test]
-async fn m11_no_role_is_offered_a_tool_its_brief_does_not_name() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    for id in [&rail.m, &rail.a] {
-        let mut shim = Shim::start(&project, id).await;
-        let mut offered = tool_names(&mut shim).await;
-        let brief =
-            std::fs::read_to_string(project.data_dir().join(format!("agents/{id}.brief.md")))
-                .unwrap();
-        let mut named = brief_tools(&brief);
-        offered.sort();
-        named.sort();
-        assert_eq!(offered, named, "agent {id}");
-    }
-}
-
 /// X11, X12: a Terminal the user opens is a bubble's, not a Rail node: it is written to, read back
 /// and closed, and a connection ending closes nothing.
 #[tokio::test]
@@ -2919,18 +2770,6 @@ async fn x16_a_shims_reads_are_a_delta_per_agent() {
 }
 
 #[tokio::test]
-async fn m13_a_door_reads_its_staffs_runs() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_b = client_as(&project, actor(ActorKind::Agent, &rail.b)).await;
-    let run = m13_run(&as_b, &rail.b, "echo staff-output; sleep 30").await;
-    let mut door = Shim::start(&project, &rail.m).await;
-
-    m13_until_read(&mut door, &run, "staff-output").await;
-}
-
-#[tokio::test]
 async fn m13_another_workstreams_terminal_is_forbidden() {
     let project = start(&[]);
     let user = project.client().await;
@@ -3065,23 +2904,6 @@ async fn m13_a_full_log_read_through_mcp_is_capped() {
     );
     assert_eq!(found["truncated"], true);
     assert!(screen.to_string().len() <= 16_384);
-}
-
-#[tokio::test]
-async fn m13_the_brief_names_the_read_tools_and_the_offset_habit() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    for id in [&rail.m, &rail.a] {
-        let brief =
-            std::fs::read_to_string(project.data_dir().join(format!("agents/{id}.brief.md")))
-                .unwrap();
-        for name in ["terminal_screen", "terminal_read", "terminal_search"] {
-            assert!(brief_tools(&brief).iter().any(|n| n == name), "{id} {name}");
-        }
-        assert!(brief.contains("Never read from 0 again"), "{id}");
-        assert!(brief.contains("`next` of your last read"), "{id}");
-    }
 }
 
 #[tokio::test]

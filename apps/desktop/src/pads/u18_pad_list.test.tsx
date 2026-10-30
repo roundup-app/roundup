@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import type { Pad } from "@contracts/pad/Pad";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -6,7 +6,6 @@ import {
   deferred,
   openShelf,
   padOf,
-  RpcError,
 } from "./padsFixture";
 import { USER } from "../testing/nodes";
 
@@ -27,34 +26,9 @@ describe("u18 list and ownership", () => {
     ).toBe(2);
   });
 
-  it("u18_make_yours_menu_changes_the_original_pad_owner", async () => {
-    const { app, state } = await openShelf([padOf("auth-notes", AGENT)]);
-    app.handlers["pad.setOwner"] = ({ name }) => {
-      state.pads = state.pads.map((pad) =>
-        pad.name === name ? { ...pad, owner: USER } : pad,
-      );
 
-      return padOf(name, USER);
-    };
 
-    fireEvent.contextMenu(await screen.findByRole("button", { name: "auth-notes" }));
-    await app.pickMenu("Make yours");
 
-    expect(app.calls.filter((call) => call.method === "pad.setOwner")).toEqual([
-      { method: "pad.setOwner", params: { name: "auth-notes", owner: USER } },
-    ]);
-  });
-
-  it("u18_a_refused_owner_change_shows_the_message_in_ink", async () => {
-    const { app } = await openShelf([padOf("auth-notes", AGENT)]);
-    const failure = new RpcError(-32001, "only the owner may hand it over");
-    app.handlers["pad.setOwner"] = () => { throw failure; };
-
-    fireEvent.contextMenu(await screen.findByRole("button", { name: "auth-notes" }));
-    await app.pickMenu("Make yours");
-
-    expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
-  });
 
   it("u18_pad_changed_refetches_pad_list_and_logs_no_touch", async () => {
     const { app, state, calls } = await openShelf([padOf("auth-notes", AGENT)]);

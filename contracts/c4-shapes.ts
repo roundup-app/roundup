@@ -161,7 +161,6 @@ type After = {
   "pad/Pad": import("./generated/pad/Pad").Pad;
   "pad/PadName": import("./generated/pad/PadName").PadName;
   "pad/RenameParams": import("./generated/pad/RenameParams").RenameParams;
-  "pad/SetOwnerParams": import("./generated/pad/SetOwnerParams").SetOwnerParams;
   "pad/SetStorageParams": import("./generated/pad/SetStorageParams").SetStorageParams;
   "pad/WriteParams": import("./generated/pad/WriteParams").WriteParams;
   "project/AgentResources": import("./generated/project/AgentResources").AgentResources;
@@ -278,11 +277,11 @@ type After = {
 // U4593 widens only owner inputs; stored Actors and every other baseline field stay exact.
 type WithOwnerSelector<T> = { [K in keyof T]: K extends "owner" ? T[K] | string : T[K] };
 
-type SelectorInputs = "todo/AssignParams" | "todo/CreateParams" | "pad/SetOwnerParams";
+type SelectorInputs = "todo/AssignParams" | "todo/CreateParams";
 
 type BeforeSelectors = { [K in keyof Before]: K extends SelectorInputs ? WithOwnerSelector<Before[K]> : Before[K] };
 
-type SelectorMethods = "todo.assign" | "todo.create" | "pad.setOwner";
+type SelectorMethods = "todo.assign" | "todo.create";
 
 type BeforeMethodSelectors = { [K in keyof BeforeRpcMethods]: K extends SelectorMethods
   ? { params: WithOwnerSelector<BeforeRpcMethods[K]["params"]>; result: BeforeRpcMethods[K]["result"] }

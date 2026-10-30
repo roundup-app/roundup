@@ -208,7 +208,7 @@ impl Daemon {
             "reaction.create" => fields.push(("target", false)),
             _ => {}
         }
-        let has_owner = matches!(method, "todo.create" | "todo.assign" | "pad.setOwner");
+        let has_owner = matches!(method, "todo.create" | "todo.assign");
         let has_list = method == "agent.wake"
             || (method == "reaction.create" && params["condition"]["kind"] == "agents");
         if !has_owner && !has_list && !fields.iter().any(|(field, _)| params[*field].is_string()) {

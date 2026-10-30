@@ -50,6 +50,7 @@ if child is None: sys.stdin.buffer.read()
 else: child.wait(timeout=12)
 stop()
 ''',
+                'target/debug/rup': '#!/bin/sh\nexit 0\n',
                 'bin/pnpm': '#!/bin/bash\necho $$ > "$VITE_PID"\n[ "$FAIL" = 2 ] && exit 9\nexec /bin/sleep 3600\n',
                 'bin/sleep': '''#!/usr/bin/env python3
 import os, pathlib, sys, time
@@ -63,7 +64,6 @@ else: time.sleep(.02)
                 'bin/curl': '''#!/bin/bash
 case "$*" in
  *agent.spawn*) echo '{"id":"agent"}' ;;
- *pad.read*) case "$*" in *notes*) echo '{"owner":{"kind":"agent"}}';; *) echo '{"owner":{"kind":"user"}}';; esac ;;
 esac
 ''',
                 'bin/agent-browser': '''#!/usr/bin/env python3

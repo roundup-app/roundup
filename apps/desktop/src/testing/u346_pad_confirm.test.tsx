@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it, vi } from "vitest";
-import { USER } from "./nodes";
 import { openPad } from "../pads/padsFixture";
 
 // jsdom has no layout, so the editor's scroll-to-selection asks a Range for rects it cannot give.
@@ -113,7 +112,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     });
 
     await expect.poll(() => app.rpc("pad.list", null), { timeout: 30_000 }).toMatchObject([
-      { name: "agent-work", owner: { kind: "agent", id: agent.id }, home: home.id, text: visualSource, revision: 1 },
+      { name: "agent-work", home: home.id, text: visualSource, revision: 1 },
     ]);
 
     const openRealPad = async () => {
@@ -144,7 +143,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await browser("wait", "[data-state=saved]");
     const expected = `Reviewed ${visualSource}`;
 
-    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, owner: { kind: "agent" } });
+    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2 });
     await browser("click", ".drawer .close");
     await real.restart();
     await openRealPad();
@@ -255,7 +254,6 @@ it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
     expect(restored.value).toBe("unfinished é 🪁\nsecond");
     ;
     const focused = document.activeElement;
-    await one.rpc("pad.setOwner", { name, owner: USER });
     expect(document.activeElement).toBe(focused);
     fireEvent.focusOut(restored);
     expect(writes()).toBe(afterExternal);
