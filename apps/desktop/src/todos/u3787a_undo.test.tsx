@@ -109,16 +109,22 @@ const failedDeletionRefresh = async () => {
   daemon.handlers["todo.delete"] = async params => {
     const receipt = await remove(params);
     daemon.handlers["todo.list"] = () => { throw new Error("Todo list unavailable"); };
+
     daemon.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
     return receipt;
   };
-  await mounted.remove("/a");
+
+  const row = screen.getByLabelText(/^(?:Idle|Blocked|Done) #5 /);
+  row.focus();
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "More actions" }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   await screen.findByText("Todo list unavailable");
   const connected = mounted.connections.get("/a")!;
+
   await waitFor(() => {
-    expect(connected.drawer.content()).toBeNull();
-    expect(connected.drafts.todoUndo.pending()).toBe(false);
+    expect({ drawer: connected.drawer.content(), pending: connected.drafts.todoUndo.pending() }).toEqual({ drawer: null, pending: false });
   });
 
   return { ...mounted, daemon, connected };
@@ -130,11 +136,10 @@ it("u5127a_acknowledged_delete_closes_after_failed_list_refresh", async () => {
     { operation: expect.any(String), ids: [5] },
   ]);
   expect(app.of("/b").calls.filter(call => call.method === "todo.delete")).toEqual([]);
-  expect(connected.drafts.todoUndo.failure()).toBeNull();
-  expect(connected.drafts.todoUndo.uncertain()).toBe(false);
+  expect({ failure: connected.drafts.todoUndo.failure(), uncertain: connected.drafts.todoUndo.uncertain() }).toEqual({ failure: null, uncertain: false });
   expect(questionProbe.shown).toBeNull();
   expect(screen.queryByText(DELETED)).toBeNull();
-  expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  expect(screen.queryAllByRole("button", { name: "Undo" })).toEqual([]);
   // SAFETY: the exact delete-call assertion above establishes the generated payload.
   const { operation } = daemon.calls.find(call => call.method === "todo.delete")!.params as DeleteParams;
   const survivor = screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /);
@@ -142,7 +147,7 @@ it("u5127a_acknowledged_delete_closes_after_failed_list_refresh", async () => {
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.enabled).toBe(true));
   undoKey();
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.restore").map(call => call.params)).toEqual([{ operation }]));
-  expect(daemon.calls.filter(call => call.method === "todo.delete")).toHaveLength(1);
+  expect(daemon.calls.filter(call => call.method === "todo.delete").map(call => call.params)).toEqual([{ operation, ids: [5] }]);
 });
 
 it("u5127b_successful_refresh_clears_failure_without_redeleting", async () => {
@@ -150,11 +155,10 @@ it("u5127b_successful_refresh_clears_failure_without_redeleting", async () => {
   daemon.handlers["todo.list"] = () => [todo(7, { title: "same" })];
   daemon.emit({ actor: USER, name: "todo.updated", data: todo(7, { title: "same" }) });
   await waitFor(() => {
-    expect(screen.queryByText("Todo list unavailable")).toBeNull();
-    expect(screen.queryByLabelText(/^(?:Idle|Blocked|Done) #5 /)).toBeNull();
+    expect({ cause: screen.queryByText("Todo list unavailable"), deleted: screen.queryByLabelText(/^(?:Idle|Blocked|Done) #5 /) }).toEqual({ cause: null, deleted: null });
     expect(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /)).toBeTruthy();
   });
-  expect(connected.drawer.content()).toBeNull();
+  expect({ drawer: connected.drawer.content() }).toEqual({ drawer: null });
   screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /).focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.enabled).toBe(true));
   expect(daemon.calls.filter(call => call.method === "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [5] }]);
