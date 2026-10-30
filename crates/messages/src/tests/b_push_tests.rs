@@ -588,6 +588,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
     let seen = digest::Seen::default();
     let mut todos = Vec::new();
     seen.baseline(&digest::Sources {
+        touches: Vec::new(),
         nodes: &nodes,
         todos: &todos,
         pads: &[],
@@ -610,6 +611,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
             estimate_minutes: None,
         });
         let changes = seen.changed(&digest::Sources {
+            touches: Vec::new(),
             nodes: &nodes,
             todos: &todos,
             pads: &[],

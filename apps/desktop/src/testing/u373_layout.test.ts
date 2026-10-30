@@ -42,7 +42,7 @@ run("u373 the tabs", () => {
     await page.press("Tab", "Tab");
     expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Maximise");
     await page.press("Tab", "Tab");
-    expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Close work items");
+    expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Close the Bench");
     await page.press("Tab", "Tab");
     expect(await page.call<boolean>(`() => document.activeElement.closest('.shelf [role="tabpanel"], [data-shelf-scope]') !== null`)).toBe(true);
 

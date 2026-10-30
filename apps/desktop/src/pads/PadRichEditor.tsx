@@ -60,7 +60,7 @@ const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link
 
 const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
 
-/** U147: the Pad's one surface. `readonly` is ownership (P2), never a mode; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
+/** U147: the Pad's one surface. `readonly` prevents editing unavailable content; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
 export default function PadRichEditor(props: {
   initialFocus?: ReturnType<typeof captureFocus>;
   text: string;

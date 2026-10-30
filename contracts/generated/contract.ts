@@ -70,7 +70,6 @@ export const CONTRACT = {
     "pad.rename": "c0659e846afb4351",
     "pad.reorder": "ff778cb8c3a4e469",
     "pad.restore": "d91511875333e67f",
-    "pad.setOwner": "8133844110890cf3",
     "pad.setStorage": "8c74d5bf421a56c9",
     "pad.write": "199ebeaeca039911",
     "project.get": "9e13168ca3fdc9f9",

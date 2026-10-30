@@ -74,7 +74,6 @@
     Method { name: "pad.append", params: "pad_AppendParams", result: "pad_Pad" },
     Method { name: "pad.appendSection", params: "pad_AppendSectionParams", result: "pad_Pad" },
     Method { name: "pad.reorder", params: "pad_ReorderParams", result: "pad_Pad" },
-    Method { name: "pad.setOwner", params: "pad_SetOwnerParams", result: "pad_Pad" },
     Method { name: "pad.move", params: "pad_MoveParams", result: "pad_Pad" },
     Method { name: "pad.delete", params: "pad_DeleteParams", result: "pad_Deletion" },
     Method { name: "pad.redoDelete", params: "pad_RedoDeleteParams", result: "pad_Deletion" },

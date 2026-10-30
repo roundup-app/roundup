@@ -3,7 +3,6 @@ mod common;
 
 use std::path::Path;
 use std::process::{Output, Stdio};
-use std::sync::Arc;
 use std::time::Duration;
 
 use common::Served;
@@ -87,8 +86,7 @@ struct Project {
 fn start_daemon() -> Project {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("rupd.sock");
-    let daemon = Arc::new(rupd::Daemon::open(&dir.path().join(".roundup")).unwrap());
-    let daemon = tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
+    let daemon = common::serve(dir.path(), &socket);
     Project {
         _dir: dir,
         socket,
@@ -384,20 +382,15 @@ async fn p15_tool_offered_and_touch_by_agent() {
 #[tokio::test]
 async fn m2_a_daemon_error_is_a_tool_error_carrying_code_and_message() {
     let project = start_daemon();
-    let owner = client_as(&project.socket, agent("owner")).await;
-    owner
-        .request("pad.create", json!({ "name": "notes" }))
-        .await
-        .unwrap();
     let shim = spawn_shim(&project.socket, "a1").await;
 
     let result = shim
-        .call("pad_write", json!({ "name": "notes", "text": "mine" }))
+        .call("pad_write", json!({ "name": "missing", "text": "mine" }))
         .await;
 
     assert_eq!(result.is_error, Some(true));
     let error = text(&result);
-    assert_eq!(error["code"], rpc::code::FORBIDDEN);
+    assert_eq!(error["code"], rpc::code::NOT_FOUND);
     assert!(error["message"].is_string());
 }
 

@@ -155,23 +155,48 @@
   box-sizing: border-box;
   width: max-content;
   max-width: min(var(--ask-menu-width), var(--available-width));
+  z-index: var(--layer-menu);
   padding: var(--space-1);
 }
 
 .app-mentions {
   margin: 0;
+  color: var(--grey);
   max-height: var(--order-field-max-height);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-.app-mentions .app-listbox-item[data-highlighted] {
-  color: var(--accent);
+.app-mentions [data-part="item-text"] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-.app-mentions .app-listbox-item {
-  min-height: var(--space-5);
-  align-items: center;
+.app-mention-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
+.app-combobox-item:hover .app-mention-name {
+  color: var(--text);
+}
+
+.app-mentions mark {
+  text-decoration: underline;
+  color: inherit;
+  background: var(--transparent);
+}
+
+.app-mention-parent {
+  color: var(--grey);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The picker's visible label would repeat its trigger; the accessible name stays. */
