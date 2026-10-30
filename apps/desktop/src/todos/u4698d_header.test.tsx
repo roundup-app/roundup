@@ -33,7 +33,7 @@ it("u4698d_header_copies_only_the_displayed_identity", async () => {
   const panel = screen.getByRole("complementary", { name: "Drawer" });
   fireEvent.click(await within(panel).findByRole("button", { name: "Copy Todo id" }));
   await waitFor(() => expect(app.clipboardWrites).toEqual(["#3"]));
-  expect(app.calls.filter(call => ["todo.update", "todo.assign", "agent.start"].includes(call.method))).toEqual([]);
+  expect(app.calls.filter(call => ["todo.update", "todo.assign", "agent.spawn", "terminal.spawn", "agent.prompt"].includes(call.method))).toEqual([]);
 });
 
 it.each([null, "low", "medium", "high", "urgent"] as const)("u4698d_meta_changes_only_the_selected_priority_%s", async priority => {
@@ -96,5 +96,19 @@ it("u4698d_header_without_a_list_navigates_only_the_current_home", async () => {
   fireEvent.click(await within(panel).findByRole("button", { name: "Next Todo" }));
   await within(panel).findByRole("checkbox", { name: "Complete todo 3" });
   expect(todoCallsTo(app, "todo.get").map(call => call.params)).toEqual([{ id: 3 }]);
-  expect(app.calls.filter(call => ["todo.update", "todo.assign", "todo.move", "agent.start"].includes(call.method))).toEqual([]);
+  expect(app.calls.filter(call => ["todo.update", "todo.assign", "todo.move", "agent.spawn", "terminal.spawn", "agent.prompt"].includes(call.method))).toEqual([]);
+});
+
+
+it("u4698d_owner_escape_returns_to_the_meta_trigger_without_assignment", async () => {
+  const { app } = await mountTodos([todo(1)]);
+  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  const panel = screen.getByRole("complementary", { name: "Drawer" });
+  const owner = await within(panel).findByRole("button", { name: "Unassigned" });
+  owner.focus();
+  fireEvent.click(owner);
+  const menu = await screen.findByRole("menu");
+  fireEvent.keyDown(menu, { key: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(owner));
+  expect(todoCallsTo(app, "todo.assign")).toEqual([]);
 });
