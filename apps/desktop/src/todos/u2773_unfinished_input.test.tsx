@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
@@ -124,7 +125,7 @@ it("u2773b_todos_discard_removes_only_selected_revision_across_reopen", async ()
   fireEvent.keyDown(field, { key: "Enter" });
   await screen.findByText("Failed");
   fireEvent.input(field, { target: { value: "  newer B 🧪  " } });
-  fireEvent.click(within(screen.getByRole("region", { name: "Todo · new" })).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Todo · new" })).getByRole("button", { name: recoveryCopy.discardRevision }));
   await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:drafts:${connected.project.path}`)!).drafts).toContainEqual(expect.objectContaining({ value: expect.objectContaining({ title: "  newer B 🧪  " }) })));
   const path = connected.project.path;
 
@@ -214,7 +215,7 @@ it("u2773b_todos_discard_current_does_not_restore_it_on_escape", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
   fireEvent.input(screen.getByRole("textbox", { name: "New Todo title" }), { target: { value: "discard this" } });
   fireEvent.keyDown(screen.getByRole("textbox", { name: "New Todo title" }), { key: "Escape" });
-  fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(screen.getByRole("button", { name: recoveryCopy.discardRevision }));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   const reopened = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
@@ -300,7 +301,7 @@ it("u2773e_todos_incompatible_form_keeps_original_bytes_and_newer_work", async (
   fireEvent.click(recovery.getByRole("button", { name: "Copy Todo" }));
   expect(writeText).toHaveBeenCalledWith(exact);
   fireEvent.click(recovery.getByRole("button", { name: "Retry storage only" }));
-  fireEvent.click(within(await screen.findByRole("region", { name: "Todo · 42" })).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(await screen.findByRole("region", { name: "Todo · 42" })).getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(localStorage.getItem(key)).toBe(bytes);
   expect(field.value).toBe(exact);
   expect(connected.drafts.list().find(draft => draft.revision === "independent")).toEqual(independent);
@@ -444,7 +445,7 @@ it("u3021c_todo_creation_discard_from_another_control_closes_the_selected_editor
   const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
   // The Shelf's recovery control is mounted separately from the recovered creation editor.
-  fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", description: /discard A/ })[0]!);
+  fireEvent.click(screen.getAllByRole("button", { name: recoveryCopy.discardRevision, description: /discard A/ })[0]!);
   expect(field.isConnected).toBe(false);
   fireEvent.keyDown(field, { key: "Escape" });
   opened.unmount();

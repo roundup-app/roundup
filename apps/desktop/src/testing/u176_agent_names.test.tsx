@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { resolve } from "node:path";
@@ -243,7 +244,7 @@ describe("u2773 Rail persisted edits", () => {
     expect((await app.rpc("rail.tree", null)).find((entry) => entry.id === node.id)?.name).toBe("Changed elsewhere");
     await app.rpc("rail.remove", { id: node.id });
     await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
-    expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toContain(" exact e\u0301 😀 ");
+    expect(screen.getAllByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).map((field) => field.value)).toContain(" exact e\u0301 😀 ");
     expect(draftStorage(first.dir).list().find((entry) => entry.value.text === " exact e\u0301 😀 ")?.destination.object).toBe(node.id);
     expect(document.body.textContent).toContain("unavailable");
   }, 120_000);

@@ -202,7 +202,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Retirement reservation | same | — |
 | Route | same | — |
 | Saved work (`storedValue`, `storageSchema`, `initializeStorage`, `storageProblems`, `useBrowserStorage`, `storageCopy`) | same | — |
-| Draft (`draftStorage`) | same | — |
+| Draft (`draftStorage`) | Unfinished work | — |
 | Reason | same | — |
 | Card | same | popup |
 | Markdown | same | — |
