@@ -83,12 +83,20 @@ it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_ex
     else if (kind === "pads") await undo.removePads([pad], kind);
     else await undo.removeRail(node.id, node.name, kind);
 
+    const action = kind === "todos" ? "Delete Todo" : kind === "pads" ? "Delete Pad" : `Remove redo-${kind}`;
+    expect(undo.undoLabel(kind)).toBe(`Undo ${action}`);
+    expect(undo.undoLabel("empty")).toBe("Undo");
     await undo.undo(kind);
+    expect(undo.undoLabel(kind)).toBe("Undo");
+    expect(undo.redoLabel(kind)).toBe(`Redo ${action}`);
+    expect(undo.redoLabel("empty")).toBe("Redo");
     const late = await app.rpc("todo.create", { title: `late ${kind}`, body: null, blockers: null });
 
     if (kind === "todos") expect(late.id).toBe(arrival.id + 1);
     // Redo consumes an acknowledged restoration, and another Undo consumes the new receipt.
     await undo.redo(kind);
+    expect(undo.undoLabel(kind)).toBe(`Undo ${action}`);
+    expect(undo.redoLabel(kind)).toBe("Redo");
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(kind !== "todos");
     expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(kind !== "pads");
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(kind !== "rail");

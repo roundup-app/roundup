@@ -83,6 +83,7 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   if (source === "menu") {
     document.body.focus();
     await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.enabled).toBe(true));
+    expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe("Undo Delete Todo");
     openProjectPage("action:chord:⌘Z", "/a");
     openProjectPage("action:chord:⌘Z", "/a");
   } else {
@@ -633,4 +634,26 @@ it("u4453d_no_undo_controls_native_undo_remains", async () => {
   root.remove();
   pressUndo();
   await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(1));
+});
+
+
+it("u3787a_pending_restore_disables_history_until_acknowledgement", async () => {
+  const { app, remove, connections } = await mount();
+  await remove("/a");
+  const undo = connections.get("/a")!.drafts.todoUndo;
+  await waitFor(() => expect(undo.available("todo:5")).toBe(true));
+  let finish!: () => void;
+  app.of("/a").handlers["todo.restore"] = p => new Promise(resolve => {
+    finish = () => resolve({ operation: p.operation, deleted: [5], missing: [], state: "restored" });
+  });
+  pressUndo();
+  await waitFor(() => expect(app.of("/a").calls.some(call => call.method === "todo.restore")).toBe(true));
+  expect(undo.available("todo:5")).toBe(false);
+  expect(undo.redoAvailable("todo:5")).toBe(false);
+  expect(undo.undoLabel("todo:5")).toBe("Undo");
+  expect(undo.redoLabel("todo:5")).toBe("Redo");
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘Z")).toBe(false));
+  finish();
+  await waitFor(() => expect(undo.redoAvailable("todo:5")).toBe(true));
+  expect(undo.redoLabel("todo:5")).toBe("Redo Delete Todo");
 });
