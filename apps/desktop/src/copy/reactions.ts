@@ -1,5 +1,4 @@
 export const reactionCopy = {
-  createReason: "Requested by the user in the App.",
   instructionGroup: "What to send",
   conditionGroup: "When to send",
   limitsGroup: "Limits",

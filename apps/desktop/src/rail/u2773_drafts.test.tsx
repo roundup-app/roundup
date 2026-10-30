@@ -10,7 +10,7 @@ const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftK
 
 const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
 
-it.each(["unknown"])("u2773b_rail_settlement_preserves_other_revisions_%s", async (outcome) => {
+it.each(["acknowledged", "failed", "unknown", "transport"])("u2773b_rail_settlement_preserves_other_revisions_%s", async (outcome) => {
   const { RpcError } = await import("../app/seam");
   const mounted = await mountRail([workstream("w")]);
   let resolve!: (value: ReturnType<typeof workstream>) => void;
@@ -31,7 +31,7 @@ it.each(["unknown"])("u2773b_rail_settlement_preserves_other_revisions_%s", asyn
   expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
 
   if (outcome !== "acknowledged") {
-    expect(mounted.connected.drafts.list().find(draft => draft.status === "unknown")?.value.text).toBe(" A\n😀 ");
+    expect(mounted.connected.drafts.list().find(draft => draft.status === (outcome === "failed" ? "failed" : "unknown"))?.value.text).toBe(" A\n😀 ");
     fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[0]!);
   }
 

@@ -1,9 +1,11 @@
 import { journal } from "./mouseJournalHarness";
 import type { Checks } from "../testing/checks";
-import { expect, it } from "vitest";
+import { beforeAll, expect, it } from "vitest";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
+
+beforeAll(async () => { await browser("set", "viewport", "1512", "950"); });
 
 const load = async (query = "") => {
   await browser("open", url(`/src/terminal/u514.html${query}`));
@@ -43,7 +45,6 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
 }, 90_000);
 
 const app = async (base = false) => {
-  await browser("set", "viewport", "1512", "950");
   await browser("eval", "localStorage.clear()");
   await browser("open", url("/harness.html?seed=tree-40&renderer=dom", base));
   await wait("!!document.querySelector('.shelf-tabs')");
@@ -199,7 +200,9 @@ it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$wher
 const editorKinds = ["pad", "rename"] as const;
 
 const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "ask", base = false) => {
-  await app(base);
+  if (kind === "diff") await browser("eval", "localStorage.clear()");
+  else await app(base);
+
   let selector: string;
 
   if (kind === "ask") {
