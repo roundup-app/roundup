@@ -195,8 +195,8 @@ pub(crate) mod tests {
                 s2297a_a_webkit_without_the_feature_keeps_its_rate_and_says_so,
             ),
             (
-                "u4462_the_hint_takes_the_key_equivalent_colour_and_font",
-                crate::menu::tests::u4462_the_hint_takes_the_key_equivalent_colour_and_font,
+                "u4462_the_hint_uses_the_tertiary_tone_and_menu_font",
+                crate::menu::tests::u4462_the_hint_uses_the_tertiary_tone_and_menu_font,
             ),
             (
                 "u4462_the_hint_stop_is_the_key_equivalent_edge",

@@ -733,7 +733,7 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) fn u4462_the_hint_takes_the_key_equivalent_colour_and_font() {
+    pub(crate) fn u4462_the_hint_uses_the_tertiary_tone_and_menu_font() {
         let _main = MainThreadMarker::new().expect("native test harness runs on the main thread");
         // SAFETY: AppKit objects stay retained on the main thread for the whole probe.
         unsafe {
