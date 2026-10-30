@@ -108,23 +108,33 @@ export const Pads = (props: {
         failure.show(copy.draftStatus.unknown);
       }, 15_000);
 
+      let action: string = copy.addPad;
+
       try {
         await connected.app.rpc("pad.create", { name: target, text: null });
+
+        if (targetHome !== null) {
+          action = copy.movePad(target);
+          await connected.app.rpc("pad.move", { name: target, home: targetHome });
+        }
+
         connected.drafts.settle(submitted.draft.revision, "acknowledged");
 
+        // Only the submitted revision is consumed; a later edit remains current.
         if (revision === submitted.draft.revision) {
           revision = undefined;
           captured = null;
           setName("");
         }
 
-        // The creation reply acknowledges only its captured name; a later edit remains current.
-        if (targetHome !== null) await connected.app.rpc("pad.move", { name: target, home: targetHome });
       } catch (error) {
         connected.drafts.settle(submitted.draft.revision, outcomeOf(error));
-        throw error;
+
+        if (!(error instanceof Error)) throw error;
+        throw new Error(copy.failed(action, error.message));
       } finally {
         clearTimeout(timeout);
+        await list.reload();
       }
     });
 
