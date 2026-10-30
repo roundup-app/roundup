@@ -335,11 +335,11 @@ pub(crate) mod tests {
                 let font_key = NSString::from_str("NSFont");
                 let color_key = NSString::from_str("NSColor");
                 let hint_index = 0usize;
-                let actual_font: Option<Retained<AnyObject>> = msg_send![&*attributed, attribute: &*font_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
+                let actual_font: Option<Retained<AnyObject>> = msg_send![&**attributed, attribute: &*font_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
                 let actual_font = actual_font.expect("hint has the menu's font");
                 let same_font: bool = msg_send![&*actual_font, isEqual: &*font];
                 assert!(same_font);
-                let actual_color: Option<Retained<AnyObject>> = msg_send![&*attributed, attribute: &*color_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
+                let actual_color: Option<Retained<AnyObject>> = msg_send![&**attributed, attribute: &*color_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
                 let actual_color = actual_color.expect("hint has an explicit semantic color");
                 let expected_color: Retained<AnyObject> = if enabled {
                     msg_send![colors, secondaryLabelColor]
