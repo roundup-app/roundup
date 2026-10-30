@@ -54,7 +54,7 @@ const calls = (m: Awaited<ReturnType<typeof mountInbox>>, method: string) => m.a
 it("u3770a_sections_hold_their_agents_in_order_with_counts", async () => {
   await mountInbox();
   expect(names(panel())).toEqual(["c", "a", "f"]);
-  expect(Number(panel().querySelector("[aria-live]")!.textContent)).toBe(3);
+  expect(Number(document.querySelector(".inbox-count")!.textContent)).toBe(3);
   expect(panel().querySelector('[data-row="a:b"]')).toBeNull();
 
 });
@@ -131,14 +131,14 @@ it("u3770d_a_status_event_moves_the_row_and_counts", async () => {
   const m = await mountInbox();
   await send(m, status("b", "needs-you"));
   expect(names(groupOf("Needs you"))).toContain("b");
-  expect(Number(panel().querySelector("[aria-live]")!.textContent)).toBe(4);
+  expect(Number(document.querySelector(".inbox-count")!.textContent)).toBe(4);
 });
 
 it("u3770d_a_burst_ends_in_the_last_state", async () => {
   const m = await mountInbox();
   await send(m, ...(["needs-you", "working", "error", "done", "working"] as const).map((kind) => status("a", kind)));
   expect(names(panel())).not.toContain("a");
-  expect(Number(panel().querySelector("[aria-live]")!.textContent)).toBe(2);
+  expect(Number(document.querySelector(".inbox-count")!.textContent)).toBe(2);
 });
 
 it("u3770d_changes_do_not_close_or_move_the_open_row", async () => {
@@ -155,7 +155,7 @@ it("u3770d_changes_do_not_close_or_move_the_open_row", async () => {
 
 it("u3770d_the_needs_you_count_is_a_polite_live_region", async () => {
   await mountInbox();
-  expect(panel().querySelector(".inbox-count")!.getAttribute("aria-live")).toBe("polite");
+  expect(document.querySelector(".inbox-count")!.getAttribute("aria-live")).toBe("polite");
 });
 
 it("u3770e_reduced_motion_makes_every_change_instant", async () => {

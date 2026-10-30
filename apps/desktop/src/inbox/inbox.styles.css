@@ -1,4 +1,4 @@
-.inbox { display: flex; flex-direction: column; gap: var(--space-3); font-family: var(--font-ui); overflow-wrap: anywhere; }
+.inbox { display: flex; flex-direction: column; gap: var(--space-1); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .inbox-title { min-height: var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .inbox-group { display: flex; flex-direction: column; gap: var(--space-1); }
 .inbox-count { font-size: var(--text-small); color: var(--grey); font-variant-numeric: tabular-nums; }
@@ -17,6 +17,7 @@
   gap: var(--space-2);
   text-align: start;
 }
+.inbox-row .kind-mark { width: var(--space-3); height: var(--space-3); }
 .inbox-row-name { font-weight: 500; flex-shrink: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inbox-item [data-part="content"] { overflow: hidden; }
 .inbox-item [data-part="content"][data-state="open"] { animation: inbox-expand var(--duration-todo) var(--easing-out); }
