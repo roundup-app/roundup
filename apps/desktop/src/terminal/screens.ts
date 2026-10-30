@@ -53,9 +53,6 @@ export type Screens = {
 /** Bytes buffered for one Terminal while its screen is fetched; past this the oldest go and the screen is fetched again. */
 const MAX_BUFFERED_BYTES = 1_048_576;
 
-/** The longest a backlogged stream rests between chunks: one 120 Hz frame. */
-const MAX_PARSE_REST_MS = 8;
-
 /** A parse cannot be interrupted, so a chunk is sized to take about this long: a typed echo waits behind at most one. */
 const TARGET_PARSE_MS = 3;
 
@@ -321,15 +318,15 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
           if (took > 0) stream.chunk = Math.round(Math.min(MAX_CHUNK_BYTES, Math.max(MIN_CHUNK_BYTES, bytes.length * TARGET_PARSE_MS / took)));
 
-          // R21: xterm's default write loop can parse for 12 ms. Keep its backlog
-          // in our bounded stream and idle as long as each chunk took (at most a
-          // frame), so a flooding Terminal holds half the thread at most and the
-          // focused one's echo reaches its frame.
-          if (stream.queue.length > 0) setTimeout(() => {
+          // R21: the Mac flood trace at f464337 spends 13 ms p95 parsed→frame.
+          // Yield to rendering between backlog chunks: timer-only rests can start
+          // several parses before a frame. xterm schedules the next write's parse
+          // in a task, after this frame's render callbacks have run.
+          if (stream.queue.length > 0) requestAnimationFrame(() => {
             stream.parsing = false;
 
             if (stream.open && holder.stream === stream) settle(id, holder, stream);
-          }, Math.min(took, MAX_PARSE_REST_MS));
+          });
           else {
             stream.parsing = false;
 
