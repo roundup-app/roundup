@@ -260,6 +260,7 @@ export const TodoDrawer = (props: {
 
  if (drawer.content() === opening) {
    drawer.close("key");
+
    if (props.region) drafts.todoUndo.handoff(`todo:${id}`, props.region);
    queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
  } }
