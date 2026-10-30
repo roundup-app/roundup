@@ -28,7 +28,8 @@ it("u2773a_todos_restores_exact_work_after_hiding_creation", async () => {
 
 it("u2773c_todos_external_change_keeps_original_blocker_base", async () => {
   const { app, connected } = await mountTodos([todo(1), todo(2)]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32003, "conflict"));
@@ -40,7 +41,8 @@ it("u2773c_todos_external_change_keeps_original_blocker_base", async () => {
 
 it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   const { app, connected } = await mountTodos([todo(1, { body: "base" })]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.dblClick(await within(screen.getByRole("complementary", { name: "Drawer" })).findByText("base"));
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
@@ -50,7 +52,7 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   field.setSelectionRange(2, 5, "backward");
   fireEvent.select(field);
   connected.drawer.close("key");
-  fireEvent.keyDown(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  { const row = screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
   fireEvent.dblClick(await within(screen.getByRole("complementary", { name: "Drawer" })).findByText("base"));
   const restored = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(restored.selectionStart).toBe(2));
@@ -87,7 +89,8 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   let reject: ((error: Error) => void) | undefined;
 
   app.handlers["todo.update"] = () => new Promise((resolve, fail) => { acknowledge = resolve; reject = fail; });
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   await screen.findByRole("region", { name: "Todo history" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
@@ -163,7 +166,8 @@ it("u2773e_todos_recovery_actions_keep_surface_draft", async () => {
 it("u2773a_todos_title_survives_escape_without_submission", async () => {
   const { app } = await mountTodos([todo(1, { title: "original" })]);
 
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   await screen.findByRole("region", { name: "Todo history" });
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
@@ -227,7 +231,8 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
 
   vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32003, "conflict"));
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.click(screen.getByRole("button", { name: /^Blocked by/ }));
   fireEvent.click(await screen.findByRole("option", { name: /#2/ }));
@@ -240,7 +245,8 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
 it("u2773a_todos_blocker_choice_survives_a_failed_incoming_history_read", async () => {
   const { app, connected } = await mountTodos([todo(1), todo(2)]);
 
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   await screen.findByRole("region", { name: "Todo history" });
   const rejections: ((error: Error) => void)[] = [];
 
@@ -325,7 +331,8 @@ it("u2773a_todos_live_creation_enters_recovery_only_after_hiding", async () => {
 
 it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () => {
   const { app, connected } = await mountTodos([todo(1, { title: "original" })]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original", { selector: ":not(.todo-breadcrumb-title)" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
