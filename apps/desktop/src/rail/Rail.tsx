@@ -157,10 +157,10 @@ export const Rail = () => {
 
   const endCompose = () => setComposing(false);
 
-  const sections: { id: RailSection; label: string; icon: "messages" | "circle" | "diamond" }[] = [
+  const sections: { id: RailSection; label: string; icon: "messages" | "bot" | "workflow" }[] = [
     { id: "workstreams", label: copy.workstreamsHead, icon: "messages" },
-    { id: "modes", label: copy.modesHead, icon: "diamond" },
-    { id: "agents", label: copy.agentsHead, icon: "circle" },
+    { id: "modes", label: copy.modesHead, icon: "workflow" },
+    { id: "agents", label: copy.agentsHead, icon: "bot" },
   ];
 
   const sectionNodes = createMemo(() => {
@@ -975,7 +975,7 @@ export const Rail = () => {
           }}
         >
           <Icon name="messages" />{copy.addWorkstreamWord}</button>
-        <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name="diamond" />{copy.modeWord}</button>
+        <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name="workflow" />{copy.modeWord}</button>
         <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
       </div>
     </>
