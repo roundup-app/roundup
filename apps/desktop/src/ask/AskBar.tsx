@@ -296,12 +296,12 @@ export const AskBar = (props: {
     else send();
   };
 
-  const sections = () => [
+  const sections = createMemo(() => [
           { id: "attention", label: copy.needsYou, actions: <Show when={attentionOrder(rail.nodes).length > 0}><span class="overview-heading" data-state="attention">{copy.projectAttention(attentionOrder(rail.nodes).length)}</span></Show>, records: () => attentionOrder(rail.nodes).map(node => ({ id: node.id + ":" + node.attempt + ":" + node.status_revision, at: node.status?.since ?? 0 })), content: () => <ProjectOverview /> },
           { id: "asks", label: copy.askRows, records: () => asks.entries().flatMap(entry => entry.parts.map((_part, index) => ({ id: entry.key + ":" + index, at: entry.at ?? Number.MAX_SAFE_INTEGER }))), content: () => <><Show when={asks.entries().length === 0}><p class="overview-quiet">{copy.askEmpty}</p></Show><AskRows keys={scope} onOpened={() => close(false)} /></> },
           { id: "reactions", label: copy.reactions, records: () => reactions.read().list.map(record => ({ id: record.id, at: Date.parse(record.created_at) })), content: () => <Reactions state={reactions} /> },
           { id: "made", label: copy.deliverables, records: () => deliverables.records().map(record => ({ id: record.id, at: record.published_at })), actions: <button type="button" data-button="quiet" onClick={deliverables.refresh}>{copy.refresh}</button>, content: () => <Deliverables state={deliverables} /> },
-        ];
+        ]);
 
   const overview = <OverviewSections ready={treeReady() && asks.loadState() !== "loading" && !reactions.read.loading && !deliverables.loading()} items={sections()} />;
 

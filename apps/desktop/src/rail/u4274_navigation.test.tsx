@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { copy } from "../copy";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage } from "../testing/menuProbe";
 
@@ -26,7 +27,10 @@ it("u4274b_secondary_surfaces_keep_the_rail_available", async () => {
   await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:made", "/p");
   await screen.findByRole("region", { name: "Made" });
-  fireEvent.click(screen.getByRole("button", { name: "Made", exact: true }));
-  await waitFor(() => expect(screen.queryByRole("region", { name: "Made" })).toBeNull());
+  const heading = screen.getByRole("button", { name: copy.deliverables });
+  heading.focus();
+  await waitFor(() => expect(heading.hasAttribute("data-focus")).toBe(true));
+  fireEvent.click(heading);
+  await waitFor(() => expect(screen.queryByRole("region", { name: copy.deliverables })).toBeNull());
   expect(document.querySelector(".rail-tree")).toBe(rail);
 });

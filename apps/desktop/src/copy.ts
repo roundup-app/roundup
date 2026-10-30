@@ -695,7 +695,7 @@ export const copy = {
   reactionRepositoryPlaceholder: "github.com/owner/name",
   reactionPreviewActor: "Authorized by you, from the App",
   reactionsEmpty: "Ask an Agent above to create a Reaction",
-  reactionReason: (actor: string, instruction: string) => `${actor} · ${instruction}`,
+  reactionListReason: (actor: string, instruction: string) => `${actor} · ${instruction}`,
   reactionCreate: "New reaction",
   reactionSave: "Save reaction",
   reactionStop: "Stop",
