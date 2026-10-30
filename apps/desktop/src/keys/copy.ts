@@ -16,6 +16,8 @@ export const copy = {
   settings: sharedCopy.settings,
   openDraft: sharedCopy.openDraft,
   todoUndo: sharedCopy.todoUndo,
+  undoFocused: "Undo focused",
+  redoFocused: "Redo focused",
   chooseFolder: sharedCopy.chooseFolder,
   close: sharedCopy.close,
   rename: sharedCopy.rename,
