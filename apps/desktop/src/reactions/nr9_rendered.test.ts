@@ -222,7 +222,7 @@ it.skipIf(!captureDir("U3787c")).each(["agents-10", "tree-40", "tabs-8", "confli
   }
 }, 60_000);
 
-it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr9_agent_overview_rendered", { timeout: 120_000, retry: 0 }, async () => {
+it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr9_agent_overview_rendered", { timeout: 60_000, retry: 0 }, async () => {
   const { browser, evaluate, wait, close } = await reactionBrowser();
   const server = await appServer();
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
