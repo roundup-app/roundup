@@ -86,6 +86,7 @@ export const copy = {
   terminalResetText: "Reset Terminal text size",
   triageEnter: "Triage Todos",
   moveTo: sharedCopy.moveTo,
+  collapseExpand: "Collapse / expand",
   triageMove: "Move",
   triageAssign: "Assign",
   triageWorkstream: "Workstream",
