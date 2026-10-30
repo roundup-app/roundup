@@ -62,7 +62,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
           await browser("press", "Escape");
           await until("!document.querySelector('.capture-field')");
           await browser("press", "Meta+k");
-          await browser("press", "s");
+          await browser("press", "b");
           await until("!!document.querySelector('[data-shelf-group=unassigned]')");
           await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
           await browser("click", '[data-todo="5"] .todo-row-button');
@@ -72,7 +72,7 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
           await browser("press", "Escape");
           await until("!!document.querySelector('.drawer[data-open=false]')");
           await browser("press", "Meta+k");
-          await browser("press", "s");
+          await browser("press", "b");
           await until("document.querySelector('.window').dataset.shelf === 'closed'");
         }
 
