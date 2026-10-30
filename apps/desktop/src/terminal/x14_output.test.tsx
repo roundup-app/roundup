@@ -44,7 +44,7 @@ describe("x14 the App's output subscription", () => {
 
     for (const chunk of chunks) app.emitBytes("t-a", chunk);
 
-    await vi.waitFor(() => expect(write.mock.calls.flatMap(([data]) => typeof data === "string" ? [] : [...data]))
+    await vi.waitFor(() => expect(write.mock.calls.flatMap<number | string>(([data]) => [...data]))
       .toEqual([0, 27, 91, 49, 109, 255, 254, 128, 226, 130, 172]));
     expect(write.mock.calls.every(([data]) => ArrayBuffer.isView(data))).toBe(true);
     screens.dispose();
