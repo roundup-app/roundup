@@ -5,6 +5,7 @@ import { RpcError } from "../app/seam";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Ask } from "@contracts/ask/Ask";
 import { ask, input, mountAskBar, press } from "./askFixture";
+import { copy } from "./copy";
 
 afterEach(cleanup);
 
@@ -315,7 +316,7 @@ it("u2773b_ask_checks_unknown_acceptance_without_resending", async () => {
   type(" exact A 🌿\n ");
   press("Enter", {}, input()!);
   type("new B");
-  const check = await screen.findByRole("button", { name: "Check send status: exact A 🌿" });
+  const check = await screen.findByRole("button", { name: copy.askCheckAcceptanceLabel("exact A 🌿") });
   const submission = connected.drafts.list().find(draft => draft.status === "unknown")!.revision;
   app.handlers["ask.list"] = () => [{ ...ask("accepted", 1, [], " exact A 🌿\n "), submission }];
   fireEvent.click(check);
@@ -388,14 +389,14 @@ it("u2773b_unknown_asks_have_individual_status_checks", async () => {
   for (const text of ["Run the migration on staging", "Check the production logs"]) {
     type(text);
     press("Enter", {}, input()!);
-    await screen.findByRole("button", { name: "Check send status: " + text });
+    await screen.findByRole("button", { name: copy.askCheckAcceptanceLabel(text) });
   }
 
   const unknown = connected.drafts.list().filter(draft => draft.status === "unknown");
   app.handlers["ask.list"] = () => [{ ...ask("accepted", 1, [], String(unknown[0]!.value.text)), submission: unknown[0]!.revision }];
-  fireEvent.click(screen.getByRole("button", { name: "Check send status: Run the migration on staging" }));
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Check send status: Run the migration on staging" })).toBeNull());
-  expect(screen.getByRole("button", { name: "Check send status: Check the production logs" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: copy.askCheckAcceptanceLabel("Run the migration on staging") }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: copy.askCheckAcceptanceLabel("Run the migration on staging") })).toBeNull());
+  expect(screen.getByRole("button", { name: copy.askCheckAcceptanceLabel("Check the production logs") })).toBeTruthy();
   expect(connected.drafts.list().filter(draft => draft.status === "unknown").map(draft => draft.value.text)).toEqual(["Check the production logs"]);
   expect(sent(app)).toHaveLength(2);
 });
@@ -563,7 +564,7 @@ it("u3021c_ask_unknown_open_never_resubmits_before_explicit_reconciliation", asy
   app.handlers["ask.send"] = () => { throw new Error("reply lost"); };
 
   type("A exact 🌿\n "); press("Enter", {}, input()!);
-  await screen.findByRole("button", { name: "Check send status: A exact 🌿" });
+  await screen.findByRole("button", { name: copy.askCheckAcceptanceLabel("A exact 🌿") });
   const a = connected.drafts.list()[0]!;
   type("B current");
   const b = connected.drafts.list().at(-1)!;
@@ -574,7 +575,7 @@ it("u3021c_ask_unknown_open_never_resubmits_before_explicit_reconciliation", asy
   expect(input()!.value).toBe("A exact 🌿\n ");
   expect(app.calls).toEqual(calls);
   app.handlers["ask.list"] = () => [{ ...ask("accepted", 1, [], "A exact 🌿\n "), submission: a.revision }];
-  fireEvent.click(screen.getByRole("button", { name: "Check send status: A exact 🌿" }));
+  fireEvent.click(screen.getByRole("button", { name: copy.askCheckAcceptanceLabel("A exact 🌿") }));
   await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
   press("Escape", {}, input()!);
   expect(input()!.value).toBe("B current");
