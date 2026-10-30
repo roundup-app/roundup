@@ -398,15 +398,17 @@ it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
 });
 
 it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
+  const text = "  legacy 雪  ";
   const { app } = renderTabs({ api: [], web: [] });
-  window.localStorage.setItem(`roundup:drafts:${path("api")}`, JSON.stringify({ version: 1, drafts: [{ revision: "legacy-header", destination: { surface: "header", object: path("api"), recipient: null }, value: { name: "  legacy 雪  " }, selection: null, status: "draft", policy: "ordinary" }] }));
+  window.localStorage.setItem(`roundup:drafts:${path("api")}`, JSON.stringify({ version: 1, drafts: [{ revision: "legacy-header", destination: { surface: "header", object: path("api"), recipient: null }, value: { name: text }, selection: null, status: "draft", policy: "ordinary" }] }));
   const sends = vi.spyOn(app, "renameProject");
   await screen.findByRole("tab", { name: "api" });
   const input = await edit();
-  expect(input.value).toBe("  legacy 雪  ");
+  expect(input.value).toBe(text);
   press("Enter");
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(dialog).getAllByRole("status").some(status => status.textContent?.includes(recoveryCopy.railDraftConflict))).toBe(true);
+  expect(within(dialog).getByText(text, { exact: true, normalizer: value => value })).toBeDefined();
   expect(sends).not.toHaveBeenCalled();
 });
 
