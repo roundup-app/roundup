@@ -125,8 +125,8 @@ describe("u373 and u370 on one mounted App", () => {
     fireEvent.click(document.querySelector('[data-id="backend"]')!);
 
     for (const [key, name] of [["ArrowRight", "Pads"], ["ArrowLeft", "Todos"], ["End", "Pads"], ["Home", "Todos"]]) {
-      tabNamed(selectedTab()).focus();
-      fireEvent.keyDown(tabNamed(selectedTab()), { key });
+      selectedTab().focus();
+      fireEvent.keyDown(selectedTab(), { key });
       await waitFor(() => expect(document.activeElement).toBe(tabNamed(name!)));
     }
   }, 45_000);
