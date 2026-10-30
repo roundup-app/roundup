@@ -471,7 +471,7 @@ it.each([
   { chord: "⇧⌘B", key: "B", code: "KeyB", shiftKey: true, altKey: false, semantic: "blockquote" },
   { chord: "⌥⌘8", key: "8", code: "Digit8", shiftKey: false, altKey: true, semantic: "ul" },
   { chord: "⌥⌘7", key: "7", code: "Digit7", shiftKey: false, altKey: true, semantic: "ol" },
-  { chord: "⌥⌘C", key: "c", code: "KeyC", shiftKey: false, altKey: true, semantic: "pre" },
+  { chord: "⌥⌘C", key: "ç", code: "KeyC", shiftKey: false, altKey: true, semantic: "pre" },
 ].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Pad block $chord from $source captures the editor", async ({ chord, key, code, shiftKey, altKey, semantic, source }) => {
   const { daemon } = await mountNavigation(true, 0);
   const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen", updated_at: 0, revision: 1, home: null }];
