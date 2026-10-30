@@ -85,6 +85,8 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
         await capture(`${failed}-${expanded ? 'open' : 'closed'}-failure`);
         await evaluate("window.__fake.recoverActivity(); true");
         await browser("focus", ".todo-comment-field");
+        await evaluate("document.querySelector('.todo-comments [role=alert]').scrollIntoView({block:'center'}); true");
+        await settle();
         await browser("find", "role", "button", "click", "--name", failed === "history" ? "Retry history" : "Retry comments");
         await browser("wait", "--fn", "!document.querySelector('.todo-comments [role=alert]')");
         expect(await evaluate("document.activeElement === document.querySelector('.todo-comment-field')")).toBe(true);
