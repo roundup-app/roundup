@@ -471,7 +471,7 @@ export const App = (props: {
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "⌃⌘J", "J", "B", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
