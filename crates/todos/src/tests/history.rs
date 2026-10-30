@@ -170,6 +170,10 @@ async fn t19_failed_history_preserves_done_state() {
         true
     );
     assert_eq!(changes(&h, 1).await, before);
+    assert_eq!(
+        h.call("todo.list", json!({})).await.unwrap()[0]["priority"],
+        Value::Null
+    );
     assert_eq!(h.touches(1), touches);
     assert!(h.events().is_empty());
 }
@@ -362,6 +366,7 @@ async fn t15_history_failure_leaves_no_unrecorded_mutation() {
     db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON changes BEGIN SELECT RAISE(ABORT, 'history failed'); END;").unwrap();
     for (method, params) in [
         ("todo.update", json!({"id": 1, "title": "lost"})),
+        ("todo.update", json!({"id": 1, "priority": "high"})),
         ("todo.complete", json!({"id": 1})),
         ("todo.create", json!({"title": "lost"})),
     ] {
@@ -377,6 +382,10 @@ async fn t15_history_failure_leaves_no_unrecorded_mutation() {
         1
     );
     assert_eq!(changes(&h, 1).await, before);
+    assert_eq!(
+        h.call("todo.list", json!({})).await.unwrap()[0]["priority"],
+        Value::Null
+    );
     assert_eq!(
         Harness::new(dir.path())
             .call("todo.list", json!({}))

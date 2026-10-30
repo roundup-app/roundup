@@ -32,6 +32,7 @@ async fn t30_each_of_title_body_done_owner_and_blockers_moves_updated_at() {
     let calls = [
         ("todo.update", json!({"id": 1, "title": "x"})),
         ("todo.update", json!({"id": 1, "body": "y"})),
+        ("todo.update", json!({"id": 1, "priority": "high"})),
         ("todo.complete", json!({"id": 1})),
         ("todo.assign", json!({"id": 1, "owner": me})),
         ("todo.setBlockers", json!({"id": 1, "blockers": [2]})),

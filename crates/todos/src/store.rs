@@ -4,7 +4,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::Mutex;
 
-use contracts::todo::{Change, Comment, Handed, Todo, UnreadComment, Values};
+use contracts::todo::{Change, Comment, Handed, Priority, Todo, UnreadComment, Values};
 use contracts::{Actor, ActorKind};
 use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -118,6 +118,7 @@ impl Store {
     }
 
     /// Every id in `blockers` must exist, or the call is `NOT_FOUND`.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn insert(
         &self,
         title: &str,
@@ -125,6 +126,7 @@ impl Store {
         blockers: &[u32],
         creator: &Actor,
         owner: Option<&Actor>,
+        priority: Option<Priority>,
         after_touch: i64,
     ) -> Result<Todo, RpcError> {
         self.require_all(blockers)?;
@@ -134,14 +136,18 @@ impl Store {
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
         tx.execute(
-            "INSERT INTO todos (title, body, created_at, updated_at, creator, owner, pos)
-             VALUES (?1, ?2, ?3, ?3, ?4, ?5, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
+            "INSERT INTO todos (title, body, created_at, updated_at, creator, owner, priority, pos)
+             VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
             params![
                 title,
                 body,
                 created_at,
                 creator_json(creator),
                 owner.map(creator_json),
+                priority
+                    .map(|value| serde_json::to_string(&value))
+                    .transpose()
+                    .map_err(RpcError::internal)?
             ],
         )
         .map_err(RpcError::internal)?;
@@ -156,7 +162,7 @@ impl Store {
         let row = self
             .db
             .query_row(
-                "SELECT title, body, done, created_at, updated_at, creator, home, owner, EXISTS(
+                "SELECT title, body, done, created_at, updated_at, creator, home, owner, priority, EXISTS(
                     SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
                     WHERE b.todo = todos.id AND o.done = 0
                 ) FROM todos WHERE id = ?1",
@@ -171,13 +177,14 @@ impl Store {
                         r.get::<_, String>(5)?,
                         r.get(6)?,
                         r.get::<_, Option<String>>(7)?,
-                        r.get(8)?,
+                        r.get::<_, Option<String>>(8)?,
+                        r.get(9)?,
                     ))
                 },
             )
             .optional()
             .map_err(RpcError::internal)?;
-        let (title, body, done, created_at, updated_at, creator, home, owner, blocked) =
+        let (title, body, done, created_at, updated_at, creator, home, owner, priority, blocked) =
             row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
         Ok(Todo {
             id,
@@ -195,6 +202,10 @@ impl Store {
                 .transpose()
                 .map_err(RpcError::internal)?,
             refs: self.refs(id)?,
+            priority: priority
+                .map(|text| serde_json::from_str(&text))
+                .transpose()
+                .map_err(RpcError::internal)?,
         })
     }
 
@@ -246,11 +257,13 @@ impl Store {
         ids.into_iter().map(|id| self.get(id)).collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn update(
         &self,
         id: u32,
         title: Option<&str>,
         body: Option<&str>,
+        priority: Option<Option<Priority>>,
         expected_change: Option<u32>,
         after_touch: i64,
         actor: &Actor,
@@ -264,8 +277,8 @@ impl Store {
         self.require_change(id, expected_change)?;
         self.db
             .execute(
-                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body) WHERE id = ?1",
-                params![id, title, body],
+                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body), priority = ?4 WHERE id = ?1",
+                params![id, title, body, priority.unwrap_or(current.priority).map(|value| serde_json::to_string(&value)).transpose().map_err(RpcError::internal)?],
             )
             .map_err(RpcError::internal)?;
         self.record_change(id, Some(before), after_touch, actor)?;
@@ -738,6 +751,7 @@ pub(super) fn values(todo: &Todo) -> Values {
         done: todo.done,
         blockers: todo.blockers.clone(),
         owner: todo.owner.clone(),
+        priority: todo.priority,
     }
 }
 
