@@ -76,21 +76,16 @@ describe("u504 the Ask bar", () => {
     expect(document.querySelector(".app-mentions")).toBeNull();
   });
 
-  it("u504_tab_keeps_the_keyboard_match_after_pointer_movement", async () => {
+  it("u504_tab_accepts_the_hovered_match_without_leaving_the_input", async () => {
     const { app } = await mountAskBar();
     input()!.focus();
     type("@");
     const list = await screen.findByRole("listbox");
-    const options = within(list).getAllByRole("option");
-    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id));
-    fireEvent.pointerDown(options[2]!, { pointerType: "mouse", button: 0 });
-    fireEvent.pointerMove(options[2]!, { pointerType: "mouse" });
-    // Zag Solid queues machine events in a microtask (machine.ts, send).
-    await Promise.resolve();
-    expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id);
-    fireEvent.pointerLeave(options[2]!, { pointerType: "mouse" });
+    const option = within(list).getAllByRole("option")[2]!;
+    fireEvent.pointerMove(option, { pointerType: "mouse" });
+    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(option.id));
     expect(press("Tab", {}, input()!).defaultPrevented).toBe(true);
-    await waitFor(() => expect(input()!.value).toBe("@lead "));
+    await waitFor(() => expect(input()!.value).toBe("@docs "));
     expect([input()!.selectionStart, input()!.selectionEnd]).toEqual([6, 6]);
     expect(document.activeElement).toBe(input());
     expect(screen.queryByRole("listbox")).toBeNull();
