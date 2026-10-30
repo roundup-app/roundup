@@ -209,7 +209,7 @@ app-bundle-check bundle:
     
     source = Path(sys.argv[1]).resolve(strict=True)
     with tempfile.TemporaryDirectory(prefix="roundup-bundle-") as folder:
-        extracted = Path(folder) / source.name
+        extracted = Path(folder).resolve() / source.name
         shutil.copytree(source, extracted, symlinks=True)
         binaries = extracted / "Contents/MacOS"
         for name in ["roundup", "rupd", "rup", "terminal-owner", "sidecar/node"]:
