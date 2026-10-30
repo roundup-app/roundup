@@ -6,7 +6,8 @@ use objc2::{
     sel,
 };
 use objc2_app_kit::NSView;
-use objc2_foundation::{NSPoint, NSRange, NSRect, NSSize, NSString};
+use objc2_foundation::{NSPoint, NSRange, NSRect, NSRunLoopCommonModes, NSSize, NSString};
+use std::cell::{Cell, RefCell};
 use tauri::{AppHandle, Runtime};
 
 /// Refresh responder actions and decorate the freshly built Project submenu on the main thread.
@@ -159,6 +160,11 @@ fn hint_stop(menu_width: f64, right_inset: f64, hint_width: f64, origin: f64) ->
 struct HintState {
     item: Weak<AnyObject>,
     hint: Retained<AnyObject>,
+    // AppKit repaints a row's highlight without invalidating this overlay and
+    // offers no highlight signal (muda owns the menu delegate), so the overlay
+    // polls while attached and repaints when its row's highlight flips.
+    highlighted: Cell<bool>,
+    timer: RefCell<Option<Retained<AnyObject>>>,
 }
 
 // NSMenuItem.view stays nil: AppKit owns titles, keys, selection and tracking.
@@ -191,9 +197,7 @@ define_class!(
                 let enabled: bool = msg_send![&*item, isEnabled];
                 let menu: Option<Retained<AnyObject>> = msg_send![&*item, menu];
                 let Some(menu) = menu else { return; };
-                let highlighted: Option<Retained<AnyObject>> = msg_send![&*menu, highlightedItem];
-                let highlighted = highlighted.is_some_and(|row| std::ptr::eq(&*row, &*item));
-                let attributes = hint_attributes(&menu, &hint_color(enabled, highlighted));
+                let attributes = hint_attributes(&menu, &hint_color(enabled, self.row_highlighted()));
                 let hint: Retained<AnyObject> = msg_send![&*self.ivars().hint, mutableCopy];
                 let length: usize = msg_send![&*hint, length];
                 let _: () = msg_send![&*hint, setAttributes: &*attributes, range: NSRange::new(0, length)];
@@ -216,6 +220,65 @@ define_class!(
         }
     }
 );
+
+impl HintView {
+    fn row_highlighted(&self) -> bool {
+        // SAFETY: main-thread AppKit reads; the weak item is retained for the call.
+        unsafe {
+            let Some(item) = self.ivars().item.load() else {
+                return false;
+            };
+            let menu: Option<Retained<AnyObject>> = msg_send![&*item, menu];
+            let Some(menu) = menu else {
+                return false;
+            };
+            let row: Option<Retained<AnyObject>> = msg_send![&*menu, highlightedItem];
+            row.is_some_and(|row| std::ptr::eq(&*row, &*item))
+        }
+    }
+
+    fn watch_highlight(&self) {
+        self.unwatch_highlight();
+        // SAFETY: `self` is a live object; retaining it only to downgrade to a weak reference.
+        let this = Weak::from_retained(
+            &unsafe { Retained::retain(std::ptr::from_ref(self).cast_mut()) }
+                .expect("self is non-null"),
+        );
+        let tick = block2::RcBlock::new(move |timer: std::ptr::NonNull<AnyObject>| {
+            // SAFETY: timers fire on the main run loop; `timer` is live for the call.
+            unsafe {
+                let Some(view) = this.load() else {
+                    let _: () = msg_send![timer.as_ptr(), invalidate];
+                    return;
+                };
+                let now = view.row_highlighted();
+                if view.ivars().highlighted.replace(now) != now {
+                    view.setNeedsDisplay(true);
+                }
+            }
+        });
+        // SAFETY: Foundation timer and run-loop selectors on the main thread; the common
+        // modes include the event-tracking mode that menu tracking runs in.
+        unsafe {
+            let timers = AnyClass::get(c"NSTimer").expect("Foundation is loaded");
+            let timer: Retained<AnyObject> =
+                msg_send![timers, timerWithTimeInterval: 1.0 / 30.0, repeats: true, block: &*tick];
+            let run_loop = AnyClass::get(c"NSRunLoop").expect("Foundation is loaded");
+            let run_loop: Retained<AnyObject> = msg_send![run_loop, currentRunLoop];
+            let _: () = msg_send![&*run_loop, addTimer: &*timer, forMode: NSRunLoopCommonModes];
+            *self.ivars().timer.borrow_mut() = Some(timer);
+        }
+    }
+
+    fn unwatch_highlight(&self) {
+        if let Some(timer) = self.ivars().timer.borrow_mut().take() {
+            // SAFETY: invalidating a live NSTimer on its own thread.
+            unsafe {
+                let _: () = msg_send![&*timer, invalidate];
+            }
+        }
+    }
+}
 
 // A zero-height accessory supplies the actual menu window through AppKit's
 // documented item-view lifecycle. Action rows keep view == nil, and attachment
@@ -247,6 +310,7 @@ define_class!(
 impl MenuAnchor {
     fn attach(&self) {
         for hint in self.ivars() {
+            hint.unwatch_highlight();
             hint.removeFromSuperview();
         }
         let Some(window) = self.window() else {
@@ -264,6 +328,7 @@ impl MenuAnchor {
             ));
             content.addSubview(hint);
             hint.setNeedsDisplay(true);
+            hint.watch_highlight();
         }
     }
 }
@@ -349,6 +414,8 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
             let view = HintView::alloc(main).set_ivars(HintState {
                 item: Weak::from_retained(&item),
                 hint: attributed,
+                highlighted: Cell::new(false),
+                timer: RefCell::new(None),
             });
             let view: Retained<HintView> = msg_send![super(view), initWithFrame: NSRect::ZERO];
             let _: () = msg_send![&*view, setAccessibilityElement: false];
