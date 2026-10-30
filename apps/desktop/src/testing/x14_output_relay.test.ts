@@ -136,8 +136,9 @@ it("u3791b_served_rpc_preserves_event_error_data_and_identity", async () => {
   try {
     const rejected = await createServedApp(real.base).rpc("daemon.ping", null).then(
       () => null,
-      (error: unknown) => error,
+      (error: RpcError) => error,
     );
+
     expect(rejected).toBeInstanceOf(RpcError);
     expect(rejected).toMatchObject(failure);
   } finally { await real.close(); }

@@ -8,7 +8,6 @@ import type { MockInstance } from "vitest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { useContext } from "solid-js";
 import { RequestedApp as App } from "../testing/requestedApp";
-import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
