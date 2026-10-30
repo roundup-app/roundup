@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { captureFocus } from "../keys/focus";
 import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
 import { Icon } from "../ink/Icon";
@@ -23,8 +24,10 @@ export const TodoHeader = (props: {
   registerOwner: (open: (anchor: HTMLButtonElement) => void) => void;
 }) => {
   const connected = useConnectedProject();
-  const [picking, setPicking] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
-  const [moving, setMoving] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
+  const [picking, pick] = createSignal<{ id: number; anchor: HTMLElement; focus: ReturnType<typeof captureFocus> } | null>(null);
+  const setPicking = (target: { id: number; anchor: HTMLElement } | null) => pick(target && { ...target, focus: captureFocus(true) });
+  const [moving, move] = createSignal<{ id: number; anchor: HTMLElement; focus: ReturnType<typeof captureFocus> } | null>(null);
+  const setMoving = (target: { id: number; anchor: HTMLElement } | null) => move(target && { ...target, focus: captureFocus(true) });
   const [actions, setActions] = createSignal(false);
   const [agentsOnly, setAgentsOnly] = createSignal(false);
   let trigger: HTMLButtonElement | undefined;
