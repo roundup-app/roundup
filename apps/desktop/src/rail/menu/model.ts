@@ -169,7 +169,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
         return;
       }
 
-      const removed = await storage.todoUndo.removeRail(current.node.id, current.node.name);
+      const removed = await storage.todoUndo.removeRail(current.node.id, current.node.name, "rail");
       close();
 
       if (removed) {
