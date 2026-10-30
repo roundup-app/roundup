@@ -70,6 +70,7 @@ it("u2773c_todos_external_change_keeps_original", async () => {
   store.changes!.set(original.id, [...store.changes!.get(original.id)!, { seq: 2, before: store.changes!.get(original.id)![0]!.after,
     after: { title: changed.title, body: changed.body, done: false, blockers: [], owner: null, priority: null }, actor: original.creator, changed_at: 1 }]);
   app.handlers["todo.update"] = () => { throw new RpcError(-32003, "Todo changed since editing began"); };
+
   app.emit(event({ name: "todo.updated", data: changed }));
 
   await screen.findByText(/Changed Todo/);
