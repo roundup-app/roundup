@@ -165,15 +165,10 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
             }} data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
               <span class="reaction-summary"><span class="reaction-name">{listName(reaction())}</span>
               <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health_code)}</span></span>
-              <span class="reaction-reason">{copy.reactionActor(reaction().actor.kind, reaction().actor.kind === "agent" ? nameOf(reaction().actor.id) : null)}</span>
-              <span class="reaction-reason">{reaction().reason ?? copy.reactionNoReason}</span>
-              <span class="reaction-instruction">{reaction().instruction}</span>
-              <span class="reaction-reason">{copy.reactionListCondition(conditionText(reaction().condition, nameOf), nameOf(reaction().target))}</span>
-              <span class="reaction-reason">{copy.reactionRemaining(reaction().remaining, reaction().max_firings, reaction().rearm)}</span>
+              <Show when={reaction().reason}>{reason => <span class="reaction-reason">{reason()}</span>}</Show>
             </button>
             <Show when={reaction().state === "active"}><div class="reaction-actions">
               <button type="button" data-button="quiet" disabled={pending()} onClick={() => void act(reaction(), "reaction.stop")}>{copy.reactionStop}</button>
-              <Show when={reaction().remaining > 0}><button type="button" data-button="quiet" disabled={pending()} onClick={() => void act(reaction(), "reaction.run")}>{copy.reactionRun}</button></Show>
             </div></Show>
             <ReservedLine class="reaction-list-failure" message={actionFailure()[id]}><button type="button" data-button="quiet" onClick={() => setActionFailure(value => ({ ...value, [id]: null }))}>{copy.clear}</button></ReservedLine>
           </li>;
@@ -220,7 +215,7 @@ const Facts = (props: { reaction: Reaction }) => {
 
   return <Show when={messageId() !== null} fallback={<dl class="reaction-facts">
     <dt>{copy.reactionAuthority}</dt><dd>{authority()}</dd>
-    <dt>{copy.reactionMakerReason}</dt><dd>{r().reason ?? copy.reactionNoReason}</dd>
+    <Show when={r().reason}>{reason => <><dt>{copy.reactionMakerReason}</dt><dd>{reason()}</dd></>}</Show>
     <dt>{copy.reactionHome}</dt><dd>{home() ? nameOf(home()!) : copy.reactionNoHome}</dd>
     <dt>{copy.reactionTarget}</dt><dd>{nameOf(r().target)}</dd>
     <dt>{copy.reactionInstruction}</dt><dd class="reaction-instruction">{r().instruction}</dd>

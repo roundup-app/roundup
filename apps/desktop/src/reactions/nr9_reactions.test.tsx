@@ -53,12 +53,12 @@ it("nr9_inspect_stop_run_in_overview", async () => {
   const row = await screen.findByRole("button", { name: /Ship it/ });
 
   expect(within(row).getByText(current.reason!)).toBeTruthy();
-  expect(within(row).getByText(current.instruction)).toBeTruthy();
   row.focus();
   fireEvent.click(row);
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
 
   expect(within(detail).getByText(current.reason!)).toBeTruthy();
+  expect(within(detail).getByText(current.instruction)).toBeTruthy();
   expect(within(detail).getByText(copy.reactionActor("agent", "a"))).toBeTruthy();
 
   connected.showView("made");
@@ -369,11 +369,12 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_list_%s", asy
   expect(screen.getByRole("button", { name: /Ship it/ })).toBeTruthy();
 });
 
-it.each(["reaction.stop", "reaction.run"] as const)("nr9_list_actions_keep_selected_identity_after_refusal_%s", async method => {
+it("nr9_list_stop_keeps_selected_identity_after_refusal", async () => {
+  const method = "reaction.stop";
   const records = [saved(), saved({ id: "r2", home: "beta", actor: { kind: "agent", id: "a", parent: null }, reason: "Wait for review" })];
   const { app } = await mount(() => records, [workstream("beta")]);
   const row = (await screen.findByRole("button", { name: /Ship it.*beta/ })).closest("li")!;
-  const action = () => within(row).getByRole("button", { name: method === "reaction.stop" ? copy.reactionStop : copy.reactionRun });
+  const action = () => within(row).getByRole("button", { name: copy.reactionStop });
   app.handlers[method] = () => { throw new Error("Access refused. Restore access and retry."); };
 
   fireEvent.click(action());
