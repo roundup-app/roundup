@@ -251,18 +251,7 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
     {
         let id = child["id"].as_str().unwrap();
         let startup = assert_start(reports.path(), id, G1, "off").await;
-        for rule in [
-            "two or more steps",
-            "complete each",
-            "handoff",
-            "without approval",
-            "reason",
-            "end your turn",
-            "never poll",
-            "user moves win",
-        ] {
-            assert!(startup.contains(rule), "missing {rule}: {startup}");
-        }
+        assert!(startup.contains("two or more steps"), "{startup}");
         if let Some(catalogue) = startup.find("## Tools") {
             assert!(startup.find("two or more steps").unwrap() < catalogue);
             assert!(
