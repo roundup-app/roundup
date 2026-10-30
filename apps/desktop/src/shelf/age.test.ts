@@ -1,7 +1,9 @@
-import { expect, it } from "vitest";
+import { beforeAll, afterAll, vi, expect, it } from "vitest";
 import { age } from "./Age";
 
-// Use local constructors so the fixed date is independent of the runner's zone.
+beforeAll(() => vi.stubEnv("TZ", "America/New_York"));
+afterAll(() => vi.unstubAllEnvs());
+// Use local constructors to exercise the App local calendar date.
 const changed = new Date(2026, 8, 12, 12).getTime();
 it.each([
   [-1, "now"], [59, "now"], [60, "1m"], [300, "5m"],

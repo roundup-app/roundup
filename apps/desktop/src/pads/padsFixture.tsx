@@ -1,3 +1,4 @@
+import { createNow, DisplayClockContext } from "../state/clock";
 // fallow-ignore-file duplicate-export -- AGENT is this fixture’s actor; toastFixture owns a different actor with the same local name.
 import { usePadList } from "../rail/pads/padList";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -115,7 +116,10 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
     </>;
   };
 
-  render(() => <ConnectedProjectContext.Provider value={connected}><Content /></ConnectedProjectContext.Provider>);
+  render(() => {
+    const now = createNow(() => 0, () => false);
+    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}><Content /></ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
+  });
 
   await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
