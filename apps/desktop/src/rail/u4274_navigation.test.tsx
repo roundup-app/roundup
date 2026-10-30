@@ -13,7 +13,8 @@ it.each([true, false])("u4274b_landing_keeps_primary_navigation_and_attention: e
 
   if (!empty) {
     expect(document.querySelector('[role="treeitem"][data-id="a0"]')).not.toBeNull();
-    fireEvent.click(await screen.findByRole("button", { name: "Agent 0 Needs-you" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Agent 0/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
     await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal="t-a0"]')).not.toBeNull());
   }
