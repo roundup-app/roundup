@@ -42,7 +42,7 @@ describe("u2239 the leader takes the next key", () => {
 
     arm();
     key("KeyJ", { shiftKey: true });
-    await waitFor(() => expect(active()).toBe("api"));
+    await waitFor(() => expect(projectTabs().find(entry => entry.getAttribute("aria-selected") === "true")).toBe(tab("api")));
 
     arm();
     key("KeyK");
