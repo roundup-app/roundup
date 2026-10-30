@@ -6,7 +6,7 @@ import { xtermOptions, attachRenderer, dropInlineGround } from "../terminal/emul
 import { followAppAppearance } from "./preferences";
 import { terminalThemeFor } from "../terminal/theme";
 import type { terminalType } from "./preferences";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** A local, read-only xterm sample; it owns no Daemon identity or input subscription. */
 export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }) => {

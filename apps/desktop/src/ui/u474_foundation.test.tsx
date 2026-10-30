@@ -10,7 +10,7 @@ import { Menu } from "./Menu";
 import { Tooltip } from "./Tooltip";
 import { CHORDS } from "../keys/chords";
 import { Tip } from "../ui/Tip";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { IconButton } from "./IconButton";
 
 afterEach(cleanup);

@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { PASTED_IMAGE_TYPES } from "./seam";
 import type { App, PastedImage } from "./seam";
 

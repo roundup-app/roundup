@@ -17,7 +17,7 @@ import { createEffect, createSignal, onCleanup } from "solid-js";
 import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
 import { ReservedLine } from "../ink/ReservedLine";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { outcomeOf } from "../app/seam";
 
 const nameSchema = v.strictObject({ text: v.string(), base: v.string(), version: v.nullable(v.string()) });

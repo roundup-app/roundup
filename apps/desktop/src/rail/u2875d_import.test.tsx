@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";

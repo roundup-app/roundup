@@ -1,5 +1,5 @@
 import { appDark, followAppAppearance } from "../settings/preferences";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createElement } from "react";
 import type { ComponentType } from "react";
 import { createRoot } from "react-dom/client";

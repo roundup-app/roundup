@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import { captureDir } from "../testing/captures";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

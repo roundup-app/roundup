@@ -1,3 +1,7 @@
+Latest: [the real-Claude rerun passed](2026-10-30-rerun.md) on build
+`74d36532dd98ab046d7d50434ef4137efaf925d6`. The failed observation below is retained
+as historical evidence.
+
 # E3 real-Claude observation — failed
 
 On 2026-10-30, build `cbb6b05020067531f9e4b721f393f73c2d16629c` did **not** satisfy

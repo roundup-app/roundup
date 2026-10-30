@@ -6,7 +6,7 @@ import { mountRail, railCallsTo, rowOf, chooseAction, exitedTerminal } from "./r
 import { openTabs, path } from "../header/stripFixture";
 import { projectMenu, openProjectPage } from "../testing/menuProbe";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 

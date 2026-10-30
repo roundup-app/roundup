@@ -1,0 +1,28 @@
+import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
+
+export const copy = {
+  terminalDestinationUnavailable: "Terminal could not open: its font or layout was not ready. Retry.",
+  terminalPreparationUnavailable: "Terminal could not open: its renderer was not available. Retry.",
+  terminalPreparationCancelled: sharedCopy.terminalPreparationCancelled,
+  dismissFailure: sharedCopy.dismissFailure,
+  emptyOutputLine: "Output from this Agent appears here while it runs.",
+  newAgent: sharedCopy.newAgent,
+  newTerminal: sharedCopy.newTerminal,
+  retry: sharedCopy.retry,
+  start: sharedCopy.start,
+  addWorkstream: sharedCopy.addWorkstream,
+  addWorkstreamWord: sharedCopy.addWorkstreamWord,
+  startingDoor: sharedCopy.startingDoor,
+  doorDidNotStart: sharedCopy.doorDidNotStart,
+  doorNotStarted: sharedCopy.doorNotStarted,
+  doorStopped: sharedCopy.doorStopped,
+  doorStoppedWithExit: sharedCopy.doorStoppedWithExit,
+  askBarLabel: sharedCopy.askBarLabel,
+  askBarShortcut: sharedCopy.askBarShortcut,
+  selectCommand: "Select command",
+  addAgentMenu: sharedCopy.addAgentMenu,
+  noOutputKeptFromAnEarlierRun: "No output kept from an earlier run",
+  terminalRestoreFailed: (cause: string) => `Could not restore Terminal output: ${cause}. Switch away and back to retry.`,
+  latest: "↓ Latest",
+  doesNotExist: (value1: CopyValue) => `${value1} does not exist`,
+} as const;
