@@ -1,30 +1,33 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
 import type { Checks } from "../testing/checks";
 
-const ageCaptures = () => ["U4709a", "U4709b", "U4709c"].map(captureDir).filter((dir): dir is string => dir !== null);
+const ageCaptures = () => ["U4709a", "U4709b", "U4709c"].flatMap(id => { const dir = captureDir(id);
+
+ return dir ? [dir] : []; });
 
 const shot = async (id: string, stage: string, step: string, narrow = false): Promise<Checks> => {
   const checks = await read<Checks>("window.__checks()");
 
+  const columns = await read(`Array.from(document.querySelectorAll('.shelf-group-control, .shelf-row')).filter(row => row.checkVisibility()).map(row => ({name:row.textContent, mark:row.querySelector('[data-part=branch-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(), title:row.querySelector('.shelf-group-name, .shelf-title, .entry-field')?.getBoundingClientRect().toJSON(), age:row.querySelector(".item-age")?.getBoundingClientRect().toJSON(), figures:row.querySelector(".item-age") && getComputedStyle(row.querySelector(".item-age")).fontVariantNumeric, open:row.querySelector(".todo-open")?.getBoundingClientRect().toJSON(), grip:row.querySelector(".sortable-handle")?.getBoundingClientRect().toJSON(), count:row.querySelector('.shelf-group-count')?.getBoundingClientRect().toJSON()}))`);
+  const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .shelf-glyph .icon')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
+  let picture: string | undefined;
+
   for (const directory of [captureDir(id), ...(id === "U4908" ? [captureDir("U4708"), ...ageCaptures()] : [])]) {
     if (!directory) continue;
-
     const folder = join(directory, stage);
-    mkdirSync(folder, { recursive: true });
+    mkdirSync(folder, {recursive:true});
     writeFileSync(join(folder, `${step}.checks.json`), JSON.stringify(checks) + "\n");
-    await browser("screenshot", join(folder, `${step}.png`));
 
-    if (id === "U4908") {
-      const columns = await read(`Array.from(document.querySelectorAll('.shelf-group-control, .shelf-row')).filter(row => row.checkVisibility()).map(row => ({name:row.textContent, mark:row.querySelector('[data-part=branch-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(), title:row.querySelector('.shelf-group-name, .shelf-title, .entry-field')?.getBoundingClientRect().toJSON(), age:row.querySelector(".item-age")?.getBoundingClientRect().toJSON(), figures:row.querySelector(".item-age") && getComputedStyle(row.querySelector(".item-age")).fontVariantNumeric, open:row.querySelector(".todo-open")?.getBoundingClientRect().toJSON(), grip:row.querySelector(".sortable-handle")?.getBoundingClientRect().toJSON(), count:row.querySelector('.shelf-group-count')?.getBoundingClientRect().toJSON()}))`);
-      writeFileSync(join(folder, `${step}.columns.json`), JSON.stringify(columns) + "\n");
-    }
-
-    const boxes = await read(`Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .shelf-glyph .icon')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))`);
+    if (id === "U4908") writeFileSync(join(folder, `${step}.columns.json`), JSON.stringify(columns) + "\n");
     writeFileSync(join(folder, `${step}.rows.json`), JSON.stringify(boxes) + "\n");
+    const target = join(folder, `${step}.png`);
+
+    if (picture) copyFileSync(picture, target);
+    else { await browser("screenshot", target); picture = target; }
   }
 
   if (ageCaptures().length && !narrow) {
@@ -32,6 +35,7 @@ const shot = async (id: string, stage: string, step: string, narrow = false): Pr
     await shot(id, stage, `${step}-1280`, true);
     await browser("set", "viewport", "1512", "950");
   }
+
   return checks;
 };
 
@@ -177,6 +181,7 @@ it.skipIf(!captureDir("U4908") && !ageCaptures().length).each([true, false].flat
     await browser("mouse", "move", "1", "1");
     await browser("eval", "document.activeElement.blur()");
     await shot("U4908", stage, `${seed}-${kind}-rest`);
+
     if (!base && ageCaptures().length) {
       await browser("eval", "Date.now = () => window.__ageTime + 60000");
       await wait(`Array.from(document.querySelectorAll('.${kind}-tab .item-age')).some(age => age.textContent === '1m')`);
