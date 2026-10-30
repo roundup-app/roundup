@@ -601,3 +601,13 @@ Remaining: Paragraph and Heading 1–6, GFM Strikethrough, the rest of the
 library/native inventory and native Edit availability, followed by final native
 displayed-key/combined-dispatch observations. Ordinary editing/list navigation
 remains control-owned. This continuation closes neither #4308 nor #3843.
+
+Rendered comparison: base `14aa05d8681c2c9c1d2fe8cbfa64004fa615608a`,
+implementation `52982e269ab751dbb84a4fe7bce5e76c98d103c6`, isolated headless
+Chromium at 1512×950 dark. Tree-40, tabs-8, conflict, Help, Pad editor, Quote
+and dense save refusal preserve every baseline-passing Check (D1–D14);
+`loop/rules.sh delta` passes. The full save cause/recovery and retained draft are
+visible. Paired compact Check readings are committed under
+`artifacts/ux/U3787b/block-format/`; PNGs and the keyboard recording remain
+uncommitted. `just capture U3787b` still rejects the id in the frozen capture table;
+explicit captures supply Chromium evidence only.
