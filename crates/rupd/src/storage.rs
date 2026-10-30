@@ -130,9 +130,22 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
 
 fn apply(db: &mut Connection, migrations: Vec<M<'_>>) -> rusqlite::Result<()> {
     let count = migrations.len();
+    let stored: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
     Migrations::new(migrations)
         .to_latest(db)
-        .map_err(|e| error(format!("migration through {count}: {e}")))
+        .map_err(|error| {
+            let message = if matches!(
+            error,
+            rusqlite_migration::Error::MigrationDefinition(
+                rusqlite_migration::MigrationDefinitionError::DatabaseTooFarAhead
+            )
+        ) {
+            format!("database version {stored}; this build supports through {count}. This database came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup.")
+        } else {
+            format!("migration through {count}: {error}")
+        };
+            self::error(message)
+        })
 }
 
 fn error(message: impl Into<String>) -> rusqlite::Error {
