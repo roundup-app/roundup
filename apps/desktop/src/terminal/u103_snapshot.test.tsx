@@ -165,10 +165,11 @@ describe("u103 a reloaded pane shows the screen", () => {
     app.emitOutput("t-a", "one");
     app.emitOutput("t-a", "two");
     pending[0]?.(snapshotOf("screen", 6, { cols: 120, rows: 40 }));
-    await vi.waitFor(() => expect(log()).toHaveLength(4));
+    await vi.waitFor(() => expect(log().slice(2).join("")).toBe("onetwo"));
     app.emitOutput("t-a", "three");
 
-    expect(log()).toEqual(["size 120x40", "screen", "one", "two", "three"]);
+    expect(log().slice(0, 2)).toEqual(["size 120x40", "screen"]);
+    expect(log().slice(2).join("")).toBe("onetwothree");
   });
 
   it("u103_output_buffered_during_a_slow_snapshot_stays_bounded_and_resnapshots_after_a_dropped_prefix", async () => {

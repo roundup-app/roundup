@@ -9,7 +9,12 @@ import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
 import { doesClearTodoFailure } from "./failureOf";
 import { ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { batch, createEffect, createSignal, For, lazy, on, onCleanup, Show, Suspense } from "solid-js";
+
+import type { PadEditorHandle } from "../pads/PadRichEditor";
+import "../pads/styles.css";
+
+const PadRichEditor = lazy(() => import("../pads/PadRichEditor"));
 
 export const formSchema = v.strictObject({ text: v.string(), base: v.string(), home: v.optional(v.nullable(v.string()), null), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
 
@@ -126,10 +131,13 @@ export const EditableText = (props: {
   createEffect(() => props.onFailure?.(failure(), () => setFailure(null)));
 
   let container: HTMLDivElement | undefined;
-  const shown = () => container?.querySelector<HTMLElement>("p[tabindex], .todo-add-notes");
+  const shown = () => container?.querySelector<HTMLElement>("p[tabindex], .todo-add-notes, .ProseMirror");
   let savedFocus: ReturnType<typeof captureFocus> | undefined;
   createEffect(on(() => props.todo[props.name], () => {
     const focus = savedFocus;
+
+    if (props.name === "body") return;
+
     savedFocus = undefined;
 
     // The value change can run before Solid replaces Add notes with the saved prose.
@@ -174,33 +182,28 @@ export const EditableText = (props: {
   let save: (() => Promise<void>) | undefined;
   let key: ((event: KeyboardEvent) => void) | undefined;
 
-  const field = (started: Editing) => (element: HTMLTextAreaElement) => {
-    element.value = started.text;
+  const bind = (started: Editing, element: HTMLElement, read: () => string, selection: () => Editing["selection"], focusField: () => void) => {
     const focus = captureFocus();
     // Fitted again once attached: `scrollHeight` is 0 before then.
     queueMicrotask(() => {
-      fit(element);
-
       if (!alive) return;
-      focus(() => element.focus({ preventScroll: true }));
-
-      if (started.selection) element.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
+      focus(focusField);
     });
 
     const retain = (selectionChanged = false) => batch(() => {
-      const value = { ...started.form, text: element.value };
-      const selection = { start: element.selectionStart, end: element.selectionEnd, direction: element.selectionDirection };
+      const value = { ...started.form, text: read() };
+      const selected = selection();
       const latest = records().find(record => record.revision === activeRevision());
 
-      if (latest && JSON.stringify(v.parse(formSchema, latest.value)) === JSON.stringify(value) && (props.revision !== undefined || latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selection))) {
+      if (latest && JSON.stringify(v.parse(formSchema, latest.value)) === JSON.stringify(v.parse(formSchema, value)) && (props.revision !== undefined || latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selected))) {
         setActiveRevision(latest.revision);
 
-        if ((props.revision === undefined || selectionChanged) && JSON.stringify(latest.selection) !== JSON.stringify(selection)) connected.drafts.setSelection(latest.revision, selection);
+        if ((props.revision === undefined || selectionChanged) && JSON.stringify(latest.selection) !== JSON.stringify(selected)) connected.drafts.setSelection(latest.revision, selected);
 
         return { draft: latest, problem: connected.drafts.problem() };
       }
 
-      const retained = connected.drafts.edit(draftDestination, value, selection, "ordinary", activeRevision());
+      const retained = connected.drafts.edit(draftDestination, value, selected, "ordinary", activeRevision());
 
       setActiveRevision(retained.draft.revision);
 
@@ -210,13 +213,10 @@ export const EditableText = (props: {
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
     onCleanup(() => { left = true; });
-    element.addEventListener("select", () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (element.value !== started.form.base || started.recovered)) retain(true); });
+    element.addEventListener("select", () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (read() !== started.form.base || started.recovered)) retain(true); });
     element.addEventListener("input", () => {
       if (left) return;
 
-      if (!props.multiline && element.value.includes("\n")) element.value = element.value.replace(/\r?\n/g, " ");
-
-      fit(element);
       retain();
     });
 
@@ -224,7 +224,7 @@ export const EditableText = (props: {
       if (left) return;
       left = true;
 
-      if (element.value === started.form.base && !started.recovered) {
+      if (read() === started.form.base && !started.recovered) {
         setEditing(null);
 
         return;
@@ -239,7 +239,7 @@ export const EditableText = (props: {
         return;
       }
 
-      const submittedValue = element.value;
+      const submittedValue = read();
 
       if (draft.status !== "draft" && draft.status !== "failed") {
         setFailure(copy.draftStatus[draft.status]);
@@ -296,7 +296,7 @@ export const EditableText = (props: {
       if (event.key === "Escape") {
         event.preventDefault(); event.stopPropagation();
 
-        if (element.value !== started.form.base || started.recovered) retain();
+        if (read() !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
         queueFocus(() => shown()?.focus());
       } else if (event.key === "Enter" && (!props.multiline || event.metaKey || event.ctrlKey)) {
@@ -304,20 +304,74 @@ export const EditableText = (props: {
       }
     };
 
-    element.addEventListener("blur", event => {
+    const blur = (target: EventTarget | null) => {
       if (left) return;
 
-      if (element.value !== started.form.base || started.recovered) retain();
-      const target = event.relatedTarget;
+      if (read() !== started.form.base || started.recovered) retain();
       queueMicrotask(() => {
         if (!alive || connected.drawer.content() !== content || started.recovered
-          || (target instanceof Element && (target.closest(".close, .todo-draft-recovery, [data-dismiss-failure]") || !target.closest(".drawer")))) return;
+          || (target instanceof Element && (target.closest(".close, .todo-draft-recovery, [data-dismiss-failure], [data-todo-navigation]") || !target.closest(".drawer")))) return;
         void submit(target);
       });
-    });
+    };
+
+    element.addEventListener("blur", event => blur(event.relatedTarget));
     // Explicit Save authorizes restored work; restoration alone never resumes blur submission.
     save = submit;
 
+    return { retain, blur };
+  };
+
+  const field = (started: Editing) => (element: HTMLTextAreaElement) => {
+    element.value = started.text;
+    element.addEventListener("input", () => {
+      if (!props.multiline) element.value = element.value.replace(/\r?\n/g, " ");
+      fit(element);
+    });
+    bind(started, element, () => element.value,
+      () => ({ start: element.selectionStart, end: element.selectionEnd, direction: element.selectionDirection }), () => {
+        fit(element); element.focus({ preventScroll: true });
+
+        if (started.selection) element.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
+      });
+  };
+
+  const RichBody = (rich: { started?: Editing }) => {
+    let host: HTMLDivElement | undefined;
+    let handle: PadEditorHandle | undefined;
+    let binding: ReturnType<typeof bind> | undefined;
+    const started = rich.started;
+    createEffect(() => { const text = props.todo.body;
+
+ if (!started) handle?.setText(text); });
+
+    return <div ref={host} onFocusIn={event => { if (!started && event.target instanceof Element && event.target.matches(".ProseMirror")) startWith(); }} onDblClick={() => { if (!started) startWith(); }} onKeyDown={event => {
+      if (started) key?.(event);
+      else if (event.key === "Enter") { event.preventDefault(); startWith(); }
+    }}><Suspense><PadRichEditor text={started?.text ?? props.todo.body} readonly={false} autofocus={false} initialFocus={started ? captureFocus() : undefined} label={copy.body}
+      onChange={() => binding?.retain()}
+      onText={() => binding?.retain()}
+      onSelection={() => binding?.retain(true)}
+      onBlur={target => { if (!(target instanceof Node && host?.contains(target))) binding?.blur(target); }}
+      onReady={editor => {
+        handle = editor;
+
+        if (!started) {
+          const focus = savedFocus;
+          savedFocus = undefined;
+
+          if (alive && connected.drawer.content() === content && (document.activeElement === document.body || document.activeElement === shown())) focus?.(() => editor.focus());
+
+          return;
+        }
+
+        if (!host) return;
+        binding = bind(started, host, () => handle!.getText() ?? started.text, () => handle!.selection(), () => {
+          handle!.focus();
+
+          if (started.selection) handle!.restoreSelection(started.selection);
+        });
+      }} /></Suspense></div>;
   };
 
   return (
@@ -329,7 +383,7 @@ export const EditableText = (props: {
         <Show
           when={props.name === "body" && props.todo.body === ""}
           fallback={
-            <p
+            <Show when={props.multiline} fallback={<p
               tabIndex={0}
               onDblClick={() => startWith()}
               onKeyDown={(key) => {
@@ -340,7 +394,7 @@ export const EditableText = (props: {
               <Show when={props.todo[props.name] !== ""} fallback={<span class="light">{copy.noField(props.name)}</span>}>
                 {props.todo[props.name]}
               </Show>
-            </p>
+            </p>}><RichBody /></Show>
           }
         >
           {/* U3732: an empty body offers its own edit, where the body will read. */}
@@ -351,7 +405,7 @@ export const EditableText = (props: {
     >
       {(started) => (<>
         <ReservedLine message={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />
-        <textarea spellcheck={false} autocorrect="off" autocapitalize="off"
+        <Show when={props.multiline} fallback={<textarea spellcheck={false} autocorrect="off" autocapitalize="off"
           ref={field(started)}
           aria-label={props.name === "title" ? copy.title : copy.body}
           rows={1}
@@ -377,7 +431,7 @@ export const EditableText = (props: {
             background: "var(--hover)",
             "caret-color": "var(--accent)",
           }}
-        />
+        />}><RichBody started={started} /></Show>
       </>)}
     </Show>
     <Show when={editing()}><button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void save?.()}>{copy.save}</button></Show>
