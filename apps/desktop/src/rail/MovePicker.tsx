@@ -26,7 +26,7 @@ export const MovePicker = (props: {
   return <Popover.Root open closeOnEscape closeOnInteractOutside finalFocusEl={() => target.anchor}
     onOpenChange={({ open }) => { if (!open) close(); }}
     positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: () => target.anchor.getBoundingClientRect() }}>
-    <Portal><Popover.Positioner><Popover.Content class="choice-picker" ref={panel} aria-label={copy.moveTo}>
+    <Portal><Popover.Positioner><Popover.Content class="choice-picker" ref={element => { panel = element; }} aria-label={copy.moveTo}>
       <Combobox.Root items={items()} inputValue={query()} onInput={setQuery}
         highlightedValue={items().some(item => item.value === highlight()) ? highlight() : items()[0]?.value ?? null} onHighlightChange={setHighlight}
         focusScope={() => panel} onDismiss={close}
@@ -40,7 +40,16 @@ export const MovePicker = (props: {
   </Popover.Root>;
 }}</Show>;
 
-export const createMove = ({ app, rail }: Pick<ConnectedProject, "app" | "rail">, rowElement: (id: string) => HTMLElement | undefined) => {
+export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "app" | "rail" | "daemonExit">, rowElement: (id: string) => HTMLElement | undefined) => {
+  const [target, setTarget] = createSignal<{ id: string; anchor: HTMLElement } | null>(null);
+  const destinations = () => rail.nodes.filter(node => node.kind === "workstream").map(node => ({ value: node.id, label: node.name }));
+  const available = (id: string | undefined) => daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "agent" && node.parent === null) && destinations().length > 0;
+  const open = (id: string) => {
+    const anchor = rowElement(id);
+
+    if (anchor && available(id)) { anchor.focus(); setTarget({ id, anchor }); }
+  };
+
   const move = async (params: SortableMove): Promise<void> => {
     const focus = rowElement(params.id) === document.activeElement ? captureFocus() : undefined;
 
@@ -63,5 +72,5 @@ export const createMove = ({ app, rail }: Pick<ConnectedProject, "app" | "rail">
     }
   };
 
-  return move;
+  return { move, target, destinations, available, open, close: () => setTarget(null) };
 };
