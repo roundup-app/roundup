@@ -29,7 +29,7 @@ const openDrawerOf = async (id: number) => {
   const row = await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) });
   row.focus();
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
-  await within(drawer()).findByText("Blocker");
+  await within(drawer()).findByRole("button", { name: /^Blocked by/ });
 };
 
 for (const by of ["pointer", "keyboard"] as const) {
@@ -60,7 +60,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       await openDrawerOf(2);
       await within(drawer()).findByRole("region", { name: "Todo history" });
 
-      const title = within(drawer()).getByText("todo 2");
+      const title = within(drawer()).getByText("todo 2", { selector: "p" });
 
       if (by === "pointer") fireEvent.dblClick(title);
       else {
@@ -83,7 +83,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       const mounted = await mountTodos([todo(1), todo(2)]);
 
       await openDrawerOf(2);
-      press(within(drawer()).getByRole("button", { name: /Blocker/ }), by);
+      press(within(drawer()).getByRole("button", { name: /^Blocked by/ }), by);
 
       if (by === "pointer") fireEvent.click(await screen.findByRole("option", { name: /#1/ }));
       else fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" });
@@ -97,13 +97,15 @@ for (const by of ["pointer", "keyboard"] as const) {
       const mounted = await mountTodos([todo(1), todo(3), todo(2, { blocked: true, blockers: [1, 3] })]);
 
       await openDrawerOf(2);
-      press(within(drawer()).getByRole("button", { name: "Remove blocker #1" }), by);
+      press(within(drawer()).getByRole("button", { name: /^Blocked by/ }), by);
+      fireEvent.click(await screen.findByRole("option", { name: /#1/ }));
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [3], expected_change: 2 } }]));
       refetch(mounted);
       await waitFor(() => expect(within(rowOf(2)).queryByRole("button", { name: /todo 1$/ })).toBeNull());
       expect(rowOf(2).getAttribute("aria-level")).toBe("2");
 
-      press(within(drawer()).getByRole("button", { name: "Remove blocker #3" }), by);
+      press(within(drawer()).getByRole("button", { name: /^Blocked by/ }), by);
+      fireEvent.click(await screen.findByRole("option", { name: /#3/ }));
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")[1]?.params).toEqual({ id: 2, blockers: [], expected_change: 4 }));
       refetch(mounted);
 
@@ -138,7 +140,11 @@ for (const by of ["pointer", "keyboard"] as const) {
       const mounted = await mountTodos([todo(1), todo(2)]);
 
       await openDrawerOf(2);
-      press(await within(drawer()).findByRole("button", { name: "Delete Todo" }), by);
+      press(within(drawer()).getByRole("button", { name: "More actions" }), by);
+      const remove = await screen.findByRole("menuitem", { name: "Delete Todo" });
+
+      if (by === "keyboard") fireEvent.keyDown(remove.closest('[role="menu"]')!, { key: "End" });
+      fireEvent.click(remove);
       await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [2] } }]));
       mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos[0]! }));
 
@@ -151,7 +157,7 @@ describe("u152 focus stays in the Drawer", () => {
   it("u152_choosing_an_offered_blocker_by_keyboard_leaves_focus_off_the_body", async () => {
     await mountTodos([todo(1), todo(2)]);
     await openDrawerOf(2);
-    press(within(drawer()).getByRole("button", { name: /Blocker/ }), "keyboard");
+    press(within(drawer()).getByRole("button", { name: /^Blocked by/ }), "keyboard");
     fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" });
 
     await waitFor(() => expect(document.activeElement).not.toBe(document.body));
@@ -162,7 +168,8 @@ describe("u152 focus stays in the Drawer", () => {
     const mounted = await mountTodos([todo(1), todo(3), todo(2, { blocked: true, blockers: [1, 3] })]);
 
     await openDrawerOf(2);
-    press(within(drawer()).getByRole("button", { name: "Remove blocker #1" }), "keyboard");
+    press(within(drawer()).getByRole("button", { name: /^Blocked by/ }), "keyboard");
+      fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" });
     await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toHaveLength(1));
     mounted.store.todos = mounted.store.todos.map((t) => (t.id === 2 ? { ...t, blockers: [3] } : t));
     refetch(mounted);
@@ -180,8 +187,9 @@ describe("u152 remove a blocker", () => {
 
     await openDrawerOf(2);
 
-    for (const id of [1, 3]) expect(within(drawer()).getByRole("button", { name: `Remove blocker #${id}` }).textContent).toBe("Remove");
-    expect(within(drawer()).getByText("Waits on").parentElement?.children).toHaveLength(5);
+    fireEvent.click(within(drawer()).getByRole("button", { name: /^Blocked by/ }));
+
+    for (const id of [1, 3]) expect(await screen.findByRole("option", { name: new RegExp(`#${id}`) })).toBeTruthy();
   });
 
   it("u152_a_failed_remove_shows_the_message_and_keeps_the_row", async () => {
@@ -189,9 +197,10 @@ describe("u152 remove a blocker", () => {
 
     mounted.app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32010, "cannot remove"));
     await openDrawerOf(2);
-    fireEvent.click(within(drawer()).getByRole("button", { name: "Remove blocker #1" }));
+    fireEvent.click(within(drawer()).getByRole("button", { name: /^Blocked by/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#1/ }));
 
-    expect((await within(drawer()).findByText(/cannot remove/)).textContent).toBe("cannot remove");
+    expect(await within(drawer()).findByRole("alert", { name: /cannot remove/ })).toBeTruthy();
     expect(rowOf(2).getAttribute("aria-level")).toBe("2");
   });
 });
@@ -218,7 +227,8 @@ it.each(["dismiss", "save", "delete", "failed-delete", "unrelated"] as const)("p
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 2 } });
   } else {
     if (action === "failed-delete") m.app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32003, "Cannot delete; retry"));
-    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+    fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   }
 
   if (action === "delete") {
@@ -267,7 +277,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       fireEvent.click(within(rowOf(1)).getByRole("checkbox", { name: "Complete todo 1" }));
     } else if (owner.startsWith("editable_text")) {
       m.app.handlers["todo.update"] = refuse;
-      fireEvent.dblClick(within(drawer()).getByText(fieldName === "Title" ? "todo 1" : "Original body"));
+      fireEvent.dblClick(within(drawer()).getByText(fieldName === "Title" ? "todo 1" : "Original body", { selector: "p" }));
       field = await within(drawer()).findByRole<HTMLTextAreaElement>("textbox", { name: fieldName });
       fireEvent.input(field, { target: { value: fieldName === "Title" ? "  e\u0301 🧪 title  " : exactDraft } });
       fireEvent.click(within(drawer()).getByRole("button", { name: "Save" }));
@@ -325,7 +335,8 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       if (owner.startsWith("open_row")) m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
     } else {
       if (action === "failed-delete") m.app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32003, deleteRefusal));
-      fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+      fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
     }
 
     if (action === "delete") {
@@ -436,7 +447,8 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
     await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
   } else {
-    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+    fireEvent.click(within(drawer()).getByRole("button", { name: "More actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
     await waitFor(() => expect(drawer().inert).toBe(true));
     m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
   }
