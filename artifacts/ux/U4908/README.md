@@ -1,11 +1,28 @@
-U4908 implementation evidence is incomplete. Issue #4708 remains open.
+U4708 / U4908: Pad marks, row columns and shared Open action.
 
-The six Open cases failed for the missing Pad button before implementation and pass for Pad/Todo pointer, Enter and Space afterward. Pad list, Pad rename, Project isolation, Escape and capture-registry observers pass. The full U4708 browser run passed 12 cases but its existing dense capture observer timed out. All six U4708 head Check readings collected before that timeout pass.
+The isolated headless observer compares main `90b95fe09f5912dce3c6978614dab7862b35223e` with head `655f29b748cec91df57841bd7157d36e1800d747`. Baseline product code is unchanged; its only local edit registers these capture ids. `observation.json` records the paired readings. Images and videos remain uncommitted.
 
-`observation.json` records immutable source revisions, available paired-observer readings and remaining observations. The baseline checkout differs only by registering U4908 in the capture registry; product code equals the baseline revision. Available baseline Pad captures include rest, hover, focus, selection, Drawer, add field, failure feedback and 1280×820. The full Todos/main/head comparison is not demonstrated. Images and videos remain uncommitted.
+| Coverage | Observer |
+| --- | --- |
+| Chosen Pad/Todo opens once by pointer, Enter or Space; no rename, completion or move | Six `u4908_open_button_opens_chosen_item_once` cases |
+| Row selection, rename, drag, Project isolation and Escape | Shelf/Pad focused regressions |
+| Dark paired rendering | Shared U4708/U4908 observer: both tabs, both seeds, rest/hover/focus/selection/Drawer/add/rejected creation/1280×820 |
+| Dense data | 300-character Todo, 120-character Pad, 60-character group, ten blockers, Todo depths 0–3, Pad groups and done summary |
 
-Caller inventory: Pads leaves/add field use the shared sticky-note; Todo OpenRow (Shelf and Rail), pending rows and done summary carry Kind glyphs; Todo EntryRow carries the capture tick. EntryRow forwards its mark. No other Shelf tab calls ShelfRow or EntryRow, and no current caller supplies an absent mark. ShelfRow now omits an absent mark and its grid gap. One shared Token formula sets the row/group origin.
+`just capture U4708` activates the shared U4908 observer and writes both scenario directories. Each phase has 32 matched states, at 1512×950 except the four 1280×820 states. The two head videos record the Todo and Pad interactions at the main viewport. The observer restores dark media after recording starts, loads the lazy Pad editor module before measuring its Drawer, reveals the full failure tooltip, and finishes recording before the smaller viewport.
 
-`just ready` completed with only stylesheet lint failing; removing the unnecessary selector made `pnpm lint:styles` pass. Typechecking passes. The broad related-test attempt was stopped because Icon reaches most of the desktop suite; focused regressions were run instead. No Mac observation is claimed; the user reports what they meet on the Mac.
+Caller inventory:
 
-The final Shelf row run passed all 58 tests. The final paired observer passed three Pad cases and failed five cases: Todo targets were not reachable, and a failed recorded case left recording active for the next case. The agents-10 Pad head readings and pictures are retained. A concurrent branch updater integrated newer main; it was merged without conflicts and merge-loss passes. Required checks must run on the integrated head.
+| Caller | Leading mark |
+| --- | --- |
+| `pads/Pads.tsx` leaves and add field | Shared decorative sticky-note |
+| `todos/OpenRow.tsx` Shelf and nested Rail rows | Kind glyph |
+| `todos/Todos.tsx` pending rows and done summary | Idle/done glyph |
+| `todos/Todos.tsx` via `ink/EntryRow.tsx` | Disabled capture tick |
+| `ink/EntryRow.tsx` | Forwards caller mark or absence |
+| Other Shelf tabs | No ShelfRow/EntryRow callers |
+| Absent mark | No current caller; ShelfRow omits the wrapper and its one-column grid reserves no gap |
+
+One Token-derived row/group origin governs marked columns. The long group name truncates with its count visible; hover, focus and selection retain the same columns. The critic judges the paired pictures; Check readings supplement that optical review. The Linux/Chromium observer makes no native macOS claim; the user reports what they meet on the Mac.
+
+Validation: `just ready` passes; 93 focused regressions and 20 integrated Pad cases pass; the seven related browser cases pass. All eight final paired cases pass across the Todo and Pad runs. Both Check delta commands pass with no regression. Pre-existing vendor-editor D1/D2 failures and their aggregate D10 remain in matching Pad states; D5, D6 and D12 pass throughout.
