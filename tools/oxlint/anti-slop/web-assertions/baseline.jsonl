@@ -108,7 +108,6 @@
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"a34_pad_deleted_cannot_leave_the_pad_cached_when_refresh_fails","identity":"cdd0d52c502bf0dbb107efd6b05a3001e3cf34d14326ed59b25bb281383e2bb9"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"a34_pad_deleted_marks_an_open_drawer_as_deleted","identity":"8c0fd441208954ad958400cfe5409cc5fa0c1872581ad9cc275574559d904934"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"a34_an_older_pad_list_reply_cannot_restore_a_deleted_pad","identity":"787cf07c777da184aad9ff273887b1df279e92e1cbd35a0ca9b397ffe87f7deb"}
-{"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"a34_pad_deleted_refreshes_the_open_drawers_touch_history","identity":"96a67a4aa7ba43435570760d47c325345c7c4e957e9413f171cddd794495029c"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_success_clears_same_pad_failure","identity":"752301f6b544560baf88ee01ce9698f04cbda532d9ce5d988d499d6a858e63a4"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_success_clears_same_pad_failure","identity":"1974495d51b134b7ce4bdc072a506136967f8bd0d589275b25048f62a7634aa8"}
 {"file":"apps/desktop/src/pads/a34_pad_deleted.test.tsx","test":"p3557b_dismiss_keeps_draft: closed=%s","identity":"0caf0fa1c4af002bab3efc2587af9a7406765730e9950e4a69b6b61b90c2c084"}
@@ -160,8 +159,6 @@
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_no_pads_yet_returns_once_the_last_pad_is_removed","identity":"dda27a21a3d26861a2433cd1b45cdafa6176b92cf3b5c4849f101cd649d4701f"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_failed_initial_pad_list_shows_its_message_not_no_pads_yet","identity":"acf17fb984fe089f471373e6f21a1b773350a6c1693c5bc3b7d93a8153bbe505"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_failed_initial_pad_list_shows_its_message_not_no_pads_yet","identity":"330de8c5359010b9005e9285d6e87ac6dd626080d54e72a5820dc4932f5c6d34"}
-{"file":"apps/desktop/src/pads/u433_no_scribe.test.tsx","test":"u433 no Scribe > u433_no_ask_field_no_exchange_no_read_line","identity":"9febb10d69a4e2f0fdcdb90495bef5cdf17fd95b9cc416ea1147cf160bb49842"}
-{"file":"apps/desktop/src/pads/u433_no_scribe.test.tsx","test":"u433 no Scribe > u433_no_ask_field_no_exchange_no_read_line","identity":"c850ef92266c643991784f043adbed407cb16e2bc087c586635c573e0cf677dd"}
 {"file":"apps/desktop/src/pads/u67_editor_cleanup.test.tsx","test":"u67_a_failed_editor_reports_creation_failure_without_destroying","identity":"32b8832fc70ff2afe63237a28a86bd65821961d629a14aa6d76ed0df2b92718c"}
 {"file":"apps/desktop/src/plain/q10_markdown.test.tsx","test":"Q10 the App renders the Markdown an Agent writes > q10_html_is_text","identity":"4bc1c893d9eeca95cdb0f479c1f0827c5574df7693f8283fe0846adb6b22980e"}
 {"file":"apps/desktop/src/plain/q10_markdown.test.tsx","test":"Q10 the App renders the Markdown an Agent writes > q10_html_is_text","identity":"a317c47ed9e3d4418b704e2e68417ce61b3d7231aec7eb088eba1746811ceab2"}

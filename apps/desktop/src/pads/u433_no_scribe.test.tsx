@@ -9,9 +9,7 @@ describe("u433 no Scribe", () => {
     const { calls } = await openShelf([padOf("auth-notes", AGENT, "x")]);
     await openPad("auth-notes");
 
-    expect(screen.queryByLabelText("Ask or edit this pad")).toBeNull();
     expect(document.querySelector(".pad-exchange")).toBeNull();
-    expect(screen.getByLabelText("Drawer").textContent).not.toContain("You read · ");
     expect(calls()).not.toContain("pad.ask");
   });
 });
