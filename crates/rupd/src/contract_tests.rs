@@ -490,7 +490,7 @@ async fn m14_an_agent_cannot_set_a_route_to_itself() {
     let mut conn = Conn {
         actor: Actor {
             kind: ActorKind::Agent,
-            id: "2".into(),
+            id: "1".into(),
             parent: None,
         },
         peer: None,
@@ -502,7 +502,7 @@ async fn m14_an_agent_cannot_set_a_route_to_itself() {
         .route(
             &mut conn,
             "route.set",
-            json!({ "from": "3", "to": "2", "delivery": "auto" }),
+            json!({ "from": "2", "to": "1", "delivery": "auto" }),
         )
         .await;
 
@@ -585,16 +585,11 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
-        actor: Actor {
-            kind: ActorKind::Agent,
-            id: "1".into(),
-            parent: None,
-        },
+        actor: Actor::user(),
         peer: None,
         events,
         output: None,
     };
-    conn.actor = Actor::user();
     daemon
         .route(
             &mut conn,
