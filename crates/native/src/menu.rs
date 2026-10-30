@@ -342,9 +342,14 @@ pub(crate) mod tests {
                 (vec![2, 0], "1".into()),
                 (vec![2, 1], "9".into()),
             ]);
-            let titles = stops_and_titles(&child);
-            assert!(titles[0].contains("\t1"));
-            assert!(titles[1].contains("\t9"));
+            let plain = |index: isize| -> String {
+                let item: Retained<AnyObject> = msg_send![&*child, itemAtIndex: index];
+                let attributed: Retained<AnyObject> = msg_send![&*item, attributedTitle];
+                let shown: Retained<NSString> = msg_send![&*attributed, string];
+                shown.to_string()
+            };
+            assert_eq!(plain(0), "Assign to same name\t1");
+            assert_eq!(plain(1), "Assign to same name\t9");
 
             let (installed, popup) = (stops_and_titles(&installed), stops_and_titles(&popup));
             assert!(
