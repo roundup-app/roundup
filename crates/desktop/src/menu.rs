@@ -720,6 +720,7 @@ mod tests {
             .unwrap();
             assert_eq!(plain(built).text().unwrap(), source.label);
             assert_eq!(hint, [(vec![], key.into())]);
+            assert_eq!(sequence_hints(&[source]), [("Run action".into(), key.into())]);
         }
     }
 

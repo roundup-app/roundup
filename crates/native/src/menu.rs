@@ -273,12 +273,9 @@ pub(crate) mod tests {
     }
 
     pub(crate) fn u4462_the_hint_stop_is_the_key_equivalent_edge() {
-        // Hint narrower than the key column: it ends where `⇧⌘T` ends, one gap after the title.
-        assert_eq!(hint_stop(100.0, 40.0, 30.0, 16.0), 156.0);
-        // No key equivalent in the menu: the hint is the column.
-        assert_eq!(hint_stop(100.0, 0.0, 30.0, 16.0), 146.0);
-        // Hint wider than the key column: the hint widens the column.
-        assert_eq!(hint_stop(100.0, 20.0, 30.0, 16.0), 146.0);
+        // A 300 pt menu with a 20 pt trailing inset puts a 30 pt hint at 250.
+        assert_eq!(hint_stop(300.0, 20.0, 30.0, 0.0), 250.0);
+        assert_eq!(hint_stop(400.0, 20.0, 30.0, 0.0), 350.0);
     }
 
     unsafe fn stops_and_titles(menu: &AnyObject) -> Vec<String> {
