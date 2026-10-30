@@ -53,7 +53,7 @@
   padding-right: var(--rail-edge, var(--space-4));
 }
 
-.rail-row :is(.line, .reserved-line),
+.rail-row :is(.line, .reserved-line, .failure-line),
 .rail-fold button {
   grid-column: 2;
 }
@@ -850,4 +850,13 @@
   color: var(--grey);
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
+}
+
+/* U5151a: the failure line sits in the name column under the name, two lines at most; the row tooltip holds the full text. */
+.rail-row .failure-line {
+  padding-inline-start: var(--length-zero);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }

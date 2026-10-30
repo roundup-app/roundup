@@ -19,6 +19,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
+import { FailureLine } from "../ink/FailureLine";
 import { agentKindsBelow, isWorkstream } from "./layout";
 import { Trunks } from "../ui/TreeView";
 import type { NodeRow } from "./layout";
@@ -197,6 +198,7 @@ export const RailRowView = (props: {
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
       </span>
     </p>
+    <Show when={!workstream()}><FailureLine status={props.row.node.status} /></Show>
   </div>;
 
   return <>
