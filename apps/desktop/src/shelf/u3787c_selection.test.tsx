@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { batch } from "solid-js";
 import { RequestedApp } from "../testing/requestedApp";
 import { createFakeApp } from "../testing/fakeApp";
 import { todoHandlers, padHandlers } from "../testing/stores";
@@ -18,7 +19,8 @@ const inventory = [
 
 const names = ["Alpha", "長い名前 é 🧭 ".repeat(10), "same", "same", "Éclair", "Zulu", "hidden", "disabled"];
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+// Dispose the App together so each row registration cannot rebuild the native menu during teardown.
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 const mount = async (entry: typeof inventory[number], titles = names) => {
   const app = createFakeApp();
