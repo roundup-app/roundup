@@ -33,7 +33,8 @@ Given U26's `tree-40` at 1512×950 in dark with the Drawer's Todos and Pads list
 2. The first Terminal tab's name starts 44 CSS px from the Terminal bar's left edge, within 1 px.
 3. Rail names stay at 44 (U4898).
 4. U4707's other clauses hold: glyphs and group chevrons share one x per depth, each elbow meets its parent's glyph centre, rows stay one 32 px line, and each leading mark stays inside its row's wash.
+5. The U131 row-inset reading (`rowAlignmentCheck`, `apps/desktop/src/testing/designChecks.ts`) measures each name from its panel's left edge (the Rail, the Drawer or the Terminal bar), less tree indent, and expects one value for all three. It passes on head.
 
-On main `e78bbc345` Todo titles, Pad names and group names start at 48 from the Drawer's edge, the first Terminal tab's name at 32 from the bar's edge, and Rail names at 44.
+On main `e78bbc345` Todo titles, Pad names and group names start at 48 from the Drawer's edge, the first Terminal tab's name at 32 from the bar's edge, and Rail names at 44. `rowAlignmentCheck` measures from each row's own box, which starts 16 px inside the Drawer, so it reads Shelf titles as 32.
 
-Observer (policy, implementation only): U4707's observer at 1512×950. Run `just capture U5147d` after adding its capture coverage and leave paired main/head PNGs and readings under `artifacts/ux/U5147/`, uncommitted. Read first-text x with `getBoundingClientRect` on a text range, never screenshot pixels. Moves D8 and D2. Every Check passing on main still passes; add no layout test (AGENTS.md rule 10).
+Observer (policy, implementation only): U4707's observer at 1512×950. Run `just capture U5147d` after adding its capture coverage and leave paired main/head PNGs and readings under `artifacts/ux/U5147/`, uncommitted. Read first-text x with `getBoundingClientRect` on a text range, never screenshot pixels. Moves D8 and D2. Every Check passing on main still passes; add no layout test (AGENTS.md rule 10). Update the Token value `apps/desktop/observers/U131/row-inset.md` states, and the two U4707 comments in `apps/desktop/src/bubbles/u4274_navigation.test.tsx` that cite 32.
