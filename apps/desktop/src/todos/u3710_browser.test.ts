@@ -58,6 +58,8 @@ const drag = async (from: Point, to: Point, release = true) => {
   if (release) await page.pointer("up", to.x, to.y);
 };
 
+const treeStep = () => page.call<number>(`() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tree-step'))`);
+
 const settled = () => page.until(`() => !document.querySelector("[data-dnd-dragging], [data-dnd-placeholder]")`);
 
 run("u3710 dragging sideways sets depth and dragging vertically sets order", () => {
@@ -164,7 +166,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(made[0]!.params.blockers?.[0]).toBe(order[0]);
   }, 60_000);
 
-  it("u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
+  it("u4710b_u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
     await setup();
     const order = await ids();
     await page.call(`async order => {
@@ -172,8 +174,10 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
       window.__mark = window.__fake.app.calls.length;
     }`, order);
     await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
-    const third = await centre(2);
-    await drag(third, { x: third.x + 48, y: third.y });
+    // The grip can sit at the inline edge; the library still identifies this list.
+    await page.call(`rows => document.querySelector(rows).closest('.todo-list').style.paddingInlineEnd = '0px'`, rows);
+    const edge = await centre(2);
+    await drag(edge, { x: edge.x + 2 * await treeStep(), y: edge.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
     expect(await calls()).toEqual([{ method: "todo.setBlockers", params: { id: order[2], blockers: [order[1]] } }]);
