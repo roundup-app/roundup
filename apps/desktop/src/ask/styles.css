@@ -530,3 +530,5 @@
   color: var(--text);
   font-size: var(--text-title);
 }
+
+.ask-bar :is(.project-overview, .made):has(.empty-state) { flex: 1; min-height: 0; }
