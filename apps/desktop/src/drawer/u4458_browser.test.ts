@@ -125,9 +125,10 @@ it.concurrent.each(["pad", "todo"].flatMap(kind => backgrounds.map(background =>
   const lane = await openLane(1512, "dark", `u4911a-${kind}-${background}`);
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
   const directory = captureDir("U4911a");
+  const recording = directory && background === "save";
   if (directory) {
     mkdirSync(join(directory, phase), {recursive:true});
-    await lane.browser("record", "start", join(directory, phase, `${kind}-${background}.webm`));
+    if (recording) await lane.browser("record", "start", join(directory, phase, `${kind}-${background}.webm`));
     await lane.browser("set", "media", "dark");
   }
   const shot = async (step: string) => {
@@ -230,5 +231,8 @@ it.concurrent.each(["pad", "todo"].flatMap(kind => backgrounds.map(background =>
       expect(await lane.evaluate("JSON.parse(window.__fake.app.clipboardWrites[0])")).toEqual({key:"roundup:shelf:/original",bytes:'{"open":'});
     } else if (background === "project-failure") await lane.until(`!document.querySelector(${JSON.stringify(target)})`);
     else await lane.until("!document.querySelector('.settings-view')");
-  } finally { if (directory) await lane.browser("record", "stop"); await lane.close(); }
+  } finally {
+    try { if (recording) await lane.browser("record", "stop"); }
+    finally { await lane.close(); }
+  }
 });
