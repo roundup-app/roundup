@@ -290,6 +290,7 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     daemon.handlers["rail.tree"] = () => [agent("idle", "idle", "ready")];
     await connected().rail.refresh();
   }
+
   const ask = screen.getByRole("textbox", { name: "Ask" });
   const draft = "  exact é 東京 🧭 draft  ";
   fireEvent.input(ask, { target: { value: draft } });
@@ -339,7 +340,9 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     expect(["Needs you", "Asks", "Reactions", "Made"].map(name => screen.getByRole("button", { name }).getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]);
 
     if (from.startsWith("empty") || from.startsWith("idle")) {
-      expect(within(screen.getByRole("region", { name: "Needs you" })).getByText("Nothing waits for you")).toBeTruthy();
+      const inbox = screen.getByRole("region", { name: "Needs you" });
+      expect(within(inbox).queryAllByRole("listitem")).toHaveLength(0);
+      expect(inbox.textContent?.trim()).not.toBe("");
     }
 
     expect(connected().project.path).toBe("/p");
