@@ -23,12 +23,12 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
     delete process.env.ROUNDUP_CAPTURES;
     const servers=await Promise.all([appServer({root:join(base,"apps/desktop")}),appServer()]);
     process.env.ROUNDUP_CAPTURES=captures;
-    await Promise.all(["base", "head"].map(async (phase,index) => {
+    await Promise.all(["base", "head"].flatMap((phase,index) => ["dark","light"].map(theme => ({phase,index,theme}))).map(async ({phase,index,theme}) => {
       const revision = phase === "base" ? baseRevision : execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
       const server=servers[index]!;
       const origin = server.resolvedUrls.local[0]!;
       const profile = mkdtempSync(join(tmpdir(), "u4896-profile-"));
-      const session = `u4896-${phase}-${process.pid}`;
+      const session = `u4896-${phase}-${theme}-${process.pid}`;
       const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout;
 
       const read = async (expression: string) => {
@@ -76,7 +76,7 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
         await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "open", origin);
         await browser("set", "viewport", "1512", "950");
 
-        for (const theme of ["dark", "light"]) for (const width of [252, 480]) {
+        for (const width of [252, 480]) {
           const prefix = `${theme}-${width}`;
           await browser("set", "media", "color-scheme", theme);
           await load(width);
@@ -212,8 +212,9 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
           await snap(`${prefix}-recovered`);
         }
       } finally {
-        try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive:true, force:true }); }
+        try { await browser("close"); } finally { rmSync(profile, { recursive:true, force:true }); }
       }
     }));
+    await Promise.all(servers.map(server => server.close()));
   } finally { rmSync(base, { recursive:true, force:true }); }
 }, 300_000);
