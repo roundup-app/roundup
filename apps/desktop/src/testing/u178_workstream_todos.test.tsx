@@ -25,6 +25,7 @@ const mount = async (original: ReturnType<typeof todo>) => {
   store.changes!.set(original.id, [{ seq: 1, before: null, after: {
     title: original.title, body: original.body, done: false, blockers: [], owner: null, priority: null,
   }, actor: original.creator, changed_at: 0 }]);
+
   const connected = await connectProject(app, { name: "same Project", path: "/todo-drafts" }, () => true, () => 0,
     () => null, undefined, createProjectDrafts()("/todo-drafts"));
 
@@ -70,6 +71,7 @@ it("u2773c_todos_external_change_keeps_original", async () => {
     after: { title: changed.title, body: changed.body, done: false, blockers: [], owner: null, priority: null }, actor: original.creator, changed_at: 1 }]);
   app.handlers["todo.update"] = () => { throw new RpcError(-32003, "Todo changed since editing began"); };
   app.emit(event({ name: "todo.updated", data: changed }));
+
   await screen.findByText(/Changed Todo/);
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "failed")).toBe(true));
