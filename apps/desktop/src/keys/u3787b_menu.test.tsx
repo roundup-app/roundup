@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { createRoot, createSignal } from "solid-js";
+import { batch, createRoot, createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
@@ -11,7 +11,7 @@ import { captureActions, registerKeys } from "./registry";
 
 const disposals: (() => void)[] = [];
 
-afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); cleanup(); localStorage.clear(); });
+afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); batch(cleanup); localStorage.clear(); });
 
 const owner = (terminal: HTMLElement) => {
   const calls: Element[] = [];
