@@ -123,6 +123,26 @@ fn u4322b_popup_accelerators_stay_in_the_popup() {
         .menu(app_menu)
         .build(mock_context(noop_assets()))
         .unwrap();
+    let labels: Vec<_> = app
+        .menu()
+        .unwrap()
+        .items()
+        .unwrap()
+        .iter()
+        .filter_map(|item| {
+            if let MenuItemKind::Submenu(submenu) = item {
+                submenu.text().ok()
+            } else {
+                None
+            }
+        })
+        .collect();
+    let edit = labels.iter().position(|label| label == "Edit").unwrap();
+    let window = labels.iter().position(|label| label == "Window").unwrap();
+    assert!(edit < window, "Edit stays before Window and Help");
+    if let Some(file) = labels.iter().position(|label| label == "File") {
+        assert_eq!(edit, file + 1, "Edit stays immediately after File");
+    }
     let popup = Menu::new(app.handle()).unwrap();
     append(
         app.handle(),
@@ -448,7 +468,10 @@ fn u3787b_plain_key_commands_register_no_accelerator() {
         .unwrap();
         assert_eq!(plain(built).text().unwrap(), source.label);
         assert_eq!(hint, [(vec![], key.into())]);
-        assert_eq!(sequence_hints(&[source.clone()]), [(source.label, key.into())]);
+        assert_eq!(
+            sequence_hints(std::slice::from_ref(&source)),
+            [(source.label.clone(), key.into())]
+        );
     }
 }
 
