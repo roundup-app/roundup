@@ -44,14 +44,14 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
           const values = { title: 'Release', body: '', done: false, blockers: [], owner: null, priority: null };
           const available = Array.from({length:30}, (_, i) => i + 1);
           const recovered = [...Array.from({length:10}, (_, i) => i - 9), ...[31,32,33,34,35]];
-          let recovered = false;
-          window.__fake.recoverActivity = () => { recovered = true; };
+          let recoveredSource = false;
+          window.__fake.recoverActivity = () => { recoveredSource = true; };
           app.handlers['todo.comments'] = () => {
-            if ('${failed}' === 'comments' && !recovered) { throw new Error('Comments could not load because the connection was lost. Retry to recover comments; your unfinished comment is retained.'); }
+            if ('${failed}' === 'comments' && !recoveredSource) { throw new Error('Comments could not load because the connection was lost. Retry to recover comments; your unfinished comment is retained.'); }
             return ('${failed}' === 'comments' ? recovered : available).map(id => ({ id, created_at: 1700000000000 + id * 1000, read: true, author: {kind:'agent', id:'tokens', parent:null}, body: '::status Verified release ' + id + '\\n  Tests passed and dependencies checked.\\n  日本語 release notes remain available.' }));
           };
           app.handlers['todo.getHistory'] = () => {
-            if ('${failed}' === 'history' && !recovered) { throw new Error('History could not load because the connection was lost. Retry to recover changes; your unfinished comment is retained.'); }
+            if ('${failed}' === 'history' && !recoveredSource) { throw new Error('History could not load because the connection was lost. Retry to recover changes; your unfinished comment is retained.'); }
             return { unread:null, changes: ('${failed}' === 'history' ? recovered : available).map(seq => ({seq, changed_at:1700000000000 + seq * 1000, actor:null, before:values, after:{...values,title:'Release revision ' + seq}})) };
           };
           return true;
