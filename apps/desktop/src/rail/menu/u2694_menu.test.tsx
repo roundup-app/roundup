@@ -313,7 +313,9 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
     } },
     { name: "blocker: only the Todo itself", run: async () => {
       const { app } = await mountTodos([todo(1)]);
-      fireEvent.keyDown(await screen.findByRole("button", { name: /Idle #1 / }), { key: "Enter" });
+      const focusedRow = await screen.findByRole("button", { name: /Idle #1 / });
+      focusedRow.focus();
+      fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
       const trigger = await within(await screen.findByRole("complementary", { name: copy.drawer })).findByRole<HTMLButtonElement>("button", { name: /Blocker/ });
       expect(trigger.disabled).toBe(false);
       expect(trigger.getAttribute("aria-disabled")).toBe("true");
