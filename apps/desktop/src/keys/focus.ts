@@ -96,3 +96,11 @@ export const queueFocus = (move: () => void): void => {
 
   queueMicrotask(() => focus(move));
 };
+
+/** The innermost item region owns history; an unscoped destination has only explicitly handed-off work. */
+export const historyRegion = (focus: Element | null): string => {
+  const region = focus?.closest<HTMLElement>("[data-history-region]")
+    ?? focus?.closest(".drawer")?.querySelector<HTMLElement>("[data-history-region]");
+
+  return region?.dataset.historyRegion ?? "";
+};

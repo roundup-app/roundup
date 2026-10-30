@@ -216,7 +216,7 @@ export const Pads = (props: {
   const isEmpty = createMemo(() => list.loaded() && shown().length === 0);
 
   return (
-    <section aria-label={copy.pads} class="pads-tab">
+    <section data-history-region={shelf ? "shelf" : "pads"} aria-label={copy.pads} class="pads-tab">
       <ScopeAction tab="pads">
         <button
           data-button="add"

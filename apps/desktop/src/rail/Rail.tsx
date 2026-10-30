@@ -726,6 +726,7 @@ export const Rail = () => {
       type="button"
       data-button="quiet"
       data-todo-root
+      data-history-region="rail"
       aria-pressed={rail.selected() === null}
       aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
       data-scrolled={scrolled()}
@@ -748,7 +749,7 @@ export const Rail = () => {
     <Show when={isEmpty()}><EmptyRail onNew={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()} onWorkstream={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⇧⌘N")?.run()} available={canSpawn()} /></Show>
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
-      class="rail-tree"
+      class="rail-tree" data-history-region="rail"
       ref={(element) => {
         setContainer(element);
         element.addEventListener("click", selectClick, true);

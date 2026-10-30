@@ -49,12 +49,52 @@ it("u3787a_rail_feedback_is_immediate_and_conflicts_stay_retryable", async () =>
     await lane.capture("U3787a", `rail-${seed}-before`);
     await lane.evaluate("(() => { const row=document.querySelector('[data-id=\"'+window.__railChosen+'\"] [data-part=branch-control]') ?? document.querySelector('[data-id=\"'+window.__railChosen+'\"]'); row.click(); row.focus(); return true; })()");
     await lane.browser("press", "Meta+Backspace");
-    await lane.until("document.body.textContent.includes('Deleted')");
+    await lane.until("!document.querySelector('[data-id=\"' + window.__railChosen + '\"]')");
     await lane.capture("U3787a", `rail-${seed}-deleted`);
-    await lane.evaluate("(() => { document.activeElement?.blur(); return true; })()");
+    await lane.evaluate("(() => { const rail=document.querySelector('.rail-tree'); rail.tabIndex=-1; rail.focus(); return true; })()");
       await lane.browser("press", "Meta+z");
     await lane.until((seed === "conflict" || seed === "dense-failure") ? "document.body.textContent.includes('The original Home changed')" : "!!document.querySelector('[data-id=\"'+window.__railChosen+'\"]')");
     expect(await lane.calls("rail.restore")).toHaveLength(1);
     await lane.capture("U3787a", `rail-${seed}-${(seed === "conflict" || seed === "dense-failure") ? "conflict" : "restored"}`);
+  }
+}, 180_000);
+
+
+it("u3787a_quiet_deletion_keeps_the_lists_and_drawers_reachable", async () => {
+  for (const id of ["U150", "U459", "U460", "U486", "U3512a"]) {
+    await lane.seedTodos(["Chosen é 🧭 ".repeat(5), "second", "third", "fourth", "fifth"], true, "tree-40");
+    await lane.evaluate(`(() => {
+      const row = document.querySelector('.shelf .todo-row-button');
+      row.focus();
+      return true;
+    })()`);
+
+    if (id === "U150" || id === "U3512a") {
+      await lane.browser("press", "Enter");
+      await lane.until("!!document.querySelector('.todo-detail')");
+      await lane.capture(id, "drawer-before");
+      await lane.browser("click", 'button[aria-label="Delete Todo"]');
+      await lane.until("!document.querySelector('.drawer[data-open=true]')");
+    } else if (id === "U486") {
+      await lane.evaluate(`(async () => {
+        await window.__fake.app.rpc('pad.create', {name:'Chosen Pad é 🧭',text:'retained contents'});
+        [...document.querySelectorAll('.shelf-tab')].find(tab => tab.textContent.includes('Pads')).click();
+        return true;
+      })()`);
+      await lane.until("!![...document.querySelectorAll('.pads-tab .pad-name')].find(row => row.textContent.includes('Chosen Pad'))");
+      await lane.evaluate(`(() => {
+        const row=[...document.querySelectorAll('.pads-tab .pad-name')].find(row => row.textContent.includes('Chosen Pad'));
+        row.focus(); return true;
+      })()`);
+      await lane.capture(id, "pad-before");
+      await lane.browser("press", "d");
+      await lane.until("!document.body.textContent.includes('Chosen Pad')");
+    } else {
+      await lane.capture(id, "list-before");
+      await lane.browser("press", "d");
+      await lane.until("document.querySelectorAll('.shelf .todo-row').length < 5");
+    }
+
+    await lane.capture(id, "deleted-without-feedback");
   }
 }, 180_000);

@@ -37,6 +37,21 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
         1,
     )?;
+    // Keep the standard native editing commands; only history changes with region focus.
+    if let Some(MenuItemKind::Submenu(edit)) = menu.items()?.into_iter().find(|item| {
+        matches!(item, MenuItemKind::Submenu(sub) if sub.text().ok().as_deref() == Some("Edit"))
+    }) {
+        menu.remove(&edit)?;
+    }
+    let edit = Submenu::with_id(app, "edit-menu", "Edit", true)?;
+    menu.append(&edit)?;
+    edit.append(&tauri::menu::PredefinedMenuItem::undo(app, None)?)?;
+    edit.append(&tauri::menu::PredefinedMenuItem::redo(app, None)?)?;
+    edit.append(&tauri::menu::PredefinedMenuItem::separator(app)?)?;
+    edit.append(&tauri::menu::PredefinedMenuItem::cut(app, None)?)?;
+    edit.append(&tauri::menu::PredefinedMenuItem::copy(app, None)?)?;
+    edit.append(&tauri::menu::PredefinedMenuItem::paste(app, None)?)?;
+    edit.append(&tauri::menu::PredefinedMenuItem::select_all(app, None)?)?;
     let project = Submenu::with_id(app, "project-menu", "Project", false)?;
     menu.insert(&project, 1)?;
     Ok(menu)
@@ -53,7 +68,18 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     {
         let enabled = app
             .menu()
-            .and_then(|menu| menu.get("project-menu"))
+            .and_then(|menu| {
+                menu.get(
+                    if matches!(
+                        event.id().0.as_str(),
+                        "action:chord:⌘Z" | "action:chord:⇧⌘Z"
+                    ) {
+                        "edit-menu"
+                    } else {
+                        "project-menu"
+                    },
+                )
+            })
             .and_then(|item| match item {
                 MenuItemKind::Submenu(project) => project.get(event.id().0.as_str()),
                 _ => None,
@@ -102,8 +128,39 @@ pub fn select_project_menu<R: Runtime>(
         project.remove(&item).map_err(internal)?;
     }
     project.set_enabled(path.is_some()).map_err(internal)?;
+    let items = items.unwrap_or_default();
+    if let Some(MenuItemKind::Submenu(edit)) = menu.get("edit-menu") {
+        // Replace only the two history commands, leaving native Cut/Copy/Paste responders intact.
+        for item in edit.items().map_err(internal)?.into_iter().take(2) {
+            edit.remove(&item).map_err(internal)?;
+        }
+        let history: Vec<_> = items
+            .iter()
+            .filter(|item| item.group.as_deref() == Some("edit"))
+            .collect();
+        if history.is_empty() {
+            edit.insert(
+                &tauri::menu::PredefinedMenuItem::undo(&app, None).map_err(internal)?,
+                0,
+            )
+            .map_err(internal)?;
+            edit.insert(
+                &tauri::menu::PredefinedMenuItem::redo(&app, None).map_err(internal)?,
+                1,
+            )
+            .map_err(internal)?;
+        } else {
+            for (index, item) in history.into_iter().enumerate() {
+                let (entry, _) =
+                    project_kind(&app, item, |app, id, label, enabled, accelerator| {
+                        MenuItem::with_id(app, id, label, enabled, accelerator)
+                    })
+                    .map_err(internal)?;
+                edit.insert(&entry, index).map_err(internal)?;
+            }
+        }
+    }
     if path.is_some() {
-        let items = items.unwrap_or_default();
         // Keep native separators between nonempty groups, including when availability changes.
         let mut separated = false;
         let mut hints = Vec::new();
@@ -474,6 +531,73 @@ mod tests {
         assert!(app.menu().unwrap().get("popup-rename").is_none());
         drop(popup);
         assert!(app.menu().unwrap().get("popup-rename").is_none());
+    }
+
+    #[test]
+    fn u3787a_edit_menu_tracks_focused_history() {
+        use std::sync::Arc;
+        use tauri::Listener;
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let app = mock_builder()
+            .manage(ProjectMenu::default())
+            .menu(app_menu)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let observed = Arc::clone(&received);
+        app.listen("open-project-page", move |event| {
+            observed
+                .lock()
+                .unwrap()
+                .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap());
+        });
+        for (label, enabled) in [("Undo Delete Todo", true), ("Undo", false)] {
+            let mut undo = item("action:chord:⌘Z", label, Some("⌘Z"), None);
+            undo.group = Some("edit".into());
+            undo.enabled = enabled;
+            let mut redo = item("action:chord:⇧⌘Z", "Redo", Some("⇧⌘Z"), None);
+            redo.group = Some("edit".into());
+            redo.enabled = false;
+            select_project_menu(
+                app.handle().clone(),
+                Some("/A".into()),
+                Some(vec![undo, redo]),
+            )
+            .unwrap();
+            let MenuItemKind::Submenu(edit) = app.menu().unwrap().get("edit-menu").unwrap() else {
+                panic!("Edit menu")
+            };
+            let undo = plain(edit.get("action:chord:⌘Z").unwrap());
+            assert_eq!(undo.text().unwrap(), label);
+            assert_eq!(undo.is_enabled().unwrap(), enabled);
+            assert!(
+                !plain(edit.get("action:chord:⇧⌘Z").unwrap())
+                    .is_enabled()
+                    .unwrap()
+            );
+            app_chosen(
+                app.handle(),
+                &MenuEvent {
+                    id: "action:chord:⌘Z".into(),
+                },
+            );
+        }
+        assert_eq!(
+            *received.lock().unwrap(),
+            [serde_json::json!({"path":"/A", "command":"action:chord:⌘Z"})]
+        );
+        select_project_menu(app.handle().clone(), Some("/A".into()), None).unwrap();
+        let MenuItemKind::Submenu(edit) = app.menu().unwrap().get("edit-menu").unwrap() else {
+            panic!("Edit menu")
+        };
+        assert!(matches!(
+            edit.items().unwrap()[0],
+            MenuItemKind::Predefined(_)
+        ));
+        assert!(matches!(
+            edit.items().unwrap()[1],
+            MenuItemKind::Predefined(_)
+        ));
     }
 
     #[test]
