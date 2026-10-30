@@ -94,7 +94,6 @@
 {"rule":"vocabulary","identity":"removeProcessLoss","branch":"0","fingerprint":"79917a79aaaeb3c142d68e3cb01944ffa0dcd351855f388afe3e741caa65bfc7"},
 {"rule":"label-length","identity":"nativeRemovalAlertUnavailable","branch":"0","fingerprint":"6ef50ba1c317982618aa5237ab71983e9c88175cab2e836a36ce2db103f9ed1f"},
 {"rule":"duplicate-copy","identity":"leaderShortShelf","branch":"0","fingerprint":"3f8c65be8e28b2f7c5f1fc56d549ba57c853441c6cfbdfa57bd32deaf7e25c52"},
-{"rule":"label-length","identity":"inboxEmpty","branch":"0","fingerprint":"b15c30758393922da7e43bd4cdcae57cf049fef4def914fa35c640c77dab969b"},
 {"rule":"duplicate-copy","identity":"captureLabel","branch":"0","fingerprint":"60dbccdb0fb7fbaacea2ccfca6d3b2bb2603a0c8111097543550acc4607fb4fc"},
 {"rule":"duplicate-copy","identity":"title","branch":"0","fingerprint":"7e8cd2056da73a7fefb6cd91f4e5d199d08d9058c517b9a2476b1b520324d674"},
 {"rule":"duplicate-copy","identity":"copied","branch":"0","fingerprint":"8d525e5f158b9afe05f3122af363ac67763bdc4e1395b46597b320c289766ce3"},
