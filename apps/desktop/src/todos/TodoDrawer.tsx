@@ -112,6 +112,7 @@ export const TodoDrawer = (props: {
     return current && form ? { ...current, title: form.title, body: form.body, done: form.done, blockers: form.blockers.map(Number) } : current;
   };
 
+  let detail: HTMLDivElement | undefined;
   let titleRow: HTMLDivElement | undefined;
 
   const toggle = () => attempt(async () => {
@@ -251,11 +252,15 @@ export const TodoDrawer = (props: {
     setDeleteRefused(0);
     const id = props.id;
     const opening = drawer.content();
+    const focus = captureFocus();
     setDeleting(true);
-    void drafts.todoUndo.remove([id], `todo:${id}`).then(removed => {
+    void drafts.todoUndo.remove([id], `todo:${id}`).then(async removed => {
       if (removed) { setRemovedByMe(true);
+ await props.todos.reload();
 
  if (drawer.content() === opening) {
+   // Readback can remove the focused action; keep the Drawer owning its return.
+   if (document.activeElement === document.body) focus(() => detail?.focus({ preventScroll: true }));
    drawer.close("key");
    queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
  } }
@@ -266,7 +271,7 @@ export const TodoDrawer = (props: {
 
   return (
     <>
-      <div class="todo-detail" data-history-region={`todo:${props.id}`}>
+      <div class="todo-detail" tabIndex={-1} ref={detail} data-history-region={`todo:${props.id}`}>
         <Show when={todo()}>{current => <TodoHeader todo={current()} order={order()} navigate={navigate} remove={remove} deleting={deleting()} fail={setFailure} registerOwner={open => { openOwner = open; }} />}</Show>
         <ReservedLine class="todo-delete-feedback"
           aria-live={drafts.todoUndo.uncertain() ? undefined : "polite"} aria-atomic="true"
