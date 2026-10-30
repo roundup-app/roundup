@@ -193,7 +193,7 @@ async fn u4593_reaction_keeps_resolved_identities() {
         "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Target',0),(2,'agent','Watched',1);",
     )
     .unwrap();
-    let created = tests::ask(&daemon, &json!({"id":1,"method":"reaction.create","params":{"operation":"names","name":"Observe","target":"Target","instruction":"Continue","condition":{"kind":"agents","ids":["Watched"]},"expires_at":"2099-01-01T00:00:00Z"}}).to_string()).await;
+    let created = tests::ask(&daemon, &json!({"id":1,"method":"reaction.create","params":{"operation":"names","name":"Observe","target":"Target","instruction":"Continue","reason":"Wait for the prerequisite.","condition":{"kind":"agents","ids":["Watched"]},"expires_at":"2099-01-01T00:00:00Z"}}).to_string()).await;
     assert!(created.get("error").is_none(), "{created}");
     db.execute_batch("UPDATE nodes SET name='Renamed' WHERE id=1; UPDATE nodes SET name='Also renamed' WHERE id=2; INSERT INTO nodes(id,kind,name,ord) VALUES(3,'agent','Target',2),(4,'agent','Watched',3);").unwrap();
     let read = tests::ask(
