@@ -38,7 +38,7 @@ const open = async (first = false) => {
   daemon.handlers["terminal.resize"] = () => null;
   daemon.handlers["terminal.write"] = () => null;
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Work", home: "home" })] }, () => {}));
-  Object.assign(daemon.handlers, padHandlers({ pads: [{ incarnation: "notes-1", name: "notes", text: draft, owner: { kind: "user", id: "you", parent: null }, updated_at: 0, revision: 1, home: "home" }], history: [] }, () => {}));
+  Object.assign(daemon.handlers, padHandlers({ pads: [{ incarnation: "notes-1", name: "notes", text: draft, updated_at: 0, revision: 1, home: "home" }], history: [] }, () => {}));
   app.of("/other").handlers["rail.tree"] = () => [agent("other-need", "needs-you", "Answer")];
   let connection: ConnectedProject | undefined;
   const emulators = fakeEmulators();

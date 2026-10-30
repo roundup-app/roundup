@@ -2,7 +2,6 @@
 use crate::daemon::Project;
 use contracts::agent::RailNode;
 use contracts::todo::Todo;
-use contracts::{Actor, ActorKind};
 use serde_json::{Value, json};
 
 pub(super) async fn workstream(client: &rpc::Client, name: &str) -> String {
@@ -55,22 +54,11 @@ pub(super) async fn todos(client: &rpc::Client) -> Vec<Todo> {
     serde_json::from_value(client.request("todo.list", json!(null)).await.unwrap()).unwrap()
 }
 
-pub(super) async fn pad_in(client: &rpc::Client, name: &str, home: &str, owner: Option<&str>) {
+pub(super) async fn pad_in(client: &rpc::Client, name: &str, home: &str, _actor: Option<&str>) {
     client
         .request("pad.create", json!({ "name": name }))
         .await
         .unwrap();
-    if let Some(owner) = owner {
-        let owner = Actor {
-            kind: ActorKind::Agent,
-            id: owner.to_owned(),
-            parent: None,
-        };
-        client
-            .request("pad.setOwner", json!({ "name": name, "owner": owner }))
-            .await
-            .unwrap();
-    }
     client
         .request("pad.move", json!({ "name": name, "home": home }))
         .await

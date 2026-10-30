@@ -169,17 +169,22 @@ async fn n20_current_store_opens() {
     let pads = [contracts::pad::Pad {
         incarnation: "1".into(),
         name: "kept".into(),
-        owner: Actor {
-            kind: ActorKind::Agent,
-            id: "child".into(),
-            parent: Some("door".into()),
-        },
         text: "payload".into(),
         updated_at: 42,
         revision: 1,
         home: Some("door".into()),
     }];
     let sources = messages::digest::Sources {
+        touches: vec![contracts::Touch {
+            actor: Actor {
+                kind: ActorKind::Agent,
+                id: "child".into(),
+                parent: None,
+            },
+            verb: contracts::Verb::Wrote,
+            item: "pad:kept".into(),
+            at: 42,
+        }],
         nodes: &nodes,
         todos: &[],
         pads: &pads,
