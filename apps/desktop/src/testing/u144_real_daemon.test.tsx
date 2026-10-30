@@ -21,7 +21,6 @@ import { promisify } from "node:util";
 import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { copy as changesCopy } from "../changes/copy";
 import { WorktreeControl } from "../changes/WorktreeControl";
 import { openFile, saveNote } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
@@ -188,7 +187,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     await openFile("same.ts");
     await saveNote("first exact comment");
     await saveNote("second exact comment");
-    fireEvent.click(screen.getByRole("button", { name: changesCopy.sendNotesTo("First") }));
+    fireEvent.click(screen.getByRole("button", { name: "Send to First" }));
     const messages = async () => (await app.rpc("message.list", { to: first.id, status: null })).filter(message => message.from.kind === "user");
     await waitFor(async () => expect(await messages()).toHaveLength(1), { timeout: 20_000 });
     const accepted = (await messages())[0]!;
