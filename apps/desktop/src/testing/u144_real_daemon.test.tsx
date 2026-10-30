@@ -44,7 +44,8 @@ describe("u2540 inspection and notes on the real Daemon", () => {
   });
 
   beforeAll(async () => {
-    real = await startRealDaemon({});
+    // The fake enables its session/prompt loop with this setting; these observers need no log.
+    real = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: "/dev/null" });
     await git("init", "-b", "main");
     await git("config", "user.name", "Diff observer");
     await git("config", "user.email", "diff@example.test");
