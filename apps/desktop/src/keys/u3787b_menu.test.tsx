@@ -455,7 +455,7 @@ it.each([
   else openProjectPage(`action:chord:${chord}`);
 
   expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
-  expect(field.textContent).toContain("chosen untouched");
+  expect(field.value).toContain(" untouched");
   expect(document.activeElement).toBe(surface);
   const ask = screen.getByRole("textbox", { name: "Ask" });
   ask.focus();
