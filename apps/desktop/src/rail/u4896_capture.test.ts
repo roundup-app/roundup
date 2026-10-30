@@ -9,8 +9,9 @@ import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
 
-// U4896 is a rendered policy observer: geometry is evidence for the critic, never a layout assertion.
-it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", async () => {
+// Rail policy captures provide rendered evidence for the critic, never layout assertions.
+for (const id of ["U4896", "U4898"]) {
+it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async () => {
   const root = resolve("../..");
   const base = mkdtempSync(join(tmpdir(), "u4896-base-"));
   const baseRevision = execFileSync("git", ["rev-parse", "origin/main"], { encoding: "utf8" }).trim();
@@ -40,7 +41,7 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
       };
 
       const wait = (expression: string) => browser("wait", "--fn", expression);
-      const dir = join(captureDir("U4896")!, phase);
+      const dir = join(captureDir(id)!, phase);
       mkdirSync(dir, { recursive: true });
 
       const snap = async (name: string) => {
@@ -76,7 +77,76 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
         await browser("--profile", profile, "--executable-path", "/opt/google/chrome/chrome", "--args", "--no-sandbox", "open", origin);
         await browser("set", "viewport", "1512", "950");
 
-        for (const width of [252, 480]) {
+        for (const width of (id === "U4898" ? [288] : [252, 480])) {
+          if (id === "U4898") {
+            for (const seed of ["agents-10", "tree-40"]) {
+              const prefix = `${theme}-${width}-${seed}`;
+              await browser("set", "media", theme);
+              await browser("open", new URL(`/harness.html?seed=${seed}&view=workstreams`, origin).href);
+              await wait("!!window.__fake && !!document.querySelector('.rail-row')");
+              await read(`document.querySelector('.window').style.setProperty('--rail-width','${width}px')`);
+              await read(`(async () => {
+                const app=window.__fake.app;
+                const nodes=await app.rpc('rail.tree',{});
+                const plain=nodes.find(n=>n.kind==='workstream') ?? await app.rpc('rail.createWorkstream',{name:'Product work',parent:null});
+                const mode=await app.rpc('rail.createWorkstream',{name:'Review changes with a very long name that must truncate',parent:null});
+                await app.rpc('workstream.setOpeningPrompt',{id:mode.id,prompt:'Review changes'});
+                const agents=nodes.filter(n=>n.kind==='agent');
+                for (const [index,agent] of agents.slice(0,3).entries()) await app.rpc('rail.move',{id:agent.id,parent:index<2?plain.id:mode.id,index});
+                return true;
+              })()`);
+              await wait("document.querySelectorAll('.rail-tree .section-head').length===3");
+              await browser("mouse", "move", "1400", "900");
+              await snap(`${prefix}-rest`);
+
+              const neighbours = await read(`(() => {
+                const rows=[...document.querySelectorAll('.rail-row')];
+                const states=new Set();
+                const selected=rows.filter(row=>{const state=row.querySelector('.row-state .glyph')?.getAttribute('aria-label'); if(!state||states.has(state))return false; states.add(state); return true;});
+                const owned=rows.find(row=>row.querySelector('.rail-pads-control'));
+                return [...new Set([...selected, ...(owned?[owned]:[])])].map(row=>'.rail-row[data-id="'+row.dataset.id+'"]').concat(document.querySelector('.rail-section[aria-label="AGENTS"] .rail-fold') ? ['.rail-section[aria-label="AGENTS"] .rail-fold'] : []);
+              })()`);
+
+              for (const [index, selector] of ['.rail-section[aria-label="WORKSTREAMS"] .section-head', '.rail-section[aria-label="MODES"] .section-head', '.rail-section[aria-label="AGENTS"] .section-head', '.rail-row:has(.mode-mark)', '.rail-actions', ...neighbours].entries()) {
+                await browser("hover", selector);
+                await browser("screenshot", selector, join(dir, `${prefix}-contact-${index}.png`));
+              }
+
+              const mode = '.rail-row:has(.mode-mark)';
+              await browser("click", `${mode} .name`);
+              await browser("mouse", "move", "1400", "900");
+              await browser("focus", ".rail-tree .section-head");
+              await snap(`${prefix}-selected-mode`);
+              await browser("hover", mode);
+              await snap(`${prefix}-hover`);
+              await browser("mouse", "move", "1400", "900");
+              await browser("focus", mode);
+              await snap(`${prefix}-focus`);
+
+              for (const label of ["MODES", "AGENTS"]) {
+                const head = `.rail-section[aria-label="${label}"] .section-head`;
+                await browser("focus", head);
+                await browser("press", "ArrowLeft");
+                await wait("document.activeElement.getAttribute('aria-expanded')==='false'");
+                await snap(`${prefix}-${label}-folded`);
+                await browser("press", "ArrowRight");
+                await wait("document.activeElement.getAttribute('aria-expanded')==='true'");
+                await snap(`${prefix}-${label}-reopened`);
+              }
+
+              await read("window.__fake.failNext(-32003, 'Workstream could not be created. Try again.')");
+              await browser("click", ".rail-actions button");
+              await wait("[...document.querySelectorAll('[role=alert]')].some(el=>el.textContent.includes('Workstream could not be created'))");
+              await snap(`${prefix}-failure`);
+              const before = await read("window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length");
+              await browser("click", ".rail-actions button");
+              await wait(`window.__fake.app.calls.filter(c=>c.method==='rail.createWorkstream').length>${before}`);
+              await snap(`${prefix}-recovered`);
+            }
+
+            continue;
+          }
+
           const prefix = `${theme}-${width}`;
           await browser("set", "media", "color-scheme", theme);
           await load(width);
@@ -218,3 +288,5 @@ it.skipIf(!captureDir("U4896"))("u4896_capture_sections_and_keyboard_actions", a
     await Promise.all(servers.map(server => server.close()));
   } finally { rmSync(base, { recursive:true, force:true }); }
 }, 300_000);
+
+}
