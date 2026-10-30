@@ -153,6 +153,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Chip | same | — |
 | Live line | same | — |
 
+**Glyph.** The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ⊖ ◔ ○ ✓`.
+
 ### Agents at work
 
 | Code term | User label | Avoid |
@@ -262,6 +264,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
+| Todo deletion redo (`RedoParams`, `todo.redo`, `Deletion.restoration`) | Redo | — |
 | History (`History`) | same | — |
 | Get History (`todo.getHistory`) | same | — |
 | Values (`Values`) | same | — |

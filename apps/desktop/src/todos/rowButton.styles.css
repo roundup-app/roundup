@@ -494,14 +494,12 @@
   padding-inline-start: calc(var(--space-2) + var(--todo-depth) * var(--tree-step));
 }
 
-/* U361: one quiet cue for combined interaction states, without a row wash. */
+/* Todo names keep their existing ink tones inside the shared row paint. */
 .shelf-row.todo-row {
-  background-image: none;
   color: var(--grey);
 }
 .shelf-row.todo-row:is(:focus-within, [data-pressed="true"]):not([data-selected="true"]) {
   color: var(--text);
-  background-image: none;
 }
 .todo-row .todo-row-button {
   color: inherit;
@@ -514,11 +512,8 @@
 .todo-row .todo-open { position: relative; z-index: 1; flex: none; }
 .todo-open svg { width: var(--space-4); height: var(--space-4); }
 
-/* Selection remains visible while the pointer visits another row. */
-.shelf-row.todo-row[data-selected="true"] {
-  background-image: linear-gradient(var(--selected), var(--selected));
-}
 .todo-open:focus-visible { color: var(--text); }
 
 /* Leave room beyond the trailing grip for sideways pointer nesting. */
-.todo-list { padding-inline-end: var(--space-6); }
+.todo-list,
+.todo-create { padding-inline-end: var(--space-6); }
