@@ -11,10 +11,10 @@ it("u371_escape_closes_the_drawer_before_the_shelf", async () => {
   await browser("wait", ".drawer[data-open=true]");
   await settle();
   await browser("press", "Meta+k");
-  await browser("press", "s");
+  await browser("press", "b");
   await settle();
   await browser("press", "Meta+k");
-  await browser("press", "s");
+  await browser("press", "b");
   await settle();
   await browser("press", "Escape");
   await settle();

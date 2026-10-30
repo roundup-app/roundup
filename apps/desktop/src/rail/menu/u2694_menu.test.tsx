@@ -177,13 +177,14 @@ it("u3515a_send_offers_other_project_receivers_in_rail_order", async () => {
 it("u3515a_source_identity_follows_the_object_not_selection", async () => {
   for (const kind of ["shell", "run", "publication"]) {
     if (kind === "publication") {
-      const { app } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+      const { app, connected } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
       app.handlers["deliverable.list"] = () => [{
         id: "publication", project: "p", maker: { kind: "agent", id: "a", parent: null }, maker_name: "a", home: null,
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
       window.dispatchEvent(new Event("focus"));
+      connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
       fireEvent.contextMenu(await within(made).findByRole("listitem"));
       expect(entry(app, copy.sendToAgentMenu).children?.map(child => child.id)).toEqual(["send:a"]);
@@ -257,13 +258,14 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Published output: no eligible receiver", run: async () => {
-      const { app } = await mountAskBar([], null, []);
+      const { app, connected } = await mountAskBar([], null, []);
       app.handlers["deliverable.list"] = () => [{
         id: "publication", project: "p", maker: USER, maker_name: "Me", home: null,
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
       window.dispatchEvent(new Event("focus"));
+      connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
       fireEvent.contextMenu(await within(made).findByRole("listitem"));
       expect(app.menuLabels()).not.toContain(copy.sendToAgentMenu);
@@ -485,13 +487,14 @@ it.each([
     expected: [["send", "4"], ["copy-link", "4"]],
     receivers: ["a"],
     mount: async () => {
-      const { app } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+      const { app, connected } = await mountAskBar([], null, [agent("a", "idle", "ready")]);
       app.handlers["deliverable.list"] = () => [{
         id: "publication", project: "p", maker: USER, maker_name: "Me", home: null,
         title: "Result", published_at: 1792713600000,
         target: { kind: "external", url: "https://example.com/result", availability: "not-checked" },
       }];
       window.dispatchEvent(new Event("focus"));
+      connected.showView("made");
       const made = await screen.findByRole("region", { name: copy.deliverables });
 
       return { app, target: await within(made).findByRole("listitem") };

@@ -51,7 +51,7 @@ const overview = async () => {
 
   if (!await read("!!document.querySelector('#shelf-tab-todos')")) {
     await browser("press", "Meta+k");
-    await browser("press", "s");
+    await browser("press", "b");
     await wait("document.querySelector('#shelf-tab-todos')");
   }
 
