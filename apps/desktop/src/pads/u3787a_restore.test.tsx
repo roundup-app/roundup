@@ -79,21 +79,21 @@ it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_ex
     const pad = await app.rpc("pad.create", { name: `redo-${kind}`, text: "original é 🧭" });
     const node = await app.rpc("rail.createWorkstream", { name: `redo-${kind}`, parent: null });
 
-    if (kind === "todos") await undo.remove([chosen.id, arrival.id + 1]);
-    else if (kind === "pads") await undo.removePads([pad]);
-    else await undo.removeRail(node.id, node.name);
+    if (kind === "todos") await undo.remove([chosen.id, arrival.id + 1], kind);
+    else if (kind === "pads") await undo.removePads([pad], kind);
+    else await undo.removeRail(node.id, node.name, kind);
 
-    await undo.undo();
+    await undo.undo(kind);
     const late = await app.rpc("todo.create", { title: `late ${kind}`, body: null, blockers: null });
 
     if (kind === "todos") expect(late.id).toBe(arrival.id + 1);
     // Redo consumes an acknowledged restoration, and another Undo consumes the new receipt.
-    await undo.redo();
+    await undo.redo(kind);
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(kind !== "todos");
     expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(kind !== "pads");
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(kind !== "rail");
     expect((await app.rpc("todo.list", null)).filter(row => [arrival.id, late.id].includes(row.id)).map(row => row.id)).toEqual([arrival.id, late.id]);
-    await undo.undo();
+    await undo.undo(kind);
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(true);
     expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(true);
@@ -233,7 +233,7 @@ it("u3787a_region_history_retains_order_and_clears_only_its_redo", async () => {
     const second = await app.rpc("todo.create", { title: "second regional Todo", body: null, blockers: null });
     const third = await app.rpc("todo.create", { title: "new regional branch", body: null, blockers: null });
     const pad = await app.rpc("pad.create", { name: "regional-pad", text: "keep this exact incarnation" });
-    await undo.remove([first.id], "todos");
+    await undo.removeTodos([first.id], "todos");
     await undo.removePads([pad], "pads");
     await undo.remove([second.id], "todos");
     await undo.undo("todos");
@@ -265,5 +265,101 @@ it("u3787a_empty_region_does_not_use_another_history", async () => {
     expect(undo.redoAvailable("pads")).toBe(false);
     await undo.redo("pads");
     expect((await app.rpc("todo.list", null)).some(row => row.id === todo.id)).toBe(true);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
+
+it("u3787a_unknown_delete_keeps_its_region_on_reconciliation", async () => {
+  const app = createServedApp(real.base);
+  const connected = await connectProject(app, { name: "regional retry", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+
+  const bridge: AppSeam = { ...app, rpc: async (method, params) => {
+    if (method === "todo.deletion") throw new Error("receipt unavailable");
+    const result = await app.rpc(method, params);
+
+    if (method === "todo.delete") throw new Error("acknowledgement lost");
+
+    return result;
+  } };
+
+  try {
+    const todo = await app.rpc("todo.create", { title: "regional unknown", body: null, blockers: null });
+    undo.reconnect(bridge);
+    await undo.remove([todo.id], `todo:${todo.id}`);
+    expect(undo.uncertain()).toBe(true);
+    undo.reconnect(app);
+    await undo.retryDelete();
+    expect(undo.available(`todo:${todo.id}`)).toBe(true);
+    expect(undo.available("todos")).toBe(false);
+    await undo.undo(`todo:${todo.id}`);
+    expect((await app.rpc("todo.list", null)).find(row => row.id === todo.id)).toEqual(todo);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
+
+it.each(["todos", "pads"] as const)("u3787a_drawer_handoff_shares_one_operation_without_duplicate_restore_%s", async kind => {
+  const app = createServedApp(real.base);
+  const connected = await connectProject(app, { name: "handoff", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+  let restores = 0;
+
+  const bridge: AppSeam = { ...app, rpc: (method, params) => {
+    if (method === (kind === "todos" ? "todo.restore" : "pad.restore")) restores++;
+
+    return app.rpc(method, params);
+  } };
+
+  try {
+    undo.reconnect(bridge);
+    const todo = await app.rpc("todo.create", { title: "drawer handoff", body: null, blockers: null });
+    const pad = await app.rpc("pad.create", { name: `handoff-${kind}`, text: "drawer source" });
+    const region = kind === "todos" ? `todo:${todo.id}` : `pad:${pad.incarnation}`;
+
+    if (kind === "todos") await undo.remove([todo.id], region);
+    else await undo.removePads([pad], region);
+    undo.handoff(region, "todos");
+    undo.handoff(region, "todos");
+    await undo.undo("todos");
+    await undo.undo(region);
+    expect(restores).toBe(1);
+
+    if (kind === "todos") expect((await app.rpc("todo.list", null)).find(row => row.id === todo.id)).toEqual(todo);
+    else expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
+    await undo.redo(region);
+
+    if (kind === "todos") expect((await app.rpc("todo.list", null)).some(row => row.id === todo.id)).toBe(false);
+    else expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(false);
+    await undo.undo("todos");
+    expect(restores).toBe(2);
+    expect(undo.available(region)).toBe(false);
+    expect(undo.available("todos")).toBe(false);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
+
+it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destination_branch_%s", async kind => {
+  const app = createServedApp(real.base);
+  const connected = await connectProject(app, { name: "handoff branch", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+
+  try {
+    const todo = await app.rpc("todo.create", { title: "source branch", body: null, blockers: null });
+    const next = await app.rpc("todo.create", { title: "destination branch", body: null, blockers: null });
+    const pad = await app.rpc("pad.create", { name: `handoff-branch-${kind}`, text: "original" });
+    const region = kind === "todos" ? `todo:${todo.id}` : `pad:${pad.incarnation}`;
+
+    if (kind === "todos") await undo.remove([todo.id], region);
+    else await undo.removePads([pad], region);
+    undo.handoff(region, "shelf");
+    await undo.undo("shelf");
+    await undo.remove([next.id], "shelf");
+    expect(undo.redoAvailable("shelf")).toBe(false);
+    expect(undo.redoAvailable(region)).toBe(true);
+    await undo.redo(region);
+    await undo.undo("shelf");
+    expect((await app.rpc("todo.list", null)).some(row => row.id === next.id)).toBe(true);
+
+    if (kind === "todos") expect((await app.rpc("todo.list", null)).some(row => row.id === todo.id)).toBe(false);
+    else expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(false);
+    expect(undo.available(region)).toBe(true);
+    expect(undo.available("shelf")).toBe(false);
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
