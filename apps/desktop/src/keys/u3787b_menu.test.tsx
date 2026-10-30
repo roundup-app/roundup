@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { showEverythingInApp } from "../testing/showEverything";
-import { info, USER } from "../testing/nodes";
+import { agent, info, USER, workstream } from "../testing/nodes";
 import { padHandlers } from "../testing/stores";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
@@ -334,8 +334,17 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Rename from 
 });
 
 
+const creationScope = async () => {
+  const fixture = await mountNavigation(true, 0);
+  fixture.nodes.push(workstream("home"), agent("a1", "idle", "ready", { parent: "home" }), agent("a2", "idle", "ready", { parent: "home" }));
+  fixture.daemon.emit({ actor: USER, name: "rail.changed" });
+  await waitFor(() => expect(fixture.connected().rail.nodes).toHaveLength(3));
+
+  return fixture;
+};
+
 it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s retains its scope", async source => {
-  const { connected, daemon } = await mountNavigation(false, 0);
+  const { connected, daemon } = await creationScope();
   await showEverythingInApp();
   connected().rail.select("a1");
   const list = document.querySelector<HTMLElement>(".todos-tab")!;
@@ -364,7 +373,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s
 
 
 it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed scope", async () => {
-  const { connected, daemon } = await mountNavigation(false, 0);
+  const { connected, daemon } = await creationScope();
   await showEverythingInApp();
   const list = document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
   list.focus();
@@ -374,6 +383,7 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
   captured.run();
   openProjectPage("action:chord:N");
-  expect(screen.queryByRole("textbox", { name: "New Todo title" })).toBeNull();
+  expect(captured.available()).toBe(false);
+  expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2");
   expect(daemon.calls.filter(call => call.method === "todo.create" || call.method === "terminal.write")).toEqual([]);
 });
