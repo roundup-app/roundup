@@ -134,6 +134,7 @@ it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
     for (let offset = 8192; offset < 20_000; offset += 1024) {
       app.emitOutput("t-flood", "x".repeat(Math.min(1024, 20_000 - offset)));
     }
+
     await vi.advanceTimersByTimeAsync(200);
     const sizes = made.get("t-flood")!.written.map(bytes => bytes.length);
 

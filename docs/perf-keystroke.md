@@ -288,3 +288,14 @@ no native App. No native latency improvement is claimed. After merge, one
 `ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood` on the owner's Mac decides
 whether all three runs have p95 < 16 ms and zero dropped keys; retain its complete
 reports even on failure. R20/R21 and #3550 remain open until full acceptance holds.
+
+Coalescing observer cleanup (rule 10):
+`u34_output_is_handed_to_the_selected_terminals_emulator_in_order_and_none_is_sent_for_another`
+is removed; `u11_only_the_selected_terminal_is_sent_output_and_it_reaches_its_emulator_in_order`
+proves that same clause with ordered bytes independent of write boundaries.
+`u34_the_real_emulator_is_constructed_with_a_bound_of_10_000_lines` and
+`u34_the_factory_builds_its_real_emulator_with_xtermOptions` are replaced by
+`u34_the_real_emulator_retains_only_10_000_scrollback_lines`, which writes past
+the cap through a real factory-created emulator instead of copying config values.
+U11's refused-subscription observer keeps its one semantic alert assertion;
+its paragraph-tag and icon-shape assertions are retired as appearance checks.

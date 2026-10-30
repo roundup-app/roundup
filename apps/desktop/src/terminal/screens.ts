@@ -316,7 +316,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         combined.set(bytes);
 
         while (length < combined.length) {
-          const next = stream.queue[0];
+          const next: Stream["queue"][number] | undefined = stream.queue[0];
 
           if (!next || next.offset !== stream.after) break;
 
