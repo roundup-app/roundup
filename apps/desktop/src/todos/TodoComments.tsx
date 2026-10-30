@@ -89,16 +89,17 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
     all.sort(compare);
 
-    if (!initialized && commentsLoaded() && history.changes() !== undefined) {
-      cutoff = all.length > 20 ? all[all.length - 21] : undefined;
+    if (!initialized && all.length > 0 && (commentsLoaded() || failure() !== null) && (history.changes() !== undefined || history.failed())) {
+      // Anchor the oldest exposed entry: recovery may insert entries on either side.
+      cutoff = all.length > 20 ? all[all.length - 20] : undefined;
       initialized = true;
     }
 
     return all.map(entry => previous?.find(prior => prior.key === entry.key) ?? entry);
   });
 
-  const older = createMemo(() => entries().filter(entry => cutoff && compare(entry, cutoff) <= 0));
-  const recent = createMemo(() => entries().filter(entry => !cutoff || compare(entry, cutoff) > 0));
+  const older = createMemo(() => entries().filter(entry => cutoff && compare(entry, cutoff) < 0));
+  const recent = createMemo(() => entries().filter(entry => !cutoff || compare(entry, cutoff) >= 0));
   const [sending, setSending] = createSignal(false);
   // U3776: the comments shown once the Drawer has read them; later arrivals are announced once.
   const [announcement, setAnnouncement] = createSignal("");
@@ -195,7 +196,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   return <section class="todo-comments" aria-label={copy.activity}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
     {history.feedback}
-    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
+    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
     <Collapsible.Root lazyMount open={expanded()} onOpenChange={details => setExpanded(details.open)}>
       <Show when={older().length > 0}><Collapsible.Trigger data-button="quiet" class="word todo-older">{copy.olderActivity(older().length)}</Collapsible.Trigger></Show>
       <Collapsible.Content class="todo-activity-entries"><For each={older()}>{renderEntry}</For></Collapsible.Content>
