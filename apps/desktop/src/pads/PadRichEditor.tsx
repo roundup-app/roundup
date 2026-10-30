@@ -165,6 +165,7 @@ export default function PadRichEditor(props: {
             view: () => ({
               update: (view, previous) => {
                 if (view.state !== previous) setCommandState(now => now + 1);
+
                 if (!applying && !closed && !view.state.doc.eq(previous.doc)) {
                   restored = null;
                   props.onChange();
