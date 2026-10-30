@@ -413,7 +413,7 @@ export const copy = {
   help: "Help",
   helpScope: { app: "App", leader: "Leader", terminals: "Agent Terminal or Bubble", rail: "Rail row", shelf: "Bench", todos: "Todos view", triage: "Triage" },
   helpBubbleScope: { M: "Minimise or restore focused Bubble", W: "Close focused Bubble" },
-  helpRowScope: { O: "Assign focused open Todo or Pad", D: "Delete focused Todo or Pad", E: "Export focused Pad" },
+  helpRowScope: { O: "Assign", D: "Delete focused Todo or Pad", E: "Export focused Pad" },
   closeShelf: "Close the Bench", openShelf: "Open the Bench",
   maximise: "Maximise",
   restore: "Restore",
