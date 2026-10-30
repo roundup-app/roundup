@@ -107,7 +107,7 @@ export function createTodoUndo() {
     if (padPending().length) return padPending().map(pad => pad.name).join(", ");
     const ids = uncertain();
 
-    return ids ? `Deleting ${ids.map(id => `#${id}`).join(", ")}` : "";
+    return ids ? copy.deleting(ids.map(id => `#${id}`).join(", ")) : "";
   };
 
   /** U5170a: what blocks a delete, undo or redo, and what to do; set on the failure line so no gate returns silently. */

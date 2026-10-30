@@ -3,7 +3,9 @@ import { createRoot } from "solid-js";
 import type { AppSeam } from "../../app/seam";
 import { createTodoUndo } from "../../todos/deleteTodos";
 
-type Call = [string, unknown];
+type CallParams = Record<string, unknown>;
+
+type Call = [string, CallParams];
 
 /** A todoUndo on a stub App: `lose` makes rail.remove's acknowledgement vanish; `hold` leaves it unanswered. */
 const harness = (initial: "idle" | "lose" | "hold" | "offline") => {
@@ -11,8 +13,9 @@ const harness = (initial: "idle" | "lose" | "hold" | "offline") => {
   const calls: Call[] = [];
   let release: () => void = () => undefined;
 
+  // SAFETY: the todoUndo under test calls only `rpc`; every other App member is unreached here.
   const app = {
-    rpc: (method: string, params: unknown) => {
+    rpc: (method: string, params: CallParams) => {
       calls.push([method, params]);
 
       if (method === "daemon.ping") return Promise.resolve({ projectKey: "p" });
@@ -65,7 +68,7 @@ it("u5170b_retry_or_dismiss_unblocks_remove", async () => {
   expect(undo.feedbackFailure()).toContain("First");
   undo.dismiss();
   expect(undo.uncertain()).toBe(false);
-  expect(undo.feedbackFailure()).toContain("stays unconfirmed");
+  expect(undo.feedbackFailure()).toContain("is still unconfirmed");
   const before = removes();
   await undo.removeRail("b", "Second", "rail");
   expect(removes()).toBe(before + 1);
