@@ -401,3 +401,9 @@
 .ProseMirror a:hover {
   color: var(--text);
 }
+
+/* A scroll container clips Crepe's inline heading menu; opening it releases
+   overflow so the existing library options remain reachable. */
+.milkdown .top-bar-inner:has(.top-bar-heading-dropdown) {
+  overflow: visible;
+}
