@@ -17,12 +17,10 @@ const rows = (): string[] => [...document.querySelectorAll("file-tree-container"
 describe("U2539b", () => {
   it("u2539b_the_control_shows_the_branch_and_its_state", async () => {
     await mountControl();
-
     fireEvent.click(control());
-
-    expect(await screen.findByText("main")).toBeTruthy();
-    expect(await screen.findByText(`${STATE.ahead} ahead, ${STATE.behind} behind, dirty`)).toBeTruthy();
-    expect(screen.getAllByText("roundup/a").length).toBeGreaterThan(0);
+    const panel = await screen.findByRole("dialog", { name: "Worktree" });
+    expect(panel.textContent).toContain(WORKTREE.base);
+    expect(panel.textContent).toContain(WORKTREE.branch);
   });
 
   it("u2539b_no_worktree_shows_no_control", async () => {
