@@ -58,6 +58,8 @@ const drag = async (from: Point, to: Point, release = true) => {
   if (release) await page.pointer("up", to.x, to.y);
 };
 
+const treeStep = () => page.call<number>(`() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tree-step'))`);
+
 const settled = () => page.until(`() => !document.querySelector("[data-dnd-dragging], [data-dnd-placeholder]")`);
 
 run("u3710 dragging sideways sets depth and dragging vertically sets order", () => {
@@ -83,7 +85,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
 
     if (input === "pointer") {
       const second = await centre(1);
-      await drag(second, { x: second.x + 30, y: second.y });
+      await drag(second, { x: second.x + await treeStep(), y: second.y });
     } else {
       await page.call(`id => document.querySelector('[data-todo="' + id + '"] .sortable-handle').focus()`, moved);
       await page.press(" ", "Space");
@@ -97,18 +99,30 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(await page.call<number>(`() => document.activeElement.matches('.sortable-handle') ? Number(document.activeElement.closest('[data-todo]').dataset.todo) : null`)).toBe(moved);
   });
 
-  it("u3710_a_sideways_drag_calls_set_blockers_and_a_vertical_one_calls_reorder", async () => {
+  it("u4710b_u3710_a_sideways_drag_calls_set_blockers_and_a_vertical_one_calls_reorder", async () => {
     await setup();
 
     const order = await ids();
+
+    const extra = await page.call<number>(`async order => {
+      const rpc = window.__fake.app.rpc;
+      const extra = await rpc('todo.create', {title:'Other blocker',body:null,blockers:null,owner:{kind:'agent',id:'tokens',parent:null}});
+      await rpc('todo.setBlockers', {id:order[1],blockers:[extra.id]});
+      window.__retainedId = order[1];
+      window.__mark = window.__fake.app.calls.length;
+      return extra.id;
+    }`, order);
+
+    await page.until(`() => document.querySelector('.shelf [data-todo="' + window.__retainedId + '"] .todo-row-button').getAttribute('aria-label').toLowerCase().includes('blocked')`);
+    // A new owner group slides this row; its animation must finish before measuring the grip.
+    await page.call(`async () => { await Promise.all(document.querySelector('.shelf [data-todo="' + window.__retainedId + '"]').getAnimations().map(animation => animation.finished)); }`);
     const second = await centre(1);
 
-    await drag(second, { x: second.x + 30, y: second.y });
+    await drag(second, { x: second.x + await treeStep(), y: second.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
     expect((await calls()).map((c) => c.method)).toEqual(["todo.setBlockers"]);
-    expect((await calls())[0]!.params).toMatchObject({ id: order[1] });
-    expect((await calls())[0]!.params.blockers?.[0]).toBe(order[0]);
+    expect((await calls())[0]!.params).toEqual({id:order[1],blockers:[order[0],extra]});
 
     await setup();
     const last = await centre(order.length - 1);
@@ -120,14 +134,14 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(await calls()).toEqual([{ method: "todo.reorder", params: { id: order[order.length - 1], before: order[0] } }]);
   }, 60_000);
 
-  it("u3710_a_drag_that_changes_both_sets_blockers_then_reorders", async () => {
+  it("u4710b_u3710_a_drag_that_changes_both_sets_blockers_then_reorders", async () => {
     await setup();
 
     const order = await ids();
     const last = await centre(order.length - 1);
     const second = await centre(1);
 
-    await drag(last, { x: second.x + 30, y: second.y });
+    await drag(last, { x: second.x + await treeStep(), y: second.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.reorder')`);
     await settled();
 
@@ -138,23 +152,21 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(made[1]!.params).toEqual({ id: order[order.length - 1], before: order[1] });
   }, 60_000);
 
-  it("u3710_depth_is_bounded_by_the_row_above", async () => {
+  it("u4710b_u3710_depth_is_bounded_by_the_row_above", async () => {
     await setup();
 
     const order = await ids();
     const first = await centre(0);
-    // Empty owner targets can add a scrollbar during the drag; leave room for it inside the list.
-    const right = await page.call<number>(`rows => document.querySelector(rows).closest('.todo-list').getBoundingClientRect().right - 1`, rows);
 
-    // The first row has no row above: far right inside the list changes nothing.
-    await drag(first, { x: Math.min(first.x + 200, right), y: first.y });
+    // The first gap cannot gain a parent, even beyond the inline edge.
+    await drag(first, { x: first.x + 8 * await treeStep(), y: first.y });
     await settled();
     expect(await calls()).toEqual([]);
 
     // The second row goes one level under the first, however far right the pointer is.
     const second = await centre(1);
 
-    await drag(second, { x: Math.min(second.x + 300, right), y: second.y });
+    await drag(second, { x: second.x + 8 * await treeStep(), y: second.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
 
@@ -164,7 +176,28 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(made[0]!.params.blockers?.[0]).toBe(order[0]);
   }, 60_000);
 
-  it("u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
+  it.each([1512, 1280])("u4710b_nearest_step_and_unnest_use_distance_at_%s", async width => {
+    for (const fraction of [0.49, 0.51, -1]) {
+      await setup();
+      await page.resize(width, width === 1280 ? 820 : 950);
+      const order = await ids();
+
+      if (fraction < 0) {
+        await page.call(`async order => {
+          await window.__fake.app.rpc('todo.setBlockers', {id:order[1],blockers:[order[0]]});
+          window.__mark = window.__fake.app.calls.length;
+        }`, order);
+        await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
+      }
+
+      const from = await centre(1);
+      await drag(from, {x: from.x + fraction * await treeStep(), y: from.y});
+      await settled();
+      expect(await calls()).toEqual(fraction === 0.49 ? [] : [{method: "todo.setBlockers", params: {id: order[1], blockers: fraction < 0 ? [] : [order[0]]}}]);
+    }
+  }, 60_000);
+
+  it("u4710b_u3710_a_pointer_can_nest_two_levels_from_the_trailing_grip", async () => {
     await setup();
     const order = await ids();
     await page.call(`async order => {
@@ -172,8 +205,9 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
       window.__mark = window.__fake.app.calls.length;
     }`, order);
     await page.until(`() => Boolean(document.querySelector('.shelf .todo-list [aria-level="2"]'))`);
-    const third = await centre(2);
-    await drag(third, { x: third.x + 48, y: third.y });
+    // The grip can sit at the inline edge; the library still identifies this list.
+    const edge = await centre(2);
+    await drag(edge, { x: edge.x + 2 * await treeStep(), y: edge.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
     expect(await calls()).toEqual([{ method: "todo.setBlockers", params: { id: order[2], blockers: [order[1]] } }]);
@@ -212,8 +246,8 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
 
     // First project a different order inside the list, then release outside it.
     await drag(last, { x: last.x, y: first.y }, false);
-    await page.pointer("move", 900, first.y);
-    await page.pointer("up", 900, first.y);
+    await page.pointer("move", 900, 10);
+    await page.pointer("up", 900, 10);
     await settled();
     expect(await calls()).toEqual([]);
   }, 60_000);
