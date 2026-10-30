@@ -176,8 +176,8 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
     },
   }]);
 
-  const agentRow = (key: string) => <Show when={byKey().get(key)}>{(row) =>
-    <InboxRow row={row()} open={openKey() === key} toggle={() => toggle(key)} actions={actions} selected={content.selection.isSelected(key)} head={(element) => head(key, element)} />}</Show>;
+  const agentRow = (id: string) => <Show when={byKey().get("a:" + id)}>{(row) =>
+    <InboxRow row={row()} open={openKey() === row().key} toggle={() => toggle(row().key)} actions={actions} selected={content.selection.isSelected(row().key)} head={(element) => head(row().key, element)} />}</Show>;
 
   const commentRow = (row: UnreadComment) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id} data-overview-item={`c:${row.comment.id}`}
     ref={element => head(`c:${row.comment.id}`, element)} data-selected={content.selection.isSelected(`c:${row.comment.id}`)}
@@ -187,14 +187,12 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   </button></li>;
 
   return <section class="inbox" aria-label={copy.needsYou} ref={root} tabindex={-1} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
-    <div class="inbox-title"><span class="inbox-count" data-state="attention" aria-live="polite" aria-atomic="true">{needsCount()}</span>
-      <Show when={selectedText() !== ""}><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></Show>
-    </div>
-    <ReservedLine message={copyFailure() ?? failure()}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
+    <Show when={selectedText() !== ""}><div class="inbox-title"><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></div></Show>
+    <Show when={copyFailure() ?? failure()}><ReservedLine message={copyFailure() ?? failure()}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine></Show>
     <Show when={loaded() && needsCount() === 0 && !failure() && !copyFailure()}><p class="overview-quiet">{copy.inboxEmpty}</p></Show>
     <For each={groups().map(group => group.id)}>{id => <div class="inbox-group" data-agent={id}>
       <ul class="inbox-list">
-        {agentRow(`a:${id}`)}
+        {agentRow(id)}
         <For each={groups().find(group => group.id === id)?.comments ?? []}>{commentRow}</For>
       </ul>
     </div>}</For>
