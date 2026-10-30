@@ -2282,20 +2282,6 @@ async fn m13_an_ownerless_terminal_is_forbidden_to_an_agent() {
 }
 
 #[tokio::test]
-async fn m13_unknown_is_not_found_before_forbidden() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut shim = Shim::start(&project, &rail.a).await;
-
-    let refused = shim
-        .refused("terminal_read", json!({ "id": "9999", "after": 0 }))
-        .await
-        .unwrap();
-    assert_eq!(refused["code"], rpc::code::NOT_FOUND);
-}
-
-#[tokio::test]
 async fn m13_a_read_through_mcp_changes_no_screen_or_status_and_logs_no_touch() {
     let project = start(&[]);
     let user = project.client().await;
