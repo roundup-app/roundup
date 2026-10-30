@@ -499,7 +499,6 @@ async fn m3_stdout_carries_only_protocol_messages_after_the_daemon_goes() {
         &json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": { "name": "todo_list" } }),
     )
     .await;
-
     loop {
         let line = tokio::time::timeout(BOUND, stdout.next_line())
             .await
