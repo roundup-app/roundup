@@ -175,7 +175,17 @@ pub(crate) fn text(nodes: &[RailNode], context: &Context) -> String {
     let door = nodes
         .iter()
         .any(|node| node.id == context.ask.to && node.kind == NodeKind::Workstream);
-    words(context, door)
+    let mut text = words(context, door);
+    let mut parent = context.parent.as_ref().map(|parent| parent.id.as_str());
+    while let Some(node) = parent.and_then(|id| nodes.iter().find(|node| node.id == id)) {
+        if node.kind == NodeKind::Workstream {
+            text.push_str(&format!("\n\nWorkstream: {}.\n\n", node.name));
+            text.push_str(agents::claude_code::WORKSTREAM_GUIDANCE);
+            break;
+        }
+        parent = node.parent.as_deref();
+    }
+    text
 }
 
 #[cfg(test)]
