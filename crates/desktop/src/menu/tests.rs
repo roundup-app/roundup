@@ -123,6 +123,26 @@ fn u4322b_popup_accelerators_stay_in_the_popup() {
         .menu(app_menu)
         .build(mock_context(noop_assets()))
         .unwrap();
+    let labels: Vec<_> = app
+        .menu()
+        .unwrap()
+        .items()
+        .unwrap()
+        .iter()
+        .filter_map(|item| {
+            if let MenuItemKind::Submenu(submenu) = item {
+                submenu.text().ok()
+            } else {
+                None
+            }
+        })
+        .collect();
+    let edit = labels.iter().position(|label| label == "Edit").unwrap();
+    let window = labels.iter().position(|label| label == "Window").unwrap();
+    assert!(edit < window, "Edit stays before Window and Help");
+    if let Some(file) = labels.iter().position(|label| label == "File") {
+        assert_eq!(edit, file + 1, "Edit stays immediately after File");
+    }
     let popup = Menu::new(app.handle()).unwrap();
     append(
         app.handle(),
@@ -356,6 +376,9 @@ fn u4278b_one_step_items_carry_native_accelerators() {
         ("⌘=", "Super+="),
         ("⌘-", "Super+-"),
         ("⌘0", "Super+0"),
+        ("⌘B", "Super+B"),
+        ("⌘I", "Super+I"),
+        ("⌘E", "Super+E"),
     ] {
         let source = item(
             &format!("action:chord:{chord}"),
@@ -448,6 +471,10 @@ fn u3787b_plain_key_commands_register_no_accelerator() {
         .unwrap();
         assert_eq!(plain(built).text().unwrap(), source.label);
         assert_eq!(hint, [(vec![], key.into())]);
+        assert_eq!(
+            sequence_hints(std::slice::from_ref(&source)),
+            [(source.label.clone(), key.into())]
+        );
     }
 }
 
@@ -503,6 +530,9 @@ fn u2539b_native_menu_projects_the_task_chords() {
             Some(vec![
                 item("action:leader:C", "Review changes", Some("⌘K C"), None),
                 item("action:chord:⌘F", "Find…", Some("⌘F"), None),
+                item("action:chord:⌘B", "Bold", Some("⌘B"), None),
+                item("action:chord:⌘I", "Italic", Some("⌘I"), None),
+                item("action:chord:⌘E", "Inline code", Some("⌘E"), None),
                 item("action:chord:F2", "Rename", Some("F2"), None),
                 item("action:chord:⏎", "Open", Some("⏎"), None),
                 item("action:chord:?", "Help", Some("?"), None),
@@ -545,6 +575,9 @@ fn u2539b_native_menu_projects_the_task_chords() {
         for id in [
             "action:leader:C",
             "action:chord:⌘F",
+            "action:chord:⌘B",
+            "action:chord:⌘I",
+            "action:chord:⌘E",
             "action:chord:F2",
             "action:chord:⏎",
             "action:chord:?",
@@ -569,6 +602,9 @@ fn u2539b_native_menu_projects_the_task_chords() {
         vec![
             serde_json::json!({"path": "/A", "command": "action:leader:C"}),
             serde_json::json!({"path": "/A", "command": "action:chord:⌘F"}),
+            serde_json::json!({"path": "/A", "command": "action:chord:⌘B"}),
+            serde_json::json!({"path": "/A", "command": "action:chord:⌘I"}),
+            serde_json::json!({"path": "/A", "command": "action:chord:⌘E"}),
             serde_json::json!({"path": "/A", "command": "action:chord:F2"}),
             serde_json::json!({"path": "/A", "command": "action:chord:⏎"}),
             serde_json::json!({"path": "/A", "command": "action:chord:?"}),
@@ -585,6 +621,9 @@ fn u2539b_native_menu_projects_the_task_chords() {
             serde_json::json!({"path": "/A", "command": "action:chord:1–9:Digit9"}),
             serde_json::json!({"path": "/B", "command": "action:leader:C"}),
             serde_json::json!({"path": "/B", "command": "action:chord:⌘F"}),
+            serde_json::json!({"path": "/B", "command": "action:chord:⌘B"}),
+            serde_json::json!({"path": "/B", "command": "action:chord:⌘I"}),
+            serde_json::json!({"path": "/B", "command": "action:chord:⌘E"}),
             serde_json::json!({"path": "/B", "command": "action:chord:F2"}),
             serde_json::json!({"path": "/B", "command": "action:chord:⏎"}),
             serde_json::json!({"path": "/B", "command": "action:chord:?"}),

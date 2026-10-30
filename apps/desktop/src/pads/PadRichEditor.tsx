@@ -1,4 +1,7 @@
 import { DrawerExpandContext } from "../drawer/DrawerHost";
+import { registerKeys } from "../keys/registry";
+import { CHORDS } from "../keys/chords";
+import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
@@ -13,7 +16,7 @@ import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
 import { table } from "@milkdown/crepe/feature/table";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
-import { editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { commandsCtx, editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
@@ -58,6 +61,12 @@ const topBarNames = new Map([
 /** U4698b: the toolbar is these eleven formats; Crepe's other items (strikethrough, rule) are removed before it renders. */
 const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link", "bullet-list", "ordered-list", "task-list", "quote", "code-block", "table"]);
 
+const toolbarCommands = [
+  { key: "bold", action: CHORDS.find(action => action.keys === "⌘B")!, label: copy.bold, command: toggleStrongCommand },
+  { key: "italic", action: CHORDS.find(action => action.keys === "⌘I")!, label: copy.italic, command: toggleEmphasisCommand },
+  { key: "code", action: CHORDS.find(action => action.keys === "⌘E")!, label: copy.inlineCode, command: toggleInlineCodeCommand },
+];
+
 const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
 
 /** U147: the Pad's one surface. `readonly` prevents editing unavailable content; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
@@ -90,7 +99,8 @@ export default function PadRichEditor(props: {
   let restoreAgain = () => {};
 
   let ready = false;
-  let topBarLabels: string[] = [];
+  let topBarItems: { label: string; keys: string | undefined }[] = [];
+  const [commandState, setCommandState] = createSignal(0);
   const [failure, setFailure] = createSignal<string | null>(null);
 
   onMount(() => {
@@ -119,7 +129,7 @@ export default function PadRichEditor(props: {
         buildTopBar: (builder) => {
           for (const group of builder.build()) group.items = group.items.filter((item) => toolbarKeys.has(item.key));
 
-          topBarLabels = builder.build().flatMap((group) =>
+          topBarItems = builder.build().flatMap((group) =>
             group.items
               .filter((item) => item.key !== "heading-selector")
               .map((item) => {
@@ -127,7 +137,7 @@ export default function PadRichEditor(props: {
 
                 if (!label) throw new Error(copy.padEditorToolbarActionHasNoName(item.key));
 
-                return label;
+                return { label, keys: toolbarCommands.find(command => command.key === item.key)?.action.keys };
               }),
           );
         },
@@ -160,6 +170,8 @@ export default function PadRichEditor(props: {
           new Plugin({
             view: () => ({
               update: (view, previous) => {
+                if (view.state !== previous) setCommandState(now => now + 1);
+
                 if (!applying && !closed && !view.state.doc.eq(previous.doc)) {
                   restored = null;
                   props.onChange();
@@ -181,6 +193,30 @@ export default function PadRichEditor(props: {
       });
     });
 
+    registerKeys({ kind: "region", element: () => host }, toolbarCommands.map(({ action, label, command }) => ({
+      action,
+      match: "key" as const,
+      capture: focus => {
+        commandState();
+
+        if (!ready || closed || !crepe) return { available: () => false, invoke: () => {}, label };
+
+        return crepe.editor.action(ctx => {
+          const view = ctx.get(editorViewCtx);
+          const { doc, selection } = view.state;
+          const run = ctx.get(commandsCtx).get(command.key)();
+
+          return {
+            label,
+            available: () => !closed && !props.readonly && !!focus && host?.contains(focus) === true
+              && document.activeElement === focus && view.state.doc.eq(doc) && view.state.selection.eq(selection)
+              && run(view.state),
+            invoke: () => { run(view.state, view.dispatch, view); },
+          };
+        });
+      },
+    })));
+
     created = crepe.create();
     void created.then(() => {
       if (closed || !host || !crepe) return;
@@ -193,15 +229,15 @@ export default function PadRichEditor(props: {
 
       const buttons = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item");
 
-      if (buttons.length !== topBarLabels.length) throw new Error(copy.padEditorToolbarChanged);
+      if (buttons.length !== topBarItems.length) throw new Error(copy.padEditorToolbarChanged);
 
       buttons.forEach((button, index) => {
-        const label = topBarLabels[index];
+        const item = topBarItems[index];
 
-        if (!label) throw new Error(copy.padEditorToolbarLabelIsMissing);
+        if (!item) throw new Error(copy.padEditorToolbarLabelIsMissing);
 
-        button.setAttribute("aria-label", label);
-        button.title = label;
+        button.setAttribute("aria-label", item.label);
+        button.title = item.keys ? `${item.label} (${item.keys})` : item.label;
       });
 
       const heading = host.querySelector<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
