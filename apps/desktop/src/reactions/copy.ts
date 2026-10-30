@@ -108,7 +108,7 @@ export const copy = {
   reactionExpires: "Expires",
   reactionWhen: sharedCopy.reactionWhen,
   reactionAuthority: "Maker",
-  reactionActor: (kind: string, name: string | null) => kind === "user" ? "You" : name === null ? "The maker Agent is unavailable" : name,
+  reactionActor: (kind: string, name: string | null) => kind === "user" ? sharedCopy.you : name === null ? "The maker Agent is unavailable" : name,
   reactionMakerReason: "Reason",
   reactionHome: "Home",
   reactionNoHome: "Project root",

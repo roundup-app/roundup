@@ -20,7 +20,7 @@ const rpcFailures = new Map<number, string>([
 
 export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": "New Mode", "opening-prompt": "First prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
-export const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
+export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Another window has changed stored unfinished work." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
 export type CopyValue = string | number | undefined;
 
@@ -31,6 +31,9 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  you: "You",
+  move: "Move",
+  comment: "Comment",
   running,
   addTodo: "Add Todo",
   terminalPreparationCancelled: "Terminal preparation cancelled",
