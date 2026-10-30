@@ -698,8 +698,8 @@ it.each(["Z", "-05:00", "+05:30"])("u4276b_time_choice_uses_exact_preview: %s", 
 });
 
 const openings = [
-  { opening: "Project menu → Named reactions", detail: false },
-  { opening: "Named reactions → detail → list", detail: true },
+  { opening: "Project menu → Reactions", detail: false },
+  { opening: "Reactions → detail → list", detail: true },
 ];
 
 const mountList = async (detail: boolean) => {

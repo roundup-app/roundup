@@ -10,7 +10,7 @@ import { openProjectPage } from "./menuProbe";
 import { showShelfTab } from "./shelfTabs";
 import { settled } from "../rail/railFixture";
 
-// Final App inventory: the owner control must use the same Shelf holder as Work items.
+// Final App inventory: the owner control must use the same Shelf holder as Bench.
 const shelf = ["Todos", "Pads"] as const;
 
 const names = ["Alpha", "Bravo", "Charlie", "Delta", "Éclair"];

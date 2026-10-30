@@ -26,7 +26,7 @@ const arm = (): KeyboardEvent => key("KeyK", { metaKey: true });
 
 const open = () => openTabs({ api: [agent("a1", "needs-you", "x"), agent("a2", "idle", "x")], web: [agent("w1", "needs-you", "x")] });
 
-const active = (): string | undefined => projectTabs().find((entry) => entry.getAttribute("aria-selected") === "true")?.textContent?.replace(/[⊗◉]/, "");
+const active = (): Element | undefined => projectTabs().find((entry) => entry.getAttribute("aria-selected") === "true");
 
 const shelf = (): string | undefined => document.querySelector<HTMLElement>(".window")?.dataset["shelf"];
 
@@ -42,7 +42,7 @@ describe("u2239 the leader takes the next key", () => {
 
     arm();
     key("KeyJ", { shiftKey: true });
-    await waitFor(() => expect(active()).toBe("api"));
+    await waitFor(() => expect(active()).toBe(tab("api")));
 
     arm();
     key("KeyK");
@@ -107,7 +107,7 @@ describe("u2239 the leader takes the next key", () => {
     expect(leaderArmed()).toBe(true);
     key("KeyJ", { shiftKey: true });
     expect(leaderArmed()).toBe(false);
-    await waitFor(() => expect(active()).toBe("api"));
+    await waitFor(() => expect(active()).toBe(tab("api")));
   });
 
   it("u2239_pointer_press_project_switch_and_modal_end_the_wait", async () => {
@@ -118,7 +118,7 @@ describe("u2239 the leader takes the next key", () => {
 
     arm();
     fireEvent.click(tab("api"));
-    await waitFor(() => expect(active()).toBe("api"));
+    await waitFor(() => expect(active()).toBe(tab("api")));
     expect(leaderArmed()).toBe(false);
 
     cleanup();
