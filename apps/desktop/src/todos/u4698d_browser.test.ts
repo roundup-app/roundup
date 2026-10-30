@@ -120,6 +120,7 @@ it.each([[1512, 950, "menus"], [1280, 820, "menus"], [1512, 950, "document"], [1
 
     if (stage === "menus") {
       expect(await evaluate("window.__fake.app.calls.filter(call => ['todo.update', 'todo.assign', 'todo.move', 'todo.delete'].includes(call.method))")).toEqual([]);
+
       return;
     }
 
