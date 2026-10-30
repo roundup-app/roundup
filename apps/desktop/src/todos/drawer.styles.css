@@ -138,8 +138,8 @@
 .todo-detail + .todo-draft-recovery { margin: 0; }
 
 .todo-breadcrumb span:first-child { white-space: nowrap; max-width: 30%; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; }
-.todo-detail-title { font-size: var(--text-title); }
-.todo-detail-title .todo-editable { font-size: var(--text-pad-heading); line-height: 1.3; }
+.todo-detail-title { font-size: var(--text-title); font-weight: 400; }
+.todo-detail-title .todo-editable { font-size: var(--text-pad-heading); line-height: 1.3; font-weight: 600; }
 .todo-meta { font-size: var(--text-title); }
 .todo-header { box-sizing: border-box; padding-inline-start: var(--reading-gutter); }
 
