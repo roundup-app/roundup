@@ -45,12 +45,12 @@ Given U26's `tree-40` with `payments` made a Mode through `window.__fake.app.han
 
 On main `e78bbc345` both centres sit at `E − 20` at all three widths (459 at a 480 Rail).
 
-**U5147b a hairline separates Rail sections.** Journey stage: Understand. Narrows U4896 clause 3 (this file): each gap between sections keeps its height and gains one line. Section heads keep U4898's icons. The line matches U172's (`ui-buttons.md`) divider between root Workstream blocks in width, height and paint, so the Rail draws one line style.
+**U5147b a hairline separates Rail sections.** Journey stage: Understand. Narrows U4896 clause 3 (this file): each gap between sections keeps its height and gains one line. Section heads keep U4898's icons. The line matches the divider between root Workstream blocks (`rail/styles.css`, `.rail-root-divider::before`) in width, height and paint, so the Rail draws one line style.
 
 Given U5147a's fixture with every section expanded, then with MODES collapsed, then U26's `agents-10` with only AGENTS, when the Rail renders at rest, then (policy, design critic):
 
 1. Let gap `G` run from the preceding section's last visible row box bottom (its head box bottom when collapsed) to the next section head's box top, as U4896 clause 3 measures it. `G` stays `--rail-section-gap`.
-2. Exactly one line lies inside each `G`. It is an element or pseudo-element `--hairline-width` high, painted `--hairline`. Its top sits at `G`'s top plus `(G − 1) / 2`, within 1 CSS px. Its left edge is `.rail-scroll`'s left edge and its right edge is `E`, each within 1 CSS px: the span of U172's root divider (0 to 479 at a 480 Rail on main).
+2. Exactly one line lies inside each `G`. It is an element or pseudo-element `--hairline-width` high, painted `--hairline`. Its top sits at `G`'s top plus `(G − 1) / 2`, within 1 CSS px. Its left edge is `.rail-scroll`'s left edge and its right edge is `E`, each within 1 CSS px: the root divider's span (0 to 479 at a 480 Rail on main).
 3. No such line lies between Overview and the first section or between the last section and the creation footer. One visible section paints none.
 4. Hover, focus-within and selection neither hide nor move it.
 
@@ -74,7 +74,7 @@ Regression (policy): Moves D2 (Token spacing and alignment) and D19 (icon meanin
 
 1. D2: `docs/design-system.md`, “The checks” and “Rail section edges and spacing (U4896)”; readings in `apps/desktop/src/testing/checks.ts`, `runChecks`.
 2. Trailing column and section gap: this file, U4896 clauses 2 and 3; `apps/desktop/src/rail/Rail.tsx`, `Rail`, and `apps/desktop/src/rail/RailRow.tsx`, `RailRowView`.
-3. Root Workstream divider: `scenarios/ui-buttons.md`, U172; `apps/desktop/src/rail/RailRow.tsx`, `RailRowView` (`rootDivider`).
+3. Root Workstream divider: `apps/desktop/src/rail/RailRow.tsx`, `RailRowView` (`rootDivider`), and `rail/styles.css`, `.rail-root-divider::before`.
 4. D19 icon meaning: `docs/design-system.md`, “Icon meaning and inventory (U4898)”, whose `workflow` row loses the Mode row call site under U5147c.
 
 **U4644 the Rail hides empty sections and offers both starts.** Journey stage: Enter (`.agents/data/journey.md`, “What must work”). This amends U447's section heading and U4464's empty-Rail action only: the Rail has two actions; other empty views retain U4464's structure and action rules. It narrows U33 only while the empty Rail view is showing, as specified below. No new domain term, RPC, App seam command or Token; no art change. Open Doodles delivery remains #4610's work, and #4547 owns the later Workstreams/Modes/Agents sections and moving a free Agent into a Workstream.
