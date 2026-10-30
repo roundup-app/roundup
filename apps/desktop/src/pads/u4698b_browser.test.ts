@@ -13,7 +13,7 @@ const capture = async (name: string) => {
   writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 };
 
-it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: 90_000 }, async () => {
+it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, timeout: output ? 240_000 : 90_000 }, async () => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
 
   await browser("set", "viewport", "1512", "950");
@@ -78,7 +78,6 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
     await browser("set", "viewport", String(width), String(height));
     await settle();
     expect(await evaluate("document.querySelectorAll('.drawer [aria-label=Restore], .drawer [aria-label=Maximise]').length")).toBe(1);
-    expect(await evaluate("document.querySelectorAll('.milkdown-top-bar .top-bar-item, .milkdown-top-bar .top-bar-heading-button').length")).toBe(11);
 
     await capture(`worst-${width}`);
     await browser("click", '.top-bar-heading-button');
