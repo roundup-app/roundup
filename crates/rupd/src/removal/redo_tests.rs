@@ -77,6 +77,9 @@ async fn u3787a_rail_redo_preserves_arrivals_and_restores_exact_participants() {
         let later = call(&daemon, "todo.create", json!({"title":"arrival"}))
             .await
             .unwrap();
+        call(&daemon, "todo.complete", json!({"id":later["id"]}))
+            .await
+            .unwrap();
         call(
             &daemon,
             "todo.move",
@@ -505,6 +508,15 @@ async fn u3787a_rail_redo_reconciles_after_daemon_restart_and_preserves_mirror_e
     call(&daemon, "pad.move", json!({"name":"chosen","home":home}))
         .await
         .unwrap();
+    let todo = call(&daemon, "todo.create", json!({"title":"chosen done"}))
+        .await
+        .unwrap();
+    call(&daemon, "todo.move", json!({"id":todo["id"],"home":home}))
+        .await
+        .unwrap();
+    call(&daemon, "todo.complete", json!({"id":todo["id"]}))
+        .await
+        .unwrap();
     let removed = call(
         &daemon,
         "rail.remove",
@@ -535,6 +547,11 @@ async fn u3787a_rail_redo_reconciles_after_daemon_restart_and_preserves_mirror_e
             .len(),
         1
     );
+    let retained = call(&daemon, "todo.get", json!({"id":todo["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(retained["home"], home);
+    assert_eq!(retained["done"], true);
     std::fs::write(&mirror, "original").unwrap();
     let redone = call(&daemon, "rail.redo", request.clone()).await.unwrap();
     assert!(!mirror.exists());
