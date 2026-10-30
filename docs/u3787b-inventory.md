@@ -342,3 +342,33 @@ fixtures focus the Todo row before Return/F2 and supply its key code. Their
 existing assertions remain. The U2580a browser observer installs before the
 registry at window capture, retaining its first-frame open/focus proof after
 the registry consumes Return. No test is removed or retired.
+
+## Focused Pad Open and Rename
+
+The production Shelf Pad row now captures its existing Open (Return) and Rename
+(F2) callbacks through `registerKeys`, replacing its local key handlers. Both
+entry paths retain the focused Pad's name/incarnation in its originating Project;
+selection of another Pad does not redirect them. Editing, pending deletion,
+hidden/removed rows, modal ownership or leaving the row refuses the capture.
+Both keys remain plain native-menu hints, without accelerators.
+
+`u3787b_menu_and_key_share_one_action` now covers focused Pad Open and Rename
+through the connected production App and menu-event seam. Open requests exactly
+one read of the focused Pad; Rename opens only that Pad's editor without a write,
+refuses retained/menu actions during editing and returns focus on Escape. The
+existing inventory observer includes Pad focus. Existing Tauri
+`u2539b_native_menu_projects_the_task_chords` and
+`u3787b_plain_key_commands_register_no_accelerator` already cover both ids and
+plain hints. No test is removed or retired. U3789a and U3787c retain their draft,
+rename cancellation and list-navigation proofs; U2241 retains Terminal ownership.
+
+Main check 41018682543 at `3eb7454cd284bf09dcf5199ad3202d3683b54f1b`
+passed mac and mac-clippy; current-main checks were pending when read. This is
+compilation evidence only. Earlier #4278 native observations retain their scope
+and SHA. Add-row, complete library/native inventory, responder Find/Close
+availability and final native displayed-key/combined-dispatch observations remain
+on #4308. This continuation closes neither #4308 nor #3843.
+
+Supporting Pad fixtures and the existing hint/attention/export observers now
+focus the Pad row before Return/F2, preserving all behavioral assertions. No test
+is cut; only unused browser imports from the edited export observer are removed.

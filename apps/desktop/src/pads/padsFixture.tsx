@@ -177,7 +177,9 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
       if (group.contains(row) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
     }
 
-    fireEvent.keyDown(await screen.findByRole("button", { name }), { key: "Enter" });
+    const button = await screen.findByRole("button", { name });
+    button.focus();
+    fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
   }
 
   const surface = await screen.findByRole<HTMLElement>("textbox", { name: "Pad body" }, { timeout: 5000 });
