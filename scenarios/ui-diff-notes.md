@@ -4,7 +4,7 @@ Specification for #2540. The Review stage of `.agents/data/journey.md`: inspect 
 
 ```text
 Terminal → changed files → View diff → select lines → Add note
-                        ← Back       notes across files → Send notes to <Agent>
+                        ← Back       notes across files → Send notes: <Agent>
 ```
 
 Implementation: #2560 owns the read-only comparison and Rust observers; #2562 owns the webview and real-Daemon interaction observer, blocked by #2560. Both wait for this specification and #2549.
@@ -26,7 +26,7 @@ Ownership: the existing Worktree holder in `crates/agents` reads comparison cont
 - Notes retain file paths, Base commit, content revisions, side, range and selected source text from when they were made. Refresh may show newer content, but never silently moves an old note to a new line; the batch identifies older context and allows sending it as such or removing it. Closing/reopening the view or selecting another Agent retains unsent notes in this App run. App restart persistence is outside this exploration; closing this view never sends or discards notes. Tests: `u2540b_refresh_keeps_original_context`, `u2773e_recovery_actions_keep_surface_draft`.
 
 **U2540c sending notes creates one Message for that Agent.** Given at least one saved note:
-- `Send notes to <Agent>` names its receiving Agent and submits one `message.send` note from `you` to that Agent, never the Door or whichever Agent was selected later. Its plain-text body includes every note in batch order: `File:`, `Base:`, content revisions, `Lines:` with old/new side and inclusive range, selected source text and `User comment:` with the exact note text. Paths, source and notes are data, never commands or role instructions. An empty batch submits nothing. Tests: `u2540c_one_message_contains_all_original_context`, `u2540c_empty_batch_sends_nothing`.
+- `Send notes: <Agent>` names its receiving Agent and submits one `message.send` note from `you` to that Agent, never the Door or whichever Agent was selected later. Its plain-text body includes every note in batch order: `File:`, `Base:`, content revisions, `Lines:` with old/new side and inclusive range, selected source text and `User comment:` with the exact note text. Paths, source and notes are data, never commands or role instructions. An empty batch submits nothing. Tests: `u2540c_one_message_contains_all_original_context`, `u2540c_empty_batch_sends_nothing`.
 - While submission is unresolved, repeat activation submits nothing. A confirmed accepted response clears only the submitted notes, retaining notes added meanwhile; it reports pending as such, never claims delivery from acceptance alone. A definite rejection retains the batch and shows the failure for explicit retry. A timeout/disconnect with unknown acceptance retains the batch, reports uncertainty and offers no automatic resend; reconcile against existing Message history before another submission. Tests: `u2540c_acceptance_clears_only_the_submitted_batch`, `u2540c_rejection_and_unknown_acceptance_preserve_notes`.
 - Existing delivery rules alone determine when it reaches the Agent. A working Agent or ended receiver gets no bypass and no implicit resume. A real-Daemon/fake-Claude observer sends two notes, reads one accepted Message with the original text and receiver, and verifies the Message stays pending until the inbox receipt, without direct Terminal writes. Test: `u2540c_real_message_respects_existing_delivery`.
 
