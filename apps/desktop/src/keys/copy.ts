@@ -3,7 +3,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 export const copy = {
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
-  inlineCode: `${sharedCopy.inlineCode} (replaces formatting)`,
+  inlineCode: sharedCopy.inlineCodeAction,
   find: "Find…",
   addTodo: sharedCopy.addTodo,
   switchProject: sharedCopy.switchProject,
@@ -28,7 +28,7 @@ export const copy = {
   rename: sharedCopy.rename,
   projects: sharedCopy.projects,
   help: "Help",
-  helpScope: { app: "App", leader: "Leader", terminals: "Agent Terminal or Bubble focus", rail: "Rail row", shelf: "Bench", todos: "Todos view", triage: "Triage", editor: "Pad editor focus" },
+  helpScope: { app: "App", leader: "Leader", terminals: "Terminal/Bubble focus", rail: "Rail row", shelf: "Bench", todos: "Todos view", triage: "Triage", editor: "Pad editor focus" },
   helpBubbleScope: { M: "Minimise or restore focused Bubble", W: "Close focused Bubble" },
   helpRowScope: { O: "Assign", D: "Delete focused Todo or Pad", E: "Export focused Pad" },
   closeShelf: sharedCopy.closeShelf,
