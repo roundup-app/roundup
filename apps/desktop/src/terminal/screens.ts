@@ -301,11 +301,38 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
         return;
       }
 
-      const bytes = chunk.bytes.subarray(stream.after - chunk.offset, stream.after - chunk.offset + stream.chunk);
+      let bytes = chunk.bytes.subarray(stream.after - chunk.offset, stream.after - chunk.offset + stream.chunk);
 
       stream.after += bytes.length;
 
       if (stream.after === end) takeFirst(stream);
+
+      // Small output events share the same parse budget; one event per frame
+      // would stretch an ordinary burst over hundreds of frames (X14).
+      if (bytes.length < stream.chunk && stream.queue[0]?.offset === stream.after) {
+        const combined = new Uint8Array(Math.min(stream.chunk, bytes.length + stream.queued));
+        let length = bytes.length;
+
+        combined.set(bytes);
+
+        while (length < combined.length) {
+          const next = stream.queue[0];
+
+          if (!next || next.offset !== stream.after) break;
+
+          const part = next.bytes.subarray(0, combined.length - length);
+
+          combined.set(part, length);
+          length += part.length;
+          stream.after += part.length;
+
+          if (part.length === next.bytes.length) takeFirst(stream);
+          else break;
+        }
+
+        bytes = combined.subarray(0, length);
+      }
+
       stream.parsing = true;
 
       const started = performance.now();
