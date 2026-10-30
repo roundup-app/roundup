@@ -38,27 +38,27 @@
   .milkdown .ProseMirror:focus {
     outline: none;
   }
-  .milkdown .ProseMirror li {
+  .ProseMirror li {
     position: relative;
   }
-  .milkdown .ProseMirror [draggable][contenteditable="false"] {
+  .ProseMirror [draggable][contenteditable="false"] {
     user-select: text;
   }
   .milkdown .ProseMirror-selectednode {
-    outline: var(--hairline-width) solid var(--accent);
+    background: var(--selected);
   }
   .milkdown .ProseMirror-hideselection {
-    caret-color: transparent;
+    caret-color: var(--transparent);
   }
-  .milkdown .ProseMirror-hideselection *::selection {
-    background: transparent;
+  .ProseMirror-hideselection *::selection {
+    background: var(--transparent);
   }
   .milkdown img.ProseMirror-separator {
     display: inline;
     border: 0;
     margin: 0;
   }
-  .milkdown .ProseMirror img {
+  .ProseMirror img {
     max-width: 100%;
   }
 
@@ -96,7 +96,6 @@
     padding: var(--space-2);
     background: var(--surface);
     border-radius: var(--radius-drawer);
-    box-shadow: var(--elevation);
   }
   .milkdown .top-bar-heading-option {
     display: flex;
@@ -120,16 +119,16 @@
     display: block;
     padding: 0;
   }
-  .milkdown .milkdown-list-item-block > .list-item {
+  .milkdown-list-item-block .list-item {
     display: flex;
     align-items: flex-start;
     gap: var(--space-2);
   }
-  .milkdown .list-item > .children {
+  .list-item .children {
     min-width: 0;
     flex: 1;
   }
-  .milkdown .list-item .label-wrapper {
+  .list-item .label-wrapper {
     flex-shrink: 0;
     min-width: var(--space-5);
     min-height: var(--space-5);
@@ -138,13 +137,13 @@
     justify-content: flex-end;
     color: var(--grey);
   }
-  .milkdown .list-item .label {
+  .list-item .label {
     text-align: right;
   }
-  .milkdown .list-item :is(.checked, .unchecked) {
+  .list-item :is(.checked, .unchecked) {
     cursor: pointer;
   }
-  .milkdown .list-item .readonly {
+  .list-item .readonly {
     cursor: default;
   }
 
@@ -163,7 +162,6 @@
     background: var(--surface);
     color: var(--text);
     border-radius: var(--radius-drawer);
-    box-shadow: var(--elevation);
   }
   .milkdown .link-display {
     max-width: var(--pad-menu-min-width);
@@ -176,16 +174,16 @@
     width: var(--pad-menu-min-width);
     font-size: var(--text-body);
   }
-  .milkdown :is(.link-preview, .link-edit) .button {
+  :is(.link-preview, .link-edit) .button {
     display: flex;
     padding: var(--space-1);
     cursor: pointer;
     color: var(--grey);
   }
-  .milkdown :is(.link-preview, .link-edit) .button:hover {
+  :is(.link-preview, .link-edit) .button:hover {
     color: var(--text);
   }
-  .milkdown .link-edit .hidden {
+  .link-edit .hidden {
     visibility: hidden;
   }
 
@@ -207,16 +205,16 @@
   .milkdown .milkdown-slash-menu[data-show="false"] {
     display: none;
   }
-  .milkdown .milkdown-slash-menu ul {
+  .milkdown-slash-menu ul {
     list-style: none;
     margin: 0;
   }
-  .milkdown .milkdown-slash-menu li {
+  .milkdown-slash-menu li {
     display: flex;
     align-items: center;
     cursor: pointer;
   }
-  .milkdown .tab-group ul {
+  .tab-group ul {
     display: flex;
     flex-wrap: nowrap;
   }
@@ -224,7 +222,7 @@
     overflow: auto;
     overscroll-behavior: contain;
   }
-  .milkdown .menu-group + .menu-group::before {
+  .menu-group + .menu-group::before {
     content: '';
     display: block;
     height: var(--hairline-width);
@@ -246,6 +244,7 @@
   }
   .milkdown .tableWrapper {
     overflow-x: auto;
+    overscroll-behavior: contain;
   }
   .milkdown :is(td, th) {
     position: relative;
@@ -276,9 +275,8 @@
     z-index: var(--layer-menu);
     display: flex;
     flex-direction: column;
-    background: var(--surface);
+    background: var(--selected);
     opacity: 0.4;
-    outline: var(--hairline-width) solid var(--accent);
   }
   .milkdown .drag-preview[data-show="false"] {
     display: none;
@@ -297,7 +295,6 @@
     background: var(--surface);
     color: var(--grey);
     border-radius: var(--radius-pill);
-    box-shadow: var(--elevation);
   }
   .milkdown .cell-handle[data-role="col-drag-handle"] {
     transform: translateY(50%);
@@ -311,7 +308,7 @@
     width: var(--space-4);
     height: var(--space-6);
   }
-  .milkdown .cell-handle .button-group {
+  .cell-handle .button-group {
     position: absolute;
     transform: translateX(-50%);
     left: 50%;
@@ -319,12 +316,11 @@
     display: flex;
     background: var(--surface);
     border-radius: var(--radius-drawer);
-    box-shadow: var(--elevation);
   }
   .milkdown .button-group[data-show="false"] {
     display: none;
   }
-  .milkdown .button-group button {
+  .button-group button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -332,14 +328,14 @@
     padding: var(--space-1);
     color: var(--grey);
   }
-  .milkdown .button-group button:hover {
+  .button-group button:hover {
     color: var(--text);
   }
   .milkdown .line-handle {
-    z-index: 2;
+    z-index: var(--layer-popover);
     background: var(--accent);
   }
-  .milkdown .line-handle .add-button {
+  .line-handle .add-button {
     position: absolute;
     display: flex;
     align-items: center;
@@ -351,7 +347,6 @@
     color: var(--grey);
     background: var(--surface);
     border-radius: var(--radius-pill);
-    box-shadow: var(--elevation);
     cursor: pointer;
   }
   .milkdown .line-handle[data-role="x-line-drag-handle"] {
@@ -360,10 +355,10 @@
   .milkdown .line-handle[data-role="y-line-drag-handle"] {
     width: var(--hairline-width);
   }
-  .milkdown .line-handle[data-display-type="indicator"] .add-button {
+  .line-handle[data-display-type="indicator"] .add-button {
     display: none;
   }
-  .milkdown .milkdown-table-block.readonly .handle {
+  .milkdown-table-block.readonly .handle {
     display: none;
   }
 
@@ -380,7 +375,7 @@
     width: var(--space-5);
     border-top: var(--hairline-width) solid var(--text);
   }
-  .milkdown .ProseMirror-focused .ProseMirror-gapcursor {
+  .ProseMirror-focused .ProseMirror-gapcursor {
     display: block;
   }
   .milkdown .crepe-drop-cursor {
@@ -397,12 +392,12 @@
   margin-inline: 0;
 }
 
-.pad-rich-editor .ProseMirror a {
+.ProseMirror a {
   display: inline-block;
   min-height: var(--space-5);
   cursor: pointer;
 }
 
-.pad-rich-editor .ProseMirror a:hover {
+.ProseMirror a:hover {
   color: var(--text);
 }

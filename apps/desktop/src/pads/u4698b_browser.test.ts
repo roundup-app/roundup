@@ -7,6 +7,7 @@ import { shelfBrowser } from "../shelf/u371Browser";
 const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
 const output = captureDir("U4698b");
+
 const capture = async (name: string) => {
   if (!output) return;
   await browser("screenshot", join(output, `${name}.png`));
@@ -32,7 +33,12 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
   }
 
   const openTodo = async () => {
-    await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); const group = document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+    if (await evaluate("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true'")) {
+      await browser("click", "#shelf-tab-todos");
+    }
+
+    await browser("wait", '.todos-tab [data-shelf-group="unassigned"] [data-part="branch-control"]');
+    await evaluate(`(() => { const group = document.querySelector('.todos-tab [data-shelf-group="unassigned"]'); if (group?.getAttribute('aria-expanded') === 'false') group.querySelector('[data-part="branch-control"]').click(); return true; })()`);
     await browser("wait", ".shelf .todo-row-button");
     await browser("focus", ".shelf .todo-row-button");
     await browser("press", "Enter");
@@ -41,11 +47,13 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
   };
 
   await openTodo();
+
   for (const [width, height] of [[1512, 950], [1280, 820]]) {
     await browser("set", "viewport", String(width), String(height));
     await settle();
     await capture(`todo-before-editor-${width}`);
   }
+
   await browser("click", ".drawer .close");
   await settle();
 
@@ -113,7 +121,9 @@ it("u4698b_expand_keeps_the_long_pad_and_all_formats_reachable", { retry: 0, tim
 
   await browser("click", ".drawer .close");
   await settle();
+
   await openTodo();
+
   for (const [width, height] of [[1512, 950], [1280, 820]]) {
     await browser("set", "viewport", String(width), String(height));
     await settle();
