@@ -10,7 +10,8 @@ afterEach(cleanup);
 const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async (mounted: Awaited<ReturnType<typeof mountTodos>>, id = 1) => {
-  fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   await within(panel()).findByRole("region", { name: "Todo history" });
   await within(panel()).findByRole("button", { name: /^Changes/ });
 };
@@ -49,7 +50,8 @@ it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
   const m = await mountTodos([todo(1)]);
   const original = m.app.handlers["todo.getHistory"]!;
   m.app.handlers["todo.getHistory"] = () => Promise.reject(new RpcError(-32003, "History unavailable"));
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: "Idle #1 todo 1" }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   fireEvent.click(await within(panel()).findByRole("button", { name: "Changes" }));
   await within(panel()).findByText("History unavailable");
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
@@ -66,7 +68,8 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   const m = await mountTodos([todo(1), todo(2)]);
   let answer!: (history: History) => void;
   m.app.handlers["todo.getHistory"] = () => new Promise((resolve) => { answer = resolve; });
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: "Idle #1 todo 1" }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
   answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, priority: null } }], unread: 99 });
@@ -81,7 +84,8 @@ it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () =
   let answer!: (history: History) => void;
   m.app.handlers["todo.getHistory"] = () => new Promise((resolve) => { answer = resolve; });
 
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: "Idle #1 todo 1" }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
   answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, priority: null } }], unread: 99 });
