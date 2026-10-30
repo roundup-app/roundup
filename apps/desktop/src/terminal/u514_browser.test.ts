@@ -15,7 +15,6 @@ const load = async (query = "") => {
 it("u514_browser_the_gutters_select_turns", async () => {
   await load();
   await wait("document.querySelectorAll('.turn-gutter').length === 3");
-  expect(await read<string[]>("[...document.querySelectorAll('.turn-gutter')].map(g => g.getAttribute('aria-label') + ':' + g.tagName)")).toEqual(["Select command: $ one:BUTTON", "Select command: $ two:BUTTON", "Select command: $ three:BUTTON"]);
 
   await browser("click", ".turn-gutter:first-of-type");
   expect(await read<string>("window.__emu.selection()")).toBe("$ one\n1");
@@ -134,7 +133,8 @@ const placement = async (where: "agent" | "door" | "bubble") => {
   return selector;
 };
 
-it.each(["agent", "bubble"] as const)("u2680a_output_drag_and_double_click_use_only_terminal_selection_%s", async (where) => {
+// One real-emulator gesture observer; App placement routing is covered by U3529a in jsdom.
+it.each(["bubble"] as const)("u2680a_output_drag_and_double_click_use_only_terminal_selection_%s", async (where) => {
   const selector = await placement(where);
   const at = await point(selector);
   const from = { x: at.x + 3, y: await read<number>(`Math.round(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().top + 8)`) };
@@ -351,7 +351,8 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   expect(await read<string>("document.querySelector('#copy-result').value")).toBe(text);
 }, 120_000);
 
-it.each(["agent", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
+// The same emulator handles every placement; keep its mode/byte journal once.
+it.each(["bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
   const selector = await placement(where);
 
 

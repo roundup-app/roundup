@@ -63,6 +63,8 @@ pub struct CreateParams {
     pub operation: String,
     /// A label, never an identity.
     pub name: String,
+    /// Why this Reaction is needed: one nonempty line, trimmed before saving and retry comparison.
+    pub reason: String,
     /// The Agent id the instruction is sent to.
     pub target: String,
     /// The exact words delivered as one Message at each firing.
@@ -243,8 +245,11 @@ pub struct Reaction {
     pub project: String,
     pub id: String,
     pub name: String,
-    /// The Actor that authorized it.
+    /// The authenticated Actor that made and authorized it.
     pub actor: Actor,
+    /// Why it was made; explicitly absent for legacy definitions.
+    #[serde(default)]
+    pub reason: Option<String>,
     /// P6: where the target sat when it was saved.
     pub home: Option<String>,
     pub target: String,

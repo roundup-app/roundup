@@ -9,8 +9,10 @@ export type Reaction = {
 	project: string,
 	id: string,
 	name: string,
-	/**  The Actor that authorized it. */
+	/**  The authenticated Actor that made and authorized it. */
 	actor: Actor.Actor,
+	/**  Why it was made; explicitly absent for legacy definitions. */
+	reason: string | null,
 	/**  P6: where the target sat when it was saved. */
 	home: string | null,
 	target: string,
