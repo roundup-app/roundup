@@ -202,7 +202,7 @@ for (const [name, source, forbidden] of [
   });
 }
 
-for (const change of ["unchanged", "stale"]) {
+for (const change of ["unchanged", "stale", "navigation", "merged navigation", "edited", "dependency", "helper", "duplicate", "additional", "renamed", "moved", "reordered", "control"]) {
   test(`t3779b_assertion_boundary: Python baseline ${change}`, () => {
     const dir = mkdtempSync(resolve(tmpdir(), "roundup-python-baseline-"));
     const config = resolve(dir, "config.json");
@@ -216,7 +216,8 @@ for (const change of ["unchanged", "stale"]) {
     try {
       mkdirSync(resolve(dir, directory), { recursive: true });
       writeFileSync(file, "export {};\n");
-      writeFileSync(pythonFile, 'raise RuntimeError("Launcher must never execute")\nassert evaluate("document.body.clientWidth") > 0\n');
+      const source = 'raise RuntimeError("Launcher must never execute")\ndef observe():\n    return evaluate("document.body.clientWidth")\nscript = "document.body.clientWidth"\nresult = evaluate(script)\nbrowser("open", "/old")\nassert result > 0\nbrowser("click", "button")\n';
+      writeFileSync(pythonFile, source);
       const audit = spawnSync("python3", [resolve(repo, directory, "python-audit.py"), dir], { encoding: "utf8" });
       assert.equal(audit.status, 0, audit.stderr);
       const row = JSON.parse(audit.stdout);
@@ -228,11 +229,27 @@ for (const change of ["unchanged", "stale"]) {
       git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "baseline");
       git("update-ref", "refs/remotes/origin/main", "HEAD");
       if (change === "stale") writeFileSync(pythonFile, 'raise RuntimeError("Launcher must never execute")\n');
+      if (["navigation", "merged navigation"].includes(change)) writeFileSync(pythonFile, source.replace('browser("open", "/old")', 'browser("press", "Meta+k")\nbrowser("open", "/new")'));
+      if (change === "merged navigation") {
+        git("add", ".");
+        git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "navigation");
+        git("update-ref", "refs/remotes/origin/main", "HEAD");
+      }
+      if (change === "edited") writeFileSync(pythonFile, source.replace("result > 0", "result > 1"));
+      if (change === "dependency") writeFileSync(pythonFile, source.replace('script = "document.body.clientWidth"', 'script = "document.body.clientHeight"'));
+      if (change === "helper") writeFileSync(pythonFile, source.replace("result = evaluate(script)", "result = observe()").replace("return evaluate(\"document.body.clientWidth\")", "return evaluate(\"document.body.clientHeight\")"));
+      if (change === "duplicate") writeFileSync(pythonFile, source + "assert result > 0\n");
+      if (change === "additional") writeFileSync(pythonFile, source + 'assert evaluate("document.body.clientHeight") > 0\n');
+      if (change === "renamed") writeFileSync(pythonFile, source.replace("assert result > 0", "def other():\n    assert result > 0"));
+      if (change === "moved") { writeFileSync(pythonFile, ""); writeFileSync(resolve(dir, "other.test.py"), source); }
+      if (change === "reordered") writeFileSync(pythonFile, source.replace('assert result > 0\nbrowser("click", "button")', 'browser("click", "button")\nassert result > 0'));
+      if (change === "control") writeFileSync(pythonFile, source.replace("assert result > 0", "if ready:\n    assert result > 0"));
       const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
-      assert.equal(result.status, change === "unchanged" ? 0 : 1, result.stdout + result.stderr);
+      const passing = ["unchanged", "navigation", "merged navigation"].includes(change);
+      assert.equal(result.status, passing ? 0 : 1, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       const errors = report.diagnostics.filter(item => item.severity === "error");
-      assert.equal(errors.length, change === "unchanged" ? 0 : 1, result.stdout);
+      assert.equal(errors.length === 0, passing, result.stdout);
       if (change === "stale") assert.match(errors[0].message, /Stale Python assertion baseline entry/);
       if (process.env.ASSERTION_FIXTURE_REPORT) appendFileSync(process.env.ASSERTION_FIXTURE_REPORT, JSON.stringify({ name: `Python baseline ${change}`, source: 'assert evaluate("document.body.clientWidth") > 0', exitCode: result.status, diagnostics: errors.map(item => item.message) }) + "\n");
     } finally {
