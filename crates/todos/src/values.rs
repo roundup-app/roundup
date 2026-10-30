@@ -22,6 +22,7 @@ impl Todos {
             &p.blockers.unwrap_or_default(),
             &ctx.actor,
             owner.as_ref(),
+            p.priority,
             ctx.touches.sequence().map_err(RpcError::internal)?,
         )?;
         ctx.touch(Verb::Wrote, &item(todo.id))?;
@@ -30,17 +31,25 @@ impl Todos {
     }
 
     pub(super) fn update(&self, ctx: &Ctx, p: UpdateParams) -> Result<Value, RpcError> {
-        if p.title.is_none() && p.body.is_none() {
+        if p.title.is_none() && p.body.is_none() && p.priority.is_none() {
             return Err(RpcError::new(
                 rpc::code::INVALID_PARAMS,
-                "update needs a title or a body",
+                "update needs a title, a body or a priority",
             ));
         }
         let store = self.store()?;
+        if p.title.is_none() && p.body.is_none() {
+            let todo = store.get(p.id)?;
+            if p.priority.is_none_or(|value| value == todo.priority) {
+                store.require_change(p.id, p.expected_change)?;
+                return reply(&todo);
+            }
+        }
         let todo = store.update(
             p.id,
             p.title.as_deref(),
             p.body.as_deref(),
+            p.priority,
             p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
             &ctx.actor,

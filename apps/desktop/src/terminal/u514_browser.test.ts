@@ -133,20 +133,6 @@ const placement = async (where: "agent" | "door" | "bubble") => {
   return selector;
 };
 
-// One real-emulator gesture observer; App placement routing is covered by U3529a in jsdom.
-it.each(["bubble"] as const)("u2680a_output_drag_and_double_click_use_only_terminal_selection_%s", async (where) => {
-  const selector = await placement(where);
-  const at = await point(selector);
-  const from = { x: at.x + 3, y: await read<number>(`Math.round(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().top + 8)`) };
-
-  await drag(from, { x: from.x + 110, y: from.y });
-  expect(await read<string>("window.__emu.selection()")).not.toBe("");
-  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
-  await doubleAt({ x: from.x + 20, y: from.y });
-  expect(await read<string>("window.__emu.selection()")).not.toBe("");
-  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
-}, 120_000);
-
 it.each(["agent", "bubble"] as const)("u2680a_terminal_boundaries_never_create_browser_selection_%s", async (where) => {
   const selector = await placement(where);
 
@@ -351,10 +337,18 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   expect(await read<string>("document.querySelector('#copy-result').value")).toBe(text);
 }, 120_000);
 
-// The same emulator handles every placement; keep its mode/byte journal once.
+// U2680a and U3529b share one Bubble: real pointer selection, then the mode/byte journal.
 it.each(["bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
   const selector = await placement(where);
+  const at = await point(selector);
+  const from = { x: at.x + 3, y: await read<number>(`Math.round(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().top + 8)`) };
 
+  await drag(from, { x: from.x + 110, y: from.y });
+  expect(await read<string>("window.__emu.selection()")).not.toBe("");
+  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
+  await doubleAt({ x: from.x + 20, y: from.y });
+  expect(await read<string>("window.__emu.selection()")).not.toBe("");
+  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 
   const before = await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))");
   const calls = await read<number>("window.__fake.app.calls.length");

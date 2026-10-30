@@ -390,6 +390,7 @@ mod tests {
             home: None,
             owner,
             refs: vec![],
+            priority: None,
         }
     }
 

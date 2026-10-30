@@ -1,3 +1,4 @@
+import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "../app/FirstRun";
 import { createRowCollection } from "../ui/RowCollection";
@@ -62,12 +63,15 @@ export const Rail = () => {
   const [openingPrompt, setOpeningPrompt] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
+  const moveAgent = createMove(connected, id => rowElement(id));
+
   const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.drafts, (id) => {
     setEditingName(id);
   }, connected.queue, node => {
     const actions = actionsOf(node);
 
     return [
+      ...(moveAgent.available(node.id) ? [{ id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) }] : []),
       ...(node.kind === "workstream" && node.opening_prompt?.trim() ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartSession(node.id); } }] : []),
       ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
         id: "progress", label: copy.workProgress, run: () => {
@@ -443,7 +447,7 @@ export const Rail = () => {
   const moveTo = ({ id, parent, index }: SortableMove) => {
     if (daemonExit() !== null || pointerOutside()) return;
 
-    void attempt(() => app.rpc("rail.move", { id, parent, index: trueIndex(id, parent, index) }), id);
+    void moveAgent.move({ id, parent, index: trueIndex(id, parent, index) });
   };
 
   const [pending, setPending] = createSignal(false);
@@ -665,6 +669,11 @@ export const Rail = () => {
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A kept key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
+    { action: CHORDS.find(row => row.keys === "M" && row.inRail)!, when: press => moveAgent.available(focusedRowId(press)), capture: focus => {
+      const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+
+      return { available: () => !!id && !!focus?.isConnected && moveAgent.available(id), invoke: () => { if (id) moveAgent.open(id); } };
+    } },
     { action: CHORDS.find(row => row.keys === "R" && row.inRail)!, when: press => rail.nodes.some(node => node.id === focusedRowId(press) && node.kind === "workstream" && !!node.opening_prompt?.trim()), capture: focus => {
       const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
 
@@ -712,6 +721,7 @@ export const Rail = () => {
 
   return (
     <>
+    <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(rail.nodes, parent).length }); }} />
     <button
       type="button"
       data-button="quiet"

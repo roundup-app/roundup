@@ -6,6 +6,16 @@ use specta::Type;
 
 use crate::common::{Actor, Owner};
 
+/// A Todo's optional urgency; unset is distinct from Low.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Priority {
+    Low,
+    Medium,
+    High,
+    Urgent,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Todo {
     pub id: u32,
@@ -17,7 +27,7 @@ pub struct Todo {
     pub blocked: bool,
     #[specta(type = specta_typescript::Number)]
     pub created_at: i64,
-    /// T30: the time of the Todo's last Change (title, body, done, owner or blockers); `created_at` on creation. A Todo from before this field reads its latest Change time, or `created_at`.
+    /// T30: the time of the Todo's last Change (title, body, done, owner, blockers or priority); `created_at` on creation. A Todo from before this field reads its latest Change time, or `created_at`.
     #[serde(default)]
     #[specta(type = specta_typescript::Number)]
     pub updated_at: i64,
@@ -30,6 +40,9 @@ pub struct Todo {
     /// Links to Pads and Pad sections (T27), in the order added. A Todo from before refs reads none.
     #[serde(default)]
     pub refs: Vec<String>,
+    /// U4698c: unset is no priority.
+    #[serde(default)]
+    pub priority: Option<Priority>,
 }
 
 /// One qualifying Hand-off for a Todo's current owner after its last owner change.
@@ -49,6 +62,10 @@ pub struct CreateParams {
     /// Omitted or `None` is Unassigned.
     #[specta(optional, type = Owner)]
     pub owner: Option<Owner>,
+    /// U4698c: unset is no priority.
+    #[serde(default)]
+    #[specta(optional, type = Option<Priority>)]
+    pub priority: Option<Priority>,
 }
 
 /// Sets the owner, `None` for Unassigned. `expected_change` is the last captured History Change
@@ -72,15 +89,30 @@ pub struct TodoId {
     pub id: u32,
 }
 
-/// Changes title/body. `expected_change` is the last captured History Change sequence;
+/// Changes title/body/priority. `expected_change` is the last captured History Change sequence;
 /// mismatch is CONFLICT, a removed Todo is NOT_FOUND, and omission is unconditional.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct UpdateParams {
     pub id: u32,
     pub title: Option<String>,
     pub body: Option<String>,
+    /// Omitted preserves priority; null clears it; otherwise low, medium, high or urgent.
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[specta(optional, type = Option<Priority>)]
+    pub priority: Option<Option<Priority>>,
     #[specta(optional, type = u32)]
     pub expected_change: Option<u32>,
+}
+
+/// A field that is present, `null` included, is `Some`; an absent one stays `None` by `default`.
+fn present<'de, T: Deserialize<'de>, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<Option<Option<T>>, D::Error> {
+    Option::<T>::deserialize(d).map(Some)
 }
 
 /// Replaces the whole blocker list. A list that would make a cycle is an error.
@@ -118,6 +150,9 @@ pub struct Values {
     /// A change recorded before owners existed reads `None`.
     #[serde(default)]
     pub owner: Option<Actor>,
+    /// U4698c: unset is no priority.
+    #[serde(default)]
+    pub priority: Option<Priority>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]

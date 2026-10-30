@@ -3,8 +3,11 @@ import ast
 import hashlib
 import json
 import os
+from collections import Counter
 from pathlib import Path
+import subprocess
 import sys
+from functools import cache
 
 root = Path(sys.argv[1]).resolve()
 files = []
@@ -12,9 +15,15 @@ for directory, children, names in os.walk(root):
     children[:] = [name for name in children if name not in {'node_modules', '.git', 'target', '.venv'}]
     files.extend(Path(directory) / name for name in names if name.endswith('.test.py'))
 files.sort()
-for file in files:
-    content = file.read_text()
-    tree = ast.parse(content, filename=str(file))
+
+
+@cache
+def segment(content, node):
+    return ast.get_source_segment(content, node)
+
+
+def inventory(content, filename, matching=False):
+    tree = ast.parse(content, filename=filename)
     parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
     # Follow assignments conservatively across scopes; ambiguous names need review.
     assignments = {}
@@ -44,11 +53,11 @@ for file in files:
                 continue
             visited.add(name)
             for assignment in assignments.get(name, []):
-                dependencies.add(ast.get_source_segment(content, assignment))
+                dependencies.add(segment(content, assignment))
                 if assignment.value is not None:
                     pending.extend(child.id for child in ast.walk(assignment.value) if isinstance(child, ast.Name))
         dependencies = sorted(dependencies)
-        assertion = ast.get_source_segment(content, node)
+        assertion = segment(content, node)
         owner = parents.get(node)
         while owner is not None and not isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Module)):
             owner = parents.get(owner)
@@ -63,10 +72,72 @@ for file in files:
                 elif isinstance(value, list) and child in value:
                     path.insert(0, [field, value.index(child)])
             child = parent
-        owner_source = content if isinstance(owner, ast.Module) else ast.get_source_segment(content, owner)
+        owner_source = content if isinstance(owner, ast.Module) else segment(content, owner)
         identity = hashlib.sha256(json.dumps([assertion, dependencies, owner_source, path], ensure_ascii=False).encode()).hexdigest()
+        context, extra_dependencies, anchors = [], [], {}
+        if matching:
+            # Matching metadata never replaces the permission hash. It proves which
+            # exact historical assertion an unchanged current occurrence belongs to.
+            context = []
+            child = node
+            while child is not tree:
+                parent = parents[child]
+                header = {field: ast.dump(value, include_attributes=False) if isinstance(value, ast.AST) else value
+                          for field, value in ast.iter_fields(parent)
+                          if field not in {'body', 'orelse', 'finalbody', 'handlers'} and not isinstance(value, list)}
+                branch = next((field for field, value in ast.iter_fields(parent)
+                               if isinstance(value, list) and child in value), None)
+                context.insert(0, [type(parent).__name__, header, branch])
+                child = parent
+            # Include callable definitions and writes that the assignment-only legacy
+            # inventory did not hash. An edited helper cannot reuse its caller's grant.
+            extra_dependencies = set()
+            pending = list(visited)
+            seen = set()
+            while pending:
+                name = pending.pop()
+                if name in seen:
+                    continue
+                seen.add(name)
+                for part in ast.walk(tree):
+                    relevant = isinstance(part, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and part.name == name
+                    relevant = relevant or isinstance(part, (ast.Import, ast.ImportFrom)) and any(
+                        (alias.asname or alias.name.split('.')[0]) == name for alias in part.names)
+                    if isinstance(part, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+                        targets = part.targets if isinstance(part, ast.Assign) else [part.target]
+                        relevant = relevant or any(isinstance(item, ast.Name) and item.id == name
+                                                   for target in targets for item in ast.walk(target))
+                    if isinstance(part, ast.Expr) and isinstance(part.value, ast.Call):
+                        call = part.value
+                        inputs = [*call.args, *[keyword.value for keyword in call.keywords]]
+                        if isinstance(call.func, ast.Attribute):
+                            inputs.append(call.func.value)
+                        relevant = relevant or any(isinstance(item, ast.Name) and item.id == name
+                                                   for value in inputs for item in ast.walk(value))
+                    if relevant:
+                        extra_dependencies.add(segment(content, part))
+                        pending.extend(item.id for item in ast.walk(part) if isinstance(item, ast.Name))
+                        ancestor = parents.get(part)
+                        while ancestor is not None:
+                            # Branch/loop inputs select the observed assignment;
+                            # hashing only its value would authorize a different observation.
+                            for field in ('test', 'iter', 'target', 'items', 'type', 'subject', 'pattern', 'guard'):
+                                value = getattr(ancestor, field, None)
+                                for header in value if isinstance(value, list) else [value]:
+                                    if isinstance(header, ast.AST):
+                                        extra_dependencies.add(ast.dump(header, include_attributes=False))
+                                        pending.extend(item.id for item in ast.walk(header) if isinstance(item, ast.Name))
+                            ancestor = parents.get(ancestor)
+            extra_dependencies = sorted(extra_dependencies)
+            # Unchanged statements anchor the assertion on both sides. Insertions or
+            # replacements elsewhere may shift lines; crossing an existing anchor is a move.
+            anchors = {}
+            for part in ast.walk(owner):
+                if isinstance(part, ast.stmt) and not any(isinstance(item, ast.stmt) for item in ast.iter_child_nodes(part)):
+                    text = segment(content, part)
+                    anchors.setdefault(text, []).append(-1 if part.lineno < node.lineno else 1 if part.lineno > node.lineno else 0)
         scripts = []
-        for dependency in [node, *[assignment for values in assignments.values() for assignment in values if ast.get_source_segment(content, assignment) in dependencies]]:
+        for dependency in [node, *[assignment for values in assignments.values() for assignment in values if segment(content, assignment) in dependencies]]:
             for call in ast.walk(dependency):
                 if not isinstance(call, ast.Call):
                     continue
@@ -105,6 +176,62 @@ for file in files:
             pattern = part.args[0].value if isinstance(part.args[0], ast.Constant) else None
             if isinstance(pattern, str) and (method == 'fullmatch' or method in {'match', 'search'} and pattern.startswith('^') and pattern.endswith('$')):
                 literal_comparison = True
-        print(json.dumps(dict(file=str(file.relative_to(root)), line=node.lineno,
-                              test=' > '.join(names) or '<module>', identity=identity,
-                              kinds=['python-review'], assertion=assertion, dependencies=dependencies, scripts=sorted(set(scripts)), literalComparison=literal_comparison), ensure_ascii=False))
+        yield dict(file=filename, line=node.lineno,
+                   test=' > '.join(names) or '<module>', identity=identity,
+                   kinds=['python-review'], assertion=assertion, dependencies=dependencies,
+                   scripts=sorted(set(scripts)), literalComparison=literal_comparison,
+                   match=[assertion, dependencies, context, extra_dependencies], anchors=anchors)
+
+
+def git(*args):
+    return subprocess.run(['git', *args], cwd=root, text=True, capture_output=True, timeout=30)
+
+
+baseline_file = 'tools/oxlint/anti-slop/web-assertions/baseline.jsonl'
+baseline = [json.loads(line) for line in (root / baseline_file).read_text().splitlines() if line] if (root / baseline_file).exists() else []
+base = git('merge-base', 'HEAD', 'origin/main') if baseline else None
+history = None
+for file in files:
+    filename = str(file.relative_to(root))
+    rows = list(inventory(file.read_text(), filename))
+    entries = [entry for entry in baseline if entry['file'] == filename]
+    unmatched = {entry['identity'] for entry in entries} - {row['identity'] for row in rows}
+    if entries and base is not None and base.returncode == 0:
+        rows = list(inventory(file.read_text(), filename, matching=True))
+        if history is None:
+            history = git('log', '--format=%H', base.stdout.strip(), '--', baseline_file).stdout.splitlines()
+            source_record = git('show', base.stdout.strip() + ':tools/oxlint/anti-slop/web-assertions/baseline-source.json')
+            if source_record.returncode == 0:
+                revision = json.loads(source_record.stdout)['sourceRevision']
+                available = git('cat-file', '-e', revision + '^{commit}')
+                if available.returncode != 0:
+                    raise RuntimeError('Cannot read the recorded Python assertion source: ' + available.stderr)
+                history.insert(0, revision)
+        counts = Counter(json.dumps([row['test'], row['match']], sort_keys=True) for row in rows)
+        for revision in history:
+            source = git('show', revision + ':' + filename)
+            if source.returncode != 0:
+                continue
+            original = list(inventory(source.stdout, filename, matching=True))
+            original_counts = Counter(json.dumps([row['test'], row['match']], sort_keys=True) for row in original)
+            for old in original:
+                if old['identity'] in {entry['identity'] for entry in entries}:
+                    for current in rows:
+                        if current['identity'] == old['identity'] and current['match'] != old['match']:
+                            current['identity'] = hashlib.sha256((current['identity'] + file.read_text()).encode()).hexdigest()
+                if old['identity'] not in unmatched:
+                    continue
+                key = json.dumps([old['test'], old['match']], sort_keys=True)
+                if counts[key] != 1 or original_counts[key] != 1:
+                    continue
+                current = next(row for row in rows if json.dumps([row['test'], row['match']], sort_keys=True) == key)
+                shared = current['anchors'].keys() & old['anchors'].keys()
+                if any(current['anchors'][text] != old['anchors'][text] for text in shared):
+                    continue
+                current['identity'] = old['identity']
+                unmatched.remove(old['identity'])
+            if not unmatched:
+                break
+    for row in rows:
+        del row['match'], row['anchors']
+        print(json.dumps(row, ensure_ascii=False))
