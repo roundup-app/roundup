@@ -52,8 +52,7 @@ it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_i
     expect(made.get("t-flood")!.written.map(bytes => new TextDecoder().decode(bytes))).toEqual(["first"]);
     parsed.shift()!();
     await vi.waitFor(() => expect(made.get("t-flood")!.written).toHaveLength(2));
-    parsed.shift()!();
-    await vi.waitFor(() => expect(made.get("t-flood")!.written.map(bytes => new TextDecoder().decode(bytes))).toEqual(["first", "second", "third"]));
+    expect(made.get("t-flood")!.written.map(bytes => new TextDecoder().decode(bytes))).toEqual(["first", "secondthird"]);
     replies.shift()!();
   } finally {
     screens.dispose();
@@ -61,8 +60,8 @@ it.each([node("a"), terminal("a")])("r21_agent_and_terminal_share_the_repaired_i
   }
 });
 
-it("r21_backlogged_output_rests_as_long_as_each_chunk_took", async () => {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+it("r21_backlogged_output_yields_to_each_display_frame", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "requestAnimationFrame", "cancelAnimationFrame"] });
 
   const { app, connected } = await connectFakeProject([node("flood")], [info("t-flood")]);
   const { factory, made } = fakeEmulators();
@@ -84,17 +83,21 @@ it("r21_backlogged_output_rests_as_long_as_each_chunk_took", async () => {
     screens.show("t-flood", document.body.appendChild(document.createElement("div")));
     await subscribed(app, "t-flood");
     await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
+    // Start just after a frame so both six-ms intervals precede the next one.
+    await vi.advanceTimersToNextFrame();
     app.emitOutput("t-flood", "one");
     app.emitOutput("t-flood", "two");
+    app.emitOutput("t-flood", "three");
     const chunks = () => made.get("t-flood")!.written.map(bytes => new TextDecoder().decode(bytes));
 
     expect(chunks()).toEqual(["one"]);
     await vi.advanceTimersByTimeAsync(6);
     expect(chunks()).toEqual(["one"]);
-    await vi.advanceTimersByTimeAsync(5);
+    // Timer turns before the next display frame must not restart the flood.
+    await vi.advanceTimersByTimeAsync(6);
     expect(chunks()).toEqual(["one"]);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(chunks()).toEqual(["one", "two"]);
+    await vi.advanceTimersToNextFrame();
+    expect(chunks()).toEqual(["one", "twothree"]);
   } finally {
     screens.dispose();
     document.body.replaceChildren();
@@ -103,7 +106,7 @@ it("r21_backlogged_output_rests_as_long_as_each_chunk_took", async () => {
 });
 
 it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "requestAnimationFrame", "cancelAnimationFrame"] });
 
   const { app, connected } = await connectFakeProject([node("flood")], [info("t-flood")]);
   const { factory, made } = fakeEmulators();
@@ -125,7 +128,13 @@ it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
     screens.show("t-flood", document.body.appendChild(document.createElement("div")));
     await subscribed(app, "t-flood");
     await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
-    app.emitOutput("t-flood", "x".repeat(20_000));
+    app.emitOutput("t-flood", "x".repeat(8192));
+
+    // Cross event boundaries, including a partially consumed event, in later chunks.
+    for (let offset = 8192; offset < 20_000; offset += 1024) {
+      app.emitOutput("t-flood", "x".repeat(Math.min(1024, 20_000 - offset)));
+    }
+
     await vi.advanceTimersByTimeAsync(200);
     const sizes = made.get("t-flood")!.written.map(bytes => bytes.length);
 

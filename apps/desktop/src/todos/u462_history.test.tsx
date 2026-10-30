@@ -36,7 +36,7 @@ it.each([false, true])("u462_live_history_keeps_edit_and_focus_previous_read_%s"
 
   if (prior) await m.app.rpc("todo.get", { id: 1 });
   await open(m); await disclose(m);
-  fireEvent.dblClick(within(panel()).getByText("todo 1"));
+  fireEvent.dblClick(within(panel()).getByText("todo 1", { selector: ":not(.todo-breadcrumb-title)" }));
   const field = await within(panel()).findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
   fireEvent.input(field, { target: { value: "My unfinished edit" } }); field.focus();
   await m.app.rpc("todo.update", { id: 1, body: "Another Actor's change", title: null });
@@ -55,7 +55,7 @@ it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
   fireEvent.click(await within(panel()).findByRole("button", { name: "Changes" }));
   await within(panel()).findByText("History unavailable");
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
-  fireEvent.dblClick(within(panel()).getByText("todo 1"));
+  fireEvent.dblClick(within(panel()).getByText("todo 1", { selector: ":not(.todo-breadcrumb-title)" }));
   const field = await within(panel()).findByLabelText("Title");
   await waitFor(() => expect(document.activeElement).toBe(field));
   m.app.handlers["todo.getHistory"] = original;

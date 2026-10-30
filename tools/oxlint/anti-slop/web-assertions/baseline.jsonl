@@ -311,9 +311,6 @@
 {"file":"apps/desktop/src/todos/u15_todo_list.test.tsx","test":"u15 Todo list > u15_open_todos_are_listed_in_id_order_as_glyph_hash_id_title","identity":"db305f2155354923ee376931c266f4f653198c7cc1da29ab13c0791cab8252d0"}
 {"file":"apps/desktop/src/todos/u15_todo_list.test.tsx","test":"u15 Todo list > u15_a_failed_todo_list_shows_its_message_in_ink","identity":"5ce827bf6f917de1d9d26741f909ccdba08228134ad927bb975e0f41bbadd8fc"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"`u152 every Todo action by the ${by}` > `u152_add_${by}`","identity":"3c09bf97c04180e3fc8ac6aad280451ff5d0bc69dbb69686a68bba4697d88b87"}
-{"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"u152 remove a blocker > u152_remove_names_each_blocker_done_or_open_and_keeps_the_waits_on_listing","identity":"e8220f13f11e5dda54fde849a7479ed6472670f2d6411f1cf94ecc063f6aab13"}
-{"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"u152 remove a blocker > u152_remove_names_each_blocker_done_or_open_and_keeps_the_waits_on_listing","identity":"7f5cf631d09587edbb23f8d20ddc730d3835e594afb273af670f354e15baf71c"}
-{"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"u152 remove a blocker > u152_a_failed_remove_shows_the_message_and_keeps_the_row","identity":"13d274a47c04979db538d025f831814c46ea8d1e650f1b71acb048244c5e4392"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_delegate_board_%s","identity":"3400882cb786bb49ea8e4877bf97eab2d789f79acdd4b87c7ccff504dae6bb6e"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_delegate_board_%s","identity":"30319a27526f0604c7be95b1610a2a1af2b23a119f3783e16eea5c3009e8a21a"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"`p3557c_failure_lifetime_${owner}_load_%s`","identity":"03afa6b42179120e4ec70b1583ffaf6bace61eb280c2677132bb0d639e1e9399"}
@@ -322,15 +319,7 @@
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_todo_drawer_removed_notice_dismiss","identity":"f200d5f21bd4cf9237e3af7992b1f36dacdc556047e1e1a565d5185ca631f692"}
 {"file":"apps/desktop/src/todos/u152_every_action.test.tsx","test":"p3557c_failure_lifetime_todo_drawer_removed_notice_dismiss","identity":"12e9500155a2bcdd2ba8a9ca45b0c9c538527f4359fc14a8cee9d4039d5b32e8"}
 {"file":"apps/desktop/src/todos/u16_create_a_todo.test.tsx","test":"u16 create a Todo > u16_clicking_plus_opens_one_title_field_in_a_row_after_the_last_todo","identity":"fc19e5d4091c661dea03b4a881e1f0d6de7ecdeb793471aebb58f74df159047b"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_clicking_a_todo_opens_its_drawer_with_its_title_and_tick_box","identity":"e218ac50174f67277e3d962f18b8ccb0fc5b5a771e240a98ab8cddbee9a36a90"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_clicking_a_todo_opens_its_drawer_with_its_title_and_tick_box","identity":"8f373a1c2c8e39203e592c68794a23148cc9137abf7e42e2332b5ac9a373c4a3"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_clicking_a_todo_opens_its_drawer_with_its_title_and_tick_box","identity":"c6e068420c622d9a533348faf3a63911f484ff606f599e78608f11efef2b14be"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_the_drawer_shows_the_body","identity":"267deecf2733474ff634e4c6db2ed7882af7744d5500b4bc08a740876235e00c"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_a_conflict_from_set_blockers_shows_inline","identity":"858360746cdb3627ebb7f4a5550f0174f424e761ba96581db52be41ffa74c5aa"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_leaving_a_field_untouched_after_another_actor_renamed_the_todo_calls_nothing_and_shows_their_title","identity":"96ecc10fa9d02643140989694fb72f5c72d88cc8be59d5473d82ab29cea3a102"}
 {"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_when_another_actor_deletes_the_open_todo_the_drawer_says_so","identity":"5a1b492aec31309915f2417ee44d2b9b782571c51277b09b866ba02d86b7ce6a"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_history_follows_the_current_todo","identity":"9f4b8bbd6f6a8aa0bceda0d6ca084b7a61b4fb1334b79e6ec7fcca7cb746df53"}
-{"file":"apps/desktop/src/todos/u17_todo_detail.test.tsx","test":"u17 Todo detail > u17_a_blocker_change_by_another_actor_between_two_picks_is_not_undone_by_the_second","identity":"e51793fdda0f23cd462cfce421135f5498b829b92133ec59d795c3386b656620"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u2773a_todos_live_creation_enters_recovery_only_after_hiding","identity":"2fa731fd702a57698a0cf26f7b52cdb6232509cf8f278f82c3e762fe3a9ca800"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u2773a_todos_live_creation_enters_recovery_only_after_hiding","identity":"f2433ec26e3d53de89d7cfe82f0a015682b2c0ab2fc4e9bb8336481715c23133"}
 {"file":"apps/desktop/src/todos/u2773_unfinished_input.test.tsx","test":"u3021c_todo_selected_revision_refuses_wrong_%s","identity":"31ebcbb789fe760208c17720b6e49573e8e1ba9424869fd6dea316c0bf156264"}
@@ -351,9 +340,7 @@
 {"file":"apps/desktop/src/todos/u3729_agent_owner.test.tsx","test":"u3729_a_workstream_or_root_selection_keeps_todays_owner","identity":"ab67f528f6eaf2e8a348465fcb78096a13e9b98d66dfca5b0832de6309089877"}
 {"file":"apps/desktop/src/todos/u3729_agent_owner.test.tsx","test":"u3729_a_workstream_or_root_selection_keeps_todays_owner","identity":"f4033ab987c562eb9f614b59f5083ca08f2889fa959dffa41b6c0ae550736f77"}
 {"file":"apps/desktop/src/todos/u3729_agent_owner.test.tsx","test":"u3729_a_refused_create_keeps_the_title_and_shows_its_cause","identity":"958d89156eada12362cf873e335901f37dbb0a4aa56de2320dd395ce23b8fa0e"}
-{"file":"apps/desktop/src/todos/u3732_notes.test.tsx","test":"u3732_an_empty_body_shows_add_notes_and_a_filled_one_does_not","identity":"a6460cdcd123e1dd29fade6e146450e94addec7dda72975ad272907f9e1338e2"}
-{"file":"apps/desktop/src/todos/u3732_notes.test.tsx","test":"u3732_an_empty_body_shows_add_notes_and_a_filled_one_does_not","identity":"530b292de81076bb35cbaa55f372ac0bd1798c2af6448826ff4a7a69c92d1681"}
-{"file":"apps/desktop/src/todos/u3732_notes.test.tsx","test":"u3732_an_empty_body_shows_add_notes_and_a_filled_one_does_not","identity":"0a612480dfe6ebf6db4fea7b30b43806c8fa4d7b2e10754d45cb0e12f65f7c6b"}
+
 {"file":"apps/desktop/src/todos/u3741_comments.test.tsx","test":"u3741_a_todo_with_no_comments_shows_the_field_alone","identity":"e53373627ee7ba0ea02a8dc6bc8accbc2f1665d3c06a62c84e4da76bcd5fa0d8"}
 {"file":"apps/desktop/src/todos/u3741_comments.test.tsx","test":"u3741_a_comment_is_sent_once_and_kept_on_failure","identity":"c19cc40a69638035dcf45f6f67bc1d8e743aeb232328fd5b66543a5bc5711288"}
 {"file":"apps/desktop/src/todos/u3741_comments.test.tsx","test":"u3775_a_status_line_is_a_button_that_folds_its_details","identity":"adfd0a13cfad9490ffe67be864beadb50edfc4a282fad016d748159dd3cac328"}
