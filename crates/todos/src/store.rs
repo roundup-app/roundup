@@ -349,7 +349,7 @@ impl Store {
             .map_err(RpcError::internal)?;
         if retained {
             tx.execute(
-                "DELETE FROM rail_removal_items WHERE kind='todo-home' AND id=?",
+                "DELETE FROM rail_removal_items WHERE kind='todo-home' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
                 [id.to_string()],
             )
             .map_err(RpcError::internal)?;
@@ -389,7 +389,7 @@ impl Store {
             .map_err(RpcError::internal)?;
         if retained {
             tx.execute(
-                "DELETE FROM rail_removal_items WHERE kind='todo-owner' AND id=?",
+                "DELETE FROM rail_removal_items WHERE kind='todo-owner' AND id=? AND operation IN (SELECT operation FROM rail_deletions WHERE restored=0)",
                 [id.to_string()],
             )
             .map_err(RpcError::internal)?;
