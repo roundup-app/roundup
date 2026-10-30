@@ -233,20 +233,33 @@ async fn t4_set_blockers_replaces_the_whole_list() {
 async fn t6_deleting_a_blocker_unblocks_the_todo() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = Harness::new(dir.path());
-    h.call("todo.create", json!({"title": "a"})).await.unwrap();
-    h.call("todo.create", json!({"title": "b", "blockers": [1]}))
+    for title in ["first", "second"] {
+        h.call("todo.create", json!({"title":title})).await.unwrap();
+    }
+    h.call("todo.create", json!({"title":"dependent","blockers":[1,2]}))
         .await
         .unwrap();
+    for (id, home) in [(1, "selected"), (2, "selected"), (3, "elsewhere")] {
+        h.call("todo.move", json!({"id":id,"home":home}))
+            .await
+            .unwrap();
+    }
     h.events();
-    h.call("todo.delete", json!({"operation": "delete-1", "ids": [1]}))
+    h.call("todo.delete", json!({"operation":"chosen","ids":[1,2]}))
         .await
         .unwrap();
-    assert_eq!(h.events(), ["todo.deleted 1", "todo.unblocked 2"]);
-    let two = h.call("todo.get", json!({"id": 2})).await.unwrap();
     assert_eq!(
-        (two["blockers"].clone(), two["blocked"].clone()),
-        (json!([]), json!(false))
+        h.events(),
+        ["todo.deleted 1", "todo.deleted 2", "todo.unblocked 3"]
     );
+    drop(h);
+    let h = Harness::new(dir.path());
+    let rows = h.call("todo.list", Value::Null).await.unwrap();
+    assert_eq!(rows.as_array().unwrap().len(), 1);
+    assert_eq!(rows[0]["id"], 3);
+    assert_eq!(rows[0]["home"], "elsewhere");
+    assert_eq!(rows[0]["blockers"], json!([]));
+    assert_eq!(rows[0]["blocked"], false);
 }
 
 #[tokio::test]

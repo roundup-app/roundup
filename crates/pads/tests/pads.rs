@@ -322,8 +322,17 @@ async fn p9_any_actor_deletes() {
             .await;
             rig.ok(&user(), "pad.setStorage", json!({"files": files}))
                 .await;
+            rig.ok(
+                &agent("a"),
+                "pad.write",
+                json!({"name":"notes","text":"committed before delete"}),
+            )
+            .await;
             let db = rusqlite::Connection::open(rig.dir.path().join("pads.db")).unwrap();
             let original = source(&db, "notes").unwrap().unwrap();
+            if files {
+                assert!(rig.dir.path().join("pads/notes.md").exists());
+            }
             let mut events = rig.bus.subscribe();
             rig.ok(&caller, "pad.delete", json!({"name": "notes"}))
                 .await;
@@ -338,15 +347,46 @@ async fn p9_any_actor_deletes() {
                     .code,
                 code::NOT_FOUND
             );
-            assert!(!rig.dir.path().join("pads/notes.md").exists());
+            for method in ["pad.write", "pad.append"] {
+                assert_eq!(
+                    rig.fail(
+                        &agent("a"),
+                        method,
+                        json!({"name":"notes","text":"after delete"})
+                    )
+                    .await
+                    .code,
+                    code::NOT_FOUND
+                );
+                assert!(!rig.dir.path().join("pads/notes.md").exists());
+            }
+            let reopened = Pads::open(rig.dir.path(), rig.bus.clone()).unwrap();
+            let ctx = Ctx {
+                actor: caller.clone(),
+                bus: rig.bus.clone(),
+                touches: Arc::clone(&rig.touches),
+            };
+            assert_eq!(
+                reopened.call(&ctx, "pad.list", Value::Null).await.unwrap(),
+                json!([])
+            );
             let EventData::PadChanged(changed) = events.try_recv().unwrap().data else {
                 panic!("expected pad.changed");
             };
             assert_eq!(changed.name, "notes");
             let history = rig.touches.history("pad:notes").unwrap();
-            assert_eq!(history.len(), 2);
-            assert_eq!(history[1].actor, caller);
-            assert_eq!(history[1].verb, Verb::Wrote);
+            assert_eq!(history.len(), 3);
+            assert_eq!(history[2].actor, caller);
+            assert_eq!(history[2].verb, Verb::Wrote);
+            assert_eq!(
+                rig.ok(
+                    &caller,
+                    "pad.create",
+                    json!({"name":"notes","text":"explicit new Pad"})
+                )
+                .await["text"],
+                "explicit new Pad"
+            );
         }
     }
 }
@@ -395,20 +435,6 @@ async fn p5_files_mirror_pads_and_edits_import_when_flipped_back() {
 
     let pad = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
     assert_eq!(pad["text"], "edited on disk");
-}
-
-#[tokio::test]
-async fn p9_delete_removes_the_file_when_file_backed() {
-    let rig = Rig::new();
-    let a = agent("a");
-    rig.ok(&a, "pad.setStorage", json!({"files": true})).await;
-    rig.ok(&a, "pad.create", json!({"name": "notes"})).await;
-    let file = rig.dir.path().join("pads/notes.md");
-    assert!(file.exists());
-
-    rig.ok(&a, "pad.delete", json!({"name": "notes"})).await;
-
-    assert!(!file.exists());
 }
 
 #[tokio::test]
