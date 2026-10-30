@@ -233,3 +233,4 @@
 .reaction-list-item { display: flex; align-items: baseline; gap: var(--space-4); }
 .reaction-summary { display: flex; flex-direction: column; min-width: 0; }
 .reaction-reason { color: var(--grey); white-space: normal; overflow-wrap: anywhere; }
+.reactions:has(.empty-state) { flex: 1; min-height: 0; }

@@ -1,12 +1,10 @@
 import type { ConnectedProject } from "../state/connectedProject";
 import type { TodosState } from "./state";
-import type { createDelegateBoard } from "./DelegateBoard";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
 
 /** Existing Shelf drag destinations: a Rail Home or a different owner group. */
-export const todoDropTargets = (connected: ConnectedProject, todos: TodosState, board: Pick<ReturnType<typeof createDelegateBoard>, "preview">) => ({
+export const todoDropTargets = (connected: ConnectedProject, todos: TodosState) => ({
   home: (id: number, x: number, y: number) => {
-    board.preview(null);
     const current = todos.byId().get(id)?.home;
     const rail = document.querySelector(".rail");
     const clip = rail?.getBoundingClientRect();
@@ -38,8 +36,6 @@ export const todoDropTargets = (connected: ConnectedProject, todos: TodosState, 
 
       // A drop on the own group reorders (U155), and a group that left the Rail takes nothing.
       if (!owner || !own || sameOwner(owner.actor, own.owner)) return null;
-
-      board.preview({ id, group });
 
       return { element, attribute: "data-drop-target", owner: owner.actor };
     }
