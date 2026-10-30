@@ -432,8 +432,8 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       }
 
       if (phase === "retention") {
-      await lane.browser("click", '.rail-row[data-id="backend"]');
-      await lane.until("document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
+      await lane.browser("click", '.rail-row[data-id="auth"]');
+      await lane.until("document.querySelector('.rail-row[data-id=auth]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
       await lane.evaluate(`(() => {
         Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
         document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
