@@ -10,7 +10,7 @@ import { openProjectPage } from "./menuProbe";
 import { showShelfTab } from "./shelfTabs";
 import { settled } from "../rail/railFixture";
 
-// Final App inventory: the owner control must use the same Shelf holder as Work items.
+// Final App inventory: Todo creator controls and shared Pad Home groups use the Shelf holder.
 const shelf = ["Todos", "Pads"] as const;
 
 const names = ["Alpha", "Bravo", "Charlie", "Delta", "Éclair"];
@@ -24,18 +24,31 @@ const openShelf = async (tab: typeof shelf[number]) => {
   const daemon = app.of(path("p"));
   Object.assign(daemon.handlers, tab === "Todos"
     ? todoHandlers({ todos: names.map((title, i) => todo(i + 1, { title, creator: owner })) }, () => {})
-    : padHandlers({ pads: names.map(name => padOf(name, owner)), history: [] }, () => {}));
-  await screen.findByRole("region", { name: "Project overview" });
+    : padHandlers({ pads: names.map(name => padOf(name, USER)), history: [] }, () => {}));
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
 
-  const control = await waitFor(() => {
-    const found = document.querySelector<HTMLElement>('[data-id="a"] [data-pads-control]');
-    expect(found).not.toBeNull();
+  if (tab === "Todos") {
+    const control = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>('[data-id="a"] [data-pads-control]');
+      expect(found).not.toBeNull();
 
-    return found!;
-  });
+      return found!;
+    });
 
-  fireEvent.click(control);
+    fireEvent.click(control);
+  } else {
+    showShelfTab("Pads");
+
+    const group = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>('.pads-tab [data-shelf-group="unassigned"]');
+      expect(found).not.toBeNull();
+
+      return found!;
+    });
+
+    if (group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector(".shelf-group-control")!);
+  }
 
   const rows = await waitFor(() => {
     const found = [...document.querySelectorAll<HTMLElement>(tab === "Todos" ? ".shelf .todo-row-button" : ".shelf .pad-name")];
@@ -49,7 +62,7 @@ const openShelf = async (tab: typeof shelf[number]) => {
   return { app: daemon, rows };
 };
 
-it.each(shelf)("u3787c_each_list_navigates_visible_rows owner control %s", async tab => {
+it.each(shelf)("u3787c_each_list_navigates_visible_rows Shelf navigation %s", async tab => {
   const { app, rows } = await openShelf(tab);
   const before = app.calls.length;
   rows[0]!.focus();
@@ -64,7 +77,7 @@ it.each(shelf)("u3787c_each_list_navigates_visible_rows owner control %s", async
   expect(app.calls.slice(before)).toEqual([]);
 });
 
-it.each(shelf)("u3787c_each_list_selects_only_visible_rows owner control %s", async tab => {
+it.each(shelf)("u3787c_each_list_selects_only_visible_rows Shelf navigation %s", async tab => {
   const { app, rows } = await openShelf(tab);
   const before = app.calls.length;
   const selected = () => rows.filter(row => row.getAttribute("aria-pressed") === "true");
@@ -95,7 +108,7 @@ const openChanges = async (opening: string) => {
   const daemon = app.of(path("p"));
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
   daemon.handlers["agent.changedFiles"] = () => ({ files });
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
 
   const row = await waitFor(() => {
@@ -160,12 +173,12 @@ it.each(["counted control", "Review changes"])("u3787c_each_list_selects_only_vi
 
 const renames = ["Todo", "Pad", "Workstream", "Agent"] as const;
 
-it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "double-click"] : ["native Rename"]).map(opening => ({ kind, opening }))))("u3787c_escape_restores_the_name App $kind $opening", async ({ kind, opening }) => {
+it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "native Rename"] : ["native Rename"]).map(opening => ({ kind, opening }))))("u3787c_escape_restores_the_name App $kind $opening", async ({ kind, opening }) => {
   const node = kind === "Workstream" ? door("a", "idle", "ready", { name: "Original" }) : agent("a", "idle", "ready", { name: "Original" });
   const { app } = renderTabs({ p: [node] });
   const daemon = app.of(path("p"));
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Original" })] }, () => {}), padHandlers({ pads: [padOf("Original", USER)], history: [] }, () => {}));
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
   await waitFor(() => expect(document.querySelector('.rail-row[data-id="a"]')).not.toBeNull());
 
@@ -199,7 +212,6 @@ it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "dou
   await settled();
 
   if (opening === "native Rename") { fireEvent.contextMenu(row); await app.pickMenu("Rename"); }
-  else if (opening === "double-click") fireEvent.dblClick(row);
   else fireEvent.keyDown(row, { key: "F2" });
   const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Name" });
   const text = "  e\u0301 🧭 日本語  ";
@@ -220,7 +232,7 @@ it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "dou
 
 it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_list_navigates_visible_rows App Rail %#", async make => {
   renderTabs({ p: names.map((name, order) => ({ ...make(`row-${order}`), name, order })) });
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
 
   const rows = await waitFor(() => {
@@ -242,7 +254,7 @@ it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_l
 
 it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_list_selects_only_visible_rows App Rail %#", async make => {
   const { app } = renderTabs({ p: names.map((name, order) => ({ ...make(`row-${order}`), name, order })) });
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
 
   const rows = await waitFor(() => {

@@ -2,13 +2,14 @@ import { createEffect, createResource, createRoot, createSignal, onCleanup, untr
 import type { Accessor, Resource } from "solid-js";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { AppSeam, DaemonExit } from "../app/seam";
+import { copy } from "../copy";
 import { failureOf } from "../todos/failureOf";
 import type { RailState } from "./rail";
 import { NOW_TICK_MS } from "./clock";
 
 type Read = { failure: null; state: WorktreeState } | { failure: string };
 
-type Entry = { identity: string; read: Resource<Read>; refresh: () => Promise<void>; dispose: () => void; attempted: number };
+type Entry = { identity: string; read: Resource<Read>; refresh: () => Promise<Read>; dispose: () => void; attempted: number };
 
 /** One visible Project owner; neither consumer can retain an entry across a recorded identity change. */
 export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor<number>, daemonExit: Accessor<DaemonExit | null>) => {
@@ -36,10 +37,10 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
 
   return {
     read: (id: string): Read | undefined => current(id)?.read(),
-    refresh: (id: string): Promise<void> => {
+    refresh: (id: string): Promise<Read> => {
       const entry = current(id);
 
-      if (!entry) return Promise.resolve();
+      if (!entry) return Promise.resolve({ failure: copy.worktreeReadUnavailable });
 
       // A view can open just before a coarse tick; skip that tick rather than poll twice within five seconds.
       if (!entry.read.loading) entry.attempted = now() + NOW_TICK_MS;
@@ -80,10 +81,11 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
                   return failure === null ? { failure, state } : { failure };
                 })());
 
-                return { identity: key, read, dispose, attempted: time + NOW_TICK_MS, refresh: async () => {
-                  // The resource owns completion; callers also join its initial request.
-                  if (read.loading) await latest;
-                  else await refetch();
+                return { identity: key, read, dispose, attempted: time + NOW_TICK_MS, refresh: () => {
+                  // Keep the request outcome available to its caller even after resource disposal.
+                  if (!read.loading) void refetch();
+
+                  return latest;
                 } };
               });
               entries.set(id, entry);

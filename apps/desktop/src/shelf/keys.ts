@@ -1,7 +1,7 @@
 import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
-import { chordsFor } from "../keys/chords";
+import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import type { ActivationSource, KeyScope } from "../keys/registry";
 import type { ShelfFrame } from "./frame";
@@ -18,18 +18,23 @@ export const shelfRowKeys = <Id,>(props: {
   remove: (id: Id) => void;
   exportPad?: (id: Id) => void;
 }) => {
-  registerKeys(shelfKeyScope, [
-    { chords: chordsFor("D"), when: event => canShelfKey(event) && props.focused() !== undefined, run: () => {
+  registerKeys(shelfKeyScope, ["D", "E"].map(keys => {
+    const capture = (focus: Element | null) => {
       const id = props.focused();
 
-      if (id !== undefined) props.remove(id);
-    } },
-    { chords: chordsFor("E"), when: event => canShelfKey(event) && props.exportPad !== undefined && props.focused() !== undefined, run: () => {
-      const id = props.focused();
+      const available = () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]")
+        && id !== undefined && props.focused() === id && (keys !== "E" || props.exportPad !== undefined);
 
-      if (id !== undefined) props.exportPad?.(id);
-    } },
-  ]);
+      return { available, invoke: () => { if (id !== undefined) { if (keys === "D") props.remove(id);
+        else props.exportPad?.(id); } } };
+    };
+
+    return {
+      action: CHORDS.find(row => row.keys === keys)!, searchable: false as const,
+      when: (event: KeyboardEvent) => canShelfKey(event) && capture(event.target instanceof Element ? event.target : null).available(),
+      capture,
+    };
+  }));
 };
 
 /** U370: leader `S` toggles, `esc` from inside; focus goes to the open tab on opening and back to where it was on closing. */
@@ -60,8 +65,8 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     if (opening) queueFocus(() => selectedTab()?.focus({ preventScroll: true }));
   };
 
-  const canEscape = (press: KeyboardEvent) => {
-    if (press.defaultPrevented || press.key !== "Escape" || !props.frame.open() || !(press.target instanceof Element)) return false;
+  const isCloseAvailable = (target: Element, path: EventTarget[] = []) => {
+    if (!props.frame.open()) return false;
 
     const shelf = props.shelf();
 
@@ -69,15 +74,17 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
 
     // A naming field can remove itself while handling Escape; its original path
     // still belongs to the Shelf, so that same key must not close the fallback.
-    const inside = (shelf !== null && press.composedPath().includes(shelf)) || press.target.closest(".shelf-tabs") !== null;
+    const inside = (shelf !== null && (shelf.contains(target) || path.includes(shelf))) || target.closest(".shelf-tabs") !== null;
     const overlay = props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") === "overlay";
 
-    if (!inside && (!overlay || !press.target.closest(".centre"))) return false;
+    if (!inside && (!overlay || !target.closest(".centre"))) return false;
 
-    if ((inside && press.target.closest("input, textarea, [contenteditable]")) || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]')) return false;
+    if ((inside && target.closest("input, textarea, [contenteditable]")) || document.querySelector('.drawer[data-open="true"], [role="dialog"], [role="alertdialog"], [role="menu"], [data-dnd-dragging]')) return false;
 
     return true;
   };
+
+  const canEscape = (press: KeyboardEvent) => !press.defaultPrevented && press.key === "Escape" && press.target instanceof Element && isCloseAvailable(press.target, press.composedPath());
 
   const moveFocus = (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.key !== "Tab" || !props.frame.open() || !(event.target instanceof HTMLElement)) return;
@@ -97,8 +104,10 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
       chords: ["Shift+Tab"],
       when: event => props.frame.open() && event.target === firstControl() && selectedTab() !== undefined,
       run: () => selectedTab()?.focus({ preventScroll: true }),
-    }, { chords: chordsFor("M"), when: event => canShelfKey(event) && props.frame.open() && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", run: () => props.frame.toggleMaximise("key") }]);
-    registerKeys({ kind: "app" }, [{ chords: chordsFor("Esc"), when: canEscape, run: () => toggle("key") }]);
+    }, { action: CHORDS.find(row => row.keys === "M")!, searchable: false,
+      when: canShelfKey, capture: focus => ({ available: () => focus?.isConnected === true && !focus.closest("input,textarea,select,[contenteditable]") && props.frame.open() && props.shelf()?.contains(focus) === true && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", invoke: () => props.frame.toggleMaximise("key") }) }]);
+    registerKeys({ kind: "app" }, [{ action: CHORDS.find(row => row.keys === "Esc" && !row.inTriage)!, searchable: false, when: canEscape,
+      capture: focus => ({ available: () => focus?.isConnected === true && isCloseAvailable(focus), invoke: () => toggle("key") }) }]);
 
     return dispose;
   });

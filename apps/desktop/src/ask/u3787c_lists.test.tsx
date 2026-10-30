@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { App } from "../App";
+import { copy } from "../copy";
 import { createFakeApp } from "../testing/fakeApp";
 import { openProjectPage } from "../testing/menuProbe";
 import { agent, workstream } from "../testing/nodes";
@@ -113,12 +114,23 @@ it.each(inventory)("u3787c_reopening_keeps_the_existing_list_lifetime $opening",
   expect(selected(rows)).toEqual([rows[1]]);
 
   if (command !== "view:made") openProjectPage("view:made", "/p");
-  await screen.findByRole("region", { name: "Made" });
-  fireEvent.click(screen.getByRole("button", { name: "Close Made" }));
-  await waitFor(() => expect(document.querySelector(".made")).toBeNull());
+  await screen.findByRole("region", { name: copy.deliverables });
+  await waitFor(() => expect(screen.queryByRole("region", { name: copy.projectOverview })).toBeNull());
+  const madeHeading = screen.getByRole("button", { name: copy.deliverables });
+  madeHeading.focus();
+  await waitFor(() => expect(madeHeading.hasAttribute("data-focus")).toBe(true));
+  fireEvent.click(madeHeading);
+  await waitFor(() => expect(screen.queryByRole("region", { name: copy.deliverables })).toBeNull());
 
-  if (command === "view:made") openProjectPage("view:made", "/p");
+  if (command === "view:made") openProjectPage(command, "/p");
+  else {
+    const heading = screen.getByRole("button", { name: copy.needsYou });
+    heading.focus();
+    await waitFor(() => expect(heading.hasAttribute("data-focus")).toBe(true));
+    fireEvent.click(heading);
+  }
+
   await waitFor(() => expect(document.querySelectorAll(selector).length).toBe(command === "view:workstreams" ? 9 : 8));
-  expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)])).toEqual([]);
+  expect(selected([...document.querySelectorAll<HTMLButtonElement>(selector)]).map(row => row.textContent)).toEqual([rows[1]!.textContent]);
   expect(app.openedTargets).toEqual([]);
 });

@@ -442,6 +442,8 @@ impl Shared {
         let ended = match runs.get_mut(id) {
             Some(Slot::Running(run)) if run.terminal_id == terminal_id => {
                 run.steer = None;
+                // An unacknowledged Steer can release input without a Kind change.
+                self.events.observed.notify_waiters();
                 run.ended || run.closing
             }
             _ => true,
@@ -457,7 +459,7 @@ impl Shared {
     }
     /// H13, H16: the other place a Terminal is written on an Agent's behalf. One `ESC` goes out
     /// when `id` has a turn to end; this returns when the Agent's title shows it is no longer
-    /// working (`Kind::Idle`). Physical completion precedes the title timeout; `NOT_ACKED`
+    /// working (`Kind::Idle`) or a question's Kind leaves `needs-you` (H4702a). Physical completion precedes the title timeout; `NOT_ACKED`
     /// means the Escape was written but its outcome is uncertain. Nothing is retried.
     pub(super) async fn interrupt(&self, id: &str) -> Result<(), RpcError> {
         let name = self.rail().name(id)?;

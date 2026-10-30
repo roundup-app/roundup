@@ -353,6 +353,7 @@ impl Module for SelfEnded {
     async fn call(&self, _ctx: &Ctx, method: &str, _params: Value) -> Result<Value, RpcError> {
         match method {
             "terminal.list" => Ok(json!([TerminalInfo {
+                program_pid: None,
                 id: "1".into(),
                 incarnation: "self-ended-terminal".into(),
                 cwd: "/".into(),

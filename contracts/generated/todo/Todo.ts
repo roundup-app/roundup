@@ -10,6 +10,8 @@ export type Todo = {
 	/**  Derived: at least one blocker is not done. Never stored. */
 	blocked: boolean,
 	created_at: number,
+	/**  T30: the time of the Todo's last Change (title, body, done, owner or blockers); `created_at` on creation. A Todo from before this field reads its latest Change time, or `created_at`. */
+	updated_at: number,
 	/**  The Actor whose `todo.create` made this Todo. A Todo from before this field reads as `Actor::user()`. */
 	creator: Actor.Actor,
 	/**  The Workstream (a Rail id) this Todo belongs to; `None` is the Project root. A Todo from before this field reads as `None`. */
@@ -18,6 +20,4 @@ export type Todo = {
 	owner: Actor.Actor | null,
 	/**  Links to Pads and Pad sections (T27), in the order added. A Todo from before refs reads none. */
 	refs: string[],
-	/**  T29: expected work in minutes (1 to 1440); `None` is no estimate. A Todo from before this field reads as `None`. */
-	estimate_minutes: number | null,
 };

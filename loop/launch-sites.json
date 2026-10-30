@@ -116,6 +116,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "apps/desktop/src/testing/u144_harness_route.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
   "apps/desktop/src/testing/u144_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
@@ -809,5 +814,11 @@
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
     "kind": "in-process",
     "sha256": "0f662e999a1d5b5a332a06c336ea7f86e1c220fa3bb26e70437650affb06069f"
+  },
+  "crates/rup/tests/debug_checkpoint.rs": {
+    "cleanup": "Attached EOF stops and reaps the fake vendor; the fixture waits for the Daemon before its temporary directories drop. The shared harness kills and reaps failed launches.",
+    "data": "Real debug executable receives private temporary Project, data root, HOME, vendor storage and socket; ROUNDUP_SIDECAR_DIR is explicitly removed.",
+    "kind": "real",
+    "issue": 4691
   }
 }

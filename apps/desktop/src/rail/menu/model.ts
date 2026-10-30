@@ -39,9 +39,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   const resuming = new Set<string>();
   const [restarts, setRestarts] = createStore<Record<string, { request: string; pending: boolean } | undefined>>({});
 
-  const restartSession = async (id: string): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
+  const restartSession = async (id: string, request = restarts[id]?.request ?? crypto.randomUUID()): Promise<{ kind: "acknowledged" | "pending" } | { kind: "failed" | "unknown"; message: string }> => {
     if (restarts[id]?.pending) return { kind: "pending" };
-    const request = restarts[id]?.request ?? crypto.randomUUID();
     setRestarts(id, { request, pending: true });
 
     try {

@@ -27,7 +27,7 @@ async fn x3_exit_code_is_reported_and_listed() {
     let mut spawned = terminals.spawn(sh(dir.path(), "exit 3")).await.unwrap();
     let (_, code) = until_exit(&mut spawned).await;
     assert_eq!(code, Some(3));
-    let listed = terminals.list();
+    let listed = terminals.list().await;
     let info: &TerminalInfo = listed.iter().find(|t| t.id == spawned.id).unwrap();
     assert!(!info.running);
     assert_eq!(info.exit_code, Some(3));

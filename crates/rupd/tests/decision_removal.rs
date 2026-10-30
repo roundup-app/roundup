@@ -1,3 +1,4 @@
+// T4902 removes the retired T29 migration; the same non-duration upgrade boundary is retained.
 //! A3564d: a Project made before native questions opens with no Decision data left in it.
 use std::sync::Arc;
 
@@ -20,8 +21,8 @@ fn legacy_decision_event(name: &str) -> String {
 #[tokio::test]
 async fn a3564d_existing_project_opens_without_custom_question_authority() {
     let dir = tempfile::tempdir().unwrap();
-    // Version 36 is the shipped prefix before custom authority removal.
-    let db = storage::project(dir.path(), 36);
+    // Version 35 is the shipped prefix before custom authority removal.
+    let db = storage::project(dir.path(), 35);
     db.execute_batch(
         r#"INSERT INTO nodes(id,kind,name,ord) VALUES(1,'workstream','kept',0);
          INSERT INTO events(event) VALUES('{"actor":{"kind":"user","id":"you","parent":null},"name":"rail.changed","data":null}');
@@ -37,8 +38,8 @@ async fn a3564d_existing_project_opens_without_custom_question_authority() {
     db.execute_batch(
         r#"INSERT INTO nodes(id,kind,name,parent,ord) VALUES(2,'agent','Kept Agent',1,0);
            INSERT INTO todos(id,title,body,created_at,home) VALUES(1,'Kept Todo','todo body',42,'1');
-           INSERT INTO pads(key,name,owner,text,updated_at,home)
-             VALUES('kept','Kept Pad','{"kind":"user","id":"you","parent":null}','pad body',42,'1');
+           INSERT INTO pads(key,name,text,updated_at,home)
+             VALUES('kept','Kept Pad','pad body',42,'1');
            INSERT INTO routes(from_id,to_id,delivery,set_by) VALUES('2','1','drop','user');
            INSERT INTO messages(id,from_actor,to_id,kind,body,status,at,passed_from)
              VALUES(1,'{"kind":"user","id":"you","parent":null}','2','note','final body','delivered',42,NULL),

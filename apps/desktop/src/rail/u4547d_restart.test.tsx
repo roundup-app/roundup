@@ -7,7 +7,6 @@ import { openTabs, path } from "../header/stripFixture";
 import { projectMenu, openProjectPage } from "../testing/menuProbe";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { copy } from "../copy";
-import { captureActions } from "../keys/registry";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -27,9 +26,10 @@ it("u4547d_restart_controls_share_the_focused_mode_action", async () => {
   await waitFor(() => expect(railCallsTo(m.app, "workstream.restart")).toHaveLength(3));
   expect(railCallsTo(m.app, "workstream.restart")).toEqual(Array.from({ length: 3 }, () => ({ id: "mode", request: expect.any(String) })));
   expect(railCallsTo(m.app, "agent.resume")).toEqual([]);
-  expect(captureActions(row).find(a => a.keys === "R")?.available()).toBe(true);
-  rowOf("other").focus();
-  expect(captureActions(document.activeElement).find(a => a.keys === "R")?.available()).toBe(false);
+  const other = rowOf("other");
+  other.focus();
+  fireEvent.keyDown(other, { key: "r", code: "KeyR" });
+  expect(railCallsTo(m.app, "workstream.restart")).toHaveLength(3);
 });
 
 it("u4547d_pending_and_failed_restart_keep_one_operation", async () => {

@@ -14,7 +14,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { TodoHost } from "./TodoDrawer";
 import { todo } from "./testHarness";
 import type { ConnectedProject } from "../state/connectedProject";
-import { questionProbe } from "../testing/menuProbe";
+import { openProjectPage, projectMenu, questionProbe } from "../testing/menuProbe";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { useBrowserStorage } from "../state/storage";
 
@@ -59,7 +59,7 @@ const mount = async (done = false) => {
   return { app, connections, remove };
 };
 
-it("u3787a_delete_has_no_question_and_freezes_targets", async () => {
+it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u3787b_%s", async source => {
   const { app, remove, connections } = await mount();
   const announcements = screen.getAllByRole("status");
   let finish!: (value: { operation: string; deleted: number[]; missing: number[]; state: "deleted" }) => void;
@@ -77,8 +77,17 @@ it("u3787a_delete_has_no_question_and_freezes_targets", async () => {
   expect([connections.get("/a")!.drawer.content()]).toEqual([null]);
   const undo = await shown();
   expect(announcements).toContain(undo.closest('[role="status"]'));
-  pressUndo();
-  pressUndo();
+
+  if (source === "menu") {
+    document.body.focus();
+    await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.enabled).toBe(true));
+    openProjectPage("action:chord:⌘Z", "/a");
+    openProjectPage("action:chord:⌘Z", "/a");
+  } else {
+    pressUndo();
+    pressUndo();
+  }
+
   await waitFor(() => expect(app.of("/a").calls.filter(c => c.method === "todo.restore")).toEqual([{ method: "todo.restore", params: { operation } }]));
 });
 
@@ -147,6 +156,8 @@ it("u3787a_editor_and_terminal_keep_undo", async () => {
     const editor = root.querySelector<HTMLElement>("textarea,input,[tabindex]")!;
     editor.focus();
     expect(undoKey()).toBe(true);
+    await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘Z")).toBe(false));
+    openProjectPage("action:chord:⌘Z", "/a");
     expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(0);
     root.remove();
   }
@@ -301,7 +312,6 @@ it("u3787a_undo_failure_is_retryable_without_rerunning_restored_pad_members", as
 
   pressUndo();
   await screen.findByText("second: name conflict");
-  await daemon.rpc("pad.setOwner", { name: "first", owner: USER });
   await daemon.rpc("pad.write", { name: "first", text: "edited after restore" });
   refuse = false;
   pressUndo();

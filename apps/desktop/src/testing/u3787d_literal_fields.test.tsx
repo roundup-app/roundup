@@ -16,7 +16,7 @@ import { settled } from "../rail/railFixture";
 import { copy } from "../copy";
 
 // Actual App openings, rather than a fixture containing representative fields.
-const inventory = ["Project rename", "Agent rename", "Workstream rename", "Todo rename", "Pad rename", "Capture", "Import prompt", "Font family", "Switcher query", "Reaction name", "Reaction instruction", "Reaction repository", "Ask prompt", "Spawn prompt", "Opening prompt", "New Todo", "New Pad", "Todo title", "Todo body", "Todo comment", "Terminal rename", "New Workstream", "Project query", "Engine query", "Model query", "Reaction target query", "Owner query", "Blocker query", "Wait-for query", "Change note"] as const;
+const inventory = ["Project rename", "Agent rename", "Workstream rename", "Todo rename", "Pad rename", "Capture", "Import prompt", "Font family", "Switcher query", "Ask prompt", "Spawn prompt", "Opening prompt", "New Todo", "New Pad", "Todo title", "Todo body", "Todo comment", "Terminal rename", "New Workstream", "Project query", "Engine query", "Model query", "Owner query", "Blocker query", "Wait-for query", "Change note"] as const;
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -35,8 +35,15 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
   daemon.handlers["agent.compareFile"] = async () => (await import("../changes/noteHarness")).COMPARISON;
   daemon.handlers["terminal.list"] = () => [info("term", { owner: path("p"), title: "Shell" })];
   daemon.handlers["terminal.open"] = () => ({ terminal_id: "term" });
+
+  // U4687a retains a text editor only for a family draft restored before App construction.
+  if (opening === "Font family") {
+    const { draftStorage } = await import("../state/storage");
+    await draftStorage("app-settings").edit({ surface: "settings", object: "fontFamily", recipient: null }, { text: "recovered family", saved: "" }, null, "ordinary").retained;
+  }
+
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => open.showView("terminal-tabs")} />);
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   let field: HTMLInputElement | HTMLTextAreaElement;
 
   if (opening === "Change note") {
@@ -177,21 +184,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
     window.dispatchEvent(new Event("open-app-settings"));
     fireEvent.click(await screen.findByRole("tab", { name: "Terminal" }));
     field = await screen.findByRole("textbox", { name: "Font family" });
-  } else {
-    openProjectPage("view:reactions", path("p"));
-    fireEvent.click(await screen.findByRole("button", { name: "New reaction" }));
-
-    if (opening === "Reaction repository") {
-      const trigger = await screen.findByRole("combobox", { name: "Condition" });
-      fireEvent.click(trigger);
-      fireEvent.click(await screen.findByRole("option", { name: "When this PR's checks pass" }));
-    }
-
-    if (opening === "Reaction target query") {
-      fireEvent.click(await screen.findByRole("button", { name: /Target Agent/ }));
-      field = await screen.findByRole("combobox", { name: "Target Agent" });
-    } else field = await screen.findByRole("textbox", { name: opening === "Reaction name" ? "Name" : opening === "Reaction repository" ? "Repository" : "Instruction" });
-  }
+  } else throw new Error(`Missing field observer: ${opening}`);
 
   await settled();
   expect(field.getAttribute("spellcheck")).toBe("false");

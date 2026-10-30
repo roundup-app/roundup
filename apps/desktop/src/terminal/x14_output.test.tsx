@@ -72,6 +72,41 @@ describe("x14 the App's output subscription", () => {
     expect(app.outputSubscriptions).toHaveLength(1);
   });
 
+  it("u4745_a_gap_during_a_parse_restores_without_more_output", async () => {
+    const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
+    const replies = [snapshotOf("", 0), snapshotOf("SCREEN", 12)];
+
+    app.handlers["terminal.snapshot"] = () => replies.shift() ?? snapshotOf("unexpected", 0);
+    connected.rail.select("a");
+    await subscribed(app, "t-a");
+    await vi.waitFor(() => expect(replies).toHaveLength(1));
+    const emulator = emulators.get("t-a");
+
+    if (!emulator) throw new Error("no emulator");
+
+    const write = emulator.write;
+    let release: (() => void) | undefined;
+
+    emulator.write = (bytes, parsed) => {
+      if (bytes.length > 0 && !release) {
+        emulator.written.push(bytes);
+        release = () => parsed?.();
+
+        return;
+      }
+
+      write(bytes, parsed);
+    };
+
+    app.emitOutput("t-a", "ab");
+    await vi.waitFor(() => expect(release).toBeDefined());
+    app.emitGap("t-a", 2, 10);
+    release?.();
+
+    await vi.waitFor(() => expect(decoded(emulator.written)).toContain("SCREEN"));
+    expect(app.calls.filter((call) => call.method === "terminal.snapshot")).toHaveLength(2);
+  });
+
   it("x14_app_disposal_releases_only_its_output_subscription", async () => {
     const { app, connected } = await connectFakeProject([node("a"), node("b")], [info("t-a"), info("t-b")]);
     const { factory, made } = fakeEmulators();

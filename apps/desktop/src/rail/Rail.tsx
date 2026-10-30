@@ -169,10 +169,10 @@ export const Rail = () => {
 
   const endCompose = () => setComposing(false);
 
-  const sections: { id: RailSection; label: string; icon: "messages" | "circle" | "diamond" }[] = [
+  const sections: { id: RailSection; label: string; icon: "messages" | "bot" | "workflow" }[] = [
     { id: "workstreams", label: copy.workstreamsHead, icon: "messages" },
-    { id: "modes", label: copy.modesHead, icon: "diamond" },
-    { id: "agents", label: copy.agentsHead, icon: "circle" },
+    { id: "modes", label: copy.modesHead, icon: "workflow" },
+    { id: "agents", label: copy.agentsHead, icon: "bot" },
   ];
 
   const sectionNodes = createMemo(() => {
@@ -702,6 +702,15 @@ export const Rail = () => {
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
+  registerKeys({ kind: "region", element: container }, [{ action: CHORDS.find(row => row.keys === "F2")!, capture: focus => {
+    const id = focus instanceof HTMLElement && focus.matches(ROW) ? focus.closest<HTMLElement>("[data-id]")?.dataset.id : undefined;
+
+    return {
+      available: () => !!id && !!focus?.isConnected && !focus.classList.contains("sortable-source") && daemonExit() === null && editingName() === null && rail.nodes.some(node => node.id === id),
+      invoke: () => { if (id) setEditingName(id); },
+    };
+  } }]);
+
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(
     on(rail.selected, (id) => {
@@ -891,7 +900,7 @@ export const Rail = () => {
                     </Show>
                     <Show when={fold()}>
                       {(view) => (
-                        <div class="rail-fold" role="none" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}>
+                        <div class="rail-fold row-wash" role="none" style={{ "--indent": `calc(${view().depth} * var(--rail-step) + var(--rail-inset))` }}>
                           <Trunks depth={view().depth} trail={[...view().trail, false]} stem={false} />
                           <button data-button="quiet"
                             class="word"
@@ -960,7 +969,13 @@ export const Rail = () => {
         </details>
       </Show>
       <Show when={openingPrompt()} keyed>{id => <OpeningPrompt restart={() => menu.restartSession(id)} id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
-      <Show when={creatingMode()}><CreateMode onClose={() => setCreatingMode(false)} /></Show>
+      <Show when={creatingMode()}><CreateMode finalFocus={id => rowElement(id) ?? null} onClose={() => setCreatingMode(false)} onCreated={(id, request) => {
+        setCreatingMode(false);
+        // The arriving Door must not reuse the selection permission to take focus from this row.
+        const focus = rail.terminalFocus();
+        queueMicrotask(() => focus(() => rowElement(id)?.focus({ preventScroll: true })));
+        void menu.restartSession(id, request);
+      }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
@@ -980,7 +995,7 @@ export const Rail = () => {
           }}
         >
           <Icon name="messages" />{copy.addWorkstreamWord}</button>
-        <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name="diamond" />{copy.modeWord}</button>
+        <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name="workflow" />{copy.modeWord}</button>
         <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
       </div>
     </>

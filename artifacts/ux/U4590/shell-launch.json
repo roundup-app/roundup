@@ -1,0 +1,23 @@
+{
+  "trace": {
+    "fitted": {
+      "cols": 104,
+      "rows": 29
+    },
+    "method": "terminal.open",
+    "outcome": {
+      "result": {
+        "terminal_id": "4"
+      }
+    },
+    "params": {
+      "cols": 104,
+      "rows": 29,
+      "workstream": "1"
+    }
+  },
+  "before": "\u001b[2J\u001b[Hfirst 104 29 pid=75661\r\n",
+  "later": "\u001b[?6l\u001b[r\u001b[m\u001b[?6l\u001b[H\u001b7\u001b[?6l\u001b[?25h\u001b[m\u001b[H\u001b[Jlater 112 32 pid=75661\r\n\u001b[1;32r\u001b[?6l\u001b[2;1H\u001b>\u001b[?1l\u001b[?2004l",
+  "pid": "75661",
+  "incarnation": "93ee8ca3c35bfd5953a57d41c23b51e853a41f7d749fe2e6d1de0a84b9d34982"
+}

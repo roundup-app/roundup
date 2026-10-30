@@ -161,7 +161,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
     const retry = stranded?.title === title && home !== null ? stranded : null;
 
     stranded = null;
-    const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home, owner, refs: [], estimate_minutes: null };
+    const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner, refs: [] };
     const hide = todos.show(row);
 
     props.onFile?.();
@@ -196,9 +196,9 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
         drafts.settle(revision.revision, "acknowledged");
         await todos.reload();
 
-        if (!current()) hide();
+        hide();
       } catch (error) {
-        if (!current()) hide();
+        hide();
 
         if (made || retry) void todos.reload();
 

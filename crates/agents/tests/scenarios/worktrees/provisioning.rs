@@ -201,19 +201,20 @@ async fn g2_exclude_failure_undoes_branch_and_worktree() {
 async fn g2_two_spawns_have_different_cwds() {
     let f = Fixture::in_git_project("sleep 30", Git::from_env());
     set_worktrees(&f, true, None).await;
-    let cwd_of = |f: &Fixture, node: &RailNode| {
+    async fn cwd_of(f: &Fixture, node: &RailNode) -> String {
         f.terminals
             .list()
+            .await
             .into_iter()
             .find(|t| Some(&t.id) == node.terminal_id.as_ref())
             .unwrap()
             .cwd
-    };
+    }
 
     let a = f.spawn(None, None).await.unwrap();
     let b = f.spawn(None, None).await.unwrap();
 
-    assert_ne!(cwd_of(&f, &a), cwd_of(&f, &b));
+    assert_ne!(cwd_of(&f, &a).await, cwd_of(&f, &b).await);
     assert_ne!(a.worktree.unwrap().path, b.worktree.unwrap().path);
 }
 
@@ -223,19 +224,20 @@ async fn g2_two_start_doors_have_different_cwds() {
     set_worktrees(&f, true, None).await;
     let g1 = f.workstream("g1", None).await;
     let g2 = f.workstream("g2", None).await;
-    let cwd_of = |f: &Fixture, node: &RailNode| {
+    async fn cwd_of(f: &Fixture, node: &RailNode) -> String {
         f.terminals
             .list()
+            .await
             .into_iter()
             .find(|t| Some(&t.id) == node.terminal_id.as_ref())
             .unwrap()
             .cwd
-    };
+    }
 
     let a = start_door(&f, &g1).await.unwrap();
     let b = start_door(&f, &g2).await.unwrap();
 
-    assert_ne!(cwd_of(&f, &a), cwd_of(&f, &b));
+    assert_ne!(cwd_of(&f, &a).await, cwd_of(&f, &b).await);
     assert_ne!(a.worktree.unwrap().path, b.worktree.unwrap().path);
 }
 
@@ -255,6 +257,7 @@ async fn g2_subfolder_cwd_maps_into_the_worktree() {
     let cwd = f
         .terminals
         .list()
+        .await
         .into_iter()
         .find(|t| Some(&t.id) == node.terminal_id.as_ref())
         .unwrap()
@@ -498,6 +501,7 @@ async fn g2_spawn_at_the_project_root_runs_in_the_worktree_root() {
     let cwd = f
         .terminals
         .list()
+        .await
         .into_iter()
         .find(|t| Some(&t.id) == node.terminal_id.as_ref())
         .unwrap()

@@ -50,7 +50,8 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     let migrated = tempfile::tempdir().unwrap();
     let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
     let mut historical = migrations();
-    historical.truncate(42);
+    // T4902 removes one migration before deliverable files; keep the same schema boundary.
+    historical.truncate(41);
     apply(&mut db, historical).unwrap();
     assert!(db.prepare("SELECT id FROM deliverable_files").is_err());
     db.prepare("SELECT operation FROM rail_deletions").unwrap();
@@ -595,19 +596,19 @@ async fn n16_all_stores_share_one_project_database() {
     )
     .unwrap();
     let child = db.last_insert_rowid().to_string();
-    db.execute(
-        "UPDATE pads SET owner=?,home=?",
-        params![
-            serde_json::to_string(&Actor {
+    db.execute("UPDATE pads SET home=?", [&ws]).unwrap();
+    daemon
+        .touches
+        .record(
+            &Actor {
                 kind: contracts::ActorKind::Agent,
                 id: child,
-                parent: Some(ws.clone())
-            })
-            .unwrap(),
-            ws
-        ],
-    )
-    .unwrap();
+                parent: Some(ws.clone()),
+            },
+            contracts::Verb::Wrote,
+            "pad:kept Pad",
+        )
+        .unwrap();
     db.execute("UPDATE nodes SET attempt=1 WHERE id=?", [&ws])
         .unwrap();
     let nodes: Vec<contracts::agent::RailNode> =
@@ -617,6 +618,7 @@ async fn n16_all_stores_share_one_project_database() {
     let pads: Vec<contracts::pad::Pad> =
         serde_json::from_value(call(&daemon, "pad.list", Json::Null).await).unwrap();
     let sources = messages::digest::Sources {
+        touches: daemon.touches.history("pad:kept Pad").unwrap(),
         nodes: &nodes,
         todos: &todos,
         pads: &pads,

@@ -248,6 +248,8 @@ p {
 }
 
 .drawer {
+  --drawer-right: 0rem;
+  --drawer-bottom: var(--length-zero);
   display: flex;
   flex-direction: column;
   width: var(--drawer-span);
@@ -263,6 +265,19 @@ p {
   border-left-width: var(--hairline-width);
   border-left-style: solid;
   border-left-color: var(--hairline);
+}
+
+/* U4698a: a filled Todo or Pad covers the centre pane only: right of the Rail, left of a shown right side. A maximised Shelf keeps its whole pane, so the item covers it as U4458 did. */
+.window {
+  --fill-rail: var(--rail-width);
+  --fill-reserve: 0rem;
+}
+.window[data-rail="closed"] { --fill-rail: 0rem; }
+.window[data-shelf-mode="reserved"][data-shelf-shown="true"]:not([data-shelf-maximised="true"]) { --fill-reserve: var(--shelf-span); }
+.drawer[data-fill="true"] {
+  --drawer-right: var(--fill-reserve);
+  --drawer-bottom: var(--rail-actions-height);
+  width: calc(100% - var(--fill-rail) - var(--fill-reserve));
 }
 
 /* U371: match the Shelf transform's displacement, including interrupted slides. */
@@ -303,7 +318,8 @@ p {
 }
 
 /* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
-.window[data-shelf-mode]:has(.drawer[data-open="true"]) .columns {
+.window[data-shelf-mode]:has(.drawer[data-open="true"]:not([data-fill="true"])) .columns,
+.window[data-shelf-mode][data-shelf-maximised="true"]:has(.drawer[data-open="true"]) .columns {
   width: calc(100% - var(--drawer-span));
 }
 
@@ -324,7 +340,8 @@ p {
 }
 
 /* U409: the Shelf lies wholly under an open Drawer, so once the slide ends it leaves the tab order; closing shows it at once. */
-.window:has(.drawer[data-open="true"]) .shelf {
+.window:has(.drawer[data-open="true"]:not([data-fill="true"])) .shelf,
+.window[data-shelf-maximised="true"]:has(.drawer[data-open="true"]) .shelf {
   visibility: hidden;
   transition: transform var(--duration-drawer) var(--easing-out), visibility var(--duration-drawer) linear;
 }
@@ -339,7 +356,7 @@ p {
   top: var(--space-2);
 }
 
-.drawer[data-maximised="true"] :is(.pad-editor, .todo-detail) {
+.drawer[data-maximised="true"] .todo-detail {
   width: min(100%, var(--measure));
   align-self: center;
 }
@@ -412,6 +429,12 @@ pre,
 code {
   -webkit-user-select: text;
   user-select: text;
+}
+
+.draft-recovery:has(.empty-state) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .draft-recovery {
@@ -515,5 +538,7 @@ li:has([aria-pressed="true"]) .draft-name,
 }
 
 /* U4458: keep the columns and Rail at their normal positions behind the expanded Drawer. */
-.window:has(.drawer[data-open="true"][data-maximised="true"]) .shelf { content-visibility: hidden; }
-.window:has(.drawer[data-open="true"][data-maximised="true"]) .shelf-edge-slot { visibility: hidden; }
+.window:has(.drawer[data-open="true"][data-maximised="true"]:not([data-fill="true"])) .shelf,
+.window[data-shelf-maximised="true"]:has(.drawer[data-open="true"][data-maximised="true"]) .shelf { content-visibility: hidden; }
+.window:has(.drawer[data-open="true"][data-maximised="true"]:not([data-fill="true"])) .shelf-edge-slot,
+.window[data-shelf-maximised="true"]:has(.drawer[data-open="true"][data-maximised="true"]) .shelf-edge-slot { visibility: hidden; }

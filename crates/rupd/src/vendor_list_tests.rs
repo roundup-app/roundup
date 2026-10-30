@@ -370,8 +370,13 @@ async fn u3523f_runtime_is_lazy_bounded_and_reaped() {
     let message = refused["error"]["message"]
         .as_str()
         .unwrap_or_else(|| panic!("{refused}"));
+    let recovery = if cfg!(debug_assertions) {
+        "--local-node"
+    } else {
+        "reinstall roundup"
+    };
     assert!(
-        message.contains("node") && message.contains("reinstall roundup"),
+        message.contains("node") && message.contains(recovery),
         "{message}"
     );
     assert!(refused.get("result").is_none());

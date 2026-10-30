@@ -105,6 +105,7 @@ it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"
 
   expect(tip.textContent).toBe(wrapper === "icon" ? copy.minimise : copy.openFolder);
   expect(tip.querySelector("kbd")).toBeNull();
+  expect(button.getAttribute("aria-describedby")).toBe(tip.id);
 });
 
 it("u2570a_icon_button_forwards_its_chord_only_to_the_tooltip", async () => {

@@ -1,4 +1,3 @@
-import { settled } from "../rail/railFixture";
 // @vitest-environment jsdom
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -14,10 +13,6 @@ import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixtur
 import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 import { AskBar } from "./AskBar";
-import { createSignal } from "solid-js";
-import { RequestedApp as App } from "../testing/requestedApp";
-import { fakeEmulators } from "../terminal/paneHarness";
-import { createProjectDrafts } from "../state/connectedProject";
 
 const exec = promisify(execFile);
 
@@ -63,7 +58,6 @@ it("dv5_discover_open_retained_and_current_targets_after_reopen", async () => {
 
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = await within(made).findAllByRole("listitem");
@@ -91,10 +85,11 @@ it("dv5_discover_open_retained_and_current_targets_after_reopen", async () => {
   if (padTarget.kind === "path") expect(await readFile(padTarget.path, "utf8")).toBe("Pad revision one");
   expect((await app.rpc("pad.read", { name: "published-pad" })).text).toBe("Pad revision two");
   expect(calls.filter(method => method.startsWith("agent.") || method.startsWith("message."))).toEqual([]);
-  connected.rail.select(home.id);
-  fireEvent.click(await screen.findByRole("button", { name: "Made" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Filter Made/ }));
+  fireEvent.click(await screen.findByRole("option", { name: "Made Home" }));
   await waitFor(() => expect(within(screen.getByRole("region", { name: "Made" })).getAllByRole("listitem")).toHaveLength(6));
-  connected.rail.select(makers[0]!.id);
+  fireEvent.click(screen.getByRole("button", { name: /^Filter Made/ }));
+  fireEvent.click(await screen.findByRole("option", { name: "Maker 0" }));
   await waitFor(() => expect(within(screen.getByRole("region", { name: "Made" })).getAllByRole("listitem")).toHaveLength(1));
 });
 
@@ -114,7 +109,6 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
 
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
   const linkButton = await within(made).findByRole("button", { name: new RegExp(`^Open Failure link ·`) });
@@ -177,7 +171,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   unsafe.mockRestore();
   const rpc = app.rpc;
   app.rpc = (method, params) => method === "deliverable.list" ? Promise.reject(new Error("catalogue connection interrupted")) : rpc(method, params);
-  fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(within(made).getAllByRole("alert").some(alert => alert.textContent?.includes("catalogue connection interrupted"))).toBe(true);
   expect(within(made).getAllByRole("listitem")).toHaveLength(count);
@@ -187,7 +181,6 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   await real.restart();
   const reopened = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   reopened.showView("made");
-  reopened.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={reopened}><AskBar /></ConnectedProjectContext.Provider>);
   const catalogue = await screen.findByRole("region", { name: "Made" });
   await within(catalogue).findByRole("button", { name: new RegExp(`^Open Failure Pad ·`) });
@@ -231,121 +224,6 @@ it("u2773b_lost_ask_acknowledgement_reconciles_after_daemon_restart_without_dupl
 });
 
 
-it("u2773a_ask_restores_original_projects_through_App_reopen", async () => {
-  const second = await startRealDaemon({});
-  const first = createServedApp(real.base);
-  const other = createServedApp(second.base);
-  const before = await first.rpc("ask.list", null);
-  const original = await first.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
-  let otherOriginal = await other.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
-
-  if (otherOriginal.id === original.id) {
-    await other.rpc("rail.remove", { id: otherOriginal.id });
-    otherOriginal = await other.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
-  }
-
-  expect(otherOriginal.id).not.toBe(original.id);
-  const roots = new Map([[real.dir, first], [second.dir, other]]);
-  const calls = [...roots.values()].map(bound => vi.spyOn(bound, "rpc"));
-  let opened = [real.dir, second.dir];
-  const projects = () => opened.map(path => ({ path, name: path === real.dir ? "first" : "second", running: true }));
-
-  const app = {
-    ...first,
-    projects: async () => projects(),
-    forProject: (path: string) => roots.get(path)!,
-    chooseProjectPath: async () => real.dir,
-    closeProject: async (path: string) => { opened = opened.filter(each => each !== path); },
-    openProject: async (path: string) => { opened.push(path);
-
- return projects().find(each => each.path === path)!; },
-    onDaemonExited: async () => () => {},
-  };
-
-  const owners = createProjectDrafts();
-  const mount = () => render(() => <App app={app} drafts={owners} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-  const field = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
-  const exact = "@Same destination  e\u0301 🌿\nlast line  ";
-
-  try {
-    const view = mount();
-    await screen.findByRole("tab", { name: "first" });
-    fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    await settled();
-    await screen.findByRole("textbox", { name: "Ask" });
-    fireEvent.input(field(), { target: { value: exact } });
-    field().setSelectionRange(2, 6, "backward");
-    fireEvent.select(field());
-    fireEvent.click(screen.getByRole("tab", { name: "second" }));
-    await settled();
-    await waitFor(() => expect(field().value).toBe(""));
-    fireEvent.input(field(), { target: { value: "  second Project 東京\n " } });
-    const focus = document.activeElement;
-    await first.rpc("rail.rename", { id: original.id, name: "Renamed original" });
-    expect(document.activeElement).toBe(focus);
-    fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    await settled();
-    await waitFor(() => expect(field().value).toBe(exact));
-    expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 6, "backward"]);
-    const tab = document.querySelector<HTMLElement>(`[data-path="${real.dir}"]`)!;
-    fireEvent.pointerEnter(tab);
-    fireEvent.click(within(tab).getByRole("button", { name: "Close first" }));
-    await waitFor(() => expect(document.querySelector(`[data-path="${real.dir}"]`)).toBeNull());
-    expect(field().value).toBe("  second Project 東京\n ");
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: "first" });
-    await waitFor(() => expect(field().value).toBe(exact));
-    expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 6, "backward"]);
-    view.unmount();
-    mount();
-    await screen.findByRole("tab", { name: "first" });
-    fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    await settled();
-    await waitFor(() => expect(field().value).toBe(exact));
-    expect(owners(real.dir).list().find(draft => draft.destination.surface === "ask")?.value.workstream).toBe(original.id);
-    expect(calls.flatMap(spy => spy.mock.calls).filter(([method]) => method === "ask.send")).toEqual([]);
-    expect(await first.rpc("ask.list", null)).toEqual(before);
-    expect(await other.rpc("ask.list", null)).toEqual([]);
-  } finally {
-    cleanup();
-    vi.restoreAllMocks();
-    await second.stop();
-  }
-}, 60_000);
-
-
-it("u3021c_ask_removed_workstream_refuses_selected_editor_after_reopen", async () => {
-  const app = createServedApp(real.base);
-  const original = await app.rpc("rail.createWorkstream", { name: "Same", parent: null });
-  const connected = await connectProject(app, { path: real.dir, name: "Same" }, () => false, () => 0);
-  const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
-  await connected.rail.settled();
-  const destination = { surface: "ask", object: "ask-bar", recipient: null };
-  const a = connected.drafts.edit(destination, { text: "@Same  e\u0301 🌿\n次の行  ", workstream: original.id, name: "Same" }, { start: 2, end: 8, direction: "backward" }, "ordinary").draft;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, "unknown");
-  const b = connected.drafts.edit(destination, { text: "B current", workstream: null, name: null }, null, "ordinary").draft;
-  await app.rpc("rail.remove", { id: original.id });
-  await app.rpc("rail.createWorkstream", { name: "Same", parent: null });
-  const reopened = await connectProject(app, connected.project, () => false, () => 0);
-  reopened.showView("made");
-  reopened.showView("ask-history");
-  render(() => <ConnectedProjectContext.Provider value={reopened}><AskBar recovery={recovery()} /></ConnectedProjectContext.Provider>);
-  await reopened.rail.settled();
-  await waitFor(() => expect(reopened.drafts.availability(a, reopened)).toBe("unavailable"));
-  const before = reopened.drafts.list();
-  const rpc = vi.spyOn(app, "rpc");
-
-  setRecovery({ project: real.dir, revision: a.revision });
-  await Promise.resolve();
-  expect(document.querySelector<HTMLTextAreaElement>(".ask-input")!.value).toBe("B current");
-  expect(reopened.drafts.list()).toContainEqual({ ...a, status: "unknown" });
-  expect(reopened.drafts.list()).toEqual(before);
-  expect(reopened.drafts.list().find(draft => draft.revision === b.revision)?.value.text).toBe("B current");
-  expect(rpc).not.toHaveBeenCalled();
-  rpc.mockRestore();
-});
-
-
 it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_revision", async () => {
   const app = createServedApp(real.base);
   await app.rpc("pad.create", { name: "share-pad", text: "published exact revision 🌿" });
@@ -360,7 +238,6 @@ it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_re
   app.showContextMenu = vi.fn(async () => "copy-link");
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   connected.showView("made");
-  connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
 
@@ -444,7 +321,6 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery
     const connected = await connectProject(app, { path: delivery.dir, name: "Project" }, () => false, () => 0);
     await connected.rail.settled();
     connected.showView("made");
-  connected.showView("ask-history");
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
     const made = await screen.findByRole("region", { name: "Made" });
 

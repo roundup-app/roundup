@@ -268,7 +268,19 @@ impl Daemon {
         }
         match method {
             "agent.context" => rpc::reply(&context),
-            _ => rpc::reply(&context::brief(&nodes, &context)),
+            _ => {
+                let settings =
+                    data::read_naming(&self.naming.lock().expect("naming preferences poisoned"))
+                        .map_err(RpcError::internal)?;
+                let text = context::naming(
+                    context::text(&nodes, &context),
+                    &settings,
+                    self.agents.naming_settled(&id),
+                );
+                rpc::reply(&contracts::agent::Brief {
+                    stdout: agents::claude_code::session_start_context(&text),
+                })
+            }
         }
     }
 

@@ -1,27 +1,11 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { KindGlyph } from "./KindGlyph";
-import { OwnerMark } from "./OwnerMark";
 
 afterEach(cleanup);
 
-it.each([
-  ["error", "Error"], ["needs-you", "Needs-you"], ["blocked", "Blocked"],
-  ["working", "Working"], ["idle", "Idle"], ["done", "Done"],
-] as const)("u471_previous_copy_assertions_are_preserved_glyph_names_use_sentence_case_for_%s", (kind, label) => {
-  render(() => <KindGlyph kind={kind} />);
-  expect(screen.getByRole("img", { name: label })).toBeTruthy();
-});
-
-it.each([
-  ["user", "User owned"], ["agent", "Agent owned"], ["ext", "Extension owned"],
-] as const)("u471_previous_copy_assertions_are_preserved_owner_marks_use_sentence_case_for_%s", (kind, label) => {
-  render(() => <OwnerMark owner={{ kind, id: "workstream", parent: null }} />);
-  expect(screen.getByRole("img", { name: label })).toBeTruthy();
-});
-
 it("u471_previous_copy_assertions_are_preserved_decorative_marks_have_no_spoken_label", () => {
-  const { container } = render(() => <><KindGlyph kind="working" decorative /><OwnerMark owner={{ kind: "agent", id: "workstream", parent: null }} decorative /></>);
+  const { container } = render(() => <><KindGlyph kind="working" decorative /></>);
   expect(screen.queryByRole("img")).toBeNull();
   expect(container.querySelectorAll("[aria-label]").length).toBe(0);
 });

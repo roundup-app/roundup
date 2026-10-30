@@ -1,4 +1,5 @@
 import { modalOpen, registerKeys } from "../keys/registry";
+import { CHORDS } from "../keys/chords";
 import { copy } from "../copy";
 import type { JSX } from "solid-js";
 import "./rowButton.styles.css";
@@ -14,19 +15,24 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
       && (event.altKey ? props.reorderable === true : props.pressed !== undefined)
       && ((event.key !== "Escape" && event.key !== "Backspace") || props.selectionActive === true),
     run: (event) => props.onKeyDown?.(event),
-  }, {
-    chords: ["Tab", "Shift+Tab"],
-    when: (event) => event.target === button && props.nest?.(event.shiftKey) != null,
-    run: (event) => {
-      const run = props.nest?.(event.shiftKey);
+  }, ...[false, true].map(out => ({
+    action: CHORDS.find(row => row.inTriage && row.keys === (out ? "⇧Tab" : "Tab"))!,
+    searchable: false as const, repeat: true as const,
+    when: (event: KeyboardEvent) => event.target === button && props.nest?.(out) != null,
+    capture: (focus: Element | null) => {
+      const run = props.nest?.(out);
 
-      if (run) props.onNest?.(run);
+      return {
+        available: () => focus === button && button?.isConnected === true && document.activeElement === button
+          && !props.keysSuspended && !modalOpen() && run != null && props.nest?.(out) != null,
+        invoke: () => { if (run) props.onNest?.(run); },
+      };
     },
-  }]);
+  }))]);
 
   return (
     <button type="button" class="todo-row-button"
-      onDblClick={() => props.onRename?.()}
+      onDblClick={() => props.onOpen?.()}
       on:keydown={(event) => {
         if (event.target === event.currentTarget && !event.defaultPrevented && !props.keysSuspended) props.onKeyDown?.(event);
       }}

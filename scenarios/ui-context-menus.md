@@ -12,7 +12,7 @@ Acceptance for #4322. Journey: Understand and Intervene, finding an action on th
 | Project tab | copy: Copy (the existing Project-path copy); edit: Rename; close: Close |
 | Terminal tab / Bubble | open/share: Send to Agent, Copy link; edit: Rename; close: Close |
 | Pad in the Rail | open/share: Send to Agent, Copy link; delete: Delete |
-| Pad in work items | open/share: Send to Agent, Copy link; edit: Assign, Make yours; delete: Delete |
+| Pad in work items | open/share: Send to Agent, Copy link; delete: Delete |
 | Todo in the Rail or work items | status: Complete; open/share: Send to Agent, Copy link; edit: Assign, Move, Move up, Move down; delete: Delete |
 | Ask's published-output row | open/share: Send to Agent, Copy (the existing published-output copy) |
 
@@ -67,8 +67,8 @@ In this table, `|` means exactly one separator boundary; commas mean no separato
 | Project tab | `copy | rename | close` |
 | User-opened Terminal tab | `send, copy-link | rename | close` |
 | User-opened Terminal Bubble, its non-text bar | `send, copy-link | rename | close` |
-| Agent-owned Pad in the Rail, expanded Pads branch | `send, copy-link | delete` |
-| Agent-owned Pad in work items, another eligible owner | `send, copy-link | assign, make-yours | delete` |
+| Pad Rail leaves | Retired by U4457; no such caller |
+| Pad in work items | `send, copy-link | delete` |
 | Incomplete Todo in the Rail, middle of three owned Todos, another Home | `complete | send, copy-link | move, move-up, move-down | delete` |
 | Incomplete Todo in work items, middle of three Todos with the same owner, another Home | `complete | send, copy-link | assign, move, move-up, move-down | delete` |
 | Ask's published-output row, available publication | `send, copy-link` |

@@ -656,9 +656,12 @@ it.each(["close", "minimise", "Escape"])("u4590_preparing_shell_cancels_with_%s"
 // U4590's opt-in policy observer; the single startup guard above remains the CI guard.
 for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-40", "bubbles"]) for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
   it.skipIf(!captureDir("U4590"))(`u4590_rendered_lifecycle_${renderer}_${seed}_${base ? "base" : "head"}`, async () => {
-      await browser("open", url("/src/ui/u498.html", base));
-      await read("localStorage.clear(); sessionStorage.clear()");
       const scale = process.env.U4590_SCALE === "2" ? 2 : 1;
+      // Chromium's device-pixel ResizeObserver uses the physical scale even with an emulated DPR.
+      // Match both at launch so xterm's canvas and viewport use the same device pixels.
+      await browser("close");
+      await browser("--args", `--force-device-scale-factor=${scale}`, "open", url("/src/ui/u498.html", base));
+      await read("localStorage.clear(); sessionStorage.clear()");
 
       await load(seed, base, renderer, scale);
       let id = seed === "agents-10" ? "t-agent-3" : seed === "tree-40" ? "t-payments" : "t-runner";
@@ -687,6 +690,19 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         // emulator.ts schedules xterm painting after the subscription's parse callback.
         await read("new Promise(resolve => requestAnimationFrame(resolve))");
 
+        const pixels = await read(`new Promise(resolve => {
+          const canvas = document.querySelector('.bubble[data-bubble="${id}"]:not([hidden]) .xterm-screen canvas:not(.xterm-link-layer)')
+            ?? document.querySelector('.pane-screen .xterm-screen canvas:not(.xterm-link-layer)');
+          if (!canvas) { resolve(null); return; }
+          const observer = new ResizeObserver(([entry]) => {
+            observer.disconnect();
+            resolve({ canvas: { width: canvas.width, height: canvas.height },
+              css: entry.contentRect.toJSON(), device: entry.devicePixelContentBoxSize?.[0]?.toJSON?.()
+                ?? { inlineSize: entry.devicePixelContentBoxSize?.[0]?.inlineSize, blockSize: entry.devicePixelContentBoxSize?.[0]?.blockSize } });
+          });
+          observer.observe(canvas, { box: 'device-pixel-content-box' });
+        })`);
+
         const record = await read(`(() => {
           const emulator = window.__terminals.get('${id}');
           const bubble = document.querySelector('.bubble[data-bubble="${id}"]:not([hidden]) .bubble-body');
@@ -701,7 +717,7 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         })()`);
 
         const name = `${seed}-${renderer}-${step}${scale === 2 ? "-scale2" : ""}`;
-        writeFileSync(join(dir, `${name}.trace.json`), JSON.stringify({ commit, seed, step, requestedRenderer: renderer, record }, null, 2));
+        writeFileSync(join(dir, `${name}.trace.json`), JSON.stringify({ commit, seed, step, requestedRenderer: renderer, physicalScale: scale, pixels, record }, null, 2));
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
         await browser("screenshot", join(dir, `${name}.png`));
       };
@@ -733,11 +749,11 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
         await read("window.__observedEmulator=null");
         await capture("new-agent");
       } else if (seed === "tree-40") {
-        await read("document.querySelector('.shelf [aria-label=\"Close work items\"]').click()");
+        await read("document.querySelector('.shelf [aria-label=\"Close the Bench\"]').click()");
         await wait("document.querySelector('.window')?.dataset.shelf==='closed'");
         await capture("shelf-closed");
         await browser("press", "Meta+k");
-        await browser("press", "s");
+        await browser("press", "b");
         await wait("!!document.querySelector('.shelf')");
         await capture("shelf-open");
         await browser("click", "#shelf-tab-pads");
@@ -788,3 +804,45 @@ for (const renderer of ["dom", "webgl"]) for (const seed of ["agents-10", "tree-
       }
   }, 120_000);
 }
+
+it("u4818_webgl_scale2_paints_output_after_resize", async () => {
+  // Chromium's device-pixel ResizeObserver uses the physical scale even with an emulated DPR.
+  await browser("close");
+  await browser("--args", "--force-device-scale-factor=2", "open", url("/src/ui/u498.html"));
+  await read("localStorage.clear(); sessionStorage.clear()");
+  await load("agents-10", false, "webgl", 2);
+  // Keep the drawing buffer so the canvas's pixels can be read after xterm's frame.
+  await read(`(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function(type, options) {
+      return getContext.call(this, type, type === 'webgl2' ? { ...options, preserveDrawingBuffer: true } : options);
+    };
+  })()`);
+  await select("agent-3", "t-agent-3");
+  await read(`(() => {
+    const rows = window.__terminals.get('t-agent-3').serialize().rows;
+    window.__fake.writeOutput('t-agent-3', '\\x1b[2J\\x1b[HReady to continue?\\r\\n1. Continue\\r\\n2. Review changes\\r\\n3. Stop\\r\\n');
+    window.__fake.writeOutput('t-agent-3', '\\x1b[9;1HU4818 marker\\x1b[' + rows + ';1H[Enter] Answer  [Esc] Stop');
+  })()`);
+  await wait("window.__terminals.get('t-agent-3').serialize().data.includes('U4818 marker')");
+
+  // Rows 1 to 4, the marker row and the bottom key bar must each hold painted pixels.
+  const painted = await read<number[]>(`new Promise(resolve => requestAnimationFrame(() => {
+    const canvas = document.querySelector('.pane-screen .xterm-screen canvas:not(.xterm-link-layer)');
+    const rows = window.__terminals.get('t-agent-3').serialize().rows;
+    const copy = document.createElement('canvas');
+    copy.width = canvas.width; copy.height = canvas.height;
+    const context = copy.getContext('2d');
+    context.drawImage(canvas, 0, 0);
+    const cell = canvas.height / rows;
+    resolve([0, 1, 2, 3, 8, rows - 1].map(row => {
+      const data = context.getImageData(0, Math.floor(row * cell), canvas.width, Math.floor(cell)).data;
+      const first = [data[0], data[1], data[2]];
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i] !== first[0] || data[i + 1] !== first[1] || data[i + 2] !== first[2]) count++;
+      return count;
+    }));
+  }))`);
+
+  expect(painted.every(count => count > 0), `painted pixels per row: ${painted}`).toBe(true);
+}, 120_000);

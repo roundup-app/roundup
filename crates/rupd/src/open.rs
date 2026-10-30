@@ -30,14 +30,18 @@ impl Daemon {
             &data::naming_path(dir),
         )?));
         let naming_reader = Arc::clone(&naming);
+        let guide_reader = Arc::clone(&naming);
         let db = storage::open(dir)?;
         let storage_at = begun.elapsed();
         let bus = Bus::with_log(Arc::new(event_log::SqliteLog::from_connection(db)?));
-        let terminals = Arc::new(
+        let mut terminals =
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
                 .with_input_writer(terminal_input_observer())
-                .with_exit_hold(terminal_exit_observer()),
-        );
+                .with_exit_hold(terminal_exit_observer());
+        if let Some(helper) = terminal_owner_helper() {
+            terminals = terminals.with_terminal_owner(&helper);
+        }
+        let terminals = Arc::new(terminals);
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
@@ -55,6 +59,11 @@ impl Daemon {
             .with_automatic_renaming(move || {
                 data::read_naming(&naming_reader.lock().expect("naming preferences poisoned"))
                     .map(|settings| settings.automatic_renaming)
+                    .map_err(RpcError::internal)
+            })
+            .with_naming_guide(move || {
+                data::read_naming(&guide_reader.lock().expect("naming preferences poisoned"))
+                    .map(|settings| settings.naming_guide)
                     .map_err(RpcError::internal)
             })
             .with_context(move |nodes, id| {
@@ -342,5 +351,21 @@ impl Daemon {
                 finished: "0".into(),
             },
         );
+    }
+}
+
+/// The packaged `terminal-owner` helper (X8), named by `RUPD_TERMINAL_OWNER`. The App sets it
+/// for its Daemon; without it, Terminals stay children of the Daemon and a reopen reports Agents
+/// `done`.
+fn terminal_owner_helper() -> Option<std::path::PathBuf> {
+    std::env::var_os("RUPD_TERMINAL_OWNER").map(Into::into)
+}
+
+impl Daemon {
+    /// Attach the Terminal owners that outlived the previous Daemon (A12a) and return the
+    /// sockets their programs still call, for the caller to serve beside its own.
+    pub async fn reattach_owners(&self) -> Vec<std::path::PathBuf> {
+        self.agents.reattach_owners().await;
+        self.agents.retained_sockets()
     }
 }

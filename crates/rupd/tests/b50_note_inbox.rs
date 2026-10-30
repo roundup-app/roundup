@@ -1,7 +1,6 @@
 //! B50, B51, B52: a `note` goes through Claude Code's messaging socket and never to the Terminal.
-//! A real Daemon, the fake `claude` (it listens on the socket it is launched with, lists its
-//! session as Claude Code does, and records every byte written to its Terminal) and the fake
-//! transcript the test appends to.
+//! A real Daemon and fake `claude` with a live messaging socket, session listing, recorded
+//! Terminal input and a transcript the test appends to. Saved identities need no SDK storage.
 #[path = "support/rename_delivery.rs"]
 mod rename_delivery;
 #[path = "support/rupd_harness.rs"]
@@ -21,94 +20,7 @@ use serde_json::{Value, json};
 
 const BOUND: Duration = Duration::from_secs(15);
 
-const FAKE: &str = r#"#!/usr/bin/env python3
-import json, os, re, socket, subprocess, sys, threading, tty
-root = here = os.path.dirname(os.path.abspath(__file__))
-# With a `per-agent` marker beside it, each Agent keeps its files in a folder of its own id.
-if os.path.exists(root + '/per-agent') and 'ROUNDUP_AGENT' in os.environ:
-    here = root + '/' + os.environ['ROUNDUP_AGENT']
-    os.makedirs(here, exist_ok=True)
-if sys.argv[1:3] == ['plugin', 'list']:
-    print('[]'); sys.exit(0)
-if sys.argv[1:3] == ['plugin', 'test']:
-    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
-def flag(name):
-    return sys.argv[sys.argv.index(name) + 1]
-def session_mode():
-    if '--permission-mode' in sys.argv:
-        return flag('--permission-mode')
-    for f in (os.getcwd() + '/.claude/settings.local.json', os.getcwd() + '/.claude/settings.json', os.environ['CLAUDE_CONFIG_DIR'] + '/settings.json'):
-        try:
-            mode = json.load(open(f)).get('permissions', {}).get('defaultMode')
-        except (OSError, ValueError):
-            continue
-        if mode: return mode if mode in ('default', 'acceptEdits', 'plan', 'auto') else 'default'
-    return 'default'
-# A session lists itself with its token, and listens; a line is kept only when it is the one
-# Claude Code takes up: past `auth`, and from a sender whose mode is this session's.
-path, token = flag('--messaging-socket-path'), 'peer-token-' + str(os.getpid())
-sessions = os.environ['CLAUDE_CONFIG_DIR'] + '/sessions'
-os.makedirs(sessions, exist_ok=True)
-server = socket.socket(socket.AF_UNIX)
-server.bind(path)
-server.listen()
-json.dump({'pid': os.getpid(), 'messagingSocketPath': path, 'peerProtocol': int(open(root + '/protocol').read())}, open(sessions + '/%d.json' % os.getpid(), 'w'))
-json.dump({'peerToken': token}, open(sessions + '/%d.abc.key' % os.getpid(), 'w'))
-# A resumed conversation remembers UUID uptake; sender/content refusal resets per Attempt.
-taken_path = here + '/taken.jsonl'
-if '--resume' not in sys.argv:
-    open(taken_path, 'w').close()
-seen_ids = {json.loads(line)['msg_id'] for line in open(taken_path)}
-last_entry, peer_lock = None, threading.Lock()
-def take(conn):
-    global last_entry
-    lines = conn.makefile()
-    if json.loads(lines.readline()).get('token') != token:
-        return
-    for line in lines:
-        entry = json.loads(line)
-        content = entry['message']['content']
-        mode = re.search(r'from-mode="([^"]*)"', content).group(1)
-        if mode == session_mode():
-            with peer_lock:
-                with open(here + '/received.jsonl', 'a') as out: out.write(line)
-                if entry['msg_id'] in seen_ids or content == last_entry:
-                    continue
-                seen_ids.add(entry['msg_id'])
-                last_entry = content
-                with open(taken_path, 'a') as out: out.write(line)
-def serve():
-    while True:
-        conn, _ = server.accept()
-        threading.Thread(target=take, args=(conn,), daemon=True).start()
-open(here + '/received.jsonl', 'w').close()
-threading.Thread(target=serve, daemon=True).start()
-tty.setraw(0)
-print('\033]0;✳ Ready\007', flush=True)
-settings = json.load(open(sys.argv[sys.argv.index('--settings') + 1]))
-def hook(event, fields):
-    fields['hook_event_name'] = event
-    for group in settings['hooks'][event]:
-        for item in group['hooks']:
-            subprocess.run(item['command'], shell=True, input=json.dumps(fields), text=True, check=True, stdout=subprocess.DEVNULL)
-hook('SessionStart', {'session_id': '00000000-0000-4000-8000-000000000050', 'source': 'resume' if '--resume' in sys.argv else 'startup', 'transcript_path': here + '/transcript.jsonl'})
-hook('Stop', {})
-print('READY', flush=True)
-line = b''
-while True:
-    data = os.read(0, 1)
-    if not data or data == b'\x03': break
-    # The Terminal read caps at 200 lines; the bytes typed are counted from this file instead.
-    with open(here + '/typed.bin', 'ab') as typed: typed.write(data)
-    if data == b'\r':
-        # A submitted prompt is signalled as Claude Code's `UserPromptSubmit`, then its turn ends.
-        text = line.replace(b'\x1b[200~', b'').replace(b'\x1b[201~', b'').decode(errors='replace').strip()
-        line = b''
-        hook('UserPromptSubmit', {'prompt': text, 'transcript_path': here + '/transcript.jsonl'})
-        hook('Stop', {'transcript_path': here + '/transcript.jsonl'})
-    else:
-        line += data
-"#;
+const FAKE: &str = include_str!("support/fake_claude.txt");
 
 struct Run {
     daemon: rupd_harness::Rupd,
@@ -138,6 +50,7 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
                 .env("ROUNDUP_RUP_BIN", rup)
+                .env("ROUNDUP_SIDECAR_DIR", project.join("unused-sidecar"))
                 .env("CLAUDE_CONFIG_DIR", project.join("config"))
                 .stderr(
                     std::fs::OpenOptions::new()
@@ -492,14 +405,24 @@ impl Run {
         )
     }
 
-    async fn rail_inbox(&self) -> Option<String> {
+    async fn rail_node(&self) -> Value {
         let tree = self.user.request("rail.tree", Value::Null).await.unwrap();
-        let node = tree
-            .as_array()
+        let id = self.child.as_str();
+        tree.as_array()
             .unwrap()
             .iter()
-            .find(|n| n["id"] == self.child.as_str());
-        node.unwrap()["inbox"].as_str().map(str::to_owned)
+            .find(|n| n["id"] == id)
+            .unwrap()
+            .clone()
+    }
+
+    async fn rail_status(&self) -> String {
+        let node = self.rail_node().await;
+        node["status"]["kind"].as_str().unwrap().to_owned()
+    }
+
+    async fn rail_inbox(&self) -> Option<String> {
+        self.rail_node().await["inbox"].as_str().map(str::to_owned)
     }
 
     /// The `message.delivered` ids seen so far, in order.
@@ -1386,4 +1309,81 @@ async fn a3564a_native_prompt_accepts_only_user_input() {
         (peer.typed() > typed).then_some(())
     })
     .await;
+}
+
+/// U166b: a Message delivered, the vendor asks natively, the user types `answer` in that Terminal,
+/// and the vendor then makes its `todo_create` call (when `answer` is `y`) and stops.
+async fn u166b_answered(answer: &str) {
+    let run = Run::start().await;
+    let id = run.note("ship a").await;
+    run.record(&[id]).await;
+    until("delivered", async || {
+        (run.status(id).await.0 == "delivered").then_some(())
+    })
+    .await;
+    run.signal(json!({"hook_event_name":"PermissionRequest","tool_name":"todo_create"}))
+        .await;
+    until("the Agent needs the user", async || {
+        (run.rail_status().await == "needs-you").then_some(())
+    })
+    .await;
+    let typed = run.typed().await;
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":base64::Engine::encode(&base64::engine::general_purpose::STANDARD, answer)}),
+        )
+        .await
+        .unwrap();
+    until("the answer reaches the Terminal", async || {
+        (run.typed().await > typed).then_some(())
+    })
+    .await;
+    if answer == "y" {
+        let vendor = Client::connect(&run.daemon.socket).await.unwrap();
+        vendor
+            .request(
+                "daemon.identify",
+                json!({"actor":{"kind":"agent","id":run.child}}),
+            )
+            .await
+            .unwrap();
+        vendor
+            .request("todo.create", json!({"title":"ship a"}))
+            .await
+            .unwrap();
+    }
+    run.signal(json!({"hook_event_name":"Stop"})).await;
+    until("the Workstream is idle", async || {
+        (run.rail_status().await == "idle").then_some(())
+    })
+    .await;
+    assert_eq!(run.status(id).await.0, "delivered");
+    let todos = run.user.request("todo.list", Value::Null).await.unwrap();
+    let titles: Vec<_> = todos
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["title"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        titles,
+        if answer == "y" {
+            vec!["ship a"]
+        } else {
+            vec![]
+        }
+    );
+}
+
+// U166b Yes
+#[tokio::test]
+async fn u166b_yes_settles_idle_with_the_todo() {
+    u166b_answered("y").await;
+}
+
+// U166b No
+#[tokio::test]
+async fn u166b_no_settles_idle_without_a_todo() {
+    u166b_answered("n").await;
 }

@@ -2,7 +2,7 @@ import { copy as appCopy } from "../copy";
 import { showScrollbars } from "../scrollHover";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
-import { appSettings, followAppAppearance } from "../settings/preferences";
+import { terminalType, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
@@ -169,7 +169,7 @@ export type EchoProbe = {
 };
 
 /** xterm paints the scroll element's background inline from the theme; the stylesheet paints it from `--terminal-background`, so the inline copy is dropped (D1) each time xterm writes it. */
-const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void => {
+export const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void => {
   const scroller = element.querySelector<HTMLElement>(".xterm-scrollable-element");
 
   if (!scroller) return;
@@ -200,7 +200,7 @@ export const createXtermEmulators = (
   let webglDenied = false;
 
   return (id, copy) => {
-    const terminal = new Terminal(xtermOptions);
+    const terminal = new Terminal({ ...xtermOptions, ...terminalType() });
     const serializer = new SerializeAddon();
     terminal.loadAddon(serializer);
     terminal.loadAddon(new ClipboardAddon(undefined, {
@@ -468,13 +468,17 @@ export const createXtermEmulators = (
     };
 
     const stopFont = createRoot(dispose => {
-      createEffect(on(() => appSettings().fontFamily, family => {
-        const next = family || /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim();
+      createEffect(on(() => {
+        const { fontSize: _size, ...type } = terminalType();
 
-        if (terminal.options.fontFamily === next) return;
+        return type;
+      }, type => {
+        const next = type.fontFamily;
+
+        if ((["fontFamily", "fontWeight", "lineHeight", "letterSpacing"] as const).every(key => terminal.options[key] === type[key])) return;
 
         prepareFontChange();
-        terminal.options.fontFamily = next;
+        Object.assign(terminal.options, type);
 
         if (!opened) return;
 

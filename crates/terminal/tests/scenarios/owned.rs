@@ -24,7 +24,7 @@ async fn x12_close_kills_and_forgets_an_owned_terminal() {
 
     terminals.close(&spawned.id).await.unwrap();
 
-    assert!(terminals.list().is_empty());
+    assert!(terminals.list().await.is_empty());
     assert_eq!(changes(&mut events), 1);
     assert_eq!(
         terminals.close(&spawned.id).await.unwrap_err().code,
@@ -45,7 +45,7 @@ async fn x12_close_on_an_ownerless_terminal_is_refused_and_leaves_it() {
     let err = terminals.close(&spawned.id).await.unwrap_err();
 
     assert_eq!(err.code, code::INVALID_PARAMS);
-    assert!(terminals.list()[0].running);
+    assert!(terminals.list().await[0].running);
     assert!(spawned.events.try_recv().is_err());
     terminals.kill(&spawned.id).await.unwrap();
     let (_, code) = until_exit(&mut spawned).await;
@@ -73,13 +73,13 @@ async fn x11_the_ninth_forgets_the_oldest_exited_and_conflicts_when_all_run() {
         .await
         .unwrap();
 
-    assert!(terminals.list().iter().all(|t| t.id != first.id));
+    assert!(terminals.list().await.iter().all(|t| t.id != first.id));
     let err = terminals
         .spawn_owned(sh(dir.path(), "sleep 30"), "a")
         .await
         .err()
         .expect("a ninth running Terminal is refused");
     assert_eq!(err.code, code::CONFLICT);
-    assert_eq!(terminals.list().len(), 8);
+    assert_eq!(terminals.list().await.len(), 8);
     terminals.close_owned_by("a").await.unwrap();
 }

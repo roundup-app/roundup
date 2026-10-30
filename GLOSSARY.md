@@ -27,11 +27,12 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Terminal dimensions (`cols`, `rows`, `terminal::window`) | same | — |
 | Keystroke sample (`KeystrokeSample`) | keystroke sample | — |
 | Keystroke measurement (`MeasureParams`, `Measurement`, `terminal.measure`) | keystroke measurement | — |
+| Original Terminal program (`TerminalInfo.program_pid`, `Terminals::program_pid`) | none | — |
 | Terminal incarnation (`TerminalInfo.incarnation`) | same | — |
 | Shell mark | same | shell integration (as a name; it is the means) |
 | Turn | command | — |
 | ReservedLine | none | — |
-| Terminal owner (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
+| Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`, `TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |
@@ -99,11 +100,12 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Project tab | same | — |
 | Tab mark | same | — |
 | Rail (`Rail::name`, `Rail::last_id`, `Agents::rail_name`, `Agents::rail_last_id`, `rail.tree`, `rail.list`) | same | — |
+| Rail deletion redo (`RedoParams`, `rail.redo`, `Deletion.restoration`, `Agents::redo_reversible_with`, `Agents::acknowledge_restoration_in`, `Todos::redo_workstream_in`, `Pads::redo_workstream_in`) | Redo | — |
 | Rail removal operation (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`) | same | — |
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
 | Remove all (`agent::RemoveScope::All`) | Remove all | — |
 | Hint line | same | — |
-| Shelf | work items | — |
+| Shelf | Bench | — |
 | Scrim | same | — |
 | Resize edge | same | — |
 | Inbox | same | — |
@@ -112,8 +114,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Help | same | — |
 | Todo | same | task, ticket |
 | Reopen (`todo.reopen`, `todo_reopen`) | same | — |
-| Owner (`owner`) | same | assignee |
-| Estimate (`estimate_minutes`) | same | — |
+| Owner (`owner`, Todos only; Pads use Home) | same | assignee |
+| Updated at (`updated_at`) | a Todo's last-change time | — |
 | Delegate Board | same | — |
 | Busy until | "free now", "busy until <HH:MM>" | — |
 | Comment (`todo.comment`, `todo_comment`) | same | — |
@@ -150,6 +152,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ink | same | — |
 | Chip | same | — |
 | Live line | same | — |
+
+**Glyph.** The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ⊖ ◔ ○ ✓`.
 
 ### Agents at work
 
@@ -222,7 +226,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Code term | User label | Avoid |
 |---|---|---|
 | Daemon | same | — |
-| Naming settings (`NamingSettings`, `daemon.getNaming`, `daemon.setNaming`, `automatic_renaming`, `with_automatic_renaming`, `naming_guide`) | Automatic renaming, Naming guide | — |
+| Naming settings (`NamingSettings`, `daemon.getNaming`, `daemon.setNaming`, `automatic_renaming`, `with_automatic_renaming`, `with_naming_guide`, `naming_guide`, `naming_settled`, `naming_settings`) | Automatic renaming, Naming guide | — |
 | Link (`link.read`) | same | — |
 | Context menu (`show_context_menu`, `MenuItem`, `MenuEntry`, `Item`, `project_kind`, `context_menu`) | same | — |
 | openTarget | none | — |
@@ -260,6 +264,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
+| Todo deletion redo (`RedoParams`, `todo.redo`, `Deletion.restoration`) | Redo | — |
 | History (`History`) | same | — |
 | Get History (`todo.getHistory`) | same | — |
 | Values (`Values`) | same | — |
@@ -301,6 +306,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ask submission (`AskSubmission`, `submission`) | same | — |
 | Ask outcome (`AskOutcome`) | same | — |
 | Ask part (`AskPart`, `ask::State`) | same | — |
+| Ask acknowledgement (`AsksState.acknowledged`) | none | — |
 | Placement (`Placement`, `Destination`, `Target`) | same | — |
 | Placement request (`placement::Request`, `EarlierAsk`) | same | — |
 | Placement call (`PlacementCall`, `Agents::placement_call`) | same | — |
@@ -339,6 +345,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Native material (`Material`, `native_material`, `followMaterial`, `watch_transparency`, `--material-tint`) | same | — |
 | Native open (`NativeOpen`, `nativeOpenSchema`, `onNativeOpen`, `nativeOpen`, `native_open`) | same | — |
 | Pad deletion operation (`DeleteParams`, `Deletion`, `DeletionId`, `GetDeletionParams`, `pad.delete`, `pad.getDeletion`, `pad.restore`, `pads::retain`, `pads::restore`) | Delete, Undo | — (not a name: same-name recreation) |
+| Pad deletion redo (`RedoDeleteParams`, `restoredOperation`, `restored_operation`, `expectedHome`, `expected_home`, `pad.redoDelete`) | Redo Delete Pad | — |
 | Pad order (`pad.reorder`, `pad::ReorderParams`) | same | — |
 
 ### First-run facts

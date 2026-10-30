@@ -1,6 +1,19 @@
 //! U3787a observes the production router, authority guards and shared Project store.
 use super::*;
 
+/// T30: restoring a Todo's owner or blockers is a Change, so `updated_at` moves; the rest returns.
+fn without_updated_at(mut value: Value) -> Value {
+    if let Some(todos) = value.as_array_mut() {
+        todos.iter_mut().for_each(|todo| {
+            todo.as_object_mut()
+                .map(|object| object.remove("updated_at"));
+        });
+    } else if let Some(object) = value.as_object_mut() {
+        object.remove("updated_at");
+    }
+    value
+}
+
 async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, RpcError> {
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
@@ -76,9 +89,29 @@ async fn u3787a_daemon_restores_exact_graph_without_starting_processes() {
     call(&daemon, "todo.restore", json!({"operation":"bulk"}))
         .await
         .unwrap();
+    let restoration = call(&daemon, "todo.deletion", json!({"operation":"bulk"}))
+        .await
+        .unwrap()["restoration"]
+        .clone();
+    let redo = json!({"source":"bulk","operation":"redo-bulk","restoration":restoration});
+    let receipt = call(&daemon, "todo.redo", redo.clone()).await.unwrap();
+    assert_eq!(receipt["deleted"], json!([1, 2]));
     assert_eq!(
-        call(&daemon, "todo.list", Value::Null).await.unwrap(),
-        before
+        call(&daemon, "todo.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(call(&daemon, "todo.redo", redo).await.unwrap(), receipt);
+    call(&daemon, "todo.restore", json!({"operation":"redo-bulk"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        without_updated_at(call(&daemon, "todo.list", Value::Null).await.unwrap()),
+        without_updated_at(before)
     );
     assert_eq!(
         call(&daemon, "todo.getHistory", json!({"id":2}))
@@ -221,5 +254,77 @@ async fn u3787a_daemon_keeps_missing_home_restoration_retryable() {
     assert_eq!(
         call(&daemon, "todo.list", Value::Null).await.unwrap(),
         json!([])
+    );
+}
+
+#[tokio::test]
+async fn u3787a_redo_requires_original_project_restoration_and_user_authority() {
+    let dirs = [tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap()];
+    let daemons = [
+        test_daemon(dirs[0].path()).unwrap(),
+        test_daemon(dirs[1].path()).unwrap(),
+    ];
+    let mut restorations = Vec::new();
+    for daemon in &daemons {
+        call(
+            daemon,
+            "todo.create",
+            json!({"title":"same numeric identity"}),
+        )
+        .await
+        .unwrap();
+        call(
+            daemon,
+            "todo.delete",
+            json!({"operation":"same-key","ids":[1]}),
+        )
+        .await
+        .unwrap();
+        restorations.push(
+            call(daemon, "todo.restore", json!({"operation":"same-key"}))
+                .await
+                .unwrap(),
+        );
+    }
+    let redo = json!({"source":"same-key","operation":"redo","restoration":restorations[0]["restoration"]});
+    let before = call(&daemons[1], "todo.list", Value::Null).await.unwrap();
+    assert_eq!(
+        call(&daemons[1], "todo.redo", redo.clone())
+            .await
+            .unwrap_err()
+            .code,
+        code::CONFLICT
+    );
+    assert_eq!(
+        call(&daemons[1], "todo.list", Value::Null).await.unwrap(),
+        before
+    );
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "untrusted".into(),
+            parent: None,
+        },
+        peer: None,
+        events,
+        output: None,
+    };
+    assert_eq!(
+        daemons[0]
+            .route_inner(&mut conn, "todo.redo", redo.clone())
+            .await
+            .unwrap_err()
+            .code,
+        code::FORBIDDEN
+    );
+    call(&daemons[0], "todo.redo", redo).await.unwrap();
+    assert_eq!(
+        call(&daemons[0], "todo.list", Value::Null).await.unwrap(),
+        json!([])
+    );
+    assert_eq!(
+        call(&daemons[1], "todo.list", Value::Null).await.unwrap(),
+        before
     );
 }

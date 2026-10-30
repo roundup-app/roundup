@@ -153,9 +153,12 @@ it("u511a_click_away_commits_before_the_target_action", async () => {
   await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "kept" } });
+  const pressed = tab("1")!.getAttribute("aria-pressed");
   fireEvent.pointerDown(tab("1")!);
   tab("1")!.focus();
+  fireEvent.click(tab("1")!);
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("kept"));
+  await waitFor(() => expect(tab("1")!.getAttribute("aria-pressed")).not.toBe(pressed));
 });
 
 it("u511a_edit_entry_preserves_terminal_visibility", async () => {

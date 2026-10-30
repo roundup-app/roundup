@@ -1,3 +1,4 @@
+// T4902 removes the retired T29 migration; the same non-duration upgrade boundary is retained.
 //! N20 standalone reopen and B3563e historical Project upgrade observers.
 use std::{path::Path, sync::Arc};
 
@@ -169,17 +170,22 @@ async fn n20_current_store_opens() {
     let pads = [contracts::pad::Pad {
         incarnation: "1".into(),
         name: "kept".into(),
-        owner: Actor {
-            kind: ActorKind::Agent,
-            id: "child".into(),
-            parent: Some("door".into()),
-        },
         text: "payload".into(),
         updated_at: 42,
         revision: 1,
         home: Some("door".into()),
     }];
     let sources = messages::digest::Sources {
+        touches: vec![contracts::Touch {
+            actor: Actor {
+                kind: ActorKind::Agent,
+                id: "child".into(),
+                parent: None,
+            },
+            verb: contracts::Verb::Wrote,
+            item: "pad:kept".into(),
+            at: 42,
+        }],
         nodes: &nodes,
         todos: &[],
         pads: &pads,
@@ -242,7 +248,7 @@ fn action_rows(db: &rusqlite::Connection) -> Vec<(i64, String, Vec<String>)> {
 #[tokio::test]
 async fn b3563e_upgrade_preserves_messages_and_never_replays_old_actions() {
     let dir = tempfile::tempdir().unwrap();
-    let db = storage::project(dir.path(), 37);
+    let db = storage::project(dir.path(), 36);
     let user = json!({"kind": "user", "id": "you", "parent": null}).to_string();
     let message = |id,
                    from: &str,

@@ -2,6 +2,19 @@ use super::tests::call;
 use super::*;
 use serde_json::json;
 
+/// T30: restoring a Todo's owner or blockers is a Change, so `updated_at` moves; the rest returns.
+fn without_updated_at(mut value: Value) -> Value {
+    if let Some(todos) = value.as_array_mut() {
+        todos.iter_mut().for_each(|todo| {
+            todo.as_object_mut()
+                .map(|object| object.remove("updated_at"));
+        });
+    } else if let Some(object) = value.as_object_mut() {
+        object.remove("updated_at");
+    }
+    value
+}
+
 #[tokio::test]
 async fn u3787a_rail_undo_preserves_unrelated_changes() {
     for kind in ["agent", "workstream"] {
@@ -160,10 +173,12 @@ async fn u3787a_reversible_rail_removal_restores_original_identity() {
         .await
         .unwrap();
     assert_eq!(
-        call(&daemon, "todo.get", json!({"id":todo["id"]}))
-            .await
-            .unwrap(),
-        todo
+        without_updated_at(
+            call(&daemon, "todo.get", json!({"id":todo["id"]}))
+                .await
+                .unwrap()
+        ),
+        without_updated_at(todo)
     );
     assert_eq!(
         call(&daemon, "agent.spawnPrompt", node.clone())
@@ -246,13 +261,6 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
             .await
             .unwrap();
     }
-    call(
-        &daemon,
-        "pad.setOwner",
-        json!({"name":"agent","owner":owner}),
-    )
-    .await
-    .unwrap();
     db.execute(
         "INSERT INTO workstream_queue(workstream,ord,after_todo) VALUES(?,0,2)",
         [home.as_str().unwrap()],
@@ -334,8 +342,8 @@ async fn u3787a_workstream_cascade_restores_pads_blockers_and_homes() {
     );
     assert_eq!(call(&daemon, "rail.tree", Value::Null).await.unwrap(), rail);
     assert_eq!(
-        call(&daemon, "todo.list", Value::Null).await.unwrap(),
-        todos
+        without_updated_at(call(&daemon, "todo.list", Value::Null).await.unwrap()),
+        without_updated_at(todos)
     );
     assert_eq!(call(&daemon, "pad.list", Value::Null).await.unwrap(), pads);
     assert_eq!(
@@ -847,7 +855,7 @@ async fn u3787a_live_terminal_and_worktree_removal_never_advertise_undo() {
 }
 
 #[tokio::test]
-async fn u3787a_workstream_restores_promoted_agents_and_their_pad_incarnations() {
+async fn u3787a_workstream_restores_home_pads_and_promoted_agents() {
     use std::process::Command;
     let dir = tempfile::tempdir().unwrap();
     // A dirty retained Worktree makes A34 keep its finished Agent. No vendor starts.
@@ -883,22 +891,10 @@ async fn u3787a_workstream_restores_promoted_agents_and_their_pad_incarnations()
         .clone();
     let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
     db.execute("INSERT INTO nodes(kind,name,parent,ord,worktree_path,worktree_branch,worktree_base) VALUES('agent','kept',?,0,?,'kept','base')",params![home.as_str().unwrap(),dir.path().to_str().unwrap()]).unwrap();
-    let owner = contracts::Actor {
-        kind: contracts::ActorKind::Agent,
-        id: db.last_insert_rowid().to_string(),
-        parent: Some(home.as_str().unwrap().into()),
-    };
     call(
         &daemon,
         "pad.create",
         json!({"name":"kept","text":"owned work"}),
-    )
-    .await
-    .unwrap();
-    call(
-        &daemon,
-        "pad.setOwner",
-        json!({"name":"kept","owner":owner}),
     )
     .await
     .unwrap();
@@ -916,8 +912,7 @@ async fn u3787a_workstream_restores_promoted_agents_and_their_pad_incarnations()
     .unwrap();
     assert_eq!(deletion["kept"][0]["reason"], "dirty");
     let moved = call(&daemon, "pad.list", Value::Null).await.unwrap();
-    assert!(moved[0]["home"].is_null());
-    assert_eq!(moved[0]["incarnation"], pads[0]["incarnation"]);
+    assert_eq!(moved, json!([]));
     call(&daemon, "rail.restore", deletion["deletion"].clone())
         .await
         .unwrap();
@@ -929,6 +924,60 @@ async fn u3787a_workstream_restores_promoted_agents_and_their_pad_incarnations()
     assert_eq!(
         std::fs::read_to_string(dir.path().join("unfinished")).unwrap(),
         "keep this work"
+    );
+    assert_eq!(
+        call(&daemon, "terminal.list", Value::Null).await.unwrap(),
+        json!([])
+    );
+}
+
+#[tokio::test]
+async fn u3787a_rail_redo_reuses_restored_identity_and_reconciles_reply() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let home = call(&daemon, "rail.createWorkstream", json!({"name":"chosen"}))
+        .await
+        .unwrap();
+    let original = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+    let removed = call(
+        &daemon,
+        "rail.remove",
+        json!({"id":home["id"],"operation":"first"}),
+    )
+    .await
+    .unwrap();
+    let restored = call(&daemon, "rail.restore", removed["deletion"].clone())
+        .await
+        .unwrap();
+    let request = json!({"project":restored["deletion"]["project"],"source":"first","restoration":restored["deletion"]["restoration"],"operation":"again"});
+    let redone = call(&daemon, "rail.redo", request.clone()).await.unwrap();
+    assert_eq!(
+        call(&daemon, "rail.tree", Value::Null).await.unwrap(),
+        json!([])
+    );
+    assert_eq!(call(&daemon, "rail.redo", request).await.unwrap(), redone);
+    assert_eq!(
+        call(&daemon, "rail.deletion", redone["deletion"].clone())
+            .await
+            .unwrap(),
+        redone
+    );
+    assert_eq!(
+        call(
+            &daemon,
+            "rail.remove",
+            json!({"id":home["id"],"operation":"first"})
+        )
+        .await
+        .unwrap(),
+        restored
+    );
+    call(&daemon, "rail.restore", redone["deletion"].clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        call(&daemon, "rail.tree", Value::Null).await.unwrap(),
+        original
     );
     assert_eq!(
         call(&daemon, "terminal.list", Value::Null).await.unwrap(),

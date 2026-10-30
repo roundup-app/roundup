@@ -8,7 +8,7 @@ import { ownersOnRail, sameOwner } from "../shelf/scope";
 import type { TodosState } from "./state";
 import { rowButtonOf } from "./triage";
 import { registerKeys } from "../keys/registry";
-import { CHORDS, TEXT_FIELDS, chordsFor } from "../keys/chords";
+import { CHORDS, TEXT_FIELDS } from "../keys/chords";
 import { shelfKeyScope } from "../shelf/keys";
 import { failureOf } from "./failureOf";
 
@@ -89,8 +89,7 @@ export const createOwnerKeys = (source: {
 }) => {
   const owners = () => ownersOnRail(source.connected);
 
-  const focused = (event: KeyboardEvent) => {
-    const button = event.target;
+  const focused = (button: Element | null) => {
 
     if (!(button instanceof HTMLButtonElement) || !button.matches(".todo-row-button") || !button.closest(".todos-tab")) return undefined;
     const todo = source.todos.byId().get(Number(button.closest<HTMLElement>("[data-todo]")?.dataset.todo));
@@ -98,18 +97,27 @@ export const createOwnerKeys = (source: {
     return todo?.done === false ? todo : undefined;
   };
 
-  const can = (event: KeyboardEvent) => source.active() && !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event) !== undefined
+  const can = (event: KeyboardEvent) => source.active() && !rowTypeahead(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && focused(event.target instanceof Element ? event.target : null) !== undefined
     && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu][data-state=open]');
 
-  registerKeys(shelfKeyScope, [{
-    chords: chordsFor("1–9"), when: can,
-    run: event => {
-      const todo = focused(event);
-      const target = owners().filter(owner => owner.actor?.kind === "agent")[Number(event.key) - 1];
+  const action = CHORDS.find(row => row.keys === "1–9")!;
 
-      if (todo && target && !sameOwner(todo.owner, target.actor)) void source.assign(todo.id, target.actor);
+  registerKeys(shelfKeyScope, action.presses.map((press, at) => ({
+    action, press, searchable: false as const, when: can,
+    capture: (focus: Element | null) => {
+      const todo = focused(focus);
+      const target = owners().filter(owner => owner.actor?.kind === "agent")[at];
+
+      return {
+        label: `${at + 1} ${action.what}: ${target?.name ?? ""}`,
+        available: () => source.active() && focus?.isConnected === true && todo !== undefined && focused(focus)?.id === todo.id
+          && target !== undefined && owners().some(owner => sameOwner(owner.actor, target.actor))
+          && !sameOwner(source.todos.byId().get(todo.id)?.owner ?? null, target.actor),
+        invoke: () => { if (todo && target) void source.assign(todo.id, target.actor); },
+      };
     },
-  }]);
+  })));
+
 };
 
 /** U3720: assignment captures the focused Todo before opening its picker. */

@@ -33,7 +33,7 @@ async fn u2875b_closed_prepared_assignment_is_exclusive_without_launch() {
     assert!(node.attempt.is_none());
     assert!(node.terminal_id.is_none());
     assert!(node.status_revision.is_none());
-    assert!(agents.shared.terminals.list().is_empty());
+    assert!(agents.shared.terminals.list().await.is_empty());
     assert!(agents.shared.runs().is_empty());
     assert_eq!(
         std::fs::read_to_string(dir.path().join("src/file")).unwrap(),
@@ -89,7 +89,7 @@ async fn u2875c_retained_closed_worktree_survives_each_commit_boundary() {
             assert_eq!(node.worktree.unwrap().path, made.path.to_string_lossy());
             assert!(node.attempt.is_none());
             assert!(node.terminal_id.is_none());
-            assert!(agents.shared.terminals.list().is_empty());
+            assert!(agents.shared.terminals.list().await.is_empty());
             assert_eq!(
                 std::fs::read_to_string(made.path.join("user-work")).unwrap(),
                 "retained"
@@ -244,7 +244,7 @@ async fn u2875b_failed_readiness_releases_closed_assignment_and_requires_prepara
             .message
             .contains("unavailable")
     );
-    assert!(agents.shared.terminals.list().is_empty());
+    assert!(agents.shared.terminals.list().await.is_empty());
 }
 
 #[tokio::test]
@@ -375,7 +375,7 @@ async fn u2875b_closed_publication_retains_continuation_without_a_launch() {
             .record_conversation(Path::new(&saved.1), &saved.0)
             .unwrap();
         assert!(String::from_utf8(bytes).unwrap().contains("retained"));
-        assert!(agents.shared.terminals.list().is_empty());
+        assert!(agents.shared.terminals.list().await.is_empty());
         assert!(agents.shared.runs().is_empty());
         let agents = reopen(agents);
         assert!(agents.shared.node(&agent).unwrap().can_resume);

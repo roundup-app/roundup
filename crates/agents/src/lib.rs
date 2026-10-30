@@ -76,6 +76,7 @@ type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync
 type SteerEffect = Arc<dyn Fn(&str) -> Result<(), RpcError> + Send + Sync>;
 
 struct Shared {
+    naming_guide: Option<Arc<dyn Fn() -> Result<String, RpcError> + Send + Sync>>,
     automatic_renaming: Option<Arc<dyn Fn() -> Result<bool, RpcError> + Send + Sync>>,
     git: worktree::Git,
     worktrunk: worktrunk::Collector,
@@ -381,6 +382,7 @@ mod ending;
 mod events;
 mod import_work;
 mod model_wiring;
+mod owners;
 mod rail_view;
 mod registration;
 mod removal;

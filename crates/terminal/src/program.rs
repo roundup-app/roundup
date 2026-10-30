@@ -13,6 +13,17 @@ impl Terminals {
     /// is retained for late callers; concurrent callers and cancellation cannot consume it.
     /// As with `program_ended`, a failure to observe the child is treated as ended.
     pub async fn wait_program_ended(&self, id: &str) {
+        if let Ok(Some(remote)) = self.remote(id) {
+            let mut observe = tokio::time::interval(REAP_POLL);
+            while remote
+                .info_within_deadline()
+                .await
+                .is_ok_and(|info| info.running)
+            {
+                observe.tick().await;
+            }
+            return;
+        }
         let ended = parse_terminal_number(id).ok().and_then(|number| {
             let table = self.shared.table();
             table.get(&number)?;
@@ -36,6 +47,9 @@ impl Terminals {
     /// stopped. It stays listed as exited once `terminal.exited` is emitted. `NOT_FOUND` as for
     /// [`Terminals::write`], including a program that ended just before this call.
     pub async fn kill(&self, id: &str) -> Result<(), RpcError> {
+        if let Some(remote) = self.remote(id)? {
+            return remote.call("terminal.kill", serde_json::json!({"id":id}));
+        }
         let handle = self.running(id)?;
         // portable-pty's `Child::kill` waits out the SIGHUP grace period, so keep it off the runtime.
         tokio::task::spawn_blocking(move || {
@@ -56,7 +70,13 @@ impl Terminals {
     /// Whether Terminal `id`'s program has ended, which can be before the Terminal is exited: a
     /// descendant holding the PTY open delays `terminal.exited` on Linux. An unknown Terminal has
     /// no program running either.
-    pub fn program_ended(&self, id: &str) -> bool {
+    pub async fn program_ended(&self, id: &str) -> bool {
+        if let Ok(Some(remote)) = self.remote(id) {
+            return remote
+                .info_within_deadline()
+                .await
+                .map_or(true, |info| !info.running);
+        }
         match self.running(id) {
             Ok(handle) => handle
                 .program

@@ -4,7 +4,7 @@ Data for review runs. Rule numbers are `AGENTS.md`'s.
 
 ## Merge
 
-GitHub auto-merge merges a PR once the ruleset's required checks pass on its head (L46): `check`; `rules`, which also needs `Author-Agent` on every authored commit (L2); `review`, the status the review workflow posts from a review run's verdict on that head; and `critic`, the status the design critic posts on a head that changes `apps/desktop/src/` (L103). Every head gets its own review; its task carries the scenarios' text from `main` and the earlier verdicts, whose findings the review re-derives against that head. Loop changes pass the same review and required checks. Earlier rejects do not veto a corrected head; a PR that used its fix runs is closed and its Issue gets the causes (L82).
+GitHub auto-merge merges a PR once the ruleset's required checks pass on its head (L46): `check`; `rules`; `review`, the status the review workflow posts from a review run's verdict on that head; and `critic`, the status the design critic posts on a head that changes `apps/desktop/src/` (L103). Every head gets its own review; its task carries the scenarios' text from `main` and the earlier verdicts, whose findings the review re-derives against that head. Loop changes pass the same review and required checks. Earlier rejects do not veto a corrected head; a PR that used its fix runs is closed and its Issue gets the causes (L82).
 
 ## Scope
 

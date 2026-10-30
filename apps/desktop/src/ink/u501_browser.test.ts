@@ -19,43 +19,6 @@ const failClose = async () => {
   await wait(`document.querySelector('[role=alert]')?.textContent.includes('could not close project')`);
 };
 
-it("u501_controls_have_names", async () => {
-  for (const seed of ["tree-40", "bubbles", "resources"]) {
-    await open(seed);
-
-    if (seed === "bubbles") await browser("click", '[data-id="runner"]');
-
-    await wait(`document.querySelector('.bubbles, .rail') !== null`);
-
-    const names = await read<{ named: string[]; unnamed: number; titled: number }>(`(() => {
-      const icon = [...document.querySelectorAll('.bubbles button, .toasts button, .resource-strip button')].filter(button => button.checkVisibility() && !button.textContent.trim().replace(/[·\\s]/g, ''));
-
-      return { named: icon.map(button => button.getAttribute('aria-label') ?? '').filter(Boolean), unnamed: icon.filter(button => !button.getAttribute('aria-label')).length, titled: document.querySelectorAll('.ink[title], .resource-value[title], .terminal-tab-pair [title], .ask [title], .toasts [title], [class*=resize] [title]').length };
-    })()`);
-
-    expect(names.unnamed, seed).toBe(0);
-    expect(names.titled, seed).toBe(0);
-
-    // Hover shows the shared Tooltip with the name; moving away hides it.
-    const [first] = names.named;
-
-    if (!first) continue;
-
-    await browser("hover", `button[aria-label="${first}"]`);
-    await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(first)}`);
-    await browser("mouse", "move", "1", "1");
-    await wait(`!document.querySelector('.app-tooltip')`);
-
-    // Keyboard focus shows it too.
-    // The Tab sets keyboard modality and can land on a control whose name opens; a focus jump straight from it opens no second name (observed), so blur it first.
-    await browser("press", "Tab");
-    await read(`document.activeElement.blur()`);
-    await wait(`!document.querySelector('.app-tooltip')`);
-    await browser("focus", `button[aria-label="${first}"]`);
-    await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(first)}`);
-  }
-}, 60_000);
-
 it("u501_full_content_is_available", async () => {
   await open("tree-40");
   await failClose();

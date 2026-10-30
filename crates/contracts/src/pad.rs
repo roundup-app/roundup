@@ -1,17 +1,14 @@
-//! Pads: markdown notes owned by an Agent or the user. The owner may rewrite; everyone else may only append.
+//! Pads: shared markdown notes belonging to a Home.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use crate::common::{Actor, Owner};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Pad {
     /// Opaque never-reused creation identity within this Project; retain the Project too.
     pub incarnation: String,
     pub name: String,
-    pub owner: Actor,
     pub text: String,
     #[specta(type = specta_typescript::Number)]
     pub updated_at: i64,
@@ -22,7 +19,7 @@ pub struct Pad {
     pub home: Option<String>,
 }
 
-/// The owner is the calling Actor.
+/// Create a shared Pad.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct CreateParams {
     pub name: String,
@@ -34,7 +31,7 @@ pub struct PadName {
     pub name: String,
 }
 
-/// Rewrite the whole text. Owner only. Supplied guards are checked in the same write transaction.
+/// Rewrite the whole text. Supplied guards are checked in the same write transaction.
 /// `expectedRevision` mismatch is CONFLICT naming the current Revision.
 /// `expectedIncarnation` mismatch is CONFLICT; a missing Pad is NOT_FOUND.
 /// Omitted guards keep name-based current-content semantics.
@@ -71,12 +68,6 @@ pub struct AppendSectionParams {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct SetOwnerParams {
-    pub name: String,
-    pub owner: Owner,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ExportParams {
     pub name: String,
     pub path: String,
@@ -96,7 +87,7 @@ pub struct MoveParams {
     pub home: Option<String>,
 }
 
-/// Rename this exact creation under its captured, exact spelling. Owner only.
+/// Rename this exact creation under its captured, exact spelling.
 /// Incarnations are Project-scoped: submit on the originally captured Project connection.
 /// Missing name is NOT_FOUND; a changed spelling/incarnation or occupied destination is
 /// CONFLICT. Refusal changes no text, mirror, Touch or Event. Content Revision is unchanged.
@@ -129,6 +120,25 @@ pub struct DeletionId {
     pub operation: String,
 }
 
+/// Redo a restored deletion in its original Project. The fresh operation key is
+/// reconciled with pad.getDeletion and equal replay never repeats effects.
+/// Guards come from an acknowledged Pad read in that Project, not a client snapshot.
+/// A changed creation, name, Revision or Home is CONFLICT; current deletion authority
+/// is checked again. Refusal retains both operations and permits retry after repair
+/// or a fresh acknowledged read. Success retains current authoritative content and
+/// placement for pad.restore using the returned operation, including later cycles.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RedoDeleteParams {
+    pub project: String,
+    pub restored_operation: String,
+    pub operation: String,
+    pub expected_incarnation: String,
+    #[specta(type = specta_typescript::Number)]
+    pub expected_revision: u64,
+    pub expected_home: Option<String>,
+}
+
 /// Immutable pre-deletion state plus the durable consumption fact. A replay returns
 /// this receipt without repeating effects, even if the restored Pad was edited/deleted.
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -146,9 +156,9 @@ pub struct GetDeletionParams {
     pub operation: String,
 }
 
-/// Put this creation before another Pad of the same owner, or last with null `before`.
-/// User only. A replaced creation, self target or other owner is CONFLICT;
-/// a missing name is NOT_FOUND. Text, Revision, Home and owner remain unchanged.
+/// Put this creation before another Pad of the same Home, or last with null `before`.
+/// User only. A replaced creation, self target or other Home is CONFLICT;
+/// a missing name is NOT_FOUND. Text, Revision, and Home remain unchanged.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReorderParams {

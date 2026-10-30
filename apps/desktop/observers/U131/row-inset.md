@@ -26,7 +26,7 @@ Todo completion, Pad opening and Terminal selection/rename.
 
 ## Rendered comparison
 
-`--row-text-inset` is 56 CSS px in both schemes. Shelf Todo, Pad and done-fold
+`--row-text-inset` is 32 CSS px (U4707) in both schemes. Shelf Todo, Pad and done-fold
 names share it. The nested blocked Todo keeps its existing 16 CSS px tree
 indent. A Terminal tab's edge is included through `--flat-tab-edge`; an
 inactive edge spacer adds no gap before its name. The rename field reserves

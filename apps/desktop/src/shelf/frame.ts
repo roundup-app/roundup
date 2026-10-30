@@ -6,9 +6,12 @@ import { copy } from "../copy";
 import { storageSchema, storedValue } from "../state/storage";
 import { createSlideLifetime } from "../ui/slideLifetime";
 
+/** U4708: the PADS tab and each Pad row draw this one icon. */
+export const PAD_ICON = "order";
+
 export const SHELF_TABS = [
   { value: "todos", label: copy.todos, icon: "check" },
-  { value: "pads", label: copy.pads, icon: "order" },
+  { value: "pads", label: copy.pads, icon: PAD_ICON },
 ] as const;
 
 export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
@@ -19,7 +22,7 @@ const frameSchema = storageSchema("roundup:shelf", v.object({
   tab: v.optional(v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos")),
 }));
 
-/** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open. */
+/** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open; a surface with no stored size starts as `maximisedByDefault` says (U4698a). */
 const storageOf = (path: string, surface: string) => storedValue(surface === "shelf" ? `roundup:shelf:${path}` : `roundup:shelf:${path}:${surface}`, frameSchema);
 
 export type ShelfFrame = {
@@ -44,7 +47,7 @@ export type ShelfFrame = {
 };
 
 /** U370, U373: the Shelf's open state and open tab for the active Project, restored in the frame the Project first shows. */
-export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: (() => void) | undefined, initialOpen = true, surface: Accessor<string> = () => "shelf"): ShelfFrame => {
+export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: (() => void) | undefined, initialOpen = true, surface: Accessor<string> = () => "shelf", maximisedByDefault: (surface: string) => boolean = () => false): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
   const [open, setOpen] = createSignal(initialOpen);
   const [element, setElement] = createSignal<HTMLElement>();
@@ -73,7 +76,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       const stored = at === null ? null : memory.get(JSON.stringify([at, side])) ?? storageOf(at, side).read();
       const restored = stored === null || stored === undefined ? initialOpen : stored.open ?? true;
 
-      setMaximised(stored?.maximised ?? false);
+      setMaximised(stored?.maximised ?? maximisedByDefault(side));
       setAnimated(false);
       lifetime.settle();
       setOpen(restored);

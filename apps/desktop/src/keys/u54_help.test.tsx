@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { rowOf } from "../rail/railFixture";
@@ -73,6 +73,7 @@ const MODS = [
   {},
   { metaKey: true },
   { metaKey: true, shiftKey: true },
+  { ctrlKey: true, metaKey: true },
   { ctrlKey: true },
   { altKey: true },
   { ctrlKey: true, shiftKey: true },
@@ -136,7 +137,9 @@ describe("u54 keyboard help", () => {
     const panel = help();
 
     expect(panel).not.toBeNull();
+
     expect(within(panel!).queryByText(/Choose folder/)).toBeNull();
+    expect([...panel!.querySelectorAll(".key-chips")].map(chip => chip.textContent)).toEqual(expect.arrayContaining(["⌃⌘J", "⌘K J", "⌘K ⇧J"]));
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
@@ -215,6 +218,13 @@ describe("u54 keyboard help", () => {
 
     if (restart.defaultPrevented) railOnly.push(pressOf(restart));
 
+    row.focus();
+    const rename = new KeyboardEvent("keydown", { key: "F2", code: "F2", bubbles: true, cancelable: true });
+    row.dispatchEvent(rename);
+    await screen.findByRole("textbox", { name: "Name" });
+
+    if (rename.defaultPrevented) railOnly.push(pressOf(rename));
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Name" }), { key: "Escape", code: "Escape" });
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
     expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inFirstRun && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
   });

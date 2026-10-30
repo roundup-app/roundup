@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; existing non-duration proofs below remain.
 import { describe, expect, it } from "vitest";
 import type { EventData } from "@contracts/EventData";
 import type { Pad } from "@contracts/pad/Pad";
@@ -14,15 +15,15 @@ const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   blockers: [],
   blocked: false,
   created_at: 0,
+  updated_at: 0,
   creator: USER,
   home: null,
   owner: null,
   refs: [],
-  estimate_minutes: null,
   ...over,
 });
 
-const pad = (name: string, text = ""): Pad => ({ incarnation: `fixture-${name}`, name, owner: USER, text, updated_at: 0, revision: 1, home: null });
+const pad = (name: string, text = ""): Pad => ({ incarnation: `fixture-${name}`, name, text, updated_at: 0, revision: 1, home: null });
 
 const todos = (initial: Todo[]) => {
   const announced: EventData[] = [];
@@ -143,12 +144,12 @@ describe("u26 the in-memory Todos", () => {
 });
 
 describe("u26 the in-memory Pads", () => {
-  it("u26_creating_a_pad_makes_the_user_its_owner_and_sends_pad_changed", async () => {
+  it("u26_creating_a_pad_sends_pad_changed", async () => {
     const { app, announced } = pads([]);
 
     const created = await app.rpc("pad.create", { name: "plan", text: "v1" });
 
-    expect([created.owner, created.text, announced]).toEqual([USER, "v1", [{ name: "pad.changed", data: { name: "plan" } }]]);
+    expect([created.text, announced]).toEqual(["v1", [{ name: "pad.changed", data: { name: "plan" } }]]);
   });
 
   it("u26_creating_a_pad_that_exists_fails_with_conflict", async () => {
@@ -193,14 +194,7 @@ describe("u26 the in-memory Pads", () => {
     await expect(app.rpc("pad.delete", { name: "gone" })).rejects.toMatchObject({ code: -32001 });
   });
 
-  it("u26_setting_the_owner_of_a_pad_changes_who_owns_it", async () => {
-    const { app } = pads([pad("plan")]);
-    const agent = { kind: "agent", id: "agent-1", parent: null } as const;
 
-    const owned = await app.rpc("pad.setOwner", { name: "plan", owner: agent });
-
-    expect(owned.owner).toEqual(agent);
-  });
 
   it("u26_a_pad_that_does_not_exist_fails_with_not_found", async () => {
     const { app } = pads([]);

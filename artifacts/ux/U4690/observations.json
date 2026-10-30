@@ -1,0 +1,348 @@
+{
+  "base": "0f10f092941758842a31c384b4c70c706e151727",
+  "head": "d383d7427b22b61baf758e1eedc40725abe73cbc",
+  "observer": "isolated headless agent-browser; fresh profiles; dark; tree-40; 1512x950; fitting at 1280x800 and 700x800",
+  "recording": "U4690/head/interaction.webm; ffmpeg installed; playable WebM confirmed by ffprobe",
+  "readings": [
+    {
+      "reading": "U4690/base/switcher.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690/head/switcher.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690a/base/ask.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690a/base/picker.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690a/head/agent-focus.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690a/head/ask.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690a/head/bubble-focus.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690a/head/pad-focus.checks.json",
+      "checks": {
+        "D1": "fail",
+        "D10": "fail",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "fail",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690a/head/picker.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690b/base/armed.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690b/head/armed.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690c/base/rejected.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690c/head/rejected.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690d/base/numbered.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690d/head/numbered.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690e/base/normal.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "reading": "U4690e/head/normal.checks.json",
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    }
+  ]
+}

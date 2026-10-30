@@ -230,12 +230,23 @@ export const terminalReady = async (app: Pick<AppSeam, "rpc">, terminal: ReturnT
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
 
-    const input = await appears(
-      () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].find((bubble) => !existing.has(bubble.dataset.bubble))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
-      "the shell Terminal's input",
-    );
+    const fresh = () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")].filter((bubble) => !existing.has(bubble.dataset.bubble));
 
-    return input;
+    await appears(() => fresh()[0]?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null, "the shell Terminal's input");
+
+    // A Terminal still opening wears a placeholder key, and its bubble is replaced when `terminal.open` answers: only a listed id is one the Daemon accepts.
+    const listed = async () => {
+      for (;;) {
+        const ids = new Set((await app.rpc("terminal.list", null)).map((terminal) => terminal.id));
+        const input = fresh().find((bubble) => ids.has(bubble.dataset.bubble!))?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea");
+
+        if (input) return input;
+
+        await sleep(50);
+      }
+    };
+
+    return bounded(listed(), SETUP_BOUND_MS, "the shell Terminal's id from the Daemon");
   };
 
   if (beforeMeasure) await beforeMeasure(await open());

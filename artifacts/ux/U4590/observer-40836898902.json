@@ -1,0 +1,380 @@
+{
+  "issue": 4596,
+  "base": "af68f191e5516fd69e6a90c9442d4d0838ed2c1d",
+  "failure": "At emulated DPR 2, WebGL canvas width/height were 884/858 while its viewport and renderer device dimensions were 1768/1716. Buffer rows existed; only later rows painted.",
+  "cause": "WebglRenderer._setCanvasDevicePixelDimensions receives scale-1 devicePixelContentBoxSize from Chromium ResizeObserver under scale-2 device emulation.",
+  "experiment": "Launching isolated Chromium with --force-device-scale-factor=2 and keeping viewport DPR 2 paints all prompt rows and the later marker on the unchanged head.",
+  "production_changes": false,
+  "remaining": "Complete a successful full capture command and resolve all failed observer commands before closing #4596. No native Mac observation or user decision requested.",
+  "complete": false,
+  "observed_head": "1fc9090a6",
+  "viewport": "1512x950 CSS pixels",
+  "scheme": "dark",
+  "renderers": [
+    "dom",
+    "webgl"
+  ],
+  "scales": [
+    1,
+    2
+  ],
+  "expected_lifecycle_pairs": 80,
+  "missing_lifecycle_artifacts": [],
+  "new_check_failures": [],
+  "baseline_failing_checks": [
+    "D1",
+    "D10",
+    "D2",
+    "D8"
+  ],
+  "canvas_device_pixel_mismatches": [],
+  "last_resize_mismatches": [],
+  "results": {
+    "guards": [
+      {
+        "fullName": "s3806c_scale_change_refits_the_terminal Agent webgl=false",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "s3806c_scale_change_refits_the_terminal Agent webgl=true",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "s3806c_scale_change_refits_the_terminal Door webgl=false",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "s3806c_scale_change_refits_the_terminal Door webgl=true",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "s3806c_scale_change_refits_the_terminal Bubble webgl=false",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "s3806c_scale_change_refits_the_terminal Bubble webgl=true",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u3517a_font_loading_keeps_live_terminal_input_available",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_first_fit_keeps_later_output_visible",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u3517b_loaded_metrics_drive_terminal_resize",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u3517d_rendering_changes_keep_input_and_scrollback",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_visible_shell_waits_for_destination_fonts_before_launch",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_preparing_an_agent_keeps_the_selected_terminal_usable",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_preparing_shell_cancels_with_close",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_preparing_shell_cancels_with_minimise",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_preparing_shell_cancels_with_Escape",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u3517a_font_readiness_preserves_output_and_fits_once_ready",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u3517c_scheme_changes_reach_open_new_and_unattached_terminals",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4592_terminal_tracking_token",
+        "status": "passed",
+        "failureMessages": []
+      }
+    ],
+    "matrix1": [
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_agents-10_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_agents-10_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_tree-40_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_tree-40_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_bubbles_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_bubbles_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_agents-10_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_agents-10_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_tree-40_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_tree-40_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_bubbles_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_bubbles_head",
+        "status": "passed",
+        "failureMessages": []
+      }
+    ],
+    "matrix2": [
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_agents-10_base",
+        "status": "failed",
+        "failureMessages": [
+          "Error: Test timed out in 120000ms.\nIf this is a long-running test, pass a timeout value as the last argument or configure it globally with \"testTimeout\".\n    at task (file:///tmp/roundup-4596-current/node_modules/.pnpm/vitest@5.0.3_@opentelemetry+api@1.10.0_@types+node@26.6.4_jsdom@30.1.1_vite@8.3.5_@types+node@26.6.4_yaml@2.9.1_/node_modules/vitest/dist/chunks/run.BTlFXlnv.js:2681:43)\n    at Object.<anonymous> (file:///tmp/roundup-4596-current/node_modules/.pnpm/vitest@5.0.3_@opentelemetry+api@1.10.0_@types+node@26.6.4_jsdom@30.1.1_vite@8.3.5_@types+node@26.6.4_yaml@2.9.1_/node_modules/vitest/dist/chunks/run.BTlFXlnv.js:2698:16)\n    at Object.<anonymous> (file:///tmp/roundup-4596-current/node_modules/.pnpm/vitest@5.0.3_@opentelemetry+api@1.10.0_@types+node@26.6.4_jsdom@30.1.1_vite@8.3.5_@types+node@26.6.4_yaml@2.9.1_/node_modules/vitest/dist/chunks/run.BTlFXlnv.js:2471:28)\n    at chain (file:///tmp/roundup-4596-current/node_modules/.pnpm/vitest@5.0.3_@opentelemetry+api@1.10.0_@types+node@26.6.4_jsdom@30.1.1_vite@8.3.5_@types+node@26.6.4_yaml@2.9.1_/node_modules/vitest/dist/chunks/run.BTlFXlnv.js:1859:14)\n    at /tmp/roundup-4596-current/apps/desktop/src/terminal/u3517_browser.test.ts:658:34\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async VitestModuleEvaluator._runInlinedModule (file:///tmp/roundup-4596-current/node_modules/.pnpm/vitest@5.0.3_@opentelemetry+api@1.10.0_@types+node@26.6.4_jsdom@30.1.1_vite@8.3.5_@types+node@26.6.4_yaml@2.9.1_/node_modules/vitest/dist/module-evaluator.js:261:4)\n    at async VitestModuleRunner.directRequest (file:///tmp/roundup-4596-current/node_modules/.pnpm/vite@8.3.5_@types+node@26.6.4_yaml@2.9.1/node_modules/vite/dist/node/module-runner.js:1281:59)\n    at async VitestModuleRunner.cachedRequest (file:///tmp/roundup-4596-current/node_modules/.pnpm/vite@8.3.5_@types+node@26.6.4_yaml@2.9.1/node_modules/vite/dist/node/module-runner.js:1188:73)\n    at async VitestModuleRunner.import (file:///tmp/roundup-4596-current/node_modules/.pnpm/vite@8.3.5_@types+node@26.6.4_yaml@2.9.1/node_modules/vite/dist/node/module-runner.js:1143:10)"
+        ]
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_agents-10_head",
+        "status": "failed",
+        "failureMessages": [
+          "Error: Command failed: agent-browser --session tabs-22646-tabs-ospWNL --json --args --force-device-scale-factor=2 open http://127.0.0.1:46715/src/ui/u498.html\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)\n    at ChildProcess.emit (node:events:519:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:304:5)"
+        ]
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_tree-40_base",
+        "status": "failed",
+        "failureMessages": [
+          "Error: Command failed: agent-browser --session tabs-22646-tabs-ospWNL --json close\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)\n    at ChildProcess.emit (node:events:519:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:304:5)"
+        ]
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_tree-40_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_bubbles_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_bubbles_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_agents-10_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_agents-10_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_tree-40_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_tree-40_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_bubbles_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_webgl_bubbles_head",
+        "status": "passed",
+        "failureMessages": []
+      }
+    ],
+    "focused": [
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_agents-10_base",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_agents-10_head",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_rendered_lifecycle_dom_tree-40_base",
+        "status": "passed",
+        "failureMessages": []
+      }
+    ],
+    "real": [
+      {
+        "fullName": "u4590_restored_terminal_keeps_its_program_and_paints_later_output",
+        "status": "passed",
+        "failureMessages": []
+      },
+      {
+        "fullName": "u4590_visible_launch_params_match_first_pty_grid",
+        "status": "passed",
+        "failureMessages": []
+      }
+    ],
+    "real-base": [
+      {
+        "fullName": "u4590_restored_terminal_keeps_its_program_and_paints_later_output",
+        "status": "failed",
+        "failureMessages": [
+          "Error: Command failed: agent-browser --session tabs-67991-tabs-nu5civ --json wait --fn document.querySelector('.bubble:not([hidden]) .xterm-rows').textContent.includes('pid=') && window.__terminals.has('6b49e966-4cb9-4967-97ae-4c85f477706e')\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)\n    at ChildProcess.emit (node:events:519:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:304:5)"
+        ]
+      },
+      {
+        "fullName": "u4590_visible_launch_params_match_first_pty_grid",
+        "status": "passed",
+        "failureMessages": []
+      }
+    ],
+    "restored-base": [
+      {
+        "fullName": "u4590_restored_terminal_keeps_its_program_and_paints_later_output",
+        "status": "passed",
+        "failureMessages": []
+      }
+    ]
+  },
+  "commands": [
+    {
+      "command": "pnpm install",
+      "exit": 0
+    },
+    {
+      "command": "just ready",
+      "exit": 0
+    },
+    {
+      "command": "pnpm --filter desktop exec tsc --noEmit",
+      "exit": 0
+    },
+    {
+      "command": "pnpm --filter desktop exec vitest run src/terminal/u3517_type.test.ts src/terminal/s3806c_scale.test.ts src/terminal/u3517_browser.test.ts -t '^(?!u4590_rendered_lifecycle)' --retry=0",
+      "exit": 0
+    },
+    {
+      "command": "ROUNDUP_CAPTURES=U4590 U4590_SCALE=1 U500_BASE_ROOT=/tmp/u4590-base/apps/desktop VITEST_MAX_WORKERS=1 pnpm --filter desktop exec vitest run src/terminal/u3517_browser.test.ts -t u4590_rendered_lifecycle --retry=0",
+      "exit": 143,
+      "result": "All 12 test cases report passed; command ended with signal 15."
+    },
+    {
+      "command": "Same paired command with U4590_SCALE=2",
+      "exit": 1,
+      "result": "Three setup failures, detailed separately in results.matrix2; no retries or timeout increases."
+    },
+    {
+      "command": "VITEST_MAX_WORKERS=1 timeout --signal=INT --kill-after=10s 180 just capture U4590",
+      "exit": 124,
+      "result": "Workspace-wide capture command exceeded bound."
+    },
+    {
+      "command": "Real-Daemon startup and restoration on head, retries disabled",
+      "exit": 0
+    },
+    {
+      "command": "Real-Daemon startup and restoration on base, retries disabled",
+      "exit": 1,
+      "result": "Startup passed; restoration timed out waiting for initial pid output."
+    },
+    {
+      "command": "Initial and intermediate delta before complete pairs existed",
+      "exit": 2,
+      "result": "Missing paired Check file; final pair status is listed above."
+    },
+    {
+      "command": "loop/rules.sh merge-loss",
+      "exit": 0
+    },
+    {
+      "command": "Focused scale-2 DOM Agent main/head and dense main cases after cold setup completed, retries disabled",
+      "exit": 0,
+      "result": "3 cases passed; all 80 lifecycle pairs complete."
+    },
+    {
+      "command": "Focused baseline restoration after cold setup completed, retries disabled",
+      "exit": 0
+    },
+    {
+      "command": "loop/rules.sh delta artifacts/ux/U4590/base artifacts/ux/U4590/head (complete pairs)",
+      "exit": 0
+    }
+  ],
+  "scope": "Observer setup only. No production, contract, Token, motion, input, launch or Adapter change. No tests removed; all existing unique proofs are retained.",
+  "caller_inventory": "Earlier full caller inventory on Issue #4596 and artifacts/ux/U4590/observer-40831091453.json remain applicable: Pane and Bubble share Screens and createXtermEmulators fitting/output paths. This revision changes only policy capture setup.",
+  "paired_images": 86,
+  "visually_inspected": [
+    "head/bubbles-webgl-shell-scale2.png",
+    "head/bubbles-webgl-pair-switch-scale2.png",
+    "head/agents-10-webgl-existing-scale2.png",
+    "head/tree-40-webgl-dense-failure-scale2.png"
+  ],
+  "visual_result": "Full prompt and later marker paint at scale 2; dense failure text is visible. No production painting repair required."
+}

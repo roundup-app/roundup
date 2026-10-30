@@ -86,37 +86,3 @@ async fn u3789a_real_daemon_rename_retains_publication_after_restart() {
         "retained\n revision"
     );
 }
-
-#[tokio::test]
-async fn u3789a_readonly_pad_requires_make_yours_before_rename() {
-    let project = daemon::start(&[]);
-    let client = project.client().await;
-    let original = client
-        .request("pad.create", json!({"name":"Notes","text":"original"}))
-        .await
-        .unwrap();
-    client
-        .request(
-            "pad.setOwner",
-            json!({"name":"Notes","owner":{"kind":"agent","id":"maker","parent":null}}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(client.request("pad.rename", json!({"name":"Notes","newName":"Plan","expectedIncarnation":original["incarnation"]})).await.unwrap_err().code, rpc::code::FORBIDDEN);
-    client
-        .request(
-            "pad.setOwner",
-            json!({"name":"Notes","owner":contracts::Actor::user()}),
-        )
-        .await
-        .unwrap();
-    let accepted = client
-        .request(
-            "pad.rename",
-            json!({"name":"Notes","newName":"Plan","expectedIncarnation":original["incarnation"]}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(accepted["incarnation"], original["incarnation"]);
-    assert_eq!(accepted["text"], "original");
-}

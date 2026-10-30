@@ -8,7 +8,7 @@ import { Field } from "../ui/Field";
 import { ReservedLine } from "../ink/ReservedLine";
 
 /** U4547b: retain the created identity before saving or starting, so retry resumes it. */
-export const CreateMode = (props: { onClose: () => void }) => {
+export const CreateMode = (props: { onClose: () => void; onCreated: (id: string, request: string) => void; finalFocus: (id: string) => HTMLElement | null }) => {
   const { app, rail, drafts, project } = useConnectedProject();
   const destination = { surface: "mode-create", object: project.path, recipient: null };
   drafts.validate(destination.surface, v.strictObject({ name: v.string(), text: v.string(), id: v.nullable(v.string()), request: v.string() }));
@@ -18,6 +18,8 @@ export const CreateMode = (props: { onClose: () => void }) => {
   const value = () => ({ name: String(draft()?.value.name ?? ""), text: String(draft()?.value.text ?? ""), id: v.is(v.string(), draft()?.value.id) ? String(draft()!.value.id) : null, request: String(draft()?.value.request ?? crypto.randomUUID()) });
   const edit = (patch: { name?: string; text?: string }) => { drafts.edit(destination, { ...value(), ...patch }, null, "ordinary"); };
 
+  const [open, setOpen] = createSignal(true);
+  let created: string | null = null;
   const [busy, setBusy] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
 
@@ -43,12 +45,13 @@ export const CreateMode = (props: { onClose: () => void }) => {
       }
 
       await app.rpc("workstream.setOpeningPrompt", { id: saved.id, prompt: saved.text });
-      await app.rpc("workstream.restart", { id: saved.id, request: saved.request });
       await rail.refresh();
       rail.setSectionOpen("modes", true);
       rail.select(saved.id);
       await drafts.settle(submitted, "acknowledged");
-      props.onClose();
+      created = saved.id;
+      setOpen(false);
+      props.onCreated(saved.id, saved.request);
     } catch (error) {
       await drafts.settle(submitted, outcomeOf(error));
 
@@ -57,7 +60,7 @@ export const CreateMode = (props: { onClose: () => void }) => {
     } finally { setBusy(false); }
   };
 
-  return <Dialog.Root open onOpenChange={({ open }) => { if (!open) props.onClose(); }}>
+  return <Dialog.Root open={open()} finalFocusEl={() => created === null ? null : props.finalFocus(created)} onOpenChange={({ open }) => { if (!open) { setOpen(false); props.onClose(); } }}>
     <Dialog.Positioner><Dialog.Content class="app-dialog-form opening-prompt-dialog">
       <Dialog.Title>{copy.newMode}</Dialog.Title>
       <form onSubmit={event => { event.preventDefault(); void submit(); }}>

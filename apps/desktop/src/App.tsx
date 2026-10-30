@@ -43,7 +43,6 @@ import type { LinkContent } from "@contracts/link/LinkContent";
 import { PadHost } from "./pads/PadDrawer";
 import { TodoHost } from "./todos/TodoDrawer";
 import { Capture } from "./todos/Capture";
-import { Keys } from "./keys/Keys";
 import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
@@ -233,9 +232,19 @@ export const App = (props: {
   const projects = createProjectsState(props.app);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
-  registerKeys({ kind: "app" }, [{ chords: ["Meta+KeyZ"],
-    when: event => !event.shiftKey && !(document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]")),
-    run: event => { if (!event.repeat && projects.active()) void drafts(projects.active()!).todoUndo.undo(); },
+  registerKeys({ kind: "app" }, [{
+    action: CHORDS.find(row => row.keys === "⌘Z")!,
+    when: () => !document.activeElement?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
+    capture: focus => {
+      const path = projects.active();
+      const undo = path ? drafts(path).todoUndo : null;
+
+      return {
+        available: () => path !== null && projects.active() === path && undo !== null && undo.available() && !undo.pending()
+          && !focus?.closest("input,textarea,[contenteditable]:not([contenteditable=false]),.xterm,[role=textbox]"),
+        invoke: () => { void undo!.undo(); },
+      };
+    },
   }]);
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
@@ -439,7 +448,7 @@ export const App = (props: {
 
     if (!frame.open()) frame.toggle("key");
   });
-  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K S` does, on the Pads tab.
+  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K B` does, on the Pads tab.
   createEffect(() => {
     const connected = activeConnection();
 
@@ -458,11 +467,11 @@ export const App = (props: {
   onCleanup(() => document.removeEventListener("focusin", recordFocus));
 
   const views = [
-    ["ask-history", copy.askHistory], ["resources", copy.resources],
+    ["resources", copy.resources],
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "J", "S", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -471,18 +480,18 @@ export const App = (props: {
     const available = connected !== undefined && !(connected instanceof Error);
 
     return [
-      ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "ask-history" || id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
-      ...[...CHORDS.filter(row => !row.inShelf && (taskKeys.has(row.keys) || row.what === copy.captureATodo)), ...LEADER.filter(row => row.keys !== "T" && taskKeys.has(row.keys))].map(row => {
+      ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
+      ...[...CHORDS.filter(row => row.keys !== copy.leaderChord), ...LEADER.filter(row => row.keys !== "T")].map(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
         const action = actions.find(action => action.value === id && action.available());
 
-        const item: MenuItem = { id, label: row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
+        const item: MenuItem = { id, label: row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
 
         if (!("inRail" in row && row.inRail && (row.keys === "R" || row.keys === "M"))) item.shortcut = "press" in row ? `⌘K ${row.keys}` : row.keys;
 
         return item;
       }),
-    ].filter(item => item.enabled);
+    ].filter((item, at, all) => item.enabled && all.findIndex(other => other.enabled && other.id === item.id) === at);
   });
 
   let menuWriting = false;
@@ -531,7 +540,7 @@ export const App = (props: {
   };
 
   onCleanup(shelfFocus.stop);
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "S")!, capture: () => {
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "B")!, capture: () => {
     const wasOpen = frame.open();
 
     return {
@@ -599,7 +608,6 @@ export const App = (props: {
               <InProject open={activeConnection()}>
                 {() => (
                   <>
-                    <Keys />
                     <AttentionKey />
                     <Rail />
                   </>

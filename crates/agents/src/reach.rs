@@ -9,6 +9,32 @@ use serde_json::Value;
 
 use crate::Shared;
 
+/// M7, H21: the one Reach walk of Agent `m` over the Rail `nodes` and the ids it `created`.
+pub(crate) fn reach_of(
+    nodes: &[contracts::agent::RailNode],
+    created: Vec<String>,
+    m: &str,
+) -> std::collections::HashSet<String> {
+    let mut reach = std::collections::HashSet::new();
+    let mut frontier = vec![m.to_owned()];
+    for id in created {
+        if id != m && reach.insert(id.clone()) {
+            frontier.push(id);
+        }
+    }
+    while let Some(parent) = frontier.pop() {
+        for node in nodes
+            .iter()
+            .filter(|n| n.parent.as_deref() == Some(&parent))
+        {
+            if node.id != m && reach.insert(node.id.clone()) {
+                frontier.push(node.id.clone());
+            }
+        }
+    }
+    reach
+}
+
 impl Shared {
     /// M7, H21: the ids of the nodes in Agent `m`'s Reach, `m` itself excluded: its descendants
     /// on the Rail, and every Workstream `m` created with its descendants.
@@ -17,24 +43,7 @@ impl Shared {
             let rail = self.rail();
             (rail.tree()?, rail.created_by(m)?)
         };
-        let mut reach = std::collections::HashSet::new();
-        let mut frontier = vec![m.to_owned()];
-        for id in created {
-            if id != m && reach.insert(id.clone()) {
-                frontier.push(id);
-            }
-        }
-        while let Some(parent) = frontier.pop() {
-            for node in nodes
-                .iter()
-                .filter(|n| n.parent.as_deref() == Some(&parent))
-            {
-                if node.id != m && reach.insert(node.id.clone()) {
-                    frontier.push(node.id.clone());
-                }
-            }
-        }
-        Ok(reach)
+        Ok(reach_of(&nodes, created, m))
     }
 
     /// M7: `NOT_FOUND` for an unknown node, then `FORBIDDEN` naming it when Agent `actor` has it

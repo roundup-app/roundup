@@ -1,5 +1,5 @@
 //! Retained deletion lives in the same Project transaction as the rows it removes.
-use contracts::todo::{DeleteParams, Deletion, DeletionParams, DeletionState, TodoId};
+use contracts::todo::{DeleteParams, Deletion, DeletionParams, DeletionState, RedoParams, TodoId};
 use contracts::{Actor, EventData, Verb};
 use rpc::{Ctx, RpcError, reply};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
@@ -12,7 +12,7 @@ const TABLES: &[(&str, &str, &str)] = &[
     (
         "todos",
         "deleted_todos",
-        "id,title,body,done,created_at,creator,home,pos,owner,estimate_minutes",
+        "id,title,body,done,created_at,updated_at,creator,home,pos,owner",
     ),
     (
         "changes",
@@ -57,6 +57,77 @@ impl Todos {
         reply(&result)
     }
 
+    pub(super) fn redo(&self, ctx: &Ctx, p: RedoParams) -> Result<Value, RpcError> {
+        let store = self.store()?;
+        let tx = store
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
+        let source =
+            receipt(&tx, &ctx.actor, &p.source)?.ok_or_else(|| RpcError::not_found("deletion"))?;
+        if source.restoration.as_deref() != Some(&p.restoration) {
+            return Err(RpcError::conflict(
+                "redo belongs to another restored deletion",
+            ));
+        }
+        // Bind replay to its source before inspecting current targets: an unknown reply
+        // stays reconcilable even after restore or later edits.
+        if let Some(result) = receipt(&tx, &ctx.actor, &p.operation)? {
+            let previous: Option<String> = tx
+                .query_row(
+                    "SELECT json_extract(result,'$.source') FROM todo_deletions WHERE operation=?",
+                    [&p.operation],
+                    |r| r.get(0),
+                )
+                .map_err(RpcError::internal)?;
+            if previous.as_deref() != Some(&p.source) {
+                return Err(RpcError::conflict(
+                    "redo key already names another operation",
+                ));
+            }
+            return reply(&result);
+        }
+        let (targets, successor): (Option<String>, Option<String>) = tx.query_row(
+            "SELECT json_extract(result,'$.restoredTargets'),json_extract(result,'$.redo') FROM todo_deletions WHERE operation=?",
+            [&p.source], |r| Ok((r.get(0)?, r.get(1)?)),
+        ).map_err(RpcError::internal)?;
+        if source.state != DeletionState::Restored || successor.is_some() {
+            return Err(RpcError::conflict(
+                "redo needs an unconsumed restored deletion",
+            ));
+        }
+        let chosen = serde_json::to_string(&source.deleted).map_err(RpcError::internal)?;
+        if targets.as_deref() != Some(&restored_targets(&tx, &chosen)?) {
+            return Err(RpcError::conflict(
+                "Can't redo: a restored Todo was changed, moved or replaced. Keep the newer work, or restore its previous placement and values before retrying Redo; the deletion is retained.",
+            ));
+        }
+        let remove = !source.deleted.is_empty();
+        let (result, events) = retain(
+            &tx,
+            &ctx.actor,
+            &DeleteParams {
+                operation: p.operation.clone(),
+                ids: source.deleted,
+            },
+            ctx.touches.sequence().map_err(RpcError::internal)?,
+            remove,
+        )?;
+        tx.execute(
+            "UPDATE todo_deletions SET result=json_set(result,'$.source',?2) WHERE operation=?1",
+            params![p.operation, p.source],
+        )
+        .map_err(RpcError::internal)?;
+        tx.execute(
+            "UPDATE todo_deletions SET result=json_set(result,'$.redo',?2) WHERE operation=?1",
+            params![p.source, p.operation],
+        )
+        .map_err(RpcError::internal)?;
+        tx.commit().map_err(RpcError::internal)?;
+        publish(ctx, events)?;
+        reply(&result)
+    }
+
     pub(super) fn deletion(&self, ctx: &Ctx, p: DeletionParams) -> Result<Value, RpcError> {
         reply(&receipt(&self.store()?.db, &ctx.actor, &p.operation)?)
     }
@@ -66,6 +137,7 @@ impl Todos {
             &ctx.actor,
             &p.operation,
             ctx.touches.sequence().map_err(RpcError::internal)?,
+            |_| Ok(()),
             |_| Ok(()),
         )?;
         publish(ctx, events)?;
@@ -82,6 +154,7 @@ impl Todos {
         operation: &str,
         after_touch: i64,
         coordinate: impl FnOnce(&Transaction<'_>) -> Result<(), RpcError>,
+        finish: impl FnOnce(&Transaction<'_>) -> Result<(), RpcError>,
     ) -> Result<(Deletion, Vec<EventData>), RpcError> {
         let store = self.store()?;
         let tx = store
@@ -107,7 +180,7 @@ impl Todos {
         let before = store.list()?;
         let occupied: Option<(String,String)> = tx.query_row("SELECT CAST(t.id AS TEXT),t.title FROM todos t JOIN deleted_todos d ON d.id=t.id WHERE d.operation=? LIMIT 1", [operation], |r| Ok((r.get(0)?,r.get(1)?))).optional().map_err(RpcError::internal)?;
         if let Some((id, title)) = occupied {
-            return Err(RpcError::undo_identity(id, title));
+            return Err(RpcError::undo_identity(id, title, true));
         }
         // Plain INSERT refuses collisions; the transaction rolls every insertion back.
         for (live, retained, columns) in TABLES {
@@ -141,14 +214,16 @@ impl Todos {
             }
         }
         result.state = DeletionState::Restored;
+        let chosen = serde_json::to_string(&result.deleted).map_err(RpcError::internal)?;
+        let targets = restored_targets(&tx, &chosen)?;
+        let restoration: String = tx
+            .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
+            .map_err(RpcError::internal)?;
+        result.restoration = Some(restoration.clone());
         tx.execute(
-            "UPDATE todo_deletions SET result = ? WHERE operation = ?",
-            params![
-                serde_json::to_string(&result).map_err(RpcError::internal)?,
-                operation
-            ],
-        )
-        .map_err(RpcError::internal)?;
+            "UPDATE todo_deletions SET result = json_set(result,'$.state','restored','$.restoredTargets',json(?2),'$.restoration',?3) WHERE operation = ?1",
+            params![operation, targets, restoration],
+        ).map_err(RpcError::internal)?;
         for (_, retained, _) in TABLES {
             tx.execute(
                 &format!("DELETE FROM {retained} WHERE operation = ?"),
@@ -156,6 +231,7 @@ impl Todos {
             )
             .map_err(RpcError::internal)?;
         }
+        finish(&tx)?;
         tx.commit().map_err(RpcError::internal)?;
         let events = restored
             .into_iter()
@@ -163,6 +239,16 @@ impl Todos {
             .collect();
         Ok((result, events))
     }
+}
+
+// The creation Change sequence distinguishes reincarnations even if numeric id,
+// content and millisecond creation time match. Placement and values may be repaired;
+// last-change timestamps are deliberately not identity.
+fn restored_targets(db: &Connection, chosen: &str) -> Result<String, RpcError> {
+    db.query_row(
+        "SELECT json_group_array(json_array(id,title,body,done,created_at,creator,home,pos,owner,json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker))),(SELECT MIN(seq) FROM changes WHERE todo=t.id))) FROM (SELECT * FROM todos WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id) t",
+        [chosen], |r| r.get(0),
+    ).map_err(RpcError::internal)
 }
 
 fn receipt(db: &Connection, actor: &Actor, operation: &str) -> Result<Option<Deletion>, RpcError> {
@@ -229,6 +315,7 @@ fn retain(
         deleted: Vec::new(),
         missing: Vec::new(),
         state: DeletionState::Deleted,
+        restoration: None,
     };
     for id in chosen {
         let exists: bool = db
@@ -259,12 +346,14 @@ fn retain(
     if remove {
         // Preserve T6's surviving dependent Changes. Values come from the authoritative
         // last Change, whose blocker list is updated in the same deletion transaction.
+        let now = crate::store::now_ms();
         db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,actor,changed_at)
         SELECT t.id,
-        json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker)))),
-        json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id AND blocker NOT IN (SELECT value FROM json_each(?1)) ORDER BY blocker)))),
+        json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker)))),
+        json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id AND blocker NOT IN (SELECT value FROM json_each(?1)) ORDER BY blocker)))),
         ?2, ?3, ?4 FROM todos t
-        WHERE t.id NOT IN (SELECT value FROM json_each(?1)) AND EXISTS(SELECT 1 FROM blockers b WHERE b.todo=t.id AND b.blocker IN (SELECT value FROM json_each(?1)))", params![selected,after_touch,actor_json,crate::store::now_ms()]).map_err(RpcError::internal)?;
+        WHERE t.id NOT IN (SELECT value FROM json_each(?1)) AND EXISTS(SELECT 1 FROM blockers b WHERE b.todo=t.id AND b.blocker IN (SELECT value FROM json_each(?1)))", params![selected,after_touch,actor_json,now]).map_err(RpcError::internal)?;
+        db.execute("UPDATE todos SET updated_at=?2 WHERE id NOT IN (SELECT value FROM json_each(?1)) AND EXISTS(SELECT 1 FROM blockers b WHERE b.todo=todos.id AND b.blocker IN (SELECT value FROM json_each(?1)))", params![selected,now]).map_err(RpcError::internal)?;
         unblocked = db.prepare("SELECT DISTINCT b.todo FROM blockers b JOIN todos t ON t.id=b.blocker WHERE t.done=0 AND b.blocker IN (SELECT value FROM json_each(?1)) AND b.todo NOT IN (SELECT value FROM json_each(?1)) AND NOT EXISTS(SELECT 1 FROM blockers x JOIN todos y ON y.id=x.blocker WHERE x.todo=b.todo AND y.done=0 AND x.blocker NOT IN (SELECT value FROM json_each(?1))) ORDER BY b.todo")
         .and_then(|mut q| q.query_map([&selected], |r| r.get(0))?.collect()).map_err(RpcError::internal)?;
         db.execute(
@@ -519,8 +608,11 @@ fn change_owner_in(
     db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,actor,changed_at)
         SELECT todo,after_values,json_set(after_values,'$.owner',json(?2)),(SELECT COALESCE(MAX(seq),0) FROM touches),?3,?4
         FROM changes WHERE seq=(SELECT MAX(seq) FROM changes WHERE todo=?1)",params![id,owner,serde_json::to_string(actor).map_err(RpcError::internal)?,crate::store::now_ms()]).map_err(RpcError::internal)?;
-    db.execute("UPDATE todos SET owner=? WHERE id=?", params![owner, id])
-        .map_err(RpcError::internal)?;
+    db.execute(
+        "UPDATE todos SET owner=?, updated_at=? WHERE id=?",
+        params![owner, crate::store::now_ms(), id],
+    )
+    .map_err(RpcError::internal)?;
     Ok(())
 }
 
@@ -563,5 +655,67 @@ impl Todos {
                     .map(|todo| EventData::TodoUpdated(todo.into()))
             })
             .collect()
+    }
+}
+
+impl Todos {
+    /// Retain and remove the prior successful set and its restored Home/owner edges.
+    /// The coordinator's transaction has already checked the acknowledged boundary.
+    pub fn redo_workstream_in(
+        db: &Connection,
+        actor: &Actor,
+        source: &str,
+        operation: &str,
+    ) -> Result<Vec<EventData>, RpcError> {
+        let prior: String = db
+            .query_row(
+                "SELECT id FROM rail_removal_items WHERE operation=? AND kind='todo-operation'",
+                [source],
+                |r| r.get(0),
+            )
+            .map_err(RpcError::internal)?;
+        let previous =
+            receipt(db, actor, &prior)?.ok_or_else(|| RpcError::not_found("Todo removal"))?;
+        let expected: Option<String> = db.query_row("SELECT json_extract(result,'$.restoredTargets') FROM todo_deletions WHERE operation=?",[&prior],|r|r.get(0)).map_err(RpcError::internal)?;
+        let chosen = serde_json::to_string(&previous.deleted).map_err(RpcError::internal)?;
+        if expected.as_deref() != Some(restored_targets(db, &chosen)?.as_str()) {
+            return Err(RpcError::conflict(
+                "Restored Todo graph changed; repair it before retrying Redo",
+            ));
+        }
+        let participant: String = db
+            .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
+            .map_err(RpcError::internal)?;
+        db.execute(
+            "INSERT INTO rail_removal_items(operation,kind,id) VALUES(?,'todo-operation',?)",
+            params![operation, participant],
+        )
+        .map_err(RpcError::internal)?;
+        let after_touch = db
+            .query_row("SELECT COALESCE(MAX(seq),0) FROM touches", [], |r| r.get(0))
+            .map_err(RpcError::internal)?;
+        let (_, events) = retain(
+            db,
+            actor,
+            &DeleteParams {
+                operation: participant,
+                ids: previous.deleted.clone(),
+            },
+            after_touch,
+            !previous.deleted.is_empty(),
+        )?;
+        db.execute("INSERT INTO rail_removal_items(operation,kind,id,home,owner) SELECT ?2,kind,id,home,owner FROM rail_removal_items r WHERE operation=?1 AND ((kind='todo-home' AND EXISTS(SELECT 1 FROM todos t WHERE CAST(t.id AS TEXT)=r.id AND t.home=r.home)) OR (kind='todo-owner' AND EXISTS(SELECT 1 FROM todos t WHERE CAST(t.id AS TEXT)=r.id AND t.owner=r.owner)))",params![source,operation]).map_err(RpcError::internal)?;
+        db.execute("INSERT OR IGNORE INTO rail_removal_items(operation,kind,id,home) SELECT ?2,'todo-home',CAST(id AS TEXT),home FROM todos WHERE home=(SELECT node FROM rail_deletions WHERE operation=?1)",params![source,operation]).map_err(RpcError::internal)?;
+        db.execute("UPDATE todos SET home=NULL WHERE CAST(id AS TEXT) IN (SELECT id FROM rail_removal_items WHERE operation=? AND kind='todo-home')",[operation]).map_err(RpcError::internal)?;
+        let mut q=db.prepare("SELECT CAST(id AS INTEGER) FROM rail_removal_items WHERE operation=? AND kind='todo-owner'").map_err(RpcError::internal)?;
+        let ids = q
+            .query_map([operation], |r| r.get::<_, u32>(0))
+            .map_err(RpcError::internal)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(RpcError::internal)?;
+        for id in ids {
+            change_owner_in(db, &Actor::daemon(), id, None)?;
+        }
+        Ok(events)
     }
 }

@@ -46,12 +46,16 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
       expect(await evaluate("document.querySelector('.drawer .ProseMirror').textContent")).toBe(before + "m");
     }
 
-    await capture(`${kind}-normal`);
+    // U4698a: the item opens filled; one click on the single expand control minimises it and one more fills again.
     await evaluate("(() => { window.__u4458 = { centre: document.querySelector('.centre'), shelf: document.querySelector('.shelf'), field: document.querySelector('.drawer input, .drawer textarea, .drawer [contenteditable=true]') }; return true; })()");
+    await capture(`${kind}-maximised`);
+    expect(await evaluate("document.querySelectorAll('.drawer button[aria-label=Restore], .drawer button[aria-label=Maximise]').length")).toBe(1);
 
+    await browser("click", '.drawer button[aria-label="Restore"]');
+    await settle();
+    await capture(`${kind}-normal`);
     await browser("click", '.drawer button[aria-label="Maximise"]');
     await settle();
-    await capture(`${kind}-maximised`);
 
     if (output && kind === "pad") await browser("record", "stop");
     expect(await evaluate(`(() => {
@@ -60,10 +64,11 @@ it("u4458_maximised_drawer_hides_the_centre_without_unmounting_it", { retry: 0, 
         document.querySelector('.drawer').dataset.maximised, document.querySelector('.drawer').contains(before.field)];
     })()`)).toEqual([true, true, "true", true]);
 
-    for (let index = 0; index < 12; index++) {
-      await browser("press", "Tab");
-      expect(await evaluate("!!document.activeElement.closest('.centre, .shelf')")).toBe(false);
-    }
+    // The right side stays reachable beside the filled item while the covered centre cannot take focus.
+    expect(await evaluate(`(() => {
+      const reach = selector => { document.activeElement?.blur(); document.querySelector(selector)?.focus(); return !!document.activeElement?.closest(selector.split(" ")[0]); };
+      return [reach('.shelf button, .shelf [tabindex]'), reach('.centre button, .centre [tabindex], .centre input')];
+    })()`)).toEqual([true, false]);
 
     await browser("focus", '.drawer button[aria-label="Restore"]');
     await browser("press", "m");

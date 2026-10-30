@@ -318,7 +318,7 @@ describe("u3789a connected browser rows", () => {
       const renamedTodo = (await app.rpc("todo.list", null)).find(item => item.id === todo.id);
       const renamedPad = (await app.rpc("pad.list", null)).find(item => item.incarnation === pad.incarnation);
       expect(renamedTodo).toMatchObject({ title: "renamed todo", body: "keep body", home: home.id, creator: todo.creator });
-      expect(renamedPad).toMatchObject({ name: "renamed pad", text: "keep text", home: home.id, owner: pad.owner, revision: pad.revision });
+      expect(renamedPad).toMatchObject({ name: "renamed pad", text: "keep text", home: home.id, revision: pad.revision });
       expect((await app.rpc("rail.tree", null)).find(node => node.id === home.id)?.attempt).toBe(door.attempt);
     } catch (error) {
       console.error(await evaluate("({calls:window.__rowCalls,active:document.activeElement?.outerHTML})"));

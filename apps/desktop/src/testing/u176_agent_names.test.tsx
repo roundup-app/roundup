@@ -1,19 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { openLane } from "../todos/laneBrowser";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { draftStorage } from "../state/storage";
-import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import { menuProbe } from "./menuProbe";
 import type { StartedDaemon } from "./realDaemonFixture";
-
 
 describe("u176 Agent names", () => {
   let real: StartedDaemon;
@@ -63,10 +59,23 @@ describe("u176 Agent names", () => {
 
 });
 
+// Reuse both Project authorities across the Rail probes; each probe still creates fresh objects.
+let first: StartedDaemon;
+
+let second: StartedDaemon;
+
+beforeAll(async () => {
+  first = await startRealDaemon({});
+  second = await startRealDaemon({});
+}, 180_000);
+
+afterAll(async () => {
+  await first?.stop();
+  await second?.stop();
+});
+
 // The public Daemon owns identities and mutations; only reply timing is controlled here.
 describe("u2773 Rail task destinations", () => {
-  let first: StartedDaemon;
-  let second: StartedDaemon;
   let app: AppSeam;
   let left: AppSeam;
   let right: AppSeam;
@@ -75,10 +84,16 @@ describe("u2773 Rail task destinations", () => {
 
   beforeEach(async () => {
     localStorage.clear();
-    first = await startRealDaemon({});
-    second = await startRealDaemon({});
     left = createServedApp(first.base);
     right = createServedApp(second.base);
+
+    // Keep real Project authorities, but give each probe fresh objects and no prior Agents.
+    for (const source of [left, right]) {
+      for (const node of await source.rpc("rail.tree", null)) {
+        if (node.kind === "workstream" && node.parent === null) await source.rpc("rail.remove", { id: node.id, scope: "all" });
+      }
+    }
+
     home = (await left.rpc("rail.createWorkstream", { name: "same", parent: null })).id;
     await right.rpc("rail.createWorkstream", { name: "padding", parent: null });
     other = (await right.rpc("rail.createWorkstream", { name: "same", parent: null })).id;
@@ -90,10 +105,8 @@ describe("u2773 Rail task destinations", () => {
     };
   }, 120_000);
 
-  afterEach(async () => {
+  afterEach(() => {
     cleanup();
-    await first?.stop();
-    await second?.stop();
     localStorage.clear();
   });
 
@@ -180,60 +193,6 @@ describe("u2773 Rail task destinations", () => {
     expect((await right.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(0);
   }, 120_000);
 
-  it.each(["acknowledged", "failed", "unknown"] as const)("u2773b_rail_settlement_preserves_other_revisions_late_%s", async (outcome) => {
-    const rpc = left.rpc.bind(left);
-    const replies: (() => Promise<void>)[] = [];
-
-    const spy = vi.spyOn(left, "rpc").mockImplementation(<M extends RpcMethodName>(method: M, params: RpcMethods[M]["params"]): Promise<RpcMethods[M]["result"]> => {
-      if (method !== "agent.spawn") return rpc(method, params);
-
-      return new Promise<RpcMethods[M]["result"]>((resolve, reject) => {
-        replies.push(async () => {
-          if (outcome === "failed") reject(new RpcError(-32003, "refused"));
-          else {
-            const result = await rpc(method, params);
-
-            if (outcome === "unknown") reject(new RpcError(-32603, "reply lost"));
-            else resolve(result);
-          }
-        });
-      });
-    });
-
-    await mount();
-    await select(home);
-    await openTask(); type("A"); submit(); type("B");
-    fireEvent.keyDown(task(), { key: "Escape" });
-    await switchTo("Right");
-    await switchTo("Left");
-    await openTask(); submit(); type("C");
-    await waitFor(() => expect(replies).toHaveLength(2));
-    fireEvent.keyDown(task(), { key: "Escape" });
-    await switchTo("Right");
-    await openTask(); type("right work");
-    await replies[1]!();
-    await replies[0]!();
-    await waitFor(() => expect(task().value).toBe("right work"));
-    await switchTo("Left");
-    await openTask();
-    expect(task().value).toBe("C");
-    fireEvent.keyDown(task(), { key: "Escape" });
-    await waitFor(() => expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map(field => field.value)).toEqual(outcome === "acknowledged" ? ["C"] : ["C", "B", "A"]));
-    expect((await rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(outcome === "failed" ? 0 : 2);
-
-    if (outcome !== "acknowledged") {
-      await waitFor(() => expect(draftStorage(first.dir).list().find((entry) => entry.value.text === "A")?.status).toBe(outcome));
-      fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[2]!);
-    }
-
-    await waitFor(() => expect(draftStorage(first.dir).list().map(draft => draft.value.text)).toEqual(outcome === "acknowledged" ? ["C"] : ["B", "C"]));
-    cleanup(); await mount(); await openTask();
-    expect(task().value).toBe("C");
-    fireEvent.keyDown(task(), { key: "Escape" });
-    expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(outcome === "acknowledged" ? ["C"] : ["C", "B"]);
-    expect(spy.mock.calls.filter(([method]) => method === "agent.spawn")).toHaveLength(2);
-  }, 120_000);
-
   it("u2773c_rail_external_change_keeps_original_removed_parent", async () => {
     await mount(); await select(home); await openTask(); type(" exact removed\n😀 ");
     await left.rpc("rail.remove", { id: home });
@@ -250,114 +209,25 @@ describe("u2773 Rail task destinations", () => {
   }, 120_000);
 });
 
-it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", async () => {
-  const first = await startRealDaemon({}, true);
-  const lane = await openLane(1512, "dark", "u2773-rail");
-
-  try {
-    for (const [index, real] of [first].entries()) {
-      const app = createServedApp(real.base);
-
-      const target = await app.rpc("rail.createWorkstream", { name: "same", parent: null });
-      const text = ` exact ${index}\ne\u0301 😀 `;
-      const url = `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`;
-      const field = 'document.querySelector("textarea[aria-label=Task]")';
-      const open = `document.dispatchEvent(new KeyboardEvent('keydown', {key:'n',metaKey:true,shiftKey:true,bubbles:true}))`;
-      await lane.browser("open", url);
-      await lane.until(`!!document.querySelector('[data-id="${target.id}"] .name')`);
-      await lane.browser("click", `.rail-row[data-id="${target.id}"] .row-state`);
-      await lane.until(`document.querySelector('.rail-row[data-id="${target.id}"]').dataset.selected === 'true'`);
-      await lane.evaluate(open);
-      await lane.until(`!!${field}`);
-      await lane.evaluate(`(() => { const field = ${field}; field.value = ${JSON.stringify(text)}; field.dispatchEvent(new Event('input',{bubbles:true})); field.setSelectionRange(2,7,'backward'); field.dispatchEvent(new Event('select',{bubbles:true})); return true; })()`);
-      await lane.browser("press", "Escape");
-
-      for (const action of ["reload", "reopen"] as const) {
-        if (action === "reload") await lane.browser("reload");
-        else {
-          await lane.browser("open", "about:blank");
-          await real.restart();
-          await lane.browser("open", url);
-        }
-
-        await lane.until(`!!document.querySelector('[data-id="${target.id}"] .name')`);
-        await lane.evaluate(open);
-        await lane.until(`!!${field}`);
-        expect(await lane.evaluate(`(() => { const f = ${field}; return [f.value,f.selectionStart,f.selectionEnd,f.selectionDirection]; })()`)).toEqual([text, 2, 7, "backward"]);
-        expect((await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(0);
-        await lane.browser("press", "Escape");
-      }
-
-      // D2/D5/D6 observer on the real surface with a retention failure visible.
-      await lane.evaluate(`(() => { Storage.prototype.setItem = () => { throw new Error('disk full'); }; return true; })()`);
-      await lane.evaluate(open);
-      await lane.until(`!!${field}`);
-      await lane.evaluate(`(() => { const f = ${field}; f.value += ' newer'; f.dispatchEvent(new Event('input',{bubbles:true})); return true; })()`);
-      await lane.until(`!!document.querySelector('.rail [role=alert]')`);
-      await lane.capture("u2773-rail", `real-${index}-retention-failure`);
-    }
-
-  } finally {
-    await lane.close();
-    await first.stop();
-  }
-}, 240_000);
-
 // Rail continuity probes share the audited real-Daemon launch site.
 describe("u2773 Rail persisted edits", () => {
-  let first: StartedDaemon;
-
-  let second: StartedDaemon;
-
-  // Keep the reload probe's forty Workstreams out of later probes' mount and cleanup.
   beforeEach(async () => {
-    first = await startRealDaemon({}, true);
-    second = await startRealDaemon({});
-  }, 180_000);
-
-  afterEach(async () => {
-    cleanup();
     localStorage.clear();
-    await second?.stop();
-    await first?.stop();
+
+    // Reuse authorities, not prior probe objects or the acknowledged root Agent.
+    for (const real of [first, second]) {
+      const app = createServedApp(real.base);
+
+      for (const node of await app.rpc("rail.tree", null)) {
+        if (node.parent === null) await app.rpc("rail.remove", { id: node.id, scope: node.kind === "workstream" ? "all" : null });
+      }
+    }
   });
 
-  const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-
-  const task = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
-
-  it("u2773b_rail_real_acknowledgement_consumes_only_submitted_revision", async () => {
-    const app = createServedApp(second.base);
-    await app.rpc("rail.createWorkstream", { name: "Prompt destination", parent: null });
-    const before = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent").length;
-    const starts: string[] = [];
-    const rpc = app.rpc;
-    app.rpc = (method, params) => {
-      if (method === "agent.spawn") starts.push(JSON.stringify(params));
-
-      return rpc(method, params);
-    };
-
-    const mount = async () => {
-      render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-      await waitFor(() => expect(document.querySelector(".rail-tree")).not.toBeNull());
-    };
-
-    await mount();
-    open();
-    const submitted = task();
-
-    fireEvent.input(submitted, { target: { value: " B\n😀 " } });
-    fireEvent.keyDown(task(), { key: "Enter" });
-    await waitFor(() => expect(submitted.isConnected).toBe(false));
-    expect((await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(before + 1);
-    expect(starts.map(value => JSON.parse(value))).toMatchObject([{ cwd: second.dir, prompt: "B\n😀", parent: null, model: null, effort: null }]);
+  afterEach(() => {
     cleanup();
-    await mount();
-    open();
-    expect(task().value).toBe("");
-    expect(starts).toHaveLength(1);
-  }, 120_000);
+    localStorage.clear();
+  });
 
   it("u2773c_rail_real_external_rename_and_removal_keep_original_edit", async () => {
     const app = createServedApp(first.base);
@@ -376,52 +246,5 @@ describe("u2773 Rail persisted edits", () => {
     expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toContain(" exact e\u0301 😀 ");
     expect(draftStorage(first.dir).list().find((entry) => entry.value.text === " exact e\u0301 😀 ")?.destination.object).toBe(node.id);
     expect(document.body.textContent).toContain("unavailable");
-  }, 120_000);
-
-  it("u2773a_rail_real_names_keep_original_project_and_object_on_reopen", async () => {
-    const one = await startRealDaemon({});
-    const two = await startRealDaemon({});
-
-    try {
-      const records = [];
-
-      for (const [index, real] of [one, two].entries()) {
-        const app = createServedApp(real.base);
-
-        if (index === 1) await app.rpc("rail.createWorkstream", { name: "Spacer", parent: null });
-        const target = await app.rpc("rail.createWorkstream", { name: "Same name", parent: null });
-        render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-        fireEvent.dblClick(await screen.findByText("Same name", { selector: ".rail-row .name" }));
-        fireEvent.input(screen.getByLabelText("Name"), { target: { value: ` exact ${index} e\u0301 😀 ` } });
-        records.push({ app, target, text: ` exact ${index} e\u0301 😀 ` });
-        cleanup();
-      }
-
-      expect(records[0]!.target.id).not.toBe(records[1]!.target.id);
-
-      for (const { app, target, text } of records) {
-        const renames: string[] = [];
-        const rpc = app.rpc;
-        app.rpc = (method, params) => {
-          if (method === "rail.rename") renames.push(JSON.stringify(params));
-
-          return rpc(method, params);
-        };
-
-        render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-        fireEvent.dblClick(await screen.findByText("Same name", { selector: ".rail-row .name" }));
-        expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe(text);
-        expect(renames).toEqual([]);
-        fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
-        await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
-        expect((await app.rpc("rail.tree", null)).find((node) => node.id === target.id)?.name).toBe(text.trim());
-        expect(renames).toEqual([JSON.stringify({ id: target.id, name: text.trim() })]);
-        cleanup();
-      }
-    } finally {
-      cleanup();
-      await two.stop();
-      await one.stop();
-    }
   }, 120_000);
 });

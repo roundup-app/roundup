@@ -9,6 +9,9 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 const open = async () => {
   const controls = seedApp("tree-40", 0);
+  const tree = controls.app.handlers["rail.tree"]!;
+  // Scope selection needs a Workstream and its Agent; the dense seed makes disposal dominate this proof.
+  controls.app.handlers["rail.tree"] = async params => (await tree(params)).filter(node => node.id === "backend" || node.id === "migrate");
   render(() => <App app={controls.app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
 
@@ -63,7 +66,7 @@ it("u3730_no_group_or_row_repeats_the_scope_name", async () => {
   await select("backend");
   const repeats = () => [...document.querySelectorAll(".shelf-panel [data-shelf-group] .shelf-group-control, .shelf-panel .shelf-row")].filter(element => element.textContent === "backend" || element.closest("[hidden]") === null && element.textContent!.trim().startsWith("backend"));
   expect(repeats()).toEqual([]);
-  fireEvent.click(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: /^Pads/ }));
+  fireEvent.click(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /^Pads/ }));
   await showEverythingInApp();
   expect(document.querySelector('[data-shelf-group="backend"]')).toBeNull();
 });

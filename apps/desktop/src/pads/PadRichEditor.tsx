@@ -1,7 +1,8 @@
+import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
-import { createEffect, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onCleanup, onMount, useContext } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -10,6 +11,7 @@ import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
 import { linkPreviewTooltip } from "@milkdown/kit/component/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
+import { table } from "@milkdown/crepe/feature/table";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
 import { editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
@@ -21,6 +23,7 @@ import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
 import { visualKinds } from "./visualKinds";
 import "./editor.css";
+import "../ui/reading.styles.css";
 
 export type PadEditorHandle = {
   /** null pauses saving because the edited blocks cannot be mapped to authored source. */
@@ -42,7 +45,6 @@ export type PadEditorHandle = {
 const topBarNames = new Map([
   ["bold", copy.bold],
   ["italic", copy.italic],
-  ["strikethrough", copy.strikethrough],
   ["code", copy.inlineCode],
   ["bullet-list", copy.bulletList],
   ["ordered-list", copy.numberedList],
@@ -50,12 +52,15 @@ const topBarNames = new Map([
   ["link", copy.link],
   ["code-block", copy.codeBlock],
   ["quote", copy.quote],
-  ["hr", copy.horizontalRule],
+  ["table", copy.table],
 ]);
+
+/** U4698b: the toolbar is these eleven formats; Crepe's other items (strikethrough, rule) are removed before it renders. */
+const toolbarKeys = new Set(["heading-selector", "bold", "italic", "code", "link", "bullet-list", "ordered-list", "task-list", "quote", "code-block", "table"]);
 
 const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
 
-/** U147: the Pad's one surface. `readonly` is ownership (P2), never a mode; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
+/** U147: the Pad's one surface. `readonly` prevents editing unavailable content; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
 export default function PadRichEditor(props: {
   initialFocus?: ReturnType<typeof captureFocus>;
   text: string;
@@ -66,6 +71,7 @@ export default function PadRichEditor(props: {
   onReady: (editor: PadEditorHandle) => void;
   onSelection?: () => void;
 }) {
+  const mountExpand = useContext(DrawerExpandContext);
   const menuId = createUniqueId();
   let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
@@ -92,8 +98,9 @@ export default function PadRichEditor(props: {
 
     // SAFETY: Crepe recursively partials HTMLElement in its root type; the supported root is a real DOM element.
     const blockConfig = {
-      blockHandle: { getOffset: () => 0 },
+      blockHandle: { getOffset: () => 0, root: menuHost },
       slashMenu: { root: menuHost },
+      textGroup: { divider: null },
     } as BlockEditFeatureConfig;
 
     crepe = new CrepeBuilder({
@@ -105,8 +112,11 @@ export default function PadRichEditor(props: {
       .addFeature(listItem)
       .addFeature(linkTooltip)
       .addFeature(placeholder)
+      .addFeature(table)
       .addFeature(topBar, {
         buildTopBar: (builder) => {
+          for (const group of builder.build()) group.items = group.items.filter((item) => toolbarKeys.has(item.key));
+
           topBarLabels = builder.build().flatMap((group) =>
             group.items
               .filter((item) => item.key !== "heading-selector")
@@ -176,6 +186,8 @@ export default function PadRichEditor(props: {
       const field = host.querySelector<HTMLElement>(".ProseMirror");
 
       if (!field) throw new Error(copy.padEditorDidNotOpen);
+
+      mountExpand?.(host.querySelector<HTMLElement>(".milkdown-top-bar") ?? undefined);
 
       const buttons = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item");
 
@@ -382,6 +394,7 @@ export default function PadRichEditor(props: {
 
   onCleanup(() => {
     closed = true;
+    mountExpand?.(undefined);
     menuObserver?.disconnect();
 
     // Destroying during create schedules a retry that can outlive the host's DOM environment.
@@ -400,7 +413,7 @@ export default function PadRichEditor(props: {
         </div>
       </Portal>
       <div
-        class="pad-editor pad-rich-editor"
+        class="pad-editor pad-rich-editor reading"
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
         <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => setFailure(null)}>{copy.dismiss}</button></ReservedLine>
