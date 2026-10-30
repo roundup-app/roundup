@@ -436,24 +436,13 @@
   --button-inline: 0;
 }
 
-/* U362: a Todo drop destination keeps one placement wash. */
-.rail-row[data-todo-drop],
-.rail-row[data-todo-drop]:hover {
-  background-image: linear-gradient(var(--hover), var(--hover));
-}
-
-/* U466: backgrounds span the Rail; each content row owns its inset. */
+/* Each content row owns its inset independently of the shared wash. */
 .rail-fold,
 .rail-leaf,
 .rail .section-head {
   box-sizing: border-box;
   padding-left: var(--space-4);
   padding-right: var(--space-4);
-}
-
-.rail .glyph {
-  align-items: center;
-  justify-content: center;
 }
 
 .rail .kind-mark {
@@ -463,20 +452,6 @@
 
 .rail-row input {
   font-size: var(--text-row);
-}
-
-/* U466: the leaf owns the wash so nesting cannot inset its selected ground. */
-.rail-leaf:hover,
-.rail-fold:hover {
-  color: var(--text);
-}
-
-.rail-leaf:has([data-selected="true"], :focus-visible):not(:has([data-dnd-dragging])) {
-  background-image: linear-gradient(var(--selected), var(--selected));
-}
-
-.rail-leaf .shelf-row:is([data-selected="true"], [data-lifted="true"], :has(:focus-visible)):not([data-dnd-dragging]) {
-  background-image: none;
 }
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */
@@ -746,7 +721,8 @@
   flex: none;
   position: absolute;
   inset-inline-end: calc(100% + var(--rail-gap));
-  background: var(--sunken);
+  background-color: var(--sunken);
+  background-image: linear-gradient(var(--row-wash), var(--row-wash));
   opacity: 0;
   pointer-events: none;
 }
@@ -764,7 +740,6 @@
   opacity: 1;
   pointer-events: auto;
 }
-.rail-row:is([data-selected="true"], :focus-visible, :has(:focus-visible)) .row-icons { background-image: var(--tree-row-cue); }
 .rail-row[data-multiple="true"]:not(:hover, :focus-within) :is(.row-controls, .rail-chevron, .row-secondary) { opacity: 0; pointer-events: none; }
 .rail-row .row-state { flex: none; }
 
