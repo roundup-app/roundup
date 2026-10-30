@@ -26,7 +26,7 @@ while time.monotonic()<end:
 `;
 
 // U3311 names a real Daemon and pointer/clock observer; the fake vendor never supplies App or Todo success facts.
-it("u3311_real_daemon_delegate_board", async () => {
+it.skipIf(Boolean(captureDir("U4698e")) && !captureDir("U3311"))("u3311_real_daemon_delegate_board", async () => {
   const scratch = await mkdtemp(join(tmpdir(), "u3311-"));
   const target = join(scratch, "owner.json");
 
@@ -322,7 +322,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openTodo = async () => {
       await lane.evaluate("(() => {const tab=document.querySelector('#shelf-tab-todos');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true;})()");
-      await lane.until(`(() => {document.querySelector('[data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click(); return !!document.querySelector('[data-todo="${todo.id}"] .todo-row-button');})()`);
+      await lane.until(`(() => {document.querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click()); return !!document.querySelector('[data-todo="${todo.id}"] .todo-row-button');})()`);
       await lane.browser("focus", `[data-todo="${todo.id}"] .todo-row-button`);
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.todo-comment-field')");
@@ -330,7 +330,7 @@ print(json.dumps({'todo':todo,'pad':pad}))
 
     const openPad = async () => {
       await lane.browser("click", "#shelf-tab-pads");
-      await lane.until("(() => {document.querySelector('[data-shelf-group=unassigned][data-state=closed] [data-part=branch-control]')?.click();return !!document.querySelector('.pad-name');})()");
+      await lane.until("(() => {document.querySelectorAll('[data-shelf-group][data-state=closed] [data-part=branch-control]').forEach(control => control.click());return !!document.querySelector('.pad-name');})()");
       await lane.browser("focus", ".pad-name");
       await lane.browser("press", "Enter");
       await lane.until("!!document.querySelector('.drawer .ProseMirror')");
@@ -355,20 +355,26 @@ print(json.dumps({'todo':todo,'pad':pad}))
     await expect.poll(async () => (await app.rpc("pad.read", { name: pad.name })).text).toBe("Reviewed release notes");
     await lane.browser("click", ".drawer .close");
     await lane.until("!document.querySelector('.drawer[data-mounted=true]')");
-    await lane.browser("click", ".project-tab .tab-close");
-    await lane.until("document.querySelectorAll('.project-tab').length === 0");
+    // The served harness refuses native Project close; unloading ends this App connection.
+    await lane.browser("open", "about:blank");
+    await lane.browser("open", url);
+    await lane.until("document.querySelectorAll('.project-tab').length === 0 && !!document.querySelector('[aria-label=Centre] button')");
     await lane.browser("click", "[aria-label=Centre] button");
     await lane.until(`!!document.querySelector('.rail-row[data-id="${home.id}"]')`);
     await selectHome();
     await openTodo();
     await lane.until("document.querySelector('.todo-detail-title')?.textContent.includes('Reviewed release result') && document.querySelector('.todo-comments')?.textContent.includes('Ready to publish')");
+    await lane.capture("U4698e", "persisted-todo");
     expect(await app.rpc("todo.get", { id: todo.id })).toMatchObject({ id: todo.id, home: home.id, title: "Reviewed release result", body: "Vendor result", creator: todo.creator });
     expect(await app.rpc("todo.comments", { id: todo.id })).toMatchObject([{ body: "Reviewed 日本語\nReady to publish", author: { kind: "user", id: "you" } }]);
     await lane.browser("click", ".drawer .close");
     await lane.until("!document.querySelector('.drawer[data-mounted=true]')");
     await openPad();
     await lane.until("document.querySelector('.drawer .ProseMirror')?.textContent.includes('Reviewed release notes')");
+    await lane.capture("U4698e", "persisted-pad");
     expect(await app.rpc("pad.read", { name: pad.name })).toMatchObject({ incarnation: pad.incarnation, name: pad.name, home: home.id, text: "Reviewed release notes" });
+  } catch (error) {
+    throw new Error(JSON.stringify({ cause: String(error), screen: await lane.evaluate("document.body.innerText"), todos: await app.rpc("todo.list", null) }));
   } finally {
     await lane.close();
     await real.stop();
