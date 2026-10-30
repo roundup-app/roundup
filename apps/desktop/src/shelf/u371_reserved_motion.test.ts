@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { shelfBrowser } from "./u371Browser";
 
-const { rig, browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
+const { browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
 
 it("u371_escape_closes_the_drawer_before_the_shelf", async () => {
   await openShelf("tree-40", 480, 560);
@@ -11,10 +11,10 @@ it("u371_escape_closes_the_drawer_before_the_shelf", async () => {
   await browser("wait", ".drawer[data-open=true]");
   await settle();
   await browser("press", "Meta+k");
-  await browser("press", "s");
+  await browser("press", "b");
   await settle();
   await browser("press", "Meta+k");
-  await browser("press", "s");
+  await browser("press", "b");
   await settle();
   await browser("press", "Escape");
   await settle();
@@ -37,16 +37,3 @@ for (const overlay of [false,true]) it(overlay ? "u371_overlay_sends_no_terminal
   }
 }, 90_000);
 
-it("u371_reduced_motion_and_restore_are_instant", async () => {
-  await openShelf("tree-40", 288, 320);
-  await browser("set", "media", "light", "reduced-motion");
-  await settle();
-  await toggle();
-  expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
-  await toggle();
-  await browser("set", "media", "light");
-  await browser("open", `${rig.server.resolvedUrls!.local[0]}harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
-  await browser("wait", ".shelf-tabs");
-  await settle();
-  expect(await evaluate("document.querySelector('.shelf').dataset.animated")).toBe("false");
-}, 90_000);

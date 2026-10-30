@@ -109,6 +109,7 @@
     Method { name: "daemon.getNaming", params: "null", result: "project_NamingSettings" },
     Method { name: "daemon.setNaming", params: "project_NamingSettings", result: "null" },
     Method { name: "rail.deletion", params: "agent_DeletionParams", result: "agent_Removal | null" },
+    Method { name: "rail.redo", params: "agent_RedoParams", result: "agent_Removal" },
     Method { name: "rail.restore", params: "agent_DeletionParams", result: "agent_Removal" },
     Method { name: "deliverable.publish", params: "deliverable_PublishParams", result: "deliverable_Deliverable" },
     Method { name: "deliverable.list", params: "deliverable_ListParams", result: "deliverable_Deliverable[]" },

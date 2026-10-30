@@ -74,6 +74,7 @@ impl Daemon {
             || (method.starts_with("todo.") && method != "todo.startWorkstream")
             || method == "workstream.setAuto"
             || method == "rail.restore"
+            || method == "rail.redo"
             || (method == "rail.remove" && params["operation"].is_string());
         let _guard = if serializes {
             Some(self.auto.gate.lock().await)
