@@ -52,7 +52,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--elevation-ring` | `0 0 0 .5px rgba(0,0,0,.16)` | `0 0 0 .5px rgba(255,255,255,.20)` | the floating surface edge; never a focus or control ring |
 | `--elevation` | `var(--elevation-ring), var(--elevation-contact), var(--elevation-ambient)` | same | one shared recipe for the Drawer, Shelf, floating surfaces and Terminal Bubble |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
-| `--row-text-inset` | `32px` | same | U131 title inset, including leading slots; currently shared by Shelf rows and Terminal tabs, with Rail integration pending |
+| `--row-text-inset` | `32px` | same | U131 title inset, including leading slots; currently shared by Shelf rows and Terminal tabs, with Rail integration pending; U5147d moves their first text to 44 CSS px from the panel edge |
 | `--flat-tab-edge` | `1px` | same | the shared flat tab's border or inactive spacer; included in U131's Terminal title inset |
 | `--length-zero` | `0px` | same | typed zero for length calculations, gradients and fallbacks |
 | `--hairline-width` / `--stroke-width` / `--tick-border-width` | `1px` / `2px` / `1.5px` | same | hairlines, placement marks and the Ask tick |
@@ -198,7 +198,7 @@ This inventory records the U4898 implementation checkout, audited across all `Ic
 | Glyph / alternatives | Glossary term and meaning | Call sites / resolved providers |
 |---|---|---|
 | `bot` | Agent — section identity | `rail/Rail.tsx`, `sections` AGENTS |
-| `workflow` | Mode — section/row/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode; `rail/RailRow.tsx`, `mode-mark` |
+| `workflow` | Mode — section/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode; `rail/RailRow.tsx`, `mode-mark` until U5147c removes it |
 | `messages` | Workstream — section/create identity | `rail/Rail.tsx`, WORKSTREAMS and New Workstream |
 | `circle` | Agent — create action identity | `rail/Rail.tsx`, New Agent |
 | `layout-dashboard` | Project — overview navigation | `rail/Rail.tsx`, overview tile |
@@ -372,7 +372,7 @@ The elevation recipe is implemented; the remaining requirements below are specif
 | --- | --- |
 | D4 | Every enabled control answers a press with Token colour, opacity or scale by the first subsequent frame. A control unfilled at rest gains no hover or pressed ground. |
 | D7 | A selected, focused or dragged item row has exactly one changed cue: text colour or one selected ground; combined states reuse the cue. |
-| D8 | Rail first text aligns with Overview after tree indentation (U4898); Todo, Pad and Terminal-tab first text uses one local inset; text and Glyph optical baselines agree within 1 CSS px. |
+| D8 | Rail, Todo, Pad and Terminal-tab first text starts 44 CSS px from its panel's left edge after tree indentation (U4898, U5147d); text and Glyph optical baselines agree within 1 CSS px. |
 | D9 | Stylelint rejects importance, unowned px/ms/s/colours, selectors over two compounds and child combinators; no existing-hit allowlist. Duration and reduced-motion checks remain. |
 | D10 | Floating surfaces share contact + ambient shadow layers and a 0.5 CSS px edge ring, replacing both old shadow Tokens and every consumer. App palette uses Radix light/dark scales plus the icon-green accent. Rail and Shelf use native vibrancy, opaque under reduced transparency; centre, Terminal pixels and floating panels stay opaque. |
 
