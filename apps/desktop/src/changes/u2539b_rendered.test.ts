@@ -48,7 +48,8 @@ it.each(["tree-40", "agents-10", "tabs-8", "empty-project", "resources"])("u2539
         await capture(lane, `${seed}-landing`);
 
         if (lane === "head" && seed === "agents-10") {
-          await browser("click", ".overview-entry");
+          await browser("focus", '.inbox-item:has([aria-label="Needs-you"]) .inbox-row');
+          await browser("click", '.inbox-item:has([aria-label="Needs-you"]) .inbox-actions button');
           await until("!!document.querySelector('.pane-screen')");
           await capture(lane, "agents-10-selected-agent");
           await browser("click", ".todo-project-root");
