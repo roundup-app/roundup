@@ -480,8 +480,13 @@ pub(crate) mod tests {
             let _: () = msg_send![&*terminal, setKeyEquivalentModifierMask: 1usize << 20];
             let _: () = msg_send![&*submenus[2], addItem: &*terminal];
             sync_responder_menu(&app);
-            let count: isize = msg_send![&*submenus[1], numberOfItems];
-            assert_eq!(count, 1);
+            // AppKit can add native editing items after NSTextView becomes focused.
+            // Only the responder Find entry must disappear when Project owns Cmd+F.
+            let index: isize = msg_send![&*submenus[1], indexOfItemWithTag: 3787isize];
+            assert_eq!(
+                index, -1,
+                "Project Find suppresses the responder Find entry"
+            );
             let event: Retained<AnyObject> = msg_send![class(c"NSEvent"),
                 keyEventWithType: 10usize, location: NSPoint::new(0.0, 0.0),
                 modifierFlags: 1usize << 20, timestamp: 0.0f64, windowNumber: 0isize,
@@ -498,9 +503,13 @@ pub(crate) mod tests {
             assert_eq!(responders[1].ivars().calls.get(), 2);
             let _: () = msg_send![&*submenus[2], removeItem: &*terminal];
             sync_responder_menu(&app);
+            let before: isize = msg_send![&*submenus[1], numberOfItems];
             sync_responder_menu(&app);
             let count: isize = msg_send![&*submenus[1], numberOfItems];
-            assert_eq!(count, 2, "projection is idempotent after removing an owner");
+            assert_eq!(
+                count, before,
+                "projection is idempotent after removing an owner"
+            );
             let container: Retained<AnyObject> = msg_send![&*submenus[1], itemWithTag: 3787isize];
             let current_find_menu: Retained<AnyObject> = msg_send![&*container, submenu];
             let _: () = msg_send![&*current_find_menu, update];
