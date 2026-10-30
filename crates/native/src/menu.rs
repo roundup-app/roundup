@@ -1,11 +1,13 @@
-//! AppKit attributed hints keep sequences separate from executable key equivalents.
+//! AppKit draws native rows; a non-interactive layer adds display-only hints.
 use objc2::{
-    MainThreadMarker, msg_send,
-    rc::{Allocated, Retained},
+    DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send,
+    rc::{Allocated, Retained, Weak},
     runtime::{AnyClass, AnyObject},
     sel,
 };
-use objc2_foundation::{NSRange, NSSize, NSString};
+use objc2_app_kit::NSView;
+use objc2_foundation::{NSPoint, NSRange, NSRect, NSRunLoopCommonModes, NSSize, NSString};
+use std::cell::{Cell, RefCell};
 use tauri::{AppHandle, Runtime};
 
 /// Refresh responder actions and decorate the freshly built Project submenu on the main thread.
@@ -146,78 +148,252 @@ unsafe fn decorate_project_tree(submenu: &AnyObject, hints: &[(Vec<usize>, Strin
     }
 }
 
-/// Right edge of the hint column, from the title's left edge: where AppKit puts the widest
-/// key equivalent (or the widest hint when no item has one), one `gap` after the longest title.
-fn hint_stop(title_width: f64, key_equivalent_width: f64, hint_width: f64, gap: f64) -> f64 {
-    title_width + gap + key_equivalent_width.max(hint_width)
+// AppKit's gap between the menu's right edge and the key-equivalent column. A 20 pt
+// guess ended 5 pt short of ⌘N in the owner's Mac observation 7. It is applied to
+// the laid-out menu width of each final row, never to the longest title.
+const KEY_INSET: f64 = 15.0;
+
+fn hint_stop(menu_width: f64, right_inset: f64, hint_width: f64, origin: f64) -> f64 {
+    origin + menu_width - right_inset - hint_width
 }
 
-/// Menu-font width of an item's key equivalent as AppKit draws it (modifier glyphs, then key).
-unsafe fn key_equivalent_width(item: &AnyObject, fonts: &AnyObject) -> f64 {
-    // SAFETY: `item` is a live NSMenuItem and `fonts` an attributes dictionary, on the main thread.
-    unsafe {
-        let key: Retained<NSString> = msg_send![item, keyEquivalent];
-        if key.is_empty() {
-            return 0.0;
+struct HintState {
+    item: Weak<AnyObject>,
+    hint: Retained<AnyObject>,
+    // AppKit repaints a row's highlight without invalidating this overlay and
+    // offers no highlight signal (muda owns the menu delegate), so the overlay
+    // polls while attached and repaints when its row's highlight flips.
+    highlighted: Cell<bool>,
+    timer: RefCell<Option<Retained<AnyObject>>>,
+}
+
+// NSMenuItem.view stays nil: AppKit owns titles, keys, selection and tracking.
+// The accessory owns the drawing views; weak references release retired items.
+define_class!(
+    #[unsafe(super(NSView))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = HintState]
+    struct HintView;
+
+    impl HintView {
+        // AppKit draws key equivalents vibrantly inside the menu's visual-effect
+        // window; a plain subview paints the same colour darker and heavier.
+        #[unsafe(method(allowsVibrancy))]
+        fn allows_vibrancy(&self) -> bool {
+            true
         }
-        let mask: usize = msg_send![item, keyEquivalentModifierMask];
-        let glyphs: String = [
-            (1usize << 18, "⌃"),
-            (1 << 19, "⌥"),
-            (1 << 17, "⇧"),
-            (1 << 20, "⌘"),
-        ]
-        .iter()
-        .filter(|(flag, _)| mask & flag != 0)
-        .map(|(_, glyph)| *glyph)
-        .collect();
-        let shown = NSString::from_str(&format!("{glyphs}{}", key.to_string().to_uppercase()));
-        let size: NSSize = msg_send![&*shown, sizeWithAttributes: fonts];
-        size.width
+
+        #[unsafe(method(hitTest:))]
+        fn hit_test(&self, _point: NSPoint) -> *mut NSView {
+            std::ptr::null_mut()
+        }
+
+        #[unsafe(method(drawRect:))]
+        fn draw(&self, _dirty: NSRect) {
+            // SAFETY: AppKit invokes drawing on its main thread; the weak item
+            // is retained for this draw, and only the hint is painted.
+            unsafe {
+                let Some(item) = self.ivars().item.load() else { return; };
+                let enabled: bool = msg_send![&*item, isEnabled];
+                let menu: Option<Retained<AnyObject>> = msg_send![&*item, menu];
+                let Some(menu) = menu else { return; };
+                let attributes = hint_attributes(&menu, &hint_color(enabled, self.row_highlighted()));
+                let hint: Retained<AnyObject> = msg_send![&*self.ivars().hint, mutableCopy];
+                let length: usize = msg_send![&*hint, length];
+                let _: () = msg_send![&*hint, setAttributes: &*attributes, range: NSRange::new(0, length)];
+                let size: NSSize = msg_send![&*hint, size];
+                let Some(window) = self.window() else { return; };
+                let screen: NSRect = msg_send![&*item, accessibilityFrame];
+                if screen.size.height <= 0.0 {
+                    log::warn!(target: "roundup::shell", "native menu hint has no accessibility row frame");
+                    return;
+                }
+                let local = window.convertRectFromScreen(screen);
+                let row = self.convertRect_fromView(local, None);
+                let bounds = self.bounds();
+                let point = NSPoint::new(
+                    hint_stop(bounds.size.width, KEY_INSET, size.width, bounds.origin.x),
+                    row.origin.y + (row.size.height - size.height) / 2.0,
+                );
+                let _: () = msg_send![&*hint, drawAtPoint: point];
+            }
+        }
+    }
+);
+
+impl HintView {
+    fn row_highlighted(&self) -> bool {
+        // SAFETY: main-thread AppKit reads; the weak item is retained for the call.
+        unsafe {
+            let Some(item) = self.ivars().item.load() else {
+                return false;
+            };
+            let menu: Option<Retained<AnyObject>> = msg_send![&*item, menu];
+            let Some(menu) = menu else {
+                return false;
+            };
+            let row: Option<Retained<AnyObject>> = msg_send![&*menu, highlightedItem];
+            row.is_some_and(|row| std::ptr::eq(&*row, &*item))
+        }
+    }
+
+    fn watch_highlight(&self) {
+        self.unwatch_highlight();
+        // SAFETY: `self` is a live object; retaining it only to downgrade to a weak reference.
+        let this = Weak::from_retained(
+            &unsafe { Retained::retain(std::ptr::from_ref(self).cast_mut()) }
+                .expect("self is non-null"),
+        );
+        let tick = block2::RcBlock::new(move |timer: std::ptr::NonNull<AnyObject>| {
+            // SAFETY: timers fire on the main run loop; `timer` is live for the call.
+            unsafe {
+                let Some(view) = this.load() else {
+                    let _: () = msg_send![timer.as_ptr(), invalidate];
+                    return;
+                };
+                let now = view.row_highlighted();
+                if view.ivars().highlighted.replace(now) != now {
+                    view.setNeedsDisplay(true);
+                }
+            }
+        });
+        // SAFETY: Foundation timer and run-loop selectors on the main thread; the common
+        // modes include the event-tracking mode that menu tracking runs in.
+        unsafe {
+            let timers = AnyClass::get(c"NSTimer").expect("Foundation is loaded");
+            let timer: Retained<AnyObject> =
+                msg_send![timers, timerWithTimeInterval: 1.0 / 30.0, repeats: true, block: &*tick];
+            let run_loop = AnyClass::get(c"NSRunLoop").expect("Foundation is loaded");
+            let run_loop: Retained<AnyObject> = msg_send![run_loop, currentRunLoop];
+            let _: () = msg_send![&*run_loop, addTimer: &*timer, forMode: NSRunLoopCommonModes];
+            *self.ivars().timer.borrow_mut() = Some(timer);
+        }
+    }
+
+    fn unwatch_highlight(&self) {
+        if let Some(timer) = self.ivars().timer.borrow_mut().take() {
+            // SAFETY: invalidating a live NSTimer on its own thread.
+            unsafe {
+                let _: () = msg_send![&*timer, invalidate];
+            }
+        }
     }
 }
 
-// Both installed menus and tracking popup menus use AppKit's attributed hint column.
+// A zero-height accessory supplies the actual menu window through AppKit's
+// documented item-view lifecycle. Action rows keep view == nil, and attachment
+// requires no window-update notification during native tracking.
+define_class!(
+    #[unsafe(super(NSView))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = Vec<Retained<HintView>>]
+    struct MenuAnchor;
+
+    impl MenuAnchor {
+        #[unsafe(method(viewDidMoveToWindow))]
+        fn moved(&self) {
+            self.attach();
+        }
+
+        #[unsafe(method(resizeSubviewsWithOldSize:))]
+        fn resized(&self, _old: NSSize) {
+            self.attach();
+        }
+
+        #[unsafe(method(hitTest:))]
+        fn hit_test(&self, _point: NSPoint) -> *mut NSView {
+            std::ptr::null_mut()
+        }
+    }
+);
+
+impl MenuAnchor {
+    fn attach(&self) {
+        for hint in self.ivars() {
+            hint.unwatch_highlight();
+            hint.removeFromSuperview();
+        }
+        let Some(window) = self.window() else {
+            return;
+        };
+        let Some(content) = window.contentView() else {
+            return;
+        };
+        let row = self.convertRect_toView(self.bounds(), Some(&content));
+        let bounds = content.bounds();
+        for hint in self.ivars() {
+            hint.setFrame(NSRect::new(
+                NSPoint::new(row.origin.x, bounds.origin.y),
+                NSSize::new(row.size.width, bounds.size.height),
+            ));
+            content.addSubview(hint);
+            hint.setNeedsDisplay(true);
+            hint.watch_highlight();
+        }
+    }
+}
+
+impl Drop for MenuAnchor {
+    fn drop(&mut self) {
+        for hint in self.ivars() {
+            hint.removeFromSuperview();
+        }
+    }
+}
+
+// The NSColor AppKit's own key equivalents resolve to. The vibrant menu material
+// brightens alpha-white label colours, so a rest hint uses the tertiary tone to
+// land on the dim grey of ⌘N; a highlighted row flips to the selected-text colour.
+unsafe fn hint_color(enabled: bool, highlighted: bool) -> Retained<AnyObject> {
+    let colors = AnyClass::get(c"NSColor").expect("AppKit is loaded");
+    // SAFETY: class-level NSColor accessors are valid on the main thread.
+    unsafe {
+        match (enabled, highlighted) {
+            (false, _) => msg_send![colors, disabledControlTextColor],
+            (true, true) => msg_send![colors, selectedMenuItemTextColor],
+            (true, false) => msg_send![colors, tertiaryLabelColor],
+        }
+    }
+}
+
+unsafe fn hint_attributes(menu: &AnyObject, color: &AnyObject) -> Retained<AnyObject> {
+    // SAFETY: caller supplies an NSMenu on the main thread.
+    unsafe {
+        let font: Retained<AnyObject> = msg_send![menu, font];
+        let dictionary = AnyClass::get(c"NSMutableDictionary").expect("Foundation is loaded");
+        let attributes: Retained<AnyObject> = msg_send![dictionary, new];
+        let _: () =
+            msg_send![&*attributes, setObject: &*font, forKey: &*NSString::from_str("NSFont")];
+        let _: () =
+            msg_send![&*attributes, setObject: color, forKey: &*NSString::from_str("NSColor")];
+        attributes
+    }
+}
+
+// The accessory is not an action row: its zero height preserves every native
+// title, key equivalent, highlight and tracking target in the existing menu.
 unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
-    // SAFETY: callers supply a live NSMenu on the process main thread.
+    let main = MainThreadMarker::new().expect("Tauri's main thread");
+    // SAFETY: callers supply a live NSMenu on the process main thread. Tauri
+    // knows only its own rows, so retire any accessory before applying its indices.
     unsafe {
         let count: isize = msg_send![submenu, numberOfItems];
-        let font: Retained<AnyObject> = msg_send![submenu, font];
-        let dictionary = AnyClass::get(c"NSDictionary").expect("Foundation is loaded");
-        let font_key = NSString::from_str("NSFont");
-        let fonts: Retained<AnyObject> =
-            msg_send![dictionary, dictionaryWithObject: &*font, forKey: &*font_key];
-        let mut title_width = 0.0f64;
-        let mut key_width = 0.0f64;
-        let mut hint_width = 0.0f64;
-        for index in 0..count {
+        for index in (0..count).rev() {
             let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
-            let title: Retained<NSString> = msg_send![&*item, title];
-            let size: NSSize = msg_send![&*title, sizeWithAttributes: &*fonts];
-            title_width = title_width.max(size.width);
-            key_width = key_width.max(key_equivalent_width(&item, &fonts));
+            let view: Option<Retained<AnyObject>> = msg_send![&*item, view];
+            if view
+                .as_deref()
+                .is_some_and(|view| view.downcast_ref::<MenuAnchor>().is_some())
+            {
+                let _: () = msg_send![submenu, removeItemAtIndex: index];
+            }
         }
-        for (_, hint) in &hints {
-            let size: NSSize = msg_send![&*NSString::from_str(hint), sizeWithAttributes: &*fonts];
-            hint_width = hint_width.max(size.width);
+        if hints.is_empty() {
+            return;
         }
-        let em: f64 = msg_send![&*font, pointSize];
-        let tabs = AnyClass::get(c"NSTextTab").expect("AppKit is loaded");
-        let tab: Allocated<AnyObject> = msg_send![tabs, alloc];
-        let options: Retained<AnyObject> = msg_send![dictionary, dictionary];
-        // NSTextAlignmentRight = 1. Measure with the menu's font, including long titles.
-        let tab: Retained<AnyObject> = msg_send![tab, initWithTextAlignment: 1isize, location: hint_stop(title_width, key_width, hint_width, em), options: &*options];
-        let array = AnyClass::get(c"NSArray").expect("Foundation is loaded");
-        let stops: Retained<AnyObject> = msg_send![array, arrayWithObject: &*tab];
-        let styles = AnyClass::get(c"NSMutableParagraphStyle").expect("AppKit is loaded");
-        let style: Retained<AnyObject> = msg_send![styles, new];
-        let _: () = msg_send![&*style, setTabStops: &*stops];
-        let style_key = NSString::from_str("NSParagraphStyle");
-        let attributes: Retained<AnyObject> = msg_send![&*fonts, mutableCopy];
-        let _: () = msg_send![&*attributes, setObject: &*style, forKey: &*style_key];
-        let strings = AnyClass::get(c"NSMutableAttributedString").expect("Foundation is loaded");
-        let colors = AnyClass::get(c"NSColor").expect("AppKit is loaded");
-        let color_key = NSString::from_str("NSColor");
+        let count: isize = msg_send![submenu, numberOfItems];
+        let mut width: f64 = msg_send![submenu, minimumWidth];
+        let mut views = Vec::new();
         for (index, hint) in hints {
             let Ok(index) = isize::try_from(index) else {
                 continue;
@@ -226,25 +402,41 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
                 continue;
             }
             let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
-            let title: Retained<NSString> = msg_send![&*item, title];
-            let display = NSString::from_str(&format!("{title}\t{hint}"));
-            let attributed: Allocated<AnyObject> = msg_send![strings, alloc];
-            let attributed: Retained<AnyObject> =
-                msg_send![attributed, initWithString: &*display, attributes: &*attributes];
             let enabled: bool = msg_send![&*item, isEnabled];
-            let color: Retained<AnyObject> = if enabled {
-                msg_send![colors, secondaryLabelColor]
-            } else {
-                msg_send![colors, disabledControlTextColor]
-            };
-            // Foundation ranges count UTF-16 units, including non-ASCII menu titles.
-            let range = NSRange::new(title.length() + 1, hint.encode_utf16().count());
-            let _: () =
-                msg_send![&*attributed, addAttribute: &*color_key, value: &*color, range: range];
-            let _: () = msg_send![&*item, setAttributedTitle: &*attributed];
-            // AppKit also assigns the attributed string to title; retain the action’s plain label.
-            let _: () = msg_send![&*item, setTitle: &*title];
+            let attributes = hint_attributes(submenu, &hint_color(enabled, false));
+            let strings = AnyClass::get(c"NSAttributedString").expect("Foundation is loaded");
+            let attributed: Allocated<AnyObject> = msg_send![strings, alloc];
+            let attributed: Retained<AnyObject> = msg_send![attributed, initWithString: &*NSString::from_str(&hint), attributes: &*attributes];
+            let title: Retained<NSString> = msg_send![&*item, title];
+            let title_size: NSSize = msg_send![&*title, sizeWithAttributes: &*attributes];
+            let hint_size: NSSize = msg_send![&*attributed, size];
+            width = width.max(title_size.width + hint_size.width + 4.0 * KEY_INSET);
+            let view = HintView::alloc(main).set_ivars(HintState {
+                item: Weak::from_retained(&item),
+                hint: attributed,
+                highlighted: Cell::new(false),
+                timer: RefCell::new(None),
+            });
+            let view: Retained<HintView> = msg_send![super(view), initWithFrame: NSRect::ZERO];
+            let _: () = msg_send![&*view, setAccessibilityElement: false];
+            view.setAutoresizingMask(
+                objc2_app_kit::NSAutoresizingMaskOptions::ViewWidthSizable
+                    | objc2_app_kit::NSAutoresizingMaskOptions::ViewHeightSizable,
+            );
+            views.push(view);
         }
+        if views.is_empty() {
+            return;
+        }
+        let anchor = MenuAnchor::alloc(main).set_ivars(views);
+        let anchor: Retained<MenuAnchor> = msg_send![super(anchor), initWithFrame: NSRect::new(NSPoint::ZERO, NSSize::new(width, 0.0))];
+        anchor.setAutoresizingMask(objc2_app_kit::NSAutoresizingMaskOptions::ViewWidthSizable);
+        let _: () = msg_send![&*anchor, setAccessibilityElement: false];
+        let items = AnyClass::get(c"NSMenuItem").expect("AppKit is loaded");
+        let accessory: Retained<AnyObject> = msg_send![items, new];
+        let _: () = msg_send![&*accessory, setEnabled: false];
+        let _: () = msg_send![&*accessory, setView: &*anchor];
+        let _: () = msg_send![submenu, addItem: &*accessory];
     }
 }
 
@@ -256,6 +448,10 @@ unsafe fn decorate_by_title(submenu: &AnyObject, hints: &[(String, String)]) {
         let mut matching = Vec::new();
         for index in 0..count {
             let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
+            let child: Option<Retained<AnyObject>> = msg_send![&*item, submenu];
+            if let Some(child) = child {
+                decorate_by_title(&child, hints);
+            }
             let title: Retained<NSString> = msg_send![&*item, title];
             if let Some((_, hint)) = hints.iter().find(|(label, _)| *label == title.to_string()) {
                 matching.push((
@@ -537,7 +733,7 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) fn u4462_the_hint_takes_the_key_equivalent_colour_and_font() {
+    pub(crate) fn u4462_the_hint_uses_the_tertiary_tone_and_menu_font() {
         let _main = MainThreadMarker::new().expect("native test harness runs on the main thread");
         // SAFETY: AppKit objects stay retained on the main thread for the whole probe.
         unsafe {
@@ -565,53 +761,80 @@ pub(crate) mod tests {
                 assert_eq!(title.to_string(), "项目 🦀");
                 let key: Retained<NSString> = msg_send![&*item, keyEquivalent];
                 assert!(key.is_empty(), "a hint must never register an accelerator");
-                let attributed: Retained<AnyObject> = msg_send![&*item, attributedTitle];
+                let view = hint_view(&item).expect("hint is retained by the menu accessory");
+                assert!(
+                    view.allowsVibrancy(),
+                    "native key equivalents draw vibrantly"
+                );
+                let attributed = &view.ivars().hint;
                 let font_key = NSString::from_str("NSFont");
                 let color_key = NSString::from_str("NSColor");
-                let hint_index = title.length() + 1;
-                let actual_font: Option<Retained<AnyObject>> = msg_send![&*attributed, attribute: &*font_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
+                let hint_index = 0usize;
+                let actual_font: Option<Retained<AnyObject>> = msg_send![&**attributed, attribute: &*font_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
                 let actual_font = actual_font.expect("hint has the menu's font");
                 let same_font: bool = msg_send![&*actual_font, isEqual: &*font];
                 assert!(same_font);
-                let actual_color: Option<Retained<AnyObject>> = msg_send![&*attributed, attribute: &*color_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
+                let actual_color: Option<Retained<AnyObject>> = msg_send![&**attributed, attribute: &*color_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
                 let actual_color = actual_color.expect("hint has an explicit semantic color");
                 let expected_color: Retained<AnyObject> = if enabled {
-                    msg_send![colors, secondaryLabelColor]
+                    msg_send![colors, tertiaryLabelColor]
                 } else {
                     msg_send![colors, disabledControlTextColor]
                 };
                 let same_color: bool = msg_send![&*actual_color, isEqual: &*expected_color];
                 assert!(same_color);
-                let title_color: Option<Retained<AnyObject>> = msg_send![&*attributed, attribute: &*color_key, atIndex: 0usize, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
+                let native_view: Option<Retained<AnyObject>> = msg_send![&*item, view];
                 assert!(
-                    title_color.is_none(),
-                    "AppKit retains title highlighting and dimming"
+                    native_view.is_none(),
+                    "AppKit must retain standard row drawing and tracking"
                 );
             }
         }
     }
 
     pub(crate) fn u4462_the_hint_stop_is_the_key_equivalent_edge() {
-        // Hint narrower than the key column: it ends where `⇧⌘T` ends, one gap after the title.
-        assert_eq!(hint_stop(100.0, 40.0, 30.0, 16.0), 156.0);
-        // No key equivalent in the menu: the hint is the column.
-        assert_eq!(hint_stop(100.0, 0.0, 30.0, 16.0), 146.0);
-        // Hint wider than the key column: the hint widens the column.
-        assert_eq!(hint_stop(100.0, 20.0, 30.0, 16.0), 146.0);
+        // A full 300 pt row with a 20 pt trailing inset and a 40 pt hint.
+        assert_eq!(hint_stop(300.0, 20.0, 40.0, 0.0), 240.0);
+        assert_eq!(hint_stop(420.0, 20.0, 40.0, 10.0), 370.0);
+        // The hint's right edge lands on the shared inset for any menu width.
+        for width in [292.0, 420.0] {
+            let (hint, origin) = (31.5, 3.0);
+            let right = hint_stop(width, KEY_INSET, hint, origin) + hint;
+            assert_eq!(right, origin + width - KEY_INSET);
+        }
     }
 
-    unsafe fn stops_and_titles(menu: &AnyObject) -> Vec<String> {
+    unsafe fn hint_view(item: &AnyObject) -> Option<Retained<HintView>> {
+        // SAFETY: test menus and their accessory are retained on the main thread.
+        unsafe {
+            let menu: Retained<AnyObject> = msg_send![item, menu];
+            let count: isize = msg_send![&*menu, numberOfItems];
+            let last: Retained<AnyObject> = msg_send![&*menu, itemAtIndex: count - 1];
+            let anchor: Retained<MenuAnchor> = msg_send![&*last, view];
+            anchor
+                .ivars()
+                .iter()
+                .find(|view| {
+                    view.ivars()
+                        .item
+                        .load()
+                        .is_some_and(|candidate| std::ptr::eq(&*candidate, item))
+                })
+                .cloned()
+        }
+    }
+
+    unsafe fn shown_hints(menu: &AnyObject) -> Vec<String> {
         // SAFETY: `menu` is a live NSMenu on the main thread.
         unsafe {
             let count: isize = msg_send![menu, numberOfItems];
-            (0..count)
+            (0..count - 1)
                 .map(|index| {
                     let item: Retained<AnyObject> = msg_send![menu, itemAtIndex: index];
-                    let attributed: Option<Retained<AnyObject>> =
-                        msg_send![&*item, attributedTitle];
-                    attributed.map_or_else(String::new, |attributed| {
-                        let described: Retained<NSString> = msg_send![&*attributed, description];
-                        described.to_string()
+                    let view = hint_view(&item);
+                    view.map_or_else(String::new, |view| {
+                        let shown: Retained<NSString> = msg_send![&*view.ivars().hint, string];
+                        shown.to_string()
                     })
                 })
                 .collect()
@@ -663,17 +886,31 @@ pub(crate) mod tests {
             ]);
             let plain = |index: isize| -> String {
                 let item: Retained<AnyObject> = msg_send![&*child, itemAtIndex: index];
-                let attributed: Retained<AnyObject> = msg_send![&*item, attributedTitle];
-                let shown: Retained<NSString> = msg_send![&*attributed, string];
+                let view = hint_view(&item).expect("hint is retained by the menu accessory");
+                let attributed = &view.ivars().hint;
+                let shown: Retained<NSString> = msg_send![&**attributed, string];
                 shown.to_string()
             };
-            assert_eq!(plain(0), "Assign to same name\t1");
-            assert_eq!(plain(1), "Assign to same name\t9");
+            assert_eq!(plain(0), "1");
+            assert_eq!(plain(1), "9");
 
-            let (installed, popup) = (stops_and_titles(&installed), stops_and_titles(&popup));
+            decorate_project_menu(vec![(vec![1], "⌘K P".into())]);
+            let native: Retained<AnyObject> = msg_send![&*installed, itemAtIndex: 0isize];
+            let key: Retained<NSString> = msg_send![&*native, keyEquivalent];
+            assert_eq!(key.to_string(), "n");
+            let title: Retained<NSString> = msg_send![&*native, title];
+            assert_eq!(title.to_string(), "New Workstream");
+            let native_view: Option<Retained<AnyObject>> = msg_send![&*native, view];
+            assert!(native_view.is_none());
+            let count: isize = msg_send![&*installed, numberOfItems];
+            assert_eq!(
+                count, 4,
+                "reopening replaces the accessory instead of adding rows"
+            );
+            let (installed, popup) = (shown_hints(&installed), shown_hints(&popup));
             assert!(
-                installed[1].contains('\t'),
-                "the hint is in the attributed title"
+                installed[1] == "⌘K P",
+                "the hint is separate from the native title"
             );
             assert_eq!(installed[..2], popup, "both paths build the same column");
         }

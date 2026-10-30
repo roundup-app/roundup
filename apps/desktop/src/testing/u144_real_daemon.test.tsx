@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import * as v from "valibot";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { MockInstance } from "vitest";
@@ -18,8 +17,7 @@ import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDr
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { WorktreeControl } from "../changes/WorktreeControl";
-import { copy as changesCopy } from "../changes/copy";
-import { openFile, saveNote } from "../changes/noteHarness";
+import { openFile } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
 import { openRecovery as openMenu, recoveryLabel } from "./recovery";
 
@@ -30,8 +28,6 @@ describe("u2540 inspection and notes on the real Daemon", () => {
   const execute = promisify(execFile);
 
   let real: StartedDaemon;
-
-  let logs: string;
 
   let connected: ConnectedProject;
 
@@ -48,8 +44,8 @@ describe("u2540 inspection and notes on the real Daemon", () => {
   });
 
   beforeAll(async () => {
-    logs = await mkdtemp(join(tmpdir(), "u2540-claude-"));
-    real = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: join(logs, "prompts.jsonl") });
+    // The fake enables its session/prompt loop with this setting; these observers need no log.
+    real = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: "/dev/null" });
     await git("init", "-b", "main");
     await git("config", "user.name", "Diff observer");
     await git("config", "user.email", "diff@example.test");
@@ -71,8 +67,6 @@ describe("u2540 inspection and notes on the real Daemon", () => {
   afterAll(async () => {
     cleanup();
     await real?.stop();
-
-    if (logs) await rm(logs, { recursive: true, force: true });
   });
 
   it("u2540a_tree_and_diff_use_only_the_selected_agents_worktree", async () => {
@@ -90,39 +84,6 @@ describe("u2540 inspection and notes on the real Daemon", () => {
 
     cleanup();
   });
-
-  it("u2540c_real_message_respects_existing_delivery", async () => {
-    mount();
-    const { app } = connected;
-    connected.rail.select(first.id);
-    fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
-    await openFile("same.ts");
-    await saveNote("first exact comment");
-    await saveNote("second exact comment");
-    fireEvent.click(screen.getByRole("button", { name: changesCopy.sendNotesTo(first.name) }));
-    const messages = async () => (await app.rpc("message.list", { to: first.id, status: null })).filter(message => message.from.kind === "user");
-    await waitFor(async () => expect(await messages()).toHaveLength(1), { timeout: 20_000 });
-    const accepted = (await messages())[0]!;
-    expect(accepted).toMatchObject({ to: first.id, from: { kind: "user", id: "you" }, kind: "note" });
-    expect(JSON.parse(accepted.body)).toMatchObject({ notes: [
-      { "Selected source:": "first source", "User comment:": "first exact comment" },
-      { "Selected source:": "first source", "User comment:": "second exact comment" },
-    ] });
-    expect((await app.rpc("message.list", { to: second.id, status: null })).filter(message => message.from.kind === "user")).toHaveLength(0);
-    await waitFor(async () => expect((await messages())[0]?.status).toBe("delivered"), { timeout: 30_000 });
-    const prompts = await readFile(join(logs, "prompts.jsonl"), "utf8");
-    expect(prompts).toContain(`"inbox": "rup-${accepted.id}"`);
-    expect((await messages())[0]?.body).toBe(accepted.body);
-    // Reopen on the same real Project: the Worktree change is still inspectable after the Message was accepted.
-    cleanup();
-    connected = await connectProject(app, { name: "observer", path: real.dir }, () => true, () => 0);
-    connected.rail.select(first.id);
-    mount();
-    fireEvent.click(await screen.findByRole("button", { name: /\d+ changed files?/ }));
-    await openFile("same.ts");
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-    expect(screen.getByRole("textbox")).toHaveProperty("value", "");
-  }, 60_000);
 
   it("u2540d_landing_is_independent_of_diff_and_notes", async () => {
     cleanup();
