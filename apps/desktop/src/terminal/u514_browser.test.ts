@@ -178,6 +178,7 @@ it.each(["agent", "bubble"] as const)("u2680a_terminal_boundaries_never_create_b
 // Remounting the App per target dominated this sweep; reseed selections on the same emulator instead.
 it.each(["agent", "bubble"] as const)("u2680b_a_click_clears_browser_and_terminal_selections_%s", async where => {
   const selector = await placement(where);
+
   const targets = where === "agent" ? ["output", "inset", ".window-title"]
     : ["output", ".bubble-header", '.bubble-zone[data-zone="se"]'];
 
