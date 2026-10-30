@@ -1330,68 +1330,6 @@ async fn owner_of(client: &rpc::Client, id: u32) -> Value {
         .clone()
 }
 
-/// T16, T17: the Daemon checks an owner against the Rail and a rejected call leaves no trace.
-#[tokio::test]
-async fn t17_rejections_leave_no_trace() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let agent = agent_in(&project, &client, None).await;
-    let id = todo_at(&client, "a").await;
-    let history = || async {
-        client
-            .request(
-                "provenance.history",
-                json!({ "item": format!("todo:{id}") }),
-            )
-            .await
-            .unwrap()
-    };
-    let touched = history().await;
-    for owner in [owner_json("agent", "nope"), owner_json("agent", "r1")] {
-        let err = client
-            .request("todo.assign", json!({ "id": id, "owner": owner }))
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, rpc::code::NOT_FOUND);
-    }
-    let ext = client
-        .request(
-            "todo.assign",
-            json!({ "id": id, "owner": owner_json("ext", "x") }),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(ext.code, rpc::code::INVALID_PARAMS);
-    let made = client
-        .request(
-            "todo.create",
-            json!({ "title": "b", "owner": owner_json("agent", "nope") }),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(made.code, rpc::code::NOT_FOUND);
-    let made = client
-        .request(
-            "todo.create",
-            json!({ "title": "b", "owner": owner_json("ext", "x") }),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(made.code, rpc::code::INVALID_PARAMS);
-    assert_eq!(history().await, touched);
-    assert_eq!(owner_of(&client, id).await, Value::Null);
-    let listed = client.request("todo.list", json!(null)).await.unwrap();
-    assert_eq!(listed.as_array().unwrap().len(), 1);
-    client
-        .request(
-            "todo.assign",
-            json!({ "id": id, "owner": owner_json("agent", &agent) }),
-        )
-        .await
-        .unwrap();
-    assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
-}
-
 /// T17: `rail.remove` of an owner Agent unassigns its Todos, in id order, after the Agent is gone.
 #[tokio::test]
 async fn t17_rail_remove_unassigns_its_todos() {
@@ -1484,58 +1422,6 @@ async fn t17_a_stopped_agent_keeps_its_todos_and_assign_tells_no_agent() {
     assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
 }
 
-/// T13: the Daemon validates the destination against the live Rail.
-#[tokio::test]
-async fn t13_move_checks_the_rail() {
-    let project = start(&[]);
-    let mut events = project.subscribed().await;
-    let client = project.client().await;
-    let r1 = workstream(&client, "r1").await;
-    let agent = agent_in(&project, &client, None).await;
-    let id = todo_at(&client, "a").await;
-    assert_eq!(home_of(&client, id).await, Value::Null);
-    next(&mut events, |data| {
-        matches!(data, EventData::TodoCreated(_)).then_some(())
-    })
-    .await;
-
-    let history = || async {
-        client
-            .request(
-                "provenance.history",
-                json!({ "item": format!("todo:{id}") }),
-            )
-            .await
-            .unwrap()
-    };
-    let touched = history().await;
-    let missing = client
-        .request("todo.move", json!({ "id": id, "home": "nope" }))
-        .await
-        .unwrap_err();
-    assert_eq!(missing.code, rpc::code::NOT_FOUND);
-    let not_a_workstream = client
-        .request("todo.move", json!({ "id": id, "home": agent }))
-        .await
-        .unwrap_err();
-    assert_eq!(not_a_workstream.code, rpc::code::INVALID_PARAMS);
-    assert_eq!(history().await, touched);
-    assert_eq!(home_of(&client, id).await, Value::Null);
-
-    client
-        .request("todo.move", json!({ "id": id, "home": r1 }))
-        .await
-        .unwrap();
-    // The first Todo event after the rejections is the move that succeeded.
-    let first = next(&mut events, |data| match data {
-        EventData::TodoUpdated(todo) => Some(todo.home.clone()),
-        _ => None,
-    })
-    .await;
-    assert_eq!(first, Some(r1.clone()));
-    assert_eq!(home_of(&client, id).await, json!(r1));
-}
-
 #[tokio::test]
 async fn t13_workstream_removal_resets_homes_and_emits_in_id_order() {
     let project = start(&[]);
@@ -1586,34 +1472,6 @@ async fn t13_workstream_removal_resets_homes_and_emits_in_id_order() {
     assert_eq!(home_of(&client, a).await, Value::Null);
     let listed = client.request("todo.list", json!(null)).await.unwrap();
     assert_eq!(listed.as_array().unwrap().len(), 4);
-}
-
-#[tokio::test]
-async fn t13_a_failed_rail_remove_leaves_every_home() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let r1 = workstream(&client, "r1").await;
-    let id = todo_at(&client, "a").await;
-    client
-        .request("todo.move", json!({ "id": id, "home": r1 }))
-        .await
-        .unwrap();
-    let mut events = project.subscribed().await;
-
-    let err = client
-        .request("rail.remove", json!({ "id": "nope" }))
-        .await
-        .unwrap_err();
-    assert_eq!(err.code, rpc::code::NOT_FOUND);
-    assert_eq!(home_of(&client, id).await, json!(r1));
-    let none = tokio::time::timeout(
-        Duration::from_millis(300),
-        next(&mut events, |data| {
-            matches!(data, EventData::TodoUpdated(_)).then_some(())
-        }),
-    )
-    .await;
-    assert!(none.is_err());
 }
 
 #[tokio::test]

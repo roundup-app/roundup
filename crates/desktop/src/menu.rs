@@ -723,6 +723,8 @@ mod tests {
                     item("action:chord:W", "Move", Some("W"), None),
                     item("action:chord:X", "Complete", Some("X"), None),
                     item("action:chord:C", "Comment", Some("C"), None),
+                    item("action:chord:Tab", "Nest", Some("Tab"), None),
+                    item("action:chord:⇧Tab", "Unnest", Some("⇧Tab"), None),
                     unavailable,
                 ]),
             )
@@ -745,6 +747,8 @@ mod tests {
                 "action:chord:W",
                 "action:chord:X",
                 "action:chord:C",
+                "action:chord:Tab",
+                "action:chord:⇧Tab",
                 "action:leader:A",
             ] {
                 app_chosen(app.handle(), &MenuEvent { id: id.into() });
@@ -764,6 +768,8 @@ mod tests {
                 serde_json::json!({"path": "/A", "command": "action:chord:W"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:X"}),
                 serde_json::json!({"path": "/A", "command": "action:chord:C"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:Tab"}),
+                serde_json::json!({"path": "/A", "command": "action:chord:⇧Tab"}),
                 serde_json::json!({"path": "/B", "command": "action:leader:C"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:⌘F"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:F2"}),
@@ -775,6 +781,8 @@ mod tests {
                 serde_json::json!({"path": "/B", "command": "action:chord:W"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:X"}),
                 serde_json::json!({"path": "/B", "command": "action:chord:C"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:Tab"}),
+                serde_json::json!({"path": "/B", "command": "action:chord:⇧Tab"}),
             ]
         );
     }

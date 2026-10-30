@@ -61,6 +61,7 @@ impl Daemon {
                     | "rail.remove"
                     | "rail.deletion"
                     | "rail.restore"
+                    | "rail.redo"
                     | "message.progress"
                     | "message.report"
                     | "message.acceptResult"
