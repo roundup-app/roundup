@@ -76,16 +76,18 @@ describe("u504 the Ask bar", () => {
     expect(document.querySelector(".app-mentions")).toBeNull();
   });
 
-  it("u504_tab_accepts_the_hovered_match_without_leaving_the_input", async () => {
+  it("u504_tab_keeps_the_keyboard_match_after_pointer_movement", async () => {
     const { app } = await mountAskBar();
     input()!.focus();
     type("@");
     const list = await screen.findByRole("listbox");
-    const option = within(list).getAllByRole("option")[2]!;
-    fireEvent.pointerMove(option, { pointerType: "mouse" });
-    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(option.id));
+    const options = within(list).getAllByRole("option");
+    await waitFor(() => expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id));
+    fireEvent.pointerMove(options[2]!, { pointerType: "mouse" });
+    fireEvent.pointerLeave(options[2]!, { pointerType: "mouse" });
+    expect(input()!.getAttribute("aria-activedescendant")).toBe(options[0]!.id);
     expect(press("Tab", {}, input()!).defaultPrevented).toBe(true);
-    await waitFor(() => expect(input()!.value).toBe("@docs "));
+    await waitFor(() => expect(input()!.value).toBe("@lead "));
     expect([input()!.selectionStart, input()!.selectionEnd]).toEqual([6, 6]);
     expect(document.activeElement).toBe(input());
     expect(screen.queryByRole("listbox")).toBeNull();
