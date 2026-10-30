@@ -415,3 +415,34 @@ async fn a31_a_call_on_an_existing_id_changes_nothing() {
     .await;
     assert_eq!(touched["result"], json!([]), "{touched}");
 }
+
+#[tokio::test]
+async fn m14_unknown_terminal_is_not_found_before_forbidden() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Agent',0)",
+        [],
+    )
+    .unwrap();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "1".into(),
+            parent: None,
+        },
+        peer: None,
+        events,
+        output: None,
+    };
+
+    for method in ["terminal.write", "terminal.kill", "terminal.close"] {
+        let missing = daemon
+            .route(&mut conn, method, json!({ "id": "9999", "data": "eAo=" }))
+            .await
+            .unwrap_err();
+        assert_eq!(missing.code, code::NOT_FOUND, "{method}");
+    }
+}
