@@ -165,3 +165,6 @@
 .todo-comment-field { min-width: 0; min-height: calc(var(--line) * 3); line-height: var(--line); }
 .todo-comments .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; white-space: normal; }
 .todo-comments .ink[data-tone] { white-space: normal; overflow: visible; }
+.todo-comments { font-size: var(--text-title); }
+.todo-activity-head h3 { font-size: var(--text-body); }
+.todo-comment-head button { margin-inline-start: var(--space-3); }

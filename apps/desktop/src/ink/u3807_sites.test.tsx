@@ -205,7 +205,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectSettings", as
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo drawer", async () => {
   const mounted = await mountTodos([todo(1)]);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><TodoDrawer id={1} todos={mounted.todos} /></ConnectedProjectContext.Provider>);
-  await within(view.container).findByRole("button", { name: /Changes/ });
+  await within(view.container).findByRole("region", { name: "Activity" });
   const box = within(view.container).getByRole("checkbox", { name: "Complete todo 1" });
   const original = mounted.app.handlers["todo.complete"]!;
   await cycle(view.container,
