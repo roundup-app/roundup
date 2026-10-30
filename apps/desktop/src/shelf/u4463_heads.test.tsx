@@ -4,7 +4,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { Shelf } from "./Shelf";
 import { Tabs } from "../ui/Tabs";
 import { seedApp } from "../testing/seeds";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 

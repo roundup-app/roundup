@@ -102,7 +102,7 @@ These checks exist on `origin/main`; the `u4323a_` test above is a planned imple
 1. `apps/desktop/src/keys/u2239_leader.test.tsx`: `u2239_each_leader_key_runs_its_action_once`, `u2239_the_leader_waits_without_a_timeout`, `u2239_escape_and_an_unbound_key_end_the_wait_and_reach_nothing`, `u2239_a_modifier_alone_keeps_the_wait`, `u2239_pointer_press_project_switch_and_modal_end_the_wait`, and `u2240_the_panel_lists_the_table_and_follows_the_wait`.
 2. `apps/desktop/src/keys/u2539b_tasks.test.tsx`, `u2539b_top_ten_tasks_complete_within_three_presses`; `apps/desktop/src/keys/chords.ts`, `LEADER`; `apps/desktop/src/keys/Leader.tsx`, `Leader`: action endpoints, shared key table and availability filtering.
 3. `apps/desktop/src/keys/u3713_capture.test.tsx`, `u3713_leader_t_opens_a_focused_empty_field_without_changing_selection`.
-4. `apps/desktop/src/keys/u2240_browser.test.ts`, `u2240_the_panel_keeps_focus_and_the_failure`.
+4. `apps/desktop/src/keys/u2239_leader.test.tsx`, `u2240_the_panel_keeps_focus_and_the_failure`.
 5. `docs/design-system.md`, heading “The checks”; `apps/desktop/src/testing/checks.ts`, `runChecks`; `apps/desktop/src/keys/HintLine.tsx`, `HintLine`; `apps/desktop/src/resources/ResourceStrip.tsx`, `ResourceStrip`; `apps/desktop/src/resources/styles.css`, `.hint-line`: numbered Checks, production container and reserved height.
 
 Policy — failure reporting: every failed observer or validation script gets one row on #4323 with its command, exit code and repair or remaining failure. Report results, never claim a failed command passed; keep progress and engineering questions on the Issue, never in scenario Work tables.

@@ -1,4 +1,4 @@
-import { copy } from "./copy";
+import { copy } from "./app/copy";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { door, workstream } from "./testing/nodes";
@@ -9,13 +9,70 @@ afterEach(cleanup);
 import { parse } from "@babel/parser";
 import { isNode } from "@babel/types";
 import type { Node } from "@babel/types";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, join, posix } from "node:path";
 
 const ROOT = join(process.cwd(), "src");
 
-const sources = () => readdirSync(ROOT, { recursive: true, encoding: "utf8" }).filter((file) =>
-  /\.tsx?$/.test(file) && !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$|^copy(\.ts|\/\w+\.ts)$)/.test(file));
+const files = () => readdirSync(ROOT, { recursive: true, encoding: "utf8" }).filter((file) => /\.tsx?$/.test(file));
+
+const catalogue = (file: string) => /(?:^|\/)copy\.ts$|^sharedCopy\.ts$/.test(file);
+
+const production = (file: string) => !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$)/.test(file);
+
+const sources = () => files().filter((file) => production(file) && !catalogue(file));
+
+const owner = (file: string) => file.includes("/") ? file.split("/")[0]! : "app";
+
+it("u471_copy_modules_belong_to_their_surfaces", () => {
+  expect(existsSync(join(ROOT, "copy.ts"))).toBe(false);
+  const modules = files().filter(catalogue);
+  expect(modules.filter((file) => file === "sharedCopy.ts")).toHaveLength(1);
+  const sharedUses = new Map<string, Set<string>>();
+
+  for (const file of files().filter((file) => production(file) || catalogue(file))) {
+    const source = readFileSync(join(ROOT, file), "utf8");
+
+    if (catalogue(file)) expect(source.split("\n").length, file).toBeLessThanOrEqual(1000);
+    visit(parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] }), [], (node) => {
+      if (node.type !== "ImportDeclaration") return;
+      const target = posix.normalize(join(dirname(file), node.source.value)) + ".ts";
+
+      if (file === "sharedCopy.ts") expect(node.importKind, node.source.value).toBe("type");
+
+      if (!catalogue(target)) return;
+
+      if (target === "sharedCopy.ts") {
+        expect(catalogue(file), file).toBe(true);
+
+        return;
+      }
+
+      expect(target, file).toBe(`${owner(file)}/copy.ts`);
+    });
+
+    if (!catalogue(file) || file === "sharedCopy.ts") continue;
+    visit(parse(source, { sourceType: "module", plugins: ["typescript"] }), [], (node, ancestors) => {
+      if (node.type === "SpreadElement" && ancestors.at(-1)?.type === "ObjectExpression") throw new Error(`${file}: catalogue spreads hide ownership`);
+
+      if (node.type === "MemberExpression" && node.object.type === "Identifier" && node.object.name === "sharedCopy" && node.property.type === "Identifier") {
+        const users = sharedUses.get(node.property.name) ?? new Set<string>();
+        users.add(owner(file));
+        sharedUses.set(node.property.name, users);
+      }
+    });
+  }
+
+  const sharedKeys: string[] = [];
+  visit(parse(readFileSync(join(ROOT, "sharedCopy.ts"), "utf8"), { sourceType: "module", plugins: ["typescript"] }), [], (node) => {
+    if (node.type !== "VariableDeclarator" || node.id.type !== "Identifier" || node.id.name !== "copy" || node.init?.type !== "TSAsExpression" || node.init.expression.type !== "ObjectExpression") return;
+
+    for (const property of node.init.expression.properties) if (property.type === "ObjectProperty" && property.key.type === "Identifier") sharedKeys.push(property.key.name);
+  });
+  expect([...sharedUses.keys()].sort()).toEqual(sharedKeys.sort());
+
+  for (const [key, users] of sharedUses) expect(users.size, key).toBeGreaterThan(1);
+});
 
 const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancestors: readonly Node[]) => void) => {
   read(node, ancestors);
@@ -162,7 +219,7 @@ it("u471_no_supervisor_in_app_copy", () => {
     if (/\bsupervisors?\b/i.test(text)) found.push(`${file}: ${text}`);
   };
 
-  const catalogues = ["copy.ts", ...readdirSync(join(ROOT, "copy"), { recursive: true, encoding: "utf8" }).filter((file) => /\.ts$/.test(file) && !file.includes(".test.")).map((file) => `copy/${file}`)];
+  const catalogues = files().filter(catalogue);
 
   for (const file of catalogues) {
     visit(parse(readFileSync(join(ROOT, file), "utf8"), { sourceType: "module", plugins: ["typescript"] }), [], (node, ancestors) => {

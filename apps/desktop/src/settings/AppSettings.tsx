@@ -1,6 +1,6 @@
 import { createResource, createSignal, createMemo, For, onCleanup, Show } from "solid-js";
 import type { App } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";

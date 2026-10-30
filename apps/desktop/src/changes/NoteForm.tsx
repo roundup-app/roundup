@@ -1,6 +1,6 @@
 import { queueFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { Tabs } from "../ui/Tabs";
 import { createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";

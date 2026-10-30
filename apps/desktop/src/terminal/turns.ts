@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { IDisposable, IMarker, Terminal } from "@xterm/xterm";
 
 /** U514: one command of a shell Terminal, as buffer rows from its prompt to its last line of output. */

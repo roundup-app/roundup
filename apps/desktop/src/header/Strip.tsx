@@ -2,7 +2,7 @@ import type { App as AppCalls } from "../app/seam";
 import type { ProjectsState } from "../state/projects";
 import { Tabs } from "../ui/Tabs";
 import { IconButton } from "../ui/IconButton";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";

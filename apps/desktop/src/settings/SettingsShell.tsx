@@ -1,6 +1,6 @@
 import { captureFocus } from "../keys/focus";
 import { onMount, Show, type JSX } from "solid-js";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import "./styles.css";
 
 /** U3764: the centre's settings view, shared by Project settings and App Settings: a title, a close control and named groups. Escape closes it. */
