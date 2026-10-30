@@ -84,6 +84,8 @@ it("r21_backlogged_output_yields_to_each_display_frame", async () => {
     screens.show("t-flood", document.body.appendChild(document.createElement("div")));
     await subscribed(app, "t-flood");
     await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
+    // Start just after a frame so both six-ms intervals precede the next one.
+    await vi.advanceTimersToNextFrame();
     app.emitOutput("t-flood", "one");
     app.emitOutput("t-flood", "two");
     const chunks = () => made.get("t-flood")!.written.map(bytes => new TextDecoder().decode(bytes));
