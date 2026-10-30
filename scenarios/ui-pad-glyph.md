@@ -24,6 +24,18 @@ Regression (policy): keep the Pad and Todo row observers, naming U4708 where the
 
 Specification validation: `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Issue #4708 stays open for implementation.
 
+### Shared inset row wash (Issue #4960)
+
+U4708 also governs the selected-row shape across Todo rows, the Todo capture row, Pad rows, Rail rows and Ask rows. Policy, rendered design-critic acceptance: given `tree-40` and `agents-10` in dark at 1512×950, when hovering, selecting, focusing a selected row or editing a row where supported, then:
+
+- One shared row class under `apps/desktop/src/ui/` owns the wash. Each covered list consumes it instead of defining its own selected, hover or editing wash.
+- The wash insets horizontally by an existing space Token and uses `--radius-control`. Existing row padding leaves space between the wash and the checkbox or glyph; neither touches its edge. The shape stays identical across selection, selected+focus and editing; only existing colour Tokens differ. Plain in-window rows retain ink-only hover; floating Listbox and Mentions items may keep their hover wash.
+- Row heights, text alignment with section heads, tree connections and the glyph/title/action columns remain as on the paired main baseline, including U4908's Pad columns. No state moves content.
+
+This replaces U466's full-width selected ground and U361's no-wash policy only for the covered rows. It supersedes earlier flat/square-row policies for selected, focused and editing washes; the ink-only hover policy remains. Row actions, focus destinations, input retention and drag/drop behavior retain their existing acceptance. Use existing Tokens and the shared Tree/Listbox styling where suitable, otherwise one shared UI class; add no library, layout test or colour test.
+
+Observer (policy): compare paired main/head U26 harness captures for each covered row at rest, hover, selected, selected+focus and editing where supported. Include the Todo capture checkbox, long names, nested rows and a rejected action with cause/recovery text visible on `tree-40`. Run `just capture U4708`; leave PNGs/videos and Check readings under `artifacts/ux/U4708/{base,head}/`. The critic judges shape and inner padding. D2, D5, D6 and D12 above apply; their executable readings are `apps/desktop/src/testing/checks.ts`, `runChecks`. No passing baseline Check regresses. This observes the webview only; the user reports what they meet on the Mac.
+
 **U4908 Pad marks, shared Open action and no empty leading slot.** Acceptance for Issue #4908; implementation remains in Issue #4708. This serves the first journey's Review stage: find a Pad among the work items and open its contents. Given the Shelf's Pads and Todos tabs, when reading and opening their rows, then:
 
 - **Pad mark (policy).** Each Pad row carries Lucide `sticky-note`, muted and decorative, in the leading slot under its group's chevron. Add that icon to `apps/desktop/src/ink/Icon.tsx`; the shared Pad icon in `apps/desktop/src/shelf/frame.ts` supplies both the tab and its rows. Work orders retain `file-text`; a Pad gains no invented state, badge or state colour. This supersedes U4708's file-icon choice only.
