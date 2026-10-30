@@ -57,6 +57,15 @@ async fn a33_an_idle_agent_with_a_blocked_todo_reads_blocked() {
 }
 
 #[tokio::test]
+async fn a33_the_label_names_the_lowest_open_blocker() {
+    let (f, id) = idle_agent().await;
+    f.waits(&[(&id, 2)]);
+    assert_eq!(f.reading(&id).await.1, "waits on #2");
+    f.waits(&[(&id, 7)]);
+    assert_eq!(f.reading(&id).await.1, "waits on #7");
+}
+
+#[tokio::test]
 async fn a33_working_error_and_needs_you_outrank_blocked() {
     let (f, id) = idle_agent().await;
     f.waits(&[(&id, 4)]);
