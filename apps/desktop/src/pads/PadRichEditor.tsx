@@ -1,4 +1,7 @@
 import { DrawerExpandContext } from "../drawer/DrawerHost";
+import { registerKeys } from "../keys/registry";
+import { CHORDS } from "../keys/chords";
+import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
@@ -13,7 +16,7 @@ import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
 import { table } from "@milkdown/crepe/feature/table";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
-import { editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { commandsCtx, editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
@@ -91,6 +94,7 @@ export default function PadRichEditor(props: {
 
   let ready = false;
   let topBarLabels: string[] = [];
+  const [commandState, setCommandState] = createSignal(0);
   const [failure, setFailure] = createSignal<string | null>(null);
 
   onMount(() => {
@@ -160,6 +164,7 @@ export default function PadRichEditor(props: {
           new Plugin({
             view: () => ({
               update: (view, previous) => {
+                if (view.state !== previous) setCommandState(now => now + 1);
                 if (!applying && !closed && !view.state.doc.eq(previous.doc)) {
                   restored = null;
                   props.onChange();
@@ -180,6 +185,33 @@ export default function PadRichEditor(props: {
         props.onText(markdown);
       });
     });
+
+    registerKeys({ kind: "region", element: () => host }, [
+      { keys: "⌘B", label: copy.bold, command: toggleStrongCommand },
+      { keys: "⌘I", label: copy.italic, command: toggleEmphasisCommand },
+      { keys: "⌘E", label: copy.inlineCode, command: toggleInlineCodeCommand },
+    ].map(({ keys, label, command }) => ({
+      action: CHORDS.find(action => action.keys === keys)!,
+      capture: focus => {
+        commandState();
+
+        if (!ready || closed || !crepe) return { available: () => false, invoke: () => {}, label };
+
+        return crepe.editor.action(ctx => {
+          const view = ctx.get(editorViewCtx);
+          const { doc, selection } = view.state;
+          const run = ctx.get(commandsCtx).get(command.key)();
+
+          return {
+            label,
+            available: () => !closed && !props.readonly && !!focus && host?.contains(focus) === true
+              && document.activeElement === focus && view.state.doc.eq(doc) && view.state.selection.eq(selection)
+              && run(view.state),
+            invoke: () => { run(view.state, view.dispatch, view); },
+          };
+        });
+      },
+    })));
 
     created = crepe.create();
     void created.then(() => {

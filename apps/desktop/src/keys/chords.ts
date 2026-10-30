@@ -48,6 +48,8 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘=", what: copy.terminalLargerText, presses: ["meta+Equal"], inTerminals: true },
   { keys: "⌘-", what: copy.terminalSmallerText, presses: ["meta+Minus"], inTerminals: true },
   { keys: "⌘0", what: copy.terminalResetText, presses: ["meta+Digit0"], inTerminals: true },
+  { keys: "⌘I", what: copy.italic, presses: ["meta+KeyI"] },
+  { keys: "⌘E", what: copy.inlineCode, presses: ["meta+KeyE"] },
   { keys: "⌘F", what: copy.find, presses: ["meta+KeyF"], inTerminals: true },
   { keys: "⌘Z", what: copy.undoFocused, presses: ["meta+KeyZ"] },
   { keys: "⇧⌘Z", what: copy.redoFocused, presses: ["meta+shift+KeyZ"] },
