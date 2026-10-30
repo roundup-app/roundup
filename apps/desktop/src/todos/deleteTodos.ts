@@ -455,7 +455,7 @@ export function createTodoUndo() {
     } finally { setPending(false); }
   };
 
-  const available = (region?: string) => !pending() && stack().some(action => region === undefined || action.regions.includes(region)) && !redoUnknown() && !uncertain() && !padPending().length && !railPending();
+  const available = (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !redoUnknown() && !uncertain() && !padPending().length && !railPending();
   const redoAvailable = (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && !uncertain() && !padPending().length && !railPending();
 
   return {
@@ -492,7 +492,7 @@ export function createTodoUndo() {
       return problem && (problem.kind === "restore" || uncertain() || padPending().length || railPending()) ? problem.message : null;
     },
     undoLabel: (region?: string) => {
-      const action = available(region) ? stack().findLast(item => region === undefined || item.regions.includes(region)) : undefined;
+      const action = !pending() && available(region) ? stack().findLast(item => region === undefined || item.regions.includes(region)) : undefined;
 
       return action ? copy.undoAction(actionName(action)) : copy.todoUndo;
     },

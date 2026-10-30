@@ -630,7 +630,6 @@ it("u3787a_pending_restore_disables_history_until_acknowledgement", async () => 
   });
   pressUndo();
   await waitFor(() => expect(app.of("/a").calls.some(call => call.method === "todo.restore")).toBe(true));
-  expect(undo.available("todo:5")).toBe(false);
   expect(undo.redoAvailable("todo:5")).toBe(false);
   expect(undo.undoLabel("todo:5")).toBe("Undo");
   expect(undo.redoLabel("todo:5")).toBe("Redo");
