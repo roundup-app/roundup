@@ -329,10 +329,16 @@ Rendered comparison: `artifacts/ux/U3787b/open-rename/{base,head}/`, dark
 `aaec581772e66868b1edaaa09102d0b61ba920b9`. All D1–D14 and D16 readings
 pass; D2/D5/D6 retain their baseline. Interaction captures show focused Rename,
 Escape then Open, and full actionable rename failure beside retained input.
-PNGs and the interaction recording stay uncommitted. These observe Chromium
+Images and the interaction recording stay uncommitted. These observe Chromium
 only. `just capture U3787b` exits 1 because the installed observer table rejects
 that id; these explicit isolated captures supply the rendered evidence.
 
 The existing `u3723_keys_are_inert_in_the_drawer_field` fixture now focuses its
 row before Return, matching keyboard dispatch through the captured row holder.
 Its editor-key and zero-mutation assertions are unchanged.
+
+Connected-App Help/attention, row-name recovery, completion and unfinished-input
+fixtures focus the Todo row before Return/F2 and supply its key code. Their
+existing assertions remain. The U2580a browser observer installs before the
+registry at window capture, retaining its first-frame open/focus proof after
+the registry consumes Return. No test is removed or retired.

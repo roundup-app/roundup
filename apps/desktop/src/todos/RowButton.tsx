@@ -15,13 +15,13 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
       && (event.altKey ? props.reorderable === true : props.pressed !== undefined)
       && ((event.key !== "Escape" && event.key !== "Backspace") || props.selectionActive === true),
     run: (event) => props.onKeyDown?.(event),
-  }, ...["⏎", "F2"].map(keys => ({
-    action: CHORDS.find(row => row.keys === keys)!,
+  }, ...CHORDS.filter(row => row.keys === "⏎" || row.keys === "F2").map(action => ({
+    action,
     searchable: false as const,
     when: (event: KeyboardEvent) => event.target === button && !props.keysSuspended
-      && (keys === "⏎" ? props.onOpen !== undefined : props.onRename !== undefined),
+      && (action.keys === "⏎" ? props.onOpen !== undefined : props.onRename !== undefined),
     capture: (focus: Element | null) => {
-      const invoke = keys === "⏎" ? props.onOpen : props.onRename;
+      const invoke = action.keys === "⏎" ? props.onOpen : props.onRename;
 
       return {
         available: () => invoke !== undefined && focus === button && button?.isConnected === true
