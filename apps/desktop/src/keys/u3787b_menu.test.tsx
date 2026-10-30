@@ -179,7 +179,7 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
   expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
 });
 
-it.each(["terminal", "rail row", "Shelf row", "Pad row", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
+it.each(["terminal", "rail row", "Project tab", "Shelf row", "Pad row", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
   const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
@@ -201,8 +201,10 @@ it.each(["terminal", "rail row", "Shelf row", "Pad row", "triage"])("u3787b_menu
     document.querySelector<HTMLButtonElement>('[data-pad="Plan"] .pad-name')!.focus();
   }
 
+  if (place === "Project tab") document.querySelector<HTMLButtonElement>('.project-tab[data-path="/p"] [role="tab"]')!.focus();
+
   const focus = document.activeElement!;
-  const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : (place === "rail row" || place === "Pad row") ? "action:chord:F2" : "action:chord:⌘=";
+  const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : (place === "rail row" || place === "Pad row" || place === "Project tab") ? "action:chord:F2" : "action:chord:⌘=";
   await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id === expected)).toBe(true));
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
   const shown = new Map(menuCommands(projectMenu.items).filter(item => item.enabled && item.id.startsWith("action:")).map(item => [item.id, item.shortcut ?? /\((.) · Rail row\)/.exec(item.label)?.[1]]));

@@ -16,7 +16,8 @@ import { Dialog } from "../ui/Dialog";
 import { Tip } from "../ui/Tip";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import type { App } from "../app/seam";
-import { registerKeys } from "../keys/registry";
+import { modalOpen, registerKeys } from "../keys/registry";
+import { CHORDS } from "../keys/chords";
 import { MARKS, markOf, nameParts, tipOf } from "./tab";
 import type { StripTab } from "./tab";
 
@@ -168,7 +169,12 @@ export const ProjectTab = (props: {
   createEffect(on(() => props.recovery, selected => { if (selected) edit(selected); }));
 
   registerKeys({ kind: "region", element: () => wrap }, [
-    { chords: ["F2"], when: (press) => press.target === button, run: () => edit() },
+    { action: CHORDS.find(action => action.keys === "F2")!, when: press => press.target === button,
+      capture: focus => ({
+        available: () => focus === button && button?.isConnected === true && document.activeElement === button && editing() === null && !modalOpen(),
+        invoke: () => edit(),
+      }),
+    },
   ]);
 
   return <Tabs.Context>{(tabs) => <>

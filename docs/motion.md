@@ -400,3 +400,8 @@ use AppKit's immediate validation and dispatch. Projection and menu opening move
 no focus and add no delay or animation. Find and Close retain native feedback;
 Terminal Find retains its existing registry owner. No Token, geometry or
 D2/D5/D6 change; native rendering requires the inventory's macOS observer.
+
+U3787b Project-tab Rename uses its existing instant editor for F2 and the Project
+menu. Both invoke the same focused tab holder; projection changes no focus,
+geometry, animation or Tokens. D2/D5/D6 retain their baseline; native-menu
+appearance still requires macOS observation.
