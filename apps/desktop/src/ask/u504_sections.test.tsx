@@ -11,7 +11,7 @@ import type { Deliverable } from "@contracts/deliverable/Deliverable";
 
 const sent = ask("same-id", 1000, [{ text: "same text", placement: { kind: "routed", workstream: "target" }, state: "typed" }]);
 
-const reaction: Reaction = { project: "p", reason: null, id: "reaction", name: "same name", actor: { kind: "user", id: "you", parent: null }, home: null, target: "target", instruction: "inspect", condition: { kind: "agents", ids: ["target"], any: false }, max_firings: 1, remaining: 1, rearm: false, expires_at: "2030-01-01T00:00:00Z", created_at: "1970-01-01T00:00:02Z", state: "active", observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null }, firings: [] };
+const reaction: Reaction = { project: "p", id: "reaction", name: "same name", actor: { kind: "user", id: "you", parent: null }, home: null, target: "target", instruction: "inspect", reason: null, condition: { kind: "agents", ids: ["target"], any: false }, max_firings: 1, remaining: 1, rearm: false, expires_at: "2030-01-01T00:00:00Z", created_at: "1970-01-01T00:00:02Z", state: "active", observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null }, firings: [] };
 
 const made: Deliverable = { project: "p", id: "made", maker: { kind: "user", id: "you", parent: null }, maker_name: "Me", home: null, title: "same name", published_at: 3000, target: { kind: "external", url: "https://example.com/result", availability: "not-checked" } };
 
