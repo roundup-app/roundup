@@ -8,7 +8,7 @@ import { appSettings, saveAppSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
 import { RpcError } from "../app/seam";
 import { CHORDS, HELP_ROWS } from "../keys/chords";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 beforeEach(() => {
   vi.spyOn(Terminal.prototype, "open").mockImplementation(() => {});
