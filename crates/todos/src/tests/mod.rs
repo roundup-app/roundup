@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 use std::sync::Arc;
 
 use contracts::{Actor, ActorKind, Event, Verb};
@@ -10,7 +11,7 @@ use super::*;
 
 mod comments;
 mod deletion;
-mod estimate;
+// T4902 retires T29; its duration-only tests are removed.
 mod history;
 mod home;
 mod ordering;

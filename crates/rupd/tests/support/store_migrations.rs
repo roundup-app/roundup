@@ -1,3 +1,4 @@
+// T4902 retires T29 migration inventory only; existing migration proofs remain.
 use rusqlite::Connection;
 
 pub fn schema(db: &Connection) -> Vec<(String, String)> {
@@ -114,7 +115,6 @@ pub fn project(dir: &std::path::Path, version: usize) -> Connection {
         include_str!("../../migrations/project/0019-workstream-queue.sql"),
         include_str!("../../migrations/project/0020-continuations.sql"),
         include_str!("../../migrations/project/0020-todo-refs.sql"),
-        include_str!("../../migrations/project/0021-todo-estimate.sql"),
         include_str!("../../migrations/project/0022-workstream-auto.sql"),
         include_str!("../../migrations/project/0023-agent-finished.sql"),
         include_str!("../../migrations/project/0023-measurement-no-tokens-or-money.sql"),
@@ -128,9 +128,9 @@ pub fn project(dir: &std::path::Path, version: usize) -> Connection {
     db
 }
 
-// Version 36 ends before Decision removal; future migrations must run only on upgrade.
+// Version 35 ends before Decision removal; future migrations must run only on upgrade.
 #[allow(dead_code)] // Shared with current-store tests that need no historical prefix.
-pub const PROJECT_V36: [&str; 36] = [
+pub const PROJECT_V35: [&str; 35] = [
     include_str!("../../migrations/001/up.sql"),
     include_str!("../../../agents/migrations/003/up.sql"),
     include_str!("../../migrations/003/up.sql"),
@@ -163,7 +163,6 @@ pub const PROJECT_V36: [&str; 36] = [
     include_str!("../../migrations/project/0019-workstream-queue.sql"),
     include_str!("../../migrations/project/0020-continuations.sql"),
     include_str!("../../migrations/project/0020-todo-refs.sql"),
-    include_str!("../../migrations/project/0021-todo-estimate.sql"),
     include_str!("../../migrations/project/0022-workstream-auto.sql"),
     include_str!("../../migrations/project/0023-agent-finished.sql"),
     include_str!("../../migrations/project/0023-measurement-no-tokens-or-money.sql"),
@@ -180,7 +179,7 @@ pub fn legacy_reaction(path: &std::path::Path, firings: &str) {
     drop(accepted);
     let legacy = path.with_extension("legacy.db");
     let db = Connection::open(&legacy).unwrap();
-    for (index, sql) in PROJECT_V36[..23].iter().enumerate() {
+    for (index, sql) in PROJECT_V35[..23].iter().enumerate() {
         db.execute_batch(if index == 18 { firings } else { sql })
             .unwrap();
     }

@@ -50,7 +50,8 @@ fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
     let migrated = tempfile::tempdir().unwrap();
     let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
     let mut historical = migrations();
-    historical.truncate(42);
+    // T4902 removes one migration before deliverable files; keep the same schema boundary.
+    historical.truncate(41);
     apply(&mut db, historical).unwrap();
     assert!(db.prepare("SELECT id FROM deliverable_files").is_err());
     db.prepare("SELECT operation FROM rail_deletions").unwrap();

@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; existing non-duration proofs below remain.
 import { createNow, DisplayClockContext } from "../state/clock";
 import { createSignal } from "solid-js";
 import { expect } from "vitest";
@@ -31,7 +32,7 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   home: null,
   owner: null,
   refs: [],
-  estimate_minutes: null, priority: null,
+  priority: null,
   ...over,
 });
 

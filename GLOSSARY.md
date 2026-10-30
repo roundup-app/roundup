@@ -116,7 +116,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Reopen (`todo.reopen`, `todo_reopen`) | same | — |
 | Owner (`owner`, Todos only; Pads use Home) | same | assignee |
 | Priority (`Priority`, `priority`) | Priority | — |
-| Estimate (`estimate_minutes`) | same | — |
 | Updated at (`updated_at`) | a Todo's last-change time | — |
 | Delegate Board | same | — |
 | Busy until | "free now", "busy until <HH:MM>" | — |
