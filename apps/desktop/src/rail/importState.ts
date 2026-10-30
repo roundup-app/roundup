@@ -1,6 +1,6 @@
 import { outcomeOf } from "../app/seam";
 import { batch, createSignal } from "solid-js";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import * as v from "valibot";
 import type { ImportFailure } from "@contracts/project/ImportFailure";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";

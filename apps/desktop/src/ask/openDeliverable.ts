@@ -1,5 +1,5 @@
 import type { AppSeam } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** DV5: resolve one published Deliverable by its exact identity and open what it names. Resolves the unavailable cause, never another target's content, or `null` once it opened. */
 export const openDeliverable = async (app: AppSeam, project: string, id: string): Promise<string | null> => {

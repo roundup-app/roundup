@@ -19,12 +19,12 @@ const paths = git(['ls-tree', '-r', '--name-only', base]).trim().split('\n');
 
 const baselinePath = 'apps/desktop/copy/baseline.json';
 
-const previous = process.argv.includes('--inventory') ? [] : paths.includes(baselinePath)
+const previous = paths.includes(baselinePath)
   ? JSON.parse(git(['show', `${base}:${baselinePath}`]))
   : checkCopy(Object.fromEntries(paths.filter(file => file.startsWith('apps/desktop/src/') && /\.tsx?$/.test(file)).map(file => [file.slice('apps/desktop/src/'.length), git(['show', `${base}:${file}`])])), { root, glossary: git(['show', `${base}:GLOSSARY.md`]) }).inventory;
 
 if (process.argv.includes('--inventory')) {
-  process.stdout.write(JSON.stringify(checkCopy(files, { root, glossary }).inventory) + '\n');
+  process.stdout.write(JSON.stringify(checkCopy(files, { root, glossary, previous }).inventory) + '\n');
 } else {
   const baseline = JSON.parse(readFileSync(new URL('./baseline.json', import.meta.url), 'utf8'));
   const result = checkCopy(files, { root, glossary, baseline, previous });
