@@ -1,3 +1,4 @@
+import { historyRegion } from "../keys/focus";
 import { captureFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -339,6 +340,8 @@ const PadBody = (props: {
 
   const remove = (source: ActivationSource) =>
     act(async () => {
+      const focus = captureFocus();
+      const close = document.activeElement?.closest(".drawer")?.querySelector<HTMLElement>(".close");
       saveAfterPause.clear();
       due = null;
       const failures = await connected.drafts.todoUndo.removePads([{ name, incarnation: destination.object }], `pad:${destination.object}`);
@@ -348,7 +351,10 @@ const PadBody = (props: {
       actionFailure.clear();
       props.onFailureCleared?.();
       setRemovedByMe(true);
+      // A deletion event can remove the focused Delete button before its reply closes the Drawer.
+      focus(() => { if (document.activeElement === document.body) close?.focus({ preventScroll: true }); });
       connected.drawer.close(source);
+      queueMicrotask(() => connected.drafts.todoUndo.handoff(`pad:${destination.object}`, historyRegion(document.activeElement)));
     });
 
   const onChange = () => {
@@ -428,7 +434,7 @@ const PadBody = (props: {
   const nameCut = createCutTitle(() => name);
 
   return (
-    <div class="pad-body">
+    <div class="pad-body" data-history-region={`pad:${destination.object}`}>
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name">{name}</span>

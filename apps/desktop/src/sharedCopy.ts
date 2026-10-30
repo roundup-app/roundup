@@ -2,6 +2,8 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 
 
+const dismiss = "Dismiss";
+
 const rpcFailures = new Map<number, string>([
   [-32700, "The request could not be read. Try again."], [-32601, "This action is unavailable. Check for an update."],
   [-32602, "Check the input and try again."], [-32603, "Completion is unconfirmed. Check before trying again."],
@@ -19,7 +21,7 @@ export const draftProblem = (cause: string) => `${cause === "write" ? "Could not
 export type CopyValue = string | number | undefined;
 
 export const labels = new Map([
-  ["open-tab", "the selected Project"], ["unseen", "read markers"], ["drafts", "drafts"],
+  ["open-tab", "the selected Project"], ["unseen", "read markers"], ["drafts", "unfinished work"],
   ["import", "imported work"], ["rail", "Rail layout"], ["app-settings", "settings"],
   ["widths", "panel widths"], ["shelf", "work item layout"], ["terminal-font", "Terminal text size"],
  ]);
@@ -31,7 +33,7 @@ export const copy = {
   switchProject: "Switch Project",
   reviewChanges: "Review changes",
   closeView: (name: string) => `Close ${name}`,
-  railDraftConflict: "The original name changed. Your edit is retained; copy or discard it before renaming again.",
+  railDraftConflict: "The original name has changed. Your unfinished work remains. Copy it or discard it before renaming again.",
   railDraftMissingTarget: "Unavailable target",
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   settings: "Settings",
@@ -43,8 +45,8 @@ export const copy = {
     "source-unknown": "Unavailable: source access could not be verified.",
     "materialization-failed": "Unavailable: could not prepare the retained revision for opening.",
   },
-  dismissFailure: "Dismiss",
-  dismiss: "Dismiss",
+  dismissFailure: dismiss,
+  dismiss,
   retryStorage: "Try again",
   draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? "Unfinished work",
   draftField: (field: string) => ({ originalName: "Original name", document: "Editor document", editorSource: "Original editor source", editorCaret: "Editor selection context", source: "Source", base: "Original source", name: "Name", title: "Title", ask: "Ask", done: "Done", password: "Password", body: "Text", text: "Text", content: "Text", limits: "Limits" })[field] ?? "Stored value",
@@ -54,17 +56,18 @@ export const copy = {
   openDraft: "Open",
   unfinishedWork: "Unfinished work",
   copyProjectName: "Copy name",
-  currentDraft: "Current work",
-  draftStatus: { draft: "Unsubmitted", pending: "Pending", failed: "Failed", unknown: "Acceptance unknown" },
+  currentDraft: "Current",
+  draftStatus: { draft: "Unsubmitted", pending: "Pending", failed: "Failed", unknown: "Completion unknown" },
   originalUnavailable: "Original object unavailable",
   storageRetry: "Retry storage only",
-  discardRevision: "Discard this revision",
+  discardRevision: "Discard",
   draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: ${draftProblem(cause)}`,
   copyField: (field: string) => `Copy ${field}`,
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
   openEvidence: (value1: CopyValue) => `Open ${value1}`,
   recoverNotes: "Recover notes",
   todoUndo: "Undo",
+  redo: "Redo",
   todoDeleteRetry: "Check deletion",
   moveUp: "Move up",
   moveDown: "Move down",

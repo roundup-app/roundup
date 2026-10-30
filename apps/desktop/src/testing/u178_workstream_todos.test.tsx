@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import "../todos/testHarness";
 import { createNow, DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -95,7 +96,7 @@ it("u2773c_todos_unavailable_original_keeps_project_local_recovery", async () =>
   await external.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [original.id] });
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(String(original.id)));
   expect(connected.drafts.list().find(draft => draft.destination.object === String(original.id))?.value.text).toBe("  recover after removal 🧪  ");
-  fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(screen.getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(connected.drafts.list()).toEqual([]);
   expect((await app.rpc("todo.list", null)).some(todo => todo.id === original.id)).toBe(false);
 }, 60_000);
