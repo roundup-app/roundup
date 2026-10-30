@@ -143,7 +143,10 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
-  it.each(([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const).flatMap(([place, go]) => hintsFor(place).map(hint => ({ place, go, hint }))))("u2230_every_hint_names_a_bound_chord_in_$place $hint.keys", async ({ place, go, hint }) => {
+  it.each(([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const).flatMap(([place, go]) => hintsFor(place).map(hint => [place, hint.keys, go, hint] as const)))("u2230_every_hint_names_a_bound_chord_in_%s: %s", async (place, _keys, go, hint) => {
+    // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
+    cleanup();
+    endLeader();
     const app = await open();
 
     await go();
@@ -161,7 +164,10 @@ describe("u2230 shortcut hints", () => {
     else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
   });
 
-  it.each(([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")]] as const).flatMap(([place, go]) => hintsFor(place).map(hint => ({ place, go, hint }))))("u4690_each_hint_runs_its_key_action_once_in_$place $hint.keys", async ({ place, go, hint }) => {
+  it.each(([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")]] as const).flatMap(([place, go]) => hintsFor(place).map(hint => [place, hint.keys, go, hint] as const)))("u4690_each_hint_runs_its_key_action_once_in_%s: %s", async (place, _keys, go, hint) => {
+    // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
+    cleanup();
+    endLeader();
     const app = await open();
 
     await go();

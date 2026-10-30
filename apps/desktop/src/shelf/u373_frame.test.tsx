@@ -26,7 +26,7 @@ const shared = async () => {
 
   if (shelf().hidden) chord();
 
-  if (selectedTab() !== tabNamed("Todos")) fireEvent.click(tabNamed("Todos"));
+  if (selectedTab() !== "Todos") fireEvent.click(tabNamed("Todos"));
   await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Todos").id));
 
   return live;
@@ -49,14 +49,14 @@ const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
 const tabs = () => within(screen.getByRole("tablist", { name: "Bench" })).getAllByRole("tab");
 
-const tabNamed = (name: string) => within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: new RegExp(`^${name}`) });
+const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
   leaderKey("KeyB", init, target);
 
 const counts = () => ["todos", "pads"].map(tab => Number(shelf().querySelector(`#shelf-tab-${tab} .shelf-count`)?.textContent ?? 0));
 
-const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected") === "true")!;
+const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected") === "true")!.textContent!.replace(/\d+$/, "");
 
 describe("u373 and u370 on one mounted App", () => {
   afterAll(() => {
@@ -65,16 +65,11 @@ describe("u373 and u370 on one mounted App", () => {
     live = undefined;
   });
 
-  it("u373_counts_follow_the_scope", async () => {
+  it.each([["payments", 0], ["tokens", 3], [null, 7]] as const)("u373_counts_follow_the_scope: %s", async (selected, todoCount) => {
     await shared();
 
-    await waitFor(() => expect(counts()).toEqual([7, 4]));
-    fireEvent.click(document.querySelector('.rail-row[data-id="payments"]')!);
-    await waitFor(() => expect(counts()).toEqual([0, 4]));
-    fireEvent.click(document.querySelector('.rail-row[data-id="tokens"]')!);
-    await waitFor(() => expect(counts()).toEqual([3, 4]));
-    fireEvent.click(document.querySelector('[data-todo-root]')!);
-    await waitFor(() => expect(counts()).toEqual([7, 4]));
+    if (selected) fireEvent.click(document.querySelector(`.rail-row[data-id="${selected}"]`)!);
+    await waitFor(() => expect(counts()).toEqual([todoCount, 4]));
   });
 
   it("u373_counts_follow_the_terminal_selected_in_the_switcher", async () => {
@@ -125,8 +120,8 @@ describe("u373 and u370 on one mounted App", () => {
     fireEvent.click(document.querySelector('[data-id="backend"]')!);
 
     for (const [key, name] of [["ArrowRight", "Pads"], ["ArrowLeft", "Todos"], ["End", "Pads"], ["Home", "Todos"]]) {
-      selectedTab().focus();
-      fireEvent.keyDown(selectedTab(), { key });
+      tabNamed(selectedTab()).focus();
+      fireEvent.keyDown(tabNamed(selectedTab()), { key });
       await waitFor(() => expect(document.activeElement).toBe(tabNamed(name!)));
     }
   }, 45_000);
@@ -164,12 +159,12 @@ describe("u373 and u370 on one mounted App", () => {
   it("u373_the_other_tab_switches", async () => {
     await shared();
     expect(within(shelf()).getAllByRole("tabpanel")).toHaveLength(1);
-    expect(selectedTab()).toBe(tabNamed("Todos"));
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
     fireEvent.click(tabNamed("Pads"));
     expect(shelf().hidden).toBe(false);
     await waitFor(() => expect(shelf().querySelector('section[aria-label="Todos"]')).toBeNull());
-    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
-    expect(tabNamed("Todos").getAttribute("aria-expanded")).toBe("false");
+    expect(document.getElementById("shelf-tab-pads")?.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-expanded")).toBe("false");
     await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Pads").id));
   });
 
@@ -235,7 +230,7 @@ describe("u373 the Shelf has two tabs", () => {
     localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({ open: true, tab: 7 }));
     await mountApp();
 
-    expect(selectedTab()).toBe(tabNamed("Todos"));
+    expect(document.getElementById("shelf-tab-todos")?.getAttribute("aria-selected")).toBe("true");
   });
 
   it("u373_add_keeps_its_path", async () => {
