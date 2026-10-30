@@ -480,7 +480,7 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   expect(retained.filter(draft => draft.destination.surface === "pads").map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
   fireEvent.click(within(screen.getByLabelText("Drawer")).getByRole("button", { name: "Delete" }));
   await acknowledged();
-  await waitFor(() => expect(connected.drawer.content()).toBeNull());
+  await waitFor(() => { if (connected.drawer.content() !== null) throw new Error("Drawer has not closed"); });
   expect(connected.drafts.list()).toEqual(retained);
   pressUndo();
   await waitFor(() => expect(connected.drafts.todoUndo.pending()).toBe(false));
