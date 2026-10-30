@@ -443,6 +443,8 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
   const read = async () => isPad ? (await app.rpc("pad.list", null)).some(item => item.incarnation === pad!.incarnation) : (await app.rpc("todo.list", null)).some(item => item.id === todo!.id);
   await waitFor(async () => expect(await read()).toBe(false));
   await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
+
+  if (kind.startsWith("drawer-")) await waitFor(() => expect(row.isConnected).toBe(false));
   // BulkDelete's acknowledged readback returns focus after its row refresh.
   const expectedRegion = kind === "todos" || kind === "pads" ? kind : "shelf";
   await waitFor(() => expect(document.activeElement?.closest<HTMLElement>("[data-history-region]")?.dataset.historyRegion).toBe(expectedRegion));

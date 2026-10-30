@@ -32,6 +32,7 @@ vi.mock("../pads/PadRichEditor", async (original) => {
   let field: HTMLTextAreaElement | undefined;
   const [text, setText] = createSignal(props.text);
   let base = props.text;
+  // PadRichEditor closes its selection callback before destroying the editor.
   let closed = false;
   onCleanup(() => { closed = true; });
   onMount(() => {
