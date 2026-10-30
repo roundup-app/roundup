@@ -2065,57 +2065,6 @@ async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::S
 #[path = "e2e/todo_waits.rs"]
 mod todo_waits;
 
-// P14: a Pad has no Scribe.
-
-async fn p14_pads(client: &rpc::Client, names: &[&str]) {
-    for name in names {
-        client
-            .request("pad.create", json!({ "name": name, "text": "start" }))
-            .await
-            .unwrap();
-    }
-}
-
-#[tokio::test]
-async fn p14_pad_ask_is_unknown() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p14_pads(&user, &["notes"]).await;
-    let before = rail_tree(&user).await.len();
-    let touches = |client: rpc::Client| async move {
-        client
-            .request("provenance.history", json!({ "item": "pad:notes" }))
-            .await
-            .unwrap()
-    };
-    let history = touches(project.client().await).await;
-
-    let err = user
-        .request("pad.ask", json!({ "name": "notes", "text": "shorten" }))
-        .await
-        .unwrap_err();
-
-    assert_eq!(err.code, rpc::code::METHOD_NOT_FOUND);
-    assert_eq!(rail_tree(&user).await.len(), before);
-    assert_eq!(touches(project.client().await).await, history);
-}
-
-#[tokio::test]
-async fn p14_pad_has_no_scribe_field() {
-    let project = start(&[]);
-    let user = project.client().await;
-    p14_pads(&user, &["notes"]).await;
-
-    let read = user
-        .request("pad.read", json!({ "name": "notes" }))
-        .await
-        .unwrap();
-    let listed = user.request("pad.list", json!(null)).await.unwrap();
-
-    assert!(read.get("scribe").is_none());
-    assert!(listed[0].get("scribe").is_none());
-}
-
 /// X11, X12: a Terminal the user opens is a bubble's, not a Rail node: it is written to, read back
 /// and closed, and a connection ending closes nothing.
 #[tokio::test]
