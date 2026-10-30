@@ -103,6 +103,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
   try {
     await browser("--profile", profile, "open", "about:blank");
     await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
     const app = createServedApp(real.base);
     const home = await app.rpc("rail.createWorkstream", { name: "Pad review", parent: null });
 
