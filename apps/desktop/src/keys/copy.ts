@@ -1,6 +1,8 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
+  italic: sharedCopy.italic,
+  inlineCode: sharedCopy.inlineCode,
   find: "Find…",
   addTodo: sharedCopy.addTodo,
   switchProject: sharedCopy.switchProject,

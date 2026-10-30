@@ -405,3 +405,7 @@ U3787b Project-tab Rename uses its existing instant editor for F2 and the Projec
 menu. Both invoke the same focused tab holder; projection changes no focus,
 geometry, animation or Tokens. D2/D5/D6 retain their baseline; native-menu
 appearance still requires macOS observation.
+
+U3787b Pad Bold, Italic and Inline code menu/key actions invoke Milkdown's existing
+commands immediately. Capturing the editor/selection and dry-running availability
+changes no focus, document or Terminal input. No motion or new timing is introduced.

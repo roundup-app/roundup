@@ -356,6 +356,9 @@ fn u4278b_one_step_items_carry_native_accelerators() {
         ("⌘=", "Super+="),
         ("⌘-", "Super+-"),
         ("⌘0", "Super+0"),
+        ("⌘B", "Super+B"),
+        ("⌘I", "Super+I"),
+        ("⌘E", "Super+E"),
     ] {
         let source = item(
             &format!("action:chord:{chord}"),
@@ -503,6 +506,9 @@ fn u2539b_native_menu_projects_the_task_chords() {
             Some(vec![
                 item("action:leader:C", "Review changes", Some("⌘K C"), None),
                 item("action:chord:⌘F", "Find…", Some("⌘F"), None),
+                item("action:chord:⌘B", "Bold", Some("⌘B"), None),
+                item("action:chord:⌘I", "Italic", Some("⌘I"), None),
+                item("action:chord:⌘E", "Inline code", Some("⌘E"), None),
                 item("action:chord:F2", "Rename", Some("F2"), None),
                 item("action:chord:⏎", "Open", Some("⏎"), None),
                 item("action:chord:?", "Help", Some("?"), None),
@@ -545,6 +551,9 @@ fn u2539b_native_menu_projects_the_task_chords() {
         for id in [
             "action:leader:C",
             "action:chord:⌘F",
+            "action:chord:⌘B",
+            "action:chord:⌘I",
+            "action:chord:⌘E",
             "action:chord:F2",
             "action:chord:⏎",
             "action:chord:?",
@@ -569,6 +578,9 @@ fn u2539b_native_menu_projects_the_task_chords() {
         vec![
             serde_json::json!({"path": "/A", "command": "action:leader:C"}),
             serde_json::json!({"path": "/A", "command": "action:chord:⌘F"}),
+            serde_json::json!({"path": "/A", "command": "action:chord:⌘B"}),
+            serde_json::json!({"path": "/A", "command": "action:chord:⌘I"}),
+            serde_json::json!({"path": "/A", "command": "action:chord:⌘E"}),
             serde_json::json!({"path": "/A", "command": "action:chord:F2"}),
             serde_json::json!({"path": "/A", "command": "action:chord:⏎"}),
             serde_json::json!({"path": "/A", "command": "action:chord:?"}),
@@ -585,6 +597,9 @@ fn u2539b_native_menu_projects_the_task_chords() {
             serde_json::json!({"path": "/A", "command": "action:chord:1–9:Digit9"}),
             serde_json::json!({"path": "/B", "command": "action:leader:C"}),
             serde_json::json!({"path": "/B", "command": "action:chord:⌘F"}),
+            serde_json::json!({"path": "/B", "command": "action:chord:⌘B"}),
+            serde_json::json!({"path": "/B", "command": "action:chord:⌘I"}),
+            serde_json::json!({"path": "/B", "command": "action:chord:⌘E"}),
             serde_json::json!({"path": "/B", "command": "action:chord:F2"}),
             serde_json::json!({"path": "/B", "command": "action:chord:⏎"}),
             serde_json::json!({"path": "/B", "command": "action:chord:?"}),

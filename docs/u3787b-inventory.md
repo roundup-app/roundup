@@ -533,3 +533,35 @@ with D2/D5 and baseline D6 preserved. The isolated keyboard recording shows F2
 opening the existing editor and Escape returning to its tab. PNGs/video remain
 uncommitted. `just capture U3787b` exits 1 because its frozen capture table rejects
 that id; explicit isolated captures supply Chromium evidence only.
+
+## Rich-editor inline formatting continuation
+
+The production Pad editor registers its installed Milkdown Bold (`⌘B`), Italic
+(`⌘I`) and Inline code (`⌘E`) commands with the existing registry. Bold shares the
+existing focus-scoped `⌘B` identity with Terminal switching; its captured editor
+label overrides the Terminal label. The region owns the command before App scope.
+Milkdown supplies the command, availability probe and document transaction; no
+parallel key dispatcher or synthetic event is added. Captures retain the document
+and selection and refuse invocation after focus leaves, content/selection changes,
+read-only state or disposal. Editor state changes refresh the menu projection.
+
+The added `u3787b_menu_and_key_share_one_action` cases use the connected App,
+production Pad editor and native-menu event seam. Either path formats only the
+chosen text once, keeps focus, refuses the stale capture and writes no Terminal
+input. Existing toolbar/reopen proofs remain unchanged. The Tauri forwarding and
+native accelerator observers add these three commands. No proof is removed or
+retired; catalogue ownership/authored-copy assertions are preserved.
+
+Installed Milkdown CommonMark also binds named block formatting: Quote
+(`⌘⇧B`), Bullet list (`⌥⌘8`), Numbered list (`⌥⌘7`), Code block (`⌥⌘C`),
+Paragraph (`⌥⌘0`) and Heading 1–6 (`⌥⌘1`–`⌥⌘6`). GFM binds Strikethrough
+(`⌥⌘X`). These remain command-menu integration work, alongside native Edit
+availability and final native displayed-key/combined-dispatch observations.
+Plain Enter, Backspace, Delete, Tab and cell/list navigation remain library-owned.
+This slice does not complete #4308 or #3843.
+
+Main macOS check [41084830368](https://github.com/roundup-app/roundup/actions/runs/41084830368)
+at `bf80a4c7a8a7983279735875b7a1cf9c09587a81` passed mac/mac-clippy and the actual
+`u3787b_native_responder_find_and_close_follow_availability` probe (1.084 s).
+It does not establish native displayed-key/alignment or complete-App combined
+dispatch. Prior native evidence retains its original scope and SHA.
