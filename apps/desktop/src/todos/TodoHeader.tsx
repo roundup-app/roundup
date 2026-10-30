@@ -31,7 +31,6 @@ export const TodoHeader = (props: {
   const [actions, setActions] = createSignal(false);
   const [agentsOnly, setAgentsOnly] = createSignal(false);
   let trigger: HTMLButtonElement | undefined;
-  let afterActions: (() => void) | undefined;
   const assign = (anchor: HTMLButtonElement) => { if (!props.todo.done) { setAgentsOnly(false); setPicking({ id: props.todo.id, anchor }); } };
 
   props.registerOwner(assign);
@@ -58,20 +57,16 @@ export const TodoHeader = (props: {
         <IconButton data-todo-navigation aria-label="Previous Todo" disabled={at() <= 0} onClick={() => go(-1)}><Icon name="left" /></IconButton>
         <IconButton data-todo-navigation aria-label="Next Todo" disabled={at() < 0 || at() >= props.order.length - 1} onClick={() => go(1)}><Icon name="right" /></IconButton>
         <CopyButton class="word mono" app={connected.app} text={`#${props.todo.id}`} aria-label="Copy Todo id" onFailure={error => props.fail(error.message)}>#{props.todo.id}</CopyButton>
-        <Menu.Root open={actions()} onOpenChange={({ open }) => setActions(open)} onExitComplete={() => {
-          const open = afterActions;
-          afterActions = undefined;
-          open?.();
-        }} onSelect={({ value }) => {
+        <Menu.Root open={actions()} onOpenChange={({ open }) => setActions(open)} onSelect={({ value }) => {
           if (value === "delete") props.remove();
 
-          if (value === "owner") afterActions = () => { if (trigger) assign(trigger); };
+          if (value === "owner" && trigger) assign(trigger);
 
-          if (value === "hand") afterActions = () => { if (trigger && !props.todo.done) { setAgentsOnly(true); setPicking({ id: props.todo.id, anchor: trigger }); } };
+          if (value === "hand" && trigger && !props.todo.done) { setAgentsOnly(true); setPicking({ id: props.todo.id, anchor: trigger }); }
 
-          if (value === "home") afterActions = () => { if (trigger) setMoving({ id: props.todo.id, anchor: trigger }); };
+          if (value === "home" && trigger) setMoving({ id: props.todo.id, anchor: trigger });
         }}>
-          <Menu.Trigger ref={element => { trigger = element; }} asChild={attributes => <IconButton {...attributes()} aria-label="More actions" onClick={() => setActions(true)}><Icon name="more" /></IconButton>} />
+          <Menu.Trigger asChild={attributes => <IconButton {...attributes({ ref: (element: HTMLButtonElement) => { trigger = element; } })} aria-label="More actions" onClick={() => setActions(true)}><Icon name="more" /></IconButton>} />
           <Portal><Menu.Positioner><Menu.Content aria-label="Todo actions">
             <Menu.Item value="owner" disabled={props.todo.done}>{copy.assign}</Menu.Item>
             <Menu.Item value="hand" disabled={props.todo.done || !ownersOnRail(connected).some(owner => owner.actor?.kind === "agent" && !sameOwner(owner.actor, props.todo.owner))}>Hand to an Agent</Menu.Item>

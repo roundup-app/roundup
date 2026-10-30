@@ -103,6 +103,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
           await browser("click", '.drawer [aria-label="More actions"]');
           await browser("wait", '[role="menu"][data-state="open"]');
           await browser("click", `[role="menuitem"][data-value="${action}"]`);
+          await settle();
           await browser("wait", '.owner-picker[data-state="open"]');
           await settle();
           await browser("screenshot", join(output, `${action}-menu-${width}.png`));
@@ -192,6 +193,7 @@ it.each([[1512, 950], [1280, 820]])("u4698d_rich_body_saves_the_selected_todo_an
 
 it.each([[1512, 950], [1280, 820]])("u4698d_refused_actions_keep_the_dense_document_recoverable_%sx%s", { retry: 0, timeout: 90_000 }, async (width, height) => {
   await openDocument(width, height);
+
   const capture = async (name: string, failure?: string) => {
     if (failure) await browser("wait", "--fn", `document.querySelector('.drawer [role="alert"]')?.textContent.includes(${JSON.stringify(failure)})`);
     await settle();
