@@ -57,7 +57,7 @@ Art and delivery checks (policy; source and built-artifact review, not UI appear
 
 Audit, one row per view; each renders `EmptyState` and none keeps an ad-hoc `<p>` block:
 
-1. First run (`app/FirstRun.tsx`, `copy.openAFolderToStart`): title `Open a folder to start`, action `Choose folder…` as a `data-button="primary"` button with `⌘O` inside the button; when `recent_projects` returns paths, at most five rows under the action (U52), each one opens that path.
+1. First run (`app/FirstRun.tsx`, `copy.openAFolderToStart`): title `Choose a Project`, action `Choose folder…` as a `data-button="primary"` button with `⌘O` inside the button; when `recent_projects` returns paths, at most five rows under the action (U52), each one opens that path.
 2. The Shelf's `todos`, `pads`, `inbox` and `made` tabs (U38), each with its own art, a line saying what the tab is for, and for Todos and Pads the `+ Todo` or `+ Pad` action in place of U38's hint; Inbox and Made carry no action.
 3. An empty Rail (`EmptyRail`, U38’s `no agents yet`) has `New Agent` / `⌘N` first, green primary, and `New Workstream` / `⇧⌘N` second, quiet secondary. Both are buttons in one centred horizontal row, with each dimmer key label inside its button; no blue text links or stacked, left-ragged action list. Retain the existing availability guards and action handlers. This also orders the action-order change from U4644’s current Workstream-first rendering.
 4. The centre with nothing selected (U38) and an Agent or Door with no output (`pane-empty`), without an action.
