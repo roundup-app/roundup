@@ -166,11 +166,12 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
     if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") !== "true") fireEvent.click(group);
 
     const row = await waitFor(() => { const found = document.querySelector<HTMLElement>(selector); expect(found).not.toBeNull();
+      expect(found!.closest("[hidden], [inert]")).toBeNull();
 
  return found!; });
 
     row.focus();
-    fireEvent.keyDown(row, { key: "F2" });
+    fireEvent.keyDown(row, { key: "F2", code: "F2" });
     field = await screen.findByRole("textbox", { name: "Name" });
   } else if (opening === "Capture") {
     const action = captureActions(document.activeElement).find(action => action.value === (opening === "Capture" ? "action:leader:T" : "action:leader:K"));

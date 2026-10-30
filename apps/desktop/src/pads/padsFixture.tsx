@@ -178,7 +178,7 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
     }
 
     const button = await screen.findByRole("button", { name });
-    button.focus();
+    button.focus({ preventScroll: true });
     fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
   }
 
