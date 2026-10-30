@@ -43,10 +43,14 @@ it("u3789f_a_failure_line_names_its_action", async () => {
   expect(screen.queryByText(/Open failed:/)).toBeNull();
 });
 
-it("u3789f_the_user_edits_an_agent_owned_pad_and_todo", async () => {
+it("u3736_pad_actions_need_no_transfer", async () => {
   const { app } = await openShelf([padOf("notes", AGENT, "a")]);
+  const row = await padRow();
+  fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+  expect(app.shownMenus.at(-1)!.items.map(item => item.id)).toEqual(["open", "copy-link", "rename", "delete"]);
   const field = await openPad("notes");
 
+  expect(screen.queryByRole("button", { name: /Assign|Make yours|Open owner/ })).toBeNull();
   expect(field.readOnly).toBe(false);
   fireEvent.input(field, { target: { value: "edited" } });
   fireEvent.blur(field);

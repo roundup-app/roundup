@@ -226,7 +226,7 @@ run('u2716a Project overview band', () => {
       fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'rail.changed'});
       document.querySelector('${band}').click();
     }`);
-    await page.until(`() => Boolean(document.querySelector('${overview} .empty-state')) && !document.querySelector('${overview} [data-state="attention"]') && !/\\d/.test(document.querySelector('${band}').getAttribute('aria-label'))`);
+    await page.until(`() => Boolean(document.querySelector('${overview} .overview-quiet')) && !document.querySelector('${overview} .overview-state[data-state="error"], ${overview} .overview-state[data-state="needs-you"]') && !/\\d/.test(document.querySelector('${band}').getAttribute('aria-label'))`);
     await page.call(`() => {
       const nodes = window.__overviewNodes;
       const door = nodes.find(n => n.kind === 'workstream' && n.status);
@@ -235,8 +235,8 @@ run('u2716a Project overview band', () => {
       window.__fake.app.handlers['rail.tree'] = () => nodes.map(n => n.status ? {...n, status: {...n.status, kind: n.id === door.id ? 'error' : n.id === agent.id ? 'needs-you' : 'working'}} : n);
       window.__fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'rail.changed'});
     }`);
-    await page.until(`() => parseInt(document.querySelector('${overview} [data-state="attention"]')?.textContent) === 2`);
+    await page.until(`() => document.querySelectorAll('${overview} .overview-state[data-state="error"], ${overview} .overview-state[data-state="needs-you"]').length === 2`);
     await page.call(`() => window.__fake.setStatus(window.__attentionAgent, 'working', 'busy')`);
-    await page.until(`() => parseInt(document.querySelector('${overview} [data-state="attention"]')?.textContent) === 1`);
+    await page.until(`() => document.querySelectorAll('${overview} .overview-state[data-state="error"], ${overview} .overview-state[data-state="needs-you"]').length === 1`);
   }, 60_000);
 });
