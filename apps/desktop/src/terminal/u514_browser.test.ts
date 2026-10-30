@@ -134,8 +134,8 @@ const placement = async (where: "agent" | "door" | "bubble") => {
 };
 
 // One real-emulator gesture observer; App placement routing is covered by U3529a in jsdom.
-it("u2680a_output_drag_and_double_click_use_only_terminal_selection_bubble", async () => {
-  const selector = await placement("bubble");
+it.each(["bubble"] as const)("u2680a_output_drag_and_double_click_use_only_terminal_selection_%s", async (where) => {
+  const selector = await placement(where);
   const at = await point(selector);
   const from = { x: at.x + 3, y: await read<number>(`Math.round(document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().top + 8)`) };
 
@@ -352,8 +352,8 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
 }, 120_000);
 
 // The same emulator handles every placement; keep its mode/byte journal once.
-it("u3529b_terminal_gestures_match_plain_xterm_bubble", async () => {
-  const selector = await placement("bubble");
+it.each(["bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
+  const selector = await placement(where);
 
 
   const before = await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))");
