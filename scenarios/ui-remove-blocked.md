@@ -1,0 +1,14 @@
+# UI: Remove never does nothing
+
+Module: `apps/desktop` (the webview). Ids: U5170a to U5170c.
+
+Acceptance for [#5170](https://github.com/roundup-app/roundup/issues/5170). Owner report: after renaming a Workstream, Remove did nothing and the Daemon received no `rail.remove`. Policy: no new RPC, App seam command, Token or domain term. The existing deletion-failure line (`todo-undo` in `apps/desktop/src/App.tsx`) and its Retry and Dismiss buttons carry the message. Observer: Vitest against the fake App, in `apps/desktop/src/rail/menu/u5170_remove_blocked.test.tsx`.
+
+**U5170a Remove on a Rail row always sends `rail.remove` or says what blocks it.** Given a Workstream renamed by `rail.rename`, with all its Agents `done` and no Worktree or running Terminal, when the user chooses Remove from its menu or presses ⌘⌫ while the deletion history is in one of these states, then exactly one of the two holds, never neither:
+
+- Idle: one `rail.remove` is sent. Test: planned `u5170a_remove_renamed_workstream_sends_rail_remove`.
+- Blocked by a Todo or Pad delete or an undo or redo in flight, an unconfirmed Todo, Pad or redo, a Pad delete pending, a connection not yet made, or a different Rail removal unconfirmed: no `rail.remove` is sent, and the failure line shows a message naming what blocks Remove and what to do (wait and try again, or Retry for an unconfirmed item, naming it). The menu closes only after the message is set. Test: planned `u5170a_blocked_remove_says_what_blocks_it`, one case per state.
+
+**U5170b a stuck deletion state recovers.** Given an unconfirmed Todo, Pad, Rail or redo deletion left by a lost acknowledgement, when the user presses Retry and the Daemon now answers, then the state clears and a later Remove on a Workstream sends `rail.remove`; when the user presses Dismiss instead, the unconfirmed state is dropped from the blocking set after the message names that the earlier deletion stays unconfirmed in the Daemon, and a later Remove sends `rail.remove`. Test: planned `u5170b_retry_or_dismiss_unblocks_remove`.
+
+**U5170c every gated delete, undo and redo answers.** Given each blocked state of U5170a, when the user starts Todo delete, bulk Todo delete, Pad delete, Undo or Redo, then each either sends its RPC or shows the failure line naming the blocker; none returns without a call and without a message. Test: planned `u5170c_gated_actions_never_return_silently`, one case per action and state.
