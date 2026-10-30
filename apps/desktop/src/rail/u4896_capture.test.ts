@@ -107,12 +107,12 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
                 return [...new Set([...selected, ...(owned?[owned]:[])])].map(row=>'.rail-row[data-id="'+row.dataset.id+'"]').concat(document.querySelector('.rail-section[aria-label="AGENTS"] .rail-fold') ? ['.rail-section[aria-label="AGENTS"] .rail-fold'] : []);
               })()`);
 
-              for (const [index, selector] of ['.rail-section[aria-label="WORKSTREAMS"] .section-head', '.rail-section[aria-label="MODES"] .section-head', '.rail-section[aria-label="AGENTS"] .section-head', '.rail-row:has(.mode-mark)', '.rail-actions', ...neighbours].entries()) {
+              for (const [index, selector] of ['.rail-section[aria-label="WORKSTREAMS"] .section-head', '.rail-section[aria-label="MODES"] .section-head', '.rail-section[aria-label="AGENTS"] .section-head', '.rail-section[aria-label="MODES"] .rail-row', '.rail-actions', ...neighbours].entries()) {
                 await browser("hover", selector);
                 await browser("screenshot", selector, join(dir, `${prefix}-contact-${index}.png`));
               }
 
-              const mode = '.rail-row:has(.mode-mark)';
+              const mode = '.rail-section[aria-label="MODES"] .rail-row';
               await browser("click", `${mode} .name`);
               await browser("mouse", "move", "1400", "900");
               await browser("focus", ".rail-tree .section-head");
