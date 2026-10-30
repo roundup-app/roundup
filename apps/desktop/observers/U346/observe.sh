@@ -1,6 +1,6 @@
 #!/bin/bash
 # usage: observe.sh   (run from the repo root after `cargo build -p rupd -p rup`; starts its own rupd on the fake claude, Vite and a headless agent-browser session)
-# U346: at 1280x800 and 700x800, with a Terminal open, the confirm `delete` of an Agent-owned Pad, a user-owned Pad and a Todo must be what
+# U346: at 1280x800 and 700x800, with a Terminal open, the confirm `delete` of a Pad created by an Agent, a Pad created by the user and a Todo must be what
 # elementFromPoint returns at its centre, and a pointer click there must remove the item. Exits non-zero on any miss.
 set -euo pipefail
 root=$(pwd)
@@ -65,25 +65,17 @@ for W in 1280 700; do
     profile=$dir/browser-$W-$kind
     ev(){ browser --session $S eval "$1" 2>&1 | tail -1; }
     case $kind in
-      pad-user)  rpc pad.create '{"name":"plan'$W'","text":"v1"}' >/dev/null; item=plan$W; want=user ;;
-      pad-agent) rpc pad.create '{"name":"notes'$W'","text":"v1"}' >/dev/null
-                 rpc pad.setOwner '{"name":"notes'$W'","owner":{"kind":"agent","id":"'$agent'","parent":null}}' >/dev/null; item=notes$W; want=agent ;;
-      todo)      rpc todo.create '{"title":"chore'$W'","body":null,"blockers":null}' >/dev/null; item=chore$W; want= ;;
+      pad-user)  rpc pad.create '{"name":"plan'$W'","text":"v1"}' >/dev/null; item=plan$W ;;
+      pad-agent) "$root/target/debug/rup" --agent "$agent" pad create "notes$W" v1 >/dev/null; item=notes$W ;;
+      todo)      rpc todo.create '{"title":"chore'$W'","body":null,"blockers":null}' >/dev/null; item=chore$W ;;
     esac
-    if [ -n "$want" ]; then
-      owner=$(rpc pad.read '{"name":"'$item'"}' | grep -o '"owner":{"kind":"[a-z]*"' | grep -o '[a-z]*"$' | tr -d '"')
-      echo "$W $kind: owner $owner"; [ "$owner" = "$want" ] || fail=1
-    fi
     browser --session "$S" --profile "$profile" open "http://127.0.0.1:$port/harness.html?daemon=1" >/dev/null 2>&1
     browser --session "$S" set viewport $W 800 >/dev/null 2>&1
     sleep 3
     ev "(()=>{const b=document.querySelector('.rail [role=treeitem], .rail [role=row], .rail li');b&&b.click();return !!b})()" >/dev/null; sleep 4
-    if [ "$kind" = pad-agent ]; then # an Agent-owned Pad shows under its Agent's Rail row (U58), not on the Shelf
-      ev "(()=>{const c=document.querySelector('[data-pads-control]');c&&c.click();return !!c})()" >/dev/null; sleep 1
-      ev "(()=>{const b=[...document.querySelectorAll('.rail-pad')].find(x=>x.textContent.includes('$item'));b&&b.click();return !!b})()" >/dev/null; sleep 1
-    else
-      ev "(()=>{const b=[...document.querySelectorAll('.shelf button')].find(x=>x.textContent.includes('$item'));b&&b.click();return !!b})()" >/dev/null; sleep 1
-    fi
+    ev "(()=>{const tab=document.querySelector('#shelf-tab-$([ "$kind" = todo ] && echo todos || echo pads)');if(tab.getAttribute('aria-expanded')!=='true')tab.click();return true})()" >/dev/null; sleep 1
+    ev "(()=>{const group=document.querySelector('.shelf [data-shelf-group=unassigned]');if(group?.getAttribute('aria-expanded')==='false')group.querySelector('.shelf-group-control').click();return true})()" >/dev/null; sleep 1
+    ev "(()=>{const b=[...document.querySelectorAll('.shelf button')].find(x=>x.textContent.includes('$item'));b&&b.click();return !!b})()" >/dev/null; sleep 1
     ev "(()=>{const b=[...document.querySelectorAll('[aria-label=drawer] button')].find(x=>x.textContent.trim()==='delete');b&&b.click();return !!b})()" >/dev/null; sleep 1
     out=$(ev "(()=>{const bs=[...document.querySelectorAll('[aria-label=drawer] button')].filter(x=>x.textContent.trim()==='delete'),b=bs[0];if(!b)return 'no button';const q=b.getBoundingClientRect(),hit=document.elementFromPoint(q.left+q.width/2,q.top+q.height/2);return JSON.stringify({width:innerWidth,buttons:bs.length,hit:hit===b,hitTag:hit&&hit.tagName+'.'+hit.className,x:Math.round(q.left+q.width/2),y:Math.round(q.top+q.height/2)})})()")
     browser --session $S screenshot "$root/artifacts/ux/U346/question-$kind-$W.png" >/dev/null 2>&1

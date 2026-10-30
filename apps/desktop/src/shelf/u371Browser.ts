@@ -56,7 +56,7 @@ export function shelfBrowser() {
   };
 
   const toggle = async () => {
-    await evaluate(`(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', code: 'KeyS', bubbles: true })); return true; })()`);
+    await evaluate(`(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB', bubbles: true })); return true; })()`);
     await settle();
   };
 
