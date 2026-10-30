@@ -12,6 +12,28 @@ Owner amendment #4966 retires U3770's Inbox Drawer, its opener/Close/slide, Runn
 
 **U3770e the Inbox route opens Needs you.** Given an open Project, the former Inbox menu action or `⌘K I` selects Overview, expands Needs you and collapses other sections, including with no attention. Repeat from Rail, Ask, Bench, non-modal Drawer and a focused Agent/shell Terminal. It creates no Inbox Drawer, sends no Terminal input and starts/resumes/sends nothing. Repeating the route keeps Needs you open. Planned test `u3770e_inbox_route_opens_overview_needs_you_once` asserts destination, disclosure states, focus on its heading and zero unrelated calls through the connected App/real key handler. U2239's modal guards and leader consumption still apply; Ask drafts retain their exact text/Project under P11. Retire only the Drawer opening-state/slide proof. Policy: existing row expansion/collapse and membership moves retain `--easing-out` and the durations in `docs/motion.md`; counts never animate, no clock ticks, and reduced-motion changes are instant. Retain `u3770e_reduced_motion_makes_every_change_instant` for the row transitions (behavior only: no animation is created). No new motion is ordered.
 
+### U3770e empty-route acceptance (#4995)
+
+Given an open Project with no `needs-you` Agents, no `error` Agents and no unread comments, with Needs you collapsed and Made expanded, run each route independently from each starting state:
+
+| Starting state | Action |
+|---|---|
+| Empty Project, Overview visible | `⌘K`, then `I` |
+| Empty Project, Overview visible | Activate the native menu's Inbox action |
+| Project with an idle Agent selected | `⌘K`, then `I` |
+| Project with an idle Agent selected | Activate the native menu's Inbox action |
+
+Then Overview is selected, Needs you is expanded with its empty content, Asks/Reactions/Made are collapsed, the Needs you heading owns focus and no Drawer is open. Invoke the same route again: Needs you remains expanded and focused. The active Project and exact Ask draft remain unchanged, and neither invocation starts/resumes an Agent, sends an Ask or writes Terminal input. Test: extend `u3770e_inbox_route_opens_overview_needs_you_once` in `apps/desktop/src/inbox/u3770_inbox.test.tsx` with these four cases, asserting the same endpoint and call counts after each invocation. Retain its existing origins; reuse its empty-route proof rather than adding a duplicate test. Menu cases enter through the existing menu dispatch (`openProjectPage`), and key cases use the connected App's real leader handler; calling the route callback directly proves neither route.
+
+Policy — this narrows the existing U3770e observer to an explicit empty-state regression matrix; it does not retire any U3770e origin or guard. At 1512×950, dark, isolated headless U26 `empty-project`, collapse Needs you/open Made before each route, then capture the resulting expanded empty section under `artifacts/ux/U3770e/` using `just capture U3770e`. The menu dispatch observer establishes webview routing; existing native menu construction/dispatch tests establish the menu command. Keep D2, D5 and D6 and every Check passing on main; use only Tokens. No native Mac observation or specification-only capture is required.
+
+Regression Checks for #4995 on main:
+
+1. `apps/desktop/src/inbox/u3770_inbox.test.tsx`, `u3770e_inbox_route_opens_overview_needs_you_once`: existing route origins, heading focus, accordion state, repeated route, retained draft and unrelated-call refusal.
+2. `scenarios/ui-shortcuts.md`, U2239 and U2241: modal guards, leader consumption and Terminal key ownership.
+3. `scenarios/ask-bar.md`, U504 and U505: Overview accordion, initial attention opening and Ask acknowledgement.
+4. `scenarios/ui-worktree-changes.md`, U2539b: Inbox menu/key destination and matching native-menu action.
+
 Regression Checks on main:
 
 1. `scenarios/ui-project-root-overview.md`, U2567a–d: attention order, exact requesting Terminal and refresh.
