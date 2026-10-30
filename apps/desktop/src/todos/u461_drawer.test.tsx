@@ -14,7 +14,7 @@ const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const open = async () => {
   const mounted = await mountTodos([todo(1, { title: "Ship", body: "Read this\nThen this" })]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 Ship" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Idle #1 Ship" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
   await within(panel()).findByRole("button", { name: /^Blocked by/ });
 
   return mounted;
@@ -85,7 +85,8 @@ const doneSurface = async (surface: "fold" | "drawer" | "agent", input: "pointer
 
   fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
-  if (surface === "drawer") fireEvent.keyDown(await screen.findByRole("button", { name: "Done #1 todo 1" }), { key: "Enter" });
+  if (surface === "drawer") { const row = await screen.findByRole("button", { name: "Done #1 todo 1" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const area = surface === "drawer" ? panel() : document.querySelector<HTMLElement>(".shelf")!;
   const box = await within(area).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
   box.focus();
@@ -166,7 +167,8 @@ for (const { remaining, reopened, target } of [
 it("u461a_success_refetches_surfaces_and_keeps_focus_in_the_drawer", async () => {
   const mounted = await mountTodos([todo(1, { done: true }), todo(2, { blockers: [1] }), todo(3)]);
   fireEvent.click(await screen.findByText("Unassigned"));
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Done #1 todo 1" }), { key: "Enter" });
+  { const row = await screen.findByRole("button", { name: "Done #1 todo 1" }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   const box = await within(panel()).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
   box.focus(); fireEvent.click(box);
   await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:1}]));

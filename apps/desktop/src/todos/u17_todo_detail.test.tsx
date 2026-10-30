@@ -31,7 +31,9 @@ const rowButton = async (title: RegExp): Promise<HTMLElement> => {
 
 const openDrawerOf = async (title: RegExp, todos = shelf(), reducedMotion = true) => {
   const mounted = await mountTodos(todos, reducedMotion);
-  fireEvent.keyDown(await rowButton(title), { key: "Enter" });
+  const focusedRow = await rowButton(title);
+  focusedRow.focus();
+  fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
   await within(drawer()).findByRole("button", { name: /^Blocked by/ });
   await within(drawer()).findByRole("region", { name: "Todo history" });
 

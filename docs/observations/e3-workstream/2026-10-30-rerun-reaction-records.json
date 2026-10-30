@@ -1,0 +1,617 @@
+[
+  {
+    "at": "2026-10-30T09:20:11.827840+00:00",
+    "method": "agent.worktreeState",
+    "params": {
+      "id": "2"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "ahead": 0,
+        "behind": 0,
+        "dirty": false
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:20:18.413436+00:00",
+    "method": "agent.worktreeState",
+    "params": {
+      "id": "2"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "ahead": 0,
+        "behind": 0,
+        "dirty": false,
+        "ci": {
+          "state": "running",
+          "stale": false
+        },
+        "pr": {
+          "number": 42,
+          "stale": false
+        },
+        "evidence": {
+          "state": "incomplete",
+          "stale": false,
+          "repository": "github.com/fixture/collector",
+          "head": "270cf46078e436d5993c21fc0a7743ad932530fb",
+          "checks": [],
+          "read_at": 1793352016
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:20:51.830632+00:00",
+    "method": "reaction.list",
+    "params": {},
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": []
+    }
+  },
+  {
+    "at": "2026-10-30T09:21:11.833223+00:00",
+    "method": "reaction.list",
+    "params": {},
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": [
+        {
+          "project": "b5fe68730630ce4f049732e2b782d453",
+          "id": "fa786ab95f877232cb9517de91f6d4eb",
+          "name": "PR 42 checks passed",
+          "actor": {
+            "kind": "agent",
+            "id": "2",
+            "parent": null
+          },
+          "reason": "Wait for required checks on fixture/collector#42 after pushing the X fix.",
+          "home": "1",
+          "target": "2",
+          "instruction": "PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.",
+          "condition": {
+            "kind": "pr-checks",
+            "repository": "github.com/fixture/collector",
+            "number": 42
+          },
+          "max_firings": 1,
+          "remaining": 1,
+          "rearm": false,
+          "expires_at": "2026-10-31T12:00:00+00:00",
+          "created_at": "2026-10-30T09:21:05.633734047Z",
+          "state": "active",
+          "observation": {
+            "health_code": "waiting",
+            "cause_code": "checks-pending",
+            "gap_code": "unknown",
+            "recovery_code": "check",
+            "health": "waiting",
+            "cursor": null,
+            "gap": null,
+            "recovery": null,
+            "evidence": null,
+            "pinned_head": "42a2f2dc6b20950b346133ea719f3f86c17ff413",
+            "cause": "a required check is pending, or none is required"
+          },
+          "firings": []
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-10-30T09:21:18.315426+00:00",
+    "method": "reaction.get",
+    "params": {
+      "id": "fa786ab95f877232cb9517de91f6d4eb"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "project": "b5fe68730630ce4f049732e2b782d453",
+        "id": "fa786ab95f877232cb9517de91f6d4eb",
+        "name": "PR 42 checks passed",
+        "actor": {
+          "kind": "agent",
+          "id": "2",
+          "parent": null
+        },
+        "reason": "Wait for required checks on fixture/collector#42 after pushing the X fix.",
+        "home": "1",
+        "target": "2",
+        "instruction": "PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.",
+        "condition": {
+          "kind": "pr-checks",
+          "repository": "github.com/fixture/collector",
+          "number": 42
+        },
+        "max_firings": 1,
+        "remaining": 1,
+        "rearm": false,
+        "expires_at": "2026-10-31T12:00:00+00:00",
+        "created_at": "2026-10-30T09:21:05.633734047Z",
+        "state": "active",
+        "observation": {
+          "health_code": "waiting",
+          "cause_code": "checks-pending",
+          "gap_code": "unknown",
+          "recovery_code": "check",
+          "health": "waiting",
+          "cursor": null,
+          "gap": null,
+          "recovery": null,
+          "evidence": null,
+          "pinned_head": "42a2f2dc6b20950b346133ea719f3f86c17ff413",
+          "cause": "a required check is pending, or none is required"
+        },
+        "firings": []
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:21:18.343340+00:00",
+    "method": "agent.worktreeState",
+    "params": {
+      "id": "2"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "ahead": 1,
+        "behind": 0,
+        "dirty": false,
+        "ci": {
+          "state": "running",
+          "stale": false
+        },
+        "pr": {
+          "number": 42,
+          "stale": false
+        },
+        "evidence": {
+          "state": "incomplete",
+          "stale": false,
+          "repository": "github.com/fixture/collector",
+          "head": "42a2f2dc6b20950b346133ea719f3f86c17ff413",
+          "checks": [],
+          "read_at": 1793352055
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:21:26.482924+00:00",
+    "method": "reaction.get",
+    "params": {
+      "id": "fa786ab95f877232cb9517de91f6d4eb"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "project": "b5fe68730630ce4f049732e2b782d453",
+        "id": "fa786ab95f877232cb9517de91f6d4eb",
+        "name": "PR 42 checks passed",
+        "actor": {
+          "kind": "agent",
+          "id": "2",
+          "parent": null
+        },
+        "reason": "Wait for required checks on fixture/collector#42 after pushing the X fix.",
+        "home": "1",
+        "target": "2",
+        "instruction": "PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.",
+        "condition": {
+          "kind": "pr-checks",
+          "repository": "github.com/fixture/collector",
+          "number": 42
+        },
+        "max_firings": 1,
+        "remaining": 1,
+        "rearm": false,
+        "expires_at": "2026-10-31T12:00:00+00:00",
+        "created_at": "2026-10-30T09:21:05.633734047Z",
+        "state": "active",
+        "observation": {
+          "health_code": "waiting",
+          "cause_code": "checks-pending",
+          "gap_code": "unknown",
+          "recovery_code": "check",
+          "health": "waiting",
+          "cursor": null,
+          "gap": null,
+          "recovery": null,
+          "evidence": null,
+          "pinned_head": "42a2f2dc6b20950b346133ea719f3f86c17ff413",
+          "cause": "a required check is pending, or none is required"
+        },
+        "firings": []
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:21:26.504495+00:00",
+    "method": "message.list",
+    "params": {
+      "to": "2"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": [
+        {
+          "id": 1,
+          "from": {
+            "kind": "ext",
+            "id": "rupd",
+            "parent": null
+          },
+          "to": "2",
+          "kind": "note",
+          "body": "Next: #3 Push and wait for PR checks",
+          "replyTo": null,
+          "status": "delivered",
+          "reason": null,
+          "at": 1793352060577
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:00.230710+00:00",
+    "method": "reaction.get",
+    "params": {
+      "id": "fa786ab95f877232cb9517de91f6d4eb"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "project": "b5fe68730630ce4f049732e2b782d453",
+        "id": "fa786ab95f877232cb9517de91f6d4eb",
+        "name": "PR 42 checks passed",
+        "actor": {
+          "kind": "agent",
+          "id": "2",
+          "parent": null
+        },
+        "reason": "Wait for required checks on fixture/collector#42 after pushing the X fix.",
+        "home": "1",
+        "target": "2",
+        "instruction": "PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.",
+        "condition": {
+          "kind": "pr-checks",
+          "repository": "github.com/fixture/collector",
+          "number": 42
+        },
+        "max_firings": 1,
+        "remaining": 1,
+        "rearm": false,
+        "expires_at": "2026-10-31T12:00:00+00:00",
+        "created_at": "2026-10-30T09:21:05.633734047Z",
+        "state": "active",
+        "observation": {
+          "health_code": "waiting",
+          "cause_code": "checks-pending",
+          "gap_code": "unknown",
+          "recovery_code": "check",
+          "health": "waiting",
+          "cursor": null,
+          "gap": null,
+          "recovery": null,
+          "evidence": null,
+          "pinned_head": "42a2f2dc6b20950b346133ea719f3f86c17ff413",
+          "cause": "a required check is pending, or none is required"
+        },
+        "firings": []
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:00.250780+00:00",
+    "method": "message.list",
+    "params": {
+      "to": "2"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": [
+        {
+          "id": 1,
+          "from": {
+            "kind": "ext",
+            "id": "rupd",
+            "parent": null
+          },
+          "to": "2",
+          "kind": "note",
+          "body": "Next: #3 Push and wait for PR checks",
+          "replyTo": null,
+          "status": "delivered",
+          "reason": null,
+          "at": 1793352060577
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:00.279461+00:00",
+    "method": "agent.worktreeState",
+    "params": {
+      "id": "2"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "ahead": 1,
+        "behind": 0,
+        "dirty": false,
+        "ci": {
+          "state": "running",
+          "stale": true
+        },
+        "pr": {
+          "number": 42,
+          "stale": true
+        },
+        "evidence": {
+          "state": "incomplete",
+          "stale": true,
+          "repository": "github.com/fixture/collector",
+          "head": "42a2f2dc6b20950b346133ea719f3f86c17ff413",
+          "checks": [],
+          "read_at": 1793352055
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:09.275451+00:00",
+    "method": "agent.worktreeState",
+    "params": {
+      "id": "2"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "ahead": 1,
+        "behind": 0,
+        "dirty": false,
+        "ci": {
+          "state": "passed",
+          "stale": false
+        },
+        "pr": {
+          "number": 42,
+          "stale": false
+        },
+        "evidence": {
+          "state": "complete",
+          "stale": false,
+          "repository": "github.com/fixture/collector",
+          "head": "42a2f2dc6b20950b346133ea719f3f86c17ff413",
+          "checks": [
+            {
+              "name": "X",
+              "conclusion": "passed"
+            }
+          ],
+          "read_at": 1793352121,
+          "revision": "e84c5e1a7aac9f8d"
+        }
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:09.301016+00:00",
+    "method": "reaction.get",
+    "params": {
+      "id": "fa786ab95f877232cb9517de91f6d4eb"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "project": "b5fe68730630ce4f049732e2b782d453",
+        "id": "fa786ab95f877232cb9517de91f6d4eb",
+        "name": "PR 42 checks passed",
+        "actor": {
+          "kind": "agent",
+          "id": "2",
+          "parent": null
+        },
+        "reason": "Wait for required checks on fixture/collector#42 after pushing the X fix.",
+        "home": "1",
+        "target": "2",
+        "instruction": "PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.",
+        "condition": {
+          "kind": "pr-checks",
+          "repository": "github.com/fixture/collector",
+          "number": 42
+        },
+        "max_firings": 1,
+        "remaining": 0,
+        "rearm": false,
+        "expires_at": "2026-10-31T12:00:00+00:00",
+        "created_at": "2026-10-30T09:21:05.633734047Z",
+        "state": "active",
+        "observation": {
+          "health_code": "matched",
+          "cause_code": "unknown",
+          "gap_code": "unknown",
+          "recovery_code": "unknown",
+          "health": "matched",
+          "cursor": null,
+          "gap": null,
+          "recovery": null,
+          "evidence": null,
+          "pinned_head": "42a2f2dc6b20950b346133ea719f3f86c17ff413"
+        },
+        "firings": [
+          {
+            "id": "c83e1fe77b89cc9f3d209e4dd7db2c7f",
+            "ordinal": 1,
+            "message": 2,
+            "matched": true,
+            "evidence": "{\"source\":\"pr-checks\",\"condition\":{\"kind\":\"pr-checks\",\"repository\":\"github.com/fixture/collector\",\"number\":42},\"head\":\"42a2f2dc6b20950b346133ea719f3f86c17ff413\",\"evidence\":{\"state\":\"complete\",\"stale\":false,\"repository\":\"github.com/fixture/collector\",\"head\":\"42a2f2dc6b20950b346133ea719f3f86c17ff413\",\"checks\":[{\"name\":\"X\",\"conclusion\":\"passed\"}],\"read_at\":1793352121,\"revision\":\"e84c5e1a7aac9f8d\"}}",
+            "definition": "{\"project\":\"b5fe68730630ce4f049732e2b782d453\",\"id\":\"fa786ab95f877232cb9517de91f6d4eb\",\"name\":\"PR 42 checks passed\",\"actor\":{\"kind\":\"agent\",\"id\":\"2\",\"parent\":null},\"reason\":\"Wait for required checks on fixture/collector#42 after pushing the X fix.\",\"home\":\"1\",\"target\":\"2\",\"instruction\":\"PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.\",\"condition\":{\"kind\":\"pr-checks\",\"repository\":\"github.com/fixture/collector\",\"number\":42},\"max_firings\":1,\"remaining\":1,\"rearm\":false,\"expires_at\":\"2026-10-31T12:00:00+00:00\",\"created_at\":\"2026-10-30T09:21:05.633734047Z\",\"state\":\"active\",\"observation\":{\"health_code\":\"waiting\",\"cause_code\":\"checks-pending\",\"gap_code\":\"unknown\",\"recovery_code\":\"check\",\"health\":\"waiting\",\"cursor\":null,\"gap\":null,\"recovery\":null,\"evidence\":null,\"pinned_head\":\"42a2f2dc6b20950b346133ea719f3f86c17ff413\",\"cause\":\"a required check is pending, or none is required\"},\"firings\":[]}",
+            "outcome": "delivered"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:09.322247+00:00",
+    "method": "message.list",
+    "params": {
+      "to": "2"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": [
+        {
+          "id": 1,
+          "from": {
+            "kind": "ext",
+            "id": "rupd",
+            "parent": null
+          },
+          "to": "2",
+          "kind": "note",
+          "body": "Next: #3 Push and wait for PR checks",
+          "replyTo": null,
+          "status": "delivered",
+          "reason": null,
+          "at": 1793352060577
+        },
+        {
+          "id": 2,
+          "from": {
+            "kind": "ext",
+            "id": "rupd",
+            "parent": null
+          },
+          "to": "2",
+          "kind": "note",
+          "body": "PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.",
+          "replyTo": null,
+          "status": "delivered",
+          "reason": null,
+          "at": 1793352128392
+        }
+      ]
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:11.790822+00:00",
+    "method": "message.get",
+    "params": {
+      "id": 2
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "id": 2,
+        "from": {
+          "kind": "ext",
+          "id": "rupd",
+          "parent": null
+        },
+        "to": "2",
+        "kind": "note",
+        "body": "PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.",
+        "replyTo": null,
+        "status": "delivered",
+        "reason": null,
+        "at": 1793352128392
+      }
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:29.792647+00:00",
+    "method": "message.list",
+    "params": {
+      "to": "you"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": []
+    }
+  },
+  {
+    "at": "2026-10-30T09:22:51.512225+00:00",
+    "method": "reaction.get",
+    "params": {
+      "id": "fa786ab95f877232cb9517de91f6d4eb"
+    },
+    "reply": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "project": "b5fe68730630ce4f049732e2b782d453",
+        "id": "fa786ab95f877232cb9517de91f6d4eb",
+        "name": "PR 42 checks passed",
+        "actor": {
+          "kind": "agent",
+          "id": "2",
+          "parent": null
+        },
+        "reason": "Wait for required checks on fixture/collector#42 after pushing the X fix.",
+        "home": "1",
+        "target": "2",
+        "instruction": "PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.",
+        "condition": {
+          "kind": "pr-checks",
+          "repository": "github.com/fixture/collector",
+          "number": 42
+        },
+        "max_firings": 1,
+        "remaining": 0,
+        "rearm": false,
+        "expires_at": "2026-10-31T12:00:00+00:00",
+        "created_at": "2026-10-30T09:21:05.633734047Z",
+        "state": "active",
+        "observation": {
+          "health_code": "matched",
+          "cause_code": "unknown",
+          "gap_code": "unknown",
+          "recovery_code": "unknown",
+          "health": "matched",
+          "cursor": null,
+          "gap": null,
+          "recovery": null,
+          "evidence": null,
+          "pinned_head": "42a2f2dc6b20950b346133ea719f3f86c17ff413"
+        },
+        "firings": [
+          {
+            "id": "c83e1fe77b89cc9f3d209e4dd7db2c7f",
+            "ordinal": 1,
+            "message": 2,
+            "matched": true,
+            "evidence": "{\"source\":\"pr-checks\",\"condition\":{\"kind\":\"pr-checks\",\"repository\":\"github.com/fixture/collector\",\"number\":42},\"head\":\"42a2f2dc6b20950b346133ea719f3f86c17ff413\",\"evidence\":{\"state\":\"complete\",\"stale\":false,\"repository\":\"github.com/fixture/collector\",\"head\":\"42a2f2dc6b20950b346133ea719f3f86c17ff413\",\"checks\":[{\"name\":\"X\",\"conclusion\":\"passed\"}],\"read_at\":1793352121,\"revision\":\"e84c5e1a7aac9f8d\"}}",
+            "definition": "{\"project\":\"b5fe68730630ce4f049732e2b782d453\",\"id\":\"fa786ab95f877232cb9517de91f6d4eb\",\"name\":\"PR 42 checks passed\",\"actor\":{\"kind\":\"agent\",\"id\":\"2\",\"parent\":null},\"reason\":\"Wait for required checks on fixture/collector#42 after pushing the X fix.\",\"home\":\"1\",\"target\":\"2\",\"instruction\":\"PR checks on fixture/collector#42 passed. Complete todo 3 and report to the user.\",\"condition\":{\"kind\":\"pr-checks\",\"repository\":\"github.com/fixture/collector\",\"number\":42},\"max_firings\":1,\"remaining\":1,\"rearm\":false,\"expires_at\":\"2026-10-31T12:00:00+00:00\",\"created_at\":\"2026-10-30T09:21:05.633734047Z\",\"state\":\"active\",\"observation\":{\"health_code\":\"waiting\",\"cause_code\":\"checks-pending\",\"gap_code\":\"unknown\",\"recovery_code\":\"check\",\"health\":\"waiting\",\"cursor\":null,\"gap\":null,\"recovery\":null,\"evidence\":null,\"pinned_head\":\"42a2f2dc6b20950b346133ea719f3f86c17ff413\",\"cause\":\"a required check is pending, or none is required\"},\"firings\":[]}",
+            "outcome": "delivered"
+          }
+        ]
+      }
+    }
+  }
+]

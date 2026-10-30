@@ -39,7 +39,8 @@ it.each([
 it("t4905_pending_rows_cannot_mutate_items_blocker_or_bulk_target", async () => {
   const { app, todos } = await mountTodos([todo(1), todo(2)]);
   todos.show(pending);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: "Idle #1 todo 1" }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   const drawer = await screen.findByRole("complementary", { name: "Drawer" });
   fireEvent.click(await within(drawer).findByRole("button", { name: /^Blocked by/ }));
   const input = await screen.findByRole("combobox");
