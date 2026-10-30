@@ -45,12 +45,12 @@ Given U26's `tree-40` with `payments` made a Mode through `window.__fake.app.han
 
 On main `e78bbc345` both centres sit at `E − 20` at all three widths (459 at a 480 Rail).
 
-**U5147b a hairline separates Rail sections.** Journey stage: Understand. Narrows U4896 clause 3 (this file): each gap between sections keeps its height and gains one line. Section heads keep U4898's icons. How the line relates to U172's (`ui-buttons.md`) divider between root Workstream blocks waits on clause 2's open choice.
+**U5147b a hairline separates Rail sections.** Journey stage: Understand. Narrows U4896 clause 3 (this file): each gap between sections keeps its height and gains one line. Section heads keep U4898's icons. The line matches U172's (`ui-buttons.md`) divider between root Workstream blocks in width, height and paint, so the Rail draws one line style.
 
 Given U5147a's fixture with every section expanded, then with MODES collapsed, then U26's `agents-10` with only AGENTS, when the Rail renders at rest, then (policy, design critic):
 
 1. Let gap `G` run from the preceding section's last visible row box bottom (its head box bottom when collapsed) to the next section head's box top, as U4896 clause 3 measures it. `G` stays `--rail-section-gap`.
-2. Exactly one line lies inside each `G`. It is an element or pseudo-element `--hairline-width` high, painted `--hairline`. Its top sits at `G`'s top plus `(G − 1) / 2`, within 1 CSS px. Open, for the user: its left and right edges. The target frame draws it from 12 CSS px after the Rail's left edge to `E − 12`; U172's divider spans the full width.
+2. Exactly one line lies inside each `G`. It is an element or pseudo-element `--hairline-width` high, painted `--hairline`. Its top sits at `G`'s top plus `(G − 1) / 2`, within 1 CSS px. Its left edge is `.rail-scroll`'s left edge and its right edge is `E`, each within 1 CSS px: the span of U172's root divider (0 to 479 at a 480 Rail on main).
 3. No such line lies between Overview and the first section or between the last section and the creation footer. One visible section paints none.
 4. Hover, focus-within and selection neither hide nor move it.
 
@@ -66,7 +66,7 @@ Given U5147a's fixture, when the Mode row renders at rest, hovered, with focus w
 
 On main `e78bbc345` the Mode row draws `workflow` after its name (`rail/RailRow.tsx`, `mode-mark`).
 
-**Targets.** `docs/design/targets/U5147/` holds the designer's Pencil frames, 1512×950 in dark with a 480 Rail, cropped to the Rail: `2-rail-glyph-column-after.png` (U5147a) and `3b-rail-sections-hairline-rule.png` (U5147b), each with a `-redline` copy. The numbers above decide; the images are reference only. Pencil set the text in Inter, not SF Pro, so a pixel comparison fails on type alone. These are not targets: the creation footer drawn as one row (main stacks it, U4898 “One leading column”), the typeface, the selected-row wash and the `workflow` mark on the Mode row `Test` (U5147c removes it). U5147c has no frame.
+**Targets.** `docs/design/targets/U5147/` holds the designer's Pencil frames, 1512×950 in dark with a 480 Rail, cropped to the Rail: `2-rail-glyph-column-after.png` (U5147a) and `3b-rail-sections-hairline-rule.png` (U5147b), each with a `-redline` copy. The numbers above decide; the images are reference only. Pencil set the text in Inter, not SF Pro, so a pixel comparison fails on type alone. These are not targets: the creation footer drawn as one row (main stacks it, U4898 “One leading column”), the typeface, the selected-row wash, the `workflow` mark on the Mode row `Test` (U5147c removes it) and the 3B line's 12 px insets (U5147b clause 2 sets its full width). U5147c has no frame.
 
 Observer (policy, implementation only): U26's harness in an isolated headless `agent-browser` session with a fresh profile, 1512×950, dark. Read boxes with `getBoundingClientRect` and computed styles, never screenshot pixels. Run `just capture U5147a,U5147b,U5147c` after adding its capture coverage, and leave paired main/head PNGs and Check readings under `artifacts/ux/U5147/base/` and `head/`, uncommitted. Record `E`, each centre, each `G`, each line box and each Mode row's marks per width and state. Add no layout test (AGENTS.md rule 10). The Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
 
