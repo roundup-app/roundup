@@ -44,6 +44,7 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
   const [target, setTarget] = createSignal<{ id: string; anchor: HTMLElement } | null>(null);
   const destinations = () => rail.nodes.filter(node => node.kind === "workstream").map(node => ({ value: node.id, label: node.name }));
   const available = (id: string | undefined) => daemonExit() === null && rail.nodes.some(node => node.id === id && node.kind === "agent" && node.parent === null) && destinations().length > 0;
+
   const open = (id: string) => {
     const anchor = rowElement(id);
 
