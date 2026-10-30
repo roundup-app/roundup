@@ -79,7 +79,7 @@ export const copy = {
   reactions: sharedCopy.reactions,
   switcherPlaceholder: sharedCopy.switcherPlaceholder,
   noMatch: sharedCopy.noMatch,
-  restartModeInRail: sharedCopy.restartMode,
+  restartModeInRail: "Restart (R · Rail)",
   pasteFailedTheClipboardHoldsAnImageWhich: "Paste failed: The clipboard contains an image instead of text. Save the image, then drop its file on the pane.",
   failed: sharedCopy.failed,
   assignTo: (name: CopyValue) => name ? `Assign to ${name}` : "Assign to",
@@ -90,5 +90,5 @@ export const copy = {
   copy: sharedCopy.copy,
   centreRegion: "Centre",
   daemonExit: (exit: string) => `Service ${exit}`,
-  moveToInRail: sharedCopy.moveTo,
+  moveToInRail: "Move (M · Rail)",
 } as const;
