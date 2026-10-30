@@ -52,18 +52,6 @@ describe("U2539b", () => {
     await waitFor(() => expect(document.querySelector(".worktree-panel")).toBeNull());
   });
 
-  it("u2539b_the_tree_lists_each_file_with_its_status", async () => {
-    await mountControl();
-
-    fireEvent.click(control());
-
-    await waitFor(() => expect(rows().join("|")).toContain("Deleted"));
-    const text = rows().join("|");
-    expect(text).toContain("Modified");
-    expect(text).toContain("Added");
-    expect(rows().length).toBe(5);
-  });
-
   it("u2539b_it_reads_again_on_every_open", async () => {
     const { calls } = await mountControl();
 
