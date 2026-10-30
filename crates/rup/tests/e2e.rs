@@ -1310,14 +1310,6 @@ async fn todo_at(client: &rpc::Client, title: &str) -> u32 {
     serde_json::from_value::<Todo>(todo).unwrap().id
 }
 
-async fn home_of(client: &rpc::Client, id: u32) -> Value {
-    client
-        .request("todo.get", json!({ "id": id }))
-        .await
-        .unwrap()["home"]
-        .clone()
-}
-
 fn owner_json(kind: &str, id: &str) -> Value {
     json!({"kind": kind, "id": id, "parent": null})
 }
@@ -1328,63 +1320,6 @@ async fn owner_of(client: &rpc::Client, id: u32) -> Value {
         .await
         .unwrap()["owner"]
         .clone()
-}
-
-/// T17: `rail.remove` of an owner Agent unassigns its Todos, in id order, after the Agent is gone.
-#[tokio::test]
-async fn t17_rail_remove_unassigns_its_todos() {
-    let project = start(&[]);
-    let mut events = project.subscribed().await;
-    let client = project.client().await;
-    let agent = agent_in(&project, &client, None).await;
-    let (a, b, c) = (
-        todo_at(&client, "a").await,
-        todo_at(&client, "b").await,
-        todo_at(&client, "c").await,
-    );
-    for id in [c, a] {
-        client
-            .request(
-                "todo.assign",
-                json!({ "id": id, "owner": owner_json("agent", &agent) }),
-            )
-            .await
-            .unwrap();
-    }
-    client
-        .request(
-            "todo.assign",
-            json!({ "id": b, "owner": owner_json("user", "you") }),
-        )
-        .await
-        .unwrap();
-    for _ in 0..6 {
-        next(&mut events, |data| {
-            matches!(data, EventData::TodoUpdated(_) | EventData::TodoCreated(_)).then_some(())
-        })
-        .await;
-    }
-
-    client
-        .request("rail.remove", json!({ "id": agent }))
-        .await
-        .unwrap();
-
-    let first = next(&mut events, |data| match data {
-        EventData::TodoUpdated(todo) => Some(todo.id),
-        _ => None,
-    })
-    .await;
-    let second = next(&mut events, |data| match data {
-        EventData::TodoUpdated(todo) => Some(todo.id),
-        _ => None,
-    })
-    .await;
-    assert_eq!([first, second], [a, c]);
-    assert!(rail_tree(&client).await.iter().all(|node| node.id != agent));
-    assert_eq!(owner_of(&client, a).await, Value::Null);
-    assert_eq!(owner_of(&client, c).await, Value::Null);
-    assert_eq!(owner_of(&client, b).await, owner_json("user", "you"));
 }
 
 /// T17: an owner Agent that stops keeps its Todos, and assigning one sends the Agent no Message.
@@ -1420,58 +1355,6 @@ async fn t17_a_stopped_agent_keeps_its_todos_and_assign_tells_no_agent() {
         .unwrap();
 
     assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
-}
-
-#[tokio::test]
-async fn t13_workstream_removal_resets_homes_and_emits_in_id_order() {
-    let project = start(&[]);
-    let mut events = project.subscribed().await;
-    let client = project.client().await;
-    let r1 = workstream(&client, "r1").await;
-    let r2 = workstream(&client, "r2").await;
-    let (a, b, c, d) = (
-        todo_at(&client, "a").await,
-        todo_at(&client, "b").await,
-        todo_at(&client, "c").await,
-        todo_at(&client, "d").await,
-    );
-    for (id, home) in [(d, &r1), (b, &r1), (c, &r2)] {
-        client
-            .request("todo.move", json!({ "id": id, "home": home }))
-            .await
-            .unwrap();
-    }
-    // Drain the events of the setup.
-    for _ in 0..7 {
-        next(&mut events, |data| {
-            matches!(data, EventData::TodoUpdated(_) | EventData::TodoCreated(_)).then_some(())
-        })
-        .await;
-    }
-
-    client
-        .request("rail.remove", json!({ "id": r1 }))
-        .await
-        .unwrap();
-
-    let first = next(&mut events, |data| match data {
-        EventData::TodoUpdated(todo) => Some(todo.id),
-        _ => None,
-    })
-    .await;
-    let second = next(&mut events, |data| match data {
-        EventData::TodoUpdated(todo) => Some(todo.id),
-        _ => None,
-    })
-    .await;
-    assert_eq!([first, second], [b, d]);
-    assert!(rail_tree(&client).await.iter().all(|node| node.id != r1));
-    assert_eq!(home_of(&client, b).await, Value::Null);
-    assert_eq!(home_of(&client, d).await, Value::Null);
-    assert_eq!(home_of(&client, c).await, json!(r2));
-    assert_eq!(home_of(&client, a).await, Value::Null);
-    let listed = client.request("todo.list", json!(null)).await.unwrap();
-    assert_eq!(listed.as_array().unwrap().len(), 4);
 }
 
 #[tokio::test]

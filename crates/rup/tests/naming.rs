@@ -100,7 +100,8 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
     let user = project.client().await;
     save(&user, G1).await;
     let parent = spawn(&project, &user).await;
-    assert_start(reports.path(), &parent.id, G1, "on").await;
+    let free = assert_start(reports.path(), &parent.id, G1, "on").await;
+    assert!(!free.contains("two or more steps"));
     let (mcp, _child) = shim(&project, &parent.id).await;
     let tools = mcp.list_tools(None).await.unwrap();
     assert!(
@@ -226,6 +227,55 @@ async fn a4688c_launch_and_spawn_receive_the_guide() {
     .await;
     assert!(text.contains("Keep your current name"));
     assert!(text.contains("Door keeps this"));
+    let door_id = workstream["id"].as_str().unwrap();
+    let door_brief = std::fs::read_to_string(
+        project
+            .data_dir()
+            .join(format!("agents/{door_id}.brief.md")),
+    )
+    .unwrap();
+    assert!(door_brief.find("two or more steps").unwrap() < door_brief.find("## Tools").unwrap());
+    let (door_mcp, _door_shim) = shim(&project, door_id).await;
+    for scout in [false, true] {
+        let mut call = rmcp::model::CallToolRequestParams::new("agent_spawn");
+        call.arguments = Some(json!({"cwd":project.dir.path(),"name": if scout {"scout-keeps-guide"} else {"reader-keeps-guide"},"scout":scout,"order":{"kind":"work","title":"Read guide","ask":"Read guide","done":"Read","limits":["Read only"]}}).as_object().unwrap().clone());
+        let result = door_mcp.call_tool(call).await.unwrap();
+        assert_ne!(result.is_error, Some(true), "{result:?}");
+    }
+    let tree = user.request("rail.tree", ()).await.unwrap();
+    for child in tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|n| n["parent"] == door_id)
+    {
+        let id = child["id"].as_str().unwrap();
+        let startup = assert_start(reports.path(), id, G1, "off").await;
+        for rule in [
+            "two or more steps",
+            "complete each",
+            "handoff",
+            "without approval",
+            "reason",
+            "end your turn",
+            "never poll",
+            "user moves win",
+        ] {
+            assert!(startup.contains(rule), "missing {rule}: {startup}");
+        }
+        if let Some(catalogue) = startup.find("## Tools") {
+            assert!(startup.find("two or more steps").unwrap() < catalogue);
+            assert!(
+                startup.find("Your Rail name is").unwrap() > catalogue,
+                "variable identity follows the shared cache prefix"
+            );
+        }
+        let brief =
+            std::fs::read_to_string(project.data_dir().join(format!("agents/{id}.brief.md")))
+                .unwrap();
+        assert!(!brief.contains("two or more steps"));
+        assert!(child["name"].as_str().unwrap().ends_with("keeps-guide"));
+    }
 }
 
 #[tokio::test]

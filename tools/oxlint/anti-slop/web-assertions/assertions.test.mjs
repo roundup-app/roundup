@@ -202,8 +202,73 @@ for (const [name, source, forbidden] of [
   });
 }
 
-for (const change of ["unchanged", "stale", "navigation", "assertion", "dependency", "duplicate", "moved", "renamed", "helper", "navigation committed", "module navigation", "mutation"]) {
+for (const change of ["unchanged", "stale", "navigation", "merged navigation", "function navigation", "edited", "dependency", "dependency control", "mutation", "helper", "duplicate", "additional", "renamed", "moved", "reordered", "control"]) {
   test(`t3779b_assertion_boundary: Python baseline ${change}`, () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "roundup-python-baseline-"));
+    const config = resolve(dir, "config.json");
+    const file = resolve(dir, "fixture.test.tsx");
+    const pythonFile = resolve(dir, "fixture.test.py");
+    const baseline = resolve(dir, directory, "baseline.jsonl");
+    const git = (...args) => {
+      const result = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+    };
+    try {
+      mkdirSync(resolve(dir, directory), { recursive: true });
+      writeFileSync(file, "export {};\n");
+      const body = 'raise RuntimeError("Launcher must never execute")\ndef observe():\n    return 0\nscript = "document.body.clientWidth"\nresult = evaluate(script)\nbrowser("open", "/old")\nassert result > 0\nbrowser("click", "button")\n'.replace("assert result > 0", change === "helper" ? "assert result > observe()" : "assert result > 0");
+      const source = ["function navigation", "renamed"].includes(change)
+        ? "def test_fixture():\n" + body.split("\n").filter(Boolean).map(line => "    " + line).join("\n") + "\n"
+        : change === "dependency control"
+          ? body.replace("result = evaluate(script)", "flag = True\nif flag:\n    result = evaluate(script)")
+          : change === "mutation"
+            ? body.replace("document.body.clientWidth", "({width: document.body.clientWidth})").replace("assert result > 0", 'result.update(width=1)\nassert result["width"] > 0')
+            : body;
+      writeFileSync(pythonFile, source);
+      const audit = spawnSync("python3", [resolve(repo, directory, "python-audit.py"), dir], { encoding: "utf8" });
+      assert.equal(audit.status, 0, audit.stderr);
+      const row = JSON.parse(audit.stdout);
+      writeFileSync(baseline, JSON.stringify({ file: row.file, test: row.test, identity: row.identity }) + "\n");
+      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
+      writeFileSync(config, JSON.stringify({ jsPlugins: [{ name: "anti-slop", specifier: plugin }], rules: { "anti-slop/no-new-web-assertions": "error" } }));
+      git("init", "-q");
+      git("add", ".");
+      git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "baseline");
+      git("update-ref", "refs/remotes/origin/main", "HEAD");
+      if (change === "stale") writeFileSync(pythonFile, 'raise RuntimeError("Launcher must never execute")\n');
+      if (["navigation", "merged navigation", "function navigation"].includes(change)) writeFileSync(pythonFile, source.replace('browser("open", "/old")', 'browser("press", "Meta+k")\n' + (change === "function navigation" ? "    " : "") + 'browser("open", "/new")'));
+      if (change === "merged navigation") {
+        git("add", ".");
+        git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null", "commit", "-qm", "navigation");
+        git("update-ref", "refs/remotes/origin/main", "HEAD");
+      }
+      if (change === "edited") writeFileSync(pythonFile, source.replace("result > 0", "result > 1"));
+      if (change === "dependency") writeFileSync(pythonFile, source.replace('script = "document.body.clientWidth"', 'script = "document.body.clientHeight"'));
+      if (change === "dependency control") writeFileSync(pythonFile, source.replace("flag = True", "flag = False"));
+      if (change === "mutation") writeFileSync(pythonFile, source.replace("update(width=1)", "update(width=2)"));
+      if (change === "helper") writeFileSync(pythonFile, source.replace("return 0", "return 1"));
+      if (change === "duplicate") writeFileSync(pythonFile, source + "assert result > 0\n");
+      if (change === "additional") writeFileSync(pythonFile, source + 'assert evaluate("document.body.clientHeight") > 0\n');
+      if (change === "renamed") writeFileSync(pythonFile, source.replace("test_fixture", "test_other"));
+      if (change === "moved") { writeFileSync(pythonFile, ""); writeFileSync(resolve(dir, "other.test.py"), source); }
+      if (change === "reordered") writeFileSync(pythonFile, source.replace('assert result > 0\nbrowser("click", "button")', 'browser("click", "button")\nassert result > 0'));
+      if (change === "control") writeFileSync(pythonFile, source.replace("assert result > 0", "if ready:\n    assert result > 0"));
+      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
+      const passing = ["unchanged", "navigation", "merged navigation", "function navigation"].includes(change);
+      assert.equal(result.status, passing ? 0 : 1, result.stdout + result.stderr);
+      const report = JSON.parse(result.stdout);
+      const errors = report.diagnostics.filter(item => item.severity === "error");
+      assert.equal(errors.length === 0, passing, result.stdout);
+      if (change === "stale") assert.match(errors[0].message, /Stale Python assertion baseline entry/);
+      if (process.env.ASSERTION_FIXTURE_REPORT) appendFileSync(process.env.ASSERTION_FIXTURE_REPORT, JSON.stringify({ name: `Python baseline ${change}`, source: 'assert evaluate("document.body.clientWidth") > 0', exitCode: result.status, diagnostics: errors.map(item => item.message) }) + "\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const change of ["dependency", "moved", "helper", "navigation committed", "module navigation", "mutation"]) {
+  test(`t3779b_assertion_boundary: Python function baseline ${change}`, () => {
     const dir = mkdtempSync(resolve(tmpdir(), "roundup-python-baseline-"));
     const config = resolve(dir, "config.json");
     const file = resolve(dir, "fixture.test.tsx");
@@ -264,7 +329,7 @@ for (const change of ["unchanged", "stale", "navigation", "assertion", "dependen
       const errors = report.diagnostics.filter(item => item.severity === "error");
       assert.equal(errors.length === 0, allowed, result.stdout);
       if (change === "stale") assert.match(errors[0].message, /Stale Python assertion baseline entry/);
-      if (process.env.ASSERTION_FIXTURE_REPORT) appendFileSync(process.env.ASSERTION_FIXTURE_REPORT, JSON.stringify({ name: `Python baseline ${change}`, source: 'assert evaluate("document.body.clientWidth") > 0', exitCode: result.status, diagnostics: errors.map(item => item.message) }) + "\n");
+      if (process.env.ASSERTION_FIXTURE_REPORT) appendFileSync(process.env.ASSERTION_FIXTURE_REPORT, JSON.stringify({ name: `Python function baseline ${change}`, source: 'assert evaluate("document.body.clientWidth") > 0', exitCode: result.status, diagnostics: errors.map(item => item.message) }) + "\n");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
