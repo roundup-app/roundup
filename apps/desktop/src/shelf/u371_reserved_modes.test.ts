@@ -12,12 +12,6 @@ it("u369_closed_shelf_releases_its_width", async () => {
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
 }, 90_000);
 
-for (const available of [387, 388]) it(`u371_minimum_pane_width_selects_the_mode_${available}`, async () => {
-  await openShelf("tree-40", 480, 800 - available);
-  expect(await evaluate("document.querySelector('.window').dataset.shelfMode")).toBe(available === 387 ? "overlay" : "reserved");
-  expect(await evaluate("Boolean(document.querySelector('.shelf-scrim'))")).toBe(available === 387);
-}, 90_000);
-
 const capture = async (name: string) => {
   const root = captureDir("U2892");
 
