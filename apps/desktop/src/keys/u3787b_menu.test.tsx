@@ -435,7 +435,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename f
 it.each([
   { chord: "⌘B", key: "b", code: "KeyB", label: "Bold", semantic: "strong" },
   { chord: "⌘I", key: "i", code: "KeyI", label: "Italic", semantic: "em" },
-  { chord: "⌘E", key: "e", code: "KeyE", label: "Inline code", semantic: "code" },
+  { chord: "⌘E", key: "e", code: "KeyE", label: "Inline code (replaces formatting)", semantic: "code" },
 ].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Pad $label from $source captures the editor selection", async ({ chord, key, code, semantic, source }) => {
   const { daemon } = await mountNavigation(true, 0);
   const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen untouched", updated_at: 0, revision: 1, home: null }];

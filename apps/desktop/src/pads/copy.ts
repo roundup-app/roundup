@@ -60,4 +60,5 @@ export const copy = {
   moveItem: sharedCopy.moveItem,
   blocks: sharedCopy.blocks,
   resume: sharedCopy.resume,
+  inlineCodeAction: `${sharedCopy.inlineCode} (replaces formatting)`,
 } as const;

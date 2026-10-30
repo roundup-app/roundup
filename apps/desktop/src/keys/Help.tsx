@@ -15,12 +15,14 @@ const sections = (projectOpen: boolean, shelfOpen: boolean) => projectOpen ? [
   { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: `${copy.leaderChord} ${row.keys}`, what: row.keys === "B" ? (shelfOpen ? copy.closeShelf : copy.openShelf) : bubbleScopes.get(row.keys) ?? row.what })) },
   // #3853 adds the Terminal Find owner; until then its menu catalogue entry has no working key to advertise.
   { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals && row.keys !== "⌘F") },
-  { title: copy.helpScope.editor, rows: [{ ...CHORDS.find(row => row.keys === "⌘B")!, what: copy.bold }, ...CHORDS.filter(row => row.inEditor)] },
   { title: copy.helpScope.rail, rows: CHORDS.filter(row => row.inRail) },
   { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.keys !== "T").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
   { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.keys === "T") },
   { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },
-] : [{ title: copy.helpScope.app, rows: CHORDS.filter(row => row.inFirstRun || row.what === copy.captureATodo || row.what === copy.settings) }];
+].map(section => section.title === copy.helpScope.todos ? [
+  section,
+  { title: copy.helpScope.editor, rows: [{ ...CHORDS.find(row => row.keys === "⌘B")!, what: copy.bold }, ...CHORDS.filter(row => row.inEditor)] },
+] : [section]) : [[{ title: copy.helpScope.app, rows: CHORDS.filter(row => row.inFirstRun || row.what === copy.captureATodo || row.what === copy.settings) }]];
 
 /** U4324a: plain text and Terminal input keep `?`; every other App surface offers Help. */
 const opensFrom = (target: EventTarget | null): boolean => target instanceof Element
@@ -66,10 +68,12 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
 
         queueMicrotask(() => focus(() => { if (element.isConnected) element.focus({ preventScroll: true }); }));
       }}>
-        <For each={sections(props.projectOpen ?? true, props.shelfOpen ?? false)}>{section => <section class="help-section">
+        <For each={sections(props.projectOpen ?? true, props.shelfOpen ?? false)}>{group => <div class="help-group">
+        <For each={group}>{section => <section class="help-section">
           <h2>{section.title}</h2>
           <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{section.title === copy.helpScope.editor ? chord.what : labels().get(chord.keys) ?? chord.what}</KeyHint></p>}</For>
         </section>}</For>
+        </div>}</For>
         <Show when={props.projectOpen ?? true}><section class="help-shelf" aria-label={copy.shelfKeys}>
         <h2>{copy.shelfKeys}</h2>
         <p><KeyHint keys={copy.previousNextKeys}>{copy.focusThePreviousNextShelfRow}</KeyHint></p>
