@@ -730,13 +730,17 @@ fn lc18_agent_extras_lists_computer_use() {
     with_extras(&s);
     std::fs::write(
         &s.claude_json,
-        json!({"mcpServers": {"computer-use": {"type": "http", "url": "https://x"}}}).to_string(),
+        json!({"mcpServers": {
+            "computer-use": {"type": "http", "url": "https://x"},
+            "zzserver": {"type": "http", "url": "https://x"},
+        }})
+        .to_string(),
     )
     .unwrap();
     let listed = agents::claude_code::extras::available(
         &s.launcher().extras_sources(s.dir.parent().unwrap()),
     );
-    assert_eq!(listed.mcp, ["computer-use"]);
+    assert_eq!(listed.mcp, ["computer-use", "zzserver"]);
     let extras = Extras {
         mcp: vec!["computer-use".into()],
         ..Extras::default()
