@@ -12,7 +12,7 @@ const TABLES: &[(&str, &str, &str)] = &[
     (
         "todos",
         "deleted_todos",
-        "id,title,body,done,created_at,updated_at,creator,home,pos,owner,estimate_minutes",
+        "id,title,body,done,created_at,updated_at,creator,home,pos,owner,estimate_minutes,priority",
     ),
     (
         "changes",
@@ -246,7 +246,7 @@ impl Todos {
 // last-change timestamps are deliberately not identity.
 fn restored_targets(db: &Connection, chosen: &str) -> Result<String, RpcError> {
     db.query_row(
-        "SELECT json_group_array(json_array(id,title,body,done,created_at,creator,home,pos,owner,estimate_minutes,json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker))),(SELECT MIN(seq) FROM changes WHERE todo=t.id))) FROM (SELECT * FROM todos WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id) t",
+        "SELECT json_group_array(json_array(id,title,body,done,created_at,creator,home,pos,owner,estimate_minutes,json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker))),(SELECT MIN(seq) FROM changes WHERE todo=t.id),priority)) FROM (SELECT * FROM todos WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id) t",
         [chosen], |r| r.get(0),
     ).map_err(RpcError::internal)
 }
@@ -349,8 +349,8 @@ fn retain(
         let now = crate::store::now_ms();
         db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,actor,changed_at)
         SELECT t.id,
-        json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker)))),
-        json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id AND blocker NOT IN (SELECT value FROM json_each(?1)) ORDER BY blocker)))),
+        json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'priority',json(t.priority),'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker)))),
+        json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'estimate_minutes',t.estimate_minutes,'priority',json(t.priority),'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id AND blocker NOT IN (SELECT value FROM json_each(?1)) ORDER BY blocker)))),
         ?2, ?3, ?4 FROM todos t
         WHERE t.id NOT IN (SELECT value FROM json_each(?1)) AND EXISTS(SELECT 1 FROM blockers b WHERE b.todo=t.id AND b.blocker IN (SELECT value FROM json_each(?1)))", params![selected,after_touch,actor_json,now]).map_err(RpcError::internal)?;
         db.execute("UPDATE todos SET updated_at=?2 WHERE id NOT IN (SELECT value FROM json_each(?1)) AND EXISTS(SELECT 1 FROM blockers b WHERE b.todo=todos.id AND b.blocker IN (SELECT value FROM json_each(?1)))", params![selected,now]).map_err(RpcError::internal)?;

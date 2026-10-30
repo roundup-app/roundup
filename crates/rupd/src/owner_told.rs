@@ -391,6 +391,7 @@ mod tests {
             owner,
             refs: vec![],
             estimate_minutes: None,
+            priority: None,
         }
     }
 

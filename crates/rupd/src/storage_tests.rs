@@ -923,7 +923,12 @@ async fn u4698c_added_priority_migration_preserves_todos_and_history() {
     let dir = tempfile::tempdir().unwrap();
     let mut db = Connection::open(dir.path().join("project.db")).unwrap();
     let mut previous = migrations();
-    previous.pop().unwrap();
+    previous.truncate(
+        10 + added::ADDED
+            .iter()
+            .position(|sql| *sql == include_str!("../migrations/project/0037-todo-priority.sql"))
+            .unwrap(),
+    );
     apply(&mut db, previous).unwrap();
     db.execute_batch("INSERT INTO todos(id,title,body,created_at,updated_at) VALUES(7,'saved','body',123,456);
         INSERT INTO changes(seq,todo,after_values,after_touch,changed_at) VALUES(11,7,'{\"title\":\"saved\",\"body\":\"body\",\"done\":false,\"blockers\":[]}',0,456);").unwrap();

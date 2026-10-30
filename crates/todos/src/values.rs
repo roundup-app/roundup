@@ -23,6 +23,7 @@ impl Todos {
             &ctx.actor,
             owner.as_ref(),
             valid_estimate(p.estimate_minutes)?,
+            p.priority,
             ctx.touches.sequence().map_err(RpcError::internal)?,
         )?;
         ctx.touch(Verb::Wrote, &item(todo.id))?;
@@ -31,17 +32,24 @@ impl Todos {
     }
 
     pub(super) fn update(&self, ctx: &Ctx, p: UpdateParams) -> Result<Value, RpcError> {
-        if p.title.is_none() && p.body.is_none() && p.estimate_minutes.is_none() {
+        if p.title.is_none()
+            && p.body.is_none()
+            && p.estimate_minutes.is_none()
+            && p.priority.is_none()
+        {
             return Err(RpcError::new(
                 rpc::code::INVALID_PARAMS,
-                "update needs a title, a body or an estimate",
+                "update needs a title, a body, an estimate or a priority",
             ));
         }
         valid_estimate(p.estimate_minutes.flatten())?;
         let store = self.store()?;
         if p.title.is_none() && p.body.is_none() {
             let todo = store.get(p.id)?;
-            if p.estimate_minutes == Some(todo.estimate_minutes) {
+            if p.estimate_minutes
+                .is_none_or(|value| value == todo.estimate_minutes)
+                && p.priority.is_none_or(|value| value == todo.priority)
+            {
                 store.require_change(p.id, p.expected_change)?;
                 return reply(&todo);
             }
@@ -51,6 +59,7 @@ impl Todos {
             p.title.as_deref(),
             p.body.as_deref(),
             p.estimate_minutes,
+            p.priority,
             p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
             &ctx.actor,

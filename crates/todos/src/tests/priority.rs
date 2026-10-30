@@ -139,15 +139,25 @@ async fn u4698c_priority_history_records_actual_changes() {
         assert_eq!(h.ctx.touches.sequence().unwrap(), count);
         assert!(h.events().is_empty());
     }
-    h.call_as(
-        agent("writer"),
-        "todo.update",
-        json!({"id":1,"title":"combined","body":"body","priority":"high"}),
-    )
-    .await
-    .unwrap();
+    let prior = changes(&h, 1).await;
+    let count = h.ctx.touches.sequence().unwrap();
+    let combined = h
+        .call_as(
+            agent("writer"),
+            "todo.update",
+            json!({"id":1,"title":"combined","body":"body","priority":"high"}),
+        )
+        .await
+        .unwrap();
     let history = changes(&h, 1).await;
     let last = history["changes"].as_array().unwrap().last().unwrap();
+    assert_eq!(
+        history["changes"].as_array().unwrap().len(),
+        prior["changes"].as_array().unwrap().len() + 1
+    );
+    assert_eq!(h.ctx.touches.sequence().unwrap(), count + 1);
+    assert_eq!(h.event_data(), combined);
+    assert!(h.events().is_empty());
     assert_eq!(last["after"]["title"], "combined");
     assert_eq!(last["after"]["body"], "body");
     assert_eq!(last["after"]["priority"], "high");
@@ -262,4 +272,60 @@ async fn u4698c_standalone_priority_survives_reopen() {
         "high"
     );
     assert_eq!(changes(&h, 1).await["changes"][0], old);
+}
+
+#[tokio::test]
+async fn u4698c_priority_migration_keeps_retained_redo_authority() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::new(dir.path());
+    made(&h, json!({"title":"retained"})).await;
+    h.call("todo.delete", json!({"operation":"old","ids":[1]}))
+        .await
+        .unwrap();
+    let restored = h
+        .call("todo.restore", json!({"operation":"old"}))
+        .await
+        .unwrap();
+    drop(h);
+    let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+    // Reconstruct the immediate predecessor's retained target shape and schema.
+    db.execute_batch("UPDATE todo_deletions SET result=json_set(result,'$.restoredTargets',json((SELECT json_group_array(json_remove(value,'$[#-1]')) FROM json_each(todo_deletions.result,'$.restoredTargets'))));
+        ALTER TABLE todos DROP COLUMN priority; ALTER TABLE deleted_todos DROP COLUMN priority;
+        PRAGMA user_version=10;").unwrap();
+    drop(db);
+    let h = Harness::new(dir.path());
+    h.call(
+        "todo.redo",
+        json!({"source":"old","operation":"redo","restoration":restored["restoration"]}),
+    )
+    .await
+    .unwrap();
+    h.call("todo.restore", json!({"operation":"redo"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        h.call("todo.get", json!({"id":1})).await.unwrap()["title"],
+        "retained"
+    );
+    let source = h
+        .call("todo.deletion", json!({"operation":"redo"}))
+        .await
+        .unwrap();
+    h.call("todo.update", json!({"id":1,"priority":"urgent"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        h.call(
+            "todo.redo",
+            json!({"source":"redo","operation":"unsafe","restoration":source["restoration"]})
+        )
+        .await
+        .unwrap_err()
+        .code,
+        code::CONFLICT
+    );
+    assert_eq!(
+        h.call("todo.get", json!({"id":1})).await.unwrap()["priority"],
+        "urgent"
+    );
 }
