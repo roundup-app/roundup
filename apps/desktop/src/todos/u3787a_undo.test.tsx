@@ -49,9 +49,10 @@ const mount = async (done = false) => {
     fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${path.slice(1)}`) }));
     await screen.findByRole("tabpanel", { name: path.slice(1) });
     connections.get(path)!.drawer.open(() => <TodoHost id={id} />, "key");
-    const button = await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole<HTMLButtonElement>("button", { name: "Delete Todo" });
+    const button = await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole<HTMLButtonElement>("button", { name: "More actions" });
     await waitFor(() => expect(button.disabled).toBe(false));
     fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
 
     return button;
   };
@@ -66,6 +67,7 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   app.of("/a").handlers["todo.delete"] = () => new Promise(resolve => { finish = resolve; });
   const button = await remove("/a");
   fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   const calls = app.of("/a").calls.filter(c => c.method === "todo.delete");
   expect(calls).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [5] } }]);
   expect([questionProbe.shown]).toEqual([null]);
@@ -447,7 +449,7 @@ const openSeventh = async (connections: Map<string, ConnectedProject>) => {
   const connected = connections.get("/a")!;
   connected.drawer.open(() => <TodoHost id={7} />, "key");
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
-  const button = await within(drawer).findByRole<HTMLButtonElement>("button", { name: "Delete Todo" });
+  const button = await within(drawer).findByRole<HTMLButtonElement>("button", { name: "More actions" });
   const field = await within(drawer).findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
   fireEvent.input(field, { target: { value: draftBytes } });
   button.focus();
@@ -473,6 +475,7 @@ it("u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation", async 
   const { app, connections } = await unconfirmed();
   const { connected, opening, button, field, drawer } = await openSeventh(connections);
   fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   await within(drawer).findByText("Deleting #5 is unconfirmed. Check that deletion before trying Delete again.");
   expect(connected.drawer.content()).toBe(opening);
   expect(document.activeElement).toBe(button);
@@ -484,6 +487,7 @@ it("u3787g_a_different_drawer_delete_explains_the_unconfirmed_operation", async 
   const observer = new MutationObserver(() => { announcements.push(feedback.textContent ?? ""); });
   observer.observe(feedback, { childList: true, characterData: true, subtree: true });
   fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   await waitFor(() => expect(announcements).toContain(feedback.textContent));
   observer.disconnect();
   recovery.focus();
@@ -510,6 +514,7 @@ it("u3787a_a_drawer_delete_explains_an_unconfirmed_pad_deletion", async () => {
   await screen.findByRole("button", { name: "Check deletion" });
   const { drawer, button, field, connected, opening } = await openSeventh(connections);
   fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   await within(drawer).findByRole("alert", { name: "An earlier deletion is unconfirmed. Check deletion first." });
   expect(connected.drawer.content()).toBe(opening);
   expect(field.value).toBe(draftBytes);
@@ -522,6 +527,7 @@ it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async 
   const { app, connections, daemon } = await unconfirmed();
   const { button, drawer, field, connected, opening } = await openSeventh(connections);
   fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   const recovery = await within(drawer).findByRole("button", { name: "Check deletion" });
   const original = deletions(daemon)[0]!;
   daemon.handlers["todo.deletion"] = p => ({ operation: p.operation, deleted: [5], missing: [], state: "deleted" });
@@ -537,6 +543,7 @@ it("u3787g_recovery_keeps_the_original_target_and_requires_a_new_delete", async 
   daemon.handlers["todo.delete"] = p => ({ operation: p.operation, deleted: p.ids, missing: [], state: "deleted" });
   button.focus();
   fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   await waitFor(() => expect(connected.drawer.content()).toBe(null));
   expect(daemon.calls.filter(call => call.method === "todo.delete")).toEqual([
     { method: "todo.delete", params: original }, { method: "todo.delete", params: { operation: expect.any(String), ids: [7] } },
@@ -563,6 +570,7 @@ const restoring = async () => {
   ]));
   opened.button.focus();
   fireEvent.click(opened.button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
 
   return { ...mounted, ...opened, daemon, finish };
 };
@@ -595,6 +603,7 @@ it("u3787h_restore_completion_requires_a_new_delete", async () => {
     { method: "todo.delete", params: { operation, ids: [5] } },
   ]);
   fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
   await waitFor(() => expect(connected.drawer.content()).toBe(null));
   await shown();
   expect(daemon.calls.filter(call => call.method === "todo.delete")).toEqual([
