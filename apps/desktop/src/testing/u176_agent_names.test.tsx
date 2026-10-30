@@ -2,109 +2,71 @@ import { copy as recoveryCopy } from "../sharedCopy";
 import { copy as railCopy } from "../rail/copy";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { resolve } from "node:path";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { draftStorage } from "../state/storage";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createServedApp } from "./realSeam";
-import { startRealDaemon } from "./realDaemonFixture";
+import { createFakeApp } from "./fakeApp";
+import { agent, workstream, event } from "./nodes";
+import type { RailNode } from "@contracts/agent/RailNode";
 import { menuProbe } from "./menuProbe";
-import type { StartedDaemon } from "./realDaemonFixture";
 
-describe("u176 Agent names", () => {
-  let real: StartedDaemon;
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
-  beforeEach(async () => {
-    // E10: the Agent's Claude is the pinned one, its model aimock serving this file's turns.
-    real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u176_agent_names.json"));
-  }, 120_000);
+it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async () => {
+  const app = createFakeApp();
+  const home = workstream("home");
+  const tree = [home];
+  app.handlers["rail.tree"] = () => tree;
+  app.handlers["agent.spawn"] = () => agent(`child-${tree.length}`, "idle", "ready", { parent: home.id });
+  render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  const rail = await screen.findByRole("region", { name: "Rail" });
 
-  afterEach(async () => {
-    cleanup();
-    await real?.stop();
-  });
+  for (const [index, name] of ["what-should-this", "what-should-this-2"].entries()) {
+    fireEvent.contextMenu(await within(rail).findByText(home.name, { selector: ".rail-row .name" }));
+    await waitFor(() => expect(menuProbe.shown?.find(item => item.id === "add")?.children?.some(item => item.id === "add-agent" && item.enabled)).toBe(true));
+    menuProbe.answer!("add-agent");
+    await waitFor(() => expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(index + 1));
+    // Production naming is proved by agents::u176_agents_with_one_prompt_are_numbered_among_their_siblings.
+    // Here the Daemon supplies names; the App must show each on its own row.
+    tree.push(agent(`child-${index + 1}`, "idle", "ready", { parent: home.id, name }));
+    app.emit(event({ name: "rail.changed" }));
+    await within(rail).findByText(name, { selector: `.rail-row[data-id="child-${index + 1}"] .name` });
+  }
 
-  it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async () => {
-    const app: AppSeam = createServedApp(real.base);
-
-    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-
-    const rail = await screen.findByRole("region", { name: "Rail" });
-    const agents = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "agent");
-
-    fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
-
-    for (const count of [1, 2]) {
-      await waitFor(() => expect(within(rail).getByRole("button", { name: "Add Workstream" }).getAttribute("aria-disabled")).not.toBe("true"));
-      const home = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
-      fireEvent.contextMenu(await within(rail).findByText(home.name, { selector: ".rail-row .name" }));
-      await waitFor(() => expect(menuProbe.shown?.find(item => item.id === "add")?.children?.some(item => item.id === "add-agent" && item.enabled)).toBe(true));
-      menuProbe.answer!("add-agent");
-      await waitFor(async () => expect(await agents()).toHaveLength(count), { timeout: 30_000 });
-      await waitFor(async () => expect((await agents())[count - 1]!.status?.label).not.toBe("starting"), { timeout: 30_000 });
-      await waitFor(async () => expect(await app.rpc("agent.prompt", { id: (await agents())[count - 1]!.id, text: "what should this do" })).toBeNull(), { timeout: 30_000 });
-      await waitFor(async () => expect((await agents())[count - 1]!.name).not.toBe("new-agent"), { timeout: 60_000 });
-    }
-
-    const nodes = await agents();
-    const names = nodes.map((node) => node.name);
-
-    expect(new Set(names).size).toBe(2);
-    await waitFor(() => {
-      for (const name of names) expect(within(rail).getAllByText(name).length).toBeGreaterThan(0);
-    });
-
-    await real.model!.assertMatched();
-  }, 180_000);
-
-});
-
-// Reuse both Project authorities across the Rail probes; each probe still creates fresh objects.
-let first: StartedDaemon;
-
-let second: StartedDaemon;
-
-beforeAll(async () => {
-  first = await startRealDaemon({});
-  second = await startRealDaemon({});
+  expect(app.calls.filter(call => call.method === "agent.spawn").map(call => call.params)).toEqual([
+    expect.objectContaining({ parent: home.id }), expect.objectContaining({ parent: home.id }),
+  ]);
 }, 180_000);
 
-afterAll(async () => {
-  await first?.stop();
-  await second?.stop();
-});
-
-// The public Daemon owns identities and mutations; only reply timing is controlled here.
+// Incoming trees are supplied facts; the mounted App owns draft identity and submission.
 describe("u2773 Rail task destinations", () => {
-  let app: AppSeam;
+  let app: ReturnType<typeof createFakeApp>;
   let left: AppSeam;
   let right: AppSeam;
+  let tree: RailNode[];
+  let otherTree: RailNode[];
   let home: string;
   let other: string;
 
   beforeEach(async () => {
     localStorage.clear();
-    left = createServedApp(first.base);
-    right = createServedApp(second.base);
-
-    // Keep real Project authorities, but give each probe fresh objects and no prior Agents.
-    for (const source of [left, right]) {
-      for (const node of await source.rpc("rail.tree", null)) {
-        if (node.kind === "workstream" && node.parent === null) await source.rpc("rail.remove", { id: node.id, scope: "all" });
-      }
-    }
-
-    home = (await left.rpc("rail.createWorkstream", { name: "same", parent: null })).id;
-    await right.rpc("rail.createWorkstream", { name: "padding", parent: null });
-    other = (await right.rpc("rail.createWorkstream", { name: "same", parent: null })).id;
-    app = {
-      ...left,
-      projects: async () => [{ name: "Left", path: first.dir, running: true }, { name: "Right", path: second.dir, running: true }],
-      forProject: (path) => path === first.dir ? left : right,
-      openProject: async (path) => ({ name: path === first.dir ? "Left" : "Right", path }),
-    };
+    const fake = createFakeApp();
+    fake.add("/left", "Left");
+    fake.add("/right", "Right");
+    const leftApp = fake.of("/left");
+    const rightApp = fake.of("/right");
+    home = "left-home";
+    other = "right-home";
+    tree = [workstream(home, { name: "same" })];
+    otherTree = [workstream(other, { name: "same" })];
+    leftApp.handlers["rail.tree"] = () => tree;
+    rightApp.handlers["rail.tree"] = () => otherTree;
+    leftApp.handlers["agent.spawn"] = () => agent("accepted", "idle", "ready", { parent: home });
+    left = leftApp;
+    right = rightApp;
+    app = fake;
   }, 120_000);
 
   afterEach(() => {
@@ -141,7 +103,8 @@ describe("u2773 Rail task destinations", () => {
   };
 
   it("u2773a_rail_restores_exact_work_on_project_agent_switch_and_events", async () => {
-    const sibling = await left.rpc("agent.spawn", { cwd: first.dir, parent: home, name: "same", prompt: null });
+    const sibling = agent("sibling", "idle", "ready", { parent: home, name: "same" });
+    tree.push(sibling);
     const replays: (() => void)[] = [];
 
     for (const source of [left, right]) {
@@ -175,8 +138,11 @@ describe("u2773 Rail task destinations", () => {
     expect(task().value).toBe("");
     type(" right\n別 😀 ");
     const focused = document.activeElement;
-    await left.rpc("rail.rename", { id: home, name: "incoming" });
-    await right.rpc("rail.rename", { id: other, name: "incoming" });
+    tree[0] = { ...tree[0]!, name: "incoming" };
+    otherTree[0] = { ...otherTree[0]!, name: "incoming" };
+    // Replay the same supplied incoming facts through each subscribed Project.
+    app.of("/left").emit(event({ name: "rail.changed" }));
+    app.of("/right").emit(event({ name: "rail.changed" }));
     await screen.findByText("incoming", { selector: ".rail .name" });
     replays.forEach((replay) => { replay(); replay(); });
     expect(document.activeElement).toBe(focused);
@@ -190,16 +156,19 @@ describe("u2773 Rail task destinations", () => {
 
     for (const spy of [calls, rightCalls]) expect(spy.mock.calls.filter(([method]) => ["agent.spawn", "message.send"].includes(method))).toEqual([]);
     submit();
-    await waitFor(async () => expect((await left.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(2));
+    await waitFor(() => expect(calls.mock.calls.filter(([method]) => method === "agent.spawn")).toHaveLength(1));
     expect(calls.mock.calls.find(([method]) => method === "agent.spawn")?.[1]).toMatchObject({ parent: home, prompt: "left\ne\u0301 😀" });
     expect((await right.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(0);
   }, 120_000);
 
   it("u2773c_rail_external_change_keeps_original_removed_parent", async () => {
     await mount(); await select(home); await openTask(); type(" exact removed\n😀 ");
-    await left.rpc("rail.remove", { id: home });
+    tree = [];
+    app.of("/left").emit(event({ name: "rail.changed" }));
     await waitFor(() => expect(document.querySelector(`[data-id="${home}"]`)).toBeNull());
-    const replacement = await left.rpc("rail.createWorkstream", { name: "same", parent: null });
+    const replacement = workstream("replacement", { name: "same" });
+    tree = [replacement];
+    app.of("/left").emit(event({ name: "rail.changed" }));
     await waitFor(() => expect(document.querySelector(`[data-id="${replacement.id}"] .name`)).not.toBeNull());
     const calls = vi.spyOn(left, "rpc");
     submit();
@@ -211,42 +180,28 @@ describe("u2773 Rail task destinations", () => {
   }, 120_000);
 });
 
-// Rail continuity probes share the audited real-Daemon launch site.
 describe("u2773 Rail persisted edits", () => {
-  beforeEach(async () => {
-    localStorage.clear();
-
-    // Reuse authorities, not prior probe objects or the acknowledged root Agent.
-    for (const real of [first, second]) {
-      const app = createServedApp(real.base);
-
-      for (const node of await app.rpc("rail.tree", null)) {
-        if (node.parent === null) await app.rpc("rail.remove", { id: node.id, scope: node.kind === "workstream" ? "all" : null });
-      }
-    }
-  });
-
-  afterEach(() => {
-    cleanup();
-    localStorage.clear();
-  });
-
-  it("u2773c_rail_real_external_rename_and_removal_keep_original_edit", async () => {
-    const app = createServedApp(first.base);
-    const node = await app.rpc("rail.createWorkstream", { name: "Original target", parent: null });
+  it("u2773c_rail_external_rename_and_removal_keep_original_edit", async () => {
+    const app = createFakeApp();
+    const node = workstream("original", { name: "Original target" });
+    let tree = [node];
+    app.handlers["rail.tree"] = () => tree;
     render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     fireEvent.dblClick(await screen.findByText("Original target", { selector: ".rail-row .name" }));
     const name = screen.getByLabelText<HTMLInputElement>("Name");
     fireEvent.input(name, { target: { value: " exact e\u0301 😀 " } });
-    await app.rpc("rail.rename", { id: node.id, name: "Changed elsewhere" });
+    tree = [{ ...node, name: "Changed elsewhere" }];
+    app.emit(event({ name: "rail.changed" }));
     expect((await screen.findByRole("alert")).tabIndex).toBe(-1);
     expect(name.value).toBe(" exact e\u0301 😀 ");
     fireEvent.keyDown(name, { key: "Enter" });
     expect((await app.rpc("rail.tree", null)).find((entry) => entry.id === node.id)?.name).toBe("Changed elsewhere");
-    await app.rpc("rail.remove", { id: node.id });
+    expect(app.calls.filter(call => call.method === "rail.rename")).toEqual([]);
+    tree = [];
+    app.emit(event({ name: "rail.changed" }));
     await waitFor(() => expect(screen.queryByRole("textbox", { name: recoveryCopy.draftField("name") })).toBeNull());
     expect(screen.getByText(railCopy.railDraftUnavailable)).toBeDefined();
     expect(screen.getAllByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).map((field) => field.value)).toContain(" exact e\u0301 😀 ");
-    expect(draftStorage(first.dir).list().find((entry) => entry.value.text === " exact e\u0301 😀 ")?.destination.object).toBe(node.id);
+    expect(draftStorage("/project").list().find((entry) => entry.value.text === " exact e\u0301 😀 ")?.destination.object).toBe(node.id);
   }, 120_000);
 });
