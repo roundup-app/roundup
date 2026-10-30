@@ -35,7 +35,6 @@ const observerTable = {
   "src/ask/u3787c_browser.test.ts": ["U3787c"],
   "src/bubbles/u2224_rendered.test.ts": ["U2224"],
   "src/bubbles/u2236_browser.test.ts": ["U2892", "U4459"],
-  "src/bubbles/u2742_browser.test.ts": ["U4011"],
   "src/bubbles/u3756_focus.test.ts": ["U3756a", "U3756b", "U3756c", "U3756d"],
   "src/bubbles/u4274_navigation.test.tsx": ["U4453c"],
   "src/bubbles/u4390_browser.test.ts": ["U4390"],
