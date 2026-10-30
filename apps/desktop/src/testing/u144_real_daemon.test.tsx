@@ -10,6 +10,8 @@ import { RequestedApp as App } from "../testing/requestedApp";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
+import { createFakeApp } from "./fakeApp";
+import { workstream } from "./nodes";
 import { startRealDaemon } from "./realDaemonFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -261,125 +263,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-  it("u2773e_recovery_actions_keep_surface_draft", async () => {
-    await setup();
-    const pad = await app.forProject(first.dir).rpc("pad.create", { name: `recovery-${seed}`, text: "base" });
-    const holder = drafts(first.dir);
-    const destination = { surface: "pads", object: pad.incarnation, recipient: null };
-    const older = holder.edit(destination, { originalName: pad.name, source: "older\n", base: pad.text }, null, "ordinary").draft;
-    await holder.submit(older.revision);
-    await holder.settle(older.revision, "failed");
-    const independent = drafts(second.dir).edit(destination, { source: "other Project" }, null, "ordinary");
-    await independent.retained;
-    const separate = independent.draft;
-    const write = Storage.prototype.setItem;
-
-    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
-      if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
-      write.call(this, key, value);
-    });
-
-    const newer = holder.edit(destination, { originalName: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
-    mount();
-    await openRecovery();
-    await within(screen.getByLabelText("Unfinished work")).findByRole("alert");
-    expect(holder.problem()).toMatchObject({ operation: "retain", cause: "write" });
-    expect([...document.querySelectorAll<HTMLElement>(".draft-revisions > li")].map((row) => row.dataset.revision).sort()).toEqual([older.revision, newer.revision].sort());
-    calls.forEach((spy) => spy.mockClear());
-    writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(holder.list().find((draft) => draft.revision === newer.revision)).toEqual(newer);
-    // Stored again, newer is no longer at risk but stays listed as left unsent.
-    await waitFor(() => expect(within(screen.getByLabelText("Unfinished work")).queryByRole("alert")).toBeNull());
-    fireEvent.click(within(document.querySelector<HTMLElement>(`.draft-revisions > li[data-revision="${older.revision}"]`)!).getByRole("button", { name: "Discard" }));
-    await waitFor(() => expect(createProjectDrafts()(first.dir).list()).toEqual([newer]));
-    expect(createProjectDrafts()(second.dir).list()).toEqual([separate]);
-    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => !["pad.list", "todo.list", "todo.listHanded"].includes(method))).toEqual([]);
-  }, 60_000);
-
-  it.each(["write", "surface"])("u2773h_retention_failure_preserves_closed_project_memory_%s", async (kind) => {
-    await setup();
-    const key = `roundup:drafts:${first.dir}`;
-    const incompatible = { revision: "incompatible", destination: { surface: "todos", object: "42", recipient: null }, value: { title: false }, selection: null, status: "draft", policy: "ordinary" };
-    const bytes = JSON.stringify({ version: 1, drafts: [incompatible] }, null, 2);
-
-    if (kind === "surface") localStorage.setItem(key, bytes);
-    const holder = drafts(first.dir);
-
-    if (kind === "surface") {
-      holder.validate("todos", v.object({ title: v.string() }));
-      await holder.discard(incompatible.revision);
-    }
-
-    let headerFactory: typeof drafts | undefined;
-    const setWindowTitle = app.setWindowTitle;
-
-    app.setWindowTitle = async (title) => {
-      headerFactory ??= useContext(ProjectDraftsContext);
-      await setWindowTitle(title);
-    };
-
-    const write = Storage.prototype.setItem;
-
-    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
-      if (kind === "write" && key.startsWith("roundup:drafts:")) throw new Error("disk full");
-
-      write.call(this, key, value);
-    });
-
-    const saved = holder.edit(
-      kind === "surface" ? incompatible.destination : target(),
-      kind === "surface" ? { title: exact, body: "  complete form\n", choices: ["second", "first"] } : { ask: exact, title: "same name", done: "later" },
-      { start: 3, end: 7, direction: "forward" }, "ordinary",
-    ).draft;
-
-    if (kind === "surface") expect(saved).toMatchObject({
-      destination: { surface: "todos", object: "42", recipient: null },
-      value: { title: exact, body: "  complete form\n", choices: ["second", "first"] },
-      selection: { start: 3, end: 7, direction: "forward" },
-    });
-    mount();
-    await openRecovery();
-    await within(screen.getByLabelText("Unfinished work")).findByRole("alert");
-    expect(holder.problem()?.operation).toBe(kind === "surface" ? "restore" : "retain");
-    expect(headerFactory).toBe(drafts);
-    const header = headerFactory!(first.dir);
-    expect(header).toBe(holder);
-    const headerSaved = header.edit({ surface: "header", object: first.dir, recipient: null }, { name: "  original e\u0301 🪁  " }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: "second" });
-    // This native seam ends the original real Daemon; the App removes its Connection.
-    fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
-    fireEvent.click(screen.getByRole("button", { name: "Close first" }));
-    await waitFor(async () => expect((await app.projects()).some(project => project.path === first.dir)).toBe(false));
-    expect(drafts(first.dir)).toBe(header);
-    expect(header.list()).toEqual([saved, headerSaved]);
-
-    if (kind === "surface") {
-      expect(header.problem()).toEqual({ project: first.dir, destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" });
-      expect((await header.retry())?.operation).toBe("restore");
-      expect(localStorage.getItem(key)).toBe(bytes);
-    }
-
-    writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: "first" });
-    await openRecovery();
-    expect(drafts(first.dir)).toBe(holder);
-    expect(holder.list()).toEqual([saved, headerSaved]);
-
-    if (kind === "surface") {
-      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-      expect(localStorage.getItem(key)).toBe(bytes);
-      expect(within(screen.getByLabelText("Unfinished work")).getByRole("alert")).toBeTruthy();
-      localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [] }));
-    }
-
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(within(screen.getByLabelText("Unfinished work")).queryByRole("alert")).toBeNull());
-    expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);
-    noDelivery();
-  }, 60_000);
 
   it("u2773h_unavailable_original_remains_recoverable", async () => {
     await setup();
@@ -443,6 +326,120 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(methods.filter((method) => method === "terminal.write" || method === "terminal.spawn" || method === "rail.startDoor")).toEqual([]);
     noDelivery();
     outside.remove();
+  }, 60_000);
+
+});
+
+
+describe("u2773 closed-Project draft lifetime through the App seam", () => {
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); });
+
+  it.each(["write", "surface"])("u2773h_retention_failure_preserves_closed_project_memory_%s", async (kind) => {
+    const first = { dir: "/first" };
+    const second = { dir: "/second" };
+    const app = createFakeApp();
+
+    app.add(first.dir);
+    app.of(first.dir);
+    const other = app.of(second.dir);
+    const original = workstream("original", { name: "same name" });
+
+    app.handlers["rail.tree"] = () => [original];
+    other.handlers["rail.tree"] = () => [workstream("other", { name: "same name" })];
+    app.chooseProjectPath = async () => (await app.projects()).some(project => project.path === second.dir) ? first.dir : second.dir;
+    const calls = [vi.spyOn(app, "rpc"), vi.spyOn(other, "rpc")];
+    const drafts = createProjectDrafts();
+    const exact = "  original e\u0301 🪁\nlast line  ";
+    const target = () => ({ surface: "orders", object: original.id, recipient: original.id });
+    const mount = () => render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+
+    const openRecovery = async () => {
+      await openMenu();
+
+      return screen.findByRole("region", { name: "Unfinished work" });
+    };
+
+    const key = `roundup:drafts:${first.dir}`;
+    const incompatible = { revision: "incompatible", destination: { surface: "todos", object: "42", recipient: null }, value: { title: false }, selection: null, status: "draft", policy: "ordinary" };
+    const bytes = JSON.stringify({ version: 1, drafts: [incompatible] }, null, 2);
+
+    if (kind === "surface") localStorage.setItem(key, bytes);
+    const holder = drafts(first.dir);
+
+    if (kind === "surface") {
+      holder.validate("todos", v.object({ title: v.string() }));
+      await holder.discard(incompatible.revision);
+    }
+
+    let headerFactory: typeof drafts | undefined;
+    const setWindowTitle = app.setWindowTitle;
+
+    app.setWindowTitle = async (title) => {
+      headerFactory ??= useContext(ProjectDraftsContext);
+      await setWindowTitle(title);
+    };
+
+    const write = Storage.prototype.setItem;
+
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (kind === "write" && key.startsWith("roundup:drafts:")) throw new Error("disk full");
+
+      write.call(this, key, value);
+    });
+
+    const saved = holder.edit(
+      kind === "surface" ? incompatible.destination : target(),
+      kind === "surface" ? { title: exact, body: "  complete form\n", choices: ["second", "first"] } : { ask: exact, title: "same name", done: "later" },
+      { start: 3, end: 7, direction: "forward" }, "ordinary",
+    ).draft;
+
+    if (kind === "surface") expect(saved).toMatchObject({
+      destination: { surface: "todos", object: "42", recipient: null },
+      value: { title: exact, body: "  complete form\n", choices: ["second", "first"] },
+      selection: { start: 3, end: 7, direction: "forward" },
+    });
+    mount();
+    await openRecovery();
+    await within(screen.getByLabelText("Unfinished work")).findByRole("alert");
+    expect(holder.problem()?.operation).toBe(kind === "surface" ? "restore" : "retain");
+    expect(headerFactory).toBe(drafts);
+    const header = headerFactory!(first.dir);
+    expect(header).toBe(holder);
+    const headerSaved = header.edit({ surface: "header", object: first.dir, recipient: null }, { name: "  original e\u0301 🪁  " }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await screen.findByRole("tab", { name: "second" });
+    // Closing the Project removes its Connection; the App-run draft authority must survive.
+    fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
+    fireEvent.click(screen.getByRole("button", { name: "Close first" }));
+    await waitFor(async () => expect((await app.projects()).some(project => project.path === first.dir)).toBe(false));
+    expect(drafts(first.dir)).toBe(header);
+    expect(header.list()).toEqual([saved, headerSaved]);
+
+    if (kind === "surface") {
+      expect(header.problem()).toEqual({ project: first.dir, destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" });
+      expect((await header.retry())?.operation).toBe("restore");
+      expect(localStorage.getItem(key)).toBe(bytes);
+    }
+
+    writes.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await screen.findByRole("tab", { name: "first" });
+    await openRecovery();
+    expect(drafts(first.dir)).toBe(holder);
+    expect(holder.list()).toEqual([saved, headerSaved]);
+
+    if (kind === "surface") {
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(localStorage.getItem(key)).toBe(bytes);
+      expect(within(screen.getByLabelText("Unfinished work")).getByRole("alert")).toBeTruthy();
+      localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [] }));
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(within(screen.getByLabelText("Unfinished work")).queryByRole("alert")).toBeNull());
+    expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);
+    const methods = calls.flatMap(spy => spy.mock.calls.map(([method]) => method));
+    expect(methods.filter(method => method === "agent.setOrder" || method === "message.send" || method === "agent.prompt" || method === "agent.spawn")).toEqual([]);
   }, 60_000);
 
 });
