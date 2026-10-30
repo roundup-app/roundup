@@ -14,20 +14,20 @@ afterEach(cleanup);
 
 it("u3791a_daemon_third_failure_is_visible", async () => {
   const app = createFakeApp();
-  const name = "Retained work";
-  const cause = "Cannot start Daemon";
+  const retained = node("retained", { name: "Retained work" });
+  const failure = new Error("Cannot start Daemon");
   app.opened.project = { name: "project", path: "/p" };
-  app.handlers["rail.tree"] = () => [node("retained", { name })];
+  app.handlers["rail.tree"] = () => [retained];
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
-  await screen.findByText(name);
+  await screen.findByText(retained.name);
   app.exitDaemon({ code: 1, recovery: "waiting" });
   expect(screen.queryByRole("button", { name: appCopy.reopen })).toBeNull();
   expect(screen.queryByText(new RegExp(appCopy.daemonExit("exited")))).toBeNull();
-  expect(screen.getByText(name)).toBeTruthy();
-  app.exitDaemon({ code: 1, recovery: "waiting", cause });
-  expect(screen.queryByText(cause)).toBeNull();
-  app.exitDaemon({ code: 1, cause });
-  expect(screen.getAllByText(cause)).toHaveLength(1);
+  expect(screen.getByText(retained.name)).toBeTruthy();
+  app.exitDaemon({ code: 1, recovery: "waiting", cause: failure.message });
+  expect(screen.queryByText(failure.message)).toBeNull();
+  app.exitDaemon({ code: 1, cause: failure.message });
+  expect(screen.getAllByText(failure.message)).toHaveLength(1);
   expect(screen.getByRole("button", { name: appCopy.reopen })).toBeTruthy();
 });
 

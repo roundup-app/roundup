@@ -2,13 +2,8 @@
 {"file":"apps/desktop/src/app/m8_project_requested.test.tsx","test":"u3289c_overview_menu_opens_recovery","identity":"501e1e46719dd84917cbac82e74a1d7ceb77ba0788e15f8c9562568697035a3b"}
 {"file":"apps/desktop/src/app/u135_schemes.test.tsx","test":"u135 schemes > u135_reduced_motion_makes_every_duration_but_the_instant_changes_0s","identity":"938a7a40cebb8716be9a2a09393f971a1b865f19a4976f39f67f83433edadec5"}
 {"file":"apps/desktop/src/app/u3560_copy.test.tsx","test":"u3560d_clipboard_failure_preserves_input_copy_action_%s","identity":"dbcb93f33a3745b301396271329332884279eb768996edf9869991d196f44d61"}
-{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_success_restores_the_header_and_enables_the_controls","identity":"44572225aa05114d16c0c4170e2e9475bf5c81ec875132168f2c93cc330c76cf"}
 {"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_the_rail_shows_the_new_daemons_tree_never_a_mix","identity":"cab6208716407c72b8c2dec47ebbb7cd8bf16b2e244378829dea2fbaf8dd9062"}
 {"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_the_rail_shows_the_new_daemons_tree_never_a_mix","identity":"5d45aaf93dc3238fa3fd6c449e73d1b78dcc0aee102d842aedcae5a94d0088ab"}
-{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_the_pane_works_again_after_a_successful_reopen","identity":"dbabb272f50a8ec0399973bfccd41befede44c3fad660d6a7638db92ecd97e98"}
-{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_the_pane_works_again_after_a_successful_reopen","identity":"b40fd7ca3a29856634c4650b8608e7d76fe72d3300e9edae5f3698a157808d24"}
-{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_a_reopen_after_a_failed_one_can_succeed","identity":"ed2b924fc8d669ad052040734703053c82cecddc0a8b856f6f3e874b3cdff7bc"}
-{"file":"apps/desktop/src/app/u37_reopen.test.tsx","test":"u37 Reopen after the Daemon exits > u37_a_reopen_after_a_failed_one_can_succeed","identity":"2ff7dcd82c298b383b90522ff98e8c8e24c00f0f464ecaa56c8687a4a7a5626f"}
 {"file":"apps/desktop/src/app/u3791a_recovery.test.tsx","test":"u3791a_reconnected_project_refetches","identity":"bc4d743a8f91ee18f9a66cfa10b1b1216beb3285acbaf28a99734201fcea4b49"}
 {"file":"apps/desktop/src/app/u3791a_recovery.test.tsx","test":"u3791a_recovery_sends_no_agent_input","identity":"e44fa3f4b78aaa9e9256fb463ad6251a6a4355d77bc7615a858dca2046c6d1c2"}
 {"file":"apps/desktop/src/ask/p3557c_failure_lifetime.test.tsx","test":"p3557c_failure_lifetime_ask_bar_send_dismiss_once","identity":"23d711b4e1171b26bfd2b93f0a37ef9054532bea8033d15d0dca297daa7dfe51"}
