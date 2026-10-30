@@ -7,6 +7,7 @@ type Seconds = Readonly<Record<string, number>>;
 
 interface Shard {
   weights: number[];
+  serial: number[];
   files: string[];
 }
 
@@ -26,8 +27,8 @@ const median = (values: readonly number[]): number => {
   return sorted[Math.floor(sorted.length / 2)] ?? 1;
 };
 
-/** What a shard holding files of these durations takes, in seconds. */
-export const shardTime = (kept: readonly number[]): number => Math.max(0, ...kept, kept.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0) / PARALLEL_FILES);
+/** Parallel work followed by the serial project's files, in seconds. */
+export const shardTime = (kept: readonly number[], serial: readonly number[] = []): number => Math.max(0, ...kept, kept.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0) / PARALLEL_FILES) + serial.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0);
 
 /** The files, longest measured duration first (a file without one weighs the median), ties by name. */
 export function longestFirst(files: readonly string[], measured: Seconds): string[] {
@@ -42,21 +43,23 @@ export function longestFirst(files: readonly string[], measured: Seconds): strin
  * a fair share keeps a shard nearly to itself. Files without a measured duration weigh the median. Every shard computes
  * the same answer from the same file list, so the shards partition it. Returns, per shard (0-based), the files it runs.
  */
-export function assignShards(files: readonly string[], measured: Seconds, count: number): string[][] {
+export function assignShards(files: readonly string[], measured: Seconds, count: number, serial: ReadonlySet<string> = new Set()): string[][] {
   const fallback = median(Object.values(measured));
   const weight = (file: string) => measured[file] ?? fallback;
-  const shards = Array.from({ length: count }, (): Shard => ({ weights: [], files: [] }));
+  const shards = Array.from({ length: count }, (): Shard => ({ weights: [], serial: [], files: [] }));
 
   for (const file of longestFirst(files, measured)) {
-    const finishes = (shard: Shard) => shardTime([...shard.weights, weight(file)]);
+    const finishes = (shard: Shard) => serial.has(file)
+      ? shardTime(shard.weights, [...shard.serial, weight(file)])
+      : shardTime([...shard.weights, weight(file)], shard.serial);
 
     const soonest = shards.reduce((best, shard) => {
       const gap = finishes(shard) - finishes(best);
 
-      return gap < 0 || (gap === 0 && shard.weights.length < best.weights.length) ? shard : best;
+      return gap < 0 || (gap === 0 && shard.files.length < best.files.length) ? shard : best;
     });
 
-    soonest.weights.push(weight(file));
+    (serial.has(file) ? soonest.serial : soonest.weights).push(weight(file));
     soonest.files.push(file);
   }
 
@@ -70,7 +73,9 @@ export default class TimedSequencer extends BaseSequencer {
 
     if (!shard) return specs;
     const byFile = new Map(specs.map((spec) => [relative(root, spec.moduleId), spec]));
-    const mine = assignShards([...byFile.keys()], durations, shard.count)[shard.index - 1] ?? [];
+    // Run 41053555900 timed out: heavy files run serially after App work (vite.config.ts), not in its parallel pool.
+    const serial = new Set([...byFile].flatMap(([file, spec]) => spec.project.config.maxWorkers === 1 ? file : []));
+    const mine = assignShards([...byFile.keys()], durations, shard.count, serial)[shard.index - 1] ?? [];
 
     return mine.flatMap((file) => byFile.get(file) ?? []);
   }

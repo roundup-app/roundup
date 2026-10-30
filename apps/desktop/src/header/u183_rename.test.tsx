@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { settled } from "../rail/railFixture";
 import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -315,11 +316,13 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
 
  return new Promise((yes, no) => { accept = yes; reject = no; }); };
 
+  const firstText = "  A e\u0301 🪁  ";
+  const nextText = "  B 雪  ";
   const a = await edit();
-  fireEvent.input(a, { target: { value: "  A e\u0301 🪁  " } });
+  fireEvent.input(a, { target: { value: firstText } });
   press("Enter");
   const b = await edit("A");
-  fireEvent.input(b, { target: { value: "  B 雪  " } });
+  fireEvent.input(b, { target: { value: nextText } });
   press("Escape");
   fireEvent.click(tab("web"));
 
@@ -332,15 +335,15 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
   fireEvent.click(await screen.findByRole("tab", { name: "api" }));
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
-  const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : "Acceptance unknown"} ·`) });
+  expect(within(dialog).getByText(nextText, { exact: true, normalizer: text => text })).toBeDefined();
+  const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : recoveryCopy.draftStatus.unknown} ·`) });
 
   if (outcome === "acknowledged") expect(older).toBeNull();
   else {
     fireEvent.click(older!);
-    expect(within(dialog).getByText("  A e\u0301 🪁  ", { exact: true, normalizer: text => text })).toBeDefined();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
-    expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+    expect(within(dialog).getByText(firstText, { exact: true, normalizer: text => text })).toBeDefined();
+    fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
+    expect(within(dialog).getByText(nextText, { exact: true, normalizer: text => text })).toBeDefined();
   }
 
   expect(sends).toEqual([[path("api"), "  A e\u0301 🪁  ", "api"]]);
@@ -365,7 +368,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
   await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
   expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts[0].value.name).toBe("  recover e\u0301 🪁  ");
-  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
   await waitFor(() => expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts).toEqual([]));
   expect(sends).not.toHaveBeenCalled();
 
@@ -395,16 +398,17 @@ it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
 });
 
 it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
+  const value = { name: "  legacy 雪  " };
   const { app } = renderTabs({ api: [], web: [] });
-  window.localStorage.setItem(`roundup:drafts:${path("api")}`, JSON.stringify({ version: 1, drafts: [{ revision: "legacy-header", destination: { surface: "header", object: path("api"), recipient: null }, value: { name: "  legacy 雪  " }, selection: null, status: "draft", policy: "ordinary" }] }));
+  window.localStorage.setItem(`roundup:drafts:${path("api")}`, JSON.stringify({ version: 1, drafts: [{ revision: "legacy-header", destination: { surface: "header", object: path("api"), recipient: null }, value, selection: null, status: "draft", policy: "ordinary" }] }));
   const sends = vi.spyOn(app, "renameProject");
   await screen.findByRole("tab", { name: "api" });
   const input = await edit();
-  expect(input.value).toBe("  legacy 雪  ");
+  expect(input.value).toBe(value.name);
   press("Enter");
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(dialog).getByText("  legacy 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
-  expect(within(dialog).getAllByRole("status").some(status => status.textContent?.includes("original name changed"))).toBe(true);
+  expect(within(dialog).getAllByRole("status").some(status => status.textContent?.includes(recoveryCopy.railDraftConflict))).toBe(true);
+  expect(within(dialog).getByText(value.name, { exact: true, normalizer: text => text })).toBeDefined();
   expect(sends).not.toHaveBeenCalled();
 });
 
@@ -569,7 +573,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual([a.value.name]));
-  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(drafts.list()).toEqual([b]);
   await waitFor(() => expect(createProjectDrafts()(path("api")).list()).toEqual([b]));
   view.unmount();
@@ -632,8 +636,8 @@ it.each([
 
   if (action === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Close · Copy name" }));
   else if (action.startsWith("discard")) {
-    if (action === "discard other revision") fireEvent.click(within(dialog).getByRole("button", { name: /^Current work ·/ }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+    if (action === "discard other revision") fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`^${recoveryCopy.currentDraft} ·`) }));
+    fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
   } else {
     fireEvent.click(within(dialog).getByRole("button", { name: /^Close$/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -675,7 +679,7 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
   expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
-  fireEvent.click(within(dialog).getByRole("button", { name: action === "dismiss" ? "Close · Copy name" : "Discard this revision" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: action === "dismiss" ? "Close · Copy name" : recoveryCopy.discardRevision }));
   await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ })).toBeNull());
   expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
   expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: "Retry storage only" }).disabled).toBe(false);
