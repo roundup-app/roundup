@@ -73,7 +73,7 @@ export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
 
   return <Show when={parts().length > 0}><div class="ask-content">
     <Show when={live().length > 0}><section class="ask-parts" aria-label={copy.askRows}>
-      <h2 class="overview-heading">{copy.askRows}</h2>
+
       {rows(live())}
     </section></Show>
     <Show when={earlier().length > 0}><Disclosure class="ask-earlier" label={copy.askEarlier(earlier().length)}>{rows(earlier())}</Disclosure></Show>
@@ -146,7 +146,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
   );
 
   return (
-    <li class="ask-row" data-state={props.part.state}>
+    <li data-overview-item={props.entry.key + ":" + props.index} class="ask-row" data-state={props.part.state}>
       <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>{(trigger, focus) => {
         const tip = trigger();
 
