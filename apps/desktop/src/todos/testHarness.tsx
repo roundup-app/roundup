@@ -1,6 +1,6 @@
 // T4902 retires T29 duration setup; existing non-duration proofs below remain.
 import { createNow, DisplayClockContext } from "../state/clock";
-import { createSignal, onMount, Show } from "solid-js";
+import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import { expect, vi } from "vitest";
 import { within, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -32,6 +32,8 @@ vi.mock("../pads/PadRichEditor", async (original) => {
   let field: HTMLTextAreaElement | undefined;
   const [text, setText] = createSignal(props.text);
   let base = props.text;
+  let closed = false;
+  onCleanup(() => { closed = true; });
   onMount(() => {
     if (!props.initialFocus) return;
     props.onReady({
@@ -49,7 +51,7 @@ vi.mock("../pads/PadRichEditor", async (original) => {
 
   return <Show when={!!props.initialFocus} fallback={<p tabIndex={0}>{props.text}</p>}><textarea ref={field} aria-label={props.label} spellcheck={false} autocorrect="off" autocapitalize="off" value={text()}
     onInput={event => { setText(event.currentTarget.value); props.onChange(); props.onText(text()); }}
-    onSelect={() => props.onSelection?.()} onBlur={event => props.onBlur(event.relatedTarget)} /></Show>;
+    onSelect={() => { if (!closed) props.onSelection?.(); }} onBlur={event => props.onBlur(event.relatedTarget)} /></Show>;
 } }; });
 
 export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({

@@ -27,9 +27,11 @@ export const blockerSchema = v.strictObject({
 });
 
 // Shared recovery also retains older title/text/choice snapshots for inspection, without an editable base.
+const commentSchema = v.strictObject({ text: v.string() });
+
 const snapshotSchema = v.strictObject({ title: v.string(), body: v.optional(v.string()), choices: v.optional(v.array(v.string())) });
 
-export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchema, snapshotSchema]);
+export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchema, snapshotSchema, commentSchema]);
 
 type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: number; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
 
@@ -54,14 +56,14 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   };
 
   const label = (draft: ReturnType<typeof drafts.list>[number]) => copy.draftIdentity(
-    copy.draftField(draft.destination.object === "new" ? "title" : draft.destination.recipient?.startsWith("blockers:") ? "blockers" : draft.destination.recipient ?? "title"),
+    draft.destination.recipient === "comment" ? copy.comment : copy.draftField(draft.destination.object === "new" ? "title" : draft.destination.recipient?.startsWith("blockers:") ? "blockers" : draft.destination.recipient ?? "title"),
     String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
   );
 
-  return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
+  return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <ReservedLine overlay={props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
+    <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
     <Show when={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {
