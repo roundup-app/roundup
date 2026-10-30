@@ -60,7 +60,7 @@ const open = async () => {
     door("w", "idle", "idle", { name: "lead" }),
     ...["a", "b", "c"].map((id) => agent(id, id === "a" ? "needs-you" : "idle", "x", { parent: "w" })),
   ];
-  Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", owner: { kind: "user", id: "you", parent: null }, updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
+  Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
   app.handlers["terminal.list"] = () => listed;
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;

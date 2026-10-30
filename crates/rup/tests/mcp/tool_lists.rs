@@ -42,7 +42,7 @@ pub const TOOL_METHODS: [&str; 90] = [
     "pad.rename",
     "pad.append",
     "pad.appendSection",
-    "pad.setOwner",
+    "pad.move",
     "pad.delete",
     "pad.getDeletion",
     "pad.restore",
@@ -118,7 +118,7 @@ pub const DOOR_METHODS: [&str; 7] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 81] = [
+pub const NO_TOOL: [&str; 80] = [
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
     "daemon.getNaming",
     "daemon.setNaming",
@@ -185,7 +185,6 @@ pub const NO_TOOL: [&str; 81] = [
     "agent.skills",
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
     "agent.spawnPrompt",
-    "pad.move",
     // U419: the bytes of an image the user pasted
     "attachment.save",
     // A36, A37: the user's own settings, which spend the user's usage (P8)
@@ -400,4 +399,168 @@ async fn a32_removed_tools_are_unavailable() {
             );
         }
     }
+}
+
+#[tokio::test]
+async fn p16_shared_pad_access_over_public_seams() {
+    use serde_json::{Value, json};
+    let project = super::start_daemon();
+    let user = super::client_as(&project.socket, contracts::Actor::user()).await;
+    let home = user
+        .request("rail.createWorkstream", json!({"name":"Shared Home"}))
+        .await
+        .unwrap();
+    let actors = ["", "first", "second"];
+    let mut retained = Vec::new();
+    for (index, actor) in actors.iter().enumerate() {
+        let caller = if actor.is_empty() {
+            contracts::Actor::user()
+        } else {
+            super::agent(actor)
+        };
+        let shim = super::spawn_shim(&project.socket, actor).await;
+        let tools = shim.client.list_all_tools().await.unwrap();
+        assert!(tools.iter().any(|tool| tool.name == "pad_move"));
+        assert!(!tools.iter().any(|tool| tool.name == "pad_setOwner"));
+        let creator = super::spawn_shim(&project.socket, actors[(index + 1) % actors.len()]).await;
+        for cli in [false, true] {
+            if actor.is_empty() && cli {
+                continue;
+            }
+            let name = format!("shared-{index}-{cli}");
+            let result = creator
+                .call("pad_create", json!({"name":name,"text":"original"}))
+                .await;
+            assert_ne!(result.is_error, Some(true));
+            let original = super::text(&result);
+            let renamed = format!("{name}-renamed");
+            for (method, params, positional, flags) in [
+                ("read", json!({"name":name}), vec![name.as_str()], vec![]),
+                (
+                    "write",
+                    json!({"name":name,"text":"replacement"}),
+                    vec![name.as_str(), "replacement"],
+                    vec![],
+                ),
+                (
+                    "append",
+                    json!({"name":name,"text":"+append"}),
+                    vec![name.as_str(), "+append"],
+                    vec![],
+                ),
+                (
+                    "rename",
+                    json!({"name":name,"newName":renamed,"expectedIncarnation":original["incarnation"]}),
+                    vec![
+                        name.as_str(),
+                        renamed.as_str(),
+                        original["incarnation"].as_str().unwrap(),
+                    ],
+                    vec![],
+                ),
+                (
+                    "move",
+                    json!({"name":renamed,"home":home["id"]}),
+                    vec![renamed.as_str()],
+                    vec!["--home", home["id"].as_str().unwrap()],
+                ),
+            ] {
+                if cli {
+                    let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"));
+                    command
+                        .args(["--json", "pad", method])
+                        .args(positional)
+                        .args(flags)
+                        .env("RUPD_SOCKET", &project.socket)
+                        .env_remove("ROUNDUP_AGENT");
+                    if !actor.is_empty() {
+                        command.args(["--agent", actor]);
+                    }
+                    let output = command.output().await.unwrap();
+                    assert!(
+                        output.status.success(),
+                        "{method}: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                } else {
+                    let result = shim.call(&format!("pad_{method}"), params).await;
+                    assert_ne!(result.is_error, Some(true), "{method}: {result:?}");
+                }
+            }
+            let current = user
+                .request("pad.read", json!({"name":renamed}))
+                .await
+                .unwrap();
+            assert_eq!(current["text"], "replacement+append");
+            assert_eq!(current["home"], home["id"]);
+            assert_eq!(current["incarnation"], original["incarnation"]);
+            assert_eq!(current["revision"], 3);
+            assert!(current.get("owner").is_none());
+            for item in [&name, &renamed] {
+                let history = user
+                    .request("provenance.history", json!({"item":format!("pad:{item}")}))
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    history
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .rfind(|touch| touch["verb"] == "wrote")
+                        .unwrap()["actor"],
+                    json!(caller)
+                );
+            }
+            let removed = shim
+                .call(
+                    "pad_delete",
+                    json!({"name":renamed,"expectedIncarnation":original["incarnation"]}),
+                )
+                .await;
+            assert_ne!(removed.is_error, Some(true));
+            assert!(
+                user.request("pad.read", json!({"name":renamed}))
+                    .await
+                    .is_err()
+            );
+            let receipt = super::text(&removed);
+            let restored = shim
+                .call(
+                    "pad_restore",
+                    json!({"project":receipt["project"],"operation":receipt["operation"]}),
+                )
+                .await;
+            assert_ne!(restored.is_error, Some(true));
+            assert_eq!(
+                user.request("pad.read", json!({"name":renamed}))
+                    .await
+                    .unwrap(),
+                current
+            );
+            retained.push(current);
+        }
+        let _ = creator.client.cancel().await;
+        let _ = shim.client.cancel().await;
+    }
+    project.daemon.abort();
+    let _ = project.daemon.await;
+    // Reopen the same authoritative Project store; no fixture data is reconstructed.
+    let socket = project._dir.path().join("reopened.sock");
+    let serving = super::common::serve(project._dir.path(), &socket);
+    let reopened = super::client_as(&socket, contracts::Actor::user()).await;
+    let listed = reopened.request("pad.list", Value::Null).await.unwrap();
+    for pad in retained {
+        assert!(listed.as_array().unwrap().contains(&pad));
+    }
+    let before = reopened.request("pad.list", Value::Null).await.unwrap();
+    let error = reopened
+        .request("pad.setOwner", json!({"name":"missing"}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::METHOD_NOT_FOUND);
+    assert_eq!(
+        reopened.request("pad.list", Value::Null).await.unwrap(),
+        before
+    );
+    serving.abort();
 }

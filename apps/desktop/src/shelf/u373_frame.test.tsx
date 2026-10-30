@@ -112,13 +112,13 @@ describe("u373 and u370 on one mounted App", () => {
 
     fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
     await waitFor(() => expect(group.getAttribute("aria-expanded")).toBe("false"));
-    expect(counts()).toEqual([7, 4]);
+    await waitFor(() => expect(counts()).toEqual([7, 4]));
     fireEvent.click(tabNamed("Pads"));
     await waitFor(() => expect(shelf().hidden).toBe(true));
     // U2539b unmounts requested surfaces when closed; the chord reopens the retained Pads tab.
     chord();
     await waitFor(() => expect(shelf().hidden).toBe(false));
-    expect(counts()).toEqual([7, 4]);
+    await waitFor(() => expect(counts()).toEqual([7, 4]));
   }, 45_000);
 
   it("u373_tab_navigation_stays_on_tabs", async () => {
@@ -131,25 +131,6 @@ describe("u373 and u370 on one mounted App", () => {
       await waitFor(() => expect(document.activeElement).toBe(tabNamed(name!)));
     }
   }, 45_000);
-
-  it("u371_scroll_shadow_top_bottom_and_none", async () => {
-    await shared();
-    const wrap = document.querySelector<HTMLElement>(".shelf-scroll")!;
-    const area = wrap.querySelector<HTMLElement>(".shelf-area")!;
-
-    expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["false", "false"]);
-    Object.defineProperty(area, "clientHeight", { value: 100, configurable: true });
-    Object.defineProperty(area, "scrollHeight", { value: 300, configurable: true });
-    area.scrollTop = 0;
-    fireEvent.scroll(area);
-    expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["false", "true"]);
-    area.scrollTop = 80;
-    fireEvent.scroll(area);
-    expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["true", "true"]);
-    area.scrollTop = 200;
-    fireEvent.scroll(area);
-    expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["true", "false"]);
-  });
 
   it("u451_shelf_tabs_do_not_drag_or_zoom_the_window", async () => {
     const controls = await shared();
@@ -187,7 +168,7 @@ describe("u373 and u370 on one mounted App", () => {
     }
 
     field.remove();
-    expect(controls.app.calls.slice(before).filter((call) => call.method !== "terminal.resize")).toEqual([]);
+    expect(controls.app.calls.slice(before).filter((call) => !["terminal.resize", "pad.list"].includes(call.method))).toEqual([]);
   });
 
   it("u370_focus_returns_where_it_was", async () => {

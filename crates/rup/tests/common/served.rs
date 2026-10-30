@@ -24,6 +24,16 @@ async fn serve_for_the_parent() {
         .unwrap();
 }
 
+/// Serve an authoritative Project store on an isolated test socket.
+#[allow(dead_code)] // Only the MCP integration target uses the in-process server.
+pub fn serve(dir: &Path, socket: &Path) -> tokio::task::JoinHandle<std::io::Result<()>> {
+    let daemon = Arc::new(rupd::Daemon::open(&dir.join(".roundup")).unwrap());
+    tokio::spawn(rupd::serve(
+        tokio::net::UnixListener::bind(socket).unwrap(),
+        daemon,
+    ))
+}
+
 /// A Daemon child process that is killed when this drops.
 pub struct Served {
     pub dir: tempfile::TempDir,

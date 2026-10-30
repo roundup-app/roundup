@@ -1,67 +1,33 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
-import { AGENT, CONFLICT, openShelf, RpcError } from "./padsFixture";
-import { USER } from "../testing/nodes";
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { openLane, type LaneBrowser } from "../todos/laneBrowser";
+import { captureDir } from "../testing/captures";
 
-afterEach(cleanup);
+let lane: LaneBrowser;
 
-// The frozen N7 inventory pins this historical path; its surviving creation proofs now run in jsdom.
-const calls = (app: { calls: { method: string; params?: unknown }[] }, ...methods: string[]) => app.calls.filter(call => methods.includes(call.method));
+beforeAll(async () => { lane = await openLane(1512, "dark", "shared-pads"); }, 180_000);
 
-const name = async (value: string) => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
-  const field = await screen.findByLabelText<HTMLInputElement>("Pad name");
+afterAll(async () => { await lane?.close(); });
 
-  fireEvent.input(field, { target: { value } });
-  fireEvent.keyDown(field, { key: "Enter" });
+it("u3736_home_moves_regroup_the_same_pad_without_assignment", async () => {
+  await lane.evaluate(`(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
+  await lane.until(`!!document.querySelector('.pads-tab [data-pad="pad-0"]')`);
+  const home = await lane.evaluate<string>(`window.__fake.app.rpc('rail.tree').then(nodes => nodes.find(node => node.kind === 'workstream').id)`);
+  const pad = await lane.evaluate<{ incarnation: string; text: string }>(`window.__fake.app.rpc('pad.read', {name:'pad-0'})`);
+  await lane.evaluate(`window.__fake.app.rpc('pad.move', {name:'pad-0',home:${JSON.stringify(home)}})`);
+  await lane.until(`document.querySelector('.pads-tab [data-pad="pad-0"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(home)}`);
+  expect(await lane.evaluate(`window.__fake.app.rpc('pad.read', {name:'pad-0'}).then(pad => ({incarnation:pad.incarnation,text:pad.text}))`)).toEqual(pad && { incarnation: pad.incarnation, text: pad.text });
+  await lane.evaluate(`window.__fake.failNext(-32003, 'A Pad with this name already exists. Choose another name.')`);
+  await lane.browser("click", "button[aria-label='Add Pad']");
+  await lane.browser("fill", "input[aria-label='Pad name']", "pad-0");
+  await lane.browser("press", "Enter");
+  await lane.until(`document.body.innerText.includes('Choose another name.')`);
+  const dir = captureDir("U3736");
 
-  return field;
-};
-
-it("u3731_a_pad_made_under_an_agent_is_owned_by_it_and_listed_in_its_group", async () => {
-  const { app, connected } = await openShelf([], true);
-
-  connected.rail.select(AGENT.id);
-  await name("notes");
-  await waitFor(() => expect(calls(app, "pad.create", "pad.setOwner")).toHaveLength(2));
-
-  expect(calls(app, "pad.create", "pad.setOwner")).toEqual([
-    { method: "pad.create", params: { name: "notes", text: null } },
-    { method: "pad.setOwner", params: { name: "notes", owner: AGENT } },
-  ]);
-  app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
-  await waitFor(() => expect(document.querySelector(`[data-shelf-group="${AGENT.id}"] [data-pad="notes"]`)).toBeTruthy());
+  if (dir) {
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "shared-home.checks.json"), JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
+    await lane.browser("screenshot", join(dir, "shared-home.png"));
+  }
 });
-
-it("u3731_another_selection_keeps_the_user_as_owner", async () => {
-  const { app, connected } = await openShelf([], true);
-
-  connected.rail.select(null);
-  await name("notes");
-  await waitFor(() => expect(calls(app, "pad.create")).toHaveLength(1));
-
-  expect(calls(app, "pad.setOwner")).toEqual([]);
-});
-
-it("u3731_a_refused_step_keeps_the_name_and_shows_its_cause", async () => {
-  const { app, connected } = await openShelf([], true);
-  const create = app.handlers["pad.create"]!;
-
-  connected.rail.select(AGENT.id);
-  const refusal = new RpcError(CONFLICT, "pad notes exists");
-  app.handlers["pad.create"] = () => { throw refusal; };
-
-  const field = await name("notes");
-
-  expect(await screen.findByText(refusal.message)).toBeTruthy();
-  expect(field.value).toBe("notes");
-
-  app.handlers["pad.create"] = create;
-  app.handlers["pad.setOwner"] = () => { throw new RpcError(-32004, "agent gone"); };
-
-  fireEvent.keyDown(field, { key: "Enter" });
-
-  expect(await screen.findByText(/stays yours: agent gone/)).toBeTruthy();
-  expect(field.value).toBe("notes");
-});
-

@@ -8,7 +8,7 @@ import { bundledRenderers, useRenderers } from "../pads/visualKinds";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "./fakeApp";
 import { padHandlers } from "./stores";
-import { workstream, USER } from "./nodes";
+import { workstream } from "./nodes";
 import { showShelfTab } from "./shelfTabs";
 
 afterEach(() => {
@@ -39,14 +39,21 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
     });
     const app = createFakeApp();
     app.opened.project = { name: "drawings", path: "/project" };
-    const state = { pads: [{ incarnation: "stored-sketch", name: "sketch", owner: USER, home: null, text: `${mermaid}\n${drawing}`, revision: 1, updated_at: 0 }], history: [] };
+    const state = { pads: [{ incarnation: "stored-sketch", name: "sketch",  home: null, text: `${mermaid}\n${drawing}`, revision: 1, updated_at: 0 }], history: [] };
     app.handlers["rail.tree"] = () => [workstream("scope", { name: "scope" })];
     Object.assign(app.handlers, padHandlers(state, () => {}));
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     await screen.findByRole("tablist", { name: "Work items" }, { timeout: 20_000 });
     await showEverythingInApp(/scope/);
     showShelfTab("Pads");
-    const group = await screen.findByText("Unassigned", { selector: ".shelf-group-name" });
+
+    const group = await waitFor(() => {
+      const branch = document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+
+      expect(branch).not.toBeNull();
+
+      return branch!;
+    });
 
     if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") === "false") fireEvent.click(group.closest('[data-part="branch-control"]')!);
     const row = await screen.findByRole("button", { name: "sketch" }, { timeout: 20_000 });
