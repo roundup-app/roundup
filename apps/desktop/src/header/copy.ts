@@ -29,7 +29,9 @@ export const copy = {
   addProjectMark: "+",
   error: sharedCopy.error,
   needsYou: sharedCopy.needsYou,
-  needYouError: (value1: CopyValue, value2: CopyValue) => `${value1} ${value1 === 1 ? "needs" : "need"} you; ${value2} ${value2 === 1 ? "has" : "have"} errors.`,
+  needYouError: (value1: CopyValue, value2: CopyValue) => value1 === 1
+    ? value2 === 1 ? "1 needs you; 1 has errors." : `1 needs you; ${value2} have errors.`
+    : value2 === 1 ? `${value1} need you; 1 has errors.` : `${value1} need you; ${value2} have errors.`,
   copied: sharedCopy.copied,
   copy: sharedCopy.copy,
   comma: sharedCopy.comma,
