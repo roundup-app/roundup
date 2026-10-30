@@ -80,11 +80,15 @@
   white-space: pre;
 }
 
-.tab-mark {
-  flex: none;
-  display: inline-block;
-  align-self: flex-start;
-  margin-top: var(--space-1);
+/* U5153b: the slot holds the dot's column on every Project tab, so a mark appearing moves nothing; the dot's top meets the name's first line top. */
+.tab-mark-slot {
+  display: flex;
+  align-self: start;
+  width: var(--space-1);
+}
+
+.tab-mark-slot > .tab-mark {
+  cursor: pointer;
 }
 
 .tab-close {
