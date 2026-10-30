@@ -78,16 +78,19 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_rest
     const pad = await app.rpc("pad.create", { name: `redo-${kind}`, text: "original é 🧭" });
     const node = await app.rpc("rail.createWorkstream", { name: `redo-${kind}`, parent: null });
 
-    if (kind === "todos") await undo.remove([chosen.id]);
+    if (kind === "todos") await undo.remove([chosen.id, arrival.id + 1]);
     else await undo.removeRail(node.id, node.name);
 
     await undo.undo();
+    const late = await app.rpc("todo.create", { title: `late ${kind}`, body: null, blockers: null });
+
+    if (kind === "todos") expect(late.id).toBe(arrival.id + 1);
     // Redo consumes an acknowledged restoration, and another Undo consumes the new receipt.
     await undo.redo();
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(kind !== "todos");
     expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(kind !== "rail");
-    expect((await app.rpc("todo.list", null)).some(row => row.id === arrival.id)).toBe(true);
+    expect((await app.rpc("todo.list", null)).filter(row => [arrival.id, late.id].includes(row.id)).map(row => row.id)).toEqual([arrival.id, late.id]);
     await undo.undo();
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(true);
     expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
@@ -102,6 +105,7 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_re
   const undo = connected.drafts.todoUndo;
   const requests: unknown[] = [];
   let readable = true;
+
   const bridge: AppSeam = { ...app, rpc: async (method, params) => {
     if (method === (kind === "todos" ? "todo.deletion" : "rail.deletion") && !readable) throw new Error("receipt unavailable");
 
@@ -143,11 +147,13 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_re
 it("u3787a_retained_redo_refusal_preserves_a_newer_home_and_retries_the_same_request", async () => {
   const app = createServedApp(real.base);
   const requests: unknown[] = [];
+
   const bridge: AppSeam = { ...app, rpc: (method, params) => {
     if (method === "todo.redo") requests.push(params);
 
     return app.rpc(method, params);
   } };
+
   const connected = await connectProject(bridge, { name: "refused redo", path: real.dir }, () => true, () => 0);
   const undo = connected.drafts.todoUndo;
 
