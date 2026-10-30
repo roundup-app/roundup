@@ -387,3 +387,35 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed
   expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2");
   expect(daemon.calls.filter(call => call.method === "todo.create" || call.method === "terminal.write")).toEqual([]);
 });
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename from %s captures the focused tab", async source => {
+  const { app } = await mountNavigation(true, 1);
+  const target = document.querySelector<HTMLButtonElement>('.project-tab[data-path="/p"] [role="tab"]')!;
+  target.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
+  const captured = captureActions(target).find(action => action.value === "action:chord:F2")!;
+  expect(document.activeElement).toBe(target);
+  const rename = vi.spyOn(app, "renameProject");
+
+  if (source === "key") fireEvent.keyDown(target, { key: "F2", code: "F2" });
+  else openProjectPage("action:chord:F2", "/p");
+
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  expect(field.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
+  expect(rename).not.toHaveBeenCalled();
+  expect(captured.available()).toBe(false);
+  captured.run();
+  openProjectPage("action:chord:F2", "/p");
+  expect(screen.getAllByRole("textbox", { name: "Project name" })).toHaveLength(1);
+  fireEvent.input(field, { target: { value: "Renamed Project" } });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(rename).toHaveBeenCalledExactlyOnceWith("/p", "Renamed Project", "p"));
+  expect(document.activeElement?.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
+  const retained = captureActions(document.activeElement).find(action => action.value === "action:chord:F2")!;
+  screen.getByRole("textbox", { name: "Ask" }).focus();
+  expect(retained.available()).toBe(false);
+  retained.run();
+  openProjectPage("action:chord:F2", "/p");
+  expect(screen.queryByRole("textbox", { name: "Project name" })).toBeNull();
+});
