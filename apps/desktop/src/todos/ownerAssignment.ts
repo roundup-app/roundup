@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus } from "../keys/focus";
 import type { Todo } from "@contracts/todo/Todo";
@@ -109,7 +110,7 @@ export const createOwnerKeys = (source: {
       const target = owners().filter(owner => owner.actor?.kind === "agent")[at];
 
       return {
-        label: `${at + 1} ${action.what}: ${target?.name ?? ""}`,
+        label: copy.assignTo(target?.name ?? ""),
         available: () => source.active() && focus?.isConnected === true && document.activeElement === focus && todo !== undefined && focused(focus)?.id === todo.id
           && target !== undefined && owners().some(owner => sameOwner(owner.actor, target.actor))
           && !sameOwner(source.todos.byId().get(todo.id)?.owner ?? null, target.actor),

@@ -110,7 +110,9 @@ pub fn select_project_menu<R: Runtime>(
         for group in ["create", "navigate", "views"] {
             let entries: Vec<_> = items
                 .iter()
-                .filter(|item| item.enabled && item.group.as_deref().unwrap_or("navigate") == group)
+                .filter(|item| {
+                    applicable(item) && item.group.as_deref().unwrap_or("navigate") == group
+                })
                 .collect();
             if entries.is_empty() {
                 continue;
@@ -121,16 +123,17 @@ pub fn select_project_menu<R: Runtime>(
                     .map_err(internal)?;
             }
             for item in entries {
-                let (entry, hint) =
+                let (entry, item_hints) =
                     project_kind(&app, item, |app, id, label, enabled, accelerator| {
                         MenuItem::with_id(app, id, label, enabled, accelerator)
                     })
                     .map_err(internal)?;
                 let index = project.items().map_err(internal)?.len();
                 project.append(&entry).map_err(internal)?;
-                if let Some(hint) = hint {
-                    hints.push((index, hint));
-                }
+                hints.extend(item_hints.into_iter().map(|(mut path, hint)| {
+                    path.insert(0, index);
+                    (path, hint)
+                }));
             }
             separated = true;
         }
@@ -207,24 +210,32 @@ fn kind<R: Runtime>(
     item: &Item,
     build: impl Fn(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>> + Copy,
 ) -> tauri::Result<MenuItemKind<R>> {
-    match &item.children {
-        Some(children) => {
-            let sub = Submenu::new(app, &item.label, item.enabled)?;
-            for child in children.iter().filter(|child| applicable(child)) {
-                sub.append(&kind(app, child, build)?)?;
-            }
-            Ok(MenuItemKind::Submenu(sub))
-        }
-        None => project_kind(app, item, build).map(|(entry, _)| entry),
-    }
+    project_kind(app, item, build).map(|(entry, _)| entry)
 }
 
 // The constructor is the platform boundary: observers can inspect the actual arguments supplied to Tauri.
 fn project_kind<R: Runtime>(
     app: &AppHandle<R>,
     item: &Item,
-    build: impl FnOnce(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>>,
-) -> tauri::Result<(MenuItemKind<R>, Option<String>)> {
+    build: impl Fn(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>> + Copy,
+) -> tauri::Result<(MenuItemKind<R>, Vec<(Vec<usize>, String)>)> {
+    if let Some(children) = &item.children {
+        let sub = Submenu::new(app, &item.label, item.enabled)?;
+        let mut hints = Vec::new();
+        for (index, child) in children
+            .iter()
+            .filter(|child| applicable(child))
+            .enumerate()
+        {
+            let (entry, child_hints) = project_kind(app, child, build)?;
+            sub.append(&entry)?;
+            hints.extend(child_hints.into_iter().map(|(mut path, hint)| {
+                path.insert(0, index);
+                (path, hint)
+            }));
+        }
+        return Ok((MenuItemKind::Submenu(sub), hints));
+    }
     let (accelerator, hint) = match item.shortcut.as_deref() {
         Some(shortcut) if shortcut.starts_with("⌘K ") => (None, Some(shortcut.to_owned())),
         // A plain key (a Shelf row's `D`) is control-owned: shown as a hint, never a global accelerator.
@@ -257,7 +268,10 @@ fn project_kind<R: Runtime>(
         item.enabled,
         accelerator.as_deref(),
     )?;
-    Ok((MenuItemKind::MenuItem(entry), hint))
+    Ok((
+        MenuItemKind::MenuItem(entry),
+        hint.into_iter().map(|hint| (Vec::new(), hint)).collect(),
+    ))
 }
 
 #[cfg(any(target_vendor = "apple", test))]
@@ -436,7 +450,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(plain(entry).text().unwrap(), "Close");
-        assert_eq!(hint.as_deref(), Some("⌘K W"));
+        assert_eq!(hint, [(vec![], "⌘K W".into())]);
         assert_eq!(sequence_hints(&[action]), [("Close".into(), "⌘K W".into())]);
     }
 
@@ -629,8 +643,56 @@ mod tests {
             )
             .unwrap();
             assert_eq!(plain(built).text().unwrap(), source.label);
-            assert_eq!(hint, None);
+            assert!(hint.is_empty());
         }
+    }
+
+    #[test]
+    fn u3787b_numbered_submenu_keeps_each_target_and_hint() {
+        let app = mock_app();
+        let source = item(
+            "assignment",
+            "Assign to",
+            None,
+            Some(vec![
+                item(
+                    "action:chord:1–9:Digit1",
+                    "Assign to same name",
+                    Some("1"),
+                    None,
+                ),
+                Item {
+                    enabled: false,
+                    ..item("unavailable", "Assign to hidden", Some("2"), None)
+                },
+                item(
+                    "action:chord:1–9:Digit9",
+                    "Assign to same name",
+                    Some("9"),
+                    None,
+                ),
+            ]),
+        );
+        let (entry, hints) = project_kind(
+            app.handle(),
+            &source,
+            |app, id, label, enabled, accelerator| {
+                assert_eq!(accelerator, None);
+                MenuItem::with_id(app, id, label, enabled, accelerator)
+            },
+        )
+        .unwrap();
+        let MenuItemKind::Submenu(sub) = entry else {
+            panic!("assignment submenu missing")
+        };
+        let ids: Vec<_> = sub
+            .items()
+            .unwrap()
+            .into_iter()
+            .map(|item| plain(item).id().0.clone())
+            .collect();
+        assert_eq!(ids, ["action:chord:1–9:Digit1", "action:chord:1–9:Digit9"]);
+        assert_eq!(hints, [(vec![0], "1".into()), (vec![1], "9".into())]);
     }
 
     #[test]
@@ -655,7 +717,7 @@ mod tests {
             )
             .unwrap();
             assert_eq!(plain(built).text().unwrap(), source.label);
-            assert_eq!(hint.as_deref(), Some(key));
+            assert_eq!(hint, [(vec![], key.into())]);
         }
     }
 
@@ -680,7 +742,7 @@ mod tests {
             )
             .unwrap();
             assert_eq!(plain(built).text().unwrap(), source.label);
-            assert_eq!(hint.as_deref(), Some(shortcut.as_str()));
+            assert_eq!(hint, [(vec![], shortcut)]);
         }
     }
 
