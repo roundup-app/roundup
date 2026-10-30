@@ -18,6 +18,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
   app.handlers["pad.read"] = () => pad;
   // Replies are supplied facts. Rust's p2544d_write_revision_guard owns atomic storage refusal.
   app.handlers["pad.write"] = () => { throw new RpcError(-32003, "pad notes is at revision 2"); };
+
   const calls = app.calls;
 
   try {
@@ -36,6 +37,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     ]);
     app.handlers["pad.list"] = () => [intervening];
     app.handlers["pad.write"] = () => { throw new RpcError(-32003, "pad notes is at revision 3"); };
+
     fireEvent.click(screen.getByText("Keep mine"));
     await waitForReload(app, 2);
     expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
