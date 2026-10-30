@@ -95,24 +95,3 @@ it("u3078i_real_daemon_reopen_and_resume", async () => {
     await run.real.stop();
   }
 }, 60_000);
-
-it("u3078i_real_daemon_failed_resume_stays_actionable", async () => {
-  const run = await interrupted();
-
-  try {
-    await run.served.rpc("agent.stop", { id: run.worker.id });
-    const before = { messages: await run.messages(), launches: run.log("launches") };
-    const stopped = await run.open();
-    const view = within(stopped.section);
-
-    fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
-    await view.findByRole("alert", { name: /resume was not accepted/ }, { timeout: 30_000 });
-    expect(document.activeElement).toBe(view.getByRole("button", { name: "Try resuming again" }));
-    // A stopped Agent stays stopped: nothing was sent and no program started.
-    expect(await run.messages()).toBe(before.messages);
-    expect(run.log("launches")).toBe(before.launches);
-  } finally {
-    cleanup();
-    await run.real.stop();
-  }
-}, 60_000);

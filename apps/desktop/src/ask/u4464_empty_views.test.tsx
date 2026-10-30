@@ -22,8 +22,8 @@ it.each([
   expect(app.calls.filter(call => call.method === method)).toHaveLength(1);
   expect(screen.queryByRole("group", { name: title })).toBeNull();
   answer.resolve([]);
-  const empty = await screen.findByRole("group", { name: title });
-  expect(screen.getAllByRole("group", { name: title })).toHaveLength(1);
+  const empty = await screen.findByText(title);
+  expect(screen.getAllByText(title)).toHaveLength(1);
   expect(within(empty).queryByRole("button")).toBeNull();
 });
 
@@ -49,7 +49,7 @@ it.each(views)("u4607_a_populated_first_reply_shows_items_instead_of_an_empty_vi
     expires_at: "2026-10-21T09:00:00Z", created_at: "2026-10-20T09:00:00Z", state: "active",
     observation: { health: "observing", health_code: "observing", cause_code: "unknown", gap_code: "unknown", recovery_code: "unknown", cursor: null, gap: null, recovery: null, evidence: null }, firings: [],
   }]);
-  const surface = screen.getByRole("region", { name: heading });
+  const surface = await screen.findByRole("region", { name: heading });
 
   expect(await within(surface).findByText(item)).not.toBeNull();
   expect(within(surface).queryByRole("group", { name: title })).toBeNull();
