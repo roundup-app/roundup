@@ -1,5 +1,13 @@
 # U3787b command menu integration
 
+Current status: the scoped App, Todo, Pad and Project-tab commands below use the
+shared registry/menu route; #5111 supplies responder Find/Close, now exercised by
+macOS CI. Remaining: complete library/native inventory (including rich-editor
+formatting), native Edit availability and final displayed-key/combined-dispatch
+observations. #4308 and #3843 stay open. Earlier sections retain evidence at its
+original implementation SHA; later continuations supersede their remaining-work
+lists.
+
 The existing `registerKeys` action registration and `captureActions` own target
 capture and availability. `App.tsx` projects the selected Project menu and handles
 `open-project-page`; `menu::select_project_menu` and `menu::app_chosen` own Tauri
@@ -23,7 +31,7 @@ This is shared integration, not Z3788a implementation or native responder proof.
 The Tauri event observer extends an existing parameterized forwarding proof rather
 than adding a duplicate. No existing behavioral test is removed or retired.
 
-## Remaining acceptance on #4308
+## Remaining acceptance at the initial slice
 
 The fixed Project task subset is not the complete real-registration inventory.
 Remaining production coverage includes scoped Shelf/list/triage commands, Rail
