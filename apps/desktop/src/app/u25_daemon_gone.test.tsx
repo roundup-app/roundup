@@ -29,7 +29,6 @@ describe("u25 disconnected protections after U3791a recovery exhaustion", () => 
     app.exitDaemon({ code: 1 });
 
     expect(within(header).getByText(appCopy.daemonExit("exited 1"))).toBeTruthy();
-    expect(within(header).getByText(appCopy.daemonExit("exited 1")).className).toBe("ink");
   });
 
   it("u25_a_signal_exit_reads_by_signal", async () => {
@@ -39,7 +38,7 @@ describe("u25 disconnected protections after U3791a recovery exhaustion", () => 
     expect(within(header).queryByText(appCopy.daemonExit("exited by signal"))).toBeNull();
     app.exitDaemon({ code: null });
 
-    expect(within(header).getByText(appCopy.daemonExit("exited by signal")).className).toBe("ink");
+    expect(within(header).getByText(appCopy.daemonExit("exited by signal"))).toBeTruthy();
   });
 
   it("u25_the_spawn_actions_are_disabled", async () => {

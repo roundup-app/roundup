@@ -40,7 +40,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     fireEvent.click(tab("api"));
 
     expect(await within(screen.getByRole("region", { name: "Rail" })).findByText(appCopy.daemonExit("exited 1"))).toBeDefined();
-    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: "Reopen" })).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: appCopy.reopen })).toBeDefined();
   });
 
   it("u185_another_project_is_unaffected", async () => {
@@ -61,7 +61,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.openProject = (target) => (opened.push(target), open(target));
     fireEvent.click(tab("api"));
     app.exitDaemon({ code: 1 }, path("api"));
-    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: "Reopen" }));
+    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: appCopy.reopen }));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).toBeNull());
     expect(opened).toEqual([path("api")]);
@@ -72,12 +72,13 @@ describe("u185 a Daemon gone, in a tab", () => {
 
     fireEvent.click(tab("api"));
     app.exitDaemon({ code: 1 }, path("api"));
-    app.opened.failure = new RpcError(-32603, "rupd stayed silent");
-    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: "Reopen" }));
+    const failure = new RpcError(-32603, "rupd stayed silent");
+    app.opened.failure = failure;
+    fireEvent.click(await within(screen.getByRole("region", { name: "Rail" })).findByRole("button", { name: appCopy.reopen }));
 
-    expect(await within(screen.getByRole("region", { name: "Rail" })).findByText("rupd stayed silent")).toBeDefined();
+    expect(await within(screen.getByRole("region", { name: "Rail" })).findByText(failure.message)).toBeDefined();
     expect(within(screen.getByRole("region", { name: "Rail" })).queryByText(appCopy.daemonExit("exited 1"))).toBeNull();
-    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: "Reopen" })).toBeDefined();
+    expect(within(screen.getByRole("region", { name: "Rail" })).getByRole("button", { name: appCopy.reopen })).toBeDefined();
   });
 
   it("u185_closing_an_exited_tab_asks_nothing", async () => {

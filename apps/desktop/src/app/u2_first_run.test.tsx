@@ -69,14 +69,13 @@ describe("u2 first run", () => {
   it("u2_a_failed_open_project_shows_the_message_in_ink_in_place_of_the_prompt", async () => {
     const app = createFakeApp();
     app.chooser.path = "/not/a/dir";
-    app.opened.failure = new RpcError(-32602, "/not/a/dir is not a directory");
+    const failure = new RpcError(-32602, "/not/a/dir is not a directory");
+    app.opened.failure = failure;
     renderApp(app);
 
     fireEvent.click(await screen.findByText("Choose folder…"));
 
-    expect((await screen.findByText("/not/a/dir is not a directory")).textContent).toBe(
-      "/not/a/dir is not a directory",
-    );
+    expect(await screen.findByText(failure.message)).toBeTruthy();
     expect(screen.queryByText(appCopy.openAFolderToStart)).toBeNull();
   });
 
