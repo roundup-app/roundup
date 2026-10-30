@@ -65,7 +65,7 @@ const dense = async () => {
   })()`);
 };
 
-it.skipIf(ageCaptures().length > 0)("u3800a_owned_todo_grip_reorders_once", async () => {
+it("u3800a_owned_todo_grip_reorders_once", async () => {
   await load("tree-40");
   await browser("eval", `document.querySelector('.rail-row[data-id="tokens"] [data-pads-control]').click()`);
   await wait('document.querySelectorAll(".todos-tab .sortable-handle").length > 1');
@@ -84,7 +84,7 @@ it.skipIf(ageCaptures().length > 0)("u3800a_owned_todo_grip_reorders_once", asyn
   await wait(`document.activeElement === document.querySelector('${grip}')`);
 }, 60_000);
 
-it.skipIf(ageCaptures().length > 0).each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activation => ({ kind, activation }))))("u4908_open_button_opens_chosen_item_once_$kind/$activation", async ({ kind, activation }) => {
+it.each(["pad", "todo"].flatMap(kind => ["pointer", "Enter", "Space"].map(activation => ({ kind, activation }))))("u4908_open_button_opens_chosen_item_once_$kind/$activation", async ({ kind, activation }) => {
   await load("tree-40");
   await overview();
 

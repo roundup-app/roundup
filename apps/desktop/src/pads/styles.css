@@ -140,6 +140,15 @@
 
 .pad-name {
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pad-name .shelf-title {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .pad-inset .shelf-text {
@@ -374,7 +383,7 @@ li[aria-selected="true"] svg {
 }
 
 /* Reserved controls keep the Pad name width stable on focus and selection. */
-.pad-row-head { display: flex; align-items: center; min-width: 0; }
+.pad-row-head { display: flex; align-items: flex-start; min-width: 0; }
 .pad-row-head .pad-name { flex: 1; }
 
 
