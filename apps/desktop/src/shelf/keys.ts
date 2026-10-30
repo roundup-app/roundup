@@ -1,7 +1,7 @@
 import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, TEXT_FIELDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import type { ActivationSource, KeyScope } from "../keys/registry";
 import type { ShelfFrame } from "./frame";
@@ -119,4 +119,12 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     moveFocus,
     stop,
   };
+};
+
+/** The Todos list owns its existing inline creation key. */
+export const todoCreationKeys = (props: { section: () => HTMLElement | undefined; open: () => void }) => {
+  registerKeys(shelfKeyScope, [{ chords: ["n"],
+    when: event => !event.repeat && !event.isComposing && event.target instanceof Element && props.section()?.contains(event.target) === true && !event.target.closest(TEXT_FIELDS),
+    run: props.open,
+  }]);
 };
