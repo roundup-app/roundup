@@ -221,3 +221,70 @@ it.skipIf(!captureDir("U3787c")).each(["agents-10", "tree-40", "tabs-8", "confli
     finally { await close(); }
   }
 }, 60_000);
+
+it.skipIf(!captureDir("NR9"))("nr9_agent_overview_rendered", async () => {
+  const { browser, evaluate, wait, close } = await reactionBrowser();
+  const server = await appServer();
+  const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+  const dirs = ["NR9", "U4276a", "U4276b", "U4276c"].map(id => join(captureDir(id)!, phase));
+  for (const dir of dirs) await mkdir(dir, { recursive: true });
+  const capture = async (step: string) => {
+    const checks: Checks = await evaluate("window.__checks()");
+    for (const dir of dirs) {
+      await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(checks));
+      await browser("screenshot", join(dir, `${step}.png`));
+    }
+    for (const id of ["D2", "D5", "D6"] as const) expect(checks[id], `${step} ${id}`).toMatchObject({ status: "pass" });
+  };
+  try {
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await browser("record", "start", join(dirs[0]!, "overview.webm"));
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=agents-10`);
+    await wait("!!window.__fake && !!document.querySelector('.project-tab[data-selected=true]')");
+    await evaluate(`(() => {
+      const path = document.querySelector('.project-tab[data-selected=true]').dataset.path;
+      const app = window.__fake.app.of(path);
+      window.__nr9 = { app, records: [] };
+      app.handlers['reaction.list'] = () => window.__nr9.records;
+      app.handlers['reaction.get'] = ({id}) => window.__nr9.records.find(r => r.id === id);
+      window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path, command:'view:reactions'}}));
+      window.dispatchEvent(new Event('focus'));
+    })()`);
+    await wait("!!document.querySelector('.reactions .overview-quiet')");
+    await capture("empty");
+    await evaluate(`(() => {
+      window.__nr9.records = ['active', 'stopped', 'expired', 'active'].map((state, i) => ({
+        project:'p', id:'nr9-'+i, name:i < 2 ? 'Review overlapping changes' : 'Review long overlapping changes '.repeat(5),
+        actor:{kind:'agent', id:'agent-'+(i+1), parent:null}, reason:i === 2 ? null : 'Wait for the prerequisite review before continuing',
+        home:null, target:'agent-2', instruction:'Review the saved changes and update the changelog',
+        condition:{kind:'agents',ids:['agent-3'],any:false},max_firings:2,remaining:2,rearm:true,
+        expires_at:'2099-01-01T09:00:00Z',created_at:'2026-10-20T09:00:00Z',state,
+        observation:{health:i === 3 ? 'unavailable' : 'observing',health_code:i === 3 ? 'unavailable' : 'observing',cause_code:i === 3 ? 'agent-unavailable' : 'unknown',gap_code:'unknown',recovery_code:i === 3 ? 'replace-agent' : 'unknown',cursor:null,gap:null,recovery:null,evidence:null},firings:[]
+      }));
+      window.dispatchEvent(new Event('focus'));
+    })()`);
+    await wait("document.querySelectorAll('.reaction-row').length === 4");
+    await capture("filled-long-stopped");
+    await browser("click", "[data-reaction-opener=nr9-3]");
+    await wait("!!document.querySelector('.reaction-detail [role=alert]')");
+    await capture("unavailable");
+    await browser("click", ".reaction-back");
+    await wait("!!document.querySelector('[data-reaction-opener=nr9-0]')");
+    await browser("click", "[data-reaction-opener=nr9-0]");
+    await wait("!!document.querySelector('.reaction-detail')");
+    for (const [method, label] of [["reaction.run", "Run now"], ["reaction.stop", "Stop"]]) {
+      await evaluate(`window.__nr9.app.handlers['${method}'] = () => { throw new Error('Project access was refused. Restore access, then try ${label} again.'); }`);
+      await evaluate(`[...document.querySelectorAll('.reaction-actions button')].find(b => b.textContent === '${label}').click()`);
+      await wait("!!document.querySelector('.reaction-detail [role=alert]') && !document.querySelector('.reaction-actions button:disabled')");
+      await capture(`${method}-refused`);
+      await evaluate(`window.__nr9.app.handlers['${method}'] = ({id}) => window.__nr9.records.find(r => r.id === id)`);
+      await evaluate(`[...document.querySelectorAll('.reaction-actions button')].find(b => b.textContent === '${label}').click()`);
+      await wait("!document.querySelector('.reaction-detail [role=alert]') && !document.querySelector('.reaction-actions button:disabled')");
+      await capture(`${method}-recovered`);
+    }
+  } finally {
+    try { await browser("record", "stop"); }
+    finally { await close(); await server.close(); }
+  }
+}, 120_000);

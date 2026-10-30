@@ -48,20 +48,25 @@ it("z3788c_only_the_current_reactions_owner_refreshes_on_focus", async () => {
 });
 
 it("nr9_inspect_stop_run_in_overview", async () => {
-  let current = saved();
+  let current = saved({ actor: { kind: "agent", id: "a", parent: null }, reason: "Wait for the review before shipping" });
   const { app, connected } = await mount(() => [current]);
   const row = await screen.findByRole("button", { name: /Ship it/ });
 
+  expect(within(row).getByText(current.reason!)).toBeTruthy();
+  expect(within(row).getByText(current.instruction)).toBeTruthy();
   row.focus();
   fireEvent.click(row);
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+
+  expect(within(detail).getByText(current.reason!)).toBeTruthy();
+  expect(within(detail).getByText(copy.reactionActor("agent", "a"))).toBeTruthy();
 
   connected.showView("made");
   await waitFor(() => expect(screen.queryByRole("region", { name: copy.reactionDetail("Ship it") })).toBeNull());
   connected.showView("reactions");
   await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
   expect(app.calls.map((call) => call.method)).not.toContain("reaction.run");
-  app.handlers["reaction.stop"] = () => (current = saved({ state: "stopped" }));
+  app.handlers["reaction.stop"] = () => (current = { ...current, state: "stopped" });
   app.handlers["reaction.run"] = () => current;
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionRun }));
   await waitFor(() => expect(app.calls.filter((call) => call.method === "reaction.run")).toHaveLength(1));
