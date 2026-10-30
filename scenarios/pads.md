@@ -35,8 +35,8 @@ Tests (`p12_`): a Door's `pad.create` returns its Workstream's id and a nested W
 **P13 retired.** Policy: P14 removes the Scribe field and its reader; no Scribe-specific authorization remains.
 
 **P14 a Pad has no Scribe.** The separate Agent that answered for the Pad is removed. Overturns P11 and P13 whole, and the Scribe clauses of U190, U188 and `scenarios/models.md` (A36's role `scribe`). Contract change (Contract recipe of `.agents/builder.md`; the review run's approve covers it; every caller changes in the same PR). Touches no Message law: M1 to M10 stay and `proofs/messages` and `docs/messages.md` agree. Given Pad `notes`, then:
-- **Method.** The RPC method `pad.ask` is gone: a call gets the Daemon's unknown-method error (X-series), starts no Agent and leaves no Message or Touch; the MCP tool list (M1) never offered it. Test `p14_pad_ask_is_unknown`.
-- **Field.** `Pad` has no `scribe`; `pad.list` and `pad.read` carry none; `contracts/generated/` is regenerated from `crates/contracts`. Test `p14_pad_has_no_scribe_field`.
+- **Method.** The RPC method `pad.ask` is gone: a call gets the Daemon's unknown-method error (X-series), starts no Agent and leaves no Message or Touch; the MCP tool list (M1) never offered it. Test `crates/rupd/src/contract_tests.rs::p14_pad_ask_is_unknown` through the real in-process Daemon dispatch.
+- **Field.** `Pad` has no `scribe`; `pad.list` and `pad.read` carry none; `contracts/generated/` is regenerated from `crates/contracts`. Test `crates/rupd/src/contract_tests.rs::p14_pad_has_no_scribe_field` through the real in-process Daemon dispatch.
 - **Right.** Policy: the shared access of P2/P4 applies; no binding is required. P2 proves writes; the former permission-only test is retired.
 - **From before.** A Project directory saved with a Scribe binding or a Scribe Agent loads: the binding is ignored and dropped on the next save, and the Scribe's Rail node is removed with its Terminal stopped (S5). Test `p14_old_scribe_loads_and_is_removed`.
 - **Role.** The Model/Effort role `scribe` and **Scribe** in `GLOSSARY.md` go; a Project's saved pair for `scribe` is ignored. Test `p14_scribe_role_is_gone`.
