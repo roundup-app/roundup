@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../app/copy";
 import { openTabs, path } from "../header/stripFixture";
 import { projectMenu, openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
@@ -77,7 +78,7 @@ it("u4547e_native_menu_uses_the_focused_rail_scope", async () => {
   const { app } = await openTabs({ p: tree() });
   const daemon = app.of(path("p"));
   rowOf("free").focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:M")).toMatchObject({ label: "Move to… (M · Rail row)", enabled: true }));
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:M")).toMatchObject({ label: appCopy.moveToInRail, enabled: true }));
   openProjectPage("action:chord:M", path("p"));
   const input = await screen.findByRole("combobox");
   fireEvent.keyDown(input, { key: "Escape", code: "Escape" });

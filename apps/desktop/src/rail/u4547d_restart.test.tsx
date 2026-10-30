@@ -1,3 +1,4 @@
+import { copy as appCopy } from "../app/copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { door, workstream } from "../testing/nodes";
@@ -91,8 +92,8 @@ it("u4547d_restart_controls_share_the_focused_mode_action_in_the_native_menu", a
   const daemon = app.of(path("p"));
   daemon.handlers["workstream.restart"] = () => tree[0]!;
   rowOf("mode").focus();
-  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:R")).toMatchObject({ label: "Restart Mode (R · Rail row)", enabled: true }));
-  expect(projectMenu.items.find(item => item.id === "action:chord:R")?.shortcut).toBeUndefined();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:R")).toMatchObject({ label: appCopy.restartModeInRail, enabled: true }));
+  expect(projectMenu.items.find(item => item.id === "action:chord:R")?.shortcut).toBe("R");
   openProjectPage("action:chord:R", path("p"));
   await waitFor(() => expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1));
   expect(railCallsTo(daemon, "agent.resume")).toEqual([]);
