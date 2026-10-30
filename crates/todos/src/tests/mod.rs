@@ -10,7 +10,7 @@ use super::*;
 
 mod comments;
 mod deletion;
-mod estimate;
+// T4902 retires T29; its duration-only tests are removed.
 mod history;
 mod home;
 mod ordering;

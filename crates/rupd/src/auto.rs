@@ -196,11 +196,8 @@ async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
         }) {
             continue;
         }
-        let estimate = todo
-            .estimate_minutes
-            .map_or_else(|| "no estimate".into(), |minutes| format!("{minutes} min"));
         let body = format!(
-            "{key}\nTodo #{}: {}\nEstimate: {estimate}\nTake this Todo with todo_assign {{\"id\": {}, \"owner\": \"me\"}}. Delegate using a peer's Rail name as owner, or start a Subagent and assign it. Subagent starts obey the Workstream cap.",
+            "{key}\nTodo #{}: {}\nTake this Todo with todo_assign {{\"id\": {}, \"owner\": \"me\"}}. Delegate using a peer's Rail name as owner, or start a Subagent and assign it. Subagent starts obey the Workstream cap.",
             todo.id, todo.title, todo.id
         );
         reader
