@@ -10,7 +10,7 @@ import { storageSchema, storedValue } from "./storage";
 import { copy } from "../copy";
 
 /** U505: one Ask as the App shows it; `pending` is the optimistic entry between Enter and the Daemon's answer. */
-export type AskEntry = { key: string; text: string; parts: readonly AskPart[]; pending: boolean };
+export type AskEntry = { key: string; at?: number; text: string; parts: readonly AskPart[]; pending: boolean };
 
 /** A captured revision identity is echoed even when replies arrive out of order. */
 export type AskSubmission = SendParams & { submission: string };
@@ -129,7 +129,7 @@ export const createAsks = (app: AppSeam, events: Events, viewed?: { path: string
 
   return {
     acknowledged: (entry, index) => !entry.pending && entry.parts[index]?.state === "typed" && acknowledged().includes(partKey(entry, index)),
-    entries: () => [...pending(), ...asks().map((ask) => ({ key: ask.id, text: ask.text, parts: ask.parts, pending: false }))],
+    entries: () => [...pending(), ...asks().map((ask) => ({ key: ask.id, at: Number(ask.at), text: ask.text, parts: ask.parts, pending: false }))],
 
     loadState,
     load: () => {
