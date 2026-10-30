@@ -7,6 +7,8 @@ export type CreateParams = {
 	operation: string,
 	/**  A label, never an identity. */
 	name: string,
+	/**  Why this Reaction is needed: one nonempty line, trimmed before saving and retry comparison. */
+	reason: string,
 	/**  The Agent id the instruction is sent to. */
 	target: string,
 	/**  The exact words delivered as one Message at each firing. */

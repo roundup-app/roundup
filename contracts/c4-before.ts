@@ -575,7 +575,7 @@ export type reaction_CreateParams = {
 
 operation: string, 
 
-name: string, 
+name: string, reason: string, 
 
 target: string, 
 
@@ -637,7 +637,7 @@ offset: string, };
 
 export type reaction_Reaction = { project: string, id: string, name: string, 
 
-actor: Actor, 
+actor: Actor, reason: string | null, 
 
 home: string | null, target: string, instruction: string, condition: reaction_Condition, max_firings: number, remaining: number, rearm: boolean, 
 
