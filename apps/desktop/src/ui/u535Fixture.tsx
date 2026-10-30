@@ -11,15 +11,13 @@ const INDENT = 24;
 const NESTS = new Set(["P", "Q"]);
 
 const u535Fixture = () => {
-  const flat = new URLSearchParams(location.search).has("flat");
-
   const [rows] = createSignal<TreeRow[]>([
     { id: "P", parent: null }, { id: "P1", parent: "P" }, { id: "P2", parent: "P" }, { id: "Q", parent: null }, { id: "R", parent: null },
   ]);
 
   const [moves, move] = createSignal<SortableMove[]>([]);
   const [previews, preview] = createSignal<string[]>([]);
-  const [orders, order] = createSignal<string[]>([]);
+  const [orders, order] = createSignal(0);
   const [clicks, click] = createSignal(0);
 
   const depth = (id: string): number => {
@@ -33,13 +31,13 @@ const u535Fixture = () => {
 
   return <>
     <Sortable.Root ids={rows().map((row) => row.id)} aria-label="Tree rows" class="sortable-fixture"
-      tree={flat ? undefined : {
+      tree={{
         rows: rows(), indent: INDENT, nests: (id) => NESTS.has(id),
         inset: (element) => Number.parseFloat(getComputedStyle(element).paddingInlineStart),
         onMove: (next) => move([...moves(), next]),
         onPreview: (drop) => preview([...previews(), drop ? `${drop.parent}:${drop.index}:${drop.depth}` : "end"]),
       }}
-      onOrderChange={(next) => order([...orders(), next.join(",")])}>
+      onOrderChange={() => order(orders() + 1)}>
       <For each={rows()}>{(row, index) => <Sortable.Item id={row.id} index={index()}>{(parts) =>
         <div ref={parts.ref} data-id={row.id} class="sortable-row" style={{ "padding-left": `${depth(row.id) * INDENT}px` }} data-dragging={parts.isDragging()}>
           <span>{row.id}</span>
@@ -49,7 +47,7 @@ const u535Fixture = () => {
     </Sortable.Root>
     <output aria-label="Moves">{JSON.stringify(moves())}</output>
     <output aria-label="Previews">{previews().join(" ")}</output>
-    <output aria-label="Orders">{orders().join(";")}</output>
+    <output aria-label="Order calls">{orders()}</output>
     <output aria-label="Clicks">{clicks()}</output>
   </>;
 };
