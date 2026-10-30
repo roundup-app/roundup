@@ -124,7 +124,6 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
 
   try {
     // Recording starts a fresh browser context, so restore the observer media there.
-    await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await wait("matchMedia('(prefers-color-scheme: dark)').matches");
     await overview();
@@ -177,10 +176,10 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
     await wait("document.body.textContent.includes('Creation refused')");
     await shot("U4908", stage, `${seed}-${kind}-failure`);
     await browser("press", "Escape");
-    await browser("set", "viewport", "1280", "820");
-    await shot("U4908", stage, `${seed}-${kind}-1280`);
-
   } finally {
     if (video) await browser("record", "stop");
   }
+
+  await browser("set", "viewport", "1280", "820");
+  await shot("U4908", stage, `${seed}-${kind}-1280`);
 }, 60_000);
