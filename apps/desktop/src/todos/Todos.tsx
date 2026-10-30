@@ -207,7 +207,7 @@ export const Todos = (props: {
     noun: copy.todos,
     replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
     blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
-    remove: connected.drafts.todoUndo.removeTodos,
+    remove: ids => connected.drafts.todoUndo.removeTodos(ids, shelf ? "shelf" : "todos"),
     reload: async () => {
       await todos.reload();
 

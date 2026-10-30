@@ -341,7 +341,7 @@ const PadBody = (props: {
     act(async () => {
       saveAfterPause.clear();
       due = null;
-      const failures = await connected.drafts.todoUndo.removePads([{ name, incarnation: destination.object }]);
+      const failures = await connected.drafts.todoUndo.removePads([{ name, incarnation: destination.object }], `pad:${destination.object}`);
 
       if (failures.length) throw new Error(failures[0]!.message);
       setDeleted(true);

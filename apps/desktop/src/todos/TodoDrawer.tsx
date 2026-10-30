@@ -252,7 +252,7 @@ export const TodoDrawer = (props: {
     const id = props.id;
     const opening = drawer.content();
     setDeleting(true);
-    void drafts.todoUndo.remove([id]).then(removed => {
+    void drafts.todoUndo.remove([id], `todo:${id}`).then(removed => {
       if (removed) { setRemovedByMe(true);
 
  if (drawer.content() === opening) drawer.close("key"); }
@@ -320,6 +320,7 @@ export const TodoDrawer = (props: {
           </Show>
       </div>
       <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
+
     </>
   );
 };

@@ -371,8 +371,11 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 7] = [
 pub const WORKSTREAM_GUIDANCE: &str = "\
 ## Working in a Workstream
 
-Turn a plan of two or more steps into Todos; complete each as its outcome lands. \
-Keep findings needed by later steps or the handoff in a Pad. \
+Before starting a task, decide whether it needs two or more steps, even when the user did not ask for a plan. \
+If so, create at least two saved roundup task Todos with `todo_create` before editing files, running repairs or delegating work; reuse relevant existing Todos instead of duplicating them. \
+As each outcome lands, complete its Todo with `todo_complete`; do not defer completion until handoff. \
+Keep findings needed by later steps or the handoff in a Pad: use `pad_create` and `pad_write` or `pad_append` before arranging a wait or handing off. \
+A plan in prose, a vendor task list or a Reaction instruction does not replace saved Todos or a Pad. \
 Place Todos and Pads in the selected Workstream with their existing Home tools; user moves win.
 
 When waiting on an Agent, a PR's checks or an explicit time, create a bounded Reaction without approval inside your Reach. \
