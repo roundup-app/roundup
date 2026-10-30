@@ -17,7 +17,7 @@ const u535Fixture = () => {
 
   const [moves, move] = createSignal<SortableMove[]>([]);
   const [previews, preview] = createSignal<string[]>([]);
-  const [orders, order] = createSignal<string[]>([]);
+  const [orders, order] = createSignal(0);
   const [clicks, click] = createSignal(0);
 
   const depth = (id: string): number => {
@@ -37,7 +37,7 @@ const u535Fixture = () => {
         onMove: (next) => move([...moves(), next]),
         onPreview: (drop) => preview([...previews(), drop ? `${drop.parent}:${drop.index}:${drop.depth}` : "end"]),
       }}
-      onOrderChange={(next) => order([...orders(), next.join(",")])}>
+      onOrderChange={() => order(orders() + 1)}>
       <For each={rows()}>{(row, index) => <Sortable.Item id={row.id} index={index()}>{(parts) =>
         <div ref={parts.ref} data-id={row.id} class="sortable-row" style={{ "padding-left": `${depth(row.id) * INDENT}px` }} data-dragging={parts.isDragging()}>
           <span>{row.id}</span>
@@ -47,7 +47,7 @@ const u535Fixture = () => {
     </Sortable.Root>
     <output aria-label="Moves">{JSON.stringify(moves())}</output>
     <output aria-label="Previews">{previews().join(" ")}</output>
-    <output aria-label="Orders">{orders().join(";")}</output>
+    <output aria-label="Order calls">{orders()}</output>
     <output aria-label="Clicks">{clicks()}</output>
   </>;
 };
