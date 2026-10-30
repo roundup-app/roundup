@@ -69,7 +69,8 @@ export const createBulkDelete = <Id,>(props: {
     if (targets.length === 0) return;
     const unique = [...new Map(targets.map((target) => [target.id, { ...target }])).values()];
     returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    returnRegion = returnTo?.closest<HTMLElement>("[data-history-region]") ?? null;
+    returnRegion = returnTo?.closest<HTMLElement>("[data-history-region]")
+      ?? returnTo?.closest(".shelf")?.querySelector<HTMLElement>(props.noun === "Todos" ? ".todos-tab" : ".pads-tab") ?? null;
     nextFocus = props.afterRemoval?.() ?? (() => null);
     setQuestion({ kind: "question", targets: unique, done });
     void confirm();
