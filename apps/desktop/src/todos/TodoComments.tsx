@@ -64,28 +64,39 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   const records = () => drafts.list().filter(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.id) && draft.destination.recipient === "comment");
   const current = () => records().at(-1);
   const text = () => String(current()?.value.text ?? "");
+
   const setText = (value: string) => {
     drafts.edit({ surface: "todos", object: String(props.id), recipient: "comment" }, { text: value }, null, "ordinary");
   };
+
   createEffect(() => onCleanup(drafts.editor({ surface: "todos", object: String(props.id), recipient: "comment" })));
   const [expanded, setExpanded] = createSignal(false);
   const [commentsLoaded, setCommentsLoaded] = createSignal(false);
+
   type Entry = { key: string; at: number; seq: number; change: Change } | { key: string; at: number; seq: number; comment: Comment };
+
   let cutoff: Entry | undefined;
   let initialized = false;
+
   const history = createTodoHistory({ get id() { return props.id; }, saved: props.saved, onCapture: props.onCapture,
     exposed: () => entries().length >= 0 && initialized && (expanded() || history.unreadOpening().every(change => !older().some(entry => "change" in entry && entry.change.seq === change.seq))) });
+
   const compare = (a: Entry, b: Entry) => a.at - b.at || Number("comment" in a) - Number("comment" in b) || a.seq - b.seq;
+
   const entries = createMemo<Entry[]>((previous) => {
     const all: Entry[] = [...(history.changes() ?? []).map(change => ({ key: `h${change.seq}`, at: change.changed_at ?? Number.NEGATIVE_INFINITY, seq: change.seq, change })),
       ...thread.map(comment => ({ key: `c${comment.id}`, at: comment.created_at, seq: comment.id, comment }))];
+
     all.sort(compare);
+
     if (!initialized && commentsLoaded() && history.changes() !== undefined) {
       cutoff = all.length > 20 ? all[all.length - 21] : undefined;
       initialized = true;
     }
+
     return all.map(entry => previous?.find(prior => prior.key === entry.key) ?? entry);
   });
+
   const older = createMemo(() => entries().filter(entry => cutoff && compare(entry, cutoff) <= 0));
   const recent = createMemo(() => entries().filter(entry => !cutoff || compare(entry, cutoff) > 0));
   const [sending, setSending] = createSignal(false);
@@ -149,11 +160,16 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
     if (!revision) return;
     setSending(true);
-    if (!(await drafts.submit(revision))) { setSending(false); return; }
+
+    if (!(await drafts.submit(revision))) { setSending(false);
+
+ return; }
+
     const message = await failureOf(async () => {
       try { await app.rpc("todo.comment", { id, body }); drafts.settle(revision, "acknowledged"); }
       catch (error) { if (!(error instanceof Error)) throw error; drafts.settle(revision, outcomeOf(error)); throw error; }
     });
+
     setSending(false);
 
     if (!alive || id !== props.id) return;
@@ -164,6 +180,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   };
 
   const renderEntry = (entry: Entry) => "change" in entry ? history.entry(entry.change) : renderComment(entry.comment);
+
   const renderComment = (comment: Comment) => <div class="todo-comment" data-comment={comment.id}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at, now())}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>

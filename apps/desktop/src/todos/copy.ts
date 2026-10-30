@@ -120,6 +120,7 @@ export const copy = {
     const minutes = Math.max(0, Math.floor((now - at) / 60_000));
     const unit = minutes < 60 ? "minute" : minutes < 1440 ? "hour" : "day";
     const value = unit === "minute" ? minutes : Math.floor(minutes / (unit === "hour" ? 60 : 1440));
+
     return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(-value, unit);
   },
   commentRetry: "Retry comments",
