@@ -15,6 +15,7 @@ const mount = async () => {
   const app = root.of("/p");
   let nodes: RailNode[] = [workstream("home"), workstream("other")];
   let live = false;
+  let shell = false;
   let owner = "home";
   let finishStart!: () => void;
   let reveal!: () => void;
@@ -28,7 +29,12 @@ const mount = async () => {
     return nodes;
   };
 
-  app.handlers["terminal.list"] = () => live ? [info("t-home", { owner })] : [];
+  app.handlers["terminal.list"] = () => [...(live ? [info("t-home", { owner })] : []), ...(shell ? [info("shell", { owner: "home" })] : [])];
+  app.handlers["terminal.open"] = () => { shell = true;
+
+    return { terminal_id: "shell" };
+  };
+
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.write"] = () => null;
@@ -77,6 +83,7 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
   await waitFor(() => expect(m.connected.rail.nodes.find(node => node.id === "made")?.terminal_id).toBe("t-home"));
 
   if (choice !== "other-row") await waitFor(() => expect(m.emulators.made.get("t-home")?.host).toBeTruthy());
+  await waitFor(() => expect(m.connected.rail.doorPending("made")).toBe(false));
   expect(m.connected.rail.selected()).toBe(choice === "other-row" ? "other" : "made");
   document.removeEventListener("focusin", observe);
   expect(terminalFocuses).toEqual([]);
@@ -101,15 +108,15 @@ it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_o
   origin.focus();
   fireEvent.click(document.querySelector(".pane-action")!);
   await waitFor(() => expect(m.app.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(1));
-  fireEvent.keyDown(document.activeElement!, { key: "/", code: "Slash", metaKey: true });
-  const ask = await screen.findByRole<HTMLElement>("textbox", { name: "Ask" });
-  ask.focus();
+  fireEvent.keyDown(document.activeElement!, { key: "t", code: "KeyT", metaKey: true });
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("shell"));
 
   if (ending === "origin") origin.focus();
-  else ask.blur();
+  else if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   const expected = document.activeElement;
   m.finish();
   await waitFor(() => expect(m.emulators.made.get("t-home")?.host).toBeTruthy());
+  await waitFor(() => expect(m.connected.rail.doorPending("home")).toBe(false));
   expect(document.activeElement).toBe(expected);
   expect(m.app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
