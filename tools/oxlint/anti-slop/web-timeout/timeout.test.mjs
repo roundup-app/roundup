@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -122,17 +123,20 @@ const cases = [
 
 for (const [name, source, status, diagnostic, exceptions = [], filename = "fixture.test.tsx"] of cases) {
   test(`t3779a_timeout_boundary: ${name}`, () => {
-    const dir = mkdtempSync(resolve(repo, ".timeout-fixture-"));
+    const dir = mkdtempSync(resolve(tmpdir(), ".timeout-fixture-"));
     const file = resolve(dir, filename);
     const config = resolve(dir, "config.json");
-    const entries = exceptions.map(entry => ({ ...entry, file: entry.file === "fixture.test.tsx" ? relative(repo, file) : entry.file }));
+    const entries = exceptions.map(entry => ({ ...entry, file: entry.file === "fixture.test.tsx" ? relative(dir, file) : entry.file }));
+    // CI run 41006963235 spent 40 minutes re-auditing the repo for these fixtures.
+    // Keep the real lint entry point, with only this synthetic project as its root.
+    writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${resolve(repo, "tools/oxlint/anti-slop/web-assertions/lint.mjs")}` } }));
     writeFileSync(file, 'import { test, test as check, describe, vi, beforeAll, expect } from "vitest";\n' + source);
     writeFileSync(config, JSON.stringify({
       jsPlugins: [{ name: "anti-slop", specifier: plugin }],
       rules: { "anti-slop/bounded-test-timeout": ["error", { exceptions: entries }] },
     }));
     try {
-      const result = spawnSync("pnpm", ["--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: repo, encoding: "utf8" });
+      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, status, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1, "The fixture must be linted");
