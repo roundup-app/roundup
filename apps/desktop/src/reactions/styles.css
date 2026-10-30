@@ -77,6 +77,7 @@
 }
 
 .reaction-instruction {
+  color: var(--text);
   white-space: pre-wrap;
 }
 
@@ -97,6 +98,11 @@
 
 .reaction-facts dd {
   margin: 0;
+  color: var(--grey);
+}
+
+.reaction-facts .reaction-instruction {
+  color: var(--text);
 }
 
 .reaction-field {
@@ -231,7 +237,12 @@
   gap: var(--space-1);
 }
 
-.reaction-list-item { display: flex; align-items: baseline; gap: var(--space-4); }
+.reaction-list-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); }
+.reaction-list-item .reaction-row { flex: 1; min-width: 0; }
+.reaction-list-failure { width: 100%; }
+.reaction-list-failure[data-empty] { display: none; }
 .reaction-summary { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
-.reaction-reason { color: var(--grey); white-space: normal; overflow-wrap: anywhere; }
+.reaction-reason { color: var(--grey); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.reaction-list-item .reaction-actions { opacity: 0; pointer-events: none; }
+.reaction-list-item:is(:focus-within, :has([data-row-selected="true"])) .reaction-actions { opacity: 1; pointer-events: auto; }
 .reactions:has(.empty-state) { flex: 1; min-height: 0; }

@@ -962,3 +962,21 @@ async fn nr11_legacy_reason_is_absent() {
     let list = user.request("reaction.list", Value::Null).await.unwrap();
     assert_eq!(list[0].get("reason"), Some(&Value::Null));
 }
+
+#[tokio::test]
+async fn nr9_user_stops_agent_made_reaction() {
+    let s = scene(&[]).await;
+    let mut shim = super::Shim::start(&s.project, &s.w).await;
+    let mut body = definition(&s.w, "nr9 stopped instruction");
+    body["condition"]["ids"] = json!([s.a]);
+    let saved = shim.call("reaction_create", body).await;
+    assert_eq!(saved["actor"]["id"], s.w);
+    let id = saved["id"].clone();
+    let stopped = made(&s.user, "reaction.stop", json!({ "id": id })).await;
+    assert_eq!(serde_json::to_value(stopped.state).unwrap(), "stopped");
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "nr9 stopped instruction", 0).await;
+    let kept = made(&s.user, "reaction.get", json!({ "id": id })).await;
+    assert!(kept.firings.is_empty());
+    assert_eq!(kept.actor, stopped.actor);
+}
