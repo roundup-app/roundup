@@ -58,7 +58,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       const mounted = await mountTodos([todo(1), todo(2)]);
 
       await openDrawerOf(2);
-      await within(drawer()).findByRole("region", { name: "Todo history" });
+      await within(drawer()).findByRole("region", { name: "Activity" });
 
       const title = within(drawer()).getByText("todo 2", { selector: "p" });
 
@@ -289,7 +289,6 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       fireEvent.click(await within(drawer()).findByRole("button", { name: "Remove link to notes" }));
     } else {
       m.app.clipboardWrite = refuse;
-      fireEvent.click(await within(drawer()).findByRole("button", { name: /^Changes/ }));
       fireEvent.click(await within(drawer()).findByRole("button", { name: "Copy" }));
     }
 

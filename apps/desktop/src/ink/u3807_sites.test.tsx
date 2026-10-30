@@ -14,7 +14,6 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { agent, event, USER } from "../testing/nodes";
 import { progressSeed } from "../testing/progressSeed";
 import { TodoComments } from "../todos/TodoComments";
-import { TodoHistory } from "../todos/TodoHistory";
 import { TodoRefs } from "../todos/TodoRefs";
 import { mountAskBar, input, press } from "../ask/askFixture";
 import { mountTodos, todo } from "../todos/testHarness";
@@ -57,7 +56,7 @@ const ReactionSite = () => {
 const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.getHistory" | "todo.refs" | "pad.list" | "reaction.list" | "message.progress"; render: () => JSX.Element; refresh: (mounted: Mounted) => void; role?: "status" }[] = [
   { site: "Inbox", method: "todo.unread", render: () => <Inbox />, refresh: m => m.app.emit(event({ name: "todo.commented", data: { id: 1 } })) },
   { site: "Todo comments", method: "todo.comments", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.commented", data: { id: 1 } })) },
-  { site: "Todo history", method: "todo.getHistory", render: () => <TodoHistory id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
+  { site: "Todo history", method: "todo.getHistory", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
   { site: "Todo Pad references", method: "todo.refs", render: () => <TodoRefs id={1} />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Pads", method: "pad.list", render: () => <Pads />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: () => window.dispatchEvent(new Event("focus")) },
@@ -77,7 +76,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
 
   if (site.method === "todo.unread") await within(view.container).findByText(copy.inboxEmpty);
 
-  if (site.method === "todo.getHistory") await within(view.container).findByRole("button", { name: /change/i });
+  if (site.method === "todo.getHistory") await within(view.container).findByText(/^Created /);
 
   if (site.method === "pad.list") await waitFor(() => expect(view.container.querySelector(".empty-state")).not.toBeNull());
 
@@ -206,7 +205,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectSettings", as
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo drawer", async () => {
   const mounted = await mountTodos([todo(1)]);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><TodoDrawer id={1} todos={mounted.todos} /></ConnectedProjectContext.Provider>);
-  await within(view.container).findByRole("button", { name: /Changes/ });
+  await within(view.container).findByRole("region", { name: "Activity" });
   const box = within(view.container).getByRole("checkbox", { name: "Complete todo 1" });
   const original = mounted.app.handlers["todo.complete"]!;
   await cycle(view.container,
