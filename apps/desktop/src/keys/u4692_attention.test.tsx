@@ -110,6 +110,7 @@ it.each(["rail", "centre", "shelf", "triage", "ask", "pad", "drawer", "watch", "
     if (place === "pad") {
       showShelfTab("Pads");
       const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
+      pad.focus();
       fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
       target = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
     } else {
@@ -226,6 +227,7 @@ it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surf
     connected().rail.select("home");
     showShelfTab("Pads");
     const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
+    pad.focus();
     fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
     field = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
   }
@@ -242,6 +244,7 @@ it.each(["ask", "pad"])("u4692_jump_preserves_unsubmitted_input: %s", async surf
   } else {
     showShelfTab("Pads");
     const pad = await within(await screen.findByLabelText("Pads", { selector: "section" })).findByRole("button", { name: "notes" });
+    pad.focus();
     fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
     await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' });
   }

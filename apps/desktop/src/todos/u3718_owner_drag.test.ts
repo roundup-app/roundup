@@ -56,10 +56,12 @@ describe("u3718 a Todo dragged to another owner's group", () => {
     expect(await lane.calls("todo.reorder")).toEqual([]);
   }, 120_000);
 
-  it("u3718_a_rail_drop_moves_home_and_keeps_the_owner", async () => {
+  it("u4710c_u3718_a_rail_drop_moves_home_and_keeps_the_owner", async () => {
     await lane.seedTodos(["first", "second", "third"]);
 
     const [one] = await lane.order();
+    const owner = await lane.evaluate(`window.__fake.app.rpc('todo.list', null).then(todos => todos.find(todo => todo.id === ${one}).owner)`);
+    const destination = await lane.evaluate<string>(`document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
     const from = await lift(lane, one!);
     const to = await centre(lane, `[data-part="branch"][aria-expanded] > .rail-row`);
 
@@ -68,7 +70,11 @@ describe("u3718 a Todo dragged to another owner's group", () => {
     await lane.browser("mouse", "up");
     await lane.until(`window.__fake.app.calls.some(call => call.method === 'todo.move')`);
 
+    expect(await lane.calls("todo.move")).toEqual([{method:"todo.move",params:{id:one,home:destination}}]);
+    expect(await lane.evaluate(`window.__fake.app.rpc('todo.list', null).then(todos => todos.find(todo => todo.id === ${one}).owner)`)).toEqual(owner);
     expect(await lane.calls("todo.assign")).toEqual([]);
+    expect(await lane.calls("todo.setBlockers")).toEqual([]);
+    expect(await lane.calls("todo.reorder")).toEqual([]);
   }, 120_000);
 
   it("u3718_the_row_moves_only_after_the_refetch", async () => {
@@ -142,6 +148,9 @@ it("u3515c_todo_nesting_excludes_self_descendants_and_unchanged_placement", asyn
     const from = await centre(lane, ROW(sibling!));
     const to = await centre(lane, ROW(parent!));
     await move(lane, from.x, from.y);
+    // Ark unmounts the previous grip's closing Tooltip positioner after its exit.
+    // Wait until that transient layer no longer takes the next pointer press.
+    await lane.until(`document.elementFromPoint(${from.x}, ${from.y})?.closest('.sortable-handle') === document.querySelector(${JSON.stringify(ROW(sibling!))})`);
     await lane.browser("mouse", "down");
     await move(lane, from.x, from.y - 6);
     await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
