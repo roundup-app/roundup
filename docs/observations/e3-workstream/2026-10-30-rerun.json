@@ -1,0 +1,7 @@
+{
+  "observer": "e3_workstream_uses_todos_and_reaction_unprompted",
+  "build": "74d36532dd98ab046d7d50434ef4137efaf925d6",
+  "prompt": "fix X, then wait for PR checks",
+  "result": "UNFINISHED",
+  "baseline": "The existing recorded two-part X fixture exits 1; this rerun has not yet demonstrated acceptance."
+}
