@@ -371,3 +371,8 @@ U3787b Todo nesting menu actions invoke the row's captured nesting plan immediat
 through the same holder as Tab/Shift+Tab. Menu projection changes no focus; the
 existing M1 nesting cancellation and failure surface remain. No motion, geometry
 or Token changes; D2/D5/D6 remain unchanged.
+
+U3787b numbered assignment menu items reuse the existing captured Todo/Agent
+assignment immediately. Projection changes no focus and selection uses the same
+assignment holder as the digit key. No transition, geometry or Token changes;
+D2/D5/D6 remain unchanged.

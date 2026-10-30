@@ -1,16 +1,20 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { createRoot, createSignal } from "solid-js";
+import { batch, createRoot, createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
+import { showEverythingInApp } from "../testing/showEverything";
 import { info } from "../testing/nodes";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
+import type { MenuItem } from "../app/seam";
 import { captureActions, registerKeys } from "./registry";
+
+const menuCommands = (items: MenuItem[]): MenuItem[] => items.flatMap(item => item.children ? menuCommands(item.children) : [item]);
 
 const disposals: (() => void)[] = [];
 
-afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); cleanup(); localStorage.clear(); });
+afterEach(() => { disposals.splice(0).forEach(dispose => dispose()); batch(cleanup); localStorage.clear(); });
 
 const owner = (terminal: HTMLElement) => {
   const calls: Element[] = [];
@@ -174,24 +178,31 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
   expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
 });
 
-it.each(["terminal", "rail row"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
+it.each(["terminal", "rail row", "Shelf row", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
   const { connected } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
 
   if (place === "rail row") document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
 
+  if (place === "Shelf row" || place === "triage") {
+    await showEverythingInApp();
+    document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!.focus();
+
+    if (place === "triage") fireEvent.click(screen.getByRole("button", { name: "Triage" }));
+  }
+
   const focus = document.activeElement!;
-  const expected = place === "rail row" ? "action:chord:F2" : "action:chord:⌘=";
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === expected)).toBe(true));
+  const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : place === "rail row" ? "action:chord:F2" : "action:chord:⌘=";
+  await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id === expected)).toBe(true));
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
-  const shown = new Map(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
+  const shown = new Map(menuCommands(projectMenu.items).filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut ?? /\((.) · Rail row\)/.exec(item.label)?.[1]]));
 
   expect(available.length).toBeGreaterThan(10);
 
   for (const action of available) {
     expect(shown.has(action.value), action.value).toBe(true);
-    expect(shown.get(action.value), action.value).toBe(action.value.startsWith("action:leader:") ? `⌘K ${action.value.slice(14)}` : action.keys);
+    expect(shown.get(action.value), action.value).toBe(action.value.startsWith("action:leader:") ? `⌘K ${action.value.slice(14)}` : action.press?.slice(-1) ?? action.keys);
   }
 
   expect([...shown.keys()].filter(id => !available.some(action => action.value === id))).toEqual([]);
@@ -234,4 +245,32 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Help from %s ret
   fireEvent.keyDown(help, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(row));
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
+});
+
+
+it.each(["key", "menu"])("u3787b_numbered_assignment_captures_one_todo_and_owner: ninth Agent from %s", async source => {
+  const number = 9;
+  const { daemon } = await mountNavigation(false, 0);
+  await showEverythingInApp();
+  const row = document.querySelector<HTMLButtonElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
+  row.focus();
+  const command = `action:chord:1–9:Digit${number}`;
+  await waitFor(() => expect(menuCommands(projectMenu.items).find(item => item.id === command)?.shortcut).toBe(String(number)));
+  const captured = captureActions(row).find(action => action.value === command)!;
+  const assignments = projectMenu.items.find(item => item.children?.some(child => child.id === command));
+  expect(assignments?.children).toHaveLength(9);
+  expect(projectMenu.items.some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false);
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: String(number), code: `Digit${number}` });
+  else openProjectPage(command);
+
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner: { kind: "agent", id: `a${number - 1}`, parent: null } }]));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  screen.getByLabelText("New Todo title").focus();
+  await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false));
+  captured.run();
+  openProjectPage(command);
+  expect(daemon.calls.filter(call => call.method === "todo.assign")).toHaveLength(1);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });

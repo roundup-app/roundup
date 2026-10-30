@@ -223,9 +223,15 @@ fn e3_workstream_guidance_precedes_tools() {
             }
             assert!(guidance.unwrap() < catalogue);
             for rule in [
+                "Before starting a task",
                 "two or more steps",
-                "complete each",
-                "handoff",
+                "before editing files, running repairs or delegating work",
+                "at least two saved roundup task Todos",
+                "even when the user did not ask",
+                "As each outcome lands",
+                "do not defer completion until handoff",
+                "before arranging a wait or handing off",
+                "A plan in prose, a vendor task list or a Reaction instruction does not replace",
                 "without approval",
                 "reason",
                 "end your turn",
