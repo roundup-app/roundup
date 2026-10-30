@@ -322,7 +322,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Result resolution (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`) | same | — |
 | Progress (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`) | same | — |
 | Collapsible | same | — |
-| Project menu (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`, `project_menu_hints`) | same | — |
+| Project menu (`MenuHints`, `ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`, `project_menu_hints`) | same | — |
 | Exit button (`ExitButton`) | same | — |
 | Native question (`NativeQuestion`, `App.ask`, `NativeAlert`, `RemovalQuestion`, `RemovalAnswer`, `App.askRemoval`, `ask_removal`, `removal_alert`) | same | — |
 | Shared floating surface (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`) | same | — |

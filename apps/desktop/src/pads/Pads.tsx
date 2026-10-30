@@ -9,13 +9,13 @@ import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
-import { createBulkDelete } from "../shelf/BulkDelete";
+import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
 import { failureOf } from "../todos/failureOf";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, useContext } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -38,6 +38,7 @@ export const Pads = (props: {
   recovery?: { project: string; revision: string; list: PadList };
 }) => {
   const connected = useConnectedProject();
+  const shelf = useContext(ShelfActions);
 
   if (props.recovery && props.recovery.project !== connected.project.path) return null;
 
@@ -152,7 +153,7 @@ export const Pads = (props: {
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
     blocked: () => connected.drafts.todoUndo.pending() || connected.drafts.todoUndo.uncertain(),
-    remove: (ids) => connected.drafts.todoUndo.removePads(pads().filter(pad => ids.includes(pad.incarnation))),
+    remove: (ids) => connected.drafts.todoUndo.removePads(pads().filter(pad => ids.includes(pad.incarnation)), shelf ? "shelf" : "pads"),
     reload: async () => {
       await list.reload();
 
