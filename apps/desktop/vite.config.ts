@@ -53,7 +53,7 @@ const webkitGuards = [
 
 // Files that launch Chromium or a real Daemon starve every test sharing their pool: a shard's reds were a hook timing out
 // beside them. They run one file at a time in their own project, so two of them never overlap.
-const heavy = ["src/**/*_browser.test.{ts,tsx}", "src/**/*_rendered.test.{ts,tsx}", "src/**/*real*.test.{ts,tsx}"];
+const heavy = ["src/**/*_browser.test.{ts,tsx}", "src/**/*_rendered.test.{ts,tsx}", "src/**/*real*.test.{ts,tsx}", "src/todos/u3718_owner_drag.test.ts"];
 
 // Radix Colors scopes light to `:root, .light, .light-theme` and dark to `.dark, .dark-theme`, which the App never toggles
 // (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light

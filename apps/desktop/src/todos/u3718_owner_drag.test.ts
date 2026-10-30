@@ -24,6 +24,9 @@ const lift = async (lane: LaneBrowser, id: number) => {
   return from;
 };
 
+/** The press that follows a release is lost while the Sortable still closes the last drag (its slot fades out and its source row returns), which a loaded runner stretches past the next press. */
+const SETTLED = "!document.querySelector('[data-dnd-dragging], [data-dnd-placeholder], .sortable-source, [data-ending]') && document.querySelector('.shelf .todo-list').getAnimations({ subtree: true }).length === 0";
+
 const seedDestination = async (lane: LaneBrowser) => {
   await lane.evaluate(`(async () => { await window.__fake.app.rpc('todo.create', {title:'destination', body:null, blockers:null, owner:{kind:'user',id:'you',parent:null}}); })()`);
   await lane.until(`!!document.querySelector('.shelf [data-shelf-group="me"]')`);
@@ -129,6 +132,7 @@ it("u3515c_todo_nesting_excludes_self_descendants_and_unchanged_placement", asyn
       return true;
     })()`);
     await lane.until(`document.querySelector('.shelf [data-id="${grandchild}"]').closest('[role=treeitem]').getAttribute('aria-level') === '3'`);
+    await lane.until(SETTLED);
     await lane.resetCalls();
 
     for (const target of [parent!, child!, grandchild!]) {
@@ -141,19 +145,22 @@ it("u3515c_todo_nesting_excludes_self_descendants_and_unchanged_placement", asyn
       await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
       await move(lane, Math.min(from.x + 100, right), to.y);
       await lane.browser("mouse", "up");
-      await lane.until("!document.querySelector('[data-dnd-placeholder]')");
+      await lane.until(SETTLED);
       expect((await lane.calls()).filter(call => ["todo.setBlockers", "todo.reorder", "todo.assign"].includes(call.method))).toEqual([]);
     }
 
     const from = await centre(lane, ROW(sibling!));
     const to = await centre(lane, ROW(parent!));
     await move(lane, from.x, from.y);
+    // Ark unmounts the previous grip's closing Tooltip positioner after its exit.
+    // Wait until that transient layer no longer takes the next pointer press.
+    await lane.until(`document.elementFromPoint(${from.x}, ${from.y})?.closest('.sortable-handle') === document.querySelector(${JSON.stringify(ROW(sibling!))})`);
     await lane.browser("mouse", "down");
     await move(lane, from.x, from.y - 6);
     await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
     await move(lane, from.x, to.y - 4);
     await lane.browser("mouse", "up");
-    await lane.until("!document.querySelector('[data-dnd-placeholder]')");
+    await lane.until(SETTLED);
     expect((await lane.calls()).filter(call => ["todo.setBlockers", "todo.reorder", "todo.assign"].includes(call.method))).toEqual([
       { method: "todo.reorder", params: { id: sibling, before: parent } },
     ]);
