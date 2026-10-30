@@ -25,7 +25,7 @@ Regression (policy): keep and adjust to 32px these observers, naming U4707: the 
 
 Specification validation: `loop/rules.sh vocab` and `loop/rules.sh scenario-ids`. Issue #4707 stays open for implementation.
 
-**U5147d every row and tab name starts 44 px from its panel edge.** Journey stage: Review. Amends U4707 (this file), whose Token clause fixes 32 px and whose depth-0 title sits at 48, U4708 (`ui-pad-glyph.md`) and D8 (`.agents/data/journey.md`; `docs/design-system.md`, “The checks”): Rail, Todo, Pad and Terminal-tab first text share one inset, the Rail's 44 since U4898. A change to `--row-text-inset` follows AGENTS.md rule 4's Contract recipe: every consumer changes in the same PR. No contract, RPC, App seam command or glossary change.
+**U5147d every row and tab name starts 44 px from its panel edge.** Journey stage: Review. Amends U4707 (this file), whose Token clause fixes 32 px and whose depth-0 title sits at 48, U4708 (`ui-pad-glyph.md`) and D8 (`.agents/data/journey.md`; `docs/design-system.md`, “The checks”): Rail, Todo, Pad and Terminal-tab first text share one inset, the Rail's 44 since U4898. `--row-text-inset` feeds `shelf/`, `todos/`, `bubbles/` and `ui/Tree.css`, so a change to it changes every consumer in the same PR. No contract, RPC, App seam command or glossary change.
 
 Given U26's `tree-40` at 1512×950 in dark with the Drawer's Todos and Pads lists open (root, child and grandchild rows, a 300-character Todo title, a 120-character Pad name and a 60-character group name), and U26's `bubbles` with its Workstream selected so its Terminal tab shows, when they render at rest, then (policy, design critic):
 

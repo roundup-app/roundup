@@ -81,9 +81,9 @@ Policy: P6's gate asks whether the move loses an item's Home or overrides the us
 Given U26's `tree-40` at 1512×950 in dark with every draggable row kind visible (Rail Workstream, Mode and Agent rows from U5147a's fixture, Drawer Todo rows and Pad rows), then:
 
 1. At rest (pointer outside the row, keyboard focus outside it, row not selected) each grip has computed opacity 0 and keeps its box (policy, design critic).
-2. While the pointer hovers the row, keyboard focus is within it or the row is selected, its grip has computed opacity 1 (policy, design critic). Any fade uses an existing duration Token (`docs/motion.md`).
+2. While the pointer hovers the row, keyboard focus is within it, the row is selected or the row is the active drag source, its grip has computed opacity 1 (policy, design critic). Any fade uses an existing duration Token (`docs/motion.md`).
 3. Showing or hiding a grip moves no row, name, age, Open arrow or trailing column (U4710a, U5147a) (policy, design critic).
-4. Each grip stays in the Tab order on selected and unselected rows; Tab onto it shows it, Space lifts it, and focus returns to it after drop or Escape. Test: the retained `u3800a_one_drag_fixture` in `apps/desktop/src/ui/u484_browser.test.ts`.
+4. Each grip stays in the Tab order on selected and unselected rows; Tab reaches it, Space lifts it, and focus returns to it after drop or Escape. Test: the retained `u3800a_one_drag_fixture` in `apps/desktop/src/ui/u484_browser.test.ts`.
 
 On main `e78bbc345` every Rail, Todo and Pad grip has computed opacity 1 at rest (`apps/desktop/src/ui/sortable.css`, `.sortable-handle`).
 
