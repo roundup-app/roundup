@@ -13,11 +13,16 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 stubDialogLayout();
 
-const open = async (pads = false) => {
+const open = async (pads = false, unnest?: boolean) => {
   const { app } = seedApp("tree-40", 0);
   // These shortcuts need row identities and a selectable Rail, not the 40-node stress fixture.
   const tree = await app.handlers["rail.tree"]!(null);
   app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend");
+  if (unnest !== undefined) {
+    const todos = await app.handlers["todo.list"]!(null);
+    app.handlers["todo.list"] = () => todos.slice(0, 2).map(todo => ({ ...todo, blockers: todo.id === 2 && unnest ? [1] : [], blocked: todo.id === 2 && unnest }));
+  }
+
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
 
@@ -195,4 +200,26 @@ it("u3787b_triage_menu_refuses_an_owner_after_leaving_the_mode", async () => {
   openProjectPage("action:chord:X");
   captured.run();
   expect(app.calls.filter(call => call.method === "todo.complete")).toEqual([]);
+});
+
+
+it.each([false, true].flatMap(out => ["key", "menu"].map(source => ({ out, source }))))("u3787b_nesting_captures_the_focused_todo_once: out=$out from $source", async ({ out, source }) => {
+  const { app } = await open(false, out);
+  const row = document.querySelector<HTMLButtonElement>('[data-todo="2"] .todo-row-button[aria-pressed]')!;
+  row.focus();
+  const chord = out ? "⇧Tab" : "Tab";
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)?.shortcut).toBe(chord));
+  const captured = captureActions(row).find(action => action.keys === chord)!;
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: "Tab", code: "Tab", shiftKey: out });
+  else openProjectPage(`action:chord:${chord}`);
+
+  await waitFor(() => expect(app.calls.filter(call => call.method === "todo.setBlockers").map(call => call.params)).toEqual([{ id: 2, blockers: out ? [] : [1] }]));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  screen.getByLabelText("New Todo title").focus();
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === `action:chord:${chord}`)).toBe(false));
+  captured.run();
+  openProjectPage(`action:chord:${chord}`);
+  expect(app.calls.filter(call => call.method === "todo.setBlockers")).toHaveLength(1);
 });
