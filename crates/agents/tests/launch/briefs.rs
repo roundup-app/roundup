@@ -8,6 +8,10 @@ fn e9_two_agents_of_one_role_get_equal_brief_bytes() {
         brief(&s, "7014", Role::Agent)
     );
     assert_eq!(brief(&s, "7013", Role::Door), brief(&s, "7014", Role::Door));
+    assert_eq!(
+        brief(&s, "7013", Role::Scout),
+        brief(&s, "7014", Role::Scout)
+    );
 }
 
 #[test]
@@ -182,6 +186,77 @@ fn b4699c_each_brief_routes_child_blocks_to_the_door() {
         assert!(text.contains("Only a decision reserved to the user by their stated limits, or an unresolved goal or taste choice, goes to the user with `AskUserQuestion`. A vendor permission prompt remains the user's to answer; never seek its answer from the Door."), "{role:?}");
         if role == Role::Door {
             assert!(text.contains("Include in child orders: report blocks and the decision needed to this Door with `message_send`; ask the user only for decisions that are theirs alone, and leave vendor permission prompts to them."));
+        }
+    }
+}
+
+#[test]
+fn e3_workstream_guidance_precedes_tools() {
+    let s = setup();
+    for mcp in [true, false] {
+        for role in [Role::Door, Role::Agent, Role::Scout] {
+            s.launcher()
+                .prepare_on(
+                    folders(&s.dir),
+                    "7",
+                    "1",
+                    &s.cwd,
+                    None,
+                    role,
+                    &agents::claude_code::Pair {
+                        mcp_off: !mcp,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+            let catalogue = text
+                .find(if mcp { "## Tools" } else { "## Commands" })
+                .unwrap();
+            let guidance = text.find("## Working in a Workstream");
+            if role != Role::Door {
+                assert!(
+                    guidance.is_none(),
+                    "membership belongs in start Context: {role:?}"
+                );
+                continue;
+            }
+            assert!(guidance.unwrap() < catalogue);
+            for rule in [
+                "two or more steps",
+                "complete each",
+                "handoff",
+                "without approval",
+                "reason",
+                "end your turn",
+                "never poll",
+                "user moves win",
+            ] {
+                assert!(text[..catalogue].contains(rule), "missing {rule}");
+            }
+            let entries = text[catalogue..].split("\n\n").nth(2).unwrap();
+            assert!(!entries.is_empty());
+            for entry in entries.lines() {
+                assert!(
+                    entry.starts_with("- `"),
+                    "one physical line per tool: {entry}"
+                );
+                assert!(
+                    entry.split_whitespace().count() <= 25,
+                    "catalogue entry exceeds 24 words (excluding bullet): {entry}"
+                );
+            }
+            if mcp {
+                assert!(
+                    text.contains("ToolSearch") && text.contains("select:mcp__roundup__<name>,…")
+                );
+                assert!(text.contains(
+                    "Load `agent_context`, `message_list` and `agent_digest` together first."
+                ));
+                assert!(!text.contains("Load every tool"));
+            } else {
+                assert!(text.contains("rup help"));
+            }
         }
     }
 }
