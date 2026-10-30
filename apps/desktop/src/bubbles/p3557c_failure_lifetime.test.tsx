@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { copy } from "./copy";
@@ -183,7 +184,7 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
   const before = drafts.list();
 
   if (transition === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Dismiss" }));
-  else if (transition === "discard") fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  else if (transition === "discard") fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
   else if (transition === "copy") {
     app.clipboardFailure = null;
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
@@ -194,7 +195,7 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
     await waitFor(() => expect(app.clipboardWrites.at(-1)).toBe("other unfinished"));
   } else if (transition === "other-discard") {
     inspect("other run");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
   } else {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Disk full"); });
     await drafts.edit(destination, { name: "still in memory", base: "zsh" }, null, "ordinary").retained;
