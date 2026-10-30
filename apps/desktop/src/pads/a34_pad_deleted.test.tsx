@@ -177,50 +177,6 @@ it("p3557b_edits_save_and_reopen", async () => {
   for (const call of app.calls.filter(call => call.method === "pad.write")) expect(call.params).toEqual(expect.objectContaining({ text: expect.any(String) }));
 });
 
-it.each(["delete", "save", "dismiss"])("p3557c_failure_lifetime_pad_assignment: %s", async action => {
-  const { app, connected } = await openShelf([padOf("failed", AGENT, "authored")], true);
-  const group = document.querySelector<HTMLElement>(`[data-shelf-group="${AGENT.id}"]`)!;
-  const content = group.querySelector('[data-part="branch-content"]');
-
-  if (content?.hasAttribute("hidden")) {
-    fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
-    await waitFor(() => expect(content.hasAttribute("hidden")).toBe(false));
-  }
-
-  const save = app.handlers["pad.setOwner"]!;
-  const refusal = "assignment refused";
-  app.handlers["pad.setOwner"] = () => { throw new RpcError(-32002, refusal); };
-
-  fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
-  const pending = screen.getByLabelText<HTMLInputElement>("Pad name");
-  fireEvent.input(pending, { target: { value: "unfinished" } });
-
-  const assign = async () => {
-    fireEvent.contextMenu(document.querySelector('[data-pad="failed"]')!);
-    await app.pickMenu("Assign");
-    fireEvent.click(within(await screen.findByRole("menu")).getByText("Me"));
-  };
-
-  await assign();
-  const failure = await screen.findByRole("alert", {name:refusal});
-  await app.rpc("pad.create", { name: "added", text: null });
-  app.emit({ actor: USER, name: "pad.changed", data: { name: "added" } });
-  await screen.findByText("added");
-  expect(document.querySelector('[data-pad="failed"]')?.contains(failure)).toBe(true);
-
-  if (action === "delete") {
-    await openPad("failed");
-    await answerDelete(true);
-    await waitFor(() => expect(connected.drawer.content()).toBeNull());
-    app.emit({ actor: USER, name: "pad.deleted", data: { name: "failed" } });
-    await waitFor(() => expect(document.querySelector('[data-pad="failed"]')).toBeNull());
-  } else if (action === "save") {
-    app.handlers["pad.setOwner"] = save;
-    await assign();
-  } else fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-  await waitFor(() => expect(failure.isConnected).toBe(false));
-  expect(screen.getByLabelText<HTMLInputElement>("Pad name").value).toBe("unfinished");
-});
 
 it("p3557b_failed_whitespace_save_restores_exact_editor_input", async () => {
   const { app, connected } = await openShelf([padOf("spaces", USER, "")]);

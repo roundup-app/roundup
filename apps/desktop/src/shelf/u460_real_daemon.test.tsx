@@ -53,7 +53,7 @@ const openShelf = async (tab: "Todos" | "Pads", all = false) => {
   await waitFor(() => expect(workstream.getAttribute("aria-selected")).toBe("true"));
   showShelfTab(tab);
   await waitFor(() => {
-    expect(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: new RegExp(`^${tab}`) }).getAttribute("aria-selected")).toBe("true");
+    expect(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: new RegExp(`^${tab}`) }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tabpanel", { name: new RegExp(`^${tab}`) })).toBeTruthy();
   });
 
@@ -176,5 +176,5 @@ it("u460_deleted_rows_stay_absent_after_reopening_the_project", async () => {
   await openShelf("Todos");
   const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #\d+ partial two/ });
   expect(row.getAttribute("aria-pressed")).toBe("false");
-  expect([screen.queryByRole("group", { name: "Work items deletion" })]).toEqual([null]);
+  expect([screen.queryByRole("group", { name: "Bench deletion" })]).toEqual([null]);
 }, 60_000);

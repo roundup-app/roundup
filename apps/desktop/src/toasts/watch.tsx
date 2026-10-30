@@ -130,7 +130,7 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
 
       void app.rpc("pad.list", null).then(
         (pads) => {
-          if (!pads.some((pad) => pad.name === name && pad.owner.kind === "user")) return;
+          if (!pads.some((pad) => pad.name === name)) return;
 
           const candidate = byAgent(actor, padItem(name), copy.changedPad(cut(name)), openPad(name));
 

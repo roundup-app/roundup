@@ -6,7 +6,7 @@ use contracts::{EventData, pad::RenameParams};
 use rpc::{Ctx, RpcError, reply};
 use serde_json::Value;
 
-use crate::{Pads, RemovalFiles, files, get, name, require_owner_or_user, store, wrote};
+use crate::{Pads, RemovalFiles, files, get, name, store, wrote};
 
 impl Pads {
     pub(super) fn rename(&self, ctx: &Ctx, p: RenameParams) -> Result<Value, RpcError> {
@@ -15,7 +15,6 @@ impl Pads {
         let mut mirror = MirrorRename::default();
         let pad = store.atomically(|| {
             let pad = get(&store, &p.name)?;
-            require_owner_or_user(&ctx.actor, &pad, "rename")?;
             if pad.incarnation != p.expected_incarnation || pad.name != p.name {
                 return Err(RpcError::conflict(
                     "the original pad name or creation changed",
