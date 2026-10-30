@@ -670,6 +670,15 @@ mod tests {
         )
         .unwrap();
         let agent = db.last_insert_rowid().to_string();
+        daemon.agents.set_status_for_test(
+            &agent,
+            contracts::Status {
+                kind: contracts::Kind::Idle,
+                label: String::new(),
+                since: 0,
+                finished: "0".into(),
+            },
+        );
         for (name, home) in [("c", &r1), ("a", &r1), ("b", &r1), ("other", &r2)] {
             call(&daemon, "pad.create", json!({"name":name}))
                 .await
