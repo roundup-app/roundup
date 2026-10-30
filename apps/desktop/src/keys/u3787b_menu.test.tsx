@@ -332,3 +332,32 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Rename from 
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement?.closest("[data-pad]")?.getAttribute("data-pad")).toBe("Focused"));
 });
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s retains its scope", async source => {
+  const { connected, daemon } = await mountNavigation(false, 0);
+  await showEverythingInApp();
+  connected().rail.select("a1");
+  const list = document.querySelector<HTMLElement>(".todos-tab")!;
+  list.tabIndex = -1;
+  list.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:N")?.shortcut).toBe("N"));
+  const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
+  expect(document.activeElement).toBe(list);
+
+  if (source === "key") fireEvent.keyDown(list, { key: "n", code: "KeyN" });
+  else openProjectPage("action:chord:N");
+
+  const field = await screen.findByRole("textbox", { name: "New Todo title" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  expect(projectMenu.items.some(item => item.id === "action:chord:N")).toBe(false);
+  expect(fireEvent.keyDown(field, { key: "n", code: "KeyN" })).toBe(true);
+  captured.run();
+  openProjectPage("action:chord:N");
+  fireEvent.input(field, { target: { value: "Captured work" } });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.create").map(call => call.params)).toEqual([
+    { title: "Captured work", body: null, blockers: null, owner: { kind: "agent", id: "a1", parent: null } },
+  ]));
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+});
