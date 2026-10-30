@@ -94,6 +94,7 @@ declarations! { $;
         "todo.reorder": contracts::todo::ReorderParams => contracts::todo::Todo, rpc_todo_reorder, all(schema(contracts::todo::ReorderParams,"Put a Todo before another in the Todo order, or last with a null `before`."));
         "todo.delete": contracts::todo::DeleteParams => contracts::todo::Deletion, rpc_todo_delete, all(schema(contracts::todo::DeleteParams,"Delete exactly the chosen Todo ids. Capture an operation key before calling; retry the same key and ids after an unknown reply."));
         "todo.deletion": contracts::todo::DeletionParams => Option<contracts::todo::Deletion>, rpc_todo_deletion, none();
+        "todo.redo": contracts::todo::RedoParams => contracts::todo::Deletion, rpc_todo_redo, none();
         "todo.restore": contracts::todo::DeletionParams => contracts::todo::Deletion, rpc_todo_restore, none();
         "todo.comment": contracts::todo::CommentParams => contracts::todo::Comment, rpc_todo_comment, all(schema(contracts::todo::CommentParams,"Leave a comment on a Todo only when the user must read it, such as a question or a blocker. Write one short plain line, at most 280 characters; it shows in the user's Inbox until they open the Todo. Never report progress or results here."));
         "todo.comments": contracts::todo::TodoId => Vec<contracts::todo::Comment>, rpc_todo_comments, all(schema(contracts::todo::TodoId,"Read a Todo comment thread oldest first, including authors and user replies. Reading does not mark comments read."));

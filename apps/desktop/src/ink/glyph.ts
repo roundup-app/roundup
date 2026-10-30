@@ -3,14 +3,14 @@ import type { Kind } from "@contracts/Kind";
 
 type Tone = "amber" | "red" | "grey" | "accent";
 
-type Drawing = "ring" | "dashed" | "quarter" | "disc" | "cross" | "check";
+type Drawing = "ring" | "barred" | "quarter" | "disc" | "cross" | "check";
 
 type Glyph = { drawing: Drawing; tone: Tone };
 
 const GLYPHS: Record<Kind, Glyph> = {
   "needs-you": { drawing: "disc", tone: "amber" },
   error: { drawing: "cross", tone: "red" },
-  blocked: { drawing: "dashed", tone: "grey" },
+  blocked: { drawing: "barred", tone: "grey" },
   working: { drawing: "quarter", tone: "accent" },
   idle: { drawing: "ring", tone: "grey" },
   done: { drawing: "check", tone: "grey" },

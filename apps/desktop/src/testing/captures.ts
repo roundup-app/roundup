@@ -7,11 +7,15 @@ const root = () => resolve(process.cwd(), "../..", "artifacts/ux");
 export function captureDir(id: string): string | null {
   const named = (process.env.ROUNDUP_CAPTURES ?? "").split(",").map((part) => part.trim());
 
-  if (!named.includes(id)) return null;
+  const target = named.includes(id) ? id : named.find(name =>
+    Object.values(observerTable).some(observer => "aliases" in observer
+      && Object.entries(observer.aliases).some(([selection, source]) => selection === name && source === id))) ?? null;
+
+  if (target === null) return null;
 
   if (id.startsWith("J")) return /^J[0-9]+[a-z]?$/.test(id) ? join(root(), "journey", id) : null;
 
-  return join(root(), id);
+  return join(root(), target);
 }
 
 /** U453: committed observer readings remain readable when capture writes are disabled. */
@@ -21,7 +25,7 @@ export function readCapture(id: string, name: string): string {
 
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
 // and scheduling; this table only names the existing observer files.
-export const observers = {
+const observerTable = {
   "src/app/u3560_browser.test.ts": ["U3560c", "U3560e"],
   "src/app/u3787f_browser.test.ts": ["U3787f"],
   "src/app/u3791c_rendered.test.ts": ["U3791c"],
@@ -49,7 +53,7 @@ export const observers = {
   "src/importer/u3787c_browser.test.ts": ["U3787c"],
   "src/inbox/u3770_browser.test.ts": ["P3557c", "U3770a", "U3770b", "U3770e"],
   "src/inbox/u3787c_browser.test.ts": ["U3787c"],
-  "src/ink/u4464_capture.test.ts": ["U4464"],
+  "src/ink/u4464_capture.test.ts": ["U4464", "U401"],
   "src/ink/u86_capture.test.ts": ["U86"],
   "src/keys/u3714_browser.test.ts": ["U3713", "U3714", "U3715", "U3716", "T4905"],
   "src/keys/u4685_browser.test.ts": ["U4685a", "U4685b"],
@@ -76,7 +80,7 @@ export const observers = {
   "src/settings/u4277_rendered.test.ts": ["U4277a", "U4277b", "U4277c"],
   "src/shelf/u371_reserved_modes.test.ts": ["U2892"],
   "src/shelf/u3787c_browser.test.ts": ["U3787c"],
-  "src/shelf/u3789_browser.test.ts": ["U3789a", "U3789b", "U3789c", "U3789d", "U3800a", "U4275a", "U4275b", "U4275c", "U4335a"],
+  "src/shelf/u3789_browser.test.ts": { ids: ["U4708", "U3789a", "U3789b", "U3789c", "U3789d", "U3800a", "U4275a", "U4275b", "U4275c", "U4335a"], aliases: { U4708: "U4275a" } },
   "src/shelf/u4463_browser.test.ts": ["U4463"],
   "src/state/u3787f_storage_browser.test.ts": ["U3787f"],
   "src/state/u4086_storage_browser.test.ts": ["U4086a", "U4086b", "U4086c", "U4086d"],
@@ -99,6 +103,7 @@ export const observers = {
   "src/testing/u463_real_daemon.test.ts": ["A4899a", "U2773g", "U2875d", "U3037d", "U4590", "U463"],
   "src/toasts/p3557c_capture.test.ts": ["P3557c"],
   "src/todos/u3010c_rendered.test.ts": ["U3010c"],
+  "src/todos/u3720_real_daemon_owner.test.tsx": ["U3308", "U3311", "T4902"],
   "src/todos/u3741_rendered.test.ts": ["U3741"],
   "src/todos/u3760_rendered.test.ts": ["P3557c", "U3760"],
   "src/todos/u3774_rendered.test.ts": ["U3774"],
@@ -112,7 +117,10 @@ export const observers = {
   "src/ui/u3512_rendered.test.ts": ["U3512d"],
   "src/ui/u474_browser.test.ts": ["U477"],
   "src/ui/u484_browser.test.ts": ["U3800a", "U3800b", "U3800c"],
-} satisfies Record<string, readonly string[]>;
+} satisfies Record<string, readonly string[] | { ids: readonly string[]; aliases: Readonly<Record<string, string>> }>;
+
+export const observers = Object.fromEntries(Object.entries(observerTable).map(([file, observer]) =>
+  [file, "ids" in observer ? observer.ids : observer]));
 
 /** U4590: fail closed before App setup when any requested capture has no observer. */
 export function captureTests(selection: string | undefined) {
