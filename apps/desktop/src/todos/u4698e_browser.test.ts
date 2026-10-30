@@ -10,7 +10,7 @@ const { browser, evaluate, settle, openShelf } = shelfBrowser();
 const output = captureDir("U4698e");
 
 it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0, timeout: 180_000 }, async (width, height) => {
-  await openShelf("tree-40", 288, 320, width, "dark");
+  await openShelf("empty-project", 288, 320, width, "dark");
   await browser("set", "viewport", String(width), String(height));
   const directory = output ? join(output, process.env.ACTIVITY_BASE ? "base" : "head") : null;
 
@@ -19,7 +19,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     await browser("record", "start", join(directory, `activity-${width}.webm`));
     await browser("wait", ".shelf-tabs");
     await browser("set", "media", "dark");
-    writeFileSync(join(directory, `metadata-${width}.json`), JSON.stringify({ sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), seed: "tree-40", viewport: [width, height], scheme: "dark", comments: [0, 3, 200], unbroken: 500 }));
+    writeFileSync(join(directory, `metadata-${width}.json`), JSON.stringify({ sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), seed: "empty-project", viewport: [width, height], scheme: "dark", comments: [0, 3, 200], unbroken: 500 }));
   }
 
   try {
@@ -33,6 +33,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
 
   await evaluate(`(async () => {
     const app = window.__fake.app;
+    await app.rpc('todo.create', { title: 'Release plan', body: '', blockers: null });
     await app.rpc('todo.update', { id: 1, title: 'Review the release and its deployment dependencies '.repeat(4), body: '# Release plan\\n\\nA document and its Activity share a reading edge.\\n\\n' + 'Review each dependency before publishing. '.repeat(15) });
     const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     return true;
