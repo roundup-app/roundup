@@ -48,7 +48,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
     if (value.old.kind === "binary" || value.new.kind === "binary") return copy.binaryDiff;
 
-    return coarse() ? copy.replacementDiff : copy.selectedLines(selection().side, selection().start, selection().end);
+    return coarse() ? copy.replacementDiff : copy.selectedLines(selection().side, selection().start === selection().end ? `${selection().start}` : `${selection().start}–${selection().end}`, selection().start === selection().end);
   });
 
   createEffect(() => {
@@ -103,7 +103,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
           const range = selection();
           view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
         },
-        renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start, metadata.end)}: ${metadata.text}`;
+        renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start === metadata.end ? `${metadata.start}` : `${metadata.start}–${metadata.end}`, metadata.start === metadata.end)}: ${metadata.text}`;
 
         return element; },
         theme: "roundup", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
