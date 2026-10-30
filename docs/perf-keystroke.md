@@ -268,16 +268,22 @@ Renderer: WebGL, 8.3 ms frames (120 Hz). Adaptive chunks did not move native
 latency. This continuation of #4879 keeps its chunk sizing, but replaces the
 between-chunk timer with `requestAnimationFrame`: one backlog chunk resumes per
 display frame, rather than repeated timer turns competing with that frame.
-xterm's public `write` schedules that chunk's parsing in a later task. An isolated
-echo still writes immediately; streams retain their existing byte cap and gap
-recovery. Flood throughput may fall as rendering gets more of the thread.
+Queued contiguous output events coalesce up to the adaptive chunk limit, so
+small events share one parse instead of taking one frame each. X14's existing
+300-event flood observer caught that throughput regression before coalescing.
+xterm's public `write` schedules the backlog chunk's parsing in a later task.
+An isolated echo still writes immediately; streams retain their existing byte cap
+and gap recovery. Flood throughput may fall as rendering gets more of the thread.
 
 `r21_backlogged_output_yields_to_each_display_frame` replaces
 `r21_backlogged_output_rests_as_long_as_each_chunk_took`: the timer-rest policy is
 retired; the new observer proves no backlog restart between display frames.
 `r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind` retains the adaptive
 chunk/lossless-output proof, and `r21_agent_and_terminal_share_the_repaired_input_path`
-retains the independent echo/input proof for both item kinds. These tests start
+retains the independent echo/input proof for both item kinds. X14's channel-byte
+and U103's snapshot-order observers assert the complete ordered stream rather
+than retired one-event-per-write boundaries; their byte, binary-type and snapshot
+precedence assertions remain. These tests start
 no native App. No native latency improvement is claimed. After merge, one
 `ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood` on the owner's Mac decides
 whether all three runs have p95 < 16 ms and zero dropped keys; retain its complete
