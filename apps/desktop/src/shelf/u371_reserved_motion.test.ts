@@ -11,10 +11,10 @@ it("u371_escape_closes_the_drawer_before_the_shelf", async () => {
   await browser("wait", ".drawer[data-open=true]");
   await settle();
   await browser("press", "Meta+k");
-  await browser("press", "s");
+  await browser("press", "b");
   await settle();
   await browser("press", "Meta+k");
-  await browser("press", "s");
+  await browser("press", "b");
   await settle();
   await browser("press", "Escape");
   await settle();
@@ -32,8 +32,8 @@ for (const overlay of [false,true]) it(overlay ? "u371_overlay_sends_no_terminal
   for (let n=0;n<2;n++) {
     await toggle();
     const calls = await evaluate<{method:string;params:unknown}[]>("window.__fake.app.calls");
-    // U408 polls resources independently every 2 s; all other calls belong to this toggle.
-    expect(calls.filter(c => c.method !== "project.resources").map(c=>c.method), JSON.stringify(calls)).toEqual(overlay ? [] : Array(n+1).fill("terminal.resize"));
+    // Resource polling and remounting the Pad reader do not resize the Terminal.
+    expect(calls.filter(c => !["project.resources", "pad.list"].includes(c.method)).map(c=>c.method), JSON.stringify(calls)).toEqual(overlay ? [] : Array(n+1).fill("terminal.resize"));
   }
 }, 90_000);
 

@@ -20,7 +20,7 @@ afterEach(cleanup);
 
 const by = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
-const padOf = (name: string, who: Actor): Pad => ({ incarnation: `fixture-${name}`, name, owner: who, text: "", updated_at: 0, revision: 1, home: null });
+const padOf = (name: string, who: Actor): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null });
 
 const mount = async (tree: RailNode[], todos: Todo[], pads: Pad[] = []) => {
   const padState: PadStore = { pads, history: [] };
@@ -71,17 +71,9 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
       await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
     };
 
-    await named("a1", "2 pads and todos");
+    await named("a1", "1 todos");
     await named("a2", "1 todos");
   });
 
-  it("u178_a_pads_only_control_is_named_pads", async () => {
-    await mount(TREE, [], [padOf("n", by("a1"))]);
 
-    const button = await waitFor(() => within(document.querySelector('.rail-row[data-id="a1"]')!).getByRole("button", { name: "1 pads" }));
-
-    fireEvent.keyDown(document, { key: "Tab" });
-    button.focus();
-    await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain("1 pads"));
-  });
 });

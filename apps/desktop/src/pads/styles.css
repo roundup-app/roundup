@@ -39,10 +39,6 @@
 }
 
 .pad-saved,
-.pad-owner {
-  flex-shrink: 0;
-  font-size: var(--text-small);
-}
 
 .pad-editor {
   flex: 1;
