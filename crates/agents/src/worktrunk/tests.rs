@@ -292,9 +292,9 @@ fn u2556b_failures_preserve_local_state() {
         &cancelled,
         start,
     );
-    assert_eq!(collector.facts(&id, start), Some(facts));
+    assert_eq!(collector.read(&id, start, None), Some(facts));
     assert_eq!(
-        collector.facts(&id, start + FULL_INTERVAL).unwrap(),
+        collector.read(&id, start + FULL_INTERVAL, None).unwrap(),
         Facts {
             ci: Some(("passed".into(), true)),
             pr: Some((4, true)),
@@ -310,7 +310,7 @@ fn u2556b_failures_preserve_local_state() {
         start,
     );
     assert_eq!(
-        collector.facts(&id, start).unwrap(),
+        collector.read(&id, start, None).unwrap(),
         Facts {
             ci: Some(("passed".into(), true)),
             pr: Some((4, true)),
@@ -379,7 +379,7 @@ fn u2556b_late_results_do_not_cross_identity() {
             Instant::now(),
         );
         assert!(
-            agents.worktree_facts(&node.id, &record).is_none(),
+            agents.worktree_facts(&node.id, &record, None).is_none(),
             "late reply crossed {mutation}"
         );
     }
@@ -753,7 +753,16 @@ async fn u2556a_base_state_is_authoritative_with_optional_wire_facts() {
 async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
     let repo = repository();
     let (data, _bus, mut shared) = super::super::store::tests::shared_over_temp_dir(Arc::new(|| 0));
-    Arc::get_mut(&mut shared).unwrap().project_dir = repo.path().to_owned();
+    let fixture = tempfile::tempdir().unwrap();
+    let output = fixture.path().join("worktrunk.json");
+    std::fs::write(&output, envelope(json!([row(repo.path())]))).unwrap();
+    {
+        let shared = Arc::get_mut(&mut shared).unwrap();
+        shared.project_dir = repo.path().to_owned();
+        shared.worktrunk.executable =
+            executable(fixture.path(), &format!("cat '{}'", output.display()));
+        shared.worktrunk.gh = fixture.path().join("gh");
+    }
     git(repo.path(), &["branch", "base"]);
     let node = shared
         .rail()
@@ -806,8 +815,19 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
         serde_json::to_value(agents.worktree_state(&node.id).await.unwrap()).unwrap()["evidence"]
             .clone()
     };
+    // `publish` clears running after the background read, including its gh evidence.
+    let collected = async || {
+        let deadline = Instant::now() + TIMEOUT;
+        while shared.worktrunk.state.lock().unwrap().lanes[1].running {
+            assert!(
+                Instant::now() < deadline,
+                "background evidence did not finish"
+            );
+            tokio::task::yield_now().await;
+        }
+    };
     let pass = r#"[{"name":"check","bucket":"pass"}]"#;
-    let head = "1".repeat(40);
+    let head = git(repo.path(), &["rev-parse", "HEAD"]);
 
     let (_a, a) = gh("https://github.com/acme/one/pull/23", &head, pass, 0);
     publish_read(&a);
@@ -831,6 +851,7 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
     let (_c, c) = gh("https://github.com/acme/two/pull/23", &moved, pass, 0);
     publish_read(&c);
     assert_ne!(evidence().await["revision"], two["revision"]);
+    collected().await;
 
     let pending = r#"[{"name":"check","bucket":"pending"}]"#;
     let (_d, d) = gh("https://github.com/acme/two/pull/23", &head, pending, 8);
@@ -843,6 +864,35 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
     assert_eq!(waiting["head"], head);
     assert!(waiting["read_at"].as_u64().unwrap() > 0);
     assert!(waiting["revision"].is_null());
+    // A fix is committed and pushed while the full collector is still cooling down.
+    let remote = tempfile::tempdir().unwrap();
+    git(remote.path(), &["init", "--bare"]);
+    git(
+        repo.path(),
+        &["remote", "add", "origin", remote.path().to_str().unwrap()],
+    );
+    git(repo.path(), &["push", "origin", "main"]);
+    git(repo.path(), &["commit", "--allow-empty", "-m", "fix"]);
+    git(repo.path(), &["push", "origin", "main"]);
+    let pushed = git(repo.path(), &["rev-parse", "HEAD"]);
+    let (_fresh, fresh) = gh("https://github.com/acme/two/pull/23", &pushed, pending, 8);
+    std::fs::copy(&fresh, &shared.worktrunk.gh).unwrap();
+    let after_push = evidence().await;
+    assert!(
+        after_push["stale"] == true || after_push["head"] != head,
+        "the cached pre-fix head still authorizes activation: {after_push}"
+    );
+    collected().await;
+    // The normal background collector must recover without another Agent read or sleep.
+    let current = evidence().await;
+    assert_eq!(current["head"], pushed);
+    assert_eq!(current["stale"], false);
+    assert_eq!(current["state"], "incomplete");
+    assert_eq!(current["checks"], json!([]));
+    // Even a normally answering forge can lag the push; it cannot restore old authority.
+    publish_read(&d);
+    assert_eq!(evidence().await["stale"], true);
+    collected().await;
     // Worktrunk and gh must name the same PR before any head can be attributed to it.
     for rows in [pass, pending] {
         let (_other, other) = gh("https://github.com/acme/two/pull/24", &head, rows, 0);
