@@ -135,6 +135,7 @@ export const createTodoHistory = (props: { id: number; saved?: (() => number) | 
 
   return {
     changes: () => loaded()?.history.changes,
+    failed: () => failure() !== null,
     unreadOpening: () => opening.filter(change => boundary !== null && boundary !== undefined && change.seq >= boundary),
     feedback: <ReservedLine message={copyFailure() ?? failure()}>
       <button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { failCopy(null); setFailure(null); }}>{copy.dismissFailure}</button>
