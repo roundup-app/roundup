@@ -20,6 +20,9 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
     await browser("record", "start", join(directory, `retry-${width}.webm`));
   }
 
+  // Recording creates a fresh browser context; reapply the requested scheme.
+  await browser("set", "media", "dark");
+
   const capture = async (name: string) => {
     await settle();
 
