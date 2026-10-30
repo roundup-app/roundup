@@ -409,7 +409,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename f
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage("action:chord:F2", "/p");
-  expect(screen.getAllByRole("textbox", { name: "Project name" })).toHaveLength(1);
+  expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([field]);
   fireEvent.input(field, { target: { value: "Renamed Project" } });
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
   await waitFor(() => expect(rename).toHaveBeenCalledExactlyOnceWith("/p", "Renamed Project", "p"));
@@ -419,5 +419,5 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename f
   expect(retained.available()).toBe(false);
   retained.run();
   openProjectPage("action:chord:F2", "/p");
-  expect(screen.queryByRole("textbox", { name: "Project name" })).toBeNull();
+  expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([]);
 });
