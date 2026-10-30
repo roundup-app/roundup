@@ -162,7 +162,20 @@ describe("u40 the Drawer takes and gives back focus", () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(railRowOf("a")));
   });
 
-  it("u40_a_focused_row_removed_from_the_rail_while_open_is_not_refocused", async () => {
+  it("u3787a_a_removed_opener_returns_to_the_first_surviving_row", async () => {
+    const remaining = agent("b", "idle", "x");
+    const { connected, app } = await mountRail([agent("a", "idle", "x"), remaining], [], undefined, undefined, { drawer: true });
+    railRowOf("a").focus();
+    connected.drawer.open(() => <input aria-label="field" />);
+    await vi.waitFor(() => expect(screen.getByLabelText("Drawer").contains(document.activeElement)).toBe(true));
+    app.handlers["rail.tree"] = () => [remaining];
+    app.emit(event({ name: "rail.changed" }));
+    await connected.rail.settled();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await vi.waitFor(() => expect(document.activeElement).toBe(railRowOf("b")));
+  });
+
+  it("u3787a_a_removed_opener_returns_to_the_surviving_rail_region", async () => {
     const { connected, app } = await mountRail([agent("a", "idle", "x")], [], undefined, undefined, { drawer: true });
     railRowOf("a").focus();
     connected.drawer.open(() => <input aria-label="field" />);
@@ -176,6 +189,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     await Promise.resolve();
-    expect(drawer.contains(document.activeElement)).toBe(true);
+    expect(drawer.contains(document.activeElement)).toBe(false);
+    expect(document.activeElement).toBe(screen.getByRole("tree", { name: "Rail" }).closest('[data-history-region="rail"]'));
   });
 });

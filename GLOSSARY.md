@@ -294,7 +294,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
-| KeyScope | none | — |
+| KeyScope (`KeyScope`, `historyRegion`) | none | — |
 | registerKeys | none | — |
 | chordsFor | none | — |
 | Leader | same | — |
