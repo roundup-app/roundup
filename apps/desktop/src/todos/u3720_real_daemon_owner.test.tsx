@@ -238,11 +238,12 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .ProseMirror')");
     saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" });
     await observe(moved.id, agents[0]!.id);
-    // Keyboard activation reaches the history disclosure beneath the sticky document controls.
-    await lane.browser("focus", ".todo-history-line");
+    // U4698e: user comments join the persisted resulting work in its Activity.
+    await lane.until("!!document.querySelector('.todo-comments[aria-label=Activity] [data-change]')");
+    await lane.browser("fill", ".todo-comment-field", "Reviewed release notes é 雪");
     await lane.browser("press", "Enter");
-    await lane.until("document.querySelector('.todo-history-line')?.getAttribute('aria-expanded') === 'true'");
-    await capture("drawer-changes");
+    await expect.poll(async () => (await app.rpc("todo.comments", { id: moved.id })).map(comment => comment.body)).toContain("Reviewed release notes é 雪");
+    await capture("drawer-activity");
 
     await lane.browser("reload");
     await lane.until("!!document.querySelector('[role=switch][aria-checked=true]')");
@@ -250,6 +251,7 @@ it("u3311_real_daemon_delegate_board", async () => {
 
     for (const [id, to] of expected) await observe(id, to);
     expect((await app.rpc("todo.get", { id: made[0]!.id })).owner).toEqual(me);
+    expect((await app.rpc("todo.comments", { id: moved.id })).map(comment => ({ body: comment.body, author: comment.author.kind }))).toContainEqual({ body: "Reviewed release notes é 雪", author: "user" });
     await capture("project-reopened");
     await lane.browser("focus", `.rail-row[data-id="${agents[3]!.id}"]`);
     await lane.browser("press", "Enter");

@@ -5,7 +5,7 @@ import { RpcError } from "../app/seam";
 import { Todos } from "./Todos";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { TodoDrawer } from "./TodoDrawer";
-import { mountTodos, todo } from "./testHarness";
+import { mountTodos, todo, todoCallsTo } from "./testHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -561,4 +561,35 @@ it.each(["project", "facts-project", "object", "home", "removed"] as const)("u30
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(app.calls).toEqual(calls);
   expect(connected.drafts.list()).toEqual([a]);
+});
+
+it.each(["acknowledged", "failed"] as const)("u4698e_composer_keeps_existing_send_and_draft_contract_%s", async outcome => {
+  const open = async () => {
+    const row = await screen.findByRole("button", { name: /^Idle #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+    await screen.findByRole("textbox", { name: "Write a comment" });
+  };
+  const path = `/activity-draft/${crypto.randomUUID()}`;
+  const m = await mountTodos([todo(1)], true, [], false, path);
+  await open();
+  const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+  let resolve!: (value: import("@contracts/todo/Comment").Comment) => void;
+  let reject!: (error: Error) => void;
+  m.app.handlers["todo.comment"] = () => new Promise((yes, no) => { resolve = yes; reject = no; });
+  const a = "  A é\n雪 😀  "; const b = " B newer\n日本語 ";
+  fireEvent.input(field, { target: { value: a } });
+  fireEvent.keyDown(field, { key: "Enter" });
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.comment")).toHaveLength(1));
+  fireEvent.input(field, { target: { value: b } });
+  if (outcome === "failed") reject(new RpcError(-32003, "Cannot send A"));
+  else resolve({ id: 99, body: a, created_at: 0, read: true, author: { kind: "user", id: "you", parent: null } });
+  await waitFor(() => expect(m.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  expect(field.value).toBe(b);
+  expect(m.connected.drafts.list().filter(draft => draft.destination.recipient === "comment").map(draft => draft.value.text)).toEqual(outcome === "failed" ? [a, b] : [b]);
+  m.unmount();
+  const other = await mountTodos([todo(1)], true, [], false, path + "/other"); await open();
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe("");
+  other.unmount();
+  const restored = await mountTodos([todo(1)], true, [], false, path); await open();
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe(b);
+  expect(todoCallsTo(restored.app, "todo.comment")).toHaveLength(0);
 });
