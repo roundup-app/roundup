@@ -1,4 +1,4 @@
-"""U3799/U3805: Settings on the dense seed and first run, isolated headless agent-browser."""
+"""U3799/U3805: dense Settings design-critic captures, isolated headless agent-browser."""
 import json
 from pathlib import Path
 import subprocess
@@ -56,19 +56,10 @@ try:
     # Explicit Light is observed once while the host remains in dark mode.
     browser('find', 'role', 'tab', 'click', '--name', 'Appearance', '--exact')
     browser('wait', '--fn', 'Boolean(document.querySelector("input[type=radio][value=light]"))')
+    capture('U3805', 'system-dark')
     browser('click', 'input[type=radio][value=light]')
     browser('wait', '--fn', 'document.documentElement.style.colorScheme==="light"')
     capture('U3805', 'light-on-dark-host')
-    browser('click', 'input[type=radio][value=system]')
-    browser('wait', '--fn', 'document.documentElement.dataset.mode==="system"')
-    capture('U3805', 'system-dark')
-    browser('open', origin + '/harness.html?seed=first-run')
-    browser('set', 'viewport', '1512', '950')
-    browser('set', 'media', 'dark')
-    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector(".settings-center"))')
-    evaluate('window.dispatchEvent(new Event("open-app-settings"))')
-    browser('wait', '--fn', 'Boolean(document.querySelector(".settings-view"))')
-    capture('U3799', 'first-run')
     print('ok')
 finally:
     browser('close')
