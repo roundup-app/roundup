@@ -12,10 +12,11 @@ export const Find = (props: { query: string; setQuery: (query: string) => void; 
   onMount(() => { input.focus(); input.select(); });
 
   return (
-    <Field.Root class="terminal-find" invalid={missed()}>
+    <Field.Root class="terminal-find">
       <Field.Input
         ref={input}
-        type="search"
+        type="text"
+        placeholder={copy.findLabel}
         aria-label={copy.findLabel}
         value={props.query}
         onInput={(event) => { props.setQuery(event.currentTarget.value); step(false); }}
@@ -30,7 +31,7 @@ export const Find = (props: { query: string; setQuery: (query: string) => void; 
           }
         }}
       />
-      <Show when={missed()}><Field.ErrorText role="status">{copy.findNoMatch}</Field.ErrorText></Show>
+      <Show when={missed()}><span class="terminal-find-miss" role="status">{copy.findNoMatch}</span></Show>
     </Field.Root>
   );
 };
