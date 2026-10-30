@@ -118,6 +118,7 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
 
   render(() => {
     const now = createNow(() => 0, () => false);
+
     return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}><Content /></ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
   });
 
