@@ -76,7 +76,7 @@ export const LEADER: readonly LeaderKey[] = [
   { keys: "K", what: copy.switchToARowByName, short: copy.leaderShortRow, press: "KeyK" },
   { keys: "M", what: copy.minimiseOrRestoreTheBubble, short: copy.leaderShortMinimise, press: "KeyM" },
   { keys: "W", what: copy.closeTheBubble, short: copy.leaderShortClose, press: "KeyW" },
-  { keys: "S", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyS" },
+  { keys: "B", what: copy.openShelf, short: copy.leaderShortShelf, press: "KeyB" },
   { keys: "T", what: copy.captureATodo, short: copy.leaderShortCapture, press: "KeyT" },
   { keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },
 ];

@@ -112,7 +112,7 @@ const toPlace = async (place: "pad" | "drawer") => {
 
   if (document.querySelector<HTMLElement>(".window")!.dataset["shelf"] !== "open") {
     fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
-    fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "s", code: "KeyS" });
+    fireEvent.keyDown(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!, { key: "b", code: "KeyB" });
   }
 
   showShelfTab("Pads");

@@ -28,12 +28,12 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
-  await screen.findByRole("tablist", { name: "Work items" });
+  await screen.findByRole("tablist", { name: "Bench" });
 
   return controls;
 };
 
-const shelfEdge = () => screen.getByRole("separator", { name: "Resize work items" });
+const shelfEdge = () => screen.getByRole("separator", { name: "Resize Bench" });
 
 const windowEl = () => document.querySelector<HTMLElement>(".window")!;
 
@@ -86,8 +86,8 @@ describe("u390 the Shelf's width is the user's", () => {
 
   it("u390_closed_has_no_edge", async () => {
     await mountApp();
-    leaderKey("KeyS");
+    leaderKey("KeyB");
     await waitFor(() => expect(document.querySelector(".shelf-edge-slot")!.hasAttribute("hidden")).toBe(true));
-    expect(screen.queryByRole("separator", { name: "Resize work items" })).toBeNull();
+    expect(screen.queryByRole("separator", { name: "Resize Bench" })).toBeNull();
   });
 });

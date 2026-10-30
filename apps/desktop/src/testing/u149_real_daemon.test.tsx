@@ -43,7 +43,7 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
     app.handlers["rail.tree"] = () => [workstream("scope", { name: "scope" })];
     Object.assign(app.handlers, padHandlers(state, () => {}));
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-    await screen.findByRole("tablist", { name: "Work items" }, { timeout: 20_000 });
+    await screen.findByRole("tablist", { name: "Bench" }, { timeout: 20_000 });
     await showEverythingInApp(/scope/);
     showShelfTab("Pads");
     const group = await screen.findByText("Unassigned", { selector: ".shelf-group-name" });
