@@ -99,6 +99,73 @@ it.each(["key", "menu"])("u3787a_delete_has_no_question_and_freezes_targets_u378
   await waitFor(() => expect(app.of("/a").calls.filter(c => c.method === "todo.restore")).toEqual([{ method: "todo.restore", params: { operation } }]));
 });
 
+// The deletion receipt is authoritative; its event still drives the production list reader.
+const failedDeletionRefresh = async () => {
+  const mounted = await mount();
+  const daemon = mounted.app.of("/a");
+  await showEverythingInApp();
+  const remove = daemon.handlers["todo.delete"]!;
+  daemon.handlers["todo.delete"] = async params => {
+    const receipt = await remove(params);
+    daemon.handlers["todo.list"] = () => { throw new Error("Todo list unavailable"); };
+
+    daemon.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
+
+    return receipt;
+  };
+
+  const row = screen.getByLabelText(/^(?:Idle|Blocked|Done) #5 /);
+  row.focus();
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "More actions" }));
+  const deletion = await screen.findByRole("menuitem", { name: "Delete Todo" });
+  deletion.focus();
+  fireEvent.click(deletion);
+  await screen.findByText("Todo list unavailable");
+  const connected = mounted.connections.get("/a")!;
+
+  await waitFor(() => {
+    expect({ drawer: connected.drawer.content(), pending: connected.drafts.todoUndo.pending() }).toEqual({ drawer: null, pending: false });
+  });
+
+  return { ...mounted, daemon, connected };
+};
+
+it("u5127a_acknowledged_delete_closes_after_failed_list_refresh", async () => {
+  const { app, daemon, connected } = await failedDeletionRefresh();
+  expect(daemon.calls.filter(call => call.method === "todo.delete").map(call => call.params)).toEqual([
+    { operation: expect.any(String), ids: [5] },
+  ]);
+  expect(app.of("/b").calls.filter(call => call.method === "todo.delete")).toEqual([]);
+  expect({ failure: connected.drafts.todoUndo.failure(), uncertain: connected.drafts.todoUndo.uncertain() }).toEqual({ failure: null, uncertain: false });
+  expect(questionProbe.shown).toBeNull();
+  expect(screen.queryByText(DELETED)).toBeNull();
+  expect(screen.queryAllByRole("button", { name: "Undo" })).toEqual([]);
+  // SAFETY: the exact delete-call assertion above establishes the generated payload.
+  const { operation } = daemon.calls.find(call => call.method === "todo.delete")!.params as DeleteParams;
+  const survivor = screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /);
+  survivor.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.enabled).toBe(true));
+  undoKey();
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.restore").map(call => call.params)).toEqual([{ operation }]));
+  expect(daemon.calls.filter(call => call.method === "todo.delete").map(call => call.params)).toEqual([{ operation, ids: [5] }]);
+});
+
+it("u5127b_successful_refresh_clears_failure_without_redeleting", async () => {
+  const { daemon, connected } = await failedDeletionRefresh();
+  daemon.handlers["todo.list"] = () => [todo(7, { title: "same" })];
+  daemon.emit({ actor: USER, name: "todo.updated", data: todo(7, { title: "same" }) });
+  await waitFor(() => {
+    expect({ cause: screen.queryByText("Todo list unavailable"), deleted: screen.queryByLabelText(/^(?:Idle|Blocked|Done) #5 /) }).toEqual({ cause: null, deleted: null });
+    expect(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /)).toBeTruthy();
+  });
+  expect({ drawer: connected.drawer.content() }).toEqual({ drawer: null });
+  screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /).focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.enabled).toBe(true));
+  expect(daemon.calls.filter(call => call.method === "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [5] }]);
+  expect(daemon.calls.filter(call => call.method === "todo.restore")).toEqual([]);
+});
+
 const DELETED = /^Deleted \d/;
 
 const acknowledged = async () => {
