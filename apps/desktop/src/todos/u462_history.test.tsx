@@ -69,7 +69,7 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
-  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
+  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, priority: null } }], unread: 99 });
   await Promise.resolve();
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   expect(panel().inert).toBe(true);
@@ -84,7 +84,7 @@ it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () =
   fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
-  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
+  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, priority: null } }], unread: 99 });
   await Promise.resolve();
 
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
@@ -145,7 +145,7 @@ it("u3728_failed_read_retries_without_consuming_unread", async () => {
 
 it("u462_a_rename_keeps_its_history_line", async () => {
   const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: [], owner: null };
+  const values = { title: "todo 1", body: "", done: false, blockers: [], owner: null, priority: null };
   m.app.handlers["todo.getHistory"] = () => ({ unread: 1, changes: [
     { actor: null, changed_at: null, seq: 1, before: values,
       after: { ...values, title: "Plan the release" } },
@@ -157,7 +157,7 @@ it("u462_a_rename_keeps_its_history_line", async () => {
 
 it("u3299a_history_copy_keeps_removed_owner_identity", async () => {
   const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "/Users/authored/path", done: false, blockers: Array.of<number>(), owner: null };
+  const values = { title: "todo 1", body: "/Users/authored/path", done: false, blockers: Array.of<number>(), owner: null, priority: null };
   const owner = { kind: "agent" as const, id: "removed-original-id", parent: null };
   const change = { actor: owner, changed_at: null, seq: 1, before: values, after: { ...values, owner }, handed: owner };
   m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [change] });

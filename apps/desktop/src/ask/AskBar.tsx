@@ -1,5 +1,6 @@
 import "../ui/Row.css";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
+import { Inbox, createInbox } from "../inbox/Inbox";
 import { OverviewSections } from "./OverviewSections";
 import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
@@ -51,6 +52,7 @@ export const AskBar = (props: {
   const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
   const reactions = createReactions();
+  const inbox = createInbox();
 
   const [opening, setOpening] = createSignal<"home-focus" | "over" | null>(null);
   const over = () => opening() === "over" || (opening() === "home-focus" && rail.selected() !== null);
@@ -303,13 +305,13 @@ export const AskBar = (props: {
   };
 
   const sections = createMemo(() => [
-          { id: "attention", label: copy.needsYou, records: () => attentionOrder(rail.nodes).map(node => ({ id: node.id + ":" + node.attempt + ":" + node.status_revision, at: node.status?.since ?? 0 })), content: () => <ProjectOverview /> },
+          { id: "attention", label: copy.needsYou, records: inbox.records, actions: <span class="inbox-count" data-state="attention" aria-live="polite" aria-atomic="true">{inbox.records().length || ""}</span>, content: () => <Show when={connected.hasView("workstreams")} fallback={<Inbox state={inbox} />}><ProjectOverview /></Show> },
           { id: "asks", label: copy.askRows, records: () => asks.entries().flatMap(entry => entry.parts.map((_part, index) => ({ id: entry.key + ":" + index, at: entry.at ?? Number.MAX_SAFE_INTEGER }))), content: () => <><Show when={asks.entries().length === 0}><p class="overview-quiet">{copy.askEmpty}</p></Show><AskRows keys={scope} onOpened={() => close(false)} /></> },
           { id: "reactions", label: copy.reactions, records: () => reactions.read().list.map(record => ({ id: record.id, at: Date.parse(record.created_at) })), content: () => <Reactions state={reactions} /> },
           { id: "made", label: copy.deliverables, records: () => deliverables.records().map(record => ({ id: record.id, at: record.published_at })), actions: <button type="button" data-button="quiet" onClick={deliverables.refresh}>{copy.refresh}</button>, content: () => <Deliverables state={deliverables} /> },
         ]);
 
-  const overview = <OverviewSections ready={treeReady() && asks.loadState() !== "loading" && !reactions.read.loading && !deliverables.loading()} items={sections()} />;
+  const overview = <OverviewSections ready={treeReady() && inbox.loaded() && asks.loadState() !== "loading" && !reactions.read.loading && !deliverables.loading()} items={sections()} />;
 
   return (<>
     <Show when={shown()}>

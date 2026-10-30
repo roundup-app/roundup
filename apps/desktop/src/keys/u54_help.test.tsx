@@ -45,13 +45,14 @@ const open = async (openingPrompt = "") => {
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["rail.tree"] = () => [
     door("w", "idle", "idle", { name: "lead", opening_prompt: openingPrompt }),
-    ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: "w" })),
+    ...["a", "b", "c", "d", "e", "f", "g", "h", "i"].map((id) => agent(id, "idle", "x", { parent: id === "i" ? null : "w" })),
   ];
 
   app.handlers["workstream.restart"] = () => door("w", "idle", "idle", { opening_prompt: openingPrompt });
 
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={focusableEmulator()} />);
   await waitFor(() => rowOf("a"));
+  await waitFor(() => expect(app.calls.some(call => call.method === "todo.unread")).toBe(true));
 
   return app;
 };
@@ -217,6 +218,17 @@ describe("u54 keyboard help", () => {
     mode.dispatchEvent(restart);
 
     if (restart.defaultPrevented) railOnly.push(pressOf(restart));
+
+    // U4547e: unmodified M binds only on a focused root Agent with a destination.
+    const free = rowOf("i");
+    free.focus();
+    const move = new KeyboardEvent("keydown", { key: "m", code: "KeyM", bubbles: true, cancelable: true });
+    free.dispatchEvent(move);
+
+    if (move.defaultPrevented) railOnly.push(pressOf(move));
+    const picker = await screen.findByRole("combobox");
+    fireEvent.keyDown(picker, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(document.activeElement).toBe(free));
 
     row.focus();
     const rename = new KeyboardEvent("keydown", { key: "F2", code: "F2", bubbles: true, cancelable: true });

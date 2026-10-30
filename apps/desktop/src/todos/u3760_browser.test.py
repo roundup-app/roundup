@@ -39,7 +39,6 @@ setup = r"""(async () => {
   for(const url of urls) await f.app.rpc('todo.addRef',{id:5,url});
   const was=f.app.handlers['todo.refs'];
   f.app.handlers['todo.refs']=async (p)=>(await was(p)).map((r)=>({...r,state:r.url===urls[9]?'missing':'ok'}));
-  document.querySelector('[data-id="5"] .row-head button').click();
 })()"""
 reading = r"""(() => {
   const d=document.querySelector('.drawer');
@@ -53,12 +52,18 @@ try:
     browser('open', origin + '/harness.html?seed=tree-40')
     browser('set', 'viewport', '1512', '950')
     browser('set', 'media', 'dark')
-    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
+    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    browser('press', 'Meta+k')
+    browser('wait', '.hint-line.leader')
+    browser('press', 'b')
+    browser('wait', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
+    browser('click', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
+    browser('wait', '.shelf [data-todo="5"] .todo-open')
     assert evaluate("({w:innerWidth,h:innerHeight,d:matchMedia('(prefers-color-scheme: dark)').matches})") == {'w': 1512, 'h': 950, 'd': True}
     if lifetime:
         directory = Path(target)
         directory.mkdir(parents=True, exist_ok=True)
-        evaluate('document.querySelector(\'[data-id="5"] .row-head button\').click()')
+        browser('click', '.shelf [data-todo="5"] .todo-open')
         browser('wait', '--fn', 'Boolean(document.querySelector(".todo-comment-field"))')
         evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished))})()')
 
@@ -90,6 +95,7 @@ try:
         capture('drawer-saved')
     else:
         evaluate(setup)
+        browser('click', '.shelf [data-todo="5"] .todo-open')
         browser('wait', '--fn', 'document.querySelectorAll(".todo-ref").length===10')
         evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));document.querySelector(".todo-refs").scrollIntoView({block:"start"})})()')
         result = evaluate(reading)
