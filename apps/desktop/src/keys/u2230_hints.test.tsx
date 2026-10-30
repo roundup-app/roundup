@@ -119,7 +119,9 @@ const toPlace = async (place: "pad" | "drawer") => {
   const group = document.querySelector('.pads-tab [data-shelf-group="unassigned"]');
 
   if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
-  fireEvent.keyDown(await screen.findByRole("button", { name: "notes" }), { key: "Enter" });
+  const pad = await screen.findByRole("button", { name: "notes" });
+  pad.focus();
+  fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
   const selector = place === "pad" ? ".pad-body button" : ".drawer .close";
   await waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
   document.querySelector<HTMLElement>(selector)!.focus();
