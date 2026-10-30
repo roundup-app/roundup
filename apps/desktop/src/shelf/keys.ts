@@ -121,10 +121,27 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
   };
 };
 
-/** The Todos list owns its existing inline creation key. */
-export const todoCreationKeys = (props: { section: () => HTMLElement | undefined; open: () => void }) => {
-  registerKeys(shelfKeyScope, [{ chords: ["n"],
-    when: event => !event.repeat && !event.isComposing && event.target instanceof Element && props.section()?.contains(event.target) === true && !event.target.closest(TEXT_FIELDS),
-    run: props.open,
+/** The Todos list captures creation scope for its key and menu item. */
+export const todoCreationKeys = (props: {
+  section: () => HTMLElement | undefined;
+  active: () => boolean;
+  editing: () => boolean;
+  home: () => string | null;
+  owner: () => string | null;
+  open: (home: string | null, owner: string | null) => void;
+}) => {
+  registerKeys(shelfKeyScope, [{ action: CHORDS.find(action => action.keys === "N")!, match: "key", searchable: false,
+    when: event => !event.repeat && !event.isComposing && !rowTypeahead(event),
+    capture: focus => {
+      const home = props.home();
+      const owner = props.owner();
+
+      return {
+        available: () => props.active() && !props.editing() && focus?.isConnected === true && props.section()?.contains(focus) === true
+          && !focus.closest(`${TEXT_FIELDS},select,[contenteditable], [hidden], [inert]`)
+          && props.home() === home && props.owner() === owner,
+        invoke: () => props.open(home, owner),
+      };
+    },
   }]);
 };

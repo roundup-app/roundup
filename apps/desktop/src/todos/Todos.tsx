@@ -518,7 +518,7 @@ export const Todos = (props: {
     setCreationRevision(null);
     openField(home, null);
   });
-  todoCreationKeys({ section: () => section, open: () => openField() });
+  todoCreationKeys({ section: () => section, active, editing: typing, home: selectedWorkstream, owner: () => scope.agent()?.id ?? null, open: openField });
 
   const field = () => (
     <div class="shelf-list todo-create" ref={element => { creationRow = element; }}>

@@ -384,3 +384,27 @@ Shelf to show the entire cause/fix beside retained rename input. Screenshots and
 the keyboard interaction recording stay uncommitted. The supported capture table
 rejects `just capture U3787b`; these explicit isolated captures supply the rendered
 evidence, with no native claim.
+
+
+## Scoped Add Todo
+
+The existing Todos `N` binding now registers its captured action rather than a
+raw binding. The Project menu and Help discover it from `CHORDS`; the native menu
+shows N as a plain-key hint through the existing projection, without an
+accelerator. Its owner captures the selected Home and Agent, reuses `openField`
+and the existing draft holder, and refuses typing, hidden/inactive lists and a
+changed scope. Ark name search retains precedence on content rows.
+
+The connected-App `u3787b_menu_and_key_share_one_action` cases for Add Todo prove
+both routes open the same field and submit one creation for the captured Agent,
+without Terminal writes. The Add Todo case of
+`u3787b_scoped_menu_does_not_steal_terminal_input` refuses a retained capture after
+scope changes. The existing inventory observer covers its registration on Todo
+rows; no test or behavioral assertion is removed or retired.
+
+Main check [41039086603](https://github.com/roundup-app/roundup/actions/runs/41039086603)
+at `5774c480097657f2ab5d0aa2a49e95ed846b4aa9` passed mac and mac-clippy.
+This is compilation evidence only; earlier native evidence keeps its recorded
+scope and SHA. Complete library/native inventory, responder Find/Close Window
+availability and final native displayed-key/combined-dispatch observations remain
+on #4308. This slice closes neither #4308 nor #3843.

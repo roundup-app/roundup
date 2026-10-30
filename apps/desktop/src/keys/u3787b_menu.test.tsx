@@ -359,5 +359,23 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.create").map(call => call.params)).toEqual([
     { title: "Captured work", body: null, blockers: null, owner: { kind: "agent", id: "a1", parent: null } },
   ]));
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.move").map(call => call.params)).toEqual([{ id: 2, home: "home" }]));
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+});
+
+
+it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed scope", async () => {
+  const { connected, daemon } = await mountNavigation(false, 0);
+  await showEverythingInApp();
+  const list = document.querySelector<HTMLElement>(".todos-tab")!;
+  list.tabIndex = -1;
+  list.focus();
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:N")).toBe(true));
+  const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
+  connected().rail.select("a2");
+  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
+  captured.run();
+  openProjectPage("action:chord:N");
+  expect(screen.queryByRole("textbox", { name: "New Todo title" })).toBeNull();
+  expect(daemon.calls.filter(call => call.method === "todo.create" || call.method === "terminal.write")).toEqual([]);
 });
