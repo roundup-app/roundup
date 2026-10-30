@@ -443,6 +443,7 @@ it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-tod
     expect(screen.queryByText(/^Deleted(?:\s|·)/)).toBeNull();
     expect([...document.querySelectorAll("button")].filter(button => button.textContent === "Undo")).toEqual([]);
   };
+
   absent();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe(isPad ? "Undo Delete Pad" : "Undo Delete Todo"));
   fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true });
