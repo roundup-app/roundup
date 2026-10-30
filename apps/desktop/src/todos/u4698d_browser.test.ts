@@ -65,7 +65,6 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
     await browser("set", "viewport", String(width), String(height));
     await settle();
 
-
     if (output) {
       await browser("set", "viewport", String(width), String(height));
       await settle();
@@ -98,6 +97,26 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
       }
 
       await browser("press", "Escape");
+
+      if (output) {
+        for (const action of ["owner", "hand", "home"]) {
+          await browser("click", '.drawer [aria-label="More actions"]');
+          await browser("wait", '[role="menu"][data-state="open"]');
+          await browser("click", `[role="menuitem"][data-value="${action}"]`);
+          await browser("wait", '.owner-picker[data-state="open"]');
+          await settle();
+          await browser("screenshot", join(output, `${action}-menu-${width}.png`));
+          writeFileSync(join(output, `${action}-menu-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+          await browser("press", "Escape");
+        }
+
+        for (const priority of ["low", "medium", "high", "urgent", null]) {
+          await evaluate(`window.__fake.app.rpc('todo.update', { id: 1, priority: ${JSON.stringify(priority)} }); true`);
+          await settle();
+          await browser("screenshot", join(output, `priority-${priority ?? "unset"}-${width}.png`));
+          writeFileSync(join(output, `priority-${priority ?? "unset"}-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+        }
+      }
     }
 
     await evaluate("window.__fake.app.rpc('todo.complete', { id: 1 }); true");
@@ -122,7 +141,6 @@ it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_re
 
     await browser("click", '.drawer [aria-label="Maximise"]');
     await settle();
-
 
     await evaluate("window.__fake.app.rpc('todo.reopen', { id: 1 }); true");
     await browser("wait", '.drawer input[type="checkbox"]:not(:checked)');
