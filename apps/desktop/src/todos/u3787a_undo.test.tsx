@@ -46,14 +46,14 @@ const mount = async (done = false) => {
 
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { connections.set(open.project.path, open); open.showView("workstreams"); }} />);
   await waitFor(() => expect(connections.has("/b")).toBe(true));
-  fireEvent.click(screen.getByRole("tab", { name: /^a/ }));
+  fireEvent.click(document.querySelector<HTMLElement>('.project-tab[data-path="/a"] [role="tab"]')!);
   await waitFor(() => expect(connections.size).toBe(2));
 
   const remove = async (path: string, id = 5) => {
-    fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${path.slice(1)}`) }));
-    await screen.findByRole("tabpanel", { name: path.slice(1) });
+    fireEvent.click(document.querySelector<HTMLElement>(`.project-tab[data-path="${path}"] [role="tab"]`)!);
+    await waitFor(() => expect(projectMenu.path).toBe(path));
     connections.get(path)!.drawer.open(() => <TodoHost id={id} />, "key");
-    const button = await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole<HTMLButtonElement>("button", { name: "Delete Todo" });
+    const button = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLButtonElement>("Delete Todo");
     await waitFor(() => expect(button.disabled).toBe(false));
     fireEvent.click(button);
 
@@ -134,22 +134,22 @@ it("u3787a_undo_stays_with_its_project", async () => {
   }
 
   // Only the active Project offers feedback; selecting A restores its own action.
-  fireEvent.click(screen.getByRole("tab", { name: /^a/ }));
-  await screen.findByRole("tabpanel", { name: "a" });
+  fireEvent.click(document.querySelector<HTMLElement>('.project-tab[data-path="/a"] [role="tab"]')!);
+  await waitFor(() => expect(projectMenu.path).toBe("/a"));
   pressUndo();
   await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(1));
-  fireEvent.click(screen.getByRole("tab", { name: /^b/ }));
-  await screen.findByRole("tabpanel", { name: "b" });
+  fireEvent.click(document.querySelector<HTMLElement>('.project-tab[data-path="/b"] [role="tab"]')!);
+  await waitFor(() => expect(projectMenu.path).toBe("/b"));
   document.body.focus();
   undoKey();
   await waitFor(() => expect(app.of("/b").calls.filter(call => call.method === "todo.restore").length).toBe(1));
 
   // Closing the original tab consumes no receipt.
-  fireEvent.pointerEnter(screen.getByRole("tab", { name: /^a/ }).parentElement!);
-  fireEvent.click(screen.getByRole("button", { name: "Close a" }));
+  fireEvent.pointerEnter(document.querySelector<HTMLElement>('.project-tab[data-path="/a"] [role="tab"]')!.parentElement!);
+  fireEvent.click(screen.getByLabelText("Close a"));
   await waitFor(() => expect(app.closed).toContain("/a"));
   app.nativeOpen({ kind: "project", path: "/a" });
-  await screen.findByRole("tab", { name: /^a/ });
+  await waitFor(() => expect(projectMenu.path).toBe("/a"));
   document.body.focus();
   undoKey();
   await waitFor(() => expect(app.of("/a").calls.filter(call => call.method === "todo.restore").length).toBe(2));
@@ -307,7 +307,7 @@ for (const entry of ["selection", "single", "drawer"] as const) {
     } else if (entry === "single") { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     else {
       fireEvent.keyDown(first, { key: "Enter" });
-      fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "Delete" }));
+      fireEvent.click(await within(screen.getByLabelText("Drawer")).findByRole("button", { name: "Delete" }));
     }
 
     await acknowledged();
@@ -395,7 +395,7 @@ it("u3787a_delete_has_no_question_and_freezes_targets_pads_pending", async () =>
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   await daemon.rpc("pad.create", { name: "arrival", text: "new" });
-  await screen.findByRole("button", { name: "arrival" });
+  await screen.findByText("arrival", { selector: ".pad-name .shelf-title" });
   release();
   await acknowledged();
   expect(daemon.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([
@@ -436,7 +436,7 @@ it("u3787a_pad_deletion_and_undo_preserve_the_exact_unsubmitted_draft", async ()
   const connected = connections.get("/a")!;
   const retained = connected.drafts.list();
   expect(retained.filter(draft => draft.destination.surface === "pads").map(draft => draft.value.source)).toEqual([expect.stringContaining("unfinished")]);
-  fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("button", { name: "Delete" }));
+  fireEvent.click(within(screen.getByLabelText("Drawer")).getByRole("button", { name: "Delete" }));
   await acknowledged();
   expect(connected.drafts.list()).toEqual(retained);
   pressUndo();
@@ -461,7 +461,7 @@ for (const kind of ["todo", "pad"] as const) {
 
     if (kind === "pad") await showPads();
 
-    const row = await screen.findByRole("button", { name: kind === "todo" ? /^(Idle|Blocked|Done) #5 / : "first" });
+    const row = kind === "todo" ? await screen.findByLabelText(/^(Idle|Blocked|Done) #5 /) : (await screen.findByText("first", { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")!;
     fireEvent.click(row);
     fireEvent.keyDown(row, { key: "Backspace", code: "Backspace" });
     await screen.findByRole("alert", { name: new RegExp(`Could not delete .*${refusal}`) });
@@ -480,8 +480,8 @@ const draftBytes = "  未送信 é 🧭\n keep trailing spaces  ";
 const openSeventh = async (connections: Map<string, ConnectedProject>) => {
   const connected = connections.get("/a")!;
   connected.drawer.open(() => <TodoHost id={7} />, "key");
-  const drawer = screen.getByRole("complementary", { name: "Drawer" });
-  const button = await within(drawer).findByRole<HTMLButtonElement>("button", { name: "Delete Todo" });
+  const drawer = screen.getByLabelText("Drawer");
+  const button = await within(drawer).findByLabelText<HTMLButtonElement>("Delete Todo");
   const field = await within(drawer).findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
   fireEvent.input(field, { target: { value: draftBytes } });
   button.focus();

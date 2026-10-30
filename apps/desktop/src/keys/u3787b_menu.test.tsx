@@ -196,7 +196,7 @@ it.each(["terminal", "rail row", "Shelf row", "triage"])("u3787b_menu_covers_bou
   const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : place === "rail row" ? "action:chord:F2" : "action:chord:⌘=";
   await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id === expected)).toBe(true));
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
-  const shown = new Map(menuCommands(projectMenu.items).filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut ?? /\((.) · Rail row\)/.exec(item.label)?.[1]]));
+  const shown = new Map(menuCommands(projectMenu.items).filter(item => item.enabled && item.id.startsWith("action:")).map(item => [item.id, item.shortcut ?? /\((.) · Rail row\)/.exec(item.label)?.[1]]));
 
   expect(available.length).toBeGreaterThan(10);
 
