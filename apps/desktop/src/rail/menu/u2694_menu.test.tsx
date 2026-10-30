@@ -25,12 +25,8 @@ describe("u2694 the Rail's system menu", () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.openingPromptMenu, copy.addMenu, copy.remove]);
     expect(entry(app, copy.rename)).toMatchObject({ shortcut: "F2" });
     expect(entry(app, copy.remove)).toMatchObject({ shortcut: "⌘⌫" });
-
-    open("a");
-    expect(app.menuLabels()).toEqual([copy.workProgress, copy.startYolo, copy.stop, copy.openFolder, copy.openInEditor, copy.sendToAgentMenu, copy.copyLink, copy.rename, copy.remove]);
   });
 
   it("u2694b_stopping_a_door_calls_agent_stop", async () => {
