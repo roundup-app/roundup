@@ -83,6 +83,7 @@ import type { GetDeletionParams as pad_GetDeletionParams } from "./pad/GetDeleti
 import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
 import type { Pad as pad_Pad } from "./pad/Pad";
 import type { PadName as pad_PadName } from "./pad/PadName";
+import type { RedoDeleteParams as pad_RedoDeleteParams } from "./pad/RedoDeleteParams";
 import type { RenameParams as pad_RenameParams } from "./pad/RenameParams";
 import type { ReorderParams as pad_ReorderParams } from "./pad/ReorderParams";
 import type { SetOwnerParams as pad_SetOwnerParams } from "./pad/SetOwnerParams";
@@ -142,6 +143,7 @@ import type { Handed as todo_Handed } from "./todo/Handed";
 import type { History as todo_History } from "./todo/History";
 import type { MoveParams as todo_MoveParams } from "./todo/MoveParams";
 import type { ReadHistoryParams as todo_ReadHistoryParams } from "./todo/ReadHistoryParams";
+import type { RedoParams as todo_RedoParams } from "./todo/RedoParams";
 import type { Ref as todo_Ref } from "./todo/Ref";
 import type { RefParams as todo_RefParams } from "./todo/RefParams";
 import type { ReorderParams as todo_ReorderParams } from "./todo/ReorderParams";
@@ -222,6 +224,7 @@ export type RpcMethods = {
   "todo.reorder": { params: todo_ReorderParams; result: todo_Todo };
   "todo.delete": { params: todo_DeleteParams; result: todo_Deletion };
   "todo.deletion": { params: todo_DeletionParams; result: todo_Deletion | null };
+  "todo.redo": { params: todo_RedoParams; result: todo_Deletion };
   "todo.restore": { params: todo_DeletionParams; result: todo_Deletion };
   "todo.comment": { params: todo_CommentParams; result: todo_Comment };
   "todo.comments": { params: todo_TodoId; result: todo_Comment[] };
@@ -240,6 +243,7 @@ export type RpcMethods = {
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_DeleteParams; result: pad_Deletion };
+  "pad.redoDelete": { params: pad_RedoDeleteParams; result: pad_Deletion };
   "pad.getDeletion": { params: pad_GetDeletionParams; result: pad_Deletion };
   "pad.restore": { params: pad_DeletionId; result: pad_Deletion };
   "pad.export": { params: pad_ExportParams; result: null };
