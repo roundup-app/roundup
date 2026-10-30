@@ -171,7 +171,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   unsafe.mockRestore();
   const rpc = app.rpc;
   app.rpc = (method, params) => method === "deliverable.list" ? Promise.reject(new Error("catalogue connection interrupted")) : rpc(method, params);
-  fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(within(made).getAllByRole("alert").some(alert => alert.textContent?.includes("catalogue connection interrupted"))).toBe(true);
   expect(within(made).getAllByRole("listitem")).toHaveLength(count);

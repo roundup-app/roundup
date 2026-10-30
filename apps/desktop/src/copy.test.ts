@@ -28,6 +28,8 @@ const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancest
 
 // These are executable structure or diagnostics never shown by the App, not copy exemptions.
 const STRUCTURE = new Set([
+  // The key registry layer discriminant selects an executable scope, never a label.
+  "layer",
   // U3794: tool names the Agent runtime sends and a selector for text fields are executable structure, not prose.
   "Edit", "MultiEdit", "Write", "NotebookEdit", "textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])",
   // U3517a: a console-only font fallback diagnostic, never rendered by the App.

@@ -25,7 +25,7 @@ const openShelf = async (tab: typeof shelf[number]) => {
   Object.assign(daemon.handlers, tab === "Todos"
     ? todoHandlers({ todos: names.map((title, i) => todo(i + 1, { title, creator: owner })) }, () => {})
     : padHandlers({ pads: names.map(name => padOf(name, owner)), history: [] }, () => {}));
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
 
   const control = await waitFor(() => {
@@ -95,7 +95,7 @@ const openChanges = async (opening: string) => {
   const daemon = app.of(path("p"));
   daemon.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: true });
   daemon.handlers["agent.changedFiles"] = () => ({ files });
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
 
   const row = await waitFor(() => {
@@ -165,7 +165,7 @@ it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "nat
   const { app } = renderTabs({ p: [node] });
   const daemon = app.of(path("p"));
   Object.assign(daemon.handlers, todoHandlers({ todos: [todo(1, { title: "Original" })] }, () => {}), padHandlers({ pads: [padOf("Original", USER)], history: [] }, () => {}));
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
   await waitFor(() => expect(document.querySelector('.rail-row[data-id="a"]')).not.toBeNull());
 
@@ -219,7 +219,7 @@ it.each(renames.flatMap(kind => (kind === "Todo" || kind === "Pad" ? ["F2", "nat
 
 it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_list_navigates_visible_rows App Rail %#", async make => {
   renderTabs({ p: names.map((name, order) => ({ ...make(`row-${order}`), name, order })) });
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
 
   const rows = await waitFor(() => {
@@ -241,7 +241,7 @@ it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_l
 
 it.each([workstream, (id: string) => agent(id, "idle", "ready")])("u3787c_each_list_selects_only_visible_rows App Rail %#", async make => {
   const { app } = renderTabs({ p: names.map((name, order) => ({ ...make(`row-${order}`), name, order })) });
-  await screen.findByRole("region", { name: "Project overview" });
+  await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:workstreams", path("p"));
 
   const rows = await waitFor(() => {

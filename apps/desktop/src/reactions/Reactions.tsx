@@ -153,7 +153,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
         <button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button>
         <button type="button" data-button="quiet" onClick={props.state.dismiss}>{copy.clear}</button>
       </ReservedLine>
-      <Show when={read().list.length > 0} fallback={<Show when={!read.loading && read().failure === null}><p class="overview-empty">{copy.reactionsEmpty}</p></Show>}>
+      <Show when={read().list.length > 0} fallback={<Show when={!read.loading && read().failure === null}><p class="overview-quiet">{copy.reactionsEmpty}</p></Show>}>
         <ul class="reaction-list" on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
             const reaction = () => read().list.find(reaction => reaction.id === id)!;
@@ -163,10 +163,11 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
               heads.set(id, element); content.register(element, id);
               onCleanup(() => { if (heads.get(id) === element) heads.delete(id); });
             }} data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
-              <span class="reaction-summary"><span class="reaction-name">{listName(reaction())}</span><span class="reaction-reason">{copy.reactionActor(reaction().actor.kind, reaction().actor.kind === "agent" ? nameOf(reaction().actor.id) : null)} · {reaction().instruction}</span></span>
-              <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health_code)}</span>
+              <span class="reaction-summary"><span class="reaction-name">{listName(reaction())}</span>
+              <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health_code)}</span></span>
+              <span class="reaction-reason">{copy.reactionReason(copy.reactionActor(reaction().actor.kind, reaction().actor.kind === "agent" ? nameOf(reaction().actor.id) : null), reaction().instruction)}</span>
             </button>
-            <button type="button" data-button="quiet" disabled={pending() || reaction().state !== "active"} onClick={() => void act(reaction(), "reaction.stop")}>{copy.reactionStop}</button>
+            <Show when={reaction().state === "active"}><button type="button" data-button="quiet" disabled={pending()} onClick={() => void act(reaction(), "reaction.stop")}>{copy.reactionStop}</button></Show>
           </li>;
           }}</For>
         </ul>
