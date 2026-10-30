@@ -10,9 +10,12 @@ import type { RailNode } from "@contracts/agent/RailNode";
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
 const mount = async () => {
-  const app = createFakeApp();
+  const root = createFakeApp();
+  root.add("/p");
+  const app = root.of("/p");
   let nodes: RailNode[] = [workstream("home"), workstream("other")];
   let live = false;
+  let owner = "home";
   let finishStart!: () => void;
   let reveal!: () => void;
   let waiting = false;
@@ -24,7 +27,7 @@ const mount = async () => {
 
     return nodes;
   };
-  app.handlers["terminal.list"] = () => live ? [info("t-home", { owner: "home" })] : [];
+  app.handlers["terminal.list"] = () => live ? [info("t-home", { owner })] : [];
   app.handlers["terminal.snapshot"] = () => ({ cols: 80, rows: 24, after: 0, data: "" });
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.write"] = () => null;
@@ -35,12 +38,13 @@ const mount = async () => {
   app.handlers["rail.startDoor"] = ({ id }) => new Promise(resolve => {
     finishStart = () => {
       live = true;
+      owner = id;
       const started = door(id, "idle", "ready", { terminal_id: "t-home" });
       nodes = nodes.map(node => node.id === id ? started : node);
       resolve(started);
     };
   });
-  render(() => <App app={app} createEmulator={emulators.factory} clock={() => 0} reducedMotion={() => true} prepareIdle={value => { connected = value; value.rail.select("home"); }} />);
+  render(() => <App app={root} createEmulator={emulators.factory} clock={() => 0} reducedMotion={() => true} prepareIdle={value => { connected = value; }} />);
   await screen.findByRole("textbox", { name: "Ask" });
   await waitFor(() => expect(document.querySelector('.rail-row[data-id="home"]')).not.toBeNull());
 
@@ -60,6 +64,9 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
   else if (choice === "other-row") { fireEvent.pointerDown(other); fireEvent.click(other.querySelector(".name")!); other.focus(); }
   else fireEvent.pointerDown(rail);
   const newer = document.activeElement;
+  const terminalFocuses: EventTarget[] = [];
+  const observe = (event: FocusEvent) => { if (event.target instanceof HTMLElement && event.target.hasAttribute("data-terminal")) terminalFocuses.push(event.target); };
+  document.addEventListener("focusin", observe);
   m.reveal();
   await waitFor(() => expect(m.app.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(1));
   m.finish();
@@ -68,6 +75,8 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
 
   if (choice !== "other-row") await waitFor(() => expect(m.emulators.made.get("t-home")?.host).toBeTruthy());
   expect(m.connected.rail.selected()).toBe(choice === "other-row" ? "other" : "made");
+  document.removeEventListener("focusin", observe);
+  expect(terminalFocuses).toEqual([]);
   expect(document.activeElement).toBe(newer);
 
   if (choice === "ask") {
@@ -77,17 +86,20 @@ it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_
   }
 
   expect(m.app.calls.filter(call => call.method === "rail.createWorkstream")).toHaveLength(1);
-  expect(m.app.calls.filter(call => call.method === "rail.startDoor").map(call => call.params.id)).toEqual(["made"]);
+  expect(m.app.calls.filter(call => call.method === "rail.startDoor").map(call => call.params)).toEqual([expect.objectContaining({ id: "made" })]);
   expect(m.app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
 
 it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_%s", async ending => {
   const m = await mount();
+  m.connected.rail.select("home");
+  await waitFor(() => expect(document.querySelector(".pane-action")).not.toBeNull());
   const origin = document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!;
   origin.focus();
   fireEvent.click(document.querySelector(".pane-action")!);
   await waitFor(() => expect(m.app.calls.filter(call => call.method === "rail.startDoor")).toHaveLength(1));
-  const ask = screen.getByRole<HTMLElement>("textbox", { name: "Ask" });
+  fireEvent.keyDown(document.activeElement!, { key: "/", code: "Slash", metaKey: true });
+  const ask = await screen.findByRole<HTMLElement>("textbox", { name: "Ask" });
   ask.focus();
 
   if (ending === "origin") origin.focus();

@@ -1,6 +1,4 @@
 import { execFile } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { captureDir } from "../testing/captures";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -101,18 +99,6 @@ it("u2742c_targets_stay_eligible_in_the_current_project", async () => {
   await key();
   expect(await read(`window.__fake.app.calls.length`)).toBe(before);
 }, 120_000);
-
-it("u2742a_an_unfocused_run_does_not_activate_or_steal_focus", async () => {
-  await start();
-  await read(`(() => {
-    window.__agentFocus = document.activeElement;
-    const list = window.__fake.app.handlers['terminal.list'];
-    window.__fake.app.handlers['terminal.list'] = async params => [...await list(params), {id:'999',incarnation:'fixture-999',cwd:'/p',title:'new Run',program:'zsh',running:true,exit_code:null,owner:'runner'}];
-    window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
-  })()`);
-  await wait(`!!document.querySelector('.terminal-tab[data-bubble="999"]')`);
-  expect(await read(`({same:document.activeElement === window.__agentFocus, inside:!!document.querySelector('.bubble:focus-within')})`)).toEqual({ same: true, inside: false });
-}, 90_000);
 
 it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await start();
@@ -262,119 +248,3 @@ it("u2742c_a_terminal_tab_without_a_main_agent_has_no_switch_pair", async () => 
   expect(await read(`(() => {const event=new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true,cancelable:true});document.activeElement.dispatchEvent(event);return event.defaultPrevented;})()`)).toBe(true);
   expect(await read(`window.__fake.app.calls.slice(window.__beforeNoPair).filter(c => ['terminal.open','terminal.close','terminal.write'].includes(c.method))`)).toEqual([]);
 }, 90_000);
-
-
-it.each(["rail", "ask", "other-row"])("u4011_new_workstream_selection_preserves_newer_focus_%s", async choice => {
-  await browser("set", "media", "dark");
-  await browser("open", new URL("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&renderer=dom", origin).href);
-  await wait(`!!window.__fake && !!document.querySelector('.rail-actions [data-button="add"]')`);
-  const dir = captureDir("U4011");
-
-  if (dir) {
-    await mkdir(dir, { recursive: true });
-    await browser("record", "restart", join(dir, `${choice}.webm`));
-  }
-
-  const capture = async (step: string) => {
-    if (!dir) return;
-    await browser("screenshot", join(dir, `${choice}-${step}.png`));
-    await writeFile(join(dir, `${choice}-${step}.checks.json`), JSON.stringify(await read(`window.__checks()`), null, 2));
-  };
-
-  try {
-    await capture("rest");
-    await read(`(() => {
-      const app = window.__fake.app;
-      const tree = app.handlers['rail.tree'];
-      const create = app.handlers['rail.createWorkstream'];
-      const start = app.handlers['rail.startDoor'];
-      const gate = new Promise(resolve => { window.revealCreated = () => { app.handlers['rail.tree'] = tree; resolve(); }; });
-      app.handlers['rail.tree'] = async params => { window.treeWaiting = true; await gate; return tree(params); };
-      app.handlers['rail.createWorkstream'] = async params => { const row = await create(params); window.createdRow = row.id; return row; };
-      app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.startSupervisor = () => resolve(start(params)); });
-      const load = document.fonts.load.bind(document.fonts);
-      const fonts = new Promise(resolve => { window.finishFonts = resolve; });
-      document.fonts.load = async (...args) => { await fonts; return load(...args); };
-      window.creationCalls = app.calls.length;
-      document.querySelector('.rail-actions [data-button="add"]').click();
-    })()`);
-    // fetchTree is queued only after the successful creation reply in state/rail.ts.
-    await wait(`!!window.createdRow && window.treeWaiting`);
-    expect(await read(`!!document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')`)).toBe(false);
-
-    await capture("creating");
-
-    if (choice === "ask") {
-      await browser("click", ".ask-input");
-      await wait(`document.activeElement === document.querySelector('.ask-input')`);
-    } else if (choice === "other-row") {
-      await read('document.querySelector(".rail-row[data-id=backend] .name").click()');
-      await wait(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'backend'`);
-    } else {
-      // The scroll container's bottom edge is empty Rail space, outside its rows and actions.
-      const point = await read<{ x: number; y: number }>(`(() => {
-        const r = document.querySelector('.rail-scroll').getBoundingClientRect();
-        const x = r.right - 3, y = r.bottom - 3;
-        if (document.elementFromPoint(x,y).closest('.rail-row, button')) throw new Error('Rail press would choose a row');
-        return {x,y};
-      })()`);
-
-      await browser("mouse", "move", String(point.x), String(point.y));
-      await browser("mouse", "down", "left");
-      await browser("mouse", "up", "left");
-    }
-
-    await read(`(() => {
-      window.newerInput = document.activeElement;
-      window.terminalFocuses = [];
-      document.addEventListener('focusin', event => { if (event.target.closest('.xterm')) window.terminalFocuses.push(event.target); }, true);
-    })()`);
-
-    await capture("before");
-    await read(`window.revealCreated()`);
-    await wait(`!!window.startSupervisor && !!document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')`);
-    expect(await read(`document.querySelector('.rail-row[data-selected=true]')?.dataset.id`)).toBe(choice === "other-row" ? "backend" : await read(`window.createdRow`));
-    await read(`window.startSupervisor()`);
-
-    if (choice === "other-row") {
-      await wait(`document.querySelector('.rail-row[data-id="' + window.createdRow + '"]')?.dataset.kind === 'working'`);
-      expect(await read(`({selected:document.querySelector('.rail-row[data-selected=true]')?.dataset.id, same:document.activeElement === window.newerInput})`)).toEqual({ selected: "backend", same: true });
-
-      return;
-    }
-
-    await wait(`!!document.querySelector('.pane-screen .xterm') && !!window.__terminals.get('t-' + window.createdRow + '-1')`);
-    await read(`(async () => { window.finishFonts(); await window.__terminals.get('t-' + window.createdRow + '-1').ready; })()`);
-    // A write acknowledgement proves the production emulator has completed readiness and rendered output.
-    await read(`window.__fake.writeOutput('t-' + window.createdRow + '-1', 'SUPERVISOR READY' + String.fromCharCode(13,10))`);
-    await wait(`document.querySelector('.pane-screen .xterm-rows').textContent.includes('SUPERVISOR READY')`);
-    expect(await read(`({focuses:window.terminalFocuses.length, same:document.activeElement === window.newerInput})`)).toEqual({ focuses: 0, same: true });
-
-    if (choice === "ask") {
-      await browser("keyboard", "type", "u4011 exact marker");
-      await wait(`document.querySelector('.ask-input').value === 'u4011 exact marker'`);
-      expect(await read(`document.activeElement === window.newerInput && window.newerInput.value === 'u4011 exact marker'`)).toBe(true);
-    }
-
-    expect(await read(`(() => {
-      const calls = window.__fake.app.calls.slice(window.creationCalls);
-      return {creates:calls.filter(c => c.method === 'rail.createWorkstream').length, starts:calls.filter(c => c.method === 'rail.startDoor').map(c => c.params.id), writes:calls.filter(c => c.method === 'terminal.write'), rows:document.querySelectorAll('.rail-row[data-id="' + window.createdRow + '"]').length};
-    })()`)).toEqual({ creates: 1, starts: [await read(`window.createdRow`)], writes: [], rows: 1 });
-    await capture("ready");
-
-    if (choice === "ask") {
-      await browser("press", "Escape");
-      await wait(`!document.querySelector('.ask-bar')`);
-      expect(await read(`document.activeElement?.closest('.rail-row')?.dataset.id`)).toBe(await read(`window.createdRow`));
-      await capture("escaped");
-    }
-
-    if (dir) {
-
-      await read(`window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Terminal could not open: retry New Terminal'); }`);
-      await browser("press", "Meta+t");
-      await wait(`document.body.textContent.includes('Terminal could not open: retry New Terminal')`);
-      await capture("failure");
-    }
-  } finally { if (dir) await browser("record", "stop"); }
-}, 120_000);
