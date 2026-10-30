@@ -379,17 +379,20 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       })()`);
       await lane.evaluate(`(async () => {
         const { projectMenu } = await import('/src/testing/menuProbe.ts');
-        for (const command of ['view:reactions', 'view:made']) {
-          if (!projectMenu.items.some(item => item.id === command && item.enabled)) throw new Error('Native menu action unavailable: ' + command);
-          window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command}}));
-        }
-        window.dispatchEvent(new Event('focus'));
+        if (!projectMenu.items.some(item => item.id === 'view:made' && item.enabled)) throw new Error('Native menu action unavailable: view:made');
+        window.dispatchEvent(new CustomEvent('open-project-page', {detail:{path:projectMenu.path,command:'view:made'}}));
       })()`);
-      await lane.until("document.querySelectorAll('.reaction-row').length === 7 && document.querySelectorAll('.made-row').length === 2");
+      await lane.until("document.querySelector('[data-part=item-trigger][data-value=made]')?.getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.made-row').length === 2");
+
+      if (phase === "names") {
+        await capture("U3299d", side!, "publications");
+      }
+
+      await lane.browser("find", "role", "button", "click", "--name", "Reactions", "--exact");
+      await lane.until("document.querySelector('[data-part=item-trigger][data-value=reactions]')?.getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.reaction-row').length === 7");
 
       if (phase === "names") {
       await capture("U3299a", side!, "overview");
-      await capture("U3299d", side!, "publications");
 
       for (let index = 0; index < 7; index++) {
         await lane.browser("focus", `[data-reaction-opener="audit-${index}"]`);
@@ -429,11 +432,8 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u5014a_u
       }
 
       if (phase === "retention") {
-      // Requested Ask sections become an overlay on Rail selection; close them before editing there.
-      await lane.browser("find", "role", "button", "click", "--name", "Close Made");
-      await lane.until("!document.querySelector('.made-row')");
-      await lane.browser("find", "role", "button", "click", "--name", "Close Reactions");
-      await lane.until("!document.querySelector('.reaction-row')");
+      await lane.browser("click", '.rail-row[data-id="backend"]');
+      await lane.until("document.querySelector('.rail-row[data-id=backend]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
       await lane.evaluate(`(() => {
         Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
         document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
