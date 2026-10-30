@@ -883,7 +883,7 @@ export const Rail = () => {
 
                             if (result.kind === "refused") throw result.error;
 
-                            if (result.kind === "pending") rail.hold(id, { kind: "rename", asked: name, base });
+                            if (result.kind === "pending") rail.keepAsked(id, { kind: "rename", asked: name, base });
                             failure.acknowledge(id);
                           }}
                           lifted={parts.isDragging()}
