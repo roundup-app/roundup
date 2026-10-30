@@ -98,7 +98,16 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
               await wait("document.querySelectorAll('.rail-tree .section-head').length===3");
               await browser("mouse", "move", "1400", "900");
               await snap(`${prefix}-rest`);
-              await browser("screenshot", ".rail", join(dir, `${prefix}-contact-sheet.png`));
+              const neighbours = await read(`(() => {
+                const rows=[...document.querySelectorAll('.rail-row')];
+                const states=new Set();
+                const selected=rows.filter(row=>{const state=row.querySelector('.row-state .glyph')?.getAttribute('aria-label'); if(!state||states.has(state))return false; states.add(state); return true;});
+                const owned=rows.find(row=>row.querySelector('.rail-pads-control'));
+                return [...new Set([...selected, ...(owned?[owned]:[])])].map(row=>'.rail-row[data-id="'+row.dataset.id+'"]');
+              })()`);
+              for (const [index, selector] of ['.rail-section[aria-label="WORKSTREAMS"] .section-head', '.rail-section[aria-label="MODES"] .section-head', '.rail-section[aria-label="AGENTS"] .section-head', '.rail-row:has(.mode-mark)', '.rail-actions', ...neighbours].entries()) {
+                await browser("screenshot", selector, join(dir, `${prefix}-contact-${index}.png`));
+              }
               const mode = '.rail-row:has(.mode-mark)';
               await browser("click", `${mode} .name`);
               await browser("mouse", "move", "1400", "900");
