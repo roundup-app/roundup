@@ -288,7 +288,6 @@
 {"file":"apps/desktop/src/rail/u8_folding.test.tsx","test":"u8 folding > u8_each_parent_folds_its_own_done_agents_at_its_own_depth","identity":"f38ff94f7d85df71663726b37d1baf4af226143e2355c8fd400cd33d44ce474b"}
 {"file":"apps/desktop/src/settings/u3806_preferences.test.tsx","test":"u3802_a_failed_list_shows_the_message_and_keeps_the_choice","identity":"85ab15b551b2ab7e4896718f825f66be740e55b3d3f87b890f25b79ddaa5b8d2"}
 {"file":"apps/desktop/src/settings/u3806_preferences.test.tsx","test":"u3802_a_failed_list_shows_the_message_and_keeps_the_choice","identity":"867c09b7869223d7825e13b327a36098630100eedabe32959bbda83e1917ad84"}
-{"file":"apps/desktop/src/shelf/u371_reserved_checks_light.test.ts","test":"u371_failure_text_stays_visible","identity":"7bd28aa52b6ed4dbf9c3003d6aba8728bec5554d18dae0ed799c3ac7158b8936"}
 {"file":"apps/desktop/src/shelf/u3723_keys.test.tsx","test":"u3723_keys_are_shelf_scoped_and_leave_the_terminal_alone","identity":"41e60c2c30d5da55ecf8879c21d81514a2c2354c7952a4f2d83b16d797ce4cf3"}
 {"file":"apps/desktop/src/shelf/u3723_keys.test.tsx","test":"u3721_maximise_keeps_the_centre_mounted","identity":"940f5c502645d02487876973ae4c52f9aeaf2baec8a3b196cecf87eb5520390a"}
 {"file":"apps/desktop/src/switcher/u2572_actions.test.tsx","test":"u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending","identity":"fc6dcd68ee23e2c7f00a6e147c3fb2c0f66a0fa9b67808b045cfa9876384318a"}
