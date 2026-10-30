@@ -10,7 +10,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { showEverythingInApp } from "../testing/showEverything";
 import { showShelfTab } from "../testing/shelfTabs";
 
-// Mounted inventory: Project → Bench tab → Unassigned disclosure → row.
+// Mounted inventory: Project → Work items tab → Unassigned disclosure → row.
 const inventory = [
   { tab: "Todos", selector: ".todo-row-button" },
   { tab: "Pads", selector: ".pad-name" },
