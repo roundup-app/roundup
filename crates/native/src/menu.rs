@@ -209,6 +209,10 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
             if separator || children {
                 continue;
             }
+            let existing: Option<Retained<AnyObject>> = msg_send![&*item, view];
+            if existing.is_some() {
+                continue;
+            }
             let title: Retained<NSString> = msg_send![&*item, title];
             let cell: Allocated<AnyObject> = msg_send![cells, alloc];
             let cell: Retained<AnyObject> = msg_send![cell, initTextCell: &*title];
@@ -253,6 +257,10 @@ unsafe fn decorate_by_title(submenu: &AnyObject, hints: &[(String, String)]) {
         let mut matching = Vec::new();
         for index in 0..count {
             let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
+            let children: Option<Retained<AnyObject>> = msg_send![&*item, submenu];
+            if let Some(children) = children {
+                decorate_by_title(&children, hints);
+            }
             let title: Retained<NSString> = msg_send![&*item, title];
             if let Some((_, hint)) = hints.iter().find(|(label, _)| *label == title.to_string()) {
                 matching.push((
@@ -390,7 +398,13 @@ pub(crate) mod tests {
                 menu
             };
             let popup = build();
+            let nested = build();
+            let parent: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+            let _: () = msg_send![&*parent, setSubmenu: &*nested];
+            let _: () = msg_send![&*popup, addItem: &*parent];
             decorate_by_title(&popup, &[("Open Project".into(), "⌘K P".into())]);
+            assert_eq!(stops_and_titles(&nested)[1], "⌘K P");
+            let _: () = msg_send![&*popup, removeItem: &*parent];
 
             let installed = build();
             let bar: Retained<AnyObject> = msg_send![class(c"NSMenu"), new];
