@@ -53,10 +53,10 @@ describe("u2239 the leader takes the next key", () => {
     const before = shelf();
 
     arm();
-    key("KeyS");
+    key("KeyB");
     await waitFor(() => expect(shelf()).not.toBe(before));
 
-    const kept = key("KeyS", { repeat: true });
+    const kept = key("KeyB", { repeat: true });
 
     expect(kept.defaultPrevented).toBe(true);
     expect(shelf()).not.toBe(before);
@@ -82,11 +82,13 @@ describe("u2239 the leader takes the next key", () => {
     terminal.focus();
 
     const calls = app.of("/Users/me/web").calls.length;
+    const beforeShelf = shelf();
 
-    for (const [code, init] of [["Escape", {}], ["KeyJ", { metaKey: true }], ["KeyJ", { altKey: true }], ["KeyJ", { ctrlKey: true }], ["Enter", {}], ["Tab", {}], ["Digit1", {}], ["KeyX", {}]] as const) {
+    for (const [code, init] of [["Escape", {}], ["KeyJ", { metaKey: true }], ["KeyJ", { altKey: true }], ["KeyJ", { ctrlKey: true }], ["Enter", {}], ["Tab", {}], ["Digit1", {}], ["KeyX", {}], ["KeyS", {}]] as const) {
       arm();
       expect(key(code, init, terminal).defaultPrevented).toBe(true);
       expect(leaderArmed()).toBe(false);
+      expect(shelf()).toBe(beforeShelf);
     }
 
     expect(reached).toEqual([]);
