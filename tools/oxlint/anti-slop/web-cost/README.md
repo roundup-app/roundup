@@ -52,7 +52,7 @@ are the installed ones, whose manifests and lockfile match this CI commit.
 
 `base-consumers.json` inventories the exact archive of CI commit
 `472370359f5b6b06fa69bbec14ebfc95a792c4ea`: 34 consumer files, with 158 static
-registrations. `current-consumers.json` inventories the implementation's unchanged
+registrations. This archived inventory deliberately retains tests later cut by T3779c; no lint reads it as a current-test allowlist. Run the inventory command above for the current checkout. `current-consumers.json` inventories the implementation's unchanged
 App source: 30 consumer files, with 151 static registrations.
 
 On current source, `rg -l 'real_daemon|realDaemon|startDaemon' apps/desktop/src`
