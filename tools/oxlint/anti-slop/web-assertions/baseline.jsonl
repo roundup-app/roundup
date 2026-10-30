@@ -72,8 +72,6 @@
 {"file":"apps/desktop/src/bubbles/u469_tabs.test.tsx","test":"u469_failed_close_keeps_the_tab_bubble_and_visible_failure","identity":"88468a41d5b5b7dfda0a1da010d70de5aa4e8a2a3122705e10578882d715a98b"}
 {"file":"apps/desktop/src/bubbles/u469_tabs.test.tsx","test":"u469_open_guards_and_failures_preserve_the_existing_bubble","identity":"916d988c27c41d5d4dbf948bc16a9025c7313c5ab6db87bec7657442668c8eff"}
 {"file":"apps/desktop/src/bubbles/u469_tabs.test.tsx","test":"u3512a_terminal_alert_failure_keeps_the_terminal_for_retry","identity":"db10dc3ceee11121453470988253460ed0fb9b36c5e349a63faa14337bb65e74"}
-{"file":"apps/desktop/src/bubbles/u471_copy_preservation.test.tsx","test":"u471_previous_copy_assertions_are_preserved_bubble_program_titles_stay_as_written","identity":"6fbcd85c3eca37a2b7167fe390f810767a62bb28e6646c988ee6b51164996568"}
-{"file":"apps/desktop/src/bubbles/u471_copy_preservation.test.tsx","test":"u471_previous_copy_assertions_are_preserved_bubble_program_titles_stay_as_written","identity":"4ada8d545913b74ead3f0a23f0fe9f6ae17fb36b328a65fe04740055936d35e9"}
 {"file":"apps/desktop/src/bubbles/u511a_rename.test.tsx","test":"u2773c_bubbles_external_change_keeps_original","identity":"3c07699129adb38f6edbf31eab475f94643c2e28103ee02fb008c839aba9e1e0"}
 {"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_the_control_shows_the_branch_and_its_state","identity":"bbef3bc5f77e9315a9edd16914a78beadc34eca257946acca5fb0218ad9f9f56"}
 {"file":"apps/desktop/src/changes/u2539b_panel.test.tsx","test":"U2539b > u2539b_the_tree_lists_each_file_with_its_status","identity":"682c7fc1802f239ab90a4eb78258a8683918785ee79382e9dcd6aeb1b9c84fca"}
