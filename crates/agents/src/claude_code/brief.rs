@@ -367,6 +367,25 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 7] = [
     ),
 ];
 
+/// E3: fixed Workstream habits are shared by Door Briefs and member start Context.
+pub const WORKSTREAM_GUIDANCE: &str = "\
+## Working in a Workstream
+
+Turn a plan of two or more steps into Todos; complete each as its outcome lands. \
+Keep findings needed by later steps or the handoff in a Pad. \
+Place Todos and Pads in the selected Workstream with their existing Home tools; user moves win.
+
+When waiting on an Agent, a PR's checks or an explicit time, create a bounded Reaction without approval inside your Reach. \
+Supply a one-line `reason` explaining why you made it, an operation retry key, an expiry and a finite firing bound. \
+The user can stop any Reaction at any time. PR and time Reactions fire once; repeating Agent waits require bounded re-arm. \
+For an Agent-only wait, you may use `agent_wake` for its supported finish condition instead. \
+After arranging the wait, end your turn; never poll. \
+A PR Reaction pins the repository, PR and head and requires complete authoritative passing checks; unknown or stale facts never match. \
+A time Reaction uses an explicit instant and offset and declares its missed-time policy; never create a catch-up backlog. \
+Load full schemas and usage details on demand before calling a tool.
+
+";
+
 /// LC14: the Door's standing instruction; a Door whose bundle lacks the skill has the Brief without it.
 const INTENT: &str = "On each new ask from the user, run the `hope:intent` skill first with the user's words, then act on the work order it produces. ";
 
@@ -548,8 +567,13 @@ fn with_tools(role: Role, mcp: bool) -> String {
          Your Rail name and where you stand are in the Context you get at start. \
          Refer to yourself and other Agents by Rail name, never by id. Use `me` for yourself and `name:<Rail name>` for collisions. Take a Todo with `todo_assign {{\"id\": <Todo id>, \"owner\": \"me\"}}`; delegate with a peer's Rail name as owner. \
          Your shell sets `ROUNDUP_AGENT_ID` for machine addressing, and `rup` is on your `PATH`: run `rup help` to learn its command line, {help}.\n\n\
-         ## {heading}\n\n\
+         {guidance}## {heading}\n\n\
          {tools}{first_turn}\n\n",
+        guidance = if role == Role::Door {
+            WORKSTREAM_GUIDANCE
+        } else {
+            ""
+        },
     );
     let door: &[(&str, &str)] = if role == Role::Door {
         &DOOR_TOOLS_EXTRA
@@ -561,8 +585,59 @@ fn with_tools(role: Role, mcp: bool) -> String {
         if role == Role::Door && !door_tools().any(|allowed| allowed == name) {
             continue;
         }
-        let when = if role == Role::Door && name == "message_send" {
-            "send a note, question or request to another Agent; it is delivered when the receiver is next idle; speak to the user directly in your own Terminal"
+        let when = if role == Role::Door {
+            match name {
+                "deliverable_publish" => {
+                    "publish a deliberate result with its exact file, Pad revision or external URL"
+                }
+                "todo_comment" => "leave a short question or blocker the user needs to read",
+                "todo_addRef" => "link a Todo to a Pad or one of its headings",
+                "pad_rename" => "rename a Pad after reading its exact name and incarnation",
+                "pad_redoDelete" => {
+                    "delete a restored Pad using its acknowledged revision and Home"
+                }
+                "agent_context" => "refresh your parent, peers and open Todos after a move",
+                "agent_wake" => {
+                    "await Agents; end your turn instead of polling `terminal_read` or `rail_tree`; trouble tells you without asking"
+                }
+                "reaction_create" => {
+                    "save a bounded Agent, pinned PR-check or time wait inside Reach with a reason, then end your turn"
+                }
+                "reaction_preview" => {
+                    "resolve an explicit time and offset before creating a time Reaction"
+                }
+                "agent_set_order" => "record your own work or clarification order",
+                "message_send" => {
+                    "send a note, question or request to another Agent; speak to the user directly in your own Terminal"
+                }
+                "message_report" => {
+                    "report an instruction's outcome with evidence; this claim is never user acceptance"
+                }
+                "message_verifyResult" => {
+                    "check a report's authoritative evidence without a Model turn"
+                }
+                "message_resolveResult" => {
+                    "read an external effect's authoritative receipt only when the user authorized its source"
+                }
+                "rail_startDoor" => {
+                    "start the Door of a Workstream in your Reach to ask the user its purpose"
+                }
+                "agent_instructions" => {
+                    "read instruction revisions and delivery facts in Reach without sending anything"
+                }
+                "agent_spawn" => {
+                    "delegate a whole job to a named child with an order and working prompt"
+                }
+                "terminal_read" => "read new Terminal output from your last offset",
+                "route_set" => "route Messages between other Agents, preserving user-set Routes",
+                "agent_digest" => {
+                    "read your direct children's Status, last words, Todos and new Pads"
+                }
+                "checkpoint_write" => {
+                    "mark a finished or merged job, a direction change or a decision with facts for the user"
+                }
+                _ => when,
+            }
         } else {
             when
         };
