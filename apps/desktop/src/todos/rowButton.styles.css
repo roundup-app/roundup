@@ -422,6 +422,7 @@
 /* U4335a: glyph and name share the tree depth; notices keep their row target. */
 .shelf-row.todo-row {
   --todo-depth: 0;
+  padding-inline-end: 0;
   grid-template-rows: var(--space-5);
   min-height: var(--space-6);
   box-sizing: border-box;
@@ -490,7 +491,3 @@
   outline: none;
 }
 .todo-row .todo-row-button[data-pressed="true"] { color: inherit; }
-
-/* Leave room beyond the trailing grip for sideways pointer nesting. */
-.todo-list,
-.todo-create { padding-inline-end: var(--space-6); }
