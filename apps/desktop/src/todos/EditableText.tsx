@@ -136,6 +136,7 @@ export const EditableText = (props: {
   createEffect(on(() => props.todo[props.name], () => {
     const focus = savedFocus;
     if (props.name === "body") return;
+
     savedFocus = undefined;
 
     // The value change can run before Solid replaces Add notes with the saved prose.

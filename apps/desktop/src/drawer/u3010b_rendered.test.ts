@@ -554,7 +554,7 @@ it("u3010b_panel_edge_press_preserves_the_open_todo", { retry: 0 }, async () => 
     return true;
   })()`);
   const point = await evaluate<{ x: number; y: number }>(`(() => { const panel = document.querySelector('.drawer'); const r = panel.getBoundingClientRect(); return { x: r.left + parseFloat(getComputedStyle(panel).borderLeftWidth) / 2, y: r.top + r.height / 2 }; })()`);
-  await browser("mouse", "move", String(point.x), String(point.y));
+  await browser("mouse", "move", String(Math.floor(point.x)), String(Math.floor(point.y)));
   await browser("mouse", "down");
   await browser("mouse", "up");
   await settle();
