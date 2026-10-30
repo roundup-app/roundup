@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createFakeApp } from "../testing/fakeApp";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -73,6 +74,8 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   }
 
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><section>{site.render()}</section></ConnectedProjectContext.Provider>);
+
+  if (site.method === "todo.unread") await within(view.container).findByText(copy.inboxEmpty);
 
   if (site.method === "todo.getHistory") await within(view.container).findByRole("button", { name: /change/i });
 

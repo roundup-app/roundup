@@ -45,7 +45,7 @@ const withBlocked = (todos: Todo[]): Todo[] =>
   }));
 
 /** Replaces `store.todos` with `change` applied, derives `blocked`, and announces `todo.updated` for `id` and `todo.unblocked` for every Todo the change freed. */
-const values = (todo: Todo): Values => ({ title: todo.title, body: todo.body, done: todo.done, blockers: [...todo.blockers].toSorted(), owner: todo.owner });
+const values = (todo: Todo): Values => ({ title: todo.title, body: todo.body, done: todo.done, blockers: [...todo.blockers].toSorted(), owner: todo.owner, priority: todo.priority });
 
 const recordChanges = (store: TodoStore, before: Todo[], actor: Actor | null) => {
   for (const todo of store.todos) {
@@ -124,10 +124,10 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     return null;
   },
-  "todo.create": ({ title, body, blockers, owner }) => {
+  "todo.create": ({ title, body, blockers, owner, priority }) => {
     const selected = v.parse(ownerActor, owner ?? null);
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), updated_at: Date.now(), creator: actor(), home: null, owner: selected, refs: [] };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), updated_at: Date.now(), creator: actor(), home: null, owner: selected, refs: [], priority: priority ?? null };
     store.todos = withBlocked([...store.todos, created]);
     recordChanges(store, [], actor());
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
@@ -135,9 +135,9 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     return { ...stored };
   },
-  "todo.update": ({ id, title, body }) =>
+  "todo.update": ({ id, title, body, priority }) =>
     changeTodos(store, announce, id, (todos) =>
-      todos.map((todo) => (todo.id === id ? { ...todo, title: title ?? todo.title, body: body ?? todo.body } : todo)), actor(),
+      todos.map((todo) => (todo.id === id ? { ...todo, title: title ?? todo.title, body: body ?? todo.body, priority: priority === undefined ? todo.priority : priority } : todo)), actor(),
     ),
   "todo.complete": ({ id }) =>
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, done: true } : todo)), actor()),

@@ -7,6 +7,7 @@ from collections import Counter
 from pathlib import Path
 import subprocess
 import sys
+from functools import cache
 
 root = Path(sys.argv[1]).resolve()
 files = []
@@ -14,6 +15,11 @@ for directory, children, names in os.walk(root):
     children[:] = [name for name in children if name not in {'node_modules', '.git', 'target', '.venv'}]
     files.extend(Path(directory) / name for name in names if name.endswith('.test.py'))
 files.sort()
+
+
+@cache
+def segment(content, node):
+    return ast.get_source_segment(content, node)
 
 
 def inventory(content, filename, matching=False):
@@ -47,11 +53,11 @@ def inventory(content, filename, matching=False):
                 continue
             visited.add(name)
             for assignment in assignments.get(name, []):
-                dependencies.add(ast.get_source_segment(content, assignment))
+                dependencies.add(segment(content, assignment))
                 if assignment.value is not None:
                     pending.extend(child.id for child in ast.walk(assignment.value) if isinstance(child, ast.Name))
         dependencies = sorted(dependencies)
-        assertion = ast.get_source_segment(content, node)
+        assertion = segment(content, node)
         owner = parents.get(node)
         while owner is not None and not isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Module)):
             owner = parents.get(owner)
@@ -66,7 +72,7 @@ def inventory(content, filename, matching=False):
                 elif isinstance(value, list) and child in value:
                     path.insert(0, [field, value.index(child)])
             child = parent
-        owner_source = content if isinstance(owner, ast.Module) else ast.get_source_segment(content, owner)
+        owner_source = content if isinstance(owner, ast.Module) else segment(content, owner)
         identity = hashlib.sha256(json.dumps([assertion, dependencies, owner_source, path], ensure_ascii=False).encode()).hexdigest()
         context, extra_dependencies, anchors = [], [], {}
         if matching:
@@ -109,7 +115,7 @@ def inventory(content, filename, matching=False):
                         relevant = relevant or any(isinstance(item, ast.Name) and item.id == name
                                                    for value in inputs for item in ast.walk(value))
                     if relevant:
-                        extra_dependencies.add(ast.get_source_segment(content, part))
+                        extra_dependencies.add(segment(content, part))
                         pending.extend(item.id for item in ast.walk(part) if isinstance(item, ast.Name))
                         ancestor = parents.get(part)
                         while ancestor is not None:
@@ -128,10 +134,10 @@ def inventory(content, filename, matching=False):
             anchors = {}
             for part in ast.walk(owner):
                 if isinstance(part, ast.stmt) and not any(isinstance(item, ast.stmt) for item in ast.iter_child_nodes(part)):
-                    text = ast.get_source_segment(content, part)
+                    text = segment(content, part)
                     anchors.setdefault(text, []).append(-1 if part.lineno < node.lineno else 1 if part.lineno > node.lineno else 0)
         scripts = []
-        for dependency in [node, *[assignment for values in assignments.values() for assignment in values if ast.get_source_segment(content, assignment) in dependencies]]:
+        for dependency in [node, *[assignment for values in assignments.values() for assignment in values if segment(content, assignment) in dependencies]]:
             for call in ast.walk(dependency):
                 if not isinstance(call, ast.Call):
                     continue
@@ -178,7 +184,7 @@ def inventory(content, filename, matching=False):
 
 
 def git(*args):
-    return subprocess.run(['git', *args], cwd=root, text=True, capture_output=True)
+    return subprocess.run(['git', *args], cwd=root, text=True, capture_output=True, timeout=30)
 
 
 baseline_file = 'tools/oxlint/anti-slop/web-assertions/baseline.jsonl'
@@ -190,10 +196,17 @@ for file in files:
     rows = list(inventory(file.read_text(), filename))
     entries = [entry for entry in baseline if entry['file'] == filename]
     unmatched = {entry['identity'] for entry in entries} - {row['identity'] for row in rows}
-    if unmatched and base is not None and base.returncode == 0:
+    if entries and base is not None and base.returncode == 0:
         rows = list(inventory(file.read_text(), filename, matching=True))
         if history is None:
             history = git('log', '--format=%H', base.stdout.strip(), '--', baseline_file).stdout.splitlines()
+            source_record = git('show', base.stdout.strip() + ':tools/oxlint/anti-slop/web-assertions/baseline-source.json')
+            if source_record.returncode == 0:
+                revision = json.loads(source_record.stdout)['sourceRevision']
+                available = git('cat-file', '-e', revision + '^{commit}')
+                if available.returncode != 0:
+                    raise RuntimeError('Cannot read the recorded Python assertion source: ' + available.stderr)
+                history.insert(0, revision)
         counts = Counter(json.dumps([row['test'], row['match']], sort_keys=True) for row in rows)
         for revision in history:
             source = git('show', revision + ':' + filename)
@@ -202,6 +215,10 @@ for file in files:
             original = list(inventory(source.stdout, filename, matching=True))
             original_counts = Counter(json.dumps([row['test'], row['match']], sort_keys=True) for row in original)
             for old in original:
+                if old['identity'] in {entry['identity'] for entry in entries}:
+                    for current in rows:
+                        if current['identity'] == old['identity'] and current['match'] != old['match']:
+                            current['identity'] = hashlib.sha256((current['identity'] + file.read_text()).encode()).hexdigest()
                 if old['identity'] not in unmatched:
                     continue
                 key = json.dumps([old['test'], old['match']], sort_keys=True)

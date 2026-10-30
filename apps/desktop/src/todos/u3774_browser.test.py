@@ -35,7 +35,6 @@ setup = r"""(async () => {
   const body=[1,2,3].map(n=>'::status Step '+n+': ran\n  detail '+n+' line a\n  detail '+n+' line b').join('\n');
   await f.app.rpc('todo.comment',{id:5,body});
   f.actAs({kind:'user',id:'you',parent:null});
-  document.querySelector('[data-id="5"] .row-head button').click();
 })()"""
 reading = r"""(() => {
   const d=document.querySelector('.drawer');
@@ -52,9 +51,16 @@ try:
     browser('open', origin + '/harness.html?seed=tree-40')
     browser('set', 'viewport', '1512', '950')
     browser('set', 'media', 'dark')
-    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
+    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    browser('press', 'Meta+k')
+    browser('wait', '.hint-line.leader')
+    browser('press', 'b')
+    browser('wait', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
+    browser('click', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
+    browser('wait', '.shelf [data-todo="5"] .todo-open')
     assert evaluate("({w:innerWidth,h:innerHeight,d:matchMedia('(prefers-color-scheme: dark)').matches})") == {'w': 1512, 'h': 950, 'd': True}
     evaluate(setup)
+    browser('click', '.shelf [data-todo="5"] .todo-open')
     browser('wait', '--fn', 'document.querySelectorAll(".todo-status-summary").length===3')
     evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));document.querySelector(".todo-comments").scrollIntoView({block:"start"})})()')
     closed = evaluate(reading)
