@@ -27,7 +27,7 @@ const mount = async (project = "p") => {
     todo(11, { creator: by("a"), home: "w", done: true }), todo(12, { creator: by("w"), home: "w" }),
   ] };
 
-  const pads = { pads: store.todos.map(t => ({ incarnation: `fixture-${t.id}`, name: `pad-${t.id}`, owner: t.creator, home: t.home, text: "", revision: 1, updated_at: 0 })), history: [] };
+  const pads = { pads: store.todos.map(t => ({ incarnation: `fixture-${t.id}`, name: `pad-${t.id}`, home: t.home, text: "", revision: 1, updated_at: 0 })), history: [] };
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => [info("shell-w", { owner: "w", title: "work shell" }), info("shell-root", { owner: "/p", title: "root shell" })];
   Object.assign(app.handlers, todoHandlers(store, data => app.emit(event(data))), padHandlers(pads, data => app.emit(event(data))));
@@ -104,8 +104,8 @@ it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   expect(ownTodos("a")).toEqual([2, 5]);
   expect(new Set(ids()).size).toBe(ids().length);
   await tab("Pads");
-  await waitFor(() => expect(names()).toEqual(["pad-1", "pad-8", "pad-12", "pad-2", "pad-5", "pad-11", "pad-6", "pad-3", "pad-7", "pad-4", "pad-9", "pad-10"]));
-  await waitFor(() => expect(groupIds()).toEqual(["w", "w:a", "w:b", "v", "r", "unassigned"]));
+  await waitFor(() => expect(names()).toEqual(["pad-1", "pad-2", "pad-6", "pad-8", "pad-11", "pad-12", "pad-3", "pad-4", "pad-5", "pad-7", "pad-9", "pad-10"]));
+  await waitFor(() => expect(groupIds()).toEqual(["w", "v", "unassigned"]));
 });
 
 // The Todo folding clause is proved by u3717_unassigned_starts_folded; this keeps the shared disclosure keys.
@@ -201,7 +201,6 @@ it("u2744a_pad_events_relocate_without_filtering", async () => {
   connected.rail.select("a");
   await tab("Pads");
   await waitFor(() => expect(names()).toHaveLength(12));
-  await app.rpc("pad.setOwner", { name: "pad-2", owner: USER });
   await waitFor(() => expect(document.querySelector('[data-pad="pad-2"]')?.closest("[data-shelf-group]")?.getAttribute("data-shelf-group")).toBe("w"));
   await app.rpc("pad.move", { name: "pad-2", home: "v" });
   await waitFor(() => expect(document.querySelector('[data-pad="pad-2"]')?.closest("[data-shelf-group]")?.getAttribute("data-shelf-group")).toBe("v"));
@@ -244,7 +243,6 @@ it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, nul
   fireEvent.keyDown(name, { key: "Enter" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1));
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual(home ? [{ name: "new-pad", home }] : []));
-  expect((await app.rpc("pad.list", null)).find(pad => pad.name === "new-pad")?.owner).toEqual(selected === "a" || selected === "r" ? by(selected) : USER);
 });
 
 
@@ -294,18 +292,18 @@ it("u2744a_shelf_scope_unassigned_starts_folded_when_first_added_after_folding",
   expect(disclosure("unassigned").closest('[role="treeitem"]')?.getAttribute("aria-expanded")).toBe("false");
 });
 
-it("u2744a_pads_group_by_home_and_owner_once_each", async () => {
+it("u3736_pads_group_by_home_once_each", async () => {
   const { pads, tree, app, connected } = await mount();
   tree.push(workstream("empty"), node("unused", { parent: "empty" }));
-  pads.pads.push({ ...pads.pads[0]!, incarnation: "root-cross", name: "root-cross", home: "v", owner: by("r") });
+  pads.pads.push({ ...pads.pads[0]!, incarnation: "root-cross", name: "root-cross", home: "v" });
   app.emit(event({ name: "rail.changed" }));
   app.emit(event({ name: "pad.changed", data: { name: "root-cross" } }));
   await connected.rail.settled();
   await tab("Pads");
   const own = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-pad]`)].flatMap(el => el.closest("[data-shelf-group]")?.getAttribute("data-shelf-group") === id ? [el.getAttribute("data-pad")] : []);
-  await waitFor(() => expect(groupIds()).toEqual(["w", "w:a", "w:b", "v", "v:r", "r", "unassigned"]));
-  expect([own("w"), own("w:a"), own("w:b"), own("v"), own("v:r"), own("r"), own("unassigned")]).toEqual([
-    ["pad-1", "pad-8", "pad-12"], ["pad-2", "pad-5", "pad-11"], ["pad-6"], ["pad-3"], ["root-cross"], ["pad-7"], ["pad-4", "pad-9", "pad-10"],
+  await waitFor(() => expect(groupIds()).toEqual(["w", "v", "unassigned"]));
+  expect([own("w"), own("v"), own("unassigned")]).toEqual([
+    ["pad-1", "pad-2", "pad-6", "pad-8", "pad-11", "pad-12"], ["pad-3", "root-cross"], ["pad-4", "pad-5", "pad-7", "pad-9", "pad-10"],
   ]);
   expect(new Set(names()).size).toBe(13);
   pads.pads = [];
