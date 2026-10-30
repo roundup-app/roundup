@@ -47,7 +47,7 @@ it("u4547b_rendered_creation_and_failure_remain_actionable", async () => {
     await window.__fake.app.rpc('workstream.setOpeningPrompt', { id: other.id, prompt: 'Review the work' });
     return true;
   })()`);
-  await lane.until("document.querySelectorAll('.mode-mark').length === 2");
+  await lane.until("document.querySelectorAll('.rail-section[aria-label=MODES] .rail-row').length === 2");
   await lane.browser("click", '.rail-row[data-id="backend"]');
   await lane.browser("hover", '[aria-label="New Mode"]');
   await lane.capture("U4547b", "mode-names-at-rest");
