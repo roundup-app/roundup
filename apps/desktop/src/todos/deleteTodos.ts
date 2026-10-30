@@ -1,6 +1,6 @@
 import type { Deletion as RailDeletion } from "@contracts/agent/Deletion";
 import { createSignal } from "solid-js";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Deletion as PadDeletion } from "@contracts/pad/Deletion";
 import type { RedoDeleteParams } from "@contracts/pad/RedoDeleteParams";
 import type { Pad } from "@contracts/pad/Pad";

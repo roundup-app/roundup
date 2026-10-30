@@ -29,7 +29,6 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
   const keyTypes = copyKeyTypes(files, root);
   const programs = new WeakMap();
   const diagnostics = [];
-  const definitions = new Map();
   const reported = new Set();
   const occurrences = new Map();
   const used = new Set();
@@ -257,15 +256,23 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
   const origins = new Map();
   const literals = new Map();
 
+  // Moving a definition must not change which duplicate owns its exact exemption.
+  const duplicateRank = (identity, text, branch) => {
+    const index = previous.findIndex(row => row.rule === 'duplicate-copy' && row.identity === identity && row.fingerprint === hash(text) && row.branch === String(branch));
+
+    return index < 0 ? -1 : index;
+  };
+
   const remember = (text, module, node) => {
     const id = [...evaluating].at(-1);
 
     if (node.type === 'StringLiteral' && text.trim()) {
       const origin = `${module.file}:${node.start}`;
-      const first = literals.get(text);
 
-      if (first && first.origin !== origin) report('duplicate-copy', module.file, entries.get(id)?.key ?? id, text, `literal:${hash(text).slice(0, 12)}`);
-      else literals.set(text, { origin });
+      if (!literals.has(text)) literals.set(text, new Map());
+      const literal = literals.get(text).get(origin) ?? { identities: new Map() };
+      literal.identities.set(entries.get(id)?.key ?? id, entries.get(id)?.module ?? module);
+      literals.get(text).set(origin, literal);
     }
 
     if (!origins.has(id)) origins.set(id, new Map());
@@ -450,7 +457,9 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
 
         if (method === 'get') {
           const bound = node.callee.object.type === 'Identifier' ? binding(module, node.callee.object) : null;
-          const map = bound?.path.node.init;
+          const imp = imported(module, bound);
+          const map = imp ? imp.module.exports.get(imp.name) : bound?.path.node.init;
+          const mapValue = child => evaluate(imp?.module ?? module, child, env, next);
           const argument = node.arguments[0];
           const keys = argument?.type === 'StringLiteral' ? [argument.value] : argument?.type === 'Identifier' ? env.get(argument.name) : null;
           const known = keys?.every(key => !key.includes('⟦'));
@@ -458,9 +467,9 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
           if (map?.type === 'NewExpression' && map.callee.name === 'Map') {
             const values = map.arguments[0];
 
-            if (values?.type === 'ArrayExpression') return values.elements.flatMap(row => row?.type === 'ArrayExpression' && (!known || keys.includes(row.elements[0]?.value)) ? ev(row.elements[1]) : []);
+            if (values?.type === 'ArrayExpression') return values.elements.flatMap(row => row?.type === 'ArrayExpression' && (!known || keys.includes(row.elements[0]?.value)) ? mapValue(row.elements[1]) : []);
 
-            if (values?.type === 'CallExpression' && values.arguments[0]?.type === 'ObjectExpression') return values.arguments[0].properties.flatMap(property => property.type === 'ObjectProperty' && (!known || keys.includes(keyOf(property.key))) ? ev(property.value) : []);
+            if (values?.type === 'CallExpression' && values.arguments[0]?.type === 'ObjectExpression') return values.arguments[0].properties.flatMap(property => property.type === 'ObjectProperty' && (!known || keys.includes(keyOf(property.key))) ? mapValue(property.value) : []);
           }
         }
 
@@ -541,15 +550,27 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
     try { entryValues(id); } catch (error) { report('unanalysable-copy', entries.get(id)?.module.file ?? '', id, error.message); }
   }
 
+  for (const [text, origins] of literals) {
+    const branch = `literal:${hash(text).slice(0, 12)}`;
+
+    const values = [...origins.values()].sort((a, b) =>
+      Math.max(...[...a.identities.keys()].map(identity => duplicateRank(identity, text, branch))) - Math.max(...[...b.identities.keys()].map(identity => duplicateRank(identity, text, branch))));
+
+    for (const { identities } of values.slice(1)) for (const [identity, module] of identities) report('duplicate-copy', module.file, identity, text, branch);
+  }
+
   const banned = avoidedWords(glossary);
+  const authored = new Map();
 
   for (const [id, entry] of entries) {
+    const node = unwrap(entry.node);
+    const reference = node.type === 'MemberExpression' && node.object.type === 'Identifier' ? imported(entry.module, binding(entry.module, node.object)) : null;
+
+    // Forwarding a shared entry introduces neither a definition nor an unused key.
+    if (reference && entryMaps.has(`${reference.module.file}:${reference.name}`)) continue;
+
     if (!used.has(id)) { report('unused-copy', entry.module.file, entry.key, entry.module.source.slice(entry.node.start, entry.node.end), '0'); continue; }
 
-    const node = unwrap(entry.node);
-
-    // A direct shared reference is a consumer, not a second definition.
-    if (node.type === 'MemberExpression' && imported(entry.module, node.object.type === 'Identifier' ? binding(entry.module, node.object) : null)?.name === 'copy') continue;
     const values = [...new Set(cached.get(id) ?? [])];
     const kind = !labels.has(id) && (entry.prose || values.some(text => /[.!?](?:\s|$)/.test(text))) ? 'prose' : 'label';
 
@@ -557,13 +578,21 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
       if (!text.trim() && entry.prose) report('unanalysable-prose', entry.module.file, entry.key, text, branch);
 
       if (!text.replace(/⟦[^⟧]*⟧/g, '').trim()) continue;
-      const signature = text;
-      const existing = definitions.get(signature);
 
-      if (existing && existing !== id && ![...(origins.get(id)?.get(text) ?? [])].some(origin => origins.get(existing)?.get(text)?.has(origin))) report('duplicate-copy', entry.module.file, entry.key, text, branch);
-      else definitions.set(signature, id);
+      if (!authored.has(text)) authored.set(text, []);
+      authored.get(text).push({ id, entry, branch });
 
       for (const rule of (text.startsWith('roundup://') || /^⟦[^⟧]*⟧\nrup link read ⟦[^⟧]*⟧$/.test(text) ? [] : languageProblems(text, kind, banned))) report(rule, entry.module.file, entry.key, text, branch);
+    }
+  }
+
+  for (const [text, values] of authored) {
+    values.sort((a, b) => duplicateRank(a.entry.key, text, a.branch) - duplicateRank(b.entry.key, text, b.branch));
+    let first;
+
+    for (const { id, entry, branch } of values) {
+      if (first && ![...(origins.get(id)?.get(text) ?? [])].some(origin => origins.get(first)?.get(text)?.has(origin))) report('duplicate-copy', entry.module.file, entry.key, text, branch);
+      else first = id;
     }
   }
 

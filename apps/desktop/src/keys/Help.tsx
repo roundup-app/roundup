@@ -1,6 +1,6 @@
 import { captureFocus } from "./focus";
 import { KeyHint } from "./KeyHint";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createSignal, For, Show } from "solid-js";
 import { CHORDS, HELP_KEYS, LEADER } from "./chords";
 import { captureActions, registerKeys } from "./registry";

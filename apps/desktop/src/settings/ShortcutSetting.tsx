@@ -1,6 +1,6 @@
 import type { CapturePort } from "../app/seam";
 import { createSignal, createUniqueId, Show } from "solid-js";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER, pressOf, shortcutLabel } from "../keys/chords";

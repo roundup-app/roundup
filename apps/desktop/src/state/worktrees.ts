@@ -2,7 +2,7 @@ import { createEffect, createResource, createRoot, createSignal, onCleanup, untr
 import type { Accessor, Resource } from "solid-js";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { AppSeam, DaemonExit } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { failureOf } from "../todos/failureOf";
 import type { RailState } from "./rail";
 import { NOW_TICK_MS } from "./clock";

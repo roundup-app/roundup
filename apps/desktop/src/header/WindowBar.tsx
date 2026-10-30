@@ -4,7 +4,7 @@ import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../rail/layout";
 import { Tip } from "../ui/Tip";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { middleCut } from "./middleCut";
 
 /** U449–U451: the Project strip and selected Workstream share the native window bar. */

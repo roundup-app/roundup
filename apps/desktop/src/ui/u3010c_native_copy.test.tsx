@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo } from "../todos/testHarness";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { withStylesheets } from "../testing/contrast";
 
 afterEach(cleanup);

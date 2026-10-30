@@ -11,7 +11,7 @@ import type { Accessor } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Actor } from "@contracts/Actor";
 import { Menu } from "../ui/Menu";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import type { Owner } from "../shelf/scope";
 
 const NEW_WORKSTREAM = "new-workstream";
