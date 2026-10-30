@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -222,11 +222,11 @@ it.skipIf(!captureDir("U3787c")).each(["agents-10", "tree-40", "tabs-8", "confli
   }
 }, 60_000);
 
-it.skipIf(!captureDir("NR9"))("nr9_agent_overview_rendered", { timeout: 120_000, retry: 0 }, async () => {
+it.skipIf(!["NR9", "U4276a", "U4276b", "U4276c"].some(id => captureDir(id)))("nr9_agent_overview_rendered", { timeout: 120_000, retry: 0 }, async () => {
   const { browser, evaluate, wait, close } = await reactionBrowser();
   const server = await appServer();
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
-  const dirs = ["NR9", "U4276a", "U4276b", "U4276c"].map(id => join(captureDir(id)!, phase));
+  const dirs = ["NR9", "U4276a", "U4276b", "U4276c"].filter(id => captureDir(id)).map(id => join(captureDir(id)!, phase));
   for (const dir of dirs) await mkdir(dir, { recursive: true });
   const capture = async (step: string) => {
     const checks: Checks = await evaluate("window.__checks()");
@@ -287,7 +287,9 @@ it.skipIf(!captureDir("NR9"))("nr9_agent_overview_rendered", { timeout: 120_000,
       await capture(`${method}-recovered`);
     }
   } finally {
-    try { await browser("record", "stop"); }
-    finally { await close(); await server.close(); }
+    try {
+      await browser("record", "stop");
+      for (const dir of dirs.slice(1)) await copyFile(join(dirs[0]!, "overview.webm"), join(dir, "overview.webm"));
+    } finally { await close(); await server.close(); }
   }
 });
