@@ -57,7 +57,8 @@ describe("u148, u149 the open Drawer renders stored blocks", () => {
 
     if (group.closest("[data-shelf-group]")?.getAttribute("aria-expanded") === "false") fireEvent.click(group.closest('[data-part="branch-control"]')!);
     const row = await screen.findByRole("button", { name: "sketch" }, { timeout: 20_000 });
-    fireEvent.keyDown(row, { key: "Enter" });
+    row.focus();
+    fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
 
     await screen.findByTestId("canvas", {}, { timeout: 20_000 });
     await waitFor(() => expect(document.querySelectorAll(".visual-block").length).toBe(2));
