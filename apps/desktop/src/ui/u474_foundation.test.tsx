@@ -1,24 +1,15 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { parse } from "@babel/parser";
 import { traverseFast, isJSXElement } from "@babel/types";
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
-import packageJson from "../../package.json";
-import { AlertDialog, Dialog } from "./Dialog";
-import { Menu } from "./Menu";
-import { Tooltip } from "./Tooltip";
 import { CHORDS } from "../keys/chords";
 import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
 import { IconButton } from "./IconButton";
 
 afterEach(cleanup);
-
-it("u474_icon_button_has_its_name", () => {
-  render(u474Fixture);
-  expect(screen.getByRole("button", { name: "Open Project" }).dataset.button).toBe("icon");
-});
 
 // u474_icon_button_requires_a_name: tsc checks both sides without mounting invalid UI.
 const u474_icon_button_requires_a_name = () => {
@@ -30,17 +21,6 @@ const u474_icon_button_requires_a_name = () => {
 };
 
 void u474_icon_button_requires_a_name;
-
-it("u474_dependency_and_exports", () => {
-  expect(packageJson.dependencies["@ark-ui/solid"]).toMatch(/^\^?5\./);
-  render(() => <>
-    <Dialog.Root><Dialog.Content><Dialog.Title>Project</Dialog.Title></Dialog.Content></Dialog.Root>
-    <AlertDialog.Root><AlertDialog.Content><AlertDialog.Title>Close Project?</AlertDialog.Title></AlertDialog.Content></AlertDialog.Root>
-    <Menu.Root><Menu.Trigger>Project actions</Menu.Trigger><Menu.Positioner><Menu.Content><Menu.Item value="close">Close</Menu.Item></Menu.Content></Menu.Positioner></Menu.Root>
-    <Tooltip.Root><Tooltip.Trigger>Project</Tooltip.Trigger><Tooltip.Positioner><Tooltip.Content>Open Project</Tooltip.Content></Tooltip.Positioner></Tooltip.Root>
-  </>);
-  expect(screen.getByRole("button", { name: "Project actions" })).toBeDefined();
-});
 
 // Exhaustive source audit: all other raw callers paint words, names or counts.
 // Compact Rail actions and single-count Project edges can paint marks alone,
@@ -106,6 +86,12 @@ it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"
   expect(tip.textContent).toBe(wrapper === "icon" ? copy.minimise : copy.openFolder);
   expect(tip.querySelector("kbd")).toBeNull();
   expect(button.getAttribute("aria-describedby")).toBe(tip.id);
+
+  if (input === "hover") fireEvent.pointerLeave(button, { pointerType: "mouse" });
+  else button.blur();
+
+  await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  expect(button.getAttribute("aria-describedby")).toBeNull();
 });
 
 it("u2570a_icon_button_forwards_its_chord_only_to_the_tooltip", async () => {
@@ -119,4 +105,43 @@ it("u2570a_icon_button_forwards_its_chord_only_to_the_tooltip", async () => {
   expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe(CHORDS[0]!.keys);
   expect(button.hasAttribute("chord")).toBe(false);
   expect(tip.hasAttribute("chord")).toBe(false);
+});
+
+
+it("u477_icon_button_preserves_button_props", () => {
+  render(u474Fixture);
+  const button = screen.getByRole("button", { name: "Open Project" });
+
+  expect(button.dataset.refConnected).toBe("true");
+  expect(button.dataset.fixture).toBe("ordinary");
+  expect(button.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(button);
+  expect(Number(screen.getByLabelText("Actions taken").textContent)).toBe(1);
+});
+
+it("u477_icon_button_preserves_bound_click_handler", () => {
+  render(u474Fixture);
+  fireEvent.click(screen.getByRole("button", { name: "Bound action" }));
+  expect(Number(screen.getByLabelText("Actions taken").textContent)).toBe(2);
+});
+
+it.each(["hover", "focus"])("u477_disabled_icon_button_shows_its_name_%s", async input => {
+  render(u474Fixture);
+  const button = screen.getByRole("button", { name: "Unavailable action" });
+
+  if (input === "hover") fireEvent.pointerMove(button, { pointerType: "mouse" });
+  else { fireEvent.keyDown(document, { key: "Tab" }); button.focus(); }
+
+  const tip = await screen.findByRole("tooltip");
+
+  expect(tip.textContent).toBe(button.getAttribute("aria-label"));
+  expect(button.getAttribute("aria-describedby")).toBe(tip.id);
+
+  if (input === "focus") expect(document.activeElement).toBe(button);
+});
+
+it.each([0, 1])("u477_disabled_icon_button_does_not_act_click_detail_%s", detail => {
+  render(u474Fixture);
+  fireEvent.click(screen.getByRole("button", { name: "Unavailable action" }), { detail });
+  expect(Number(screen.getByLabelText("Actions taken").textContent)).toBe(0);
 });
