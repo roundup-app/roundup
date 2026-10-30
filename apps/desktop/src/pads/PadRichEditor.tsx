@@ -190,7 +190,7 @@ export default function PadRichEditor(props: {
     registerKeys({ kind: "region", element: () => host }, [
       { keys: "⌘B", label: copy.bold, command: toggleStrongCommand },
       { keys: "⌘I", label: copy.italic, command: toggleEmphasisCommand },
-      { keys: "⌘E", label: copy.inlineCode, command: toggleInlineCodeCommand },
+      { keys: "⌘E", label: copy.inlineCodeAction, command: toggleInlineCodeCommand },
     ].map(({ keys, label, command }) => ({
       action: CHORDS.find(action => action.keys === keys)!,
       match: "key" as const,
@@ -235,7 +235,7 @@ export default function PadRichEditor(props: {
         if (!label) throw new Error(copy.padEditorToolbarLabelIsMissing);
 
         button.setAttribute("aria-label", label);
-        button.title = label;
+        button.title = label === copy.bold ? `${label} (⌘B)` : label === copy.italic ? `${label} (⌘I)` : label === copy.inlineCode ? `${copy.inlineCodeAction} (⌘E)` : label;
       });
 
       const heading = host.querySelector<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");

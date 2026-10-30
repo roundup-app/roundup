@@ -56,6 +56,12 @@
   align-content: start;
   gap: var(--space-3) var(--space-6);
 }
+.help-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
 .help-section, .help-shelf { min-width: 0; }
 
 /* U4690e: native action targets keep the existing quiet hint hierarchy. */
