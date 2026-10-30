@@ -9,6 +9,7 @@ import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
 import { showShelfTab } from "./shelfTabs";
+import { openPad } from "../pads/padsFixture";
 
 const NOW = 1_700_000_000_000;
 
@@ -80,11 +81,7 @@ describe("u26 the harness seeds", () => {
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
     await screen.findByRole("tablist", { name: copy.leaderShortShelf });
     showShelfTab(copy.pads);
-    const name = (await screen.findAllByText("pad-0"))[0]!;
-    fireEvent.click(name);
-    fireEvent.keyDown(name.closest("button")!, { key: "Enter" });
-
-    await screen.findByRole("textbox", { name: copy.padBody });
+    await openPad("pad-0");
     expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);
   }, 15_000);
 
