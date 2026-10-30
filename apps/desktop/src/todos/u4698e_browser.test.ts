@@ -10,7 +10,7 @@ const { browser, evaluate, settle, openShelf } = shelfBrowser();
 const output = captureDir("U4698e");
 
 it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0, timeout: 180_000 }, async (width, height) => {
-  await openShelf("empty-project", 288, 320, width, "dark");
+  await openShelf("tree-40", 288, 320, width, "dark");
   await browser("set", "viewport", String(width), String(height));
   const directory = output ? join(output, process.env.ACTIVITY_BASE ? "base" : "head") : null;
 
@@ -19,7 +19,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     await browser("record", "start", join(directory, `activity-${width}.webm`));
     await browser("wait", ".shelf-tabs");
     await browser("set", "media", "dark");
-    writeFileSync(join(directory, `metadata-${width}.json`), JSON.stringify({ sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), seed: "empty-project", viewport: [width, height], scheme: "dark", comments: [0, 3, 200], unbroken: 500 }));
+    writeFileSync(join(directory, `metadata-${width}.json`), JSON.stringify({ sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), seed: "tree-40", viewport: [width, height], scheme: "dark", comments: [0, 3, 200], unbroken: 500 }));
   }
 
   try {
@@ -33,7 +33,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
 
   await evaluate(`(async () => {
     const app = window.__fake.app;
-    await app.rpc('todo.create', { title: 'Release plan', body: '', blockers: null });
+    document.querySelector('[data-todo-root]')?.click();
     await app.rpc('todo.update', { id: 1, title: 'Review the release and its deployment dependencies '.repeat(4), body: '# Release plan\\n\\nA document and its Activity share a reading edge.\\n\\n' + 'Review each dependency before publishing. '.repeat(15) });
     const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     return true;
@@ -51,7 +51,7 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   const add = async (from: number, through: number) => {
     await evaluate(`(async () => {
       for (let i = ${from}; i <= ${through}; i++) {
-        window.__fake.actAs({ kind: i % 3 === 0 ? 'agent' : 'user', id: i % 3 === 0 ? 'agent-1' : 'you', parent: null });
+        window.__fake.actAs({ kind: i % 3 === 0 ? 'agent' : 'user', id: i % 3 === 0 ? 'tokens' : 'you', parent: null });
         await window.__fake.app.rpc('todo.comment', { id: 1, body: i % 3 === 0 ? '::status Verified release ' + i + '\\n  Tests passed.\\n  All dependencies checked.' : i === 2 ? 'DeploymentArtifact'.repeat(32).slice(0, 500) + '\\nA second line with 日本語 and é.' : 'Review comment ' + i });
       }
       window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
@@ -118,9 +118,12 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
     await browser("wait", '.todo-older[aria-expanded="true"]');
   }
 
+  await evaluate("document.querySelector('.todo-comments .reserved-line:has([role=alert])')?.scrollIntoView({block: 'center'}); true");
+  await capture("read-failure");
   await browser("focus", ".todo-comment-field");
   await browser("press", "Enter");
   await browser("wait", "--fn", "document.querySelector('.todo-comments')?.textContent.includes('Comment could not be sent')");
+  await evaluate("document.querySelector('.todo-comments-send').scrollIntoView({block: 'end'}); true");
   await capture("rejected-send");
   expect(await evaluate("document.querySelector('.todo-comment-field').value.startsWith('Unsent release notes')")).toBe(true);
   } finally { if (directory) await browser("record", "stop"); }
