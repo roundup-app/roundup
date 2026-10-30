@@ -33,6 +33,8 @@ it("u4547e_drag_reparents_the_chosen_agent_without_restarting", async () => {
     const parent = destinations[kind];
     await lane.until(`document.querySelector(${JSON.stringify(row(parent))}) !== null`);
     await lane.browser("click", row("agent-4"));
+    await lane.until(`document.querySelector('.rail-section[aria-label="AGENTS"]') !== null`);
+    const terminals = await lane.evaluate("window.__fake.app.rpc('terminal.list', null)");
     const identity = await lane.evaluate(`window.__fake.app.rpc('rail.tree', null).then(nodes => nodes.find(node => node.id === 'agent-4'))`);
     await lane.capture("U4547e", `before-${kind}`);
 
@@ -61,6 +63,8 @@ it("u4547e_drag_reparents_the_chosen_agent_without_restarting", async () => {
     expect(await lane.calls("rail.move")).toEqual([{method:"rail.move",params:{id:"agent-4",parent,index:0}}]);
     const moved = await lane.evaluate(`window.__fake.app.rpc('rail.tree', null).then(nodes => nodes.find(node => node.id === 'agent-4'))`);
     expect(moved).toEqual({...Object(identity),parent,order:0});
+    expect(await lane.evaluate("window.__fake.app.rpc('terminal.list', null)")).toEqual(terminals);
+    expect(await lane.evaluate(`document.querySelector('${row("agent-4")}')?.getAttribute('aria-selected')`)).toBe("true");
     await lane.until(`document.querySelectorAll('${row("agent-4")}').length === 1 && !document.querySelector('.rail-section[aria-label="AGENTS"]')`);
     expect(await lane.evaluate(`document.querySelectorAll('${row("agent-4")}').length`)).toBe(1);
     expect(await lane.evaluate(`document.querySelector('.rail-section[aria-label="AGENTS"]')`)).toBeNull();
@@ -101,6 +105,17 @@ it("u4547e_rendered_picker_and_refusal_keep_the_live_agent", async () => {
   await lane.until("!document.querySelector('.rail-command-notice [role=alert]')");
   expect(await lane.calls("rail.move")).toHaveLength(1);
   await lane.capture("U4547e", "retry");
+
+  const destinations = await seed();
+  await lane.browser("focus", row("agent-4"));
+  await lane.browser("press", "m");
+  await lane.until("document.querySelector('[role=combobox]') === document.activeElement");
+  await lane.browser("fill", "[role=combobox]", "Research");
+  await lane.until("document.querySelectorAll('[role=option]').length === 1");
+  await lane.browser("press", "Enter");
+  await lane.until(`window.__fake.app.calls.some(call => call.method === 'rail.move' && call.params.parent === '${destinations.plain}') && !document.querySelector('[role=combobox]')`);
+  expect(await lane.evaluate("document.activeElement?.getAttribute('data-id')")).toBe("agent-4");
+  await lane.capture("U4547e", "picker-success");
 
   if (capture) await lane.browser("record", "stop");
 }, 60_000);

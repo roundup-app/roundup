@@ -458,7 +458,7 @@ export const Rail = () => {
     void moveAgent({ id, parent, index: trueIndex(id, parent, index) });
   };
 
-  const moveAgent = createMove(connected);
+  const moveAgent = createMove(connected, rowElement);
 
   const [pending, setPending] = createSignal(false);
 
