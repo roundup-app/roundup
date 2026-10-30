@@ -68,7 +68,7 @@ On main `e78bbc345` the Mode row draws `workflow` after its name (`rail/RailRow.
 
 **Targets.** `docs/design/targets/U5147/` holds the designer's Pencil frames, 1512×950 in dark with a 480 Rail, cropped to the Rail: `2-rail-glyph-column-after.png` (U5147a) and `3b-rail-sections-hairline-rule.png` (U5147b), each with a `-redline` copy. The numbers above decide; the images are reference only. Pencil set the text in Inter, not SF Pro, so a pixel comparison fails on type alone. These are not targets: the creation footer drawn as one row (main stacks it, U4898 “One leading column”), the typeface, the selected-row wash, the `workflow` mark on the Mode row `Test` (U5147c removes it) and the 3B line's 12 px insets (U5147b clause 2 sets its full width). U5147c has no frame.
 
-Observer (policy, implementation only): U26's harness in an isolated headless `agent-browser` session with a fresh profile, 1512×950, dark. Read boxes with `getBoundingClientRect` and computed styles, never screenshot pixels. Run `just capture U5147a,U5147b,U5147c` after adding its capture coverage, and leave paired main/head PNG files and Check readings under `artifacts/ux/U5147/base/` and `head/`, uncommitted. Record `E`, each centre, each `G`, each line box and each Mode row's marks per width and state. Add no layout test (AGENTS.md rule 10). The Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
+Observer (policy, implementation only): U26's harness in an isolated headless `agent-browser` session with a fresh profile, 1512×950, dark. Read boxes with `getBoundingClientRect` and computed styles, never screenshot pixels. Run `just capture U5147a,U5147b,U5147c` after adding its capture coverage, and leave paired main/head images and Check readings under `artifacts/ux/U5147/base/` and `head/`, uncommitted. Record `E`, each centre, each `G`, each line box and each Mode row's marks per width and state. Add no layout test (AGENTS.md rule 10). The Chromium observer makes no native Mac claim; the user reports what they meet on the Mac.
 
 Regression (policy): Moves D2 (Token spacing and alignment) and D19 (icon meaning, U5147c). Every Check passing on main still passes; add no new Check. Baseline Checks and observers on main:
 
@@ -365,3 +365,14 @@ Policy: Moves D2, D5, D6; all passing baseline Checks remain passing. Check sour
 4. Saved first prompt authority/delivery: `scenarios/agent-lifecycle.md`, A4452c; flat containers/move: `scenarios/agents.md`, A6.
 
 Policy: geometry, clipping, icon distinction, contrast, footer placement and exact labels are critic acceptance, never UI-test layout assertions. Reuse installed Ark primitives, shared Dialog/Combobox and the existing persistence/command/move/restart seams; research libraries under rule 9 before adding machinery. The dependent implementation Issues hold scheduling and progress, never this scenario file.
+
+**U5171 a Workstream row shows its collapse control on hover anywhere.** Journey stage: Understand. Issue #5171 (owner report 2026-10-30). Amends U4707 (`ui-row-inset.md`), whose grip clause shows the chevron only while the pointer is on the status glyph. Keeps the 32 px row and glyph column. No contract, RPC, App seam command or glossary change.
+
+Given a Rail with a Workstream that has nested Agents, when the pointer rests anywhere on that Workstream's row (name included), then:
+
+1. **Chevron on row hover.** The row's `rail-chevron` replaces the status glyph in its column and is enabled and clickable. Test: `u5171_hovering_the_row_exposes_collapse` in `apps/desktop/src/keys/u41_rail_keys.test.tsx` (the control named `Collapse` is enabled on the row; the CSS `:hover` reveal itself is the design critic's).
+2. **Click toggles.** Clicking the control hides the child rows; clicking again shows them. Test: `u5171_chevron_click_hides_and_shows_children`, same file.
+3. **Collapsed at rest (policy, design critic).** A collapsed Workstream reads as collapsed without hover: its chevron or its Agent count stays visible, so the owner can tell how to bring the Agents back.
+4. **Keyboard.** On a selected Workstream row, ← collapses and → expands it, as U41 holds; the Help key list names both. Tests: `u41_left_on_an_expanded_group_collapses_it` and `u41_right_on_a_collapsed_group_expands_it` in the same file; Help naming is `u5171_help_names_left_and_right_for_rows` in `apps/desktop/src/keys/u3737_chord.test.tsx`.
+
+Moves: D2, D5, D6 (`docs/design-system.md`, “The checks”); every Check passing on main still passes. Observer (policy): U26's harness, headless, dark, 1512×950; `just capture U5171` leaves rest, row-hover and collapsed images under `artifacts/ux/U5171/`, uncommitted. Add no layout, colour or exact-copy test (AGENTS.md rule 10).

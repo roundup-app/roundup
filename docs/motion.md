@@ -409,3 +409,8 @@ appearance still requires macOS observation.
 U3787b Pad Bold, Italic and Inline code menu/key actions invoke Milkdown's existing
 commands immediately. Capturing the editor/selection and dry-running availability
 changes no focus, document or Terminal input. No motion or new timing is introduced.
+
+U3787b Pad Quote, Bullet list, Numbered list and Code block menu/key actions invoke
+Milkdown's existing document command immediately through the captured editor
+registration. Help and toolbar shortcut hints add no motion; document/selection,
+focus and unavailable-owner checks remain synchronous. No effect or duration changes.
