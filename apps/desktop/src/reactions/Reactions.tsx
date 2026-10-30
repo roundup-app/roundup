@@ -168,7 +168,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
               <span class="reaction-reason">{copy.reactionActor(reaction().actor.kind, reaction().actor.kind === "agent" ? nameOf(reaction().actor.id) : null)}</span>
               <span class="reaction-reason">{reaction().reason ?? copy.reactionNoReason}</span>
               <span class="reaction-instruction">{reaction().instruction}</span>
-              <span class="reaction-reason">{conditionText(reaction().condition, nameOf)} · {copy.reactionTarget}: {nameOf(reaction().target)}</span>
+              <span class="reaction-reason">{copy.reactionListCondition(conditionText(reaction().condition, nameOf), nameOf(reaction().target))}</span>
               <span class="reaction-reason">{copy.reactionRemaining(reaction().remaining, reaction().max_firings, reaction().rearm)}</span>
             </button>
             <Show when={reaction().state === "active"}><div class="reaction-actions">
