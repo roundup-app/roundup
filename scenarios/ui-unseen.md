@@ -1,6 +1,6 @@
 # UI: find an Agent's unseen finish
 
-Module: `apps/desktop` (App state and summaries), `crates/agents` (retained finish count) and `crates/contracts` (one Status field). Ids: U3566a, U3566b, U3566c, U3566d.
+Module: `apps/desktop` (App state and summaries), `crates/agents` (retained finish count) and `crates/contracts` (one Status field). Ids: U3566a, U3566b, U3566c, U3566d, U5153a, U5153b, U5153c.
 
 Work order: [#3566](https://github.com/saadshahd/roundup/issues/3566). Journey: Understand → Review (`.agents/data/journey.md`, headings “What must work” and “How a Builder closes a gap”). A finish means a published Kind transition directly from `working` to `idle` or `done`; it says that a turn ended, never that its result was accepted or independently checked. A Door is an Agent too. Plain Terminals keep U3704's separate unseen-output behavior.
 
@@ -40,7 +40,6 @@ Policy: the dot carries `data-state` and an accessible state label, “Unread re
 Policy, P3 Gate and Observer (`PRINCIPLES.md`, heading “P3 Cards over chatter”): does a routine finish introduce an interruption? It must not. Observe ordinary finishes through the App seam tests above: only passive unread state changes, while `needs-you` remains the attention contract. The Understand/Review journey observer finds an Agent that finished out of view, opens its output through each existing path, and returns after a reload without losing unread work.
 
 Rendered observer (policy, implementation): isolated headless Chromium, a dedicated session and fresh profile, at 1512×950 in dark. Extend `agents-10`, `tree-40` and `tabs-8` with unseen finishes in an inactive Project and a collapsed Workstream, alongside `needs-you` and `error`; include the densest seed with long names and a failed RPC's failure text visible. Inspect rest, hover, focus, collapse/expand, Project switch, Agent open and reload. The critic judges D2 (type/spacing), D5 (contrast) and D6 (states/targets), defined by `docs/design-system.md`, heading “The checks”; no Check passing on main regresses. Run `just capture U3566a,U3566b,U3566c,U3566d`; leave before/after PNGs and Check readings with base/head SHAs under `artifacts/ux/<id>/` as `.agents/data/harness.md`, heading “Captures”, requires. Never commit images or videos. This specification-only PR requires no UI capture and claims no native Mac observation.
-
 
 ## Attention-only Project tabs (#5153)
 
