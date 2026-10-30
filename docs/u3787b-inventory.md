@@ -421,3 +421,58 @@ installed table rejects U3787b; explicit isolated captures provide this Chromium
 evidence. No native result is claimed. The new observers use three required Rail
 identities rather than the unrelated twelve-Agent inventory fixture; their
 creation, placement, input ownership and refusal assertions remain intact.
+
+
+## Native responder menu prerequisite (#5108)
+
+Implementation: `136436470b07a0c5a0cb87b8969f44481591f33f` (PR #5111). The existing native menu owner adds
+Edit > Find > Find… with `performTextFinderAction:`, nil target and the standard
+Show Find Interface tag. Its submenu uses AppKit automatic validation. File's
+standard Close Window uses the same native validation and `performClose:`.
+The existing Edit clipboard/undo commands retain their manual availability,
+including Terminal Copy's webview event route.
+
+An enabled Cmd+F registration in the projected Project menu removes responder
+Find. The Project accelerator and captured registry route remain its sole owner;
+removal/unavailability restores the responder menu without caching a selection.
+Installation also runs with no open Project. Hint decoration, nested/context
+menus, configured quick-add and Project presentation are unchanged. No test is
+removed or retired. P3/P6/P9/P11/P14 gain no attention, item changes, Agent starts,
+draft storage or usage accounting through this integration.
+
+`u3787b_native_responder_find_and_close_follow_availability` is registered in the
+existing main-thread native harness. Actual NSMenu/NSWindow objects, two focused
+NSResponder subclasses with native validation, an NSTextView and NSEvents exercise
+responder availability, captured target/focus, menu/key dispatch, Close's actual
+window and exclusive projected ownership. The existing registry/Tauri observers
+retain their captured Project and unavailable/removed-owner proofs.
+
+Local Linux: `pnpm install` passed; the U3787b menu, U2241 modifier and U101 clipboard
+files passed all 40 tests. `cargo test -p native --locked` and native clippy passed
+on Linux; that platform runs no AppKit probe and establishes no native pass.
+macOS CI must run this implementation before native success is recorded. Earlier
+#4278 native observations and #4965 failed alignment observations keep their
+recorded SHAs; this work supplies no alignment evidence. #4308/#3843 remain open.
+
+Native rendered observer, on build `136436470b07a0c5a0cb87b8969f44481591f33f`:
+
+1. Build with `pnpm install` and `just app <a disposable Project folder>` on macOS;
+   no Claude login is needed. Focus a native editor, open Edit > Find and compare
+   the displayed Cmd+F with the key. Each must use that editor's native Find,
+   preserving its editing target. An unavailable responder must disable Find.
+2. Focus a Terminal with an existing available Find registration. Open Project:
+   Find must display Cmd+F; Edit must have no competing responder Find. Invoke
+   the menu and chord separately: each opens the registered Terminal Find once,
+   with no Terminal input. Leave/remove that owner: it must no longer act.
+   #3853 owns that UI; do not infer a delivered Terminal Find UI from this probe.
+3. Open two App windows, activate the second, then use File > Close Window and,
+   in another round, Cmd+W. Each closes only the active window, never a Project.
+   With no available window Close must be disabled. Check the same File/Edit
+   menus at startup with no Project. Menu opening alone must not move focus.
+4. Exercise Terminal selection Copy, editor cut/paste, configured quick-add and
+   a leader-hint Project item. They must retain their existing single action and
+   focus; a sequence hint must register no accelerator of its own.
+
+These steps decide native displayed keys and integrated window/editor/Terminal
+behavior. CI's raw AppKit harness and separate real-registry/Tauri event tests
+are recorded independently; Linux/Chromium cannot establish this native rendering.

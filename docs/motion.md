@@ -393,3 +393,10 @@ stays system-owned, with no new App animation.
 U3787b scoped Add Todo menu/key activation reuses the existing instant draft-field
 opening and focus. Availability updates immediately on editing, scope change or
 list removal. No animation, duration, curve or Token changes.
+
+
+U3787b native responder menus (#5108, implementation `136436470b07a0c5a0cb87b8969f44481591f33f`)
+use AppKit's immediate validation and dispatch. Projection and menu opening move
+no focus and add no delay or animation. Find and Close retain native feedback;
+Terminal Find retains its existing registry owner. No Token, geometry or
+D2/D5/D6 change; native rendering requires the inventory's macOS observer.
