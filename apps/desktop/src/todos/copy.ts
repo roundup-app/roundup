@@ -108,13 +108,20 @@ export const copy = {
   todoPriority: "Priority",
   blockedByCount: (count: number) => `Blocked by ${count}`,
   blockingCount: (count: number) => `Blocking ${count}`,
+  activity: "Activity",
+  olderActivity: (count: number) => `${count} older ${count === 1 ? "entry" : "entries"}`,
   changes: "Changes",
   commentsHeading: (count: number) => `Comments · ${count}`,
   commentField: "Write a comment",
   commentPlaceholder: "Add a comment",
   comment: "Comment",
   reply: "Reply",
-  commentTime: (at: number) => new Date(at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+  commentTime: (at: number, now: number) => {
+    const minutes = Math.max(0, Math.floor((now - at) / 60_000));
+    const unit = minutes < 60 ? "minute" : minutes < 1440 ? "hour" : "day";
+    const value = unit === "minute" ? minutes : Math.floor(minutes / (unit === "hour" ? 60 : 1440));
+    return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(-value, unit);
+  },
   commentRetry: "Retry comments",
   padRefsHeading: (count: number) => `Pads · ${count}`,
   padRefMissingState: " · Missing",
@@ -138,7 +145,7 @@ export const copy = {
   changeUnassigned: "Unassigned",
   changeHandedTo: (value1: CopyValue) => `Handed to ${value1}`,
   changeByActor: (value1: CopyValue, value2: CopyValue) => `${value1} · ${value2}`,
-  changeAt: (line: CopyValue, at: number) => `${line} · ${new Date(at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`,
+  changeAt: (line: CopyValue, time: string) => `${line} · ${time}`,
   blockerPlaceholder: "Todo title or #id",
   todoRow: (value1: CopyValue, value2: CopyValue, value3: CopyValue) => `${value1} #${value2} ${value3}`,
   complete: "Complete",

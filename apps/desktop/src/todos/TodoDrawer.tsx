@@ -12,7 +12,6 @@ import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
 import { TodoComments } from "./TodoComments";
 import { TodoRefs } from "./TodoRefs";
-import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { useTodoList } from "./todoList";
@@ -313,8 +312,7 @@ export const TodoDrawer = (props: {
                 </div>
                 <Show when={!props.recovery}><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
                 <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
-                <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} /></Show>
-                <Show when={!props.recovery}><TodoHistory id={props.id} saved={saved} onCapture={setCaptured} /></Show>
+                <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} onCapture={setCaptured} /></Show>
               </>
             )}
           </Show>

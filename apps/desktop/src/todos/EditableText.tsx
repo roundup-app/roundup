@@ -27,9 +27,11 @@ export const blockerSchema = v.strictObject({
 });
 
 // Shared recovery also retains older title/text/choice snapshots for inspection, without an editable base.
+const commentSchema = v.strictObject({ text: v.string() });
+
 const snapshotSchema = v.strictObject({ title: v.string(), body: v.optional(v.string()), choices: v.optional(v.array(v.string())) });
 
-export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchema, snapshotSchema]);
+export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchema, snapshotSchema, commentSchema]);
 
 type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: number; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
 

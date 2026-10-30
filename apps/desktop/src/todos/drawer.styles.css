@@ -47,8 +47,8 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 0;
-  border-radius: 0;
-  background: var(--transparent);
+  border-radius: var(--radius-control);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   resize: none;
@@ -150,3 +150,18 @@
 .todo-detail-body .todo-add-notes { margin-inline: var(--reading-gutter); }
 
 .drawer:has(.todo-header) .drawer-controls { z-index: var(--layer-popover); }
+
+.todo-activity-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.todo-activity-entries { display: flex; flex-direction: column; gap: var(--space-5); }
+.todo-activity-entries[hidden] { display: none; }
+.todo-change { display: flex; align-items: baseline; gap: var(--space-3); color: var(--grey); font-size: var(--text-small); }
+.todo-change p { margin: 0; }
+.todo-activity-dot { display: inline-block; flex: none; width: var(--space-1); height: var(--space-1); border-radius: var(--radius-round); background: var(--grey); margin-inline: var(--space-1); }
+.todo-comment { padding-inline-start: var(--space-5); }
+.todo-comment-head { font-size: var(--text-small); }
+.todo-comment-parts { font-size: var(--text-body); line-height: var(--line); }
+.todo-composer { display: flex; gap: var(--space-3); align-items: flex-start; margin-top: var(--space-3); }
+.todo-composer-actor { flex: none; color: var(--grey); font-size: var(--text-small); padding-top: var(--space-2); }
+.todo-comment-field { min-width: 0; min-height: calc(var(--line) * 3); line-height: var(--line); }
+.todo-comments .reserved-line:has([role="alert"]) { block-size: auto; max-block-size: none; white-space: normal; }
+.todo-comments .ink[data-tone] { white-space: normal; overflow: visible; }
