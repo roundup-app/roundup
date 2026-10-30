@@ -191,7 +191,9 @@ define_class!(
                 let enabled: bool = msg_send![&*item, isEnabled];
                 let menu: Option<Retained<AnyObject>> = msg_send![&*item, menu];
                 let Some(menu) = menu else { return; };
-                let attributes = hint_attributes(&menu, enabled);
+                let highlighted: Option<Retained<AnyObject>> = msg_send![&*menu, highlightedItem];
+                let highlighted = highlighted.is_some_and(|row| std::ptr::eq(&*row, &*item));
+                let attributes = hint_attributes(&menu, &hint_color(enabled, highlighted));
                 let hint: Retained<AnyObject> = msg_send![&*self.ivars().hint, mutableCopy];
                 let length: usize = msg_send![&*hint, length];
                 let _: () = msg_send![&*hint, setAttributes: &*attributes, range: NSRange::new(0, length)];
@@ -274,7 +276,22 @@ impl Drop for MenuAnchor {
     }
 }
 
-unsafe fn hint_attributes(menu: &AnyObject, enabled: bool) -> Retained<AnyObject> {
+// The NSColor AppKit's own key equivalents resolve to. The vibrant menu material
+// brightens alpha-white label colours, so a rest hint uses the tertiary tone to
+// land on the dim grey of ⌘N; a highlighted row flips to the selected-text colour.
+unsafe fn hint_color(enabled: bool, highlighted: bool) -> Retained<AnyObject> {
+    let colors = AnyClass::get(c"NSColor").expect("AppKit is loaded");
+    // SAFETY: class-level NSColor accessors are valid on the main thread.
+    unsafe {
+        match (enabled, highlighted) {
+            (false, _) => msg_send![colors, disabledControlTextColor],
+            (true, true) => msg_send![colors, selectedMenuItemTextColor],
+            (true, false) => msg_send![colors, tertiaryLabelColor],
+        }
+    }
+}
+
+unsafe fn hint_attributes(menu: &AnyObject, color: &AnyObject) -> Retained<AnyObject> {
     // SAFETY: caller supplies an NSMenu on the main thread.
     unsafe {
         let font: Retained<AnyObject> = msg_send![menu, font];
@@ -282,14 +299,8 @@ unsafe fn hint_attributes(menu: &AnyObject, enabled: bool) -> Retained<AnyObject
         let attributes: Retained<AnyObject> = msg_send![dictionary, new];
         let _: () =
             msg_send![&*attributes, setObject: &*font, forKey: &*NSString::from_str("NSFont")];
-        let colors = AnyClass::get(c"NSColor").expect("AppKit is loaded");
-        let color: Retained<AnyObject> = if enabled {
-            msg_send![colors, secondaryLabelColor]
-        } else {
-            msg_send![colors, disabledControlTextColor]
-        };
         let _: () =
-            msg_send![&*attributes, setObject: &*color, forKey: &*NSString::from_str("NSColor")];
+            msg_send![&*attributes, setObject: color, forKey: &*NSString::from_str("NSColor")];
         attributes
     }
 }
@@ -327,7 +338,7 @@ unsafe fn decorate(submenu: &AnyObject, hints: Vec<(usize, String)>) {
             }
             let item: Retained<AnyObject> = msg_send![submenu, itemAtIndex: index];
             let enabled: bool = msg_send![&*item, isEnabled];
-            let attributes = hint_attributes(submenu, enabled);
+            let attributes = hint_attributes(submenu, &hint_color(enabled, false));
             let strings = AnyClass::get(c"NSAttributedString").expect("Foundation is loaded");
             let attributed: Allocated<AnyObject> = msg_send![strings, alloc];
             let attributed: Retained<AnyObject> = msg_send![attributed, initWithString: &*NSString::from_str(&hint), attributes: &*attributes];
@@ -699,7 +710,7 @@ pub(crate) mod tests {
                 let actual_color: Option<Retained<AnyObject>> = msg_send![&**attributed, attribute: &*color_key, atIndex: hint_index, effectiveRange: std::ptr::null_mut::<objc2_foundation::NSRange>()];
                 let actual_color = actual_color.expect("hint has an explicit semantic color");
                 let expected_color: Retained<AnyObject> = if enabled {
-                    msg_send![colors, secondaryLabelColor]
+                    msg_send![colors, tertiaryLabelColor]
                 } else {
                     msg_send![colors, disabledControlTextColor]
                 };
