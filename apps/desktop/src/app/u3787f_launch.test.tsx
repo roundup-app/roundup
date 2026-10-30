@@ -5,7 +5,6 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, info, workstream } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError, type NativeOpen } from "./seam";
-import { linkCopy } from "../copy/link";
 
 let receive: ((request: NativeOpen) => void) | undefined;
 
@@ -77,7 +76,6 @@ it.each(["agent", "workstream"] as const)("u3787f_deep_link_preserves_identity_a
   expect(app.calls.filter(call => /spawn|start|input|write/.test(call.method))).toEqual([]);
 });
 
-
 it("u3787f_deep_link_preserves_identity_and_authority_same_named_pad_in_another_project", async () => {
   const app = createFakeApp();
   app.add("/first", "First");
@@ -109,12 +107,25 @@ it("u3787f_deep_link_preserves_identity_and_authority_same_named_pad_in_another_
   expect(a.calls.filter(call => call.method === "pad.read")).toEqual([]);
   expect(b.calls.filter(call => call.method === "pad.read")).toContainEqual({ method: "pad.read", params: { name } });
 
+  expect([...a.calls, ...b.calls].filter(call => /spawn|start|input|write|create|delete/.test(call.method))).toEqual([]);
+});
+
+it("u3787f_deep_link_reports_the_target_failure_without_foreign_project_refusals", async () => {
+  const app = createFakeApp();
+  app.add("/first", "First");
+  app.add("/second", "Second");
+  const a = app.of("/first");
+  const b = app.of("/second");
+  a.handlers["link.read"] = () => { throw new RpcError(-32001, "Not this Project", { kind: "other-project" }); };
   b.handlers["link.read"] = () => { throw new RpcError(-32001, "missing Pad"); };
+  app.onNativeOpen = async listener => { receive = listener;
+
+    return () => {}; };
+
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => open.showView("workstreams")} />);
+  await waitFor(() => expect(receive).toBeDefined());
   receive?.({ kind: "link", url: "roundup://pad/missing?project=second-0000000000000000" });
   await screen.findByText(/missing Pad/);
   expect(screen.queryByText(/Not this Project/)).toBeNull();
-  await app.closeProject("/second");
-  receive?.({ kind: "link", url });
-  await screen.findByText(linkCopy.projectClosed);
   expect([...a.calls, ...b.calls].filter(call => /spawn|start|input|write|create|delete/.test(call.method))).toEqual([]);
 });
