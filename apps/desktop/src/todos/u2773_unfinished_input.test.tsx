@@ -53,6 +53,7 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   fireEvent.select(field);
   connected.drawer.close("key");
   { const row = screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }); row.focus(); fireEvent.keyDown(row, { key: "Enter", code: "Enter" }); }
+
   fireEvent.dblClick(await within(screen.getByRole("complementary", { name: "Drawer" })).findByText("base"));
   const restored = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(restored.selectionStart).toBe(2));
