@@ -59,7 +59,7 @@ it("nr9_inspect_stop_run_in_overview", async () => {
 
   expect(within(detail).getByText(current.reason!)).toBeTruthy();
   expect(within(detail).getByText(current.instruction)).toBeTruthy();
-  expect(within(detail).getByText(copy.reactionAuthority).nextElementSibling?.textContent).toBe("a");
+  expect(within(detail).getByText(copy.reactionAuthority).nextElementSibling?.textContent).toBe(current.actor.id);
 
   connected.showView("made");
   await waitFor(() => expect(screen.queryByRole("region", { name: copy.reactionDetail("Ship it") })).toBeNull());
