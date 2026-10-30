@@ -6,7 +6,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { agent, event, NOW } from "../testing/nodes";
 import { mountTodos, todo } from "../todos/testHarness";
 import { mountNavigation } from "../testing/navigationFixture";
-import { openProjectPage } from "../testing/menuProbe";
+import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { info } from "../testing/nodes";
 import { AskBar } from "../ask/AskBar";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -283,14 +283,24 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
 });
 
 
-it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "empty", "menu"])("u3770e_inbox_route_opens_overview_needs_you_once: %s", async from => {
-  const { connected, daemon, shells } = await mountNavigation(from === "empty", 0);
+it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "empty-key", "empty-menu", "idle-key", "idle-menu", "menu"])("u3770e_inbox_route_opens_overview_needs_you_once: %s", async from => {
+  const { connected, daemon, shells } = await mountNavigation(from.startsWith("empty"), 0);
+
+  if (from.startsWith("idle")) {
+    daemon.handlers["rail.tree"] = () => [agent("idle", "idle", "ready")];
+    await connected().rail.refresh();
+  }
+
   const ask = screen.getByRole("textbox", { name: "Ask" });
   const draft = "  exact é 東京 🧭 draft  ";
   fireEvent.input(ask, { target: { value: draft } });
   await screen.findByRole("button", { name: "Made" });
   connected().showView("made");
   await waitFor(() => expect(screen.getByRole("button", { name: "Made" }).getAttribute("aria-expanded")).toBe("true"));
+
+  expect(screen.getByRole("button", { name: /^Needs you/ }).getAttribute("aria-expanded")).toBe("false");
+
+  if (from.startsWith("idle")) connected().rail.select("idle");
 
   if (from === "bench") connected().showView("shelf");
 
@@ -314,22 +324,30 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
   const before = daemon.calls.length;
 
   const route = () => {
-    if (from === "menu") openProjectPage("action:leader:I", "/p");
+    if (from === "menu" || from.endsWith("-menu")) openProjectPage("action:leader:I", "/p");
     else {
       fireEvent.keyDown(document.activeElement ?? document.body, { key: "k", code: "KeyK", metaKey: true });
       fireEvent.keyDown(document.activeElement ?? document.body, { key: "i", code: "KeyI" });
     }
   };
 
-  route();
-  const heading = screen.getByRole("button", { name: /^Needs you/ });
-  await waitFor(() => expect(document.activeElement).toBe(heading));
-  expect(connected().rail.selected()).toBeNull();
-  expect(connected().drawer.content()).toBeNull();
-  expect(["Needs you", "Asks", "Reactions", "Made"].map(name => screen.getByRole("button", { name }).getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]);
-  route();
-  await waitFor(() => expect(document.activeElement).toBe(heading));
-  expect(heading.getAttribute("aria-expanded")).toBe("true");
-  expect(screen.getByRole("textbox", { name: "Ask" })).toHaveProperty("value", draft);
-  expect(daemon.calls.slice(before).filter(call => ["terminal.write", "ask.send", "agent.resume", "rail.startDoor", "agent.spawn"].includes(call.method))).toEqual([]);
+  for (let invocation = 0; invocation < 2; invocation++) {
+    route();
+    const heading = screen.getByRole("button", { name: /^Needs you/ });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(connected().rail.selected()).toBeNull();
+    expect(connected().drawer.content()).toBeNull();
+    expect(["Needs you", "Asks", "Reactions", "Made"].map(name => screen.getByRole("button", { name }).getAttribute("aria-expanded"))).toEqual(["true", "false", "false", "false"]);
+
+    if (from.startsWith("empty") || from.startsWith("idle")) {
+      const inbox = screen.getByRole("region", { name: "Needs you" });
+      expect(within(inbox).queryAllByRole("listitem")).toHaveLength(0);
+      expect(inbox.textContent?.trim()).not.toBe("");
+    }
+
+    expect(connected().project.path).toBe("/p");
+    expect(projectMenu.path).toBe("/p");
+    expect(screen.getByRole("textbox", { name: "Ask" })).toHaveProperty("value", draft);
+    expect(daemon.calls.slice(before).filter(call => ["terminal.write", "ask.send", "agent.resume", "rail.startDoor", "agent.spawn"].includes(call.method))).toEqual([]);
+  }
 });
