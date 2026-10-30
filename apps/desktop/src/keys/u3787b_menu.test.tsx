@@ -4,7 +4,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { showEverythingInApp } from "../testing/showEverything";
-import { info } from "../testing/nodes";
+import { info, USER } from "../testing/nodes";
+import { padHandlers } from "../testing/stores";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
 import type { MenuItem } from "../app/seam";
@@ -273,4 +274,53 @@ it.each(["key", "menu"])("u3787b_numbered_assignment_captures_one_todo_and_owner
   openProjectPage(command);
   expect(daemon.calls.filter(call => call.method === "todo.assign")).toHaveLength(1);
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+});
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Open from %s captures the focused Pad", async source => {
+  const { daemon } = await mountNavigation(false, 0);
+  const pads = ["Selected", "Focused"].map(name => ({ name, incarnation: `fixture-${name}`, text: "", updated_at: 0, revision: 1, home: null }));
+  Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
+  daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Focused" } });
+  await showEverythingInApp(undefined, "Pads");
+  const selected = document.querySelector<HTMLButtonElement>('[data-pad="Selected"] .pad-name')!;
+  const row = document.querySelector<HTMLButtonElement>('[data-pad="Focused"] .pad-name')!;
+  fireEvent.click(selected);
+  row.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⏎")?.shortcut).toBe("⏎"));
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  else openProjectPage("action:chord:⏎");
+
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "Focused" }]));
+  expect(daemon.calls.filter(call => call.method === "pad.write" || call.method === "terminal.write")).toEqual([]);
+});
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Rename from %s refuses its editing owner", async source => {
+  const { daemon } = await mountNavigation(false, 0);
+  const pads = ["Selected", "Focused"].map(name => ({ name, incarnation: `fixture-${name}`, text: "", updated_at: 0, revision: 1, home: null }));
+  Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
+  daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Focused" } });
+  await showEverythingInApp(undefined, "Pads");
+  fireEvent.click(document.querySelector<HTMLButtonElement>('[data-pad="Selected"] .pad-name')!);
+  const row = document.querySelector<HTMLButtonElement>('[data-pad="Focused"] .pad-name')!;
+  row.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
+  const captured = captureActions(row).find(action => action.value === "action:chord:F2")!;
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: "F2", code: "F2" });
+  else openProjectPage("action:chord:F2");
+
+  const field = await screen.findByRole("textbox", { name: "Name" });
+  expect(field.closest("[data-pad]")?.getAttribute("data-pad")).toBe("Focused");
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(false));
+  expect(captured.available()).toBe(false);
+  captured.run();
+  openProjectPage("action:chord:F2");
+  expect(screen.getAllByRole("textbox", { name: "Name" })).toEqual([field]);
+  expect(daemon.calls.filter(call => call.method === "pad.rename" || call.method === "pad.write")).toEqual([]);
+  fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.activeElement?.closest("[data-pad]")?.getAttribute("data-pad")).toBe("Focused"));
 });
