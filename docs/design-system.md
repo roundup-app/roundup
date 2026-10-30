@@ -52,7 +52,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--elevation-ring` | `0 0 0 .5px rgba(0,0,0,.16)` | `0 0 0 .5px rgba(255,255,255,.20)` | the floating surface edge; never a focus or control ring |
 | `--elevation` | `var(--elevation-ring), var(--elevation-contact), var(--elevation-ambient)` | same | one shared recipe for the Drawer, Shelf, floating surfaces and Terminal Bubble |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
-| `--row-text-inset` | `32px` | same | U131 title inset, including leading slots; currently shared by Shelf rows and Terminal tabs, with Rail integration pending; U5147d moves their first text to 44 CSS px from the panel edge |
+| `--row-text-inset` | `44px` | same | U131 title inset, including leading slots; the distance from the panel edge to first text, shared by Rail, Shelf rows and Terminal tabs (U5147d) |
 | `--flat-tab-edge` | `1px` | same | the shared flat tab's border or inactive spacer; included in U131's Terminal title inset |
 | `--length-zero` | `0px` | same | typed zero for length calculations, gradients and fallbacks |
 | `--hairline-width` / `--stroke-width` / `--tick-border-width` | `1px` / `2px` / `1.5px` | same | hairlines, placement marks and the Ask tick |
