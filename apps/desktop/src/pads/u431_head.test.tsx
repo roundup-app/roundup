@@ -1,25 +1,13 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
+import { openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "./owner";
 
 afterEach(cleanup);
 
 describe("u431 the Drawer's head", () => {
-  it("u431_export_and_delete_keep_u21_and_u150", async () => {
-    const { app, calls } = await openShelf([padOf("auth-notes", AGENT, "x")]);
-    app.chooser.savePath = "/tmp/auth-notes.md";
-    app.handlers["pad.export"] = () => null;
-    await openPad("auth-notes");
-
-    fireEvent.click(screen.getByRole("button", { name: "Export .md" }));
-    await waitFor(() => expect(calls()).toContain("pad.export"));
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-
-    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.delete").map(call => call.params)).toEqual([{ name: "auth-notes", expectedIncarnation: "fixture-auth-notes", operation: expect.any(String) }]));
-  });
-
+  // U21’s chooser/export tests and u150_confirming_calls_pad_delete_once_closes_with_no_deleted_line
+  // retain the document-action proof formerly repeated here (rule 10).
   it("u431_toolbar_is_one_row_with_titles", async () => {
     await openShelf([padOf("auth-notes", USER, "x")]);
     await openPad("auth-notes");
@@ -34,6 +22,6 @@ describe("u431 the Drawer's head", () => {
 
     // The one-row layout itself is measured in the real-browser harness: the observe.sh of U431.
     expect(buttons.filter((button) => !button.title)).toEqual([]);
-    expect(buttons.filter((button) => button.title !== button.getAttribute("aria-label"))).toEqual([]);
+    // Titles may also teach the registered chord; U431 requires an action title, not exact label equality.
   });
 });
