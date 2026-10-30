@@ -299,7 +299,7 @@ pub(crate) mod tests {
 
     use objc2::{DefinedClass, MainThreadOnly, define_class};
     use objc2_app_kit::NSResponder;
-    use objc2_foundation::{NSObjectProtocol, NSPoint, NSRect};
+    use objc2_foundation::{NSDefaultRunLoopMode, NSObjectProtocol, NSPoint, NSRect};
     use std::cell::Cell;
 
     #[derive(Default)]
@@ -391,13 +391,43 @@ pub(crate) mod tests {
             for (index, window) in windows.iter().enumerate() {
                 let _: () =
                     msg_send![&**window, makeKeyAndOrderFront: std::ptr::null::<AnyObject>()];
+                // AppKit activation arrives through the event queue. Unlike the App,
+                // this harness has no running event loop: dispatch until AppKit reports
+                // this probe window as key before testing nil-target menu validation.
+                let deadline: Retained<AnyObject> =
+                    msg_send![class(c"NSDate"), dateWithTimeIntervalSinceNow: 5.0f64];
+                loop {
+                    let key: Option<Retained<AnyObject>> = msg_send![&*app, keyWindow];
+                    if key
+                        .as_deref()
+                        .is_some_and(|key| std::ptr::eq(key, &**window))
+                    {
+                        break;
+                    }
+                    let remaining: f64 = msg_send![&*deadline, timeIntervalSinceNow];
+                    assert!(
+                        remaining > 0.0,
+                        "AppKit did not make probe window {index} key"
+                    );
+                    let event: Option<Retained<AnyObject>> = msg_send![&*app,
+                        nextEventMatchingMask: usize::MAX, untilDate: &*deadline,
+                        inMode: NSDefaultRunLoopMode, dequeue: true];
+                    if let Some(event) = event {
+                        let _: () = msg_send![&*app, sendEvent: &*event];
+                    }
+                }
+                // A bare NSResponder has no view hierarchy to link it to the window.
+                let _: () = msg_send![&*responders[index], setNextResponder: &**window];
                 let accepted: bool = msg_send![&**window, makeFirstResponder: &*responders[index]];
                 assert!(accepted);
                 for available in [false, true] {
                     responders[index].ivars().available.set(available);
                     let _: () = msg_send![&*find_menu, update];
                     let enabled: bool = msg_send![&*find, isEnabled];
-                    assert_eq!(enabled, available);
+                    assert_eq!(
+                        enabled, available,
+                        "Find availability in probe window {index}"
+                    );
                     let number: isize = msg_send![&**window, windowNumber];
                     let event: Retained<AnyObject> = msg_send![class(c"NSEvent"),
                         keyEventWithType: 10usize, location: NSPoint::new(0.0, 0.0),
