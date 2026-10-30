@@ -1,7 +1,7 @@
 {
   "observer": "Isolated headless Chromium, fresh profiles, 1512x950, 288 px Rail; just capture U4898,U447,U4547a,U4547b plus six paired dark footer/frame states",
   "baseline": "df724691ce3602a599e148d2d44ade5aeb5d3bda",
-  "head": "0c42b0f22b5cb4e09d90bbbf119f008de873797e",
+  "head": "986fc1e6c1beaa3794d848d1d5f555a3e9947880",
   "paired_states": 46,
   "regressions": [],
   "states": [
