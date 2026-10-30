@@ -173,7 +173,7 @@
 .shelf-bar .app-switch { gap: var(--space-1); color: var(--grey); font-size: var(--text-body); line-height: var(--space-4); }
 .shelf-bar .app-switch-track { align-self: center; }
 .shelf-groups.app-tree { padding: 0; }
-.shelf-groups [data-part="branch-control"] { padding-inline: var(--space-2) 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
+.shelf-groups [data-part="branch-control"] { padding-inline-end: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: var(--transparent); }
 .shelf-groups [data-part="branch"] { cursor: pointer; }
 .shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
@@ -185,7 +185,7 @@
 .shelf-group-add { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: var(--space-5); min-height: var(--space-5); padding: 0; color: var(--grey); background: var(--transparent); border: 0; cursor: pointer; }
 .shelf-group-add:hover { color: var(--text); }
 [data-shelf-group][data-drop-target] .shelf-group-control { color: var(--text); }
-.shelf-group-count { flex: none; }
+.shelf-group-count { flex: none; color: var(--grey); }
 .shelf-groups [data-part="branch-text"] { min-width: 0; display: flex; }
 .shelf-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-shelf-group][data-drop-target] :is(.shelf-group-count, .shelf-group-add) { color: var(--text); }
@@ -305,3 +305,9 @@
 
 /* U4457: pointer focus on the requested group shares the row selection. */
 .shelf-group-control:focus { color: var(--text); }
+
+/* U4908: one Token-derived origin for every marked row and group chevron. */
+.shelf-row:is(.todo-row, .todo-inset, .pad-inset),
+.shelf-groups [data-part="branch-control"] {
+  padding-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--space-2) + var(--todo-depth, 0) * var(--tree-step));
+}

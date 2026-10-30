@@ -18,6 +18,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "so
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ReservedLine } from "../ink/ReservedLine";
+import { OpenButton } from "../ink/OpenButton";
 import { ShelfRow } from "../ink/ShelfRow";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
 import { createFailure } from "./failure";
@@ -395,6 +396,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             </button>
             </Show>
             <Show when={!editing()}>
+              <OpenButton name={pad.name} onOpen={() => open("pointer")} />
               <Sortable.Handle label={copy.moveItem(pad.name)} ref={props.parts.handleRef} onLift={() => props.onLift(pad)} />
             </Show>
             </div>
