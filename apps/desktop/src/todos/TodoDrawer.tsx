@@ -316,8 +316,8 @@ export const TodoDrawer = (props: {
               </>
             )}
           </Show>
-      </div>
       <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
+      </div>
 
     </>
   );
