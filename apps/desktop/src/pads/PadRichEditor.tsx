@@ -192,6 +192,7 @@ export default function PadRichEditor(props: {
       { keys: "⌘E", label: copy.inlineCode, command: toggleInlineCodeCommand },
     ].map(({ keys, label, command }) => ({
       action: CHORDS.find(action => action.keys === keys)!,
+      match: "key" as const,
       capture: focus => {
         commandState();
 
