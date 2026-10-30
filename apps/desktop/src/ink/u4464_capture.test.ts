@@ -125,7 +125,7 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await load("empty-project");
 
       if (await read(`!!document.querySelector('.window[data-shelf="open"]')`)) {
-        await browser("click", '[aria-label="Close work items"]');
+        await browser("click", '[aria-label="Close the Bench"]');
         await wait(`!document.querySelector('.window[data-shelf="open"]')`);
       }
 

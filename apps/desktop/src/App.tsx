@@ -448,7 +448,7 @@ export const App = (props: {
 
     if (!frame.open()) frame.toggle("key");
   });
-  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K S` does, on the Pads tab.
+  // U4457: a Rail Agent's Pads control opens the Shelf where `⌘K B` does, on the Pads tab.
   createEffect(() => {
     const connected = activeConnection();
 
@@ -471,7 +471,7 @@ export const App = (props: {
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "⌃⌘J", "J", "S", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -485,7 +485,7 @@ export const App = (props: {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
         const action = actions.find(action => action.value === id && action.available());
 
-        const item: MenuItem = { id, label: row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : row.keys === "S" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
+        const item: MenuItem = { id, label: row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action?.label ?? row.what, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: (available || row.keys === "⌘O") && action !== undefined };
 
         if (!("inRail" in row && row.inRail && row.keys === "R")) item.shortcut = "press" in row ? `⌘K ${row.keys}` : row.keys;
 
@@ -540,7 +540,7 @@ export const App = (props: {
   };
 
   onCleanup(shelfFocus.stop);
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "S")!, capture: () => {
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "B")!, capture: () => {
     const wasOpen = frame.open();
 
     return {
