@@ -190,10 +190,15 @@ describe("u2773 Rail persisted edits", () => {
     expect((await screen.findByRole("alert")).tabIndex).toBe(-1);
     const conflicted = screen.getByLabelText<HTMLInputElement>("Name", { selector: "input" });
     expect(conflicted.value).toBe(" exact e\u0301 😀 ");
+    fireEvent.keyDown(conflicted, { key: "Enter" });
+    // A refused save emits no acknowledgement; observe that no asynchronous rename starts.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(app.calls.filter(call => call.method === "rail.rename")).toEqual([]);
     tree = [];
     app.emit(event({ name: "rail.changed" }));
     await waitFor(() => expect(screen.queryByRole("textbox", { name: recoveryCopy.draftField("name") })).toBeNull());
     expect(screen.getByText(railCopy.railDraftUnavailable)).toBeDefined();
+    fireEvent.keyDown(screen.getByLabelText(recoveryCopy.unfinishedWork), { key: "Enter" });
     expect(screen.getAllByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).map((field) => field.value)).toContain(" exact e\u0301 😀 ");
     expect(draftStorage("/project").list().find((entry) => entry.value.text === " exact e\u0301 😀 ")).toMatchObject({
       destination: { object: node.id }, value: { text: " exact e\u0301 😀 ", base: "Original target" },
