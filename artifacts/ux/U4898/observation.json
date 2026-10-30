@@ -1,0 +1,129 @@
+{
+  "observer": "Isolated headless Chromium, fresh profiles, 1512x950, 288 px Rail; just capture U4898,U447,U4547a,U4547b",
+  "baseline": "74d36532dd98ab046d7d50434ef4137efaf925d6",
+  "paired_states": 40,
+  "regressions": [],
+  "rest": [
+    {
+      "capture": "dark-288-agents-10-rest.png",
+      "head": "c54bda88ae8c6a69003433d710b31ed76688286c",
+      "head_icon_centres": [
+        24,
+        24,
+        24
+      ],
+      "top_level_mark_centre": 24,
+      "text_insets": [
+        44
+      ],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "capture": "dark-288-tree-40-rest.png",
+      "head": "c54bda88ae8c6a69003433d710b31ed76688286c",
+      "head_icon_centres": [
+        24,
+        24,
+        24
+      ],
+      "top_level_mark_centre": 24,
+      "text_insets": [
+        44
+      ],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "capture": "light-288-agents-10-rest.png",
+      "head": "c54bda88ae8c6a69003433d710b31ed76688286c",
+      "head_icon_centres": [
+        24,
+        24,
+        24
+      ],
+      "top_level_mark_centre": 24,
+      "text_insets": [
+        44
+      ],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    },
+    {
+      "capture": "light-288-tree-40-rest.png",
+      "head": "c54bda88ae8c6a69003433d710b31ed76688286c",
+      "head_icon_centres": [
+        24,
+        24,
+        24
+      ],
+      "top_level_mark_centre": 24,
+      "text_insets": [
+        44
+      ],
+      "checks": {
+        "D1": "pass",
+        "D10": "pass",
+        "D11": "pass",
+        "D12": "pass",
+        "D13": "pass",
+        "D14": "pass",
+        "D16": "pass",
+        "D2": "pass",
+        "D3": "pass",
+        "D4": "pass",
+        "D5": "pass",
+        "D6": "pass",
+        "D7": "pass",
+        "D8": "pass",
+        "D9": "pass"
+      }
+    }
+  ],
+  "critic": "Independent design-critic approval remains required; no Mac-only observation."
+}
