@@ -799,7 +799,7 @@
   gap: var(--space-4);
 }
 
-/* Mode marks keep a trailing slot; quick actions overlay the name, as on Workstreams. */
+/* Mode identity stays beside the truncated name; actions reserve their trailing space. */
 .mode-name {
   display: flex;
   align-items: center;
@@ -809,7 +809,7 @@
 }
 
 .mode-name .name {
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .mode-mark {
@@ -819,11 +819,16 @@
 }
 
 .rail-row:has(.mode-mark) .row-icons {
-  inset-inline-end: calc(100% + var(--rail-gap) + var(--space-4) * 3);
+  position: static;
+  background: none;
+}
+
+.rail-row:has(.mode-mark) .row-icons::before {
+  content: none;
 }
 
 .rail-row:has(.mode-mark) .row-tail {
-  margin-left: var(--space-4);
+  margin-inline-start: var(--space-4);
 }
 
 .rail .section-head { padding-inline: var(--space-4); }
