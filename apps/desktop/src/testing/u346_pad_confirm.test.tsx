@@ -103,6 +103,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
   try {
     await browser("--profile", profile, "open", "about:blank");
     await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
     const app = createServedApp(real.base);
     const home = await app.rpc("rail.createWorkstream", { name: "Pad review", parent: null });
 
@@ -115,8 +116,10 @@ it("p2544e_reopen_saved_agent_work", async () => {
       { name: "agent-work", home: home.id, text: visualSource, revision: 1 },
     ]);
 
-    const openRealPad = async () => {
-      await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
+    let currentName = "agent-work";
+
+    const openRealPad = async (visit = true) => {
+      if (visit) await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
       await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
 
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
@@ -145,12 +148,48 @@ it("p2544e_reopen_saved_agent_work", async () => {
 
     expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2 });
     await browser("click", ".drawer .close");
+    await browser("wait", "--fn", "!document.querySelector('.pad-body')");
+    await browser("focus", ".pad-name");
+    await browser("press", "F2");
+    await browser("wait", ".row-name-editor input");
+    await browser("fill", ".row-name-editor input", "reviewed-work");
+    await browser("press", "Enter");
+    currentName = "reviewed-work";
+    await browser("wait", "--fn", "document.querySelector('.pad-name')?.textContent === 'reviewed-work'");
+    const destination = await app.rpc("rail.createWorkstream", { name: "Reviewed", parent: null });
+    await app.rpc("pad.move", { name: currentName, home: destination.id });
+    await browser("wait", "--fn", `document.querySelector('[data-pad="reviewed-work"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(destination.id)}`);
+    // The harness's served adapter refuses native close. Embed the same App on its
+    // existing seam: the fixture owns the real Daemon's shutdown/restart below.
+    await browser("open", `${real.base}/__daemon/open`);
+    await evaluate(`(async () => {
+      const source = await (await fetch('/src/App.tsx')).text();
+      const { render } = await import(source.split('"').find(path => path.includes('/deps/solid-js_web.js')));
+      const { App } = await import('/src/App.tsx');
+      const { createServedApp } = await import('/src/testing/realSeam.ts');
+      const { useBrowserStorage } = await import('/src/state/storage.ts');
+      const { runChecks } = await import('/src/testing/checks.ts');
+      await Promise.all(['/src/tokens.css', '/src/styles.css', '/src/scrollbar.css'].map(path => import(path)));
+      useBrowserStorage(localStorage);
+      const served = createServedApp(location.origin);
+      const app = { ...served, ask: async () => true, closeProject: async () => {}, chooseProjectPath: async () => ${JSON.stringify(real.dir)} };
+      document.body.replaceChildren();
+      const root = document.createElement('div');
+      document.body.append(root);
+      render(() => App({ app, initialShelfOpen: true, reducedMotion: () => true, clock: Date.now }), root);
+      window.__checks = () => runChecks();
+      return true;
+    })()`);
+    await browser("wait", `[data-path='${real.dir}']`);
+    await browser("click", `[data-path='${real.dir}'] button[aria-label^='Close ']`);
+    await browser("wait", "--fn", "!document.querySelector('.project-tab')");
     await real.restart();
-    await openRealPad();
+    await browser("find", "role", "button", "click", "--name", "Choose folder…", "--exact");
+    await openRealPad(false);
     await browser("wait", ".visual-mermaid svg");
     await browser("wait", ".visual-drawing .excalidraw");
     expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe(expected.split("\n")[0]);
-    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, home: home.id });
+    expect(await app.rpc("pad.read", { name: currentName })).toMatchObject({ text: expected, revision: 2, home: destination.id });
     const evidence = process.env.ROUNDUP_PAD_EVIDENCE;
 
     if (evidence) {
@@ -158,7 +197,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await browser("screenshot", join(evidence, "real-daemon-reopened.png"));
       await writeFile(join(evidence, "real-daemon-reopened.json"), JSON.stringify({
         agent: agent.id, workstream: home.id,
-        pad: await app.rpc("pad.read", { name: "agent-work" }),
+        pad: await app.rpc("pad.read", { name: currentName }),
         checks: await evaluate("window.__checks()"), native_claim: false,
       }));
     }
