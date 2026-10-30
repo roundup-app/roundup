@@ -3,6 +3,7 @@ import { createRoot, createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountNavigation } from "../testing/navigationFixture";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
+import { showEverythingInApp } from "../testing/showEverything";
 import { info } from "../testing/nodes";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
@@ -234,4 +235,29 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Help from %s ret
   fireEvent.keyDown(help, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(row));
   expect(daemon.calls.filter(call => call.method === "terminal.write")).toHaveLength(writes);
+});
+
+
+it.each([1, 9].flatMap(number => ["key", "menu"].map(source => ({ number, source }))))("u3787b_numbered_assignment_captures_one_todo_and_owner: $number from $source", async ({ number, source }) => {
+  const { daemon } = await mountNavigation(false, 0);
+  await showEverythingInApp();
+  const row = document.querySelector<HTMLButtonElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
+  row.focus();
+  const command = `action:chord:1–9:Digit${number}`;
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === command)?.shortcut).toBe(String(number)));
+  const captured = captureActions(row).find(action => action.value === command)!;
+  expect(projectMenu.items.filter(item => item.id.startsWith("action:chord:1–9:")).length).toBe(9);
+  expect(document.activeElement).toBe(row);
+
+  if (source === "key") fireEvent.keyDown(row, { key: String(number), code: `Digit${number}` });
+  else openProjectPage(command);
+
+  await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner: { kind: "agent", id: `a${number - 1}`, parent: "home" } }]));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  screen.getByLabelText("New Todo title").focus();
+  await waitFor(() => expect(projectMenu.items.some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false));
+  captured.run();
+  openProjectPage(command);
+  expect(daemon.calls.filter(call => call.method === "todo.assign")).toHaveLength(1);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
