@@ -9,9 +9,20 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
     }
     let migrations = migrations();
     let count = migrations.len();
+    let stored: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
     Migrations::new(migrations).to_latest(db).map_err(|error| {
+        let message = if matches!(
+            error,
+            rusqlite_migration::Error::MigrationDefinition(
+                rusqlite_migration::MigrationDefinitionError::DatabaseTooFarAhead
+            )
+        ) {
+            format!("database version {stored}; this build supports through {count}. This database came from a newer or branch build. Use the build that wrote it, or reset this disposable pre-release database after closing roundup.")
+        } else {
+            format!("migration through {count}: {error}")
+        };
         rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::other(format!(
-            "{}: migration through {count}: {error}",
+            "{}: {message}",
             path.display()
         ))))
     })
