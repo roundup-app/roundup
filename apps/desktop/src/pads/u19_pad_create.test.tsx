@@ -4,7 +4,7 @@ import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { Pads } from "./Pads";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { USER } from "../testing/nodes";
+import { agent, terminal, USER, workstream } from "../testing/nodes";
 
 afterEach(cleanup);
 
@@ -34,36 +34,25 @@ describe("u19 create", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Pad" }));
   });
 
-  it("u19_enter_calls_pad_create_with_the_name_and_leaves_a_fresh_focused_field", async () => {
+  it.each([null, AGENT.id, "maker", "terminal"])("u3735_create_uses_home_only_%s", async selected => {
     const { app, connected } = await openShelf([]);
-    connected.rail.select(AGENT.id);
-    app.handlers["pad.create"] = ({ name }) => padOf(name, USER);
+    app.handlers["rail.tree"] = () => [workstream(AGENT.id), agent("maker", "working", "editing", { parent: AGENT.id }), terminal("terminal", { parent: AGENT.id })];
+    await connected.rail.refresh();
+    connected.rail.select(selected);
 
     const field = await typeName("notes");
 
     await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.create")).toEqual([
       { method: "pad.create", params: { name: "notes", text: null } },
     ]));
-    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual([{ name: "notes", home: AGENT.id }]));
+    await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual(selected === null ? [] : [{ name: "notes", home: AGENT.id }]));
+    await waitFor(() => expect(document.querySelectorAll('[data-pad="notes"]')).toHaveLength(1));
     expect(field).toHaveProperty("value", "");
     expect(document.activeElement).toBe(field);
   });
 
-  it("u19_a_conflict_shows_the_message_and_keeps_the_field", async () => {
-    const { app } = await openShelf([]);
-    app.handlers["pad.create"] = () => {
-      throw new RpcError(CONFLICT, "pad notes exists");
-    };
-
-    await typeName("Notes");
-
-    expect((await screen.findByText(/exists/)).textContent).toBe(
-      "pad notes exists",
-    );
-    expect(screen.getByLabelText("Pad name")).toBeTruthy();
-  });
-
-  // Rule 10: u19_a_conflict_shows_the_message_and_keeps_the_field also proves RPC refusal retention; the duplicate invalid-params example is retired.
+  // U3735 refusal observer below replaces u19_a_conflict_shows_the_message_and_keeps_the_field.
+  // Rule 10: U3735 below proves refusal retention; the duplicate invalid-params example is retired.
   it("u19_clicking_plus_again_replaces_the_message_with_a_fresh_field", async () => {
     const { app } = await openShelf([]);
     app.handlers["pad.create"] = () => {
@@ -198,4 +187,22 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   expect(durable).toContainEqual(b);
   expect(durable.some(draft => draft.value.name === "edited A 🌱")).toBe(true);
   expect(app.calls).toEqual(calls);
+});
+
+// U3735 replaces the mixed owner/creation observer: Home, refusal and focus remain.
+it.each(["create", "move"])("u3735_failed_create_or_move_preserves_name_%s", async step => {
+  const { app, connected } = await openShelf([]);
+  connected.rail.select(AGENT.id);
+  app.handlers[step === "create" ? "pad.create" : "pad.move"] = () => { throw new RpcError(-32602, `${step} refused`); };
+
+  const field = await typeName("  exact name  ");
+  await screen.findByText(new RegExp(`${step} refused`));
+  expect(field.value).toBe("  exact name  ");
+  expect(document.activeElement).toBe(field);
+  expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1);
+
+  if (step === "move") {
+    await screen.findByRole("button", { name: "exact name" });
+    await connected.app.rpc("pad.list", null).then(pads => expect(pads).toMatchObject([{ name: "exact name", home: null }]));
+  }
 });

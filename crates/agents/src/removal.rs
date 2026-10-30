@@ -411,6 +411,45 @@ impl Agents {
     }
 }
 
+impl Agents {
+    /// Redo only the retained boundary; this path never stops or launches a program.
+    pub async fn redo_reversible_with<T: Send + 'static>(
+        &self,
+        actor: Actor,
+        p: contracts::agent::RedoParams,
+        apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
+    ) -> Result<(Removal, Option<T>), RpcError> {
+        let _lifecycle = self.shared.door_lifecycle.write().await;
+        let listed = self.shared.terminals.list().await;
+        let shared = Arc::clone(&self.shared);
+        tokio::task::spawn_blocking(move || {
+            let mut rail = shared.rail();
+            let source = rail.deletion(&actor,&p.source)?.ok_or_else(||RpcError::not_found("Rail removal"))?;
+            if rail.deletion(&actor,&p.operation)?.is_none() {
+                let id=&source.deletion.as_ref().expect("retained operation").id;
+                let tree=rail.tree()?;
+                let runs=shared.runs();
+                for node in tree.iter().filter(|n|n.id==*id || source.removed.iter().any(|i|i.kind==RemovalKind::Agent && i.id==n.id)) {
+                    if node.worktree.is_some() || runs.get(&node.id).is_some_and(|s|!matches!(s,Slot::Running(r) if r.ended && !r.closing)) || listed.iter().any(|t|t.running && (t.owner.as_deref()==Some(&node.id) || node.terminal_id.as_deref()==Some(&t.id))) {
+                        return Err(RpcError::conflict("Redo would stop a program or discard a Worktree; confirm removal instead."));
+                    }
+                }
+            }
+            let result=rail.redo_removal(&actor,&p,apply)?;
+            if result.1.is_some() {shared.bus.emit(actor,EventData::RailChanged);}
+            Ok(result)
+        }).await.map_err(RpcError::internal)?
+    }
+
+    /// Capture authoritative restored participant values before the owning transaction commits.
+    pub fn acknowledge_restoration_in(
+        db: &rusqlite::Connection,
+        operation: &str,
+    ) -> Result<(), RpcError> {
+        rail::Rail::acknowledge_restoration_in(db, operation)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

@@ -366,3 +366,8 @@ U3787b triage Assign/Move/Complete/Comment menu actions invoke their captured To
 holder immediately, exactly as the corresponding key does. Menu projection adds
 no transition or focus move; existing picker, completion and comment behavior
 keeps its motion contract. No Check or Token changes; D2/D5/D6 remain unchanged.
+
+U3787b Todo nesting menu actions invoke the row's captured nesting plan immediately,
+through the same holder as Tab/Shift+Tab. Menu projection changes no focus; the
+existing M1 nesting cancellation and failure surface remain. No motion, geometry
+or Token changes; D2/D5/D6 remain unchanged.
