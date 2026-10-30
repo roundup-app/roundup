@@ -309,6 +309,12 @@ async fn u3787a_failed_delete_rolls_back_retention_with_the_entire_bulk() {
     for title in ["first", "second"] {
         made(&h, json!({"title":title})).await;
     }
+    made(&h, json!({"title":"dependent","blockers":[1,2]})).await;
+    for (id, home) in [(1, "selected"), (2, "selected"), (3, "elsewhere")] {
+        h.call("todo.move", json!({"id":id,"home":home}))
+            .await
+            .unwrap();
+    }
     let before = h.call("todo.list", Value::Null).await.unwrap();
     let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
     db.execute_batch("CREATE TRIGGER refuse_delete BEFORE DELETE ON todos WHEN OLD.id=2 BEGIN SELECT RAISE(ABORT,'refused'); END;").unwrap();
@@ -358,7 +364,12 @@ async fn u3787a_failed_delete_rolls_back_retention_with_the_entire_bulk() {
     drop(h);
     let h = Harness::new(dir.path());
     h.call("todo.redo", redo).await.unwrap();
-    assert_eq!(h.call("todo.list", Value::Null).await.unwrap(), json!([]));
+    let rows = h.call("todo.list", Value::Null).await.unwrap();
+    assert_eq!(rows.as_array().unwrap().len(), 1);
+    assert_eq!(rows[0]["id"], 3);
+    assert_eq!(rows[0]["home"], "elsewhere");
+    assert_eq!(rows[0]["blockers"], json!([]));
+    assert_eq!(rows[0]["blocked"], false);
 }
 
 #[tokio::test]
