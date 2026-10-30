@@ -20,7 +20,7 @@ it("u2540c_one_message_contains_all_original_context", async () => {
 
  return message(1, { to: params.to, body: params.body }); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   expect(app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a", kind: "note", replyTo: null });
   expect(accepted).toMatchObject({ notes: [
@@ -31,7 +31,7 @@ it("u2540c_one_message_contains_all_original_context", async () => {
 
 it("u2540c_empty_batch_sends_nothing", async () => {
   const { app } = await openDiff();
-  expect(screen.queryByRole("button", { name: /Send notes to/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Send notes:/ })).toBeNull();
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
 
@@ -40,7 +40,7 @@ it("u2540c_acceptance_clears_only_the_submitted_batch", async () => {
   await saveNote("submitted");
   let resolve!: (value: Message) => void;
   app.handlers["message.send"] = () => new Promise(done => { resolve = done; });
-  const send = screen.getByRole("button", { name: /Send notes to/ });
+  const send = screen.getByRole("button", { name: /Send notes:/ });
   fireEvent.click(send);
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   fireEvent.click(send);
@@ -53,22 +53,23 @@ it("u2540c_acceptance_clears_only_the_submitted_batch", async () => {
 
 it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {
   const { app } = await openDiff();
-  await saveNote("keep");
+  const noteText = "keep";
+  await saveNote(noteText);
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "receiver ended"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByText("receiver ended");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("keep");
+  expect(notesFor(app, "/p").list("a").map(note => note.text)).toEqual([noteText]);
   let body = "";
   app.handlers["message.send"] = params => { body = params.body; throw new Error("disconnected"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByRole("button", { name: "Check Message history" });
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(2);
   app.handlers["message.list"] = () => [message(9, { from: { kind: "user", id: "you", parent: null }, to: "a", body, status: "pending" })];
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
-  await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(2);
 });
 
@@ -80,7 +81,7 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   let reject!: (error: Error) => void;
   app.handlers["message.send"] = () => new Promise((done, fail) => { resolve = done; reject = fail; });
   const sending = vi.spyOn(notesFor(app, "/p"), "send");
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  revision B 🐝\n newer  " } });
@@ -89,7 +90,7 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
 
   if (outcome === "acknowledged") resolve(message(1, { to: "a" }));
   else reject(outcome === "failed" ? new RpcError(-32003, "refused A") : new Error("lost reply A"));
-  await waitFor(() => expect(screen.getByRole("button", { name: /Send notes to/ }).hasAttribute("disabled")).toBe(outcome === "unknown"));
+  await waitFor(() => expect(screen.getByRole("button", { name: /Send notes:/ }).hasAttribute("disabled")).toBe(outcome === "unknown"));
 
   if (outcome === "failed") await screen.findByText("refused A");
 
@@ -125,14 +126,14 @@ it("u2773b_changes_pending_reload_reconciles_without_resending", async () => {
 
  return new Promise(done => { acknowledge = done; }); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   view.unmount();
   const reopened = await openDiff();
   reopened.app.handlers["message.list"] = () => [message(42, { body, to: "a", from: { kind: "user", id: "you", parent: null } })];
-  expect(screen.getByRole("button", { name: /Send notes to/ }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: /Send notes:/ }).hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
-  await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("list")).toBeNull());
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   acknowledge(message(42, { body, to: "a" }));
 });
@@ -163,7 +164,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   const original = app.of(path("api"));
   let refuse!: (error: Error) => void;
   original.handlers["message.send"] = () => new Promise((_done, reject) => { refuse = reject; });
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: newer } });
@@ -209,7 +210,7 @@ it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
   app.handlers["message.send"] = params => { body = params.body; throw new Error("lost accepted reply"); };
 
   const sending = vi.spyOn(notesFor(app, "/p"), "send");
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByRole("button", { name: "Check Message history" });
   await sending.mock.results[0]!.value;
   view.unmount();
@@ -220,7 +221,7 @@ it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
   // reconcile persists its settlement before returning; wait for that emitted boundary, not the request count.
   await waitFor(() => expect(retained.mock.calls.some(([key]) => key === "roundup:drafts:/p")).toBe(true));
-  expect(screen.getByRole("button", { name: /Send notes to/ }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: /Send notes:/ }).hasAttribute("disabled")).toBe(true);
   expect(notesFor(reopened.app, "/p").list("a").map(note => note.text)).toEqual(["exact possibly accepted note"]);
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
@@ -236,7 +237,7 @@ it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
   await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   let refuse!: (error: Error) => void;
   first.app.handlers["message.send"] = () => new Promise((_done, reject) => { refuse = reject; });
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(first.app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   first.view.unmount();
   const next = await openDiff("/p", first.connected.drafts);
@@ -262,7 +263,7 @@ it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit
   await saveNote(exact);
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "recipient refused; edit or retry notes"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByText("recipient refused; edit or retry notes");
   await saveNote("  unrelated 🐝\n exact  ");
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -296,7 +297,7 @@ it.each(["remove", "save", "dismiss"])("p3557c_failure_lifetime_note_batch_load:
   await saveNote("  original note e\u0301\n🐝  ");
   app.handlers["message.list"] = () => { throw new RpcError(-32003, "history refused; retry loading history"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByText("history refused; retry loading history");
 
   if (action === "remove") fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
@@ -314,7 +315,7 @@ it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_reten
   await saveNote("  original note e\u0301\n🐝  ");
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "recipient refused; retry"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByText("recipient refused; retry");
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk refused"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
@@ -341,13 +342,13 @@ it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", 
   await saveNote("  older submission 🐝  ");
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "old refusal; retry"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByText("old refusal; retry");
   fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
   await saveNote("  current submission e\u0301\n🐝  ");
   app.handlers["message.send"] = () => { throw new RpcError(-32003, "current refusal; retry"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByText("current refusal; retry");
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
