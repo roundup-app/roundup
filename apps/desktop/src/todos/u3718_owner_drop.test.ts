@@ -59,9 +59,7 @@ it.each(["own-group", "outside"])("u3718_no_owner_assignment_target_for_%s", asy
   const { connected, todos } = await mountTodos([todo(1)]);
   const group = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"]')!;
   vi.spyOn(group, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 100, 100));
-  const preview = vi.fn();
-  const targets = todoDropTargets(connected, todos, { preview });
+  const targets = todoDropTargets(connected, todos);
 
   expect(targets.owner(1, place === "own-group" ? 50 : 200, 50)).toBeNull();
-  expect(preview).not.toHaveBeenCalled();
 });

@@ -230,7 +230,6 @@
 {"file":"apps/desktop/src/pads/u36_pad_conflict.test.tsx","test":"u3021c_open_restores_exact_revision_without_rpc_pads_%s","identity":"a92f0c4e777e8f2ddf7d21d7aada5b3c18be369f182ec6473ec7b87471a11e95"}
 {"file":"apps/desktop/src/pads/u3729_head.test.tsx","test":"u3729_the_pad_head_has_no_glyph_and_a_status_after_the_name","identity":"826e255e6875cd7631e1ff3b5c4e6ad477db3eda1d8f0e54d5d4ace06e1f3261"}
 {"file":"apps/desktop/src/pads/u3729_head.test.tsx","test":"u3729_the_pad_head_has_no_glyph_and_a_status_after_the_name","identity":"8eb6ed37d65f7173bf0aff0a60cb7fafd8ac2e9c57bfdf4bba781b2bb900cbe0"}
-{"file":"apps/desktop/src/pads/u3729_head.test.tsx","test":"u3729_make_yours_still_takes_the_pad","identity":"6ebb2763d45ba3ef59446cc0c50233707f9484400b43979da0eb042b04f4fe4b"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_no_pads_yet_disappears_once_a_pad_exists","identity":"6ca2afc95e7cdac0940c18e17982a6034db16737d2327cb41731894f124f63c1"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands","identity":"588c2da4dd780b5c38bb04f64f1b539422546f3653e345a44d407fa22e5f60d2"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_stale_first_pad_list_reply_never_sets_no_pads_yet_before_the_newest_one_lands","identity":"545612ef523c6056aac9eab94612de9cdc6300f269a22a6d877fe0e778f4c214"}
@@ -241,11 +240,6 @@
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_no_pads_yet_returns_once_the_last_pad_is_removed","identity":"dda27a21a3d26861a2433cd1b45cdafa6176b92cf3b5c4849f101cd649d4701f"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_failed_initial_pad_list_shows_its_message_not_no_pads_yet","identity":"acf17fb984fe089f471373e6f21a1b773350a6c1693c5bc3b7d93a8153bbe505"}
 {"file":"apps/desktop/src/pads/u38_empty_pads.test.tsx","test":"u38 empty Pads > u38_a_failed_initial_pad_list_shows_its_message_not_no_pads_yet","identity":"330de8c5359010b9005e9285d6e87ac6dd626080d54e72a5820dc4932f5c6d34"}
-{"file":"apps/desktop/src/pads/u432_open_owner.test.tsx","test":"u432 open owner > u432_agent_pad_has_owner_name_in_tooltip","identity":"ad08b90065443cff8e137ef16efc34f182aa7df7044a74f534fb020684fc0ab3"}
-{"file":"apps/desktop/src/pads/u432_open_owner.test.tsx","test":"u432 open owner > u432_user_pad_has_no_open_owner","identity":"9ad8133f1fd838a23187a43e61ed9f902be3256c895de1268edeb356e89f74b1"}
-{"file":"apps/desktop/src/pads/u432_open_owner.test.tsx","test":"u432 open owner > u432_removed_owner_has_no_button","identity":"abbcd727b0d9c8588119fd4a16691aff19a20bc91f8884d0fb438769bacbb48e"}
-{"file":"apps/desktop/src/pads/u432_open_owner.test.tsx","test":"u432 open owner > u432_drawer_stays_open","identity":"ed576710b7eec128fd65f07c9e39fe18c12a76c4a0bf79c519adf6f9ee7250a7"}
-{"file":"apps/desktop/src/pads/u432_open_owner.test.tsx","test":"u432 open owner > u432_open_owner_failure_shows_its_message","identity":"c21af2104f2fb87a5a9c48f07f57f6c43b1fe4ce5e34dcd2717b77f92f1afcfd"}
 {"file":"apps/desktop/src/pads/u433_no_scribe.test.tsx","test":"u433 no Scribe > u433_no_ask_field_no_exchange_no_read_line","identity":"9febb10d69a4e2f0fdcdb90495bef5cdf17fd95b9cc416ea1147cf160bb49842"}
 {"file":"apps/desktop/src/pads/u433_no_scribe.test.tsx","test":"u433 no Scribe > u433_no_ask_field_no_exchange_no_read_line","identity":"c850ef92266c643991784f043adbed407cb16e2bc087c586635c573e0cf677dd"}
 {"file":"apps/desktop/src/pads/u67_editor_cleanup.test.tsx","test":"u67_a_failed_editor_reports_creation_failure_without_destroying","identity":"32b8832fc70ff2afe63237a28a86bd65821961d629a14aa6d76ed0df2b92718c"}
@@ -259,7 +253,6 @@
 {"file":"apps/desktop/src/rail/menu/u68_resume.test.tsx","test":"u68 resume from the Rail menu > u68_unknown_outcome_with_a_failed_refresh_says_the_outcome_is_unknown","identity":"28a73542307b171e9ba2104ded05319f43f1de6fd2718b909c71992fe7bada63"}
 {"file":"apps/desktop/src/rail/o11_door_writes_the_order.test.tsx","test":"o11 the Door writes the order for a prompt the user types > o11_a_failed_send_keeps_the_text","identity":"0e5b9b2fd4265da926bf06978ce750d97d4fb400d439db34a6d3d39710bb5553"}
 {"file":"apps/desktop/src/rail/p3557c_failure_lifetime.test.tsx","test":"p3557c an item failure in the Rail goes with its item > p3557c_failure_lifetime_rail_unrelated_deletion_keeps_it","identity":"8e3bc1eacdee0d168539a522c74de12a8f7351c06a5eb06ebfb1c5bc7f4d89f6"}
-{"file":"apps/desktop/src/rail/pads/u178_this_one_lists_agent_todos.test.tsx","test":"u178 this one lists every open Todo of the Workstream > u178_a_pads_only_control_is_named_pads","identity":"a43ebc2caf78f82980a366b3105eef4dfde3feed4e69a8701c844de51ac75423"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_write_failure_shows_one_ink_line_and_keeps_working","identity":"07c2cf293a23e9e9ea0598ca5b54e9f8de0700f8abebf4adbd79122a0c2b6330"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_done_lines_are_not_restored","identity":"f1a38441806c2bd1658536c1ed19086cebe8c34f19fa7e6f04e510787e382f9d"}
 {"file":"apps/desktop/src/rail/persist/u100_persist.test.tsx","test":"u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again","identity":"5ebfadf2b1cb46766e806bb5fa5035d5903b618ea6f8bfa5a9e6468c9754d3d9"}

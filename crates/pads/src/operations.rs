@@ -3,9 +3,9 @@ use std::sync::Mutex;
 
 use contracts::pad::{
     AppendParams, AppendSectionParams, CreateParams, ExportParams, MoveParams, Pad, PadName,
-    ReorderParams, SetOwnerParams, SetStorageParams, WriteParams,
+    ReorderParams, SetStorageParams, WriteParams,
 };
-use contracts::{Actor, ActorKind, EventData, Verb};
+use contracts::{ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, OpenError, RpcError, reply};
 use serde_json::Value;
 
@@ -32,7 +32,6 @@ impl Pads {
         let pad = Pad {
             incarnation: String::new(), // Assigned by the existing source-creation trigger.
             name: p.name,
-            owner: ctx.actor.clone(),
             text: p.text.unwrap_or_default(),
             updated_at: now_ms(),
             revision: 1,
@@ -79,7 +78,6 @@ impl Pads {
         let store = self.store()?;
         let pad = store.atomically(|| {
             let pad = get(&store, &p.name)?;
-            require_owner_or_user(&ctx.actor, &pad, "rewrite")?;
             if let Some(expected) = &p.expected_incarnation
                 && expected != &pad.incarnation
             {
@@ -175,9 +173,9 @@ impl Pads {
             order.retain(|entry| entry.incarnation != pad.incarnation);
             let at = if let Some(before) = &p.before {
                 let target = get(&store, before)?;
-                if target.owner != pad.owner || target.incarnation == pad.incarnation {
+                if target.home != pad.home || target.incarnation == pad.incarnation {
                     return Err(RpcError::conflict(
-                        "reorder needs another pad of the same owner",
+                        "reorder needs another pad of the same Home",
                     ));
                 }
                 order
@@ -206,24 +204,8 @@ impl Pads {
         reply(&pad)
     }
 
-    pub(super) fn set_owner(&self, ctx: &Ctx, p: SetOwnerParams) -> Result<Value, RpcError> {
-        let owner = p
-            .owner
-            .into_actor()
-            .map_err(|e| RpcError::new(rpc::code::INVALID_PARAMS, e))?;
-        let store = self.store()?;
-        let pad = get(&store, &p.name)?;
-        require_owner_or_user(&ctx.actor, &pad, "hand over")?;
-        found(store.set_owner(&pad.name, &owner, now_ms()), &pad.name)?;
-        wrote(ctx, &pad.name)?;
-        reply(&Pad { owner, ..pad })
-    }
-
     /// The Daemon has checked `home` against the Rail (P12). A move to the Home it has changes nothing.
     pub(super) fn move_to(&self, ctx: &Ctx, p: MoveParams) -> Result<Value, RpcError> {
-        if ctx.actor.kind == ActorKind::Agent {
-            return Err(RpcError::forbidden("an Agent may not move a pad"));
-        }
         let store = self.store()?;
         let pad = get(&store, &p.name)?;
         if pad.home == p.home {
@@ -300,20 +282,6 @@ impl Pads {
             .lock()
             .map_err(|_| RpcError::internal("pad store poisoned"))
     }
-}
-
-pub(super) fn require_owner_or_user(
-    actor: &Actor,
-    pad: &Pad,
-    action: &str,
-) -> Result<(), RpcError> {
-    if actor.kind == ActorKind::User || *actor == Actor::daemon() || *actor == pad.owner {
-        return Ok(());
-    }
-    Err(RpcError::forbidden(format!(
-        "only the user or {} may {action} pad {}",
-        pad.owner.id, pad.name
-    )))
 }
 
 /// Validates the name, then looks the Pad up.
