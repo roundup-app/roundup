@@ -15,10 +15,10 @@ it("u467_bubbles_keep_their_owners_over_the_door_terminal", async () => {
   const { connected } = await mountBubbles("w");
 
   await waitFor(() => expect(bubbleNames()).toEqual(["zsh"]));
+  expect(screen.getByRole("group", { name: TERMINALS[1]!.title! })).toBeTruthy();
   connected.rail.select("a");
   await waitFor(() => expect(bubbleNames()).toEqual(["cargo test", "zsh"]));
   expect(screens()).toEqual(["t-a"]);
-  expect(screen.getByRole("group", { name: TERMINALS[0]!.title! })).toBeTruthy();
 
   connected.rail.select("other");
   await waitFor(() => expect(bubbleNames()).toEqual([]));
