@@ -79,7 +79,8 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   await capture("dense-folded");
 
   if (await evaluate("!!document.querySelector('.todo-older')")) {
-    await browser("click", ".todo-older");
+    await browser("focus", ".todo-older");
+    await browser("press", "Space");
     await browser("wait", '.todo-older[aria-expanded="true"]');
   }
 
@@ -112,7 +113,8 @@ it.each([[1280, 820], [1512, 950]])("u4698e_activity_rendered_%sx%s", { retry: 0
   }
 
   if (await evaluate("!!document.querySelector('.todo-older')")) {
-    await browser("click", ".todo-older");
+    await browser("focus", ".todo-older");
+    await browser("press", "Space");
     await browser("wait", '.todo-older[aria-expanded="true"]');
   }
 
