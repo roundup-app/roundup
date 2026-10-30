@@ -328,4 +328,8 @@ export const TodoDrawer = (props: {
 todoEditor.set(TodoDrawer);
 
 /** The Todo's Drawer with the shared list the Shelf reads (U15); it lives while the Drawer does. */
-export const TodoHost = (props: { id: number }) => <TodoDrawer id={props.id} todos={useTodoList()} />;
+export const TodoHost = (props: { id: number }) => {
+  const todos = useTodoList();
+
+  return <TodoDrawer id={props.id} todos={todos} />;
+};

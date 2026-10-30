@@ -43,7 +43,7 @@ export const TodoHeader = (props: {
     catch (error) { if (!(error instanceof Error)) throw error; props.fail(error.message); }
   };
 
-  const closePicker = () => { setPicking(null); trigger?.focus(); };
+  const closePicker = () => { const anchor = picking()?.anchor; setPicking(null); anchor?.focus(); };
 
   const closeHome = () => { setMoving(null); trigger?.focus(); };
 
