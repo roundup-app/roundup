@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { batch } from "solid-js";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { saveAppSettings } from "../settings/preferences";
@@ -8,7 +9,7 @@ import { agent, info } from "../testing/nodes";
 import { openProjectPage, projectMenu } from "../testing/menuProbe";
 
 // Connected App seam: acknowledged calls, selection, focus and disposal. Appearance belongs to U26.
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { batch(cleanup); localStorage.clear(); });
 
 const key = (code: string, options: KeyboardEventInit = {}) => {
   const event = new KeyboardEvent("keydown", { code, key: code === "Enter" ? "Enter" : code.replace("Key", "").toLowerCase(), bubbles: true, cancelable: true, ...options });
