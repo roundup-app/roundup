@@ -59,16 +59,17 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
           };
           return true;
         })()`);
-        await browser("focus", '[data-todo="1"] .todo-row-button');
-        await browser("press", "Enter");
+        await browser("click", '[data-todo="1"] [aria-label="Open todo 1"]');
         await browser("wait", ".todo-comment-field");
         await browser("wait", ".todo-comments [role=alert]");
         await settle();
         await browser("fill", ".todo-comment-field", "Unsent release notes 日本語\n".repeat(10));
+        await settle();
 
         if (expanded && await evaluate("!!document.querySelector('.todo-older')")) {
           await browser("click", ".todo-older");
           await browser("wait", '.todo-older[aria-expanded="true"]');
+          await settle();
         }
 
         if (await evaluate("!!document.querySelector('.todo-status-summary')")) {
