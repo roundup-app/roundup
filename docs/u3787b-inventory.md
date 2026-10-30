@@ -1,5 +1,13 @@
 # U3787b command menu integration
 
+Current status: the scoped App, Todo, Pad and Project-tab commands below use the
+shared registry/menu route; #5111 supplies responder Find/Close, now exercised by
+macOS CI. Remaining: complete library/native inventory (including rich-editor
+formatting), native Edit availability and final displayed-key/combined-dispatch
+observations. #4308 and #3843 stay open. Earlier sections retain evidence at its
+original implementation SHA; later continuations supersede their remaining-work
+lists.
+
 The existing `registerKeys` action registration and `captureActions` own target
 capture and availability. `App.tsx` projects the selected Project menu and handles
 `open-project-page`; `menu::select_project_menu` and `menu::app_chosen` own Tauri
@@ -23,7 +31,7 @@ This is shared integration, not Z3788a implementation or native responder proof.
 The Tauri event observer extends an existing parameterized forwarding proof rather
 than adding a duplicate. No existing behavioral test is removed or retired.
 
-## Remaining acceptance on #4308
+## Remaining acceptance at the initial slice
 
 The fixed Project task subset is not the complete real-registration inventory.
 Remaining production coverage includes scoped Shelf/list/triage commands, Rail
@@ -482,3 +490,46 @@ are recorded independently; Linux/Chromium cannot establish this native renderin
 The focus-changing native probe shares nextest’s existing `native-app` group with
 the desktop AppKit observers. `.config/nextest.toml` changes scheduling only;
 no observer is skipped and no assertion or timeout is weakened.
+
+## Focused Project-tab Rename
+
+Project tabs' existing F2 binding now registers the catalogue Rename action.
+The shared Project projection exposes it only while the tab itself holds focus;
+editing, another focus target, modal ownership or removal refuses the capture.
+Menu/key reuse the same tab's existing rename editor and draft authority, with
+no Project switch, new rename behavior or context-menu change.
+
+`u3787b_menu_and_key_share_one_action: Project Rename` drives both entry paths
+through the production App and registry/menu event seam: one exact Project rename
+with its captured base, no write on opening, one editor, and retained/menu refusal
+when editing or after focus leaves. `u3787b_menu_covers_bound_commands` also visits
+Project-tab focus. Existing `u3787c_escape_restores_the_name_project_*` and the
+header U2773c observers retain cancellation and draft/conflict recovery. No test,
+behavioral assertion or timeout is removed or changed.
+
+Native prerequisite evidence has advanced: main check
+[41078101697](https://github.com/roundup-app/roundup/actions/runs/41078101697),
+SHA `b059d3caff608510c6af775b888ef1b449e1d17d`, passed `mac` and `mac-clippy`.
+Its `native::u3787b_native_responder_find_and_close_follow_availability` passed
+in 1.803 seconds, exercising actual AppKit objects and responder dispatch.
+This proves that native observer's behavior, beyond compilation; it does not
+supply displayed-key/alignment captures or integrated AppKit/webview dispatch
+in the complete App. Earlier #4278/#4965 records retain their scope and SHA.
+
+Remaining #4308 work includes the complete library/native inventory, the
+library-owned rich editor's formatting commands and current native Edit command
+availability, followed by final displayed-key and combined-dispatch observations.
+The installed Milkdown commonmark preset supplies named formatting bindings such
+as Mod-b and Mod-i; Project-tab coverage does not claim those are projected.
+Keep ordinary text/list navigation control-owned. #4308 and #3843 remain open.
+
+Rendered comparison: `artifacts/ux/U3787b/project-rename/{base,head}/`, base
+`b059d3caff608510c6af775b888ef1b449e1d17d` (production sources match the
+`72d06639d848f3beb60cc812cd46d8c1155910b3` branch base), implementation
+`5af082bd8`. Dark 1512×950 tree-40/tabs-8/conflict resting screens and the dense
+retained-name rejection pass D1–D14. The existing Rename input has the same D6
+missing-hover failure and consequent D10 failure on base and head; delta passes,
+with D2/D5 and baseline D6 preserved. The isolated keyboard recording shows F2
+opening the existing editor and Escape returning to its tab. PNGs/video remain
+uncommitted. `just capture U3787b` exits 1 because its frozen capture table rejects
+that id; explicit isolated captures supply Chromium evidence only.
