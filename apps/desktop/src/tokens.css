@@ -93,7 +93,7 @@
   --shelf-width: 320px;
   --centre-min-width: 388px;
   /* U131: title geometry, including empty leading slots; not a space step. */
-  --row-text-inset: 32px;
+  --row-text-inset: 44px;
   --row-inset: var(--space-1);
   --flat-tab-edge: 1px;
   /* U130: typed zero lengths remain valid in max(), gradients and fallbacks. */
