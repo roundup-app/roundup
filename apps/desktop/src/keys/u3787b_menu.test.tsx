@@ -181,9 +181,12 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
 });
 
 it.each(["terminal", "rail row", "Project tab", "Shelf row", "Pad row", "Pad editor", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
-  const { connected, daemon } = await mountNavigation(false, 0);
-  connected().rail.select("a1");
-  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  const { connected, daemon } = await mountNavigation(place === "Pad editor", 0);
+
+  if (place !== "Pad editor") {
+    connected().rail.select("a1");
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  }
 
   if (place === "rail row") document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
 
@@ -215,7 +218,7 @@ it.each(["terminal", "rail row", "Project tab", "Shelf row", "Pad row", "Pad edi
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
   const shown = new Map(menuCommands(projectMenu.items).filter(item => item.enabled && item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
 
-  expect(available.length).toBeGreaterThan(10);
+  expect(available.length).toBeGreaterThan(place === "Pad editor" ? 2 : 10);
 
   for (const action of available) {
     expect(shown.has(action.value), action.value).toBe(true);

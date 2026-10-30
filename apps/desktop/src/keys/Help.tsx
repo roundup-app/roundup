@@ -68,7 +68,7 @@ export const Help = (props: { projectOpen?: boolean; shelfOpen?: boolean }) => {
       }}>
         <For each={sections(props.projectOpen ?? true, props.shelfOpen ?? false)}>{section => <section class="help-section">
           <h2>{section.title}</h2>
-          <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{labels().get(chord.keys) ?? chord.what}</KeyHint></p>}</For>
+          <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{section.title === copy.helpScope.editor ? chord.what : labels().get(chord.keys) ?? chord.what}</KeyHint></p>}</For>
         </section>}</For>
         <Show when={props.projectOpen ?? true}><section class="help-shelf" aria-label={copy.shelfKeys}>
         <h2>{copy.shelfKeys}</h2>
