@@ -309,5 +309,5 @@
 /* U4908: one Token-derived origin for every marked row and group chevron. */
 .shelf-row:is(.todo-row, .todo-inset, .pad-inset),
 .shelf-groups [data-part="branch-control"] {
-  padding-inline-start: calc(var(--row-text-inset) - var(--space-4) - var(--space-2) + var(--todo-depth, 0) * var(--tree-step));
+  padding-inline-start: calc(var(--row-text-inset) - var(--space-4) * 2 - var(--space-2) + var(--todo-depth, 0) * var(--tree-step));
 }
