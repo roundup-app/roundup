@@ -554,6 +554,175 @@ mod tests {
         ));
     }
 
+    #[tokio::test]
+    async fn p12_move_checks_the_rail() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let r1 = call(&daemon, "rail.createWorkstream", json!({"name":"r1"}))
+            .await
+            .unwrap()["id"]
+            .clone();
+        let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+        db.execute(
+            "INSERT INTO nodes(kind,name,ord) SELECT 'agent','agent',COUNT(*) FROM nodes",
+            [],
+        )
+        .unwrap();
+        let agent = db.last_insert_rowid().to_string();
+        call(&daemon, "pad.create", json!({"name":"notes"}))
+            .await
+            .unwrap();
+        let before = call(&daemon, "pad.list", Value::Null).await.unwrap();
+        let touched = daemon.touches.history("pad:notes").unwrap();
+        let mut events = daemon.bus.subscribe();
+        for (name, home, code) in [
+            ("notes", json!("nope"), rpc::code::NOT_FOUND),
+            ("notes", json!(agent), rpc::code::INVALID_PARAMS),
+        ] {
+            let err = call(&daemon, "pad.move", json!({"name":name,"home":home}))
+                .await
+                .unwrap_err();
+            assert_eq!(err.code, code);
+            assert_eq!(
+                call(&daemon, "pad.list", Value::Null).await.unwrap(),
+                before
+            );
+            assert_eq!(daemon.touches.history("pad:notes").unwrap(), touched);
+            assert!(matches!(
+                events.try_recv(),
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+            ));
+        }
+        let (send, _) = mpsc::unbounded_channel();
+        let mut conn = Conn {
+            actor: Actor {
+                kind: contracts::ActorKind::Agent,
+                id: agent,
+                parent: None,
+            },
+            peer: None,
+            events: send,
+            output: None,
+        };
+        daemon
+            .route(&mut conn, "pad.move", json!({"name":"notes","home":r1}))
+            .await
+            .unwrap();
+        assert_eq!(
+            call(&daemon, "pad.read", json!({"name":"notes"}))
+                .await
+                .unwrap()["home"],
+            r1
+        );
+        assert!(matches!(
+            events.try_recv().unwrap().data,
+            contracts::EventData::PadChanged(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn p12_a_failed_removal_keeps_pads_and_emits_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let r1 = call(&daemon, "rail.createWorkstream", json!({"name":"r1"}))
+            .await
+            .unwrap()["id"]
+            .clone();
+        call(&daemon, "pad.create", json!({"name":"a"}))
+            .await
+            .unwrap();
+        call(&daemon, "pad.move", json!({"name":"a","home":r1}))
+            .await
+            .unwrap();
+        let before = call(&daemon, "pad.list", Value::Null).await.unwrap();
+        let mut events = daemon.bus.subscribe();
+        let err = call(&daemon, "rail.remove", json!({"id":"nope"}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::NOT_FOUND);
+        assert_eq!(
+            call(&daemon, "pad.list", Value::Null).await.unwrap(),
+            before
+        );
+        assert!(matches!(
+            events.try_recv(),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+        ));
+    }
+
+    #[tokio::test]
+    async fn p12_removal_deletes_only_home_pads_in_name_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let r1 = call(&daemon, "rail.createWorkstream", json!({"name":"r1"}))
+            .await
+            .unwrap()["id"]
+            .clone();
+        let r2 = call(&daemon, "rail.createWorkstream", json!({"name":"r2"}))
+            .await
+            .unwrap()["id"]
+            .clone();
+        let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+        db.execute(
+            "INSERT INTO nodes(kind,name,parent,ord) SELECT 'agent','kept',?1,COUNT(*) FROM nodes",
+            [r1.as_str().unwrap()],
+        )
+        .unwrap();
+        let agent = db.last_insert_rowid().to_string();
+        daemon.agents.set_status_for_test(
+            &agent,
+            contracts::Status {
+                kind: contracts::Kind::Idle,
+                label: String::new(),
+                since: 0,
+                finished: "0".into(),
+            },
+        );
+        for (name, home) in [("c", &r1), ("a", &r1), ("b", &r1), ("other", &r2)] {
+            call(&daemon, "pad.create", json!({"name":name}))
+                .await
+                .unwrap();
+            call(&daemon, "pad.move", json!({"name":name,"home":home}))
+                .await
+                .unwrap();
+        }
+        let kept = call(&daemon, "pad.read", json!({"name":"other"}))
+            .await
+            .unwrap();
+        let mut events = daemon.bus.subscribe();
+        call(&daemon, "rail.remove", json!({"id":r1}))
+            .await
+            .unwrap();
+        let tree = call(&daemon, "rail.tree", Value::Null).await.unwrap();
+        assert!(!tree.as_array().unwrap().iter().any(|node| node["id"] == r1));
+        assert!(
+            tree.as_array()
+                .unwrap()
+                .iter()
+                .any(|node| node["id"] == agent)
+        );
+        let mut names = Vec::new();
+        while let Ok(event) = events.try_recv() {
+            if let contracts::EventData::PadDeleted(pad) = event.data {
+                names.push(pad.name);
+            }
+        }
+        assert_eq!(names, ["a", "b", "c"]);
+        for name in &names {
+            assert_eq!(
+                call(&daemon, "pad.read", json!({"name":name}))
+                    .await
+                    .unwrap_err()
+                    .code,
+                rpc::code::NOT_FOUND
+            );
+        }
+        assert_eq!(
+            call(&daemon, "pad.list", Value::Null).await.unwrap(),
+            json!([kept])
+        );
+    }
+
     struct DoorStop {
         entered: mpsc::UnboundedSender<()>,
         release: Semaphore,
