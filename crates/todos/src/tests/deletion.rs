@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 use super::*;
 
 #[tokio::test]
@@ -7,7 +8,7 @@ async fn u3787a_undo_restores_original_graph() {
     h.call_as(
         agent("maker"),
         "todo.create",
-        json!({"title":"first", "body":"retained", "owner":agent("worker"), "estimate_minutes":17}),
+        json!({"title":"first", "body":"retained", "owner":agent("worker")}),
     )
     .await
     .unwrap();
@@ -495,7 +496,7 @@ async fn u3787a_redo_refuses_replaced_creation_and_retries_after_authoritative_r
     // An external replacement copies all visible fields and timestamps, but cannot
     // acquire the retained creation Change. This is the named incarnation probe.
     let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-    db.execute("INSERT INTO todos SELECT id,title,body,done,created_at,creator,home,pos,owner,estimate_minutes,updated_at FROM deleted_todos WHERE operation='later'", []).unwrap();
+    db.execute("INSERT INTO todos SELECT id,title,body,done,created_at,creator,home,pos,owner,updated_at FROM deleted_todos WHERE operation='later'", []).unwrap();
     let restoration = h
         .call("todo.deletion", json!({"operation":"first"}))
         .await
