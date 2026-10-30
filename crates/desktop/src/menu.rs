@@ -38,13 +38,26 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         1,
     )?;
     // Keep the standard native editing commands; only history changes with region focus.
-    if let Some(MenuItemKind::Submenu(edit)) = menu.items()?.into_iter().find(|item| {
-        matches!(item, MenuItemKind::Submenu(sub) if sub.text().ok().as_deref() == Some("Edit"))
-    }) {
+    let edit_position = menu
+        .items()?
+        .into_iter()
+        .enumerate()
+        .find_map(|(index, item)| {
+            if let MenuItemKind::Submenu(edit) = item {
+                if edit.text().ok().as_deref() == Some("Edit") {
+                    return Some((index, edit));
+                }
+            }
+            None
+        });
+    let edit_index = if let Some((index, edit)) = edit_position {
         menu.remove(&edit)?;
-    }
+        index
+    } else {
+        menu.items()?.len()
+    };
     let edit = Submenu::with_id(app, "edit-menu", "Edit", true)?;
-    menu.append(&edit)?;
+    menu.insert(&edit, edit_index)?;
     edit.append(&tauri::menu::PredefinedMenuItem::undo(app, None)?)?;
     edit.append(&tauri::menu::PredefinedMenuItem::redo(app, None)?)?;
     edit.append(&tauri::menu::PredefinedMenuItem::separator(app)?)?;
@@ -344,7 +357,10 @@ fn sequence_hints(items: &[Item]) -> Vec<(String, String)> {
             }
             item.shortcut
                 .as_ref()
-                .filter(|shortcut| shortcut.starts_with("⌘K "))
+                .filter(|shortcut| {
+                    shortcut.starts_with("⌘K ")
+                        || (item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']))
+                })
                 .map(|shortcut| (item.label.clone(), shortcut.clone()))
                 .into_iter()
                 .collect()

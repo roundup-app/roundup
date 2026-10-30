@@ -21,6 +21,7 @@ tauri-plugin-global-shortcut = "=2.4.1"
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "ef6e3090a6083c653955ca0b6e7f6c6ae1453d40" }
 tauri-plugin-positioner = "=2.4.0"
 objc2 = "0.6"
+objc2-app-kit = "0.3"
 objc2-foundation = { version = "0.3", features = ["block2"] }
 block2 = "0.6"
 
