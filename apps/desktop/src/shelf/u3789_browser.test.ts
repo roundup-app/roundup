@@ -164,8 +164,8 @@ it.skipIf(!captureDir("U4908") && !ageCaptures().length).each([true, false].flat
       app.handlers['todo.list'] = () => todos;
       app.handlers['pad.list'] = () => pads;
       window.__ageTime = now;
-      for (const item of todos) window.__fake.emit({actor:null,name:'todo.updated',data:item});
-      for (const item of pads) window.__fake.emit({actor:null,name:'pad.changed',data:{name:item.name}});
+      for (const item of todos) window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'todo.updated',data:item});
+      for (const item of pads) window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'pad.changed',data:{name:item.name}});
     })()`);
 
     if (kind === "pads") await browser("click", "#shelf-tab-pads");
@@ -186,11 +186,11 @@ it.skipIf(!captureDir("U4908") && !ageCaptures().length).each([true, false].flat
         if ('${kind}' === 'todos') {
           const items = await app.rpc('todo.list', null);
           items[0].updated_at = Date.now() - 300000;
-          window.__fake.emit({actor:null,name:'todo.updated',data:{...items[0]}});
+          window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'todo.updated',data:{...items[0]}});
         } else {
           const items = await app.rpc('pad.list', null);
           items[0].updated_at = Date.now() - 300000;
-          window.__fake.emit({actor:null,name:'pad.changed',data:{name:items[0].name}});
+          window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'pad.changed',data:{name:items[0].name}});
         }
       })()`);
       await wait(`Array.from(document.querySelectorAll('.${kind}-tab .item-age')).some(age => age.textContent === '5m')`);
