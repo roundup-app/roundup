@@ -128,7 +128,12 @@ it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
     screens.show("t-flood", document.body.appendChild(document.createElement("div")));
     await subscribed(app, "t-flood");
     await vi.waitFor(() => expect(app.calls.filter(call => call.method === "terminal.snapshot")).toHaveLength(1));
-    app.emitOutput("t-flood", "x".repeat(20_000));
+    app.emitOutput("t-flood", "x".repeat(8192));
+
+    // Cross event boundaries, including a partially consumed event, in later chunks.
+    for (let offset = 8192; offset < 20_000; offset += 1024) {
+      app.emitOutput("t-flood", "x".repeat(Math.min(1024, 20_000 - offset)));
+    }
     await vi.advanceTimersByTimeAsync(200);
     const sizes = made.get("t-flood")!.written.map(bytes => bytes.length);
 
