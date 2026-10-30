@@ -1,3 +1,4 @@
+import { createNow, DisplayClockContext } from "../state/clock";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -14,10 +15,11 @@ const mount = async () => {
 
   await connected.rail.settled();
   render(() => {
+    const now = createNow(() => 0, () => false);
     const frame = createShelfFrame(() => connected.project.path, () => true, undefined);
     const tabs = createShelfTabs(frame);
 
-    return <ConnectedProjectContext.Provider value={connected}>
+    return <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}>
       <Tabs.RootProvider value={tabs}>
         <ProjectShelfTabs frame={frame} onToggle={frame.toggle} />
       </Tabs.RootProvider>
@@ -26,7 +28,7 @@ const mount = async () => {
           <Shelf open={frame.open} />
         </Tabs.RootProvider>
       </div>
-    </ConnectedProjectContext.Provider>;
+    </ConnectedProjectContext.Provider></DisplayClockContext.Provider>;
   });
 
   return within(await screen.findByRole("tablist", { name: "Bench" })).getAllByRole("tab");

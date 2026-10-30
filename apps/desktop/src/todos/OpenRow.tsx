@@ -1,3 +1,4 @@
+import { Age } from "../shelf/Age";
 import { OpenButton } from "../ink/OpenButton";
 import { Sortable } from "../ui/sortable";
 import { createCopyFeedback } from "../ui/CopyButton";
@@ -166,6 +167,7 @@ export const OpenRow = (props: {
         <span class="row-controls">
           <Show when={props.groupComplete === undefined}><TickBox motion={props.motion === true} todo={props.todo} onToggle={toggle} /></Show>
         </span>
+        <Age updatedAt={props.todo.updated_at} />
         <OpenButton name={props.todo.title} onOpen={() => props.onOpen(props.todo, "pointer")} />
         <Show when={sorted}>{order => <Sortable.Handle label={copy.moveTodoRow(props.todo.id, props.todo.title)} tooltip={copy.moveItem(props.todo.title)} ref={el => order().handle(el ?? null)} />}</Show>
       </div>
