@@ -34,7 +34,6 @@ setup = r"""(async () => {
   const say=(body)=>f.app.rpc('todo.comment',{id:5,body});
   await say('長いコメント 🙂 '+'W'.repeat(300));
   for(let n=0;n<9;n++) await say('Comment '+n+' 第'+n+'行');
-  document.querySelector('[data-id="5"] .row-head button').click();
 })()"""
 reading = r"""(() => {
   const d=document.querySelector('.drawer');
@@ -50,9 +49,16 @@ try:
     browser('open', origin + '/harness.html?seed=tree-40')
     browser('set', 'viewport', '1512', '950')
     browser('set', 'media', 'dark')
-    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
+    browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    browser('press', 'Meta+k')
+    browser('wait', '.hint-line.leader')
+    browser('press', 'b')
+    browser('wait', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
+    browser('click', '.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')
+    browser('wait', '.shelf [data-todo="5"] .todo-open')
     assert evaluate("({w:innerWidth,h:innerHeight,d:matchMedia('(prefers-color-scheme: dark)').matches})") == {'w': 1512, 'h': 950, 'd': True}
     evaluate(setup)
+    browser('click', '.shelf [data-todo="5"] .todo-open')
     browser('wait', '--fn', 'document.querySelectorAll(".todo-comment").length===10')
     evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));document.querySelector(".todo-comments").scrollIntoView({block:"start"})})()')
     result = evaluate(reading)
