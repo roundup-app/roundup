@@ -140,6 +140,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       await openDrawerOf(2);
       press(within(drawer()).getByRole("button", { name: "More actions" }), by);
       const remove = await screen.findByRole("menuitem", { name: "Delete Todo" });
+
       if (by === "keyboard") fireEvent.keyDown(remove.closest('[role="menu"]')!, { key: "End" });
       fireEvent.click(remove);
       await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { operation: expect.any(String), ids: [2] } }]));

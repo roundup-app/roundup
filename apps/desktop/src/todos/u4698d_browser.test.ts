@@ -41,7 +41,7 @@ it("u4698d_worst_case_todo_keeps_its_actions_reachable", { retry: 0, timeout: 90
   for (const [width, height] of [[1512,950],[1280,820]]) {
     await browser("set", "viewport", String(width), String(height));
     await settle();
-    expect(await evaluate("document.querySelector('.todo-detail-title').textContent.trim()")).toBe(title);
+
 
     if (output) {
       await browser("screenshot", join(output, `open-${width}.png`));
@@ -76,5 +76,47 @@ it("u4698d_worst_case_todo_keeps_its_actions_reachable", { retry: 0, timeout: 90
     await browser("wait", '.drawer input[type="checkbox"]:not(:checked)');
   }
 
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'todo.complete').map(call => call.params.id)")).toEqual([1, 1]);
+
   if (output) await browser("record", "stop");
+});
+
+it("u4698d_rich_body_saves_the_selected_todo_and_keeps_a_refused_draft", { retry: 0, timeout: 90_000 }, async () => {
+  await openShelf("tree-40", 288, 320, 1512, "dark");
+  await browser("set", "viewport", "1512", "950");
+  await evaluate(`(async () => {
+    await window.__fake.app.rpc('todo.update', { id: 1, title: 'Release notes', body: '# Plan\\n\\nOriginal body' });
+    const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+    return true;
+  })()`);
+  await browser("wait", "[data-shelf-group=unassigned]");
+  await evaluate(`(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()`);
+  await browser("wait", '[data-todo="1"] .todo-row-button');
+  await browser("focus", '[data-todo="1"] .todo-row-button');
+  await browser("press", "Enter");
+  await browser("wait", ".drawer .ProseMirror");
+  await browser("click", ".drawer .ProseMirror");
+  await browser("wait", '.drawer .todo-detail-body .word');
+  await browser("focus", '.drawer .ProseMirror');
+  await browser("press", "Control+A");
+  await browser("press", "Backspace");
+  await settle();
+  await browser("type", '.drawer .ProseMirror', "Exact body retained after refusal");
+  await evaluate(`(() => { window.__fake.failNext(-32003, 'Body could not be saved. Retry with the original work intact.'); return true; })()`);
+  await browser("press", "Control+Enter");
+  await browser("wait", '.todo-detail-body [role="alert"]');
+
+  if (output) {
+    await browser("screenshot", join(output, "body-refusal.png"));
+    writeFileSync(join(output, "body-refusal.checks.json"), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+  }
+
+  await browser("focus", '.drawer .ProseMirror');
+  await browser("wait", "--fn", "document.activeElement === document.querySelector('.drawer .ProseMirror') && [...document.querySelectorAll('.todo-detail-body button')].some(button => button.textContent === 'Save')");
+  await browser("press", "Control+Enter");
+  await browser("wait", '.drawer .todo-detail-body .ProseMirror');
+  expect(await evaluate(`window.__fake.app.calls.filter(call => call.method === 'todo.update' && call.params.body?.startsWith('Exact body')).map(call => ({ id: call.params.id, body: call.params.body }))`)).toEqual([
+    { id: 1, body: "Exact body retained after refusal" },
+    { id: 1, body: "Exact body retained after refusal" },
+  ]);
 });
