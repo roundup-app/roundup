@@ -1,0 +1,52 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "../perf/idle" without a file extension (src/app/seam.ts:4:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.3 /tmp/roundup-settings-repro/apps/desktop
+
+Chrome first start: 10115 ms
+ ❯ |heavy| src/settings/u3799_rendered.test.ts (13 tests | 1 failed | 12 skipped) 8629ms
+   ❯ u3799 isolated rendered observer (1)
+     × u3799_u3805_rendered_settings_checks 8625ms
+   ↓ u4277c_requested_tree-40_ask-history_empty_and_filled
+   ↓ u4277c_requested_tree-40_made_empty_and_filled
+   ↓ u4277c_requested_tree-40_resources_empty_and_filled
+   ↓ u4277c_requested_tree-40_workstreams_empty_and_filled
+   ↓ u4277c_requested_tree-40_terminal-tabs_empty_and_filled
+   ↓ u4277c_requested_tree-40_import-work_empty_and_filled
+   ↓ u4277c_requested_tabs-8_ask-history_empty_and_filled
+   ↓ u4277c_requested_tabs-8_made_empty_and_filled
+   ↓ u4277c_requested_tabs-8_resources_empty_and_filled
+   ↓ u4277c_requested_tabs-8_workstreams_empty_and_filled
+   ↓ u4277c_requested_tabs-8_terminal-tabs_empty_and_filled
+   ↓ u4277c_requested_tabs-8_import-work_empty_and_filled
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |heavy| src/settings/u3799_rendered.test.ts > u3799 isolated rendered observer > u3799_u3805_rendered_settings_checks
+Error: Command failed: python3 src/settings/u3799_browser.test.py http://127.0.0.1:36975/ /tmp/roundup-settings-repro/artifacts/ux/U3799
+Traceback (most recent call last):
+  File "/tmp/roundup-settings-repro/apps/desktop/src/settings/u3799_browser.test.py", line 55, in <module>
+    evaluate('document.querySelector("[aria-label=Mode][role=combobox]").click()')
+  File "/tmp/roundup-settings-repro/apps/desktop/src/settings/u3799_browser.test.py", line 30, in evaluate
+    return browser('eval', script)['result']
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/roundup-settings-repro/apps/desktop/src/settings/u3799_browser.test.py", line 25, in browser
+    raise RuntimeError(reply)
+RuntimeError: {'success': False, 'data': None, 'error': "Evaluation error: TypeError: Cannot read properties of null (reading 'click')\n    at <anonymous>:1:59"}
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 skipped (13)
+   Start at  03:32:15
+   Duration  27.12s (tests 81%, environment 16%, transform 1%, setup 1%, import 1%)
+
+{"numTotalTestSuites":2,"numPassedTestSuites":0,"numFailedTestSuites":2,"numPendingTestSuites":0,"numTotalTests":13,"numPassedTests":0,"numFailedTests":1,"numPendingTests":12,"numTodoTests":0,"snapshot":{"added":0,"failure":false,"filesAdded":0,"filesRemoved":0,"filesRemovedList":[],"filesUnmatched":0,"filesUpdated":0,"matched":0,"total":0,"unchecked":0,"uncheckedKeysByFile":[],"unmatched":0,"updated":0,"didUpdate":false},"startTime":1793331135629,"success":false,"testResults":[{"assertionResults":[{"ancestorTitles":["u3799 isolated rendered observer"],"fullName":"u3799 isolated rendered observer u3799_u3805_rendered_settings_checks","status":"failed","title":"u3799_u3805_rendered_settings_checks","duration":8625.334024,"failureMessages":["Error: Command failed: python3 src/settings/u3799_browser.test.py http://127.0.0.1:36975/ /tmp/roundup-settings-repro/artifacts/ux/U3799\nTraceback (most recent call last):\n  File \"/tmp/roundup-settings-repro/apps/desktop/src/settings/u3799_browser.test.py\", line 55, in <module>\n    evaluate('document.querySelector(\"[aria-label=Mode][role=combobox]\").click()')\n  File \"/tmp/roundup-settings-repro/apps/desktop/src/settings/u3799_browser.test.py\", line 30, in evaluate\n    return browser('eval', script)['result']\n           ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/roundup-settings-repro/apps/desktop/src/settings/u3799_browser.test.py\", line 25, in browser\n    raise RuntimeError(reply)\nRuntimeError: {'success': False, 'data': None, 'error': \"Evaluation error: TypeError: Cannot read properties of null (reading 'click')\\n    at <anonymous>:1:59\"}\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)\n    at ChildProcess.emit (node:events:519:28)\n    at maybeClose (node:internal/child_process:1101:16)\n    at ChildProcess._handle.onexit (node:internal/child_process:304:5)"],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tree-40_ask-history_empty_and_filled","status":"skipped","title":"u4277c_requested_tree-40_ask-history_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tree-40_made_empty_and_filled","status":"skipped","title":"u4277c_requested_tree-40_made_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tree-40_resources_empty_and_filled","status":"skipped","title":"u4277c_requested_tree-40_resources_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tree-40_workstreams_empty_and_filled","status":"skipped","title":"u4277c_requested_tree-40_workstreams_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tree-40_terminal-tabs_empty_and_filled","status":"skipped","title":"u4277c_requested_tree-40_terminal-tabs_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tree-40_import-work_empty_and_filled","status":"skipped","title":"u4277c_requested_tree-40_import-work_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tabs-8_ask-history_empty_and_filled","status":"skipped","title":"u4277c_requested_tabs-8_ask-history_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tabs-8_made_empty_and_filled","status":"skipped","title":"u4277c_requested_tabs-8_made_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tabs-8_resources_empty_and_filled","status":"skipped","title":"u4277c_requested_tabs-8_resources_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tabs-8_workstreams_empty_and_filled","status":"skipped","title":"u4277c_requested_tabs-8_workstreams_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tabs-8_terminal-tabs_empty_and_filled","status":"skipped","title":"u4277c_requested_tabs-8_terminal-tabs_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277c_requested_tabs-8_import-work_empty_and_filled","status":"skipped","title":"u4277c_requested_tabs-8_import-work_empty_and_filled","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]}],"startTime":1793331154207,"endTime":1793331162832.334,"status":"failed","message":"","name":"/tmp/roundup-settings-repro/apps/desktop/src/settings/u3799_rendered.test.ts"}]}
+undefined
+/tmp/roundup-settings-repro/apps/desktop:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/settings/u3799_rendered.test.ts --retry=0
+real 28.50
+user 31.39
+sys 4.15
