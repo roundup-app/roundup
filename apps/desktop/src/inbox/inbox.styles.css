@@ -39,7 +39,7 @@
 .inbox-row:is([data-selected="true"], :focus-visible) { background: var(--selected); color: var(--text); }
 .inbox-row:is([data-selected="true"], :focus-visible):hover { background: var(--selected-hover); color: var(--text); }
 
-.inbox { flex: 1; min-height: 0; }
+.inbox { flex: 1; min-height: 0; position: relative; padding-block-end: var(--line); }
 
 .inbox-actions { opacity: 0; }
 .inbox-head:focus-within .inbox-actions,
