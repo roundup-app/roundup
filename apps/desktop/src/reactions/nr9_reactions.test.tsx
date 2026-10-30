@@ -8,7 +8,7 @@ import type { Message } from "@contracts/message/Message";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { agent, workstream } from "../testing/nodes";
 import { mountAskBar } from "../ask/askFixture";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 afterEach(cleanup);
 

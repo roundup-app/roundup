@@ -13,7 +13,7 @@ import { captureActions } from "../keys/registry";
 import { openProjectPage } from "./menuProbe";
 import { showShelfTab } from "./shelfTabs";
 import { settled } from "../rail/railFixture";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 // Actual App openings, rather than a fixture containing representative fields.
 const inventory = ["Project rename", "Agent rename", "Workstream rename", "Todo rename", "Pad rename", "Capture", "Import prompt", "Font family", "Switcher query", "Ask prompt", "Spawn prompt", "Opening prompt", "New Todo", "New Pad", "Todo title", "Todo body", "Todo comment", "Terminal rename", "New Workstream", "Project query", "Engine query", "Model query", "Owner query", "Blocker query", "Wait-for query", "Change note"] as const;

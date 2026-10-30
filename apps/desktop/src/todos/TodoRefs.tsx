@@ -2,7 +2,7 @@ import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Ref } from "@contracts/todo/Ref";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { activationSource } from "../keys/registry";
 import { PadHost } from "../pads/PadDrawer";
 import { useConnectedProject } from "../state/connectedProject";

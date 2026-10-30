@@ -2,7 +2,7 @@ import type { JSX } from "solid-js";
 import { createMemo, createSignal, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { registerKeys } from "../keys/registry";
 import { KindGlyph } from "../ink/KindGlyph";
 import { kindOf } from "./todoView";

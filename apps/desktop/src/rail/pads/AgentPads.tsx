@@ -1,4 +1,4 @@
-import { copy } from "../../copy";
+import { copy } from "../copy";
 import { createMemo, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";

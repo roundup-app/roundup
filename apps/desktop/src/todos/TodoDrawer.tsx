@@ -5,7 +5,7 @@ import * as v from "valibot";
 import { TodoHeader } from "./TodoHeader";
 import { TodoMeta } from "./TodoMeta";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";

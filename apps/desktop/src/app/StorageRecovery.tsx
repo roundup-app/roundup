@@ -1,6 +1,6 @@
 import { createResource, createSignal, Show, type JSX } from "solid-js";
 import { initializeStorage, storageRecovery } from "../state/storage";
-import { storageCopy } from "../copy/storage";
+import { storageCopy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import "../state/storage.css";
 

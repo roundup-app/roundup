@@ -11,7 +11,7 @@ import { ownersOnRail, sameOwner } from "../shelf/scope";
 import { OwnerPicker } from "./OwnerPicker";
 import { HomePicker } from "./HomePicker";
 import { homeNameOf, homesToOffer } from "./homes";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 /** Header actions retain the displayed Todo's authority and use the existing owner and Home pickers. */
 export const TodoHeader = (props: {
