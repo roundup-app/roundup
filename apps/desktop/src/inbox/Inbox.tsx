@@ -1,10 +1,9 @@
-import { EmptyState } from "../ink/EmptyState";
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import type { RailNode } from "@contracts/agent/RailNode";
+import { createEffect, createMemo, createResource, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
+import { queueFocus } from "../keys/focus";
 import { LEADER } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -13,88 +12,73 @@ import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { CopyButton } from "../ui/CopyButton";
 import { TodoHost } from "../todos/TodoDrawer";
 import { InboxRow } from "./InboxRow";
-import type { AgentRow, RowActions } from "./InboxRow";
+import type { RowActions } from "./InboxRow";
 import { sectionsOf } from "./rows";
 import "./inbox.styles.css";
 
 const STALE = new Set(["todo.restored", "todo.commented", "todo.commentsRead", "todo.deleted"]);
 
-const sectionTitle = (title: string, count: () => number, live = false, ref?: (element: HTMLHeadingElement) => void) => <div class="inbox-group-head">
-  <h3 ref={ref} tabindex={ref ? -1 : undefined}>{title}</h3>
-  <span class="inbox-count" data-state="" aria-live={live ? "polite" : undefined} aria-atomic={live ? "true" : undefined}>{count()}</span>
-</div>;
+/** Read comments before Overview chooses its initial section, including comment-only attention. */
+export const createInbox = () => {
+  const { app, events, rail } = useConnectedProject();
+  const [read, { refetch }] = createResource(async (_key, { value }): Promise<{ rows: readonly UnreadComment[]; failure: string | null }> => {
+    let rows: readonly UnreadComment[] = value?.rows ?? [];
+    const failure = await failureOf(async () => { rows = await app.rpc("todo.unread", null); });
+    return { rows, failure };
+  });
+  const rows = () => read()?.rows ?? [];
+  const failure = () => read()?.failure ?? null;
+  const loaded = () => read() !== undefined;
+  const refresh = () => { void refetch(); };
+  onCleanup(events.subscribe(event => { if (STALE.has(event.name)) refresh(); }));
 
-/**
- * The Drawer's grouped list (U3770): Needs you, Running and Done. Agent rows follow `rail.nodes`;
- * one row per unread Agent comment is read from `todo.unread` and the Todo events, never from a Message. Opening a comment's
- * Todo marks it read (the Todo Drawer), and the row leaves.
- */
-export const Inbox = () => {
-  const { app, events, drawer, rail, reducedMotion, project } = useConnectedProject();
-  const [loaded, setLoaded] = createSignal(false);
-  const [rows, setRows] = createSignal<readonly UnreadComment[]>([]);
+  const groups = createMemo(() => sectionsOf(rail.nodes, rows()));
+  const records = () => groups().flatMap(group => [
+    ...group.node ? [{ id: group.node.id + ":" + group.node.attempt + ":" + group.node.status_revision, at: group.node.status?.since ?? 0 }] : [],
+    ...group.comments.map(row => ({ id: `c:${row.comment.id}`, at: row.comment.created_at })),
+  ]);
+
+  return { loaded, rows, failure, refresh, groups, records };
+};
+
+/** U3770: grouped attention in Overview; opening a comment retains the Todo's read action. */
+export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
+  const { app, drawer, rail, reducedMotion, project } = useConnectedProject();
+  const state = props.state ?? createInbox();
+  const { loaded, rows, failure, refresh, groups } = state;
   const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
-  const [failure, setFailure] = createSignal<string | null>(null);
   const [openKey, setOpenKey] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal<ReadonlySet<string>>(new Set());
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
   const heads = new Map<string, HTMLElement>();
-  let latest = 0;
   let alive = true;
   let live = false;
   let seen = new Set<string>();
   let root: HTMLElement | undefined;
-
-  const refresh = async () => {
-    const mine = ++latest;
-    let unread: UnreadComment[] = [];
-    const message = await failureOf(async () => { unread = await app.rpc("todo.unread", null); });
-
-    if (!alive || mine !== latest) return;
-
-    if (message === null) setRows(unread);
-
-    setFailure(message);
-    setLoaded(true);
-  };
-
-  void refresh();
   onMount(() => { live = true; });
-  onCleanup(events.subscribe((event) => { if (STALE.has(event.name)) void refresh(); }));
-  onCleanup(() => { alive = false; latest++; });
+  onCleanup(() => { alive = false; });
 
-  /** U3770a: the sections as the Rail says them now. */
   const model = createMemo(() => {
-    const sections = sectionsOf(rail.nodes);
     const before = seen;
-
     seen = new Set();
 
-    const row = (group: string) => (node: RailNode): AgentRow => {
-      seen.add(`${group}:${node.id}`);
-
-      return { key: `a:${node.id}`, node, arrived: live && !reducedMotion() && !before.has(`${group}:${node.id}`) };
-    };
-
-    return { needs: sections.needs.map(row("needs")), running: sections.running.map(row("running")), done: sections.done.map(row("done")) };
+    return groups().flatMap(group => {
+      const node = group.node;
+      if (!node) return [];
+      seen.add(node.id);
+      return [{ key: `a:${node.id}`, node, arrived: live && !reducedMotion() && !before.has(node.id) }];
+    });
   });
-
-  const byKey = createMemo(() => new Map([...model().needs, ...model().running, ...model().done].map((each) => [each.key, each])));
-  const needsKeys = createMemo(() => model().needs.map((each) => each.key));
-  const runningKeys = createMemo(() => model().running.map((each) => each.key));
-  const doneKeys = createMemo(() => model().done.map((each) => each.key));
-  const needsCount = () => model().needs.length + rows().length;
-  const total = () => needsCount() + model().running.length + model().done.length;
+  const byKey = createMemo(() => new Map(model().map(each => [each.key, each])));
+  const needsCount = () => model().length + rows().length;
 
   const toggle = (key: string) => setOpenKey((current) => current === key ? null : key);
 
   // One collection follows the mounted section order; actions and disclosure bodies never join it.
-  const content = createRowCollection(() => [
-    ...model().needs.map(row => ({ value: row.key, label: row.node.name })),
-    ...rows().map(row => ({ value: `c:${row.comment.id}`, label: copy.inboxRow(rail.nameOf(row.comment.author), row.title) })),
-    ...model().running.map(row => ({ value: row.key, label: row.node.name })),
-    ...model().done.map(row => ({ value: row.key, label: row.node.name })),
-  ].filter(row => {
+  const content = createRowCollection(() => groups().flatMap(group => [
+    ...group.node ? [{ value: `a:${group.node.id}`, label: group.node.name }] : [],
+    ...group.comments.map(row => ({ value: `c:${row.comment.id}`, label: copy.inboxRow(rail.nameOf(row.comment.author), row.title) })),
+  ]).filter(row => {
     const head = heads.get(row.value);
 
     return head && !head.closest("[hidden], [inert], [disabled], [aria-disabled=true]");
@@ -160,7 +144,7 @@ export const Inbox = () => {
 
       if (message !== null) setOpenKey(row.key);
     })(),
-    open: (row) => { rail.select(row.node.id); drawer.close(); },
+    open: (row) => { drawer.close(); rail.select(row.node.id); },
     busy: (row) => busy().has(row.key),
     failure: (row) => failures().get(row.key) ?? null,
     dismiss: (row) => { fail(row.key, null); heads.get(row.key)?.focus(); },
@@ -187,47 +171,33 @@ export const Inbox = () => {
   const agentRow = (key: string) => <Show when={byKey().get(key)}>{(row) =>
     <InboxRow row={row()} open={openKey() === key} toggle={() => toggle(key)} actions={actions} selected={content.selection.isSelected(key)} head={(element) => head(key, element)} />}</Show>;
 
-  return <section class="inbox" aria-label={copy.inbox} ref={root} tabindex={-1} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
-    <div class="inbox-title"><h2>{copy.inbox}</h2>
+  const commentRow = (row: UnreadComment) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id} data-overview-item={`c:${row.comment.id}`}
+    ref={element => head(`c:${row.comment.id}`, element)} data-selected={content.selection.isSelected(`c:${row.comment.id}`)}
+    onClick={event => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event), { kind: "todo", project: project.path })}>
+    <KindGlyph kind="needs-you" /><span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
+    <span class="inbox-row-line">{row.comment.body}</span>
+  </button></li>;
+
+  return <section class="inbox" aria-label={copy.needsYou} ref={root} tabindex={-1} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
+    <div class="inbox-title"><span class="inbox-count" data-state="attention" aria-live="polite" aria-atomic="true">{needsCount()}</span>
       <Show when={selectedText() !== ""}><CopyButton app={app} class="word inbox-copy" text={selectedText()} onSuccess={() => setCopyFailure(null)} onFailure={error => setCopyFailure(copy.copyDraftFailure(error.message))}>{copy.copy}</CopyButton></Show>
     </div>
     <ReservedLine message={copyFailure() ?? failure()}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => setCopyFailure(null)}>{copy.inboxDismiss}</button></Show><Show when={!copyFailure() && failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
-    <Show when={loaded() && total() === 0 && !failure() && !copyFailure()}><EmptyState art="laying" {...{ title: copy.inboxEmpty }} line={copy.emptyInboxLine} /></Show>
-    <Show when={needsCount() > 0 || needsKeys().length > 0}>
-      <section class="inbox-group" aria-label={copy.needsYou}>
-        {sectionTitle(copy.needsYou, needsCount, true)}
-        <ul class="inbox-list">
-          <For each={needsKeys()}>{agentRow}</For>
-          <For each={rows()}>{(row) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id}
-            ref={element => head(`c:${row.comment.id}`, element)} data-selected={content.selection.isSelected(`c:${row.comment.id}`)}
-            onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event), { kind: "todo", project: project.path })}>
-            <KindGlyph kind="needs-you" />
-            <span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
-            <span class="inbox-row-line">{row.comment.body}</span>
-          </button></li>}</For>
-        </ul>
-      </section>
-    </Show>
-    <Show when={runningKeys().length > 0}>
-      <section class="inbox-group" aria-label={copy.running}>
-        {sectionTitle(copy.running, () => runningKeys().length)}
-        <ul class="inbox-list"><For each={runningKeys()}>{agentRow}</For></ul>
-      </section>
-    </Show>
-    <Show when={doneKeys().length > 0}>
-      <section class="inbox-group" aria-label={copy.done}>
-        {sectionTitle(copy.done, () => doneKeys().length)}
-        <ul class="inbox-list"><For each={doneKeys()}>{agentRow}</For></ul>
-      </section>
-    </Show>
+    <Show when={loaded() && needsCount() === 0 && !failure() && !copyFailure()}><p class="overview-quiet">{copy.inboxEmpty}</p></Show>
+    <For each={groups().map(group => group.id)}>{id => <div class="inbox-group" data-agent={id}>
+      <ul class="inbox-list">
+        {agentRow(`a:${id}`)}
+        <For each={groups().find(group => group.id === id)?.comments ?? []}>{commentRow}</For>
+      </ul>
+    </div>}</For>
   </section>;
 };
 
-/** `⌘K I` opens the Inbox as the Drawer. */
+/** U3770e keeps the existing menu/key command and requests the Overview section. */
 export const InboxKey = () => {
-  const { drawer, showView } = useConnectedProject();
+  const { drawer, rail, showView } = useConnectedProject();
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "I")!, capture: () => ({ available: () => true, invoke: () => { showView(null); drawer.open(() => <Inbox />, "key"); } }) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "I")!, capture: () => ({ available: () => true, invoke: () => { drawer.close(); showView(null); rail.select(null); showView("attention"); queueFocus(() => document.querySelector<HTMLElement>('.overview-section-trigger[aria-expanded="true"]')?.focus()); } }) }]);
 
   return null;
 };
