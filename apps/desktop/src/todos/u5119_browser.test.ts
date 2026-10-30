@@ -67,12 +67,16 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
         await settle();
 
         if (expanded && await evaluate("!!document.querySelector('.todo-older')")) {
+          await evaluate("document.querySelector('.todo-older').scrollIntoView({block:'center'}); true");
+          await settle();
           await browser("click", ".todo-older");
           await browser("wait", '.todo-older[aria-expanded="true"]');
           await settle();
         }
 
         if (await evaluate("!!document.querySelector('.todo-status-summary')")) {
+          await evaluate("document.querySelector('.todo-status-summary').scrollIntoView({block:'center'}); true");
+          await settle();
           await browser("click", ".todo-status-summary");
           await browser("wait", '.todo-status-summary[aria-expanded="true"]');
         }
