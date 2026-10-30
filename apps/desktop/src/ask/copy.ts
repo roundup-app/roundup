@@ -12,7 +12,7 @@ export const copy = {
   deliverableCurrent: "Link · current",
   deliverableRetained: "File · published copy",
   deliverableRevision: () => "Pad · published copy",
-  deliverableAttribution: (maker: string, home: string) => `${maker} · ${home}`,
+  deliverableAttribution: sharedCopy.draftIdentity,
   openDeliverable: sharedCopy.openEvidence,
   deliverableUnsafe: "This link is unsupported. Try an HTTP or HTTPS target.",
   deliverableUnavailable: sharedCopy.deliverableUnavailable,

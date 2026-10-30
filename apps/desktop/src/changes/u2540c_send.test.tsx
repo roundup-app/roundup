@@ -59,7 +59,7 @@ it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: /Send to/ }));
   await screen.findByText("receiver ended");
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(noteText);
+  expect(notesFor(app, "/p").list("a").map(note => note.text)).toEqual([noteText]);
   let body = "";
   app.handlers["message.send"] = params => { body = params.body; throw new Error("disconnected"); };
 
