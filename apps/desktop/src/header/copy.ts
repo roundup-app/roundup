@@ -34,7 +34,6 @@ export const copy = {
   copy: sharedCopy.copy,
   comma: sharedCopy.comma,
   runningAgents: (count: number, verb: string, names: string, more: string) => `${count} ${verb}: ${names}${more}.`,
-  unseenMark: sharedCopy.unseenMark,
   unreadResult: sharedCopy.unreadResult,
   previousProjectsMark: "◂ ",
   nextProjectsMark: " ▸",

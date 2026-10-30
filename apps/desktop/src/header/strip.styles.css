@@ -46,15 +46,6 @@
   min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule));
 }
 
-/* U3566: the unread dot's column and gap sit outside the name's floor, so the tail never clips. */
-.project-tab[data-unseen="true"] {
-  min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule) + var(--space-3) + var(--space-1));
-}
-
-.tab-name-button .unread-dot {
-  align-self: center;
-}
-
 .tab-name-button {
   --button-inline: var(--space-1);
   display: grid;
@@ -92,10 +83,6 @@
 .tab-mark {
   flex: none;
   display: inline-block;
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: var(--radius-control);
-  background-color: currentColor;
   align-self: flex-start;
   margin-top: var(--space-1);
 }

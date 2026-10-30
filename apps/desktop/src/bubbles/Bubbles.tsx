@@ -885,7 +885,7 @@ export const Bubbles = (props: {
                 onClick={() => toggleMinimised(id)}
                 onDblClick={() => start()}>
                 <span class="terminal-tab-name" ref={nameRef}>{copied.copied() ? copy.copied : name()}</span>
-                <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
+                <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput} /></Show></span>
               </button>
             )}
           </Tip>
@@ -946,7 +946,7 @@ export const Bubbles = (props: {
               }} /></Editable.Area>;
               }}</Editable.Context>
             </Editable.Root>
-            <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
+            <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput} /></Show></span>
           </div>}
         </Show>
         <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>

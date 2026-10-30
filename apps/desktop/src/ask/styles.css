@@ -561,7 +561,7 @@
 .overview-section-heading h2 { margin: 0; font: inherit; }
 .overview-section-trigger { display: flex; align-items: center; gap: var(--space-2); color: var(--grey); min-height: var(--space-6); }
 .overview-section-trigger [data-part="item-indicator"][data-state="open"] { transform: rotate(90deg); }
-.overview-unseen { width: var(--space-1); height: var(--space-1); border-radius: var(--radius-round); background: var(--text); }
+.overview-unseen { color: var(--text); }
 .overview-quiet { margin: var(--space-2); color: var(--grey); }
 .overview-sections-owner { width: min(100%, var(--ask-width)); align-self: center; }
 .ask-bar :is(.project-overview, .made):has(.empty-state) { flex: 1; min-height: 0; }
