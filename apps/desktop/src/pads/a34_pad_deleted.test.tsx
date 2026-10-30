@@ -71,8 +71,8 @@ it("a34_pad_deleted_refreshes_the_open_drawers_touch_history", async () => {
 
   app.emit({ actor: AGENT, name: "pad.deleted", data: { name: "plan" } });
 
-  expect((await screen.findByText(/auth-refactor wrote this Pad at/)).textContent)
-    .toContain("auth-refactor wrote this Pad at");
+  expect((await screen.findByText(/auth-refactor wrote · /)).textContent)
+    .toContain("auth-refactor wrote · ");
 });
 
 const failedSave = async (close = true) => {
