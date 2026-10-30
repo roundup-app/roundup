@@ -5,15 +5,17 @@ import { captureDir } from "../testing/captures";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
 const capture = async (step: string) => {
-  const dir = captureDir("U3770a") ?? captureDir("U3770b") ?? captureDir("U3770e") ?? captureDir("P3557c");
+  for (const id of ["U3770a", "U3770b", "U3770e", "P3557c"]) {
+    const dir = captureDir(id);
 
-  if (!dir) return;
-  mkdirSync(dir, { recursive: true });
-  await browser("screenshot", join(dir, `${step}.png`));
-  writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`), null, 2));
+    if (!dir) continue;
+    mkdirSync(dir, { recursive: true });
+    await browser("screenshot", join(dir, `${step}.png`));
+    writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`), null, 2));
+  }
 };
 
-it("u3770e_the_drawer_renders_its_sections_with_a_failed_retry_visible", async () => {
+it("u3770e_overview_renders_grouped_attention_with_a_failed_retry_visible", async () => {
   await browser("set", "viewport", "1512", "950");
   const dir = captureDir("P3557c");
 
