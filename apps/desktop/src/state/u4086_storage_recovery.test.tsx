@@ -3,6 +3,7 @@ import { fireEvent, render, screen, cleanup } from "@solidjs/testing-library";
 import * as v from "valibot";
 import { initializeStorage, storageRecovery, retainedStorage, storedValue, draftStorage, useBrowserStorage } from "./storage";
 import { StorageRecovery } from "../app/StorageRecovery";
+import { storageCopy } from "../app/copy";
 import "../App";
 
 // Official plugin JS API, with only native IPC controlled. A load recreates its cache
@@ -53,19 +54,19 @@ const values: unknown[] = ["/newer", { original: "123" }, { version: 1, drafts: 
 it.each(keys.flatMap(key => ["{\"open\":", key === "app-settings" || key.startsWith("widths:") ? "null" : '{"open":"yes"}'].map(bytes => ({ key: `roundup:${key}`, bytes }))))("u4086a_invalid_legacy_record_has_retry_and_continue $key $bytes", async ({ key, bytes }) => {
   localStorage.setItem(key, bytes);
   render(() => <StorageRecovery><input aria-label="Saved work editor" /></StorageRecovery>);
-  await screen.findByRole("button", { name: /Continue without/ });
+  await screen.findByRole("button", { name: storageCopy.continue(key) });
   expect(screen.getByRole("alert")).toBeDefined();
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(storageRecovery()?.key).toBe(key);
   expect(localStorage.getItem(key)).toBe(bytes);
   expect(disk.size).toBe(0);
-  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-  await screen.findByRole("button", { name: /Continue without/ });
+  fireEvent.click(screen.getByRole("button", { name: storageCopy.restoreRetry }));
+  await screen.findByRole("button", { name: storageCopy.continue(key) });
   expect(localStorage.getItem(key)).toBe(bytes);
   // Repair is read anew rather than pinned to an old failure.
   const repaired = values[keys.indexOf(key.slice("roundup:".length))];
   localStorage.setItem(key, JSON.stringify(repaired));
-  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  fireEvent.click(screen.getByRole("button", { name: storageCopy.restoreRetry }));
   await screen.findByRole("textbox", { name: "Saved work editor" });
   expect(storedValue(key, v.unknown()).read()).toEqual(repaired);
 });
