@@ -144,6 +144,39 @@ it("u471_copy_allowlist_preserves_an_unchanged_identity_when_it_moves", () => {
   expect(checkCopy(moved, { baseline, previous: baseline }).diagnostics).toEqual([]);
 });
 
+it("u471_copy_allowlist_keeps_duplicate_identities_when_surface_order_changes", () => {
+  const files = {
+    ...fixture('original: "Storage", message: "Open"', 'copy.original + copy.message'),
+    "rail/copy.ts": 'export const copy = { duplicate: "Storage" };',
+    "rail/view.ts": 'import {copy} from "./copy"; export const view = copy.duplicate;',
+  };
+
+  const baseline = checkCopy(files).inventory;
+  const reordered = Object.fromEntries(Object.entries(files).reverse());
+  expect(checkCopy(reordered, { baseline, previous: baseline }).diagnostics).toEqual([]);
+
+  reordered["rail/copy.ts"] = 'export const copy = { duplicate: "Different" };';
+  expect(checkCopy(reordered, { baseline, previous: baseline }).diagnostics.map(row => row.rule)).toContain("baseline-stale");
+});
+
+it("u471_copy_allowlist_preserves_formatter_branches_when_its_map_becomes_shared", () => {
+  const labels = 'const labels = new Map([["one", "Stored work"], ["two", "Unfinished work"]]);';
+  const files = fixture('message: (key: string) => `Open ${labels.get(key) ?? "Unknown"}`', 'copy.message("one")');
+  files["app/copy.ts"] = labels + files["app/copy.ts"];
+  const baseline = checkCopy(files).inventory;
+
+  const moved = {
+    ...files,
+    "sharedCopy.ts": labels.replace("const labels", "export const labels"),
+    "app/copy.ts": files["app/copy.ts"].replace(labels, 'import {labels} from "../sharedCopy";'),
+  };
+
+  expect(checkCopy(moved, { baseline, previous: baseline }).diagnostics).toEqual([]);
+
+  moved["sharedCopy.ts"] = moved["sharedCopy.ts"].replace("Stored work", "Daemon work");
+  expect(checkCopy(moved, { baseline, previous: baseline }).diagnostics.map(row => row.rule)).toContain("vocabulary");
+});
+
 it.each(["string", "any"])("u471_copy_guard_rejects_unresolved_nested_keys_%s", type => {
   const files = fixture('message: { open: "Open", close: "Close" }');
   files["app/view.ts"] = `import {copy} from "./copy"; declare const key: ${type}; export const view = copy.message[key];`;

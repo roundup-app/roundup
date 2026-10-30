@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { agent, door, event, terminal, workstream } from "../testing/nodes";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { input, mountAskBar as mountQuietAskBar, press } from "./askFixture";
 
 afterEach(cleanup);

@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { useDisplayNow } from "../state/clock";
 import "./age.css";
 

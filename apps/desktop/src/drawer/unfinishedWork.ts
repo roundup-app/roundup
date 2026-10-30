@@ -1,5 +1,5 @@
 import { createMemo } from "solid-js";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { useConnectedProject } from "../state/connectedProject";
 import { usePadList } from "../rail/pads/padList";
 

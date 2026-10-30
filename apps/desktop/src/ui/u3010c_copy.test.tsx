@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { createFakeApp } from "../testing/fakeApp";
 import { CopyButton } from "./CopyButton";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { withStylesheets } from "../testing/contrast";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });

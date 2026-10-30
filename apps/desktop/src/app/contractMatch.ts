@@ -1,4 +1,4 @@
-import { copy } from "../copy";
+import { copy } from "./copy";
 import * as v from "valibot";
 import { CONTRACT } from "@contracts/contract";
 import type { AppSeam } from "./seam";

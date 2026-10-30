@@ -1,4 +1,4 @@
-import { copy as appCopy } from "../copy";
+import { copy as appCopy } from "./copy";
 import { showScrollbars } from "../scrollHover";
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";

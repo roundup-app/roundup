@@ -1,7 +1,7 @@
 import { createSignal, onCleanup, Show, For } from "solid-js";
 import type { CapturePort, CaptureState } from "../app/seam";
 import { ReservedLine } from "../ink/ReservedLine";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import "./capture.styles.css";
 
 /** Presentation only. Edits and deliberate actions return to the original Capture owner. */
