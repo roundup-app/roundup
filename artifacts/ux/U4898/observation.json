@@ -1,20 +1,79 @@
 {
-  "observer": "Isolated headless Chromium, fresh profiles, 1512x950, 288 px Rail; just capture U4898,U447,U4547a,U4547b",
-  "baseline": "74d36532dd98ab046d7d50434ef4137efaf925d6",
-  "paired_states": 40,
+  "observer": "Isolated headless Chromium, fresh profiles, 1512x950, 288 px Rail; just capture U4898,U447,U4547a,U4547b plus six paired dark footer/frame states",
+  "baseline": "df724691ce3602a599e148d2d44ade5aeb5d3bda",
+  "head": "0c42b0f22b5cb4e09d90bbbf119f008de873797e",
+  "paired_states": 46,
   "regressions": [],
+  "states": [
+    "dark-288-agents-10-AGENTS-folded",
+    "dark-288-agents-10-AGENTS-reopened",
+    "dark-288-agents-10-MODES-folded",
+    "dark-288-agents-10-MODES-reopened",
+    "dark-288-agents-10-failure",
+    "dark-288-agents-10-focus",
+    "dark-288-agents-10-hover",
+    "dark-288-agents-10-recovered",
+    "dark-288-agents-10-rest",
+    "dark-288-agents-10-selected-mode",
+    "dark-288-tree-40-AGENTS-folded",
+    "dark-288-tree-40-AGENTS-reopened",
+    "dark-288-tree-40-MODES-folded",
+    "dark-288-tree-40-MODES-reopened",
+    "dark-288-tree-40-failure",
+    "dark-288-tree-40-focus",
+    "dark-288-tree-40-hover",
+    "dark-288-tree-40-recovered",
+    "dark-288-tree-40-rest",
+    "dark-288-tree-40-selected-mode",
+    "fix-dark-agents-10",
+    "fix-dark-bubbles",
+    "fix-dark-conflict",
+    "fix-dark-first-run",
+    "fix-dark-tree-40-todo-5",
+    "fix-dark-tree-40",
+    "light-288-agents-10-AGENTS-folded",
+    "light-288-agents-10-AGENTS-reopened",
+    "light-288-agents-10-MODES-folded",
+    "light-288-agents-10-MODES-reopened",
+    "light-288-agents-10-failure",
+    "light-288-agents-10-focus",
+    "light-288-agents-10-hover",
+    "light-288-agents-10-recovered",
+    "light-288-agents-10-rest",
+    "light-288-agents-10-selected-mode",
+    "light-288-tree-40-AGENTS-folded",
+    "light-288-tree-40-AGENTS-reopened",
+    "light-288-tree-40-MODES-folded",
+    "light-288-tree-40-MODES-reopened",
+    "light-288-tree-40-failure",
+    "light-288-tree-40-focus",
+    "light-288-tree-40-hover",
+    "light-288-tree-40-recovered",
+    "light-288-tree-40-rest",
+    "light-288-tree-40-selected-mode"
+  ],
   "rest": [
     {
       "capture": "dark-288-agents-10-rest.png",
-      "head": "c54bda88ae8c6a69003433d710b31ed76688286c",
       "head_icon_centres": [
         24,
         24,
         24
       ],
-      "top_level_mark_centre": 24,
       "text_insets": [
         44
+      ],
+      "mode_rows": [
+        {
+          "id": "n12",
+          "mark_centre": 24,
+          "height": 32
+        },
+        {
+          "id": "agent-3",
+          "mark_centre": 48,
+          "height": 32
+        }
       ],
       "checks": {
         "D1": "pass",
@@ -36,15 +95,25 @@
     },
     {
       "capture": "dark-288-tree-40-rest.png",
-      "head": "c54bda88ae8c6a69003433d710b31ed76688286c",
       "head_icon_centres": [
         24,
         24,
         24
       ],
-      "top_level_mark_centre": 24,
       "text_insets": [
         44
+      ],
+      "mode_rows": [
+        {
+          "id": "n39",
+          "mark_centre": 24,
+          "height": 32
+        },
+        {
+          "id": "logins",
+          "mark_centre": 48,
+          "height": 32
+        }
       ],
       "checks": {
         "D1": "pass",
@@ -66,15 +135,25 @@
     },
     {
       "capture": "light-288-agents-10-rest.png",
-      "head": "c54bda88ae8c6a69003433d710b31ed76688286c",
       "head_icon_centres": [
         24,
         24,
         24
       ],
-      "top_level_mark_centre": 24,
       "text_insets": [
         44
+      ],
+      "mode_rows": [
+        {
+          "id": "n12",
+          "mark_centre": 24,
+          "height": 32
+        },
+        {
+          "id": "agent-3",
+          "mark_centre": 48,
+          "height": 32
+        }
       ],
       "checks": {
         "D1": "pass",
@@ -96,15 +175,25 @@
     },
     {
       "capture": "light-288-tree-40-rest.png",
-      "head": "c54bda88ae8c6a69003433d710b31ed76688286c",
       "head_icon_centres": [
         24,
         24,
         24
       ],
-      "top_level_mark_centre": 24,
       "text_insets": [
         44
+      ],
+      "mode_rows": [
+        {
+          "id": "n39",
+          "mark_centre": 24,
+          "height": 32
+        },
+        {
+          "id": "logins",
+          "mark_centre": 48,
+          "height": 32
+        }
       ],
       "checks": {
         "D1": "pass",
@@ -125,5 +214,399 @@
       }
     }
   ],
-  "critic": "Independent design-critic approval remains required; no Mac-only observation."
+  "frames": [
+    {
+      "capture": "fix-dark-agents-10.png",
+      "base": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 950,
+          "height": 912,
+          "width": 560,
+          "x": 1512,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 40,
+          "width": 287,
+          "x": 0,
+          "y": 910
+        },
+        ".rail-scroll": {
+          "bottom": 910,
+          "height": 832,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "head": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 950,
+          "height": 912,
+          "width": 560,
+          "x": 1512,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        ".rail-scroll": {
+          "bottom": 853,
+          "height": 775,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "creation_row_heights": [
+        32,
+        32,
+        32
+      ]
+    },
+    {
+      "capture": "fix-dark-bubbles.png",
+      "base": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 950,
+          "height": 912,
+          "width": 560,
+          "x": 1512,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 40,
+          "width": 287,
+          "x": 0,
+          "y": 910
+        },
+        ".rail-scroll": {
+          "bottom": 910,
+          "height": 832,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "head": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 950,
+          "height": 912,
+          "width": 560,
+          "x": 1512,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        ".rail-scroll": {
+          "bottom": 853,
+          "height": 775,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "creation_row_heights": [
+        32,
+        32,
+        32
+      ]
+    },
+    {
+      "capture": "fix-dark-conflict.png",
+      "base": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 950,
+          "height": 912,
+          "width": 560,
+          "x": 1512,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 40,
+          "width": 287,
+          "x": 0,
+          "y": 910
+        },
+        ".rail-scroll": {
+          "bottom": 910,
+          "height": 832,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "head": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 950,
+          "height": 912,
+          "width": 560,
+          "x": 1512,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        ".rail-scroll": {
+          "bottom": 853,
+          "height": 775,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "creation_row_heights": [
+        32,
+        32,
+        32
+      ]
+    },
+    {
+      "capture": "fix-dark-first-run.png",
+      "base": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": null,
+        ".rail-actions": null,
+        ".rail-scroll": null,
+        ".terminal-tabs": null
+      },
+      "head": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": null,
+        ".rail-actions": null,
+        ".rail-scroll": null,
+        ".terminal-tabs": null
+      },
+      "creation_row_heights": []
+    },
+    {
+      "capture": "fix-dark-tree-40-todo-5.png",
+      "base": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 910,
+          "height": 872,
+          "width": 904,
+          "x": 288,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 40,
+          "width": 287,
+          "x": 0,
+          "y": 910
+        },
+        ".rail-scroll": {
+          "bottom": 910,
+          "height": 832,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "head": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 910,
+          "height": 872,
+          "width": 904,
+          "x": 288,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        ".rail-scroll": {
+          "bottom": 853,
+          "height": 775,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "creation_row_heights": [
+        32,
+        32,
+        32
+      ]
+    },
+    {
+      "capture": "fix-dark-tree-40.png",
+      "base": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 950,
+          "height": 912,
+          "width": 560,
+          "x": 1512,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 40,
+          "width": 287,
+          "x": 0,
+          "y": 910
+        },
+        ".rail-scroll": {
+          "bottom": 910,
+          "height": 832,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "head": {
+        ".ask": null,
+        ".bubble": null,
+        ".bubble-inset": null,
+        ".drawer": {
+          "bottom": 950,
+          "height": 912,
+          "width": 560,
+          "x": 1512,
+          "y": 38
+        },
+        ".rail-actions": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        ".rail-scroll": {
+          "bottom": 853,
+          "height": 775,
+          "width": 287,
+          "x": 0,
+          "y": 78
+        },
+        ".terminal-tabs": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "creation_row_heights": [
+        32,
+        32,
+        32
+      ]
+    }
+  ],
+  "policy": "D8 moves to the Overview text anchor as U4898 names. The Rail footer has three 32 px rows plus its hairline; U4898 explicitly amends U4313b shared height/top alignment for this footer only. The shared one-row Token retains its main definition for every other consumer. D19 remains independent critic acceptance."
 }
