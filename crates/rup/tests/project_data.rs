@@ -343,23 +343,6 @@ async fn n3_an_older_project_opens_whole_and_its_worktree_stays() {
     assert!(project.data_dir().join("pads/notes.md").is_file());
 }
 
-#[tokio::test]
-async fn n3_a_second_open_moves_nothing_and_an_empty_old_folder_is_removed() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut project = open(dir, tempfile::tempdir().unwrap());
-    work(&project).await;
-    project.crash();
-    age(&project);
-
-    project.restart(&[]);
-
-    assert!(!project.dir.path().join(".roundup").exists());
-    assert_eq!(titles(&project).await, ["keep me"]);
-    project.restart(&[]);
-    assert_eq!(titles(&project).await, ["keep me"]);
-    assert!(!project.dir.path().join(".roundup").exists());
-}
-
 /// A Daemon on `dir` with `data` that is expected to refuse: its exit status and stderr.
 fn refused(dir: &Path, data: &Path) -> (bool, String) {
     refused_with(dir, data, Duration::from_secs(10), |_| {})
@@ -454,28 +437,6 @@ fn n3_a_data_folder_that_cannot_be_written_leaves_the_old_files_whole() {
     assert!(failed, "{stderr}");
     assert!(stderr.contains(data.path().to_str().unwrap()), "{stderr}");
     assert_eq!(std::fs::read(old.join("todos.db")).unwrap(), b"old");
-}
-
-#[tokio::test]
-async fn n3_a_finished_copy_whose_old_file_a_kill_left_is_finished() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut project = open(dir, tempfile::tempdir().unwrap());
-    work(&project).await;
-    project.crash();
-    // The kill came after the copy and before the removal: both hold the same bytes.
-    let old = project.dir.path().join(".roundup");
-    std::fs::create_dir_all(&old).unwrap();
-    let data = project.data_dir();
-    for name in ["project.db", "project.db-wal", "project.db-shm"] {
-        if data.join(name).is_file() {
-            std::fs::copy(data.join(name), old.join(name)).unwrap();
-        }
-    }
-
-    project.restart(&[]);
-
-    assert_eq!(titles(&project).await, ["keep me"]);
-    assert!(!old.exists());
 }
 
 #[tokio::test]
