@@ -759,5 +759,32 @@
       "hookEventName": "SessionStart",
       "additionalContext": "Your Rail name is repair-registry. Say it, never an id, when you speak of yourself or another Agent.\nAutomatic self-naming is on. Your name is already chosen: keep it. Never replace an explicit or user-entered name.\nNaming guide: Use three hyphen-separated words in role-verb-object order, for example reviewer-checks-tests; at most 32 characters.\nParent: slug, a Workstream.\nAsk: the user, with message_send to \"you\".\nPeer: fix-slug (message_send {to} value: \"2\"), done.\nTodos: none open.\n\nWorkstream: slug.\n\n## Working in a Workstream\n\nTurn a plan of two or more steps into Todos; complete each as its outcome lands. Keep findings needed by later steps or the handoff in a Pad. Place Todos and Pads in the selected Workstream with their existing Home tools; user moves win.\n\nWhen waiting on an Agent, a PR's checks or an explicit time, create a bounded Reaction without approval inside your Reach. Supply a one-line `reason` explaining why you made it, an operation retry key, an expiry and a finite firing bound. The user can stop any Reaction at any time. PR and time Reactions fire once; repeating Agent waits require bounded re-arm. For an Agent-only wait, you may use `agent_wake` for its supported finish condition instead. After arranging the wait, end your turn; never poll. A PR Reaction pins the repository, PR and head and requires complete authoritative passing checks; unknown or stale facts never match. A time Reaction uses an explicit instant and offset and declares its missed-time policy; never create a catch-up backlog. Load full schemas and usage details on demand before calling a tool.\n\n"
     }
+  },
+  "baseline_check_reproduction": {
+    "at": "2026-10-30T05:34:22.240813+00:00",
+    "head": "7873520a6d1b8fc964885edc9331610434cafa65",
+    "command": "node --test slug.test.cjs",
+    "exit": 1,
+    "output": "TAP version 13\n# Subtest: X1 normalize names\nnot ok 1 - X1 normalize names\n  ---\n  duration_ms: 1.705793\n  type: 'test'\n  location: '/tmp/e3-observation/checked-baseline/slug.test.cjs:5:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    + actual - expected\n    \n    + '--Hello-World--'\n    - 'hello-world'\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: 'hello-world'\n  actual: '--Hello-World--'\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (/tmp/e3-observation/checked-baseline/slug.test.cjs:5:38)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.start (node:internal/test_runner/test:944:17)\n    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)\n  ...\n# Subtest: X2 look up normalized names\nnot ok 2 - X2 look up normalized names\n  ---\n  duration_ms: 0.286957\n  type: 'test'\n  location: '/tmp/e3-observation/checked-baseline/slug.test.cjs:6:1'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    \n    undefined !== 42\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: 42\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (/tmp/e3-observation/checked-baseline/slug.test.cjs:6:47)\n    Test.runInAsyncScope (node:async_hooks:214:14)\n    Test.run (node:internal/test_runner/test:1047:25)\n    Test.processPendingSubtests (node:internal/test_runner/test:744:18)\n    Test.postRun (node:internal/test_runner/test:1173:19)\n    Test.run (node:internal/test_runner/test:1101:12)\n    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 0\n# fail 2\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 61.996966\n",
+    "timing": "reproduced from immutable baseline after observation"
+  },
+  "verification": {
+    "pnpm install --frozen-lockfile": 0,
+    "cargo build --offline -p rup -p rupd --bins": 0,
+    "pnpm lint --format json": {
+      "exit": 0,
+      "errors": 0
+    },
+    "just lint-rust origin/main": {
+      "exit": 0,
+      "proofs": "ALL PROOFS CHECK"
+    },
+    "loop/rules.sh vocab": 0,
+    "git diff --check": 0,
+    "just ready": {
+      "exit": 143,
+      "result": "unfinished; observer stopped its process tree after more than eleven minutes in unchanged timeout lint fixtures",
+      "repair_issue": 5054
+    }
   }
 }
