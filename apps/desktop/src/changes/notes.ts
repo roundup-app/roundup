@@ -1,5 +1,5 @@
 import { outcomeOf } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
 import { parse, stringify } from "flatted";

@@ -1,5 +1,5 @@
 import { captureFocus } from "../keys/focus";
-import { copy } from "../copy";
+import { copy } from "./copy";
 
 const promptOf = (text: string): string | null => {
   const trimmed = text.trim();

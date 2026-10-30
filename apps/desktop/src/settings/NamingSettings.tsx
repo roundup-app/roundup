@@ -1,7 +1,7 @@
 import { createResource, createSignal, Show } from "solid-js";
 import * as v from "valibot";
 import type { App } from "../app/seam";
-import { copy } from "../copy";
+import { copy } from "./copy";
 import { draftStorage } from "../state/storage";
 import { Field } from "../ui/Field";
 import { Switch } from "../ui/Switch";
