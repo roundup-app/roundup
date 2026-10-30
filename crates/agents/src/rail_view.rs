@@ -176,7 +176,16 @@ impl Shared {
             && !matches!(runs.get(&node.id), Some(Slot::Running(run)) if run.closing)
             && let Some((id, cwd)) = rail.conversation(&node.id)?
         {
-            node.overview = self.rail_view.launcher.read_overview(Path::new(&cwd), &id);
+            // RO2: the cache only; a task of its own reads the transcript and announces it.
+            node.overview = self.rail_view.launcher.cached_overview(&id);
+            let me = self.me.clone();
+            self.rail_view
+                .launcher
+                .keep_overview(Path::new(&cwd), &id, move || {
+                    if let Some(shared) = me.upgrade() {
+                        shared.bus.emit(Actor::daemon(), EventData::RailChanged);
+                    }
+                });
         }
         // R3696c: a Workstream holds a channel, inbox, tool call or stray only while a
         // Door runs under its id; an idle one skips four lock acquisitions per node.
@@ -943,6 +952,10 @@ mod tests {
         if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
             run.ended = true;
         }
+        shared
+            .rail_view
+            .launcher
+            .refresh_overview(&cwd, conversation);
         assert!(
             shared.node(&id).unwrap().overview.is_some(),
             "fixture must have visible parts before stopping"
