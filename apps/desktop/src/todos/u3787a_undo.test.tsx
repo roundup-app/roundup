@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { copy } from "../copy";
 import { padHandlers } from "../testing/stores";
 import { padOf, AGENT, openPad } from "../pads/padsFixture";
@@ -21,8 +20,7 @@ import { useBrowserStorage } from "../state/storage";
 
 stubDialogLayout();
 
-// Dispose both Projects before publishing key registrations to the App menu.
-afterEach(() => batch(cleanup));
+afterEach(cleanup);
 
 const mount = async (done = false) => {
   localStorage.clear();
