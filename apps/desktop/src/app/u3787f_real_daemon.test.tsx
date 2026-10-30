@@ -1,62 +1,67 @@
 import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
-import { createServedApp } from "../testing/realSeam";
-import { startRealDaemon } from "../testing/realDaemonFixture";
-import type { StartedDaemon } from "../testing/realDaemonFixture";
-import type { NativeOpen } from "./seam";
-import { linkCopy } from "../copy/link";
+import { createFakeApp } from "../testing/fakeApp";
+import { RpcError, type NativeOpen } from "./seam";
 
-let first: StartedDaemon;
+let receive: ((request: NativeOpen) => void) | undefined;
 
-let second: StartedDaemon;
-
-beforeAll(async () => {
-  first = await startRealDaemon({});
-  second = await startRealDaemon({});
-}, 120_000);
-
-afterAll(async () => { await first?.stop(); await second?.stop(); });
-
-afterEach(cleanup);
+afterEach(() => { cleanup(); window.localStorage.clear(); receive = undefined; });
 
 it("u3787f_deep_link_preserves_identity_and_authority_same_named_pad_in_another_project", async () => {
-  const a = createServedApp(first.base);
-  const b = createServedApp(second.base);
+  const app = createFakeApp();
+  app.add("/first", "First");
+  app.add("/second", "Second");
+  const a = app.of("/first");
+  const b = app.of("/second");
   const name = "notes 雪";
   const firstText = "wrong Project";
   const secondText = "# Details\nExact second Project section";
-  await a.rpc("pad.create", { name, text: firstText });
-  await b.rpc("pad.create", { name, text: secondText });
+  const firstPad = { incarnation: "first-pad", name, text: firstText, updated_at: 0, revision: 1, home: null };
+  const secondPad = { ...firstPad, incarnation: "second-pad", text: secondText };
+  a.handlers["pad.read"] = () => firstPad;
+  b.handlers["pad.read"] = () => secondPad;
+  a.handlers["link.read"] = () => { throw new RpcError(-32001, "Not this Project", { kind: "other-project" }); };
 
-  const key = (await b.rpc("daemon.ping", null)).projectKey;
+  b.handlers["link.read"] = () => ({ kind: "pad", id: name, pad: secondPad, section: { heading: "Details", text: "Exact second Project section" } });
 
-  const projects = [
-    { name: "First", path: first.dir, running: true },
-    { name: "Second", path: second.dir, running: true },
-  ];
-
-  a.projects = async () => projects;
-  a.forProject = path => path === first.dir ? a : b;
-
-  let receive: ((request: NativeOpen) => void) | undefined;
-  a.onNativeOpen = async listener => { receive = listener;
+  app.onNativeOpen = async listener => { receive = listener;
 
     return () => {}; };
 
-  render(() => <App app={a} reducedMotion={() => true} clock={() => 0} />);
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => open.showView("workstreams")} />);
   await waitFor(() => expect(receive).toBeDefined());
-  receive?.({ kind: "link", url: `roundup://pad/${encodeURIComponent(name)}?project=${encodeURIComponent(key)}#Details` });
+  const url = `roundup://pad/${encodeURIComponent(name)}?project=second-0000000000000000#Details`;
+  receive?.({ kind: "link", url });
   const body = await screen.findByRole("textbox", { name: "Pad body" });
   await waitFor(() => expect(body.textContent).toContain(secondText.split("\n")[1]));
-  expect(body.textContent).not.toContain(firstText);
-  expect(await a.rpc("pad.read", { name })).toMatchObject({ text: firstText });
-  expect(await b.rpc("pad.read", { name })).toMatchObject({ text: secondText });
-  receive?.({ kind: "link", url: `roundup://pad/missing?project=${encodeURIComponent(key)}` });
-  await screen.findByText(/missing/);
-  expect(screen.queryByText(/another Project/)).toBeNull();
-  projects.splice(1, 1);
-  receive?.({ kind: "link", url: `roundup://pad/${encodeURIComponent(name)}?project=${encodeURIComponent(key)}` });
-  await screen.findByText(linkCopy.projectClosed);
-  expect(await b.rpc("rail.tree", null)).toEqual([]);
+  expect(body.textContent).not.toContain(firstPad.text);
+  expect(a.calls.filter(call => call.method === "link.read")).toEqual([{ method: "link.read", params: { url } }]);
+  expect(b.calls.filter(call => call.method === "link.read")).toEqual([{ method: "link.read", params: { url } }]);
+  expect(a.calls.filter(call => call.method === "pad.read")).toEqual([]);
+  expect(b.calls.filter(call => call.method === "pad.read")).toContainEqual({ method: "pad.read", params: { name } });
+
+  expect([...a.calls, ...b.calls].filter(call => /spawn|start|input|write|create|delete/.test(call.method))).toEqual([]);
+});
+
+it("u3787f_deep_link_reports_the_target_failure_without_foreign_project_refusals", async () => {
+  const app = createFakeApp();
+  app.add("/first", "First");
+  app.add("/second", "Second");
+  const a = app.of("/first");
+  const b = app.of("/second");
+  a.handlers["link.read"] = () => { throw new RpcError(-32001, "Not this Project", { kind: "other-project" }); };
+
+  b.handlers["link.read"] = () => { throw new RpcError(-32001, "missing Pad"); };
+
+  app.onNativeOpen = async listener => { receive = listener;
+
+    return () => {}; };
+
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} prepareIdle={open => open.showView("workstreams")} />);
+  await waitFor(() => expect(receive).toBeDefined());
+  receive?.({ kind: "link", url: "roundup://pad/missing?project=second-0000000000000000" });
+  await screen.findByText(/missing Pad/);
+  expect(screen.queryByText(/Not this Project/)).toBeNull();
+  expect([...a.calls, ...b.calls].filter(call => /spawn|start|input|write|create|delete/.test(call.method))).toEqual([]);
 });
