@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const plugin = resolve(repo, "tools/oxlint/anti-slop/index.ts");
+const lint = resolve(repo, "tools/oxlint/anti-slop/web-assertions/lint.mjs");
 
 const exception = {
   file: "fixture.test.tsx", test: "t3779a_real_clock", scenario: "T3779a",
@@ -122,17 +124,17 @@ const cases = [
 
 for (const [name, source, status, diagnostic, exceptions = [], filename = "fixture.test.tsx"] of cases) {
   test(`t3779a_timeout_boundary: ${name}`, () => {
-    const dir = mkdtempSync(resolve(repo, ".timeout-fixture-"));
+    const dir = mkdtempSync(resolve(tmpdir(), ".timeout-fixture-"));
     const file = resolve(dir, filename);
     const config = resolve(dir, "config.json");
-    const entries = exceptions.map(entry => ({ ...entry, file: entry.file === "fixture.test.tsx" ? relative(repo, file) : entry.file }));
+    writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
     writeFileSync(file, 'import { test, test as check, describe, vi, beforeAll, expect } from "vitest";\n' + source);
     writeFileSync(config, JSON.stringify({
       jsPlugins: [{ name: "anti-slop", specifier: plugin }],
-      rules: { "anti-slop/bounded-test-timeout": ["error", { exceptions: entries }] },
+      rules: { "anti-slop/bounded-test-timeout": ["error", { exceptions }] },
     }));
     try {
-      const result = spawnSync("pnpm", ["--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: repo, encoding: "utf8" });
+      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", config, "--format", "json", file], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, status, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1, "The fixture must be linted");
