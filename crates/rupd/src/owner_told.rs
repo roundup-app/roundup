@@ -390,7 +390,6 @@ mod tests {
             home: None,
             owner,
             refs: vec![],
-            estimate_minutes: None,
         }
     }
 

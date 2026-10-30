@@ -120,7 +120,7 @@ async fn t30_an_old_todos_db_reads_its_latest_change_time() {
         include_str!("../../migrations/005/up.sql"),
         include_str!("../../migrations/006/up.sql"),
         include_str!("../../migrations/007/up.sql"),
-        include_str!("../../migrations/008/up.sql"),
+        "-- T4902: retired T29; retain the migration slot.",
         include_str!("../../migrations/009/up.sql"),
     ] {
         db.execute_batch(sql).unwrap();

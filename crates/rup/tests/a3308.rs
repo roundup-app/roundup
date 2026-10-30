@@ -39,10 +39,7 @@ impl Auto {
             .unwrap();
         let owner = json!({"kind":"agent","id":child["id"],"parent":null});
         let todo = user
-            .request(
-                "todo.create",
-                json!({"title":"Ship the fix","estimate_minutes":45}),
-            )
+            .request("todo.create", json!({"title":"Ship the fix"}))
             .await
             .unwrap();
         user.request("todo.move", json!({"id":todo["id"],"home":door}))
