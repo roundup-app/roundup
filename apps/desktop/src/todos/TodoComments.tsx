@@ -89,16 +89,17 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
     all.sort(compare);
 
-    if (!initialized && commentsLoaded() && history.changes() !== undefined) {
-      cutoff = all.length > 20 ? all[all.length - 21] : undefined;
+    if (!initialized && all.length > 0 && (commentsLoaded() || failure() !== null) && (history.changes() !== undefined || history.failed())) {
+      // Anchor the oldest exposed entry: recovery may insert entries on either side.
+      cutoff = all.length > 20 ? all[all.length - 20] : undefined;
       initialized = true;
     }
 
     return all.map(entry => previous?.find(prior => prior.key === entry.key) ?? entry);
   });
 
-  const older = createMemo(() => entries().filter(entry => cutoff && compare(entry, cutoff) <= 0));
-  const recent = createMemo(() => entries().filter(entry => !cutoff || compare(entry, cutoff) > 0));
+  const older = createMemo(() => entries().filter(entry => cutoff && compare(entry, cutoff) < 0));
+  const recent = createMemo(() => entries().filter(entry => !cutoff || compare(entry, cutoff) >= 0));
   const [sending, setSending] = createSignal(false);
   // U3776: the comments shown once the Drawer has read them; later arrivals are announced once.
   const [announcement, setAnnouncement] = createSignal("");
