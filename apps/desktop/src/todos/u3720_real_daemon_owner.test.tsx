@@ -231,14 +231,16 @@ it("u3311_real_daemon_delegate_board", async () => {
     saved.set(moved.id, { title: "Release notes revised", body: "" });
     await observe(moved.id, agents[0]!.id);
     await lane.browser("click", ".todo-add-notes");
-    await lane.until("!!document.querySelector('textarea[aria-label=Body]')");
-    await lane.browser("fill", "textarea[aria-label=Body]", "Exact body é 🧪\n次の行");
-    await lane.browser("press", "Tab");
-    await lane.until("!document.querySelector('textarea[aria-label=Body]')");
-    await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .todo-editable p')");
-    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪\n次の行" });
+    await lane.until("!!document.querySelector('.todo-detail-body .ProseMirror[aria-label=Body]')");
+    await lane.browser("fill", ".todo-detail-body .ProseMirror[aria-label=Body]", "Exact body é 🧪 次の行");
+    await lane.browser("press", "Control+Enter");
+    await expect.poll(async () => (await app.rpc("todo.get", { id: moved.id })).body).toBe("Exact body é 🧪 次の行");
+    await lane.until("document.activeElement !== document.body && !!document.querySelector('.todo-detail-body .ProseMirror')");
+    saved.set(moved.id, { title: "Release notes revised", body: "Exact body é 🧪 次の行" });
     await observe(moved.id, agents[0]!.id);
-    await lane.browser("click", ".todo-history-line");
+    // Keyboard activation reaches the history disclosure beneath the sticky document controls.
+    await lane.browser("focus", ".todo-history-line");
+    await lane.browser("press", "Enter");
     await lane.until("document.querySelector('.todo-history-line')?.getAttribute('aria-expanded') === 'true'");
     await capture("drawer-changes");
 

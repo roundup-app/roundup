@@ -10,19 +10,20 @@ const openDrawer = async () => {
   await mountTodos([todo(5, { title: "session store", body: "Move the cache." })]);
   { const focusedRow = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
-  await within(drawer()).findByText("Blocker");
+  await within(drawer()).findByRole("button", { name: /^Blocked by/ });
+  await within(drawer()).findByText("Move the cache.");
 };
 
 describe("u139 a Todo's title and body edit by keyboard", () => {
   it("u139_the_title_and_the_body_are_tab_stops", async () => {
     await openDrawer();
 
-    expect([within(drawer()).getByText("session store").tabIndex, within(drawer()).getByText("Move the cache.").tabIndex]).toEqual([0, 0]);
+    expect([within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" }).tabIndex, within(drawer()).getByText("Move the cache.").tabIndex]).toEqual([0, 0]);
   });
 
   it("u139_enter_on_the_title_opens_its_field_with_focus_in_it", async () => {
     await openDrawer();
-    const title = within(drawer()).getByText("session store");
+    const title = within(drawer()).getByText("session store", { selector: ":not(.todo-breadcrumb-title)" });
 
     title.focus();
     fireEvent.keyDown(title, { key: "Enter" });
