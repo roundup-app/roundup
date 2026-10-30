@@ -90,7 +90,7 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
   await browser("find", "label", "Note", "fill", "pointer note");
   await click("Save");
   await wait("!!document.querySelector('[aria-label=\"Notes\"]')");
-  expect(await browser("eval", "document.querySelector('[aria-label=\"Notes\"]').textContent")).toContain("pointer note");
+  expect(await browser("eval", "(async () => { const { notesFor } = await import('/src/changes/notes.ts'); return notesFor(window.__fake.app, window.__fake.app.opened.project.path).list('agent-1').map(({ side, start, end, text }) => ({ side, start, end, text })); })()")).toEqual([{ side: "new", start: 1, end: 2, text: "pointer note" }]);
   await browser("eval", `(() => {
     [...document.querySelectorAll('button')].find(button => button.textContent === 'Add note').focus();
   })()`);
@@ -103,6 +103,32 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
   await browser("find", "label", "Note", "fill", "keyboard range");
   await click("Save");
   await wait("document.querySelector('[aria-label=\"Notes\"]').textContent.includes('keyboard range')");
-  expect(await browser("eval", "[...document.querySelectorAll('[aria-label=\"Notes\"] > li')].at(-1).textContent")).toContain("Old file, lines 1–2");
+  expect(await browser("eval", "(async () => { const { notesFor } = await import('/src/changes/notes.ts'); return notesFor(window.__fake.app, window.__fake.app.opened.project.path).list('agent-1').map(({ side, start, end, text }) => ({ side, start, end, text })); })()")).toEqual([
+    { side: "new", start: 1, end: 2, text: "pointer note" },
+    { side: "old", start: 1, end: 2, text: "keyboard range" },
+  ]);
   await capture("pointer-and-keyboard-notes");
+
+  const recoveryCapture = captureDir("U2773e");
+
+  if (recoveryCapture) {
+    await mkdir(recoveryCapture, { recursive: true });
+    await browser("record", "start", join(recoveryCapture, "dense-retention-recovery.webm"));
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+
+    for (const state of ["dense", "dense&retention"]) {
+      await open(`/src/changes/u2540.html?${state}`);
+      await showDiff();
+      await wait("document.querySelectorAll('[aria-label=Notes] > li').length === 100");
+
+      if (state.includes("retention")) await wait("!!document.querySelector('.note-batch [role=alert]')");
+      await capture(state.includes("retention") ? "dense-retention-failed" : "dense-before-failure", "U2773e");
+    }
+
+    await click("Review recovery options");
+    await wait("!!document.querySelector('.note-recovery [role=alert]') && !!document.querySelector('.note-recovery .diff-actions')");
+    await capture("dense-recovery-actions", "U2773e");
+    await browser("record", "stop");
+  }
 }, 60_000);
