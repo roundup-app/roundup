@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 use contracts::common::ActorKind;
 use contracts::message::{Message, MessageKind, MessageStatus, Reason};
 use contracts::todo::Todo;

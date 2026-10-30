@@ -1,3 +1,4 @@
+// T4902 retires T29 duration setup; all non-duration scenario proofs below remain.
 //! T30: a Todo carries the time of its last change.
 use super::*;
 
