@@ -468,8 +468,6 @@
 {"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"33eef4d390f7d4c2511867892520cbb4c652b476945e5448169b4394dce18011"}
 {"file":"apps/desktop/src/todos/u461_browser.test.py","test":"u3728_drawer","identity":"e033be15df4d7c5c2ff8df0f4cca99c8943f29af2d335029896daf3cbaa1acea"}
 {"file":"apps/desktop/src/todos/u462_history.test.tsx","test":"u3728_changes_wait_behind_one_line","identity":"d8a140fe5fdc2c0ab0ef88b092588b4d6051b719056858717068505760c34190"}
-{"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_a_dialog_closes_outside_floating_controls: %s","identity":"ba592a6ef196511f10abc240904ce4b47c3188c507a4c352d7b633cdb963147e"}
-{"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_a_dialog_closes_outside_floating_controls: %s","identity":"72e1d99f1487dc646db43a9b1f157a362678a8eed8baed9e5853130e19632cbb"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_dialog_owned_controls_still_work: %s","identity":"62f1153f81dc8c35b488d4823504ee6f3cadb18822573e3902be9d0ac557c62b"}
 {"file":"apps/desktop/src/ui/u3295_modal.test.tsx","test":"u3295b_dialog_owned_controls_still_work: nested portalled Dialog","identity":"d297ca979fdf5018f4b443cd1a56a5d88f691292e8df5ca0cb993dce972bcbc7"}
 {"file":"apps/desktop/src/ui/u3310_browser.test.ts","test":"u3310_the_switch_is_a_labelled_keyboard_reachable_switch","identity":"f85a11cf4a7c2d254f21c1a6ad12d4d0c8be7149736bcbd13232bbfd60967c5d"}

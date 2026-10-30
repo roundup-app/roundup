@@ -91,7 +91,7 @@ Implementation observer commands (one row per failure):
 | Command | Failure | Exit |
 |---|---|---|
 | `pnpm --filter desktop exec vitest run src/copy.test.ts` | Any U471 catalogue, coverage, case or label assertion fails | 1 |
-| `pnpm --filter desktop exec vitest run src/app/u472_copy_journey.test.ts` | Any journey action, or preservation assertion fails | 1 |
+| `pnpm --filter desktop exec vitest run src/app/u3560_copy.test.tsx` | Content preservation or delivery assertion fails; the former U472 copy-string journey sweep is retired under T3779c/#4970 | 1 |
 | `python3 -c "from pathlib import Path; raise SystemExit(int(len(list(Path('apps/desktop/src').rglob('u416_sentence_case*'))) > 1))"` | More than one former case observer remains | 1 |
 | `! rg -n -e '"Start Door"' apps/desktop/src` | A replaced label remains | 1 |
 | `pnpm --filter desktop exec vitest run src/copy.test.ts -t u471_copy_` | An ownership, guard, baseline or recovery-name fixture fails | 1 |

@@ -67,7 +67,7 @@
 }
 
 .app-select-item[data-highlighted] {
-  background-color: var(--sunken);
+  background-color: var(--selected);
   color: var(--text);
 }
 
