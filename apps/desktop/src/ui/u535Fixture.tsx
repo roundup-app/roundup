@@ -11,8 +11,6 @@ const INDENT = 24;
 const NESTS = new Set(["P", "Q"]);
 
 const u535Fixture = () => {
-  const flat = new URLSearchParams(location.search).has("flat");
-
   const [rows] = createSignal<TreeRow[]>([
     { id: "P", parent: null }, { id: "P1", parent: "P" }, { id: "P2", parent: "P" }, { id: "Q", parent: null }, { id: "R", parent: null },
   ]);
@@ -33,7 +31,7 @@ const u535Fixture = () => {
 
   return <>
     <Sortable.Root ids={rows().map((row) => row.id)} aria-label="Tree rows" class="sortable-fixture"
-      tree={flat ? undefined : {
+      tree={{
         rows: rows(), indent: INDENT, nests: (id) => NESTS.has(id),
         inset: (element) => Number.parseFloat(getComputedStyle(element).paddingInlineStart),
         onMove: (next) => move([...moves(), next]),

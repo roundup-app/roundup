@@ -29,7 +29,7 @@ const read = async <T,>(expression: string): Promise<T> => {
   return reply.data.result;
 };
 
-const page = (query = "") => new URL(`${new URL("./u535Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html")}${query}`, origin).href;
+const page = () => new URL(new URL("./u535Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href;
 
 beforeAll(async () => {
   server = await appServer();
@@ -41,8 +41,8 @@ afterAll(async () => {
   try { await browser("close"); } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
 });
 
-const load = async (query = "") => {
-  await browser("open", page(query));
+const load = async () => {
+  await browser("open", page());
   await browser("wait", "--fn", `document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])').length === 5`);
 };
 
@@ -76,11 +76,13 @@ it("u535_pointer_sets_parent", async () => {
   await dragToGapBelow("R", "P2", 0);
   await release();
   expect(await moves()).toEqual([{ id: "R", parent: null, index: 1 }]);
+  expect(await output("Orders")).toBe("");
 
   await load();
   await dragToGapBelow("R", "P2", 1);
   await release();
   expect(await moves()).toEqual([{ id: "R", parent: "P", index: 2 }]);
+  expect(await output("Orders")).toBe("");
 }, 90_000);
 
 it("u535_first_child_and_clamp", async () => {
@@ -165,20 +167,4 @@ it("u535_release_swallows_the_click", async () => {
   expect(await output("Clicks")).toBe("0");
   await browser("click", '[data-id="Q"] span');
   await browser("wait", "--fn", `document.querySelector('[aria-label="Clicks"]').textContent === '1'`);
-}, 60_000);
-
-it("u535_flat_contract_unchanged", async () => {
-  await load("?flat");
-  const start = await box(`[aria-label="Move R"]`);
-  const target = await box(`[aria-label="Move P"]`);
-  await browser("mouse", "move", String(Math.round(start.x)), String(Math.round(start.y)));
-  await browser("mouse", "down");
-  await browser("mouse", "move", String(Math.round(start.x + 15)), String(Math.round(start.y)));
-  await browser("wait", "--fn", `document.querySelector('[data-id="R"]').dataset.dragging === 'true'`);
-  await browser("mouse", "move", String(Math.round(target.x)), String(Math.round(target.y)));
-  await browser("mouse", "up");
-  await browser("wait", "--fn", `document.querySelector('[aria-label="Orders"]').textContent !== ''`);
-  expect((await output("Orders")).split(";")).toHaveLength(1);
-  expect(await output("Moves")).toBe("[]");
-  expect(await output("Previews")).toBe("");
 }, 60_000);

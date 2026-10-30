@@ -434,4 +434,3 @@
 {"file":"apps/desktop/src/ui/u492_provider.test.tsx","test":"u492_hover_focus_resume_from_time_left","identity":"e150abb7056c4b7c79ee3aa49513a9bfc8284d338d0121ded2a20e6be12c27d7"}
 {"file":"apps/desktop/src/ui/u492_provider.test.tsx","test":"u492_configurable_provider_lifecycle_%s","identity":"b1aff7e997fd805d9494755713a1cf80f7c8628021e8fdd3f77f52533acf4658"}
 {"file":"apps/desktop/src/ui/u535_browser.test.ts","test":"u535_release_swallows_the_click","identity":"8242c0a7c1effbe4337039b0c27948e773a78992d79d4d6c0cf3c41590081074"}
-{"file":"apps/desktop/src/ui/u535_browser.test.ts","test":"u535_flat_contract_unchanged","identity":"d5c509056ae7047a37e1286cddbdfc01c79535ce9a715fb50de5780e35447e1d"}
