@@ -207,6 +207,41 @@ it("u3787a_undo_failure_is_retryable", async () => {
   expect(app.of("/a").calls.filter(c => ["todo.create", "agent.spawn", "terminal.spawn"].includes(c.method))).toEqual([]);
 });
 
+it("u3787a_bulk_delete_returns_focus_to_the_first_remaining_row", async () => {
+  const { app } = await mount();
+  const daemon = app.of("/a");
+  daemon.handlers["todo.list"] = () => [todo(5), todo(7), todo(9)];
+  const remove = daemon.handlers["todo.delete"]!;
+  daemon.handlers["todo.delete"] = async params => {
+    const result = await remove(params);
+    daemon.handlers["todo.list"] = () => [todo(9)];
+
+    return result;
+  };
+
+  await showEverythingInApp();
+  fireEvent.click(await screen.findByLabelText(/^(?:Idle|Blocked|Done) #5 /), { metaKey: true });
+  fireEvent.click(screen.getByLabelText(/^(?:Idle|Blocked|Done) #7 /), { metaKey: true });
+  const button = screen.getByRole("button", { name: "Delete 2" });
+  button.focus();
+  fireEvent.click(button);
+  await acknowledged();
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText(/^(?:Idle|Blocked|Done) #9 /)));
+});
+
+it("u3787a_dismissing_a_restore_failure_preserves_undo", async () => {
+  const { app, remove, connections } = await mount();
+  await remove("/a");
+  await acknowledged();
+  app.of("/a").handlers["todo.restore"] = () => { throw new Error("Original Home is unavailable. Restore the Home and retry."); };
+
+  pressUndo();
+  const dismiss = await screen.findByRole("button", { name: "Dismiss" });
+  fireEvent.click(dismiss);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(connections.get("/a")!.drafts.todoUndo.available("todo:5")).toBe(true);
+});
+
 it("u3787a_unknown_restore_consumes_only_the_reconciled_receipt", async () => {
   const { app, remove } = await mount();
   await remove("/a");
