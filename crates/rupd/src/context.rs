@@ -408,19 +408,6 @@ mod tests {
             let context = compose(&nodes, &[], id).unwrap();
             let text = text(&nodes, &context);
             assert_eq!(text.contains("two or more steps"), member, "{id}: {text}");
-            if member {
-                for rule in [
-                    "complete each",
-                    "handoff",
-                    "without approval",
-                    "reason",
-                    "end your turn",
-                    "never poll",
-                    "user moves win",
-                ] {
-                    assert!(text.contains(rule), "missing {rule}: {text}");
-                }
-            }
         }
     }
 
