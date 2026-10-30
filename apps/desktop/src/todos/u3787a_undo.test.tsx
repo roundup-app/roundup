@@ -306,8 +306,9 @@ for (const entry of ["selection", "single", "drawer"] as const) {
       expect(screen.getByText("second", { selector: ".pad-name .shelf-title" }).closest<HTMLElement>(".pad-name")!.getAttribute("aria-pressed")).toBe("true");
     } else if (entry === "single") { first.focus(); fireEvent.keyDown(first, { key: "d", code: "KeyD" }); }
     else {
-      fireEvent.keyDown(first, { key: "Enter" });
-      fireEvent.click(await within(screen.getByLabelText("Drawer")).findByRole("button", { name: "Delete" }));
+      first.focus();
+      fireEvent.keyDown(first, { key: "Enter", code: "Enter" });
+      fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "Delete" }));
     }
 
     await acknowledged();
