@@ -31,7 +31,7 @@ export const BlockerMenu = (props: {
   const shown = createMemo(() => {
     const needle = query().trim().toLowerCase();
 
-    return [...(props.related ?? []), ...props.others].values().filter((other) => `#${other.id} ${other.title}`.toLowerCase().includes(needle)).map((other) => ({ value: String(other.id), label: other.title })).toArray();
+    return [...(props.related ?? []), ...props.others].flatMap(other => `#${other.id} ${other.title}`.toLowerCase().includes(needle) ? [{ value: String(other.id), label: other.title }] : []);
   });
 
   const highlighted = () => shown().some((item) => item.value === highlight()) ? highlight() : shown()[0]?.value ?? null;
@@ -49,7 +49,7 @@ export const BlockerMenu = (props: {
 
   return <Popover.Root closeOnInteractOutside={false} open={props.open && (props.label !== undefined || props.others.length > 0)} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
     {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U171 requires a focusable disabled button to expose its reason as title. */}
-    <Popover.Trigger asChild={(attributes) => <button {...attributes()} data-button="add" type="button" aria-disabled={!props.label && props.others.length === 0 || undefined} title={!props.label && props.others.length === 0 ? copy.noOtherBlockers : undefined} class="word todo-blocker-trigger"
+    <Popover.Trigger asChild={(attributes) => <button {...attributes()} data-button="add" type="button" aria-label={props.label} aria-disabled={!props.label && props.others.length === 0 || undefined} title={!props.label && props.others.length === 0 ? copy.noOtherBlockers : undefined} class="word todo-blocker-trigger"
       ref={(element) => { button = element; props.buttonRef(element); }}
       onClick={() => { if (props.open) close(); else if (props.label || props.others.length > 0) props.onOpenChange(true); }}>
       {props.icon ?? <Icon name="plus" />}{props.label ?? copy.blockerWord}</button>} />

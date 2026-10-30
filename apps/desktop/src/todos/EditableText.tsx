@@ -192,7 +192,7 @@ export const EditableText = (props: {
       const selection = { start: element.selectionStart, end: element.selectionEnd, direction: element.selectionDirection };
       const latest = records().find(record => record.revision === activeRevision());
 
-      if (latest && JSON.stringify(v.parse(formSchema, latest.value)) === JSON.stringify(value) && (props.revision !== undefined || latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selection))) {
+      if (latest && JSON.stringify(v.parse(formSchema, latest.value)) === JSON.stringify(v.parse(formSchema, value)) && (props.revision !== undefined || latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selection))) {
         setActiveRevision(latest.revision);
 
         if ((props.revision === undefined || selectionChanged) && JSON.stringify(latest.selection) !== JSON.stringify(selection)) connected.drafts.setSelection(latest.revision, selection);

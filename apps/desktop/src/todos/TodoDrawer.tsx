@@ -296,7 +296,7 @@ export const TodoDrawer = (props: {
                   />
                 </div>
                 <ReservedLine class="todo-title-feedback" message={titleFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>{copy.dismissFailure}</button></ReservedLine>
-                <TodoMeta todo={{ ...current(), blockers: (answered() ?? current()).blockers }} all={props.todos.all()} toggle={toggle} change={changeBlockers}
+                <TodoMeta todo={{ ...(props.todos.byId().get(props.id) ?? current()), blockers: (answered() ?? current()).blockers }} all={props.todos.all()} toggle={toggle} change={changeBlockers}
                   owner={ownersOnRail(connected).find(owner => sameOwner(owner.actor, current().owner))?.name ?? copy.unassigned}
                   assign={anchor => openOwner?.(anchor)} fail={setFailure} />
                 <div class="todo-detail-body">

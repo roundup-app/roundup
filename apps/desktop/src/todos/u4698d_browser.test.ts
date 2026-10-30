@@ -55,7 +55,7 @@ it("u4698d_worst_case_todo_keeps_its_actions_reachable", { retry: 0, timeout: 90
       if (output) await browser("screenshot", join(output, `actions-${width}.png`));
       await browser("press", "Escape");
       await browser("wait", ".todo-header");
-      await browser("click", 'button:has-text("Blocked by")');
+      await browser("click", '[aria-label="Blocked by 30"]');
       await browser("wait", '[role="combobox"]');
 
       if (output) await browser("screenshot", join(output, `blockers-${width}.png`));

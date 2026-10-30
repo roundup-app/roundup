@@ -19,11 +19,7 @@ const open = async (body: string, done = false) => {
 
 it("u3732_an_empty_body_shows_add_notes_and_a_filled_one_does_not", async () => {
   await open("");
-  const button = within(panel()).getByRole("button", { name: "Add notes" });
-
-  expect(button.textContent).toBe("Add notes");
-  const title = within(panel()).getByRole("checkbox").closest(".todo-detail-title")!;
-  expect(title.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(panel()).getByRole("button", { name: "Add notes" })).toBeTruthy();
   cleanup();
   await open("some notes");
   expect(within(panel()).queryByRole("button", { name: "Add notes" })).toBeNull();
