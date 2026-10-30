@@ -189,7 +189,8 @@ for (const [name, source, forbidden] of [
     const file = resolve(dir, "fixture.test.tsx");
     try {
       writeFileSync(file, 'import { expect, test } from "vitest";\n\ntest("t3779b_fixture", () => {\n  ' + source + '\n});\n');
-      const result = spawnSync("pnpm", ["--silent", "lint", "--no-ignore", "--config", resolve(repo, ".oxlintrc.json"), "--format", "json", file], { cwd: repo, encoding: "utf8" });
+      writeFileSync(resolve(dir, "package.json"), JSON.stringify({ scripts: { lint: `node ${lint}` } }));
+      const result = spawnSync("pnpm", ["--dir", dir, "--silent", "lint", "--no-ignore", "--config", resolve(repo, ".oxlintrc.json"), "--format", "json", file], { cwd: dir, encoding: "utf8" });
       assert.equal(result.status, forbidden ? 1 : 0, result.stdout + result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.number_of_files, 1);
