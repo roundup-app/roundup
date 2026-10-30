@@ -147,9 +147,10 @@ unsafe fn decorate_project_tree(submenu: &AnyObject, hints: &[(Vec<usize>, Strin
     }
 }
 
-// This inset matched the native shortcut edge in the owner's full-width Mac
-// observation. It is relative to each final row, never to the longest title.
-const KEY_INSET: f64 = 20.0;
+// AppKit's gap between the menu's right edge and the key-equivalent column. A 20 pt
+// guess ended 5 pt short of ⌘N in the owner's Mac observation 7. It is applied to
+// the laid-out menu width of each final row, never to the longest title.
+const KEY_INSET: f64 = 15.0;
 
 fn hint_stop(menu_width: f64, right_inset: f64, hint_width: f64, origin: f64) -> f64 {
     origin + menu_width - right_inset - hint_width
@@ -169,6 +170,13 @@ define_class!(
     struct HintView;
 
     impl HintView {
+        // AppKit draws key equivalents vibrantly inside the menu's visual-effect
+        // window; a plain subview paints the same colour darker and heavier.
+        #[unsafe(method(allowsVibrancy))]
+        fn allows_vibrancy(&self) -> bool {
+            true
+        }
+
         #[unsafe(method(hitTest:))]
         fn hit_test(&self, _point: NSPoint) -> *mut NSView {
             std::ptr::null_mut()
@@ -676,6 +684,10 @@ pub(crate) mod tests {
                 let key: Retained<NSString> = msg_send![&*item, keyEquivalent];
                 assert!(key.is_empty(), "a hint must never register an accelerator");
                 let view = hint_view(&item).expect("hint is retained by the menu accessory");
+                assert!(
+                    view.allowsVibrancy(),
+                    "native key equivalents draw vibrantly"
+                );
                 let attributed = &view.ivars().hint;
                 let font_key = NSString::from_str("NSFont");
                 let color_key = NSString::from_str("NSColor");
@@ -706,6 +718,12 @@ pub(crate) mod tests {
         // A full 300 pt row with a 20 pt trailing inset and a 40 pt hint.
         assert_eq!(hint_stop(300.0, 20.0, 40.0, 0.0), 240.0);
         assert_eq!(hint_stop(420.0, 20.0, 40.0, 10.0), 370.0);
+        // The hint's right edge lands on the shared inset for any menu width.
+        for width in [292.0, 420.0] {
+            let (hint, origin) = (31.5, 3.0);
+            let right = hint_stop(width, KEY_INSET, hint, origin) + hint;
+            assert_eq!(right, origin + width - KEY_INSET);
+        }
     }
 
     unsafe fn hint_view(item: &AnyObject) -> Option<Retained<HintView>> {
