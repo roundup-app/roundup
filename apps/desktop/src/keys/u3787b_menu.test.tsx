@@ -6,6 +6,7 @@ import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { showEverythingInApp } from "../testing/showEverything";
 import { agent, info, USER, workstream } from "../testing/nodes";
 import { padHandlers } from "../testing/stores";
+import { openPad } from "../pads/padsFixture";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
 import type { MenuItem } from "../app/seam";
@@ -420,4 +421,39 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename f
   retained.run();
   openProjectPage("action:chord:F2", "/p");
   expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([]);
+});
+
+
+it.each([
+  { chord: "⌘B", key: "b", code: "KeyB", label: "Bold", semantic: "strong" },
+  { chord: "⌘I", key: "i", code: "KeyI", label: "Italic", semantic: "em" },
+  { chord: "⌘E", key: "e", code: "KeyE", label: "Inline code", semantic: "code" },
+].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Pad $label from $source captures the editor selection", async ({ chord, key, code, label, semantic, source }) => {
+  const { daemon } = await mountNavigation(true, 0);
+  const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen untouched", updated_at: 0, revision: 1, home: null }];
+  Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
+  daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
+  await showEverythingInApp(undefined, "Pads");
+  const field = await openPad("Plan");
+  field.setSelectionRange(1, 7, "forward");
+  const surface = screen.getByRole("textbox", { name: "Pad body" });
+  surface.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)).toMatchObject({ label, shortcut: chord, enabled: true }));
+  const captured = captureActions(surface).find(action => action.keys === chord)!;
+  expect(document.activeElement).toBe(surface);
+  expect(field.querySelector(semantic)).toBeNull();
+
+  if (source === "key") fireEvent.keyDown(surface, { key, code, metaKey: true });
+  else openProjectPage(`action:chord:${chord}`);
+
+  expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
+  expect(field.textContent).toContain("chosen untouched");
+  expect(document.activeElement).toBe(surface);
+  const ask = screen.getByRole("textbox", { name: "Ask" });
+  ask.focus();
+  expect(captured.available()).toBe(false);
+  captured.run();
+  openProjectPage(`action:chord:${chord}`);
+  expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
