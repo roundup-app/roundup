@@ -227,6 +227,5 @@
 {"rule":"label-length","identity":"restoreFailure","branch":"0","fingerprint":"b6ef7d5668eb57ed81612018dd86665f1bba923f6be2c853b57c65bc81224aaf"},
 {"rule":"label-length","identity":"readFailure","branch":"0","fingerprint":"44d828a6d940615f8a334601e8a7fc38254af2bf6da7c3d7a83bbae6df5d659b"},
 {"rule":"label-length","identity":"notRestored","branch":"0","fingerprint":"842eabd0b702520d31ede730e3877db4bdc7fd9df952a890b6adcda3bf90dc46"},
-{"rule":"fragment","identity":"changed","branch":"0","fingerprint":"6c3e136d22eeaca2c9447493e7b844cae8b1520fbf3539ff767c43331f27b094"},
-{"rule":"label-length","identity":"recoverDraftsCount","branch":"0","fingerprint":"3b2a16738ecaa1822ca4b1ad108ce439fe0434339038f52a4b1b2cf659108442"}
+{"rule":"fragment","identity":"changed","branch":"0","fingerprint":"6c3e136d22eeaca2c9447493e7b844cae8b1520fbf3539ff767c43331f27b094"}
 ]
