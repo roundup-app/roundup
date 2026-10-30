@@ -10,6 +10,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+
   if (animations) Object.defineProperty(Element.prototype, "getAnimations", animations);
   else Reflect.deleteProperty(Element.prototype, "getAnimations");
 });
@@ -20,10 +21,12 @@ it("u3512d_reopen_owns_exit_completion", async () => {
   const exit = gate<void>();
   const opening = gate<void>();
   let finished = opening.promise;
+
   Object.defineProperty(Element.prototype, "getAnimations", { configurable: true, value: () => [{ finished }] });
   vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
 
   const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
+
   const open = async () => {
     row.focus();
     fireEvent.keyDown(row, { key: "o", code: "KeyO" });
@@ -31,6 +34,7 @@ it("u3512d_reopen_owns_exit_completion", async () => {
     fireEvent.pointerDown(within(menu).getByText("New Workstream…"), { pointerType: "mouse", button: 0 });
     fireEvent.click(within(menu).getByText("New Workstream…"), { detail: 1 });
     await waitFor(() => expect(screen.getByRole("dialog", { name: "New Workstream" })).toHaveProperty("inert", false));
+
     return screen.getByRole("dialog", { name: "New Workstream" });
   };
 
