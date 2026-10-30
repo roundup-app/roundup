@@ -2,6 +2,7 @@ import type { Deletion as RailDeletion } from "@contracts/agent/Deletion";
 import { createSignal } from "solid-js";
 import { copy } from "../copy";
 import type { Deletion as PadDeletion } from "@contracts/pad/Deletion";
+import type { RedoDeleteParams } from "@contracts/pad/RedoDeleteParams";
 import type { Pad } from "@contracts/pad/Pad";
 import { RpcError } from "../app/seam";
 import type { Deletion } from "@contracts/todo/Deletion";
@@ -64,7 +65,11 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
 export function createTodoUndo() {
   const [stack, setStack] = createSignal<({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] } | { kind: "rail"; receipt: RailDeletion; name: string })[]>([]);
 
-  type Redo = ({ kind: "todos"; receipt: Deletion; operation: string } | { kind: "rail"; receipt: RailDeletion; name: string; operation: string }) & { state: "ready" | "unknown" };
+  type Operation = ReturnType<typeof stack>[number];
+
+  type PadRedo = { receipt: PadDeletion; operation: string; request: RedoDeleteParams | null };
+
+  type Redo = ({ kind: "todos"; receipt: Deletion; operation: string } | { kind: "rail"; receipt: RailDeletion; name: string; operation: string } | { kind: "pads"; source: Extract<Operation, { kind: "pads" }>; members: PadRedo[] }) & { state: "ready" | "unknown" };
 
   const [redoes, setRedoes] = createSignal<Redo[]>([]);
   const redoUnknown = () => redoes().at(-1)?.state === "unknown";
@@ -259,6 +264,7 @@ export function createTodoUndo() {
       if (operation.kind === "pads") {
         const failed: PadDeletion[] = [];
         const causes: string[] = [];
+        const members: PadRedo[] = [];
 
         for (const receipt of operation.receipts) {
           try {
@@ -275,6 +281,7 @@ export function createTodoUndo() {
             }
 
             if (!restored.restored) throw new Error(copy.todoRestoreUnknown);
+            members.push({ receipt: restored, operation: crypto.randomUUID(), request: null });
           } catch (error) {
             if (!(error instanceof Error)) throw error;
             failed.push(receipt);
@@ -282,7 +289,15 @@ export function createTodoUndo() {
           }
         }
 
-        setStack(all => all.flatMap(item => item !== operation ? [item] : failed.length ? [{ kind: "pads" as const, receipts: failed }] : []));
+        if (members.length) setRedoes(all => {
+          const previous = all.find(item => item.kind === "pads" && item.source === operation);
+
+          return previous?.kind === "pads"
+            ? all.map(item => item === previous ? { ...previous, members: [...previous.members, ...members] } : item)
+            : [...all, { kind: "pads", source: operation, members, state: "ready" }];
+        });
+        operation.receipts = failed;
+        setStack(all => failed.length ? [...all] : all.filter(item => item !== operation));
         setFailure(causes.length ? { kind: "restore", message: causes.join("; ") } : null);
         setVisible(failed.length > 0 || stack().length > 0);
 
@@ -340,7 +355,7 @@ export function createTodoUndo() {
 
         if (receipt.state !== "deleted") throw new Error(copy.todoRestoreUnknown);
         setStack(all => [...all, { kind: "todos", receipt }]);
-      } else {
+      } else if (action.kind === "rail") {
         const restoration = action.receipt.restoration;
         const params = { project: action.receipt.project, operation: action.operation };
 
@@ -358,6 +373,60 @@ export function createTodoUndo() {
 
         if (!receipt.deletion || receipt.deletion.restored) throw new Error(copy.todoRestoreUnknown);
         setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: action.name }]);
+      } else {
+        const failed: PadRedo[] = [];
+        const causes: Error[] = [];
+        const messages: string[] = [];
+        const receipts: PadDeletion[] = [];
+
+        for (const member of action.members) {
+          try {
+            let receipt: PadDeletion | undefined;
+
+            try { receipt = await app.rpc("pad.getDeletion", { operation: member.operation }); }
+            catch (error) { if (!(error instanceof RpcError) || error.code !== -32001) throw error; }
+
+            if (!receipt) {
+              if (!member.request) {
+                const current = await app.rpc("pad.read", { name: member.receipt.pad.name });
+                member.request = { project: member.receipt.project, restoredOperation: member.receipt.operation, operation: member.operation, expectedIncarnation: member.receipt.pad.incarnation, expectedRevision: current.revision, expectedHome: current.home };
+              }
+
+              try { receipt = await app.rpc("pad.redoDelete", member.request); }
+              catch (error) {
+                try { receipt = await app.rpc("pad.getDeletion", { operation: member.operation }); }
+                catch (readError) {
+                  if (readError instanceof RpcError && readError.code === -32001 && outcomeOf(error) === "failed") member.request = null;
+                  throw readError instanceof RpcError && readError.code === -32001 ? error : readError;
+                }
+              }
+            }
+
+            if (receipt.restored) throw new Error(copy.todoRestoreUnknown);
+            receipts.push(receipt);
+          } catch (error) {
+            if (!(error instanceof Error)) throw error;
+            failed.push(member);
+            causes.push(error);
+            messages.push(`${member.receipt.pad.name}: ${error.message}`);
+          }
+        }
+
+        if (receipts.length) {
+          action.source.receipts.push(...receipts);
+          setStack(all => all.includes(action.source) ? [...all] : [...all, action.source]);
+        }
+
+        action.members = failed;
+
+        if (causes.length) {
+          const unknown = causes.find(error => outcomeOf(error) === "unknown");
+          setRedoes(all => all.map(item => item === action ? { ...action, state: unknown ? "unknown" : "ready" } : item));
+          setFailure({ kind: "restore", message: messages.join("; ") });
+          setVisible(true);
+
+          return;
+        }
       }
 
       setRedoes(all => all.filter(item => item !== action));

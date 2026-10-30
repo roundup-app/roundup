@@ -6,6 +6,7 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { createServedApp } from "../testing/realSeam";
 import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
+import { RpcError } from "../app/seam";
 import { padHandlers } from "../testing/stores";
 import { openPad } from "./padsFixture";
 
@@ -67,7 +68,7 @@ it("u3787a_app_and_fake_carry_the_original_operation_through_the_real_daemon", a
 });
 
 // U3787a names real identity/authority and receipt readback; helper-only mocks cannot prove redo.
-it.each(["todos", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_restored_operation_%s", async kind => {
+it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_restored_operation_%s", async kind => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "redo", path: real.dir }, () => true, () => 0);
   const undo = connected.drafts.todoUndo;
@@ -79,6 +80,7 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_rest
     const node = await app.rpc("rail.createWorkstream", { name: `redo-${kind}`, parent: null });
 
     if (kind === "todos") await undo.remove([chosen.id, arrival.id + 1]);
+    else if (kind === "pads") await undo.removePads([pad]);
     else await undo.removeRail(node.id, node.name);
 
     await undo.undo();
@@ -88,7 +90,7 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_rest
     // Redo consumes an acknowledged restoration, and another Undo consumes the new receipt.
     await undo.redo();
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(kind !== "todos");
-    expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
+    expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(kind !== "pads");
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(kind !== "rail");
     expect((await app.rpc("todo.list", null)).filter(row => [arrival.id, late.id].includes(row.id)).map(row => row.id)).toEqual([arrival.id, late.id]);
     await undo.undo();
@@ -99,7 +101,7 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_redoes_the_exact_rest
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
 
-it.each(["todos", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_redo_without_repeating_effects_%s", async kind => {
+it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_redo_without_repeating_effects_%s", async kind => {
   const app = createServedApp(real.base);
   const connected = await connectProject(app, { name: "unknown redo", path: real.dir }, () => true, () => 0);
   const undo = connected.drafts.todoUndo;
@@ -107,9 +109,9 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_re
   let readable = true;
 
   const bridge: AppSeam = { ...app, rpc: async (method, params) => {
-    if (method === (kind === "todos" ? "todo.deletion" : "rail.deletion") && !readable) throw new Error("receipt unavailable");
+    if (method === (kind === "todos" ? "todo.deletion" : kind === "pads" ? "pad.getDeletion" : "rail.deletion") && !readable) throw new Error("receipt unavailable");
 
-    if (method === (kind === "todos" ? "todo.redo" : "rail.redo")) {
+    if (method === (kind === "todos" ? "todo.redo" : kind === "pads" ? "pad.redoDelete" : "rail.redo")) {
       requests.push(params);
       await app.rpc(method, params);
       readable = false;
@@ -122,8 +124,10 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_re
   try {
     const chosen = await app.rpc("todo.create", { title: `unknown ${kind}`, body: null, blockers: null });
     const node = await app.rpc("rail.createWorkstream", { name: `unknown ${kind}`, parent: null });
+    const pad = await app.rpc("pad.create", { name: `unknown-${kind}`, text: "kept" });
 
     if (kind === "todos") await undo.remove([chosen.id]);
+    else if (kind === "pads") await undo.removePads([pad]);
     else await undo.removeRail(node.id, node.name);
 
     await undo.undo();
@@ -141,6 +145,7 @@ it.each(["todos", "rail"] as const)("u3787a_retained_owner_reconciles_unknown_re
     await undo.undo();
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(true);
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(true);
+    expect(await app.rpc("pad.read", { name: pad.name })).toEqual(pad);
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
 
@@ -174,5 +179,46 @@ it("u3787a_retained_redo_refusal_preserves_a_newer_home_and_retries_the_same_req
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(false);
     await undo.undo();
     expect((await app.rpc("todo.list", null)).find(row => row.id === chosen.id)?.home).toBe(null);
+  } finally { connected.stopTerminalScheme(); }
+}, 120_000);
+
+it("u3787a_partial_pad_redo_retries_only_failed_members_as_one_undo_step", async () => {
+  const app = createServedApp(real.base);
+  const first = await app.rpc("pad.create", { name: "partial-redo-first", text: "first" });
+  const second = await app.rpc("pad.create", { name: "partial-redo-second", text: "second" });
+  const requests: unknown[] = [];
+  let refuse = true;
+
+  const bridge: AppSeam = { ...app, rpc: (method, params) => {
+    if (method === "pad.redoDelete") {
+      requests.push(params);
+
+      if (refuse && params && "expectedIncarnation" in params && params.expectedIncarnation === second.incarnation) throw new RpcError(-32003, "Pad authority refused. Restore access and retry.");
+    }
+
+    return app.rpc(method, params);
+  } };
+
+  const connected = await connectProject(bridge, { name: "partial redo", path: real.dir }, () => true, () => 0);
+  const undo = connected.drafts.todoUndo;
+
+  try {
+    await undo.removePads([first, second]);
+    await undo.undo();
+    await undo.redo();
+    expect(undo.failure()).toContain("Pad authority refused");
+    expect((await app.rpc("pad.list", null)).filter(pad => [first.incarnation, second.incarnation].includes(pad.incarnation)).map(pad => pad.incarnation)).toEqual([second.incarnation]);
+    refuse = false;
+    await undo.redo();
+    expect(requests).toEqual([
+      expect.objectContaining({ expectedIncarnation: first.incarnation }),
+      expect.objectContaining({ expectedIncarnation: second.incarnation }),
+      expect.objectContaining({ expectedIncarnation: second.incarnation }),
+    ]);
+    expect(requests[2]).toEqual(requests[1]);
+    await undo.undo();
+    expect(await app.rpc("pad.read", { name: first.name })).toEqual(first);
+    expect(await app.rpc("pad.read", { name: second.name })).toEqual(second);
+    expect(undo.available()).toBe(false);
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
