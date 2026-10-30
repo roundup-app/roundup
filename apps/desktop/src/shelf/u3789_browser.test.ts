@@ -174,6 +174,8 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
     await browser("eval", `(async () => { const {RpcError} = await import('/src/app/seam.ts'); window.__fake.app.handlers['${kind === "todos" ? "todo.create" : "pad.create"}'] = () => {throw new RpcError(-32003, 'Creation refused; change the name and try again.');}; })()`);
     await browser("press", "Enter");
     await wait("document.body.textContent.includes('Creation refused')");
+    await browser("hover", `.${kind}-tab .ink[role=alert]`);
+    await wait("Array.from(document.querySelectorAll('[role=tooltip]')).some(tip => tip.checkVisibility() && tip.textContent.includes('Creation refused'))");
     await shot("U4908", stage, `${seed}-${kind}-failure`);
     await browser("press", "Escape");
   } finally {
