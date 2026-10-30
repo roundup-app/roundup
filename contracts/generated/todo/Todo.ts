@@ -20,6 +20,4 @@ export type Todo = {
 	owner: Actor.Actor | null,
 	/**  Links to Pads and Pad sections (T27), in the order added. A Todo from before refs reads none. */
 	refs: string[],
-	/**  T29: expected work in minutes (1 to 1440); `None` is no estimate. A Todo from before this field reads as `None`. */
-	estimate_minutes: number | null,
 };
