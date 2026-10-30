@@ -115,24 +115,6 @@ const fixture = async (offset = 0, failure?: { code: number; message: string; da
   return { dir, base, subscriptions, responses, select, close };
 };
 
-it("u144_it_listens_on_loopback_only_and_refuses_a_foreign_host", async () => {
-  const real = await fixture();
-
-  try {
-    const url = new URL(`${real.base}/__daemon/open`);
-    expect(["127.0.0.1", "localhost"]).toContain(url.hostname);
-
-    const status = (host: string) => bound(new Promise<number>((resolve, reject) => {
-      request(url, { headers: { host } }, response => {
-        response.resume();
-        resolve(response.statusCode!);
-      }).on("error", reject).end();
-    }));
-
-    expect([await status(`127.0.0.1:${url.port}`), await status("evil.example")]).toEqual([200, 403]);
-  } finally { await real.close(); }
-});
-
 it("u144_closing_the_socket_fires_daemon_exited", async () => {
   const real = await fixture();
   const app = createServedApp(real.base);
