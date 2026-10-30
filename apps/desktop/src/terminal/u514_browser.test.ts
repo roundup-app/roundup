@@ -238,27 +238,10 @@ const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" |
   return selector;
 };
 
-it.each(editorKinds)("u2680d_leaving_an_editor_clears_selection_without_changing_text_%s", async (kind) => {
-  const selector = await editor(kind);
-
-  if (kind === "pad") {
-    const at = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.ProseMirror p').getBoundingClientRect(); return { x: Math.round(box.left + 15), y: Math.round(box.top + 8) }; })()");
-
-    await doubleAt(at);
-  } else await browser("dblclick", selector);
-
-  await browser("eval", `void (window.__editor = document.querySelector(${JSON.stringify(selector)}))`);
-  const selected = "window.__editor instanceof HTMLInputElement || window.__editor instanceof HTMLTextAreaElement ? window.__editor.value.slice(window.__editor.selectionStart, window.__editor.selectionEnd) : getSelection().toString()";
-  const before = await read<string>("window.__editor.value ?? window.__editor.textContent");
-  expect(await read<string>(selected)).not.toBe("");
-  await browser("click", ".window-title");
-  expect(await read<string>(selected)).toBe("");
-  expect(await read<string>("window.__editor.value ?? window.__editor.textContent")).toBe(before);
-}, 90_000);
-
 // The copy path is shared; the rich editor takes a double-click and the plain input a drag.
 it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "drag" }] as const)("u2680d_editors_keep_native_selection_and_copy_$kind ($gesture)", async ({ kind, gesture }) => {
   const selector = await editor(kind);
+  const before = await read<string>(`document.querySelector(${JSON.stringify(selector)}).value ?? document.querySelector(${JSON.stringify(selector)}).textContent`);
 
   if (gesture === "drag") {
     // Rename initially selects its full name; collapse it before starting a new pointer selection.
@@ -288,6 +271,12 @@ it.each([{ kind: "pad", gesture: "double-click" }, { kind: "rename", gesture: "d
 
   expect(text, `${kind} ${gesture}`).not.toBe("");
   await browser("clipboard", "copy");
+  const selected = "window.__editor instanceof HTMLInputElement || window.__editor instanceof HTMLTextAreaElement ? window.__editor.value.slice(window.__editor.selectionStart, window.__editor.selectionEnd) : getSelection().toString()";
+
+  expect(await read<string>(selected)).not.toBe("");
+  await browser("click", ".window-title");
+  expect(await read<string>(selected)).toBe("");
+  expect(await read<string>("window.__editor.value ?? window.__editor.textContent")).toBe(before);
   await browser("eval", "(() => { const input = document.createElement('input'); input.id = 'copy-result'; input.style.position = 'fixed'; input.style.top = '50px'; document.body.append(input); input.focus(); })()");
   await browser("press", "Control+V");
   expect(await read<string>("document.querySelector('#copy-result').value"), `${kind} ${gesture}`).toBe(text);
