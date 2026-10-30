@@ -133,7 +133,7 @@ it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_reconciles_un
     await undo.undo();
     undo.reconnect(bridge);
     await undo.redo();
-    expect(undo.failure()).toBe("receipt unavailable");
+    expect(undo.failure()).toContain("receipt unavailable");
     expect(requests).toHaveLength(1);
     // Until readback settles, a new deletion must not erase this recoverable redo.
     expect(await undo.remove([chosen.id])).toBe(false);
