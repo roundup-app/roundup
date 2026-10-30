@@ -152,7 +152,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
 
         return <Dynamic {...focus} component={node() ? "button" : "div"} onClick={open}
           ref={(element: HTMLButtonElement | HTMLDivElement) => { button = element instanceof HTMLButtonElement ? element : undefined; }}
-          type={node() ? "button" : undefined} class="ask-line" data-feedback="ink" onPointerEnter={measure}>{line(tip)}</Dynamic>;
+          type={node() ? "button" : undefined} class={`ask-line ${node() ? "row-wash" : ""}`} data-feedback="ink" onPointerEnter={measure}>{line(tip)}</Dynamic>;
       }}</Tip>
       <Show when={asking()}>
         <div class="ask-back">

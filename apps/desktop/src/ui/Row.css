@@ -1,0 +1,39 @@
+/* The paint layer preserves the row's hit area, columns and tree connections. */
+.row-wash {
+  position: relative;
+  isolation: isolate;
+  --row-wash: var(--transparent);
+}
+
+.row-wash:not(.sortable-source)::after {
+  content: "";
+  position: absolute;
+  inset: 0 var(--row-inset);
+  z-index: -1;
+  border-radius: var(--radius-control);
+  background-color: var(--row-wash);
+  pointer-events: none;
+}
+
+.app-listbox-item:not([data-disabled]):hover {
+  --row-wash: var(--hover);
+}
+
+.row-wash[data-selected="true"],
+.row-wash[data-selected=""],
+.row-wash[data-row-selected="true"],
+.row-wash[data-requested="true"],
+.row-wash[data-editing="true"],
+.row-wash:focus,
+.row-wash:has(:focus-visible) {
+  --row-wash: var(--selected);
+}
+
+.row-wash[data-selected="true"]:hover,
+.row-wash[data-selected=""]:hover,
+.row-wash[data-row-selected="true"]:hover,
+.row-wash[data-editing="true"]:hover {
+  --row-wash: var(--selected-hover);
+}
+
+.row-wash[data-todo-drop] { --row-wash: var(--hover); }

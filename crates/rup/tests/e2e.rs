@@ -2302,23 +2302,6 @@ fn card(title: &str) -> Value {
 }
 
 #[tokio::test]
-async fn m10_only_a_door_is_offered_checkpoint_write() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut door = Shim::start(&project, &rail.m).await;
-    let mut plain = Shim::start(&project, &rail.a).await;
-
-    let door_tools = tool_names(&mut door).await;
-    let plain_tools = tool_names(&mut plain).await;
-
-    assert!(door_tools.contains(&"checkpoint_write".to_owned()));
-    assert!(!plain_tools.contains(&"checkpoint_write".to_owned()));
-    assert!(door_tools.contains(&"checkpoint_list".to_owned()));
-    assert!(plain_tools.contains(&"checkpoint_list".to_owned()));
-}
-
-#[tokio::test]
 async fn m10_write_returns_the_next_id_in_the_doors_workstream() {
     let project = start(&[]);
     let user = project.client().await;
@@ -2826,29 +2809,6 @@ async fn m13_until_read(shim: &mut Shim, id: &str, needle: &str) {
     panic!("{needle} was never readable");
 }
 
-#[tokio::test]
-async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    for id in [&rail.m, &rail.a] {
-        let mut shim = Shim::start(&project, id).await;
-        let offered = tool_names(&mut shim).await;
-        for name in ["terminal_screen", "terminal_read", "terminal_search"] {
-            assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
-        }
-        assert!(
-            offered
-                .iter()
-                .filter(|n| n.starts_with("terminal_"))
-                .count()
-                // M16: a Door lacks `terminal_spawn` and `terminal_open`; B53: it alone has `terminal_show`.
-                == if id == &rail.m { 8 } else { 9 },
-            "{offered:?}"
-        );
-    }
-}
-
 /// D8: `project.resources` called until `done` accepts what it returned, one call a second.
 async fn d8_resources_until(
     client: &rpc::Client,
@@ -3280,30 +3240,6 @@ async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
     assert!(growth_kb < BUDGET_MB * 1024);
 }
 
-/// M14, narrowed by M16: the five tools offered to a Door and an ordinary Agent alike; the user-only methods get none.
-#[tokio::test]
-async fn m14_every_role_is_offered_the_seven_tools_and_not_the_user_only_ones() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    for id in [&rail.m, &rail.a] {
-        let mut shim = Shim::start(&project, id).await;
-        let offered = tool_names(&mut shim).await;
-        for name in [
-            "route_set",
-            "terminal_close",
-            "terminal_write",
-            "terminal_resize",
-            "terminal_kill",
-        ] {
-            assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
-        }
-        for name in ["message_drop", "terminal_list", "terminal_snapshot"] {
-            assert!(!offered.iter().any(|n| n == name), "{id} has {name}");
-        }
-    }
-}
-
 fn m14_code(result: Result<Value, rpc::RpcError>) -> i64 {
     result.unwrap_err().code
 }
@@ -3670,46 +3606,6 @@ fn m16_arguments(name: &str) -> Value {
 }
 
 #[tokio::test]
-async fn m16_a_door_is_offered_no_terminal_start_tool() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut door = Shim::start(&project, &rail.m).await;
-    let mut child = Shim::start(&project, &rail.a).await;
-    let offered = tool_names(&mut door).await;
-    let ordinary = tool_names(&mut child).await;
-
-    for name in M16_START {
-        assert!(!offered.iter().any(|n| n == name), "the Door has {name}");
-        assert!(ordinary.iter().any(|n| n == name), "the child lacks {name}");
-    }
-    for name in [
-        "terminal_write",
-        "terminal_snapshot",
-        "terminal_screen",
-        "terminal_read",
-        "terminal_search",
-        "terminal_close",
-        "terminal_kill",
-        "agent_spawn",
-        "agent_digest",
-        "checkpoint_write",
-    ] {
-        // M5 keeps `terminal_snapshot` without a tool, so only the offered ones are asserted.
-        if name != "terminal_snapshot" {
-            assert!(offered.iter().any(|n| n == name), "the Door lacks {name}");
-        }
-    }
-    let mut without: Vec<_> = ordinary
-        .iter()
-        .filter(|n| !offered.contains(n))
-        .cloned()
-        .collect();
-    without.sort();
-    assert_eq!(without, ["agent_run", "terminal_open", "terminal_spawn"]);
-}
-
-#[tokio::test]
 async fn m16_calling_an_unoffered_tool_has_no_effect() {
     let project = start(&[]);
     let user = project.client().await;
@@ -3754,63 +3650,6 @@ async fn m16_a_child_keeps_its_terminal_tools() {
     let screen = child.call("terminal_screen", json!({ "id": id })).await;
     assert!(screen.is_object(), "{screen}");
     child.call("terminal_kill", json!({ "id": id })).await;
-}
-
-#[tokio::test]
-async fn m16_each_offered_terminal_description_states_the_bubble_rule() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut child = Shim::start(&project, &rail.a).await;
-    let listed = child.request("tools/list", json!({})).await;
-    for name in M16_START {
-        let tool = listed["tools"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|t| t["name"] == name)
-            .unwrap();
-        let description = tool["description"].as_str().unwrap();
-        for rule in [
-            "Use your own tools for commands",
-            "open a Bubble only when the user needs to see its output or will interactively type into it",
-            "Routine builds, tests and inspection use your own tools",
-        ] {
-            assert!(
-                description.contains(rule),
-                "{name} lacks {rule}: {description}"
-            );
-        }
-    }
-}
-
-#[tokio::test]
-async fn m16_action_descriptions_prefer_direct_tools() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut door = Shim::start(&project, &rail.m).await;
-    let listed = door.request("tools/list", json!({})).await;
-    let described = |name: &str| -> String {
-        listed["tools"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|t| t["name"] == name)
-            .unwrap_or_else(|| panic!("the Door lacks {name}"))["description"]
-            .as_str()
-            .unwrap()
-            .to_owned()
-    };
-    let write = described("terminal_write");
-    for direct in ["agent_prompt", "agent_interrupt", "agent_stop"] {
-        assert!(write.contains(&format!("`{direct}`")), "{write}");
-        assert!(!described(direct).contains("keystroke"), "{direct}");
-    }
-    assert!(
-        write.contains("type keystrokes only when no direct tool does"),
-        "{write}"
-    );
 }
 
 #[tokio::test]

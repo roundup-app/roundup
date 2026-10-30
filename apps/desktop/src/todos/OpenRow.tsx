@@ -195,6 +195,7 @@ export const OpenRow = (props: {
       data-group-complete={props.groupComplete === undefined ? undefined : String(props.groupComplete)}
       data-motion={props.motion ? "play" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
+      data-editing={editing()}
       data-selected={props.pressed || picked() || props.selected ? "true" : undefined}
       role={props.treeItem?.role}
       aria-level={props.treeItem?.["aria-level"]}
