@@ -120,7 +120,7 @@ describe("u37 Reopen after the Daemon exits", () => {
     app.handlers["terminal.write"] = () => null;
 
     render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={factory} />);
-    await waitFor(() => expect(screen.queryByText("a")).not.toBeNull());
+    await screen.findByText("a");
 
     app.exitDaemon({ code: 1 });
     reopen(screen.getByRole("region", { name: "Rail" }));
