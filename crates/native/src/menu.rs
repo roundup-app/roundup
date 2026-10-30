@@ -60,7 +60,7 @@ unsafe fn sync_responder_menu(application: &AnyObject) {
         }
         let Some(edit) = submenu("Edit") else { return };
         let project_find = submenu("Project").is_some_and(|project| has_find_owner(&project));
-        let index: isize = msg_send![&*edit, indexOfItemWithTarget: std::ptr::null::<AnyObject>(), andAction: sel!(performTextFinderAction:)];
+        let index: isize = msg_send![&*edit, indexOfItemWithTag: 3787isize];
         if project_find && index >= 0 {
             let _: () = msg_send![&*edit, removeItemAtIndex: index];
         } else if !project_find && index < 0 {
@@ -73,11 +73,20 @@ unsafe fn sync_responder_menu(application: &AnyObject) {
             let _: () = msg_send![&*item, setTag: 1isize];
             let _: () = msg_send![&*item, setTarget: std::ptr::null::<AnyObject>()];
             let _: () = msg_send![&*item, setKeyEquivalentModifierMask: 1usize << 20];
-            let _: () = msg_send![&*edit, addItem: &*item];
+            let submenu: Retained<AnyObject> =
+                msg_send![AnyClass::get(c"NSMenu").expect("AppKit is loaded"), new];
+            let _: () = msg_send![&*submenu, setAutoenablesItems: true];
+            let _: () = msg_send![&*submenu, addItem: &*item];
+            let container: Retained<AnyObject> =
+                msg_send![AnyClass::get(c"NSMenuItem").expect("AppKit is loaded"), new];
+            let _: () = msg_send![&*container, setTitle: &*NSString::from_str("Find")];
+            let _: () = msg_send![&*container, setTag: 3787isize];
+            let _: () = msg_send![&*container, setSubmenu: &*submenu];
+            let _: () = msg_send![&*edit, addItem: &*container];
+            let _: () = msg_send![&*submenu, update];
         }
-        // These are Tauri's standard editing actions with nil responder targets.
-        let _: () = msg_send![&*edit, setAutoenablesItems: true];
-        let _: () = msg_send![&*edit, update];
+        // Edit stays manually enabled: Terminal Copy is handled by the webview's copy
+        // event even when WebKit's native selection validator would disable it.
     }
 }
 
@@ -346,9 +355,21 @@ pub(crate) mod tests {
             let _: () = msg_send![&*close, setAction: sel!(performClose:)];
             let _: () = msg_send![&*close, setKeyEquivalent: &*NSString::from_str("w")];
             let _: () = msg_send![&*submenus[0], addItem: &*close];
+            let copy: Retained<AnyObject> = msg_send![class(c"NSMenuItem"), new];
+            let _: () = msg_send![&*copy, setTitle: &*NSString::from_str("Copy")];
+            let _: () = msg_send![&*copy, setAction: sel!(copy:)];
+            let _: () = msg_send![&*copy, setEnabled: true];
+            let _: () = msg_send![&*submenus[1], addItem: &*copy];
             let _: () = msg_send![&*app, setMainMenu: &*menu];
             sync_responder_menu(&app);
-            let find: Retained<AnyObject> = msg_send![&*submenus[1], itemAtIndex: 0isize];
+            let copy_enabled: bool = msg_send![&*copy, isEnabled];
+            assert!(
+                copy_enabled,
+                "Terminal Copy retains its existing event route"
+            );
+            let container: Retained<AnyObject> = msg_send![&*submenus[1], itemWithTag: 3787isize];
+            let find_menu: Retained<AnyObject> = msg_send![&*container, submenu];
+            let find: Retained<AnyObject> = msg_send![&*find_menu, itemAtIndex: 0isize];
             let windows = (0..2).map(|_| {
                 let window: Allocated<AnyObject> = msg_send![class(c"NSWindow"), alloc];
                 let window: Retained<AnyObject> = msg_send![window,
@@ -371,7 +392,7 @@ pub(crate) mod tests {
                 assert!(accepted);
                 for available in [false, true] {
                     responders[index].ivars().available.set(available);
-                    let _: () = msg_send![&*submenus[1], update];
+                    let _: () = msg_send![&*find_menu, update];
                     let enabled: bool = msg_send![&*find, isEnabled];
                     assert_eq!(enabled, available);
                     let number: isize = msg_send![&**window, windowNumber];
@@ -403,7 +424,7 @@ pub(crate) mod tests {
             let _: () = msg_send![&*submenus[2], addItem: &*terminal];
             sync_responder_menu(&app);
             let count: isize = msg_send![&*submenus[1], numberOfItems];
-            assert_eq!(count, 0);
+            assert_eq!(count, 1);
             let event: Retained<AnyObject> = msg_send![class(c"NSEvent"),
                 keyEventWithType: 10usize, location: NSPoint::new(0.0, 0.0),
                 modifierFlags: 1usize << 20, timestamp: 0.0f64, windowNumber: 0isize,
@@ -422,8 +443,11 @@ pub(crate) mod tests {
             sync_responder_menu(&app);
             sync_responder_menu(&app);
             let count: isize = msg_send![&*submenus[1], numberOfItems];
-            assert_eq!(count, 1, "projection is idempotent after removing an owner");
-            let _: () = msg_send![&*submenus[1], performActionForItemAtIndex: 0isize];
+            assert_eq!(count, 2, "projection is idempotent after removing an owner");
+            let container: Retained<AnyObject> = msg_send![&*submenus[1], itemWithTag: 3787isize];
+            let current_find_menu: Retained<AnyObject> = msg_send![&*container, submenu];
+            let _: () = msg_send![&*current_find_menu, update];
+            let _: () = msg_send![&*current_find_menu, performActionForItemAtIndex: 0isize];
             assert_eq!(responders[1].ivars().calls.get(), 3);
             let _: () = msg_send![&*submenus[0], update];
             let enabled: bool = msg_send![&*close, isEnabled];
@@ -437,9 +461,10 @@ pub(crate) mod tests {
             );
             let _: () = msg_send![&*windows[0], close];
             let _: () = msg_send![&*submenus[0], update];
-            let _: () = msg_send![&*submenus[1], update];
+            let _: () = msg_send![&*current_find_menu, update];
             let close_enabled: bool = msg_send![&*close, isEnabled];
-            let current_find: Retained<AnyObject> = msg_send![&*submenus[1], itemAtIndex: 0isize];
+            let current_find: Retained<AnyObject> =
+                msg_send![&*current_find_menu, itemAtIndex: 0isize];
             let find_enabled: bool = msg_send![&*current_find, isEnabled];
             assert!(!close_enabled && !find_enabled);
             let _: () = msg_send![&*app, setMainMenu: prior.as_deref()];
