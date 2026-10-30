@@ -553,10 +553,10 @@ export const Todos = (props: {
   const [shown, setShown] = createSignal<{ id: number; content: () => JSX.Element } | null>(null);
   const selectedId = () => (shown() !== null && connected.drawer.content() === shown()?.content ? shown()?.id : undefined);
 
-  const show = (todo: Todo, source: ActivationSource) => {
+  const show = (todo: Todo, source: ActivationSource, order = dependencyRows().filter(row => listed().some(todo => todo.id === row.todo.id) && dependency.visible(row.todo.id) && !closedGroups().includes(groupOf(row.todo)) || unfolded() && foldedDone().some(todo => todo.id === row.todo.id)).map(row => row.todo.id)) => {
     commentAdvance = captureAdvance(todo.id);
 
-    const content = () => <TodoDrawer id={todo.id} todos={todos} onComment={focus => focus(() => {
+    const content = () => <TodoDrawer id={todo.id} todos={todos} order={order} onNavigate={id => { if (todos.byId().has(id)) show(todos.byId().get(id)!, "key", order); }} onComment={focus => focus(() => {
       if (!triage.on() || !commentAdvance) return;
       connected.drawer.close("key");
       void commentAdvance(captureFocus());
