@@ -3,6 +3,11 @@
   --rail-actions-height: calc(var(--space-5) + var(--space-4));
 }
 
+.rail-footer {
+  position: relative;
+  flex: none;
+}
+
 /* U391: the footer is the Rail's last child, outside the scrolling list, and reaches both of the Rail's edges (the Rail's own padding is the list's). One hairline above it (D8). */
 .rail-actions {
   display: flex;
@@ -680,7 +685,7 @@
 .rail-command-notice[data-overlay="true"] {
   padding-inline: var(--space-4);
   background: var(--sunken);
-  bottom: var(--rail-actions-height);
+  bottom: 100%;
 }
 
 .rail .rail-scroll {
@@ -698,7 +703,7 @@
 .rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
 .rail-row .worktree-chips { position: absolute; inset-inline-start: calc(var(--space-4) + var(--space-2)); inset-block-end: 0; }
 
-.rail-command-notice:not([data-overlay]) {
+.rail .rail-command-notice {
   block-size: auto;
   max-block-size: none;
   padding-inline: var(--space-4);
