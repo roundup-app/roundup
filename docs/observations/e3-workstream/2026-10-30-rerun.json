@@ -306,7 +306,7 @@
   "verification": {
     "just ready after main merge": {
       "exit": 0,
-      "main": "2526579d3e"
+      "main": "2526579d3bfbf82a5ddb9c64d37c5e8a17748b0c"
     },
     "pnpm install --frozen-lockfile": 0,
     "cargo build -p rup -p rupd --bins": 0,
