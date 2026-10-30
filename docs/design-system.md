@@ -198,7 +198,7 @@ This inventory records the U4898 implementation checkout, audited across all `Ic
 | Glyph / alternatives | Glossary term and meaning | Call sites / resolved providers |
 |---|---|---|
 | `bot` | Agent — section identity | `rail/Rail.tsx`, `sections` AGENTS |
-| `workflow` | Mode — section/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode; `rail/RailRow.tsx`, `mode-mark` until U5147c removes it |
+| `workflow` | Mode — section/create identity | `rail/Rail.tsx`, `sections` MODES and New Mode |
 | `messages` | Workstream — section/create identity | `rail/Rail.tsx`, WORKSTREAMS and New Workstream |
 | `circle` | Agent — create action identity | `rail/Rail.tsx`, New Agent |
 | `layout-dashboard` | Project — overview navigation | `rail/Rail.tsx`, overview tile |
