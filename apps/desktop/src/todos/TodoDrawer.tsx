@@ -104,7 +104,8 @@ export const TodoDrawer = (props: {
   };
 
   const todo = () => {
-    const current = props.todos.byId().get(props.id);
+    // A deletion Event can precede its reply; keep the focused header until close returns focus.
+    const current = props.todos.byId().get(props.id) ?? (deleting() ? original : undefined);
 
     if (props.recovery && (current?.home !== originalHome)) return undefined;
 
