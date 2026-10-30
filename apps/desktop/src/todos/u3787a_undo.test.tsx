@@ -158,6 +158,7 @@ it("u3787a_editor_and_terminal_keep_undo", async () => {
     document.body.append(root);
     const editor = root.querySelector<HTMLElement>("textarea,input,[tabindex]")!;
     editor.focus();
+
     for (const shiftKey of [false, true]) {
       expect(fireEvent.keyDown(editor, { key: "z", code: "KeyZ", metaKey: true, shiftKey })).toBe(true);
     }
