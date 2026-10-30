@@ -71,6 +71,7 @@ const observerTable = {
   "src/rail/u4547bc_browser.test.ts": ["U4547b", "U4547c"],
   "src/rail/u4547d_browser.test.ts": ["U4547d"],
   "src/rail/u4644_capture.test.ts": ["U4644"],
+  "src/rail/u4896_capture.test.ts": ["U4896"],
   "src/rail/u522_browser.test.ts": ["U522"],
   "src/reactions/nr9_rendered.test.ts": ["NR9", "P3557c", "U3787c", "U3791b", "U4276a", "U4276b", "U4276c"],
   "src/settings/u3799_app_settings.test.tsx": ["U3813", "U3814", "U3815"],
