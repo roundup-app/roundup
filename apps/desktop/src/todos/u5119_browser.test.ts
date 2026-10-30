@@ -24,7 +24,10 @@ it.each([[1280, 820], [1512, 950]])("u5119_partial_activity_rendered_%sx%s", { r
     writeFileSync(join(directory, `${name}-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
   };
   try {
-    await evaluate(`(() => { document.querySelector('[data-todo-root]')?.click(); const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
+    await evaluate("document.querySelector('[data-todo-root]')?.click(); true");
+    await settle();
+    await browser("wait", "#shelf-tab-todos");
+    await evaluate("(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");
     await browser("wait", "[data-shelf-group=unassigned]");
     await evaluate("(() => { const group = document.querySelector('[data-shelf-group=unassigned] [data-part=branch-control]'); if (group?.getAttribute('data-state') === 'closed') group.click(); return true; })()");
     await browser("wait", '[data-todo="1"] .todo-row-button');
