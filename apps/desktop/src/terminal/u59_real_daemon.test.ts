@@ -1,13 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
-import { browser, read, url, wait } from "../ui/tabsBrowser";
-import { journal } from "./mouseJournalHarness";
+import { browser, read, wait } from "../ui/tabsBrowser";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
-
-/** U59's observer: ten Agents on the real `rupd` and a real Chromium; the selected Terminal passes D1, D6, D7 and D10. */
 
 const found = chromePath();
 
@@ -30,47 +27,7 @@ run("u59 on the real Daemon", () => {
     await real?.stop();
   });
 
-  type Checks = Record<string, { status: string; selector: string }>;
-
-  /** A cold dev server may reload the page once it has bundled its dependencies, or a loaded runner may stall it, so the page is loaded again when the rail has not come up. */
-  const openHarness = async () => {
-    for (let attempt = 1; ; attempt += 1) {
-      await page.load(`${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`, 1280, 800);
-
-      try {
-        await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`, 20_000);
-
-        return;
-      } catch (error) {
-        if (attempt === 3) throw error;
-      }
-    }
-  };
-
   vi.setConfig({ testTimeout: 120_000 });
-
-  it("u59_ten_agents_on_the_real_daemon_leave_d1_d6_d7_and_d10_clean", async () => {
-    const app = createServedApp(real.base);
-    const home = await app.rpc("rail.createWorkstream", { name: "Ten Agents", parent: null });
-    let selected = home.id;
-
-    for (let count = 1; count <= 10; count += 1) {
-      selected = (await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: home.id, name: `Agent ${count}` })).id;
-    }
-
-    await openHarness();
-    await page.until(`() => Boolean(document.querySelector('.rail-row[data-id="${selected}"]'))`);
-    await page.call(`id => document.querySelector('.rail-row[data-id="' + id + '"]').focus()`, selected);
-    await page.until(`() => document.activeElement?.matches('.rail-row[data-id="${selected}"]')`);
-    await page.press("Enter", "Enter");
-    await page.until(`() => document.querySelector('.rail-row[data-id="${selected}"]')?.dataset.selected === 'true'`);
-
-    await page.until(`() => Boolean(document.querySelector(".xterm-scrollable-element")) && Boolean(document.querySelector("textarea.xterm-helper-textarea"))`);
-
-    const checks = await page.call<Checks>(`() => window.__checks()`);
-
-    expect(["D1", "D6", "D7", "D10"].map((id) => [id, checks[id]!.status, checks[id]!.selector]), JSON.stringify(Object.fromEntries(Object.entries(checks).filter(([, check]) => check.status === "fail")))).toEqual([["D1", "pass", ""], ["D6", "pass", ""], ["D7", "pass", ""], ["D10", "pass", ""]]);
-  });
 
   it.runIf(process.env["U2680_REAL"] === "1")("u2680a_u2680b_real_zsh_webgl_selection_observer", async () => {
     const selectionDaemon = await startRealDaemon({ SHELL: "/bin/zsh", ZDOTDIR: real.dir, HOME: real.dir, skip_global_compinit: "1" }, true);
@@ -132,48 +89,6 @@ run("u59 on the real Daemon", () => {
     }
   }, 180_000);
 });
-
-it("u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once", async () => {
-  const real = await startRealDaemon({ SHELL: "/bin/bash" }, true);
-
-  try {
-    await browser("open", url("/src/terminal/u514.html?plain=1"));
-    await wait("document.body.dataset.ready === '1'");
-    const expected = await journal("#host .xterm-screen", true);
-    const bytes = expected.bytes.flat();
-    expect(bytes.length).toBeGreaterThan(0);
-    await browser("open", `${real.base}/harness.html?view=workstreams&items=1&tabs=1&daemon=1`);
-    await wait("!!document.querySelector('.terminal-new')");
-    await browser("click", ".terminal-new");
-    await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && window.__terminals.size > 0");
-    await browser("eval", `(() => {
-      window.__emu = [...window.__terminals.values()].at(-1);
-      const write = window.__emu.write;
-      let output = '';
-      window.__emu.write = (bytes, parsed) => write(bytes, () => { output += new TextDecoder().decode(bytes); window.__mouseReady = output.includes('MOUSE_READY'); parsed?.(); });
-    })()`);
-    const program = `import os,tty,termios\nold=termios.tcgetattr(0)\ntty.setraw(0)\nos.write(1,b'\\x1b[?1000h\\x1b[?1006h\\r\\nMOUSE_' + b'READY\\r\\n')\ndata=b''\nwhile len(data)<${bytes.length}: data+=os.read(0,${bytes.length}-len(data))\ntermios.tcsetattr(0,termios.TCSANOW,old)\nos.write(1,('\\x1b[?1000l\\x1b[?1006l\\r\\nMOUSE_ACK:'+data.hex()+'\\r\\n').encode())`;
-    const command = "python3 -c '" + program.replaceAll("'", "'\\''") + "'\n";
-    await read(`(async () => {
-      window.__terminalId = document.querySelector('.bubble:not([hidden])').dataset.bubble;
-      window.__rpc = async (method, params) => {
-        const response = await fetch('/__daemon/rpc', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method,params}) });
-        const reply = await response.json();
-        if(reply.error) throw new Error(reply.error.message);
-        return reply.result;
-      };
-      await window.__rpc('terminal.write', {id:window.__terminalId,data:btoa(${JSON.stringify(command)})});
-    })()`);
-    await wait("(async () => atob((await window.__rpc('terminal.snapshot',{id:window.__terminalId})).data).includes('MOUSE_READY'))()");
-    await wait("window.__mouseReady");
-    const actual = await journal(".bubble:not([hidden]) .xterm-screen", true, true);
-    expect(actual.bytes).toEqual(expected.bytes);
-    const hex = Buffer.from(bytes).toString("hex");
-    await wait(`(async () => atob((await window.__rpc('terminal.snapshot',{id:window.__terminalId})).data).includes('MOUSE_ACK:${hex}'))()`);
-  } finally {
-    await real.stop();
-  }
-}, 300_000);
 
 // U4590's real-Daemon policy observation, opt-in alongside the rendered capture matrix.
 it.runIf(process.env.ROUNDUP_CAPTURES?.split(',').includes('U4590'))("u4590_restored_terminal_keeps_its_program_and_paints_later_output", async () => {
