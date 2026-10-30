@@ -408,3 +408,16 @@ This is compilation evidence only; earlier native evidence keeps its recorded
 scope and SHA. Complete library/native inventory, responder Find/Close Window
 availability and final native displayed-key/combined-dispatch observations remain
 on #4308. This slice closes neither #4308 nor #3843.
+
+
+Rendered comparison: `artifacts/ux/U3787b/add-todo/{base,head}/`, baseline
+`7059c8523c4ba824ec484fcf02220dbc6dd14104`, production integration
+`a192137dc` (unchanged by clean main merge `8fac8724630ca5edbc996005aa6de5e3f9a84b75`).
+Dark 1512×950 tree-40/tabs-8/conflict preserve D1–D14/D16; `delta` passes.
+The dark interaction recording shows N opening the existing form and the retained
+draft after rejection; the maximised dense Shelf exposes the full actionable
+failure. PNGs/video remain uncommitted. The capture command exits 1 because its
+installed table rejects U3787b; explicit isolated captures provide this Chromium
+evidence. No native result is claimed. The new observers use three required Rail
+identities rather than the unrelated twelve-Agent inventory fixture; their
+creation, placement, input ownership and refusal assertions remain intact.
