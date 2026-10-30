@@ -12,15 +12,13 @@ const panel = () => screen.getByRole("complementary", { name: "Drawer" });
 const open = async (mounted: Awaited<ReturnType<typeof mountTodos>>, id = 1) => {
   { const focusedRow = await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
-  await within(panel()).findByRole("region", { name: "Todo history" });
-  await within(panel()).findByRole("button", { name: /^Changes/ });
+  await within(panel()).findByRole("region", { name: "Activity" });
+  await within(panel()).findByText(/^Created |^Renamed |^Assigned /);
 };
 
-/** U3728: entries and the read wait for the user to open the line. */
+/** Recent history is exposed on opening; its read settles asynchronously. */
 const disclose = async (mounted: Awaited<ReturnType<typeof mountTodos>>) => {
-  const before = todoCallsTo(mounted.app, "todo.readHistory").length;
-  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
-  await waitFor(() => expect(todoCallsTo(mounted.app, "todo.readHistory").length).toBeGreaterThan(before));
+  await waitFor(() => expect(todoCallsTo(mounted.app, "todo.readHistory").length).toBeGreaterThan(0));
 };
 
 it("u462_only_the_open_drawer_requests_history", async () => {
@@ -52,7 +50,6 @@ it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
   m.app.handlers["todo.getHistory"] = () => Promise.reject(new RpcError(-32003, "History unavailable"));
   { const focusedRow = await screen.findByRole("button", { name: "Idle #1 todo 1" }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
 
-  fireEvent.click(await within(panel()).findByRole("button", { name: "Changes" }));
   await within(panel()).findByText("History unavailable");
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   fireEvent.dblClick(within(panel()).getByText("todo 1", { selector: ":not(.todo-breadcrumb-title)" }));
@@ -105,44 +102,22 @@ it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async (
   m.connected.drawer.close();
   await open(m);
 
-  expect(within(panel()).getByRole("button", { name: "Changes · 2" }).querySelector("[data-state]")?.getAttribute("data-state")).toBe("unread");
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory").map(call => call.params)).toEqual([{ id: 1, through: 1 }, { id: 1, through: 2 }]));
 });
 
 
-it("u3728_changes_wait_behind_one_line", async () => {
-  const m = await mountTodos([todo(1)]); await open(m);
-  const line = within(panel()).getByRole("button", { name: "Changes · 1" });
-  expect(line.getAttribute("aria-expanded")).toBe("false");
-  expect(line.querySelector("[data-state]")?.getAttribute("data-state")).toBe("unread");
-  expect(panel().querySelector("[data-change]")).toBeNull();
-  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
-});
-
-
-
-it("u3728_opening_marks_read_once", async () => {
-  const m = await mountTodos([todo(1)]); await open(m);
-  await disclose(m);
-  expect(within(panel()).getByText(/^Created todo 1( · |$)/)).toBeTruthy();
-  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
-  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
-  await waitFor(() => expect(within(panel()).getByRole("button", { name: "Changes · 1" }).querySelector("[data-state]")?.getAttribute("data-state")).toBe("read"));
-  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
-  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
-  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1);
-});
+// U4698e's integrated boundary test replaces the opt-in history fold and read tests.
 
 it("u3728_failed_read_retries_without_consuming_unread", async () => {
-  const m = await mountTodos([todo(1)]); await open(m);
+  const m = await mountTodos([todo(1)]);
   const original = m.app.handlers["todo.readHistory"]!;
   m.app.handlers["todo.readHistory"] = () => Promise.reject(new RpcError(-32003, "Read unavailable"));
-  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
+  await open(m);
   await within(panel()).findByText("Read unavailable");
-  const count = () => within(panel()).getByRole("button", { name: "Changes · 1" }).querySelector("[data-state]")?.getAttribute("data-state");
-  expect(count()).toBe("unread");
+  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1);
   m.app.handlers["todo.readHistory"] = original;
   fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
-  await waitFor(() => expect(count()).toBe("read"));
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(2));
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(2);
 });
 
@@ -169,7 +144,7 @@ it("u3299a_history_copy_keeps_removed_owner_identity", async () => {
   const copied: string[] = [];
   m.app.clipboardWrite = async (text: string) => { copied.push(text); };
 
-  const history = within(panel()).getByRole("region", { name: "Todo history" });
+  const history = within(panel()).getByRole("region", { name: "Activity" });
   fireEvent.click(within(history).getByRole("button", { name: "Copy" }));
   await waitFor(() => expect(copied).toHaveLength(1));
   expect(JSON.parse(copied[0]!).history.changes).toEqual([change]);

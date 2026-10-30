@@ -34,3 +34,18 @@ test("t_l89_web_shards_keep_a_file_longer_than_a_fair_share_apart_and_place_a_ne
 test("t_l89_web_shards_start_the_longest_file_first", () => {
   expect(longestFirst(["src/a.test.ts", "src/new.test.ts", "src/big.test.ts", "src/b.test.ts"], { "src/big.test.ts": 100, "src/a.test.ts": 10, "src/b.test.ts": 10 })).toEqual(["src/big.test.ts", "src/a.test.ts", "src/b.test.ts", "src/new.test.ts"]);
 });
+
+test("t_l89_web_shards_balance_serial_files_after_parallel_work", () => {
+  const measured = { "app-a": 100, "app-b": 100, "app-c": 100, "heavy-a": 90, "heavy-b": 90 };
+  const weights = new Map(Object.entries(measured));
+  const serial = new Set(["heavy-a", "heavy-b"]);
+  const shards = assignShards(Object.keys(measured), measured, 2, serial);
+
+  // Each heavy file occupies its worker alone, after App work. Putting both on one shard exceeds 250 seconds.
+  for (const shard of shards) {
+    const parallel = shard.flatMap(file => serial.has(file) ? [] : weights.get(file) ?? 0);
+    const seconds = shardTime(parallel) + shard.reduce((sum, file) => sum + (serial.has(file) ? (weights.get(file) ?? 0) + 2 : 0), 0);
+
+    expect(seconds).toBeLessThan(210);
+  }
+});
