@@ -1,5 +1,5 @@
 //! Retained deletion lives in the same Project transaction as the rows it removes.
-use contracts::todo::{DeleteParams, Deletion, DeletionParams, DeletionState, TodoId};
+use contracts::todo::{DeleteParams, Deletion, DeletionParams, DeletionState, RedoParams, TodoId};
 use contracts::{Actor, EventData, Verb};
 use rpc::{Ctx, RpcError, reply};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
@@ -52,6 +52,77 @@ impl Todos {
             &p,
             ctx.touches.sequence().map_err(RpcError::internal)?,
         )?;
+        tx.commit().map_err(RpcError::internal)?;
+        publish(ctx, events)?;
+        reply(&result)
+    }
+
+    pub(super) fn redo(&self, ctx: &Ctx, p: RedoParams) -> Result<Value, RpcError> {
+        let store = self.store()?;
+        let tx = store
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
+        let source =
+            receipt(&tx, &ctx.actor, &p.source)?.ok_or_else(|| RpcError::not_found("deletion"))?;
+        if source.restoration.as_deref() != Some(&p.restoration) {
+            return Err(RpcError::conflict(
+                "redo belongs to another restored deletion",
+            ));
+        }
+        // Bind replay to its source before inspecting current targets: an unknown reply
+        // stays reconcilable even after restore or later edits.
+        if let Some(result) = receipt(&tx, &ctx.actor, &p.operation)? {
+            let previous: Option<String> = tx
+                .query_row(
+                    "SELECT json_extract(result,'$.source') FROM todo_deletions WHERE operation=?",
+                    [&p.operation],
+                    |r| r.get(0),
+                )
+                .map_err(RpcError::internal)?;
+            if previous.as_deref() != Some(&p.source) {
+                return Err(RpcError::conflict(
+                    "redo key already names another operation",
+                ));
+            }
+            return reply(&result);
+        }
+        let (targets, successor): (Option<String>, Option<String>) = tx.query_row(
+            "SELECT json_extract(result,'$.restoredTargets'),json_extract(result,'$.redo') FROM todo_deletions WHERE operation=?",
+            [&p.source], |r| Ok((r.get(0)?, r.get(1)?)),
+        ).map_err(RpcError::internal)?;
+        if source.state != DeletionState::Restored || successor.is_some() {
+            return Err(RpcError::conflict(
+                "redo needs an unconsumed restored deletion",
+            ));
+        }
+        let chosen = serde_json::to_string(&source.deleted).map_err(RpcError::internal)?;
+        if targets.as_deref() != Some(&restored_targets(&tx, &chosen)?) {
+            return Err(RpcError::conflict(
+                "Can't redo: a restored Todo was changed, moved or replaced. Keep the newer work, or restore its previous placement and values before retrying Redo; the deletion is retained.",
+            ));
+        }
+        let remove = !source.deleted.is_empty();
+        let (result, events) = retain(
+            &tx,
+            &ctx.actor,
+            &DeleteParams {
+                operation: p.operation.clone(),
+                ids: source.deleted,
+            },
+            ctx.touches.sequence().map_err(RpcError::internal)?,
+            remove,
+        )?;
+        tx.execute(
+            "UPDATE todo_deletions SET result=json_set(result,'$.source',?2) WHERE operation=?1",
+            params![p.operation, p.source],
+        )
+        .map_err(RpcError::internal)?;
+        tx.execute(
+            "UPDATE todo_deletions SET result=json_set(result,'$.redo',?2) WHERE operation=?1",
+            params![p.source, p.operation],
+        )
+        .map_err(RpcError::internal)?;
         tx.commit().map_err(RpcError::internal)?;
         publish(ctx, events)?;
         reply(&result)
@@ -141,14 +212,16 @@ impl Todos {
             }
         }
         result.state = DeletionState::Restored;
+        let chosen = serde_json::to_string(&result.deleted).map_err(RpcError::internal)?;
+        let targets = restored_targets(&tx, &chosen)?;
+        let restoration: String = tx
+            .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
+            .map_err(RpcError::internal)?;
+        result.restoration = Some(restoration.clone());
         tx.execute(
-            "UPDATE todo_deletions SET result = ? WHERE operation = ?",
-            params![
-                serde_json::to_string(&result).map_err(RpcError::internal)?,
-                operation
-            ],
-        )
-        .map_err(RpcError::internal)?;
+            "UPDATE todo_deletions SET result = json_set(result,'$.state','restored','$.restoredTargets',json(?2),'$.restoration',?3) WHERE operation = ?1",
+            params![operation, targets, restoration],
+        ).map_err(RpcError::internal)?;
         for (_, retained, _) in TABLES {
             tx.execute(
                 &format!("DELETE FROM {retained} WHERE operation = ?"),
@@ -163,6 +236,16 @@ impl Todos {
             .collect();
         Ok((result, events))
     }
+}
+
+// The creation Change sequence distinguishes reincarnations even if numeric id,
+// content and millisecond creation time match. Placement and values may be repaired;
+// last-change timestamps are deliberately not identity.
+fn restored_targets(db: &Connection, chosen: &str) -> Result<String, RpcError> {
+    db.query_row(
+        "SELECT json_group_array(json_array(id,title,body,done,created_at,creator,home,pos,owner,estimate_minutes,json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker))),(SELECT MIN(seq) FROM changes WHERE todo=t.id))) FROM (SELECT * FROM todos WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id) t",
+        [chosen], |r| r.get(0),
+    ).map_err(RpcError::internal)
 }
 
 fn receipt(db: &Connection, actor: &Actor, operation: &str) -> Result<Option<Deletion>, RpcError> {
@@ -229,6 +312,7 @@ fn retain(
         deleted: Vec::new(),
         missing: Vec::new(),
         state: DeletionState::Deleted,
+        restoration: None,
     };
     for id in chosen {
         let exists: bool = db

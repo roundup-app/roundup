@@ -264,6 +264,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
+| Todo deletion redo (`RedoParams`, `todo.redo`, `Deletion.restoration`) | Redo | — |
 | History (`History`) | same | — |
 | Get History (`todo.getHistory`) | same | — |
 | Values (`Values`) | same | — |
