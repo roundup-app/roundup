@@ -124,6 +124,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                     "todo.delete"
                         | "todo.deletion"
                         | "todo.restore"
+                        | "todo.redo"
                         | "rail.remove"
                         | "rail.deletion"
                         | "rail.restore"

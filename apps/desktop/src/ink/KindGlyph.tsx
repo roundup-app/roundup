@@ -55,7 +55,7 @@ const WorkingArc = (props: { frozen?: string | undefined }) => {
 /** U401: one 12 px circle on the 16 px box; the more a Kind asks of the user, the more of it is filled. The marks inside a disc are `--ground`. */
 const DRAWINGS = {
   ring: () => null,
-  dashed: () => null,
+  barred: () => <path d="M2 8h12" />,
   quarter: (frozen?: string) => <WorkingArc frozen={frozen} />,
   disc: () => <circle cx="8" cy="8" r="3.5" fill="currentColor" stroke="none" />,
   cross: () => <path d="M5.5 5.5l5 5m0-5l-5 5" stroke="var(--ground)" fill="none" />,
@@ -69,7 +69,7 @@ const SOLID = new Set(["cross", "check"]);
 const Mark = (props: { kind: Kind; frozen?: string; ref?: (svg: SVGSVGElement) => void; class?: string }) => (
   <svg ref={props.ref} class={props.class ?? "kind-mark"} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill={SOLID.has(glyphOf(props.kind).drawing) ? "currentColor" : "none"} stroke="currentColor"
     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="8" cy="8" r="6" stroke-dasharray={glyphOf(props.kind).drawing === "dashed" ? "2.4 2.4" : undefined} />
+    <circle cx="8" cy="8" r="6" />
     {DRAWINGS[glyphOf(props.kind).drawing](props.frozen)}
   </svg>
 );

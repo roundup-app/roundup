@@ -1,3 +1,4 @@
+import "../ui/Row.css";
 import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { EmptyState } from "../ink/EmptyState";
 import { useDialog } from "@ark-ui/solid/dialog";
@@ -433,7 +434,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
   return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
     const tip = trigger();
 
-    return <button {...focus} ref={props.head} data-row-selected={props.selected} onClick={props.select} type="button" class="overview-entry"
+    return <button {...focus} ref={props.head} data-row-selected={props.selected} onClick={props.select} type="button" class="overview-entry row-wash"
       aria-label={[props.node.name, status() ? LABELS[status()!.kind] : ""].filter(Boolean).join(" ")}
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
       <Tip text={status() ? LABELS[status()!.kind] : ""} disabled={!status()}>{(trigger) =>

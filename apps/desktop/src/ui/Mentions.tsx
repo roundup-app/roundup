@@ -1,3 +1,4 @@
+import "./Row.css";
 import { Combobox, createListCollection, useComboboxContext } from "@ark-ui/solid/combobox";
 import { createMemo, createSignal, For, Show, splitProps, type JSX } from "solid-js";
 import { mergeProps } from "@zag-js/solid";
@@ -64,7 +65,7 @@ const List = (props: { label: string; items: readonly Mention[]; row: (item: Men
   <Show when={props.items.length > 0}><Portal><Combobox.Positioner><Combobox.Content class="app-popover app-mentions-panel app-mentions app-combobox-list" aria-label={props.label}
     on:pointermove={{ handleEvent: event => event.stopPropagation(), capture: true }}
     on:pointerleave={{ handleEvent: event => event.stopPropagation(), capture: true }}>
-    <For each={props.items}>{item => <Combobox.Item item={item} class="app-combobox-item"><Combobox.ItemText>{props.row(item)}</Combobox.ItemText></Combobox.Item>}</For>
+    <For each={props.items}>{item => <Combobox.Item item={item} class="app-combobox-item row-wash"><Combobox.ItemText>{props.row(item)}</Combobox.ItemText></Combobox.Item>}</For>
   </Combobox.Content></Combobox.Positioner></Portal></Show>
 );
 

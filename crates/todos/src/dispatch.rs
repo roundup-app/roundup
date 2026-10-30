@@ -160,6 +160,15 @@ impl Todos {
         self.deletion(ctx, params(value)?)
     }
 
+    async fn rpc_todo_redo(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        self.redo(ctx, params(value)?)
+    }
+
     async fn rpc_todo_restore(
         &self,
         ctx: &Ctx,
