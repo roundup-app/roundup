@@ -473,6 +473,7 @@ it.skipIf(!captureDir("U4908")).each([true, false].flatMap(base => ["tree-40", "
   await browser("click", `#shelf-tab-${kind}`);
   await wait(`document.querySelector('.${kind}-tab')`);
   await browser("eval", "document.querySelectorAll('.shelf-groups [data-state=closed] > .shelf-group-head [data-part=branch-control]').forEach(button => button.click())");
+  await browser("eval", "document.querySelectorAll('.todos-tab [data-group-toggle][aria-expanded=false]').forEach(button => button.click())");
   const row = kind === "todos" ? `.todos-tab [data-todo="${seed === "tree-40" ? 1 : 11}"] .todo-row-button` : `.pads-tab [data-pad="${"P".repeat(120)}"] .pad-name`;
   await browser("scrollintoview", row);
   await browser("mouse", "move", "1", "1");
