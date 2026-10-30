@@ -179,8 +179,8 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
   expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
 });
 
-it.each(["terminal", "rail row", "Shelf row", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
-  const { connected } = await mountNavigation(false, 0);
+it.each(["terminal", "rail row", "Shelf row", "Pad row", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
+  const { connected, daemon } = await mountNavigation(false, 0);
   connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
 
@@ -193,8 +193,16 @@ it.each(["terminal", "rail row", "Shelf row", "triage"])("u3787b_menu_covers_bou
     if (place === "triage") fireEvent.click(screen.getByRole("button", { name: "Triage" }));
   }
 
+  if (place === "Pad row") {
+    const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "", updated_at: 0, revision: 1, home: null }];
+    Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
+    daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
+    await showEverythingInApp(undefined, "Pads");
+    document.querySelector<HTMLButtonElement>('[data-pad="Plan"] .pad-name')!.focus();
+  }
+
   const focus = document.activeElement!;
-  const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : place === "rail row" ? "action:chord:F2" : "action:chord:⌘=";
+  const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : (place === "rail row" || place === "Pad row") ? "action:chord:F2" : "action:chord:⌘=";
   await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id === expected)).toBe(true));
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
   const shown = new Map(menuCommands(projectMenu.items).filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut ?? /\((.) · Rail row\)/.exec(item.label)?.[1]]));
