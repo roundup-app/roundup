@@ -80,7 +80,7 @@ describe("u26 the harness seeds", () => {
     const { app } = mount("tree-40");
 
     // U347: agent-1 runs, so its Pad is in the Shelf and, once the control is open, under it on the Rail.
-    await within(await rail()).findByText("agent-1");
+    await screen.findByRole("tablist", { name: copy.leaderShortShelf });
     showShelfTab(copy.pads);
     await openPad("pad-0");
     expect(app.calls.filter(call => call.method === "pad.read").map(call => call.params)).toEqual([{ name: "pad-0" }]);
