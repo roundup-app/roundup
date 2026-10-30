@@ -361,7 +361,6 @@ export function createTodoUndo() {
       }
 
       setRedoes(all => all.filter(item => item !== action));
-      setVisible(true);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       setRedoes(all => all.map(item => item === action ? { ...item, state: outcomeOf(error) === "failed" ? "ready" : "unknown" } : item));
