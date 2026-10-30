@@ -18,7 +18,7 @@ describe("u11 one emulator per Terminal", () => {
     app.emitOutput("t-b", "elsewhere");
     app.emitOutput("t-a", "two");
 
-    await vi.waitFor(() => expect(decoded(emulators.get("t-a")?.written ?? [])).toEqual(["one", "two"]));
+    await vi.waitFor(() => expect(decoded(emulators.get("t-a")?.written ?? []).join("")).toBe("onetwo"));
     expect([emulators.has("t-b"), app.outputSubscriptions.map((subscription) => subscription.id)]).toEqual([false, ["t-a"]]);
   });
 
@@ -48,9 +48,9 @@ describe("u11 one emulator per Terminal", () => {
     app.outputFailure = new RpcError(-32603, "channel refused");
     connected.rail.select("a");
 
-    const alert = await screen.findByRole("alert", { name: "terminal.output: channel refused" });
+    await screen.findByRole("alert", { name: "terminal.output: channel refused" });
 
-    expect([alert.tagName, alert.querySelector('svg.lucide-x[aria-hidden="true"]') !== null]).toEqual(["P", true]);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("u11_closing_the_pane_disposes_every_emulator", async () => {

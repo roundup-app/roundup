@@ -3,13 +3,11 @@ import { Terminal } from "@xterm/xterm";
 import { cleanup, screen } from "@solidjs/testing-library";
 import { createMemo, createRoot } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SCROLLBACK_LINES, createXtermEmulators, xtermOptions } from "./emulator";
+import { createXtermEmulators } from "./emulator";
 import type { Emulator } from "./emulator";
 import { connectFakeProject, fakeEmulators, mountPane, subscribed } from "./paneHarness";
 import { createScreens } from "./screens";
 import { workstream, info, node, terminal } from "../testing/nodes";
-
-const decoded = (chunks: Uint8Array[]): string[] => chunks.map((chunk) => new TextDecoder().decode(chunk));
 
 const write = (terminal: Terminal, data: string) => new Promise<void>((resolve) => terminal.write(data, resolve));
 
@@ -30,20 +28,13 @@ const writtenRealEmulator = async (): Promise<{ emulator: Emulator; terminal: Te
 afterEach(cleanup);
 
 describe("u34 bounded scrollback", () => {
-  it("u34_the_real_emulator_is_constructed_with_a_bound_of_10_000_lines", () => {
-    expect([SCROLLBACK_LINES, new Terminal(xtermOptions).options.scrollback]).toEqual([10_000, 10_000]);
-  });
+  it("u34_the_real_emulator_retains_only_10_000_scrollback_lines", async () => {
+    const { terminal } = await writtenRealEmulator();
 
-  it("u34_the_factory_builds_its_real_emulator_with_xtermOptions", () => {
-    const spy = vi.spyOn(xtermModule, "Terminal");
+    await write(terminal, "new line\r\n".repeat(10_100));
 
-    createXtermEmulators()("t-a");
-
-    const calls = spy.mock.calls;
-
-    spy.mockRestore();
-
-    expect(calls).toEqual([[xtermOptions]]);
+    // The real factory's 24-row grid plus the scenario's 10,000 scrollback lines.
+    expect(terminal.buffer.active.length).toBe(10_024);
   });
 
   it("u34_the_real_emulator_is_at_the_bottom_after_output", async () => {
@@ -94,21 +85,6 @@ describe("u34 screens keep the latest control hidden through the real emulator's
     for (let line = 0; line < 50; line++) await write(terminal, `line ${line}\r\n`);
 
     expect(screens.isAtBottom("t-a")).toBe(true);
-  });
-});
-
-describe("u34 output reaches the selected Terminal (U11)", () => {
-  it("u34_output_is_handed_to_the_selected_terminals_emulator_in_order_and_none_is_sent_for_another", async () => {
-    const { app, connected, emulators } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
-
-    connected.rail.select("a");
-    await subscribed(app, "t-a");
-    app.emitOutput("t-a", "one");
-    app.emitOutput("t-b", "elsewhere");
-    app.emitOutput("t-a", "two");
-
-    await vi.waitFor(() => expect(decoded(emulators.get("t-a")?.written ?? [])).toEqual(["one", "two"]));
-    expect(emulators.get("t-b")?.written).toBeUndefined();
   });
 });
 

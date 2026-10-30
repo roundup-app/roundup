@@ -253,3 +253,49 @@ proves the rest. This is unmeasured natively: no <16 ms claim until one Mac
 ### Flood render work, adaptive chunks (#3550)
 
 At `81d638f0` the flood misses (p95 19–20 ms) with parsed→frame the largest hop (12–13 ms against 7–8 idle). A parse cannot be interrupted, so the flooding Terminal's chunk is now sized from how fast the previous one parsed, to about 3 ms (512 to 8192 bytes), instead of a fixed 8 KB that could hold the thread for 8 ms before the typed echo's frame. The rest between chunks is unchanged. Proof without a window: `r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind`. No after-repair timing is claimed until the owner's Mac run.
+
+### Flood render work, yield between frames (2026-10-30)
+
+The owner's AC-power, Low Power Mode off observation at `f464337` still exits 1:
+
+| Run | Load | p50 / p95 / p99 ms | Dropped | dispatch→daemon p95 | echo read→event p95 | parsed→frame p95 |
+|---|---|---|---|---|---|---|
+| 1 | 4.3 | 11 / 20 / 36 | 0 | 6 | 6 | 13 |
+| 2 | 5.2 | 11 / 18 / 22 | 0 | 5 | 6 | 13 |
+| 3 | 5.7 | 11 / 19 / 24 | 0 | 2 | 9 | 13 |
+
+Renderer: WebGL, 8.3 ms frames (120 Hz). Adaptive chunks did not move native
+latency. This continuation of #4879 keeps its chunk sizing, but replaces the
+between-chunk timer with `requestAnimationFrame`: one backlog chunk resumes per
+display frame, rather than repeated timer turns competing with that frame.
+Queued contiguous output events coalesce up to the adaptive chunk limit, so
+small events share one parse instead of taking one frame each. X14's existing
+300-event flood observer caught that throughput regression before coalescing.
+xterm's public `write` schedules the backlog chunk's parsing in a later task.
+An isolated echo still writes immediately; streams retain their existing byte cap
+and gap recovery. Flood throughput may fall as rendering gets more of the thread.
+
+`r21_backlogged_output_yields_to_each_display_frame` replaces
+`r21_backlogged_output_rests_as_long_as_each_chunk_took`: the timer-rest policy is
+retired; the new observer proves no backlog restart between display frames.
+`r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind` retains the adaptive
+chunk/lossless-output proof, and `r21_agent_and_terminal_share_the_repaired_input_path`
+retains the independent echo/input proof for both item kinds. X14's channel-byte
+and U103's snapshot-order observers assert the complete ordered stream rather
+than retired one-event-per-write boundaries; their byte, binary-type and snapshot
+precedence assertions remain. These tests start
+no native App. No native latency improvement is claimed. After merge, one
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood` on the owner's Mac decides
+whether all three runs have p95 < 16 ms and zero dropped keys; retain its complete
+reports even on failure. R20/R21 and #3550 remain open until full acceptance holds.
+
+Coalescing observer cleanup (rule 10):
+`u34_output_is_handed_to_the_selected_terminals_emulator_in_order_and_none_is_sent_for_another`
+is removed; `u11_only_the_selected_terminal_is_sent_output_and_it_reaches_its_emulator_in_order`
+proves that same clause with ordered bytes independent of write boundaries.
+`u34_the_real_emulator_is_constructed_with_a_bound_of_10_000_lines` and
+`u34_the_factory_builds_its_real_emulator_with_xtermOptions` are replaced by
+`u34_the_real_emulator_retains_only_10_000_scrollback_lines`, which writes past
+the cap through a real factory-created emulator instead of copying config values.
+U11's refused-subscription observer keeps its one semantic alert assertion;
+its paragraph-tag and icon-shape assertions are retired as appearance checks.
