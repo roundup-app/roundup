@@ -316,16 +316,16 @@ it("u3515d_exhausted_targets_preserve_picker_policy_and_native_omission", async 
       const focusedRow = await screen.findByRole("button", { name: /Idle #1 / });
       focusedRow.focus();
       fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" });
-      const trigger = await within(await screen.findByRole("complementary", { name: copy.drawer })).findByRole<HTMLButtonElement>("button", { name: /Blocker/ });
+      const trigger = await within(await screen.findByRole("complementary", { name: copy.drawer })).findByRole<HTMLButtonElement>("button", { name: /^Blocked by/ });
       expect(trigger.disabled).toBe(false);
-      expect(trigger.getAttribute("aria-disabled")).toBe("true");
-      expect(trigger.title).not.toBe("");
+      
       trigger.focus();
       expect(document.activeElement).toBe(trigger);
 
       for (const key of ["Enter", " ", "ArrowDown", "ArrowUp"]) fireEvent.keyDown(trigger, { key });
       fireEvent.click(trigger);
-      expect(screen.queryByRole("combobox")).toBeNull();
+      await screen.findByRole("combobox", { name: /^Blocked by/ });
+      expect(screen.queryAllByRole("option")).toEqual([]);
       expect(actionCalls(app)).toEqual([]);
     } },
     { name: "Shared Pads offer no assignment", run: async () => {

@@ -137,12 +137,12 @@ it("u477_icon_button_preserves_bound_click_handler", async () => {
 }, 60_000);
 
 // App caller inventory: each selector denotes a source occurrence, not one seeded instance.
-// Bubbles seed reveals the floating header and terminal bar; tree-40 reveals Todo deletion.
+// Bubbles seed reveals the floating header and terminal bar; tree-40 reveals Todo actions.
 const appIcons = [
   { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Minimise"]' },
   { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Close"]' },
   { seed: "bubbles", selector: '.terminal-tab-pair button[data-button="icon"]' },
-  { seed: "tree-40", selector: '.todo-delete' },
+  { seed: "tree-40", selector: '.todo-header [aria-label="More actions"]' },
 ];
 
 const loadAppIcon = async (base: string, seed: string, selector: string) => {
@@ -196,7 +196,8 @@ it("u477_app_focus_shows_each_icon_button_name", async () => {
     await browser("wait", "--fn", `document.activeElement?.id === "u477-previous"`);
     await browser("press", "Tab");
     await browser("wait", "--fn", `document.activeElement === ${query}`);
-    await browser("wait", "--fn", `${query}.dataset.state === 'open'`);
+    // A menu trigger also has data-state; wait on the described tooltip itself.
+    await browser("wait", "--fn", `document.getElementById(${query}.getAttribute('aria-describedby'))?.dataset.state === 'open'`);
     expect(await read<boolean>(`document.getElementById(${query}.getAttribute('aria-describedby'))?.getAttribute('role') === 'tooltip'`), selector).toBe(true);
     await capture("after");
   }
