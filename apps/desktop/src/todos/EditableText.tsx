@@ -131,10 +131,11 @@ export const EditableText = (props: {
   createEffect(() => props.onFailure?.(failure(), () => setFailure(null)));
 
   let container: HTMLDivElement | undefined;
-  const shown = () => container?.querySelector<HTMLElement>("p[tabindex], .todo-add-notes");
+  const shown = () => container?.querySelector<HTMLElement>("p[tabindex], .todo-add-notes, .ProseMirror");
   let savedFocus: ReturnType<typeof captureFocus> | undefined;
   createEffect(on(() => props.todo[props.name], () => {
     const focus = savedFocus;
+    if (props.name === "body") return;
     savedFocus = undefined;
 
     // The value change can run before Solid replaces Add notes with the saved prose.
@@ -353,7 +354,16 @@ export const EditableText = (props: {
       onReady={editor => {
         handle = editor;
 
-        if (!started || !host) return;
+        if (!started) {
+          const focus = savedFocus;
+          savedFocus = undefined;
+
+          if (alive && connected.drawer.content() === content && (document.activeElement === document.body || document.activeElement === shown())) focus?.(() => editor.focus());
+
+          return;
+        }
+
+        if (!host) return;
         binding = bind(started, host, () => handle!.getText() ?? started.text, () => handle!.selection(), () => {
           handle!.focus();
 
