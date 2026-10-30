@@ -13,6 +13,7 @@ mod declarations;
 pub mod deliverable;
 pub mod event;
 pub mod export;
+pub mod github;
 pub mod link;
 pub mod message;
 pub mod methods;

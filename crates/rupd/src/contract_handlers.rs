@@ -46,6 +46,15 @@ impl Daemon {
         .expect("declared built-in method")
     }
 
+    pub(super) async fn github_call(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        self.github(conn, method, params).await
+    }
+
     pub(super) async fn rpc_link_read(
         &self,
         conn: &mut Conn,
