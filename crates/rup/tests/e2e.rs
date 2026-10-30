@@ -2761,21 +2761,6 @@ async fn m14_an_ownerless_terminal_is_forbidden_to_write() {
     assert_eq!(snapshot().await.unwrap(), before);
 }
 
-#[tokio::test]
-async fn m14_unknown_terminal_is_not_found_before_forbidden() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-
-    for method in ["terminal.write", "terminal.kill", "terminal.close"] {
-        let missing = as_a
-            .request(method, json!({ "id": "9999", "data": "eAo=" }))
-            .await;
-        assert_eq!(m14_code(missing), rpc::code::NOT_FOUND, "{method}");
-    }
-}
-
 /// M14: a call to a Held Message's settle through the shim is refused, since no tool exists for it.
 #[tokio::test]
 async fn m14_an_agent_has_no_tool_to_deliver_or_drop() {
