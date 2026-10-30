@@ -26,7 +26,9 @@ const press = (target: HTMLElement, by: "pointer" | "keyboard") => {
 const rowText = (id: number) => rowOf(id).textContent;
 
 const openDrawerOf = async (id: number) => {
-  fireEvent.keyDown(await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) }), { key: "Enter" });
+  const row = await screen.findByRole("button", { name: new RegExp(`^(Idle|Blocked) #${id} `) });
+  row.focus();
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
   await within(drawer()).findByText("Blocker");
 };
 

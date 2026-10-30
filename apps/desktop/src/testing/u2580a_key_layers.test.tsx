@@ -12,7 +12,11 @@ import { createShelfFrame, type ShelfFrame } from "../shelf/frame";
 import { shelfSliding } from "../shelf/sliding";
 import { shelfBrowser } from "../shelf/u371Browser";
 
-const { browser, evaluate, settle, rig } = shelfBrowser();
+// Observe before the registry consumes handled keys at window capture.
+const { browser, evaluate, settle, rig } = shelfBrowser(`if (!window.__layerWatch) {
+  window.__layerWatch = true;
+  window.addEventListener('keydown', () => window.__layerSample?.(), true);
+}`);
 
 afterEach(cleanup);
 
@@ -75,9 +79,14 @@ const activate = async (selector: string, key: "Enter" | "Space", expression = `
     const button = document.querySelector(${JSON.stringify(selector)});
     button.focus();
     window.__layerFrame = null;
-    button.addEventListener(button.matches('.todo-row-button') ? 'keydown' : 'click', () => requestAnimationFrame(() => {
+    const sample = () => requestAnimationFrame(() => {
       window.__layerFrame = ${expression};
-    }), {once: true});
+    });
+    if (button.matches('.todo-row-button')) window.__layerSample = () => {
+      window.__layerSample = null;
+      sample();
+    };
+    else button.addEventListener('click', sample, {once: true});
     window.__layerOrigin ??= button;
     return true;
   })()`);
