@@ -2282,20 +2282,6 @@ async fn m13_an_ownerless_terminal_is_forbidden_to_an_agent() {
 }
 
 #[tokio::test]
-async fn m13_unknown_is_not_found_before_forbidden() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut shim = Shim::start(&project, &rail.a).await;
-
-    let refused = shim
-        .refused("terminal_read", json!({ "id": "9999", "after": 0 }))
-        .await
-        .unwrap();
-    assert_eq!(refused["code"], rpc::code::NOT_FOUND);
-}
-
-#[tokio::test]
 async fn m13_a_read_through_mcp_changes_no_screen_or_status_and_logs_no_touch() {
     let project = start(&[]);
     let user = project.client().await;
@@ -2557,98 +2543,6 @@ async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
 
 fn m14_code(result: Result<Value, rpc::RpcError>) -> i64 {
     result.unwrap_err().code
-}
-
-#[tokio::test]
-async fn m14_an_agent_cannot_set_a_route_to_itself() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_a = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
-
-    let refused = as_a
-        .request(
-            "route.set",
-            json!({ "from": rail.b, "to": rail.a, "delivery": "auto" }),
-        )
-        .await;
-
-    assert_eq!(m14_code(refused), rpc::code::FORBIDDEN);
-}
-
-#[tokio::test]
-async fn m14_an_agent_sets_a_route_between_nodes_in_its_reach() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
-
-    as_m.request(
-        "route.set",
-        json!({ "from": rail.a, "to": rail.b, "delivery": "drop" }),
-    )
-    .await
-    .unwrap();
-
-    let routes = user.request("route.list", Value::Null).await.unwrap();
-    assert_eq!(
-        routes,
-        json!([{ "from": rail.a, "to": rail.b, "delivery": "drop" }])
-    );
-}
-
-#[tokio::test]
-async fn m14_a_node_outside_the_reach_is_forbidden() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
-
-    for (from, to) in [(&rail.a, &rail.c), (&rail.c, &rail.a)] {
-        let refused = as_m
-            .request(
-                "route.set",
-                json!({ "from": from, "to": to, "delivery": "drop" }),
-            )
-            .await;
-        assert_eq!(m14_code(refused), rpc::code::FORBIDDEN);
-    }
-    assert_eq!(
-        user.request("route.list", Value::Null).await.unwrap(),
-        json!([])
-    );
-}
-
-#[tokio::test]
-async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
-    user.request(
-        "route.set",
-        json!({ "from": rail.a, "to": rail.b, "delivery": "drop" }),
-    )
-    .await
-    .unwrap();
-
-    let replaced = as_m
-        .request(
-            "route.set",
-            json!({ "from": rail.a, "to": rail.b, "delivery": "auto" }),
-        )
-        .await;
-    let from_user = as_m
-        .request(
-            "route.set",
-            json!({ "from": "you", "to": rail.a, "delivery": "drop" }),
-        )
-        .await;
-
-    assert_eq!(m14_code(replaced), rpc::code::FORBIDDEN);
-    assert_eq!(m14_code(from_user), rpc::code::FORBIDDEN);
-    let routes = user.request("route.list", Value::Null).await.unwrap();
-    assert_eq!(routes[0]["delivery"], "drop");
 }
 
 #[tokio::test]

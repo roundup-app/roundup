@@ -556,7 +556,7 @@ export const Todos = (props: {
   const show = (todo: Todo, source: ActivationSource, order = dependencyRows().filter(row => listed().some(todo => todo.id === row.todo.id) && dependency.visible(row.todo.id) && !closedGroups().includes(groupOf(row.todo)) || unfolded() && foldedDone().some(todo => todo.id === row.todo.id)).map(row => row.todo.id)) => {
     commentAdvance = captureAdvance(todo.id);
 
-    const content = () => <TodoDrawer id={todo.id} todos={todos} order={order} onNavigate={id => { if (todos.byId().has(id)) show(todos.byId().get(id)!, "key", order); }} onComment={focus => focus(() => {
+    const content = () => <TodoDrawer id={todo.id} todos={todos} order={order} region={shelf ? "shelf" : "todos"} onNavigate={id => { if (todos.byId().has(id)) show(todos.byId().get(id)!, "key", order); }} onComment={focus => focus(() => {
       if (!triage.on() || !commentAdvance) return;
       connected.drawer.close("key");
       void commentAdvance(captureFocus());
@@ -778,7 +778,7 @@ export const Todos = (props: {
   const groupAttributes = (id: number, level: number): JSX.HTMLAttributes<HTMLElement> => ({ role: "treeitem", "aria-level": level, "aria-expanded": dependency.expanded(id), "aria-controls": `todo-group-${id}`, "aria-owns": `todo-group-${id}` });
 
   return (
-    <section aria-label={copy.todos} tabIndex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
+    <section data-history-region={shelf ? "shelf" : "todos"} aria-label={copy.todos} tabIndex={inScope().length === 0 ? 0 : undefined} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <OwnerCommand active={active} selected={() => selection.focused() ?? (selection.selected().length === 1 ? selection.selected()[0] : undefined)} todos={todos} connected={connected} assign={assign} />
       <ScopeAction tab="todos">
         <Show when={inScope().length > 0}>

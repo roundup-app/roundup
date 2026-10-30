@@ -1,5 +1,7 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { parse } from "flatted";
 import { notesFor } from "./notes";
+import { copy } from "./copy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { agent, event } from "../testing/nodes";
 import { WORKTREE } from "./harness";
@@ -82,7 +84,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   connected.rail.select("b");
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   expect(app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a" });
@@ -103,7 +105,7 @@ it("u2540b_refresh_keeps_original_context", async () => {
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "original");
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   app.handlers["message.send"] = params => message(1, { body: params.body, to: params.to });
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   const body = app.calls.find(call => call.method === "message.send")!.params;
   expect(JSON.stringify(body)).toContain("new-revision");
@@ -189,7 +191,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const recovered = await screen.findByRole("dialog", { name: "Recover notes" });
   // The form is first; discard only that draft, keeping the older saved batch note.
   const discarding = vi.spyOn(notesFor(reopened.app, "/p"), "discardForm");
-  fireEvent.click(within(recovered).getAllByRole("button", { name: "Discard this draft" })[0]!);
+  fireEvent.click(within(recovered).getAllByRole("button", { name: recoveryCopy.discardRevision })[0]!);
   await discarding.mock.results[0]!.value;
   expect(recovered.textContent).not.toContain(memory.trim());
   await waitFor(() => expect(parse(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.find((draft: { destination: { surface: string } }) => draft.destination.surface === "changes").value.data).forms).toEqual([]));
@@ -330,7 +332,7 @@ it("u2773e_changes_connection_replacement_keeps_memory", async () => {
   expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   next.app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   expect(next.app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a" });
   expect(first.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
@@ -368,13 +370,13 @@ it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   const { app } = await openDiff();
   await saveNote("reviewed");
   app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
-  const send = screen.getByRole("button", { name: /Send notes to/ });
+  const send = screen.getByRole("button", { name: /Send notes:/ });
   send.focus();
   fireEvent.click(send);
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" })));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
   fireEvent.click(document.activeElement!);
-  expect(await screen.findByRole("button", { name: "View diff" })).toBeTruthy();
+  expect(screen.queryByRole("region", { name: copy.diff })).toBeNull();
 });
 
 it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(action => ({ scope: "note", action })))("p3557c_failure_lifetime_note_recovery: $scope $action", async ({ action }) => {
@@ -402,7 +404,7 @@ it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"].map(
   if (action === "dismiss") fireEvent.click(within(recovery).getByRole("button", { name: "Dismiss" }));
   else if (action.includes("discard")) {
     if (action === "failed discard") blocked = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk refused"); });
-    fireEvent.click(within(first).getByRole("button", { name: "Discard this draft" }));
+    fireEvent.click(within(first).getByRole("button", { name: recoveryCopy.discardRevision }));
   } else {
     fireEvent.click(action === "copy same" ? source : within(other).getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(copied).toHaveBeenCalledTimes(2));
@@ -425,7 +427,7 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
   await waitFor(() => { if (screen.queryByRole("textbox", { name: "Note" })) throw new Error("Note persistence is pending"); });
   app.handlers["message.send"] = () => { throw new Error("reply lost"); };
 
-  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await screen.findByRole("button", { name: "Check Message history" });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: exact } });

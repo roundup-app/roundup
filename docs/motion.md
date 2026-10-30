@@ -393,3 +393,24 @@ stays system-owned, with no new App animation.
 U3787b scoped Add Todo menu/key activation reuses the existing instant draft-field
 opening and focus. Availability updates immediately on editing, scope change or
 list removal. No animation, duration, curve or Token changes.
+
+
+U3787b native responder menus (#5108, implementation `136436470b07a0c5a0cb87b8969f44481591f33f`)
+use AppKit's immediate validation and dispatch. Projection and menu opening move
+no focus and add no delay or animation. Find and Close retain native feedback;
+Terminal Find retains its existing registry owner. No Token, geometry or
+D2/D5/D6 change; native rendering requires the inventory's macOS observer.
+
+U3787b Project-tab Rename uses its existing instant editor for F2 and the Project
+menu. Both invoke the same focused tab holder; projection changes no focus,
+geometry, animation or Tokens. D2/D5/D6 retain their baseline; native-menu
+appearance still requires macOS observation.
+
+U3787b Pad Bold, Italic and Inline code menu/key actions invoke Milkdown's existing
+commands immediately. Capturing the editor/selection and dry-running availability
+changes no focus, document or Terminal input. No motion or new timing is introduced.
+
+U3787b Pad Quote, Bullet list, Numbered list and Code block menu/key actions invoke
+Milkdown's existing document command immediately through the captured editor
+registration. Help and toolbar shortcut hints add no motion; document/selection,
+focus and unavailable-owner checks remain synchronous. No effect or duration changes.

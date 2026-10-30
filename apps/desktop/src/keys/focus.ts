@@ -96,3 +96,26 @@ export const queueFocus = (move: () => void): void => {
 
   queueMicrotask(() => focus(move));
 };
+
+/** The innermost item region owns history; an unscoped destination has only explicitly handed-off work. */
+export const historyRegion = (focus: Element | null): string => {
+  const region = focus?.closest<HTMLElement>("[data-history-region]")
+    ?? focus?.closest(".drawer")?.querySelector<HTMLElement>("[data-history-region]");
+
+  return region?.dataset.historyRegion ?? "";
+};
+
+/** A Drawer's deletion closes onto the deleted item's own Shelf row when the deletion event has not yet dropped it. Call right after closing: once `refresh` drops that row, focus that is lost goes to the region's first `row`, else the region, unless the user moved it first. */
+export const keepRegionFocus = async (refresh: () => Promise<void>, row: string) => {
+  const region = document.activeElement?.closest<HTMLElement>("[data-history-region]");
+  const survivor = captureFocus();
+  await refresh();
+
+  survivor(() => {
+    if ((document.activeElement && document.activeElement !== document.body) || !region?.isConnected) return;
+    const first = region.querySelector<HTMLElement>(row);
+
+    if (!first && !region.hasAttribute("tabindex")) region.tabIndex = -1;
+    (first ?? region).focus({ preventScroll: true });
+  });
+};

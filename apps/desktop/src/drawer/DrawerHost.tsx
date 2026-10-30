@@ -54,6 +54,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   let settleFrame: number | undefined;
   let revision = 0;
   let savedFocus: HTMLElement | null = null;
+  let savedRegion: HTMLElement | null = null;
 
   // U40: opening takes the keyboard; closing gives it back to whatever kept it, unless focus left the Drawer on its own.
   createEffect(
@@ -62,14 +63,21 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
       if (open && !wasOpen) {
         savedFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        savedRegion = savedFocus?.closest<HTMLElement>("[data-history-region]") ?? null;
         captureFocus()(() => host?.querySelector<HTMLElement>(".close")?.focus({ preventScroll: true }));
       } else if (wasOpen && !open) {
         const stayedInDrawer = host?.contains(document.activeElement) ?? false;
-        const toRefocus = savedFocus;
+        const firstRow = savedRegion?.querySelector<HTMLElement>('.todo-row-button, .pad-name, [data-id][data-part="item"], [data-id] [data-part="branch-control"]');
+        const toRefocus = savedFocus?.isConnected ? savedFocus : firstRow ?? savedRegion;
 
+        const regionDestination = toRefocus === savedRegion;
         savedFocus = null;
+        savedRegion = null;
 
-        if (stayedInDrawer && toRefocus?.isConnected) captureFocus()(() => toRefocus.focus({ preventScroll: true }));
+        if (stayedInDrawer && toRefocus?.isConnected) captureFocus()(() => {
+          if (regionDestination && !toRefocus.hasAttribute("tabindex")) toRefocus.tabIndex = -1;
+          toRefocus.focus({ preventScroll: true });
+        });
       }
     }),
   );

@@ -2,9 +2,9 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
-const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"]]);
+const railDraftLabels = new Map([["rail-task", "Work"], ["rail-name", "Name"]]);
 
-const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting…"], ["unknown", "Completion unconfirmed"], ["failed", "Not submitted"]]);
+const railDraftStatuses = new Map([["draft", sharedCopy.draftStatus.draft], ["pending", "Submitting…"], ["unknown", "Unconfirmed"], ["failed", "Unsent"]]);
 
 const removalPlurals = new Intl.PluralRules("en");
 
@@ -12,19 +12,19 @@ export const copy = {
   addAgentWord: " Agent",
   railDraftTaskTarget: (name: string) => `Work for ${name}`,
   railDraftTaskAction: (send: boolean) => send ? "Send" : "Start Agent",
-  railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Its draft is kept; reopening does not retry it. Review the target before creating another request.`,
+  railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Your unfinished work remains; reopening does not retry it. Review the target before creating another request.`,
   railDraftBase: (name: string) => `Original name: ${name}`,
   railDraftDestination: (project: string, recipient: string) => `${project} · ${recipient}`,
-  railDrafts: "Unfinished rail work",
+  railDrafts: sharedCopy.unfinishedWork,
   railDraftConflict: sharedCopy.railDraftConflict,
-  railDraftUnavailable: "The original target is unavailable. Copy or discard this draft.",
-  railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? "Rail drafts"} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
+  railDraftUnavailable: "The original target is unavailable. Copy or discard your unfinished work.",
+  railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? sharedCopy.unfinishedWork} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
   railDraftRetry: "Retry storage",
-  railDraftRecovery: (surface: string, object: string, status: string) => `${railDraftLabels.get(surface) ?? "Rail edit"} · ${object} · ${railDraftStatuses.get(status) ?? "Retained"}`,
+  railDraftRecovery: (surface: string, object: string, status: string) => `${railDraftLabels.get(surface) ?? "Input"} · ${object} · ${railDraftStatuses.get(status) ?? sharedCopy.draftStatus.draft}`,
   railDraftMissingTarget: sharedCopy.railDraftMissingTarget,
-  railDraftRecovered: "Recovered rail draft",
-  railDraftCopy: "Copy draft",
-  railDraftDiscard: "Discard this revision",
+  railDraftRecovered: sharedCopy.unfinishedWork,
+  railDraftCopy: sharedCopy.copy,
+  railDraftDiscard: sharedCopy.discardRevision,
   deliverables: sharedCopy.deliverables,
   dismiss: sharedCopy.dismiss,
   retryStorage: sharedCopy.retryStorage,
@@ -35,7 +35,7 @@ export const copy = {
   moveUp: sharedCopy.moveUp,
   moveDown: sharedCopy.moveDown,
   todos: sharedCopy.todos,
-  running: "Running",
+  running: sharedCopy.running,
   close: sharedCopy.close,
   drawer: sharedCopy.drawer,
   cancel: sharedCopy.cancel,
@@ -126,7 +126,7 @@ export const copy = {
   openingPromptMenu: sharedCopy.openingPromptMenu,
   openingPromptFor: (name: string) => `First prompt · ${name}`,
   openingPromptPlaceholder: "Your first prompt",
-  openingPromptConflict: "The saved first prompt changed. Your draft is retained; saving replaces the saved prompt.",
+  openingPromptConflict: "The saved first prompt changed. Your unfinished work remains; saving replaces the saved prompt.",
   modePromptHint: "Typed once when this Mode starts a fresh session",
   openingPromptHint: "Typed once when this Workstream starts a fresh session",
   changeReopened: sharedCopy.changeReopened,

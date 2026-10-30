@@ -181,9 +181,7 @@ export const RailRowView = (props: {
     <p class="line">
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={copy.collapse} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
-      <Show when={workstream() && props.row.node.opening_prompt?.trim()} fallback={name()}>
-        <span class="mode-name">{name()}<span class="mode-mark" data-state="mode" role="img" aria-label={copy.modeWord}><Icon name="workflow" /></span></span>
-      </Show>
+      {name()}
       <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">

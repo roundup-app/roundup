@@ -446,3 +446,181 @@ async fn m14_unknown_terminal_is_not_found_before_forbidden() {
         assert_eq!(missing.code, code::NOT_FOUND, "{method}");
     }
 }
+
+#[tokio::test]
+async fn m13_unknown_is_not_found_before_forbidden() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Agent',0)",
+        [],
+    )
+    .unwrap();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "1".into(),
+            parent: None,
+        },
+        peer: None,
+        events,
+        output: None,
+    };
+
+    let missing = daemon
+        .route(
+            &mut conn,
+            "terminal.read",
+            json!({ "id": "9999", "after": 0 }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(missing.code, code::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn m14_an_agent_cannot_set_a_route_to_itself() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "1".into(),
+            parent: None,
+        },
+        peer: None,
+        events,
+        output: None,
+    };
+
+    let refused = daemon
+        .route(
+            &mut conn,
+            "route.set",
+            json!({ "from": "2", "to": "1", "delivery": "auto" }),
+        )
+        .await;
+
+    assert_eq!(refused.unwrap_err().code, code::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn m14_an_agent_sets_a_route_between_nodes_in_its_reach() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "1".into(),
+            parent: None,
+        },
+        peer: None,
+        events,
+        output: None,
+    };
+
+    daemon
+        .route(
+            &mut conn,
+            "route.set",
+            json!({ "from": "2", "to": "3", "delivery": "drop" }),
+        )
+        .await
+        .unwrap();
+
+    let routes = tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"].clone();
+    assert_eq!(
+        routes,
+        json!([{ "from": "2", "to": "3", "delivery": "drop" }])
+    );
+}
+
+#[tokio::test]
+async fn m14_a_node_outside_the_reach_is_forbidden() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "1".into(),
+            parent: None,
+        },
+        peer: None,
+        events,
+        output: None,
+    };
+
+    for (from, to) in [("2", "5"), ("5", "2")] {
+        let refused = daemon
+            .route(
+                &mut conn,
+                "route.set",
+                json!({ "from": from, "to": to, "delivery": "drop" }),
+            )
+            .await;
+        assert_eq!(refused.unwrap_err().code, code::FORBIDDEN);
+    }
+    assert_eq!(
+        tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"],
+        json!([])
+    );
+}
+
+#[tokio::test]
+async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','m',0,NULL),(2,'agent','a',0,1),(3,'agent','b',1,1),(4,'workstream','g',1,NULL),(5,'agent','c',0,4);").unwrap();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor::user(),
+        peer: None,
+        events,
+        output: None,
+    };
+    daemon
+        .route(
+            &mut conn,
+            "route.set",
+            json!({ "from": "2", "to": "3", "delivery": "drop" }),
+        )
+        .await
+        .unwrap();
+
+    conn.actor = Actor {
+        kind: ActorKind::Agent,
+        id: "1".into(),
+        parent: None,
+    };
+    let replaced = daemon
+        .route(
+            &mut conn,
+            "route.set",
+            json!({ "from": "2", "to": "3", "delivery": "auto" }),
+        )
+        .await;
+    let from_user = daemon
+        .route(
+            &mut conn,
+            "route.set",
+            json!({ "from": "you", "to": "2", "delivery": "drop" }),
+        )
+        .await;
+
+    assert_eq!(replaced.unwrap_err().code, code::FORBIDDEN);
+    assert_eq!(from_user.unwrap_err().code, code::FORBIDDEN);
+    let routes = tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"].clone();
+    assert_eq!(routes[0]["delivery"], "drop");
+}

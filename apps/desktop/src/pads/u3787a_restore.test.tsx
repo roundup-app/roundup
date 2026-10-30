@@ -1,5 +1,12 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { showEverythingInApp } from "../testing/showEverything";
+import { menuProbe, projectMenu } from "../testing/menuProbe";
+import { Todos } from "../todos/Todos";
+import { Pads } from "./Pads";
+import type { ConnectedProject } from "../state/connectedProject";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { AppSeam } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
@@ -83,12 +90,20 @@ it.each(["todos", "pads", "rail"] as const)("u3787a_retained_owner_redoes_the_ex
     else if (kind === "pads") await undo.removePads([pad], kind);
     else await undo.removeRail(node.id, node.name, kind);
 
+    const action = kind === "todos" ? "Delete Todo" : kind === "pads" ? "Delete Pad" : `Remove redo-${kind}`;
+    expect(undo.undoLabel(kind)).toBe(`Undo ${action}`);
+    expect(undo.undoLabel("empty")).toBe("Undo");
     await undo.undo(kind);
+    expect(undo.undoLabel(kind)).toBe("Undo");
+    expect(undo.redoLabel(kind)).toBe(`Redo ${action}`);
+    expect(undo.redoLabel("empty")).toBe("Redo");
     const late = await app.rpc("todo.create", { title: `late ${kind}`, body: null, blockers: null });
 
     if (kind === "todos") expect(late.id).toBe(arrival.id + 1);
     // Redo consumes an acknowledged restoration, and another Undo consumes the new receipt.
     await undo.redo(kind);
+    expect(undo.undoLabel(kind)).toBe(`Undo ${action}`);
+    expect(undo.redoLabel(kind)).toBe("Redo");
     expect((await app.rpc("todo.list", null)).some(row => row.id === chosen.id)).toBe(kind !== "todos");
     expect((await app.rpc("pad.list", null)).some(row => row.incarnation === pad.incarnation)).toBe(kind !== "pads");
     expect((await app.rpc("rail.tree", null)).some(row => row.id === node.id)).toBe(kind !== "rail");
@@ -363,3 +378,138 @@ it.each(["todos", "pads"] as const)("u3787a_handoff_redo_clears_only_the_destina
     expect(undo.available("shelf")).toBe(false);
   } finally { connected.stopTerminalScheme(); }
 }, 120_000);
+
+describe("U3787a connected App regions", () => {
+  let real: StartedDaemon;
+
+  beforeEach(async () => { real = await startRealDaemon({}); }, 120_000);
+  afterEach(async () => { await real?.stop(); });
+
+// The full App owns keys and native menu capture; the Daemon owns every mutation and identity.
+it.each(["todos", "pads", "shelf-todos", "shelf-pads", "clear-done", "drawer-todo", "drawer-pad"])("u3787a_%s_delete_undo_redo_without_feedback", async kind => {
+  const app = createServedApp(real.base);
+
+  // The contract probes above retain their own data; each rendered region starts
+  // with only its chosen item so a prior probe cannot supply its target or Home.
+  for (const pad of await app.rpc("pad.list", null)) await app.rpc("pad.delete", { name: pad.name, expectedIncarnation: pad.incarnation, operation: `clean-${kind}-${pad.incarnation}` });
+
+  const previous = await app.rpc("todo.list", null);
+
+  if (previous.length) await app.rpc("todo.delete", { ids: previous.map(todo => todo.id), operation: `clean-${kind}-todos` });
+
+  for (const node of await app.rpc("rail.tree", null)) await app.rpc("rail.remove", { id: node.id, operation: `clean-${kind}-${node.id}` });
+
+  const name = `round-trip-${kind}`;
+  const isPad = kind.includes("pad");
+  const pad = isPad ? await app.rpc("pad.create", { name, text: "exact retained content" }) : null;
+  const todo = !isPad ? await app.rpc("todo.create", { title: name, body: null, blockers: null }) : null;
+
+  if (kind === "clear-done") await app.rpc("todo.complete", { id: todo!.id });
+  let connected: ConnectedProject | undefined;
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} initialShelfOpen={kind !== "todos" && kind !== "pads"} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
+  await waitFor(() => expect(connected !== undefined).toBe(true));
+  await showEverythingInApp(undefined, isPad ? "Pads" : "Todos");
+
+  if (kind === "todos" || kind === "pads") {
+    connected!.rail.select(null);
+    connected!.drawer.open(() => isPad ? <Pads /> : <Todos />, "key");
+    await waitFor(() => {
+      const controls = document.querySelectorAll<HTMLElement>('.drawer [data-shelf-group] [data-part="branch-control"]');
+      expect(controls.length).toBeGreaterThan(0);
+
+      for (const control of controls) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+    });
+  }
+
+  const owner = kind === "todos" || kind === "pads" ? within(screen.getByRole("complementary", { name: "Drawer" })) : screen;
+  const row = kind === "clear-done" ? await screen.findByText("Clear done", { selector: "button" }) : isPad ? (await owner.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await owner.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));
+  row.focus();
+
+  if (kind.startsWith("drawer-")) {
+    fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+    const panel = screen.getByRole("complementary", { name: "Drawer" });
+    const button = await within(panel).findByRole("button", { name: isPad ? "Delete" : "More actions" });
+    button.focus(); fireEvent.click(button);
+
+    if (!isPad) fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
+  } else if (kind === "clear-done") fireEvent.click(await screen.findByText("Clear done", { selector: "button" }));
+  else if (kind === "todos" || kind === "pads") {
+    const menus = menuProbe.count;
+    fireEvent.contextMenu(row);
+    await waitFor(() => expect(menuProbe.count).toBe(menus + 1));
+    expect(menuProbe.shown?.some(item => item.id === "delete")).toBe(true);
+    menuProbe.answer!("delete");
+  } else fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  const read = async () => isPad ? (await app.rpc("pad.list", null)).some(item => item.incarnation === pad!.incarnation) : (await app.rpc("todo.list", null)).some(item => item.id === todo!.id);
+  await waitFor(async () => expect(await read()).toBe(false));
+  await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
+
+  if (kind.startsWith("drawer-")) await waitFor(() => expect(row.isConnected).toBe(false));
+  // BulkDelete's acknowledged readback returns focus after its row refresh.
+  const expectedRegion = kind === "todos" || kind === "pads" ? kind : "shelf";
+  await waitFor(() => expect(document.activeElement?.closest<HTMLElement>("[data-history-region]")?.dataset.historyRegion).toBe(expectedRegion));
+
+  const absent = () => {
+    expect(document.querySelector(".todo-undo [role=alert]")).toBeNull();
+    expect(document.querySelector(".todo-undo button")).toBeNull();
+    expect(screen.queryByText(/^Deleted(?:\s|·)/)).toBeNull();
+    expect([...document.querySelectorAll("button")].filter(button => button.textContent === "Undo")).toEqual([]);
+  };
+
+  absent();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe(isPad ? "Undo Delete Pad" : "Undo Delete Todo"));
+  fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true });
+  await waitFor(async () => expect(await read()).toBe(true));
+
+  if (kind.startsWith("drawer-")) {
+    if (isPad) {
+      await waitFor(() => expect(document.querySelector('.shelf [data-shelf-group] [data-part="branch-control"]')).not.toBeNull());
+
+      for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group] [data-part="branch-control"]')) {
+        if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
+      }
+    }
+
+    const restoredRow = isPad ? (await screen.findByText(name, { selector: ".pad-name .shelf-title" })).closest<HTMLElement>(".pad-name")! : await screen.findByLabelText(new RegExp(`^(?:Idle|Blocked|Done) #${todo!.id} `));
+    restoredRow.focus();
+    fireEvent.keyDown(restoredRow, { key: "Enter", code: "Enter" });
+    const button = await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: isPad ? "Delete" : "More actions" });
+    button.focus();
+  }
+
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘Z")?.label).toBe(isPad ? "Redo Delete Pad" : "Redo Delete Todo"));
+  absent();
+  fireEvent.keyDown(document.activeElement!, { key: "z", code: "KeyZ", metaKey: true, shiftKey: true });
+  await waitFor(async () => expect(await read()).toBe(false));
+  absent();
+});
+
+
+it("u3787a_rail_delete_undo_redo_without_feedback", async () => {
+  const app = createServedApp(real.base);
+  const item = await app.rpc("rail.createWorkstream", { name: "round-trip-rail", parent: null });
+  let connected: ConnectedProject | undefined;
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} prepareIdle={open => { connected = open; open.showView("workstreams"); }} />);
+  const label = await screen.findByText("round-trip-rail", { selector: ".name" });
+  const row = label.closest<HTMLElement>('[data-part="branch-control"]')!;
+  fireEvent.click(row);
+  await connected!.rail.settled();
+  await waitFor(() => expect(connected!.rail.selected()).toBe(item.id));
+  row.focus();
+  fireEvent.keyDown(row, { key: "Backspace", code: "Backspace", metaKey: true });
+  const present = async () => (await app.rpc("rail.tree", null)).some(node => node.id === item.id);
+  await waitFor(async () => expect(await present()).toBe(false));
+  await waitFor(() => expect(connected!.drafts.todoUndo.pending()).toBe(false));
+  const rail = screen.getByRole("tree", { name: "Rail" });
+  rail.tabIndex = -1; rail.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⌘Z")?.label).toBe("Undo Remove round-trip-rail"));
+  expect([...document.querySelectorAll("button")].filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+  fireEvent.keyDown(rail, { key: "z", code: "KeyZ", metaKey: true });
+  await waitFor(async () => expect(await present()).toBe(true));
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:⇧⌘Z")?.label).toBe("Redo Remove round-trip-rail"));
+  fireEvent.keyDown(rail, { key: "z", code: "KeyZ", metaKey: true, shiftKey: true });
+  await waitFor(async () => expect(await present()).toBe(false));
+  expect([...document.querySelectorAll("button")].filter(button => ["Undo", "Dismiss"].includes(button.textContent ?? ""))).toEqual([]);
+});
+
+});

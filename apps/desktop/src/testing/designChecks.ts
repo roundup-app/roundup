@@ -89,7 +89,8 @@ export function rowAlignmentCheck(doc: Document) {
     const indent = rail ? parseFloat(rowStyle.gridTemplateColumns) - parseFloat(rowStyle.getPropertyValue("--rail-inset"))
       : row.matches('.todo-list [role=treeitem]') ? Math.max(0, Number(row.getAttribute("aria-level")) - 1) * parseFloat(rowStyle.getPropertyValue("--tree-step")) : 0;
 
-    const inset = name.getBoundingClientRect().left - row.getBoundingClientRect().left - indent;
+    const panel = row.closest(".shelf") ?? row;
+    const inset = name.getBoundingClientRect().left - panel.getBoundingClientRect().left - indent;
     const overviewLabel = rail ? row.closest(".rail")?.querySelector(".overview-tile + span") : null;
     const target = overviewLabel ? overviewLabel.getBoundingClientRect().left - row.getBoundingClientRect().left : expected;
     readings.push({ row: nameOf(row), inset, expected: target });

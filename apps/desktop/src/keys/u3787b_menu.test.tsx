@@ -6,6 +6,7 @@ import { openProjectPage, projectMenu } from "../testing/menuProbe";
 import { showEverythingInApp } from "../testing/showEverything";
 import { agent, info, USER, workstream } from "../testing/nodes";
 import { padHandlers } from "../testing/stores";
+import { openPad } from "../pads/padsFixture";
 import { CHORDS } from "./chords";
 import { saveAppSettings } from "../settings/preferences";
 import type { MenuItem } from "../app/seam";
@@ -179,10 +180,13 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: font owner leaves", async 
   expect(emulators.made.get("t-a2")!.fontSize).toBe(size);
 });
 
-it.each(["terminal", "rail row", "Shelf row", "Pad row", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
-  const { connected, daemon } = await mountNavigation(false, 0);
-  connected().rail.select("a1");
-  await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+it.each(["terminal", "rail row", "Project tab", "Shelf row", "Pad row", "Pad editor", "triage"])("u3787b_menu_covers_bound_commands: every available command of the %s focus has a menu item", async place => {
+  const { connected, daemon } = await mountNavigation(place === "Pad editor", 0);
+
+  if (place !== "Pad editor") {
+    connected().rail.select("a1");
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
+  }
 
   if (place === "rail row") document.querySelector<HTMLElement>('[data-part="item"]')!.focus();
 
@@ -193,21 +197,28 @@ it.each(["terminal", "rail row", "Shelf row", "Pad row", "triage"])("u3787b_menu
     if (place === "triage") fireEvent.click(screen.getByRole("button", { name: "Triage" }));
   }
 
-  if (place === "Pad row") {
+  if (place === "Pad row" || place === "Pad editor") {
     const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "", updated_at: 0, revision: 1, home: null }];
     Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
     daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
     await showEverythingInApp(undefined, "Pads");
     document.querySelector<HTMLButtonElement>('[data-pad="Plan"] .pad-name')!.focus();
+
+    if (place === "Pad editor") {
+      await openPad("Plan");
+      screen.getByRole("textbox", { name: "Pad body" }).focus();
+    }
   }
 
+  if (place === "Project tab") document.querySelector<HTMLButtonElement>('.project-tab[data-path="/p"] [role="tab"]')!.focus();
+
   const focus = document.activeElement!;
-  const expected = place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : (place === "rail row" || place === "Pad row") ? "action:chord:F2" : "action:chord:⌘=";
+  const expected = place === "Pad editor" ? "action:chord:⌘I" : place === "Shelf row" ? "action:chord:1–9:Digit9" : place === "triage" ? "action:chord:X" : (place === "rail row" || place === "Pad row" || place === "Project tab") ? "action:chord:F2" : "action:chord:⌘=";
   await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id === expected)).toBe(true));
   const available = captureActions(focus).filter(action => action.available() && action.value.startsWith("action:") && !action.value.startsWith("action:chord:⌘K") && action.value !== "action:leader:T");
-  const shown = new Map(menuCommands(projectMenu.items).filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut ?? /\((.) · Rail row\)/.exec(item.label)?.[1]]));
+  const shown = new Map(menuCommands(projectMenu.items).filter(item => item.enabled && item.id.startsWith("action:")).map(item => [item.id, item.shortcut]));
 
-  expect(available.length).toBeGreaterThan(10);
+  expect(available.length).toBeGreaterThan(place === "Pad editor" ? 2 : 10);
 
   for (const action of available) {
     expect(shown.has(action.value), action.value).toBe(true);
@@ -386,4 +397,105 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed
   expect(captured.available()).toBe(false);
   expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2");
   expect(daemon.calls.filter(call => call.method === "todo.create" || call.method === "terminal.write")).toEqual([]);
+});
+
+
+it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Project Rename from %s captures the focused tab", async source => {
+  const { app } = await mountNavigation(true, 1);
+  const target = document.querySelector<HTMLButtonElement>('.project-tab[data-path="/p"] [role="tab"]')!;
+  target.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:F2")?.shortcut).toBe("F2"));
+  const captured = captureActions(target).find(action => action.value === "action:chord:F2")!;
+  expect(document.activeElement).toBe(target);
+  const rename = vi.spyOn(app, "renameProject");
+
+  if (source === "key") fireEvent.keyDown(target, { key: "F2", code: "F2" });
+  else openProjectPage("action:chord:F2", "/p");
+
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  expect(field.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
+  expect(rename).not.toHaveBeenCalled();
+  expect(captured.available()).toBe(false);
+  captured.run();
+  openProjectPage("action:chord:F2", "/p");
+  expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([field]);
+  fireEvent.input(field, { target: { value: "Renamed Project" } });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(rename).toHaveBeenCalledExactlyOnceWith("/p", "Renamed Project", "p"));
+  expect(document.activeElement?.closest(".project-tab")?.getAttribute("data-path")).toBe("/p");
+  const retained = captureActions(document.activeElement).find(action => action.value === "action:chord:F2")!;
+  screen.getByRole("textbox", { name: "Ask" }).focus();
+  expect(retained.available()).toBe(false);
+  retained.run();
+  openProjectPage("action:chord:F2", "/p");
+  expect(screen.getAllByRole("textbox").filter(editor => editor.closest(".project-tab"))).toEqual([]);
+});
+
+
+it.each([
+  { chord: "⌘B", key: "b", code: "KeyB", label: "Bold", semantic: "strong" },
+  { chord: "⌘I", key: "i", code: "KeyI", label: "Italic", semantic: "em" },
+  { chord: "⌘E", key: "e", code: "KeyE", label: "Inline code", semantic: "code" },
+].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Pad $label from $source captures the editor selection", async ({ chord, key, code, semantic, source }) => {
+  const { daemon } = await mountNavigation(true, 0);
+  const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen untouched", updated_at: 0, revision: 1, home: null }];
+  Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
+  daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
+  await showEverythingInApp(undefined, "Pads");
+  const field = await openPad("Plan");
+  field.setSelectionRange(1, 7, "forward");
+  const surface = screen.getByRole("textbox", { name: "Pad body" });
+  surface.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)).toMatchObject({ shortcut: chord, enabled: true }));
+  const captured = captureActions(surface).find(action => action.keys === chord)!;
+  expect(document.activeElement).toBe(surface);
+  expect(field.querySelector(semantic)).toBeNull();
+
+  if (source === "key") fireEvent.keyDown(surface, { key, code, metaKey: true });
+  else openProjectPage(`action:chord:${chord}`);
+
+  expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
+  expect(field.value).toContain(" untouched");
+  expect(document.activeElement).toBe(surface);
+  const ask = screen.getByRole("textbox", { name: "Ask" });
+  ask.focus();
+  expect(captured.available()).toBe(false);
+  captured.run();
+  openProjectPage(`action:chord:${chord}`);
+  expect([...field.querySelectorAll(semantic)].map(node => node.textContent)).toEqual(["chosen"]);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
+});
+
+
+it.each([
+  { chord: "⇧⌘B", key: "B", code: "KeyB", shiftKey: true, altKey: false, semantic: "blockquote" },
+  { chord: "⌥⌘8", key: "8", code: "Digit8", shiftKey: false, altKey: true, semantic: "ul" },
+  { chord: "⌥⌘7", key: "7", code: "Digit7", shiftKey: false, altKey: true, semantic: "ol" },
+  { chord: "⌥⌘C", key: "ç", code: "KeyC", shiftKey: false, altKey: true, semantic: "pre" },
+].flatMap(command => ["key", "menu"].map(source => ({ ...command, source }))))("u3787b_menu_and_key_share_one_action: Pad block $chord from $source captures the editor", async ({ chord, key, code, shiftKey, altKey, semantic, source }) => {
+  const { daemon } = await mountNavigation(true, 0);
+  const pads = [{ name: "Plan", incarnation: "fixture-Plan", text: "chosen", updated_at: 0, revision: 1, home: null }];
+  Object.assign(daemon.handlers, padHandlers({ pads, history: [] }, () => {}));
+  daemon.emit({ actor: USER, name: "pad.changed", data: { name: "Plan" } });
+  await showEverythingInApp(undefined, "Pads");
+  const field = await openPad("Plan");
+  field.setSelectionRange(1, 7, "forward");
+  const surface = screen.getByRole("textbox", { name: "Pad body" });
+  surface.focus();
+  await waitFor(() => expect(projectMenu.items.find(item => item.id === `action:chord:${chord}`)).toMatchObject({ shortcut: chord, enabled: true }));
+  const captured = captureActions(surface).find(action => action.keys === chord)!;
+  expect(document.activeElement).toBe(surface);
+  expect(field.querySelector(semantic)).toBeNull();
+
+  if (source === "key") fireEvent.keyDown(surface, { key, code, metaKey: true, shiftKey, altKey });
+  else openProjectPage(`action:chord:${chord}`);
+
+  expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
+  expect(document.activeElement).toBe(surface);
+  screen.getByRole("textbox", { name: "Ask" }).focus();
+  expect(captured.available()).toBe(false);
+  captured.run();
+  openProjectPage(`action:chord:${chord}`);
+  expect([...field.querySelectorAll(semantic)].map(node => node.querySelector("p")?.textContent ?? node.textContent)).toEqual(["chosen"]);
+  expect(daemon.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
