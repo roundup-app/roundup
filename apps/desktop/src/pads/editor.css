@@ -396,3 +396,13 @@
   align-self: center;
   margin-inline: 0;
 }
+
+.pad-rich-editor .ProseMirror a {
+  display: inline-block;
+  min-height: var(--space-5);
+  cursor: pointer;
+}
+
+.pad-rich-editor .ProseMirror a:hover {
+  color: var(--text);
+}
