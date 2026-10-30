@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc",
+    "typecheck": "tsc && node copy/check.mjs",
     "test": "pnpm run test:support && vitest run",
     "check:startup": "node budgets/startup.mjs",
-    "test:support": "if [ -z \"${ROUNDUP_CAPTURES+x}\" ]; then node --test reporting/*.test.mjs budgets/*.test.mjs; fi"
+    "test:support": "if [ -z \"${ROUNDUP_CAPTURES+x}\" ]; then pnpm exec vitest run --config copy/vitest.config.mjs && node --test reporting/*.test.mjs budgets/*.test.mjs; fi"
   },
   "dependencies": {
     "@ark-ui/solid": "^5.39.3",
@@ -76,6 +76,9 @@
     "unicode-case-folding": "1.1.2",
     "vite": "^8.3.5",
     "vite-plugin-solid": "^2.11.14",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "@babel/traverse": "7.29.10",
+    "natural": "8.2.3",
+    "typescript-analysis": "npm:typescript@6.0.3"
   }
 }
