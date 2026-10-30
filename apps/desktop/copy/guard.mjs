@@ -8,11 +8,9 @@ import { inventory, applyBaseline } from './baseline.mjs';
 
 const traverse = traverseModule.default ?? traverseModule;
 
-const isCatalogue = file => /(?:^|\/)copy\.ts$|(?:^|\/)sharedCopy\.ts$|^copy\/.*\.ts$/.test(file);
+const defaultCatalogue = file => /(?:^|\/)copy\.ts$|(?:^|\/)sharedCopy\.ts$|^copy\/.*\.ts$/.test(file);
 
 const production = file => /\.tsx?$/.test(file) && !/(\.test\.|Fixture|Browser|Harness|^testing\/|^perf\/|\.d\.ts$)/.test(file);
-
-const owner = file => file.includes('/') ? file.split('/')[0] : 'app';
 
 const unwrap = node => node?.type === 'TSAsExpression' || node?.type === 'TSSatisfiesExpression' ? unwrap(node.expression) : node;
 
@@ -25,7 +23,7 @@ const slot = index => `⟦${index}⟧`;
 const product = (left, right, merge) => left.flatMap(a => right.map(b => merge(a, b)));
 
 // Babel owns syntax and lexical binding resolution. This layer describes only copy policy.
-export function checkCopy(files, { glossary = '', baseline = [], previous = baseline, root = '/__copy__', catalogues = Object.keys(files).filter(isCatalogue) } = {}) {
+export function checkCopy(files, { glossary = '', baseline = [], previous = baseline, root = '/__copy__', rules = null, catalogues = Object.keys(files).filter(defaultCatalogue) } = {}) {
   const catalogue = file => catalogues.includes(file);
   const modules = new Map();
   const keyTypes = copyKeyTypes(files, root);
@@ -84,71 +82,91 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
 
   const entries = new Map();
 
-  for (const module of modules.values()) {
-    if (!catalogue(module.file)) continue;
+  const entryMaps = new Map();
 
-    if (module.source.split('\n').length - Number(module.source.endsWith('\n')) > 1000) report('module-size', module.file, 'copy');
-    const exported = [...module.exports].find(([name, value]) => (name === 'copy' || name.endsWith('Copy')) && unwrap(value)?.type === 'ObjectExpression');
-    const object = unwrap(exported?.[1]);
-    module.copyExport = exported?.[0];
+  const collect = (module, name, seen = new Set()) => {
+    const exportId = `${module.file}:${name}`;
 
-    if (object?.type !== 'ObjectExpression') { report('unanalysable-catalogue', module.file, 'copy'); continue; }
+    if (entryMaps.has(exportId)) return entryMaps.get(exportId);
 
-    const properties = (source, object, seen = new Set()) => object.properties.flatMap(property => {
-      if (property.type !== 'SpreadElement') return [{ source, property }];
-      const node = unwrap(property.argument);
-      const bound = node.type === 'Identifier' ? binding(source, node) : null;
-      const imp = imported(source, bound);
-      const target = imp?.module ?? source;
-      const value = unwrap(imp ? target.exports.get(imp.name) : bound?.path.node.init);
+    if (seen.has(exportId)) throw Error(`cyclic catalogue ${exportId}`);
+    const next = new Set([...seen, exportId]);
+    const result = new Map();
+    const object = unwrap(module.exports.get(name));
 
-      if (value?.type !== 'ObjectExpression' || seen.has(value)) {
-        report('unanalysable-catalogue', source.file, 'spread');
+    if (object?.type !== 'ObjectExpression') {
+      report('unanalysable-catalogue', module.file, name);
 
-        return [];
+      return result;
+    }
+
+    for (const property of object.properties) {
+      if (property.type === 'SpreadElement' && property.argument.type === 'Identifier') {
+        const bound = binding(module, property.argument);
+        const imp = imported(module, bound);
+
+        if (imp) for (const [key, id] of collect(imp.module, imp.name, next)) result.set(key, id);
+        else {
+          const local = bound?.path.node.init;
+
+          if (local) {
+            module.exports.set(property.argument.name, local);
+
+            for (const [key, id] of collect(module, property.argument.name, next)) result.set(key, id);
+          } else report('unanalysable-catalogue', module.file, name);
+        }
+
+        continue;
       }
 
-      return properties(target, value, new Set([...seen, value]));
-    });
-
-    for (const {source, property} of properties(module, object)) {
-      if (property.type !== 'ObjectProperty' || property.computed) { report('unanalysable-catalogue', module.file, 'copy'); continue; }
+      if (property.type !== 'ObjectProperty' || property.computed) {
+        report('unanalysable-catalogue', module.file, name);
+        continue;
+      }
 
       const key = keyOf(property.key);
-      entries.set(`${module.file}:${key}`, { module: source, key, node: property.value, prose: property.leadingComments?.some(c => /@prose\b/.test(c.value)) });
+      const id = `${module.file}:${key}`;
+      result.set(key, id);
+      entries.set(id, { module, key, node: property.value, prose: property.leadingComments?.some(c => /@prose\b/.test(c.value)) });
     }
 
-    for (const node of module.ast.program.body) {
-      if (node.type !== 'ImportDeclaration' || node.importKind === 'type') continue;
-      const target = resolve(module.file, node.source.value);
+    entryMaps.set(exportId, result);
 
+    return result;
+  };
 
-      if (!target) report('copy-dependency', module.file, node.source.value);
-    }
+  for (const module of modules.values()) if (catalogue(module.file)) {
+    for (const name of module.exports.keys()) if (name === 'copy' || name.endsWith('Copy')) collect(module, name);
   }
 
+  const entryId = (module, name, key) => entryMaps.get(`${module.file}:${name}`)?.get(key) ?? `${module.file}:${key}`;
+
   // Resolve reads via Babel bindings, including aliases and destructuring. Tests never seed reachability.
-  const consumers = new Map();
   const selections = new Map();
   const labels = new Set();
 
-  const read = (module, parts, surface, label = false) => {
+  const read = (module, parts, label = false) => {
     const [key, ...rest] = parts;
-    const id = `${module.file}:${key}`;
+    const id = entryId(module, 'copy', key);
     used.add(id);
 
     if (label) labels.add(id);
-
-    if (!consumers.has(id)) consumers.set(id, new Set());
-    consumers.get(id).add(surface);
 
     if (!selections.has(id)) selections.set(id, new Set());
     selections.get(id).add(rest.join("."));
   };
 
-  const follow = (bound, module, surface, prefix = [], seen = new Set()) => {
+  const follow = (bound, module, prefix = [], seen = new Set(), exportName = 'copy') => {
     if (!bound || seen.has(bound)) return;
     seen.add(bound);
+
+    const readExport = (parts, label = false) => {
+      const id = entryId(module, exportName, parts[0]);
+      const entry = entries.get(id);
+
+      if (entry) read(entry.module, [entry.key, ...parts.slice(1)], label);
+      else report('missing-copy', module.file, parts.join('.'));
+    };
 
     for (const path of bound.referencePaths) {
       let current = path;
@@ -157,17 +175,20 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
       const attribute = path.findParent(parent => parent.isJSXAttribute());
       const label = attribute ? attribute.node.name.name === 'aria-label' : Boolean(path.findParent(parent => parent.isJSXElement() && parent.node.openingElement.name.type === 'JSXIdentifier' && ['button', 'label', 'summary', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(parent.node.openingElement.name.name)));
 
+
       while (current.parentPath?.isMemberExpression() && current.parentPath.node.object === current.node) {
         const member = current.parentPath.node;
         const key = member.computed ? member.property.type === 'StringLiteral' ? member.property.value : null : member.property.name;
 
         if (key === null) {
           const caller = programs.get(path.findParent(parent => parent.isProgram()).node);
-          const keys = keyTypes(caller.file, member.property.start, member.property.end);
+          const keys = rules && !rules.includes("dynamic-copy-read") ? null : keyTypes(caller.file, member.property.start, member.property.end);
 
-          if (!keys) report('dynamic-copy-read', caller.file, bound.identifier.name);
+          if (!keys && (!rules || rules.includes('dynamic-copy-read'))) report('dynamic-copy-read', caller.file, bound.identifier.name);
 
-          if (keys) for (const key of keys) read(module, [...parts, key], surface, label);
+          if (!keys && rules) { parts.push('*'); break; }
+
+          if (keys) for (const key of keys) readExport([...parts, key], label);
           computed = true;
           break;
         }
@@ -176,21 +197,39 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
         current = current.parentPath;
       }
 
+
+      if (parts.at(-1) === 'get' && current.parentPath?.isCallExpression()) {
+        parts.pop();
+        const argument = current.parentPath.node.arguments[0];
+        const caller = programs.get(path.findParent(parent => parent.isProgram()).node);
+
+        const keys = argument?.type === 'StringLiteral' || argument?.type === 'NumericLiteral' ? [String(argument.value)]
+          : argument ? keyTypes(caller.file, argument.start, argument.end) : null;
+
+        if (!keys) {
+          const entry = entries.get(entryId(module, exportName, parts[0]));
+          const text = `${argument ? caller.source.slice(argument.start, argument.end) : ''}\n${entry ? entry.module.source.slice(entry.node.start, entry.node.end) : ''}`;
+          report('dynamic-copy-read', caller.file, `${caller.file}:${parts.join('.')}`, text, '0');
+          readExport([...parts, '*'], label);
+        } else for (const key of keys) readExport([...parts, key], label);
+        continue;
+      }
+
       if (computed) continue;
 
       if (current.parentPath?.isVariableDeclarator()) {
         const id = current.parentPath.node.id;
 
-        if (id.type === 'Identifier') follow(current.scope.getBinding(id.name), module, surface, parts, new Set(seen));
+        if (id.type === 'Identifier') follow(current.scope.getBinding(id.name), module, parts, new Set(seen), exportName);
         else if (id.type === 'ObjectPattern') for (const property of id.properties) {
           if (property.type !== 'ObjectProperty' || property.computed || property.value.type !== 'Identifier') report('dynamic-copy-read', module.file, bound.identifier.name);
-          else read(module, [...parts, keyOf(property.key)], surface, label);
+          else readExport([...parts, keyOf(property.key)], label);
         }
 
         continue;
       }
 
-      if (parts.length) read(module, parts, surface, label);
+      if (parts.length) readExport(parts, label);
       else report('dynamic-copy-read', module.file, bound.identifier.name);
     }
   };
@@ -203,16 +242,18 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
       if (!file || !catalogue(file)) return;
 
 
-      for (const specifier of path.node.specifiers) {
-        if (specifier.type !== 'ImportSpecifier' || specifier.imported.name !== modules.get(file).copyExport) continue;
 
-        follow(path.scope.getBinding(specifier.local.name), modules.get(file), owner(module.file));
+      for (const specifier of path.node.specifiers) {
+        if (specifier.type !== 'ImportSpecifier') { report('copy-import', module.file, path.node.source.value); continue; }
+
+        if (!entryMaps.has(`${file}:${specifier.imported.name}`)) continue;
+
+        follow(path.scope.getBinding(specifier.local.name), modules.get(file), [], new Set(), specifier.imported.name);
       }
     } });
   }
 
   const evaluating = new Set();
-  const dependencies = new Map();
   const origins = new Map();
   const literals = new Map();
 
@@ -282,8 +323,7 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
       const params = new Map(env);
       node.params.forEach((param, index) => { const name = param.type === 'AssignmentPattern' ? param.left.name : param.type === 'RestElement' ? param.argument.name : param.name;
 
-        if (!params.has(name)) params.set(name, [slot(index)]);
-      });
+        if (!params.has(name)) params.set(name, [slot(index)]); });
 
       if (node.body.type !== 'BlockStatement') return evaluate(module, node.body, params, next);
       const returns = [];
@@ -293,8 +333,7 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
         else if (statement.type === 'BlockStatement') statement.body.forEach(visit);
         else if (statement.type === 'IfStatement') { visit(statement.consequent);
 
-          if (statement.alternate) visit(statement.alternate);
-        }
+          if (statement.alternate) visit(statement.alternate); }
       };
 
       node.body.body.forEach(visit);
@@ -312,7 +351,7 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
         const key = keyOf(property.key);
 
         if (root && selected?.size && ![...selected].some(path => path === '' || path === '*' || path.split('.')[0] === key)) {
-          report('unused-copy', module.file, `${entries.get(id).key}.${key}`, module.source.slice(property.value.start, property.value.end));
+          report('unused-copy', module.file, `${entries.get(id).key}.${key}`, module.source.slice(property.value.start, property.value.end), '0');
 
           return [];
         }
@@ -328,14 +367,14 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
       const imp = imported(module, bound);
       const key = node.computed ? ['StringLiteral', 'NumericLiteral'].includes(node.property.type) ? node.property.value : null : node.property.name;
 
-      if (!imp && bound?.identifier.name === 'copy' && key !== null) return entryValues(`${module.file}:${key}`);
+      if (!imp && bound?.identifier.name === 'copy' && key !== null) return entryValues(entryId(module, 'copy', key));
 
-      if (imp && imp.name === imp.module.copyExport && key !== null) return entryValues(`${imp.module.file}:${key}`);
+      if (imp && entryMaps.has(`${imp.module.file}:${imp.name}`) && key !== null) return entryValues(entryId(imp.module, imp.name, key));
 
       if (node.object.type === 'MemberExpression' && node.object.object.type === 'Identifier') {
         const outer = imported(module, binding(module, node.object.object));
 
-        if (outer && outer.name === outer.module.copyExport) {
+        if (outer?.name === 'copy') {
           const outerKey = node.object.computed ? node.object.property.value : node.object.property.name;
           const entry = entries.get(`${outer.module.file}:${outerKey}`);
           const object = unwrap(entry?.node);
@@ -375,20 +414,13 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
         const bound = binding(module, node.callee.object);
         const imp = imported(module, bound);
         const key = node.callee.computed ? node.callee.property.value : node.callee.property.name;
-        const target = imp && imp.name === imp.module.copyExport ? imp.module : bound?.identifier.name === 'copy' ? module : null;
-        const id = target ? `${target.file}:${key}` : null;
+        const target = imp?.name === 'copy' ? imp.module : bound?.identifier.name === 'copy' ? module : null;
+        const id = target ? entryId(target, imp?.name ?? 'copy', key) : null;
         const entry = entries.get(id);
         const fn = unwrap(entry?.node);
 
         if (fn?.type === 'ArrowFunctionExpression') {
           used.add(id);
-          const parent = [...evaluating].at(-1);
-
-          if (parent) {
-            if (!dependencies.has(parent)) dependencies.set(parent, new Set());
-            dependencies.get(parent).add(id);
-          }
-
           const params = new Map(env);
           fn.params.forEach((param, i) => params.set(param.type === 'AssignmentPattern' ? param.left.name : param.name, node.arguments[i] ? ev(node.arguments[i]) : [slot(i)]));
 
@@ -442,7 +474,29 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
       return [slot('value')];
     }
 
-    if (node.type === 'NewExpression' && node.callee.name === 'Map') return node.arguments[0]?.type === 'ArrayExpression' ? node.arguments[0].elements.flatMap(row => row?.type === 'ArrayExpression' ? ev(row.elements[1]) : []) : [slot('value')];
+    if (node.type === 'NewExpression' && node.callee.name === 'Map') {
+      const rows = node.arguments[0];
+
+      if (rows?.type !== 'ArrayExpression') return [slot('value')];
+      const id = [...evaluating].at(-1);
+      const selected = selections.get(id);
+      const root = unwrap(entries.get(id)?.node) === node;
+
+      return rows.elements.flatMap(row => {
+        if (row?.type !== 'ArrayExpression') return [];
+        const key = String(row.elements[0]?.value);
+
+        if (root && selected?.size && ![...selected].some(path => path === '' || path === '*' || path === key)) {
+          const value = row.elements[1];
+          report('unused-copy', module.file, `${entries.get(id).key}.${key}`, module.source.slice(value.start, value.end), '0');
+
+          return [];
+        }
+
+        return ev(row.elements[1]);
+      });
+    }
+
     throw Error(`unanalysable ${node.type}`);
   };
 
@@ -451,11 +505,6 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
   const entryValues = id => {
     used.add(id);
     const parent = [...evaluating].at(-1);
-
-    if (parent && parent !== id) {
-      if (!dependencies.has(parent)) dependencies.set(parent, new Set());
-      dependencies.get(parent).add(id);
-    }
 
     const inherit = values => {
       if (parent) {
@@ -476,8 +525,6 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
     if (evaluating.has(id)) throw Error('cyclic copy reference');
     const entry = entries.get(id);
 
-    if (entry && !id.startsWith(entry.module.file + ':')) used.add(`${entry.module.file}:${entry.key}`);
-
     if (!entry) throw Error(`missing copy key ${id}`);
     evaluating.add(id);
     let values;
@@ -490,21 +537,21 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
   };
 
   // Evaluate only reachable roots; unused entries cannot keep a dependency alive.
-  for (const id of used) {
+  for (const id of [...used]) {
     try { entryValues(id); } catch (error) { report('unanalysable-copy', entries.get(id)?.module.file ?? '', id, error.message); }
   }
 
   const banned = avoidedWords(glossary);
 
   for (const [id, entry] of entries) {
-    if (!used.has(id)) { report('unused-copy', entry.module.file, entry.key, entry.module.source.slice(entry.node.start, entry.node.end)); continue; }
+    if (!used.has(id)) { report('unused-copy', entry.module.file, entry.key, entry.module.source.slice(entry.node.start, entry.node.end), '0'); continue; }
 
     const node = unwrap(entry.node);
 
     // A direct shared reference is a consumer, not a second definition.
-    if (node.type === 'MemberExpression' && imported(entry.module, node.object.type === 'Identifier' ? binding(entry.module, node.object) : null)?.module.copyExport) continue;
+    if (node.type === 'MemberExpression' && imported(entry.module, node.object.type === 'Identifier' ? binding(entry.module, node.object) : null)?.name === 'copy') continue;
     const values = [...new Set(cached.get(id) ?? [])];
-    const kind = entry.prose && !labels.has(id) ? 'prose' : 'label';
+    const kind = !labels.has(id) && (entry.prose || values.some(text => /[.!?](?:\s|$)/.test(text))) ? 'prose' : 'label';
 
     for (const [branch, text] of values.entries()) {
       if (!text.trim() && entry.prose) report('unanalysable-prose', entry.module.file, entry.key, text, branch);
@@ -520,29 +567,5 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
     }
   }
 
-  const propagate = (id, surfaces, seen = new Set()) => {
-    if (seen.has(id)) return;
-    seen.add(id);
-
-    if (!consumers.has(id)) consumers.set(id, new Set());
-
-    for (const surface of surfaces) consumers.get(id).add(surface);
-
-    for (const dependency of dependencies.get(id) ?? []) propagate(dependency, surfaces, seen);
-  };
-
-  for (const [id, surfaces] of consumers) propagate(id, surfaces);
-  const originSurfaces = new Map();
-
-  for (const [id, values] of origins) for (const sources of values.values()) for (const origin of sources) {
-    if (!originSurfaces.has(origin)) originSurfaces.set(origin, new Set());
-
-    for (const surface of consumers.get(id) ?? []) originSurfaces.get(origin).add(surface);
-  }
-
-  for (const [id, values] of origins) if (consumers.has(id)) for (const sources of values.values()) for (const origin of sources) for (const surface of originSurfaces.get(origin) ?? []) consumers.get(id).add(surface);
-
-  for (const [id, surfaces] of consumers) if (id.startsWith('sharedCopy.ts:') && surfaces.size < 2) report('shared-single-consumer', 'sharedCopy.ts', id.split(':')[1]);
-
-  return { inventory: inventory(diagnostics), diagnostics: applyBaseline(diagnostics, baseline, previous) };
+  return { inventory: inventory(diagnostics), diagnostics: applyBaseline(diagnostics, baseline, previous).filter(row => !rules || rules.includes(row.rule)) };
 }

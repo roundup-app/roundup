@@ -1,11 +1,11 @@
 import * as v from 'valibot';
 
-const eligible = new Set(['vocabulary', 'recovery-name', 'label-length', 'sentence-length', 'fragment', 'prose-as-label', 'duplicate-copy', 'unused-copy']);
+const eligible = new Set(['vocabulary', 'recovery-name', 'label-length', 'sentence-length', 'fragment', 'prose-as-label', 'duplicate-copy', 'unused-copy', 'dynamic-copy-read']);
 
 const rowSchema = v.strictObject({
   rule: v.picklist([...eligible]),
   identity: v.pipe(v.string(), v.nonEmpty(), v.check(value => !value.includes('*'))),
-  branch: v.pipe(v.string(), v.regex(/^(?:[0-9]*|literal:[a-f0-9]{12})$/)),
+  branch: v.pipe(v.string(), v.regex(/^(?:[0-9]+|literal:[a-f0-9]{12})$/)),
   fingerprint: v.pipe(v.string(), v.regex(/^[a-f0-9]{64}$/)),
 });
 

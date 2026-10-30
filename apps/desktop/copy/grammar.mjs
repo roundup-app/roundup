@@ -41,9 +41,7 @@ export function languageProblems(text, kind, banned) {
 
     // Explanatory prose cannot opt out of grammar by claiming to be a label.
     if (/[a-z][.!](?:\s|$)/i.test(authored)) problems.push('prose-as-label');
-  }
-
-  if (kind === 'prose' || /[a-z][.!](?:\s|$)/i.test(authored)) {
+  } else {
     const parts = [...sentences.segment(text)];
 
     if (!parts.length) problems.push('unanalysable-prose');
@@ -62,13 +60,8 @@ export function languageProblems(text, kind, banned) {
 }
 
 export function avoidedWords(glossary) {
-  const rows = glossary.split('\n').filter(line => line.startsWith('|') && !line.startsWith('|---'));
+  const table = glossary.split('\n').filter(line => line.startsWith('|') && !line.startsWith('| Code term')).map(line => line.split('|')[3]?.trim() ?? '').filter(cell => cell && cell !== '—');
+  const qualifications = text => text.replace(/\([^)]*\)/g, '').replace(/;.*$/, '').replace(/[`_]/g, '').split(',').map(term => term.trim().replace(/\.$/, '')).filter(Boolean);
 
-  const terms = rows.flatMap(line => {
-    const avoid = line.split('|')[3] ?? '';
-
-    return avoid.replace(/\([^)]*\)/g, '').replace(/;\s*and /g, ', ').replace(/ for an Agent\./g, '').replace(/;.*$/, '').replace(/[`_]/g, '').split(',').map(term => term.trim().replace(/\.$/, '')).filter(term => term && !['—', 'Avoid'].includes(term));
-  });
-
-  return [...new Set(terms.concat(['Daemon', 'MCP', 'session', 'revision', 'retained', 'acceptance', 'Door', 'Shelf']))];
+  return [...new Set([...table, ...[...glossary.matchAll(/^_Avoid_:\s*(.+)$/gm)].map(match => match[1])].flatMap(qualifications).filter(term => term !== '—' && term !== '---').concat(['Daemon', 'MCP', 'session', 'revision', 'retained', 'acceptance', 'Door', 'Shelf', 'Handoff']))];
 }
