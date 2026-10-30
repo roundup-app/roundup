@@ -43,7 +43,7 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
   await screen.findByRole("region", { name: "Todo history" });
   fireEvent.dblClick(await within(screen.getByRole("complementary", { name: "Drawer" })).findByText("base"));
-  const field = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(document.activeElement).toBe(field));
   const text = "  e\u0301 🧪\nnext line  ";
   fireEvent.input(field, { target: { value: text } });
@@ -52,7 +52,7 @@ it("u2773a_todos_restores_exact_work_after_hiding_body", async () => {
   connected.drawer.close("key");
   fireEvent.keyDown(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { key: "Enter" });
   fireEvent.dblClick(await within(screen.getByRole("complementary", { name: "Drawer" })).findByText("base"));
-  const restored = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  const restored = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(restored.selectionStart).toBe(2));
   expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([text, 2, 5, "backward"]);
   fireEvent.blur(restored);
@@ -92,12 +92,12 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_todos_detail_set
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
   fireEvent.dblClick(await within(drawer).findByText("base"));
-  const first = screen.getByRole("textbox", { name: "Body" });
+  const first = await screen.findByRole("textbox", { name: "Body" });
   await waitFor(() => expect(document.activeElement).toBe(first));
   fireEvent.input(first, { target: { value: "  A\n🧪  " } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.dblClick(await within(drawer).findByText("base"));
-  const newer = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  const newer = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
   await waitFor(() => expect(document.activeElement).toBe(newer));
 
   fireEvent.input(newer, { target: { value: "  B\nnewer  " } });
