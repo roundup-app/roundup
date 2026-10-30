@@ -9,10 +9,10 @@ const { browser, evaluate, settle, openShelf } = shelfBrowser();
 
 const output = captureDir("U4698d");
 
-it("u4698d_worst_case_todo_keeps_its_actions_reachable", { retry: 0, timeout: 90_000 }, async () => {
+it.each([[1512, 950], [1280, 820]])("u4698d_worst_case_todo_keeps_its_actions_reachable_%sx%s", { retry: 0, timeout: 90_000 }, async (width, height) => {
   await openShelf("tree-40", 288, 320, 1512, "dark");
 
-  if (output) { mkdirSync(output, { recursive: true }); await browser("record", "start", join(output, "todo.webm")); await browser("wait", ".shelf-tabs"); await browser("set", "media", "dark"); }
+  if (output) { mkdirSync(output, { recursive: true }); await browser("record", "start", join(output, `todo-${width}.webm`)); await browser("wait", ".shelf-tabs"); await browser("set", "media", "dark"); }
 
   const title = "UnbrokenTitle".repeat(16).slice(0, 200);
   await evaluate(`(async () => {
@@ -35,10 +35,10 @@ it("u4698d_worst_case_todo_keeps_its_actions_reachable", { retry: 0, timeout: 90
 
   if (output) {
     mkdirSync(output, { recursive: true });
-    writeFileSync(join(output, "metadata.json"), JSON.stringify({ sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), title, blockers: 30, owner: null, seed: "tree-40", viewports: [[1512,950],[1280,820]], scheme: "dark" }, null, 2));
+    writeFileSync(join(output, `metadata-${width}.json`), JSON.stringify({ sha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), title, blockers: 30, owner: null, seed: "tree-40", viewport: [width, height], scheme: "dark" }, null, 2));
   }
 
-  for (const [width, height] of [[1512,950],[1280,820]]) {
+  {
     await browser("set", "viewport", String(width), String(height));
     await settle();
 
@@ -52,31 +52,43 @@ it("u4698d_worst_case_todo_keeps_its_actions_reachable", { retry: 0, timeout: 90
       await browser("click", '.drawer [aria-label="More actions"]');
       await browser("wait", '[role="menu"][data-state="open"]');
 
-      if (output) await browser("screenshot", join(output, `actions-${width}.png`));
+      if (output) {
+        await browser("screenshot", join(output, `actions-${width}.png`));
+        writeFileSync(join(output, `actions-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+      }
       await browser("press", "Escape");
       await browser("wait", ".todo-header");
       await browser("click", '[aria-label="Blocked by 30"]');
       await browser("wait", '[role="combobox"]');
 
-      if (output) await browser("screenshot", join(output, `blockers-${width}.png`));
+      if (output) {
+        await browser("screenshot", join(output, `blockers-${width}.png`));
+        writeFileSync(join(output, `blockers-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+      }
       await browser("press", "Escape");
     }
 
     await evaluate("window.__fake.app.rpc('todo.complete', { id: 1 }); true");
     await browser("wait", '.drawer input[type="checkbox"]:checked');
 
-    if (output) await browser("screenshot", join(output, `done-${width}.png`));
+    if (output) {
+      await browser("screenshot", join(output, `done-${width}.png`));
+      writeFileSync(join(output, `done-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+    }
     await browser("click", '.drawer [aria-label="Restore"]');
     await settle();
 
-    if (output) await browser("screenshot", join(output, `minimised-${width}.png`));
+    if (output) {
+      await browser("screenshot", join(output, `minimised-${width}.png`));
+      writeFileSync(join(output, `minimised-${width}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+    }
     await browser("click", '.drawer [aria-label="Maximise"]');
     await settle();
     await evaluate("window.__fake.app.rpc('todo.reopen', { id: 1 }); true");
     await browser("wait", '.drawer input[type="checkbox"]:not(:checked)');
   }
 
-  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'todo.complete').map(call => call.params.id)")).toEqual([1, 1]);
+  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'todo.complete').map(call => call.params.id)")).toEqual([1]);
 
   if (output) await browser("record", "stop");
 });
