@@ -13,3 +13,8 @@ it.each([
 ])("u4709a_age_boundaries_%s", (seconds, expected) => {
   expect(age(changed, changed + seconds * 1000)).toBe(expected);
 });
+
+it("u4709a_calendar_date_uses_local_time", () => {
+  const changed = Date.UTC(2026, 8, 12, 2);
+  expect(age(changed, Date.UTC(2026, 9, 30))).toBe("2026-09-11");
+});
