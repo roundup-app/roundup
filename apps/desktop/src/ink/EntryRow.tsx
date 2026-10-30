@@ -17,7 +17,7 @@ export const EntryRow = (props: {
   onSubmit: (text: string) => void;
   onClose: (reason: "enter" | "escape" | "blur") => void;
 }) => (
-  <ShelfRow glyph={props.glyph} class={`entry-row ${props.class}`}>
+  <ShelfRow data-editing="true" glyph={props.glyph} class={`entry-row ${props.class}`}>
     <input spellcheck={false} autocorrect="off" autocapitalize="off"
       type="text"
       class="entry-field"

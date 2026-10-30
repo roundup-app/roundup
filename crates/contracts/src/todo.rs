@@ -263,4 +263,21 @@ pub struct Deletion {
     pub deleted: Vec<u32>,
     pub missing: Vec<u32>,
     pub state: DeletionState,
+    /// Server-created restored identity. Redo must echo this acknowledgement from
+    /// restore or readback; the same operation key in another Project cannot match.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub restoration: Option<String>,
+}
+
+/// Redo only the successful restored subset of `source` in this Project, for its Actor.
+/// Capture a fresh `operation` before dispatch. Replay that pair or read todo.deletion
+/// with the new key after an unknown reply. Restore the new operation to undo again.
+/// Changed/replaced targets refuse atomically; repair the cause and retry the same pair.
+#[derive(Clone, Debug, Serialize, Deserialize, specta::Type, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RedoParams {
+    pub source: String,
+    pub restoration: String,
+    pub operation: String,
 }

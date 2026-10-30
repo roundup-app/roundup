@@ -292,7 +292,6 @@ export const TodoDrawer = (props: {
                     multiline={false}
                     commit={async (title, expected_change) => { await app.rpc("todo.update", { id: props.id, title, body: null, expected_change }); }}
                   />
-                  <span class="todo-estimate" data-state="estimate">{copy.todoEstimate(current().estimate_minutes)}</span>
                 </div>
                 <ReservedLine message={titleFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>{copy.dismissFailure}</button></ReservedLine>
                 <div class="todo-detail-body">
