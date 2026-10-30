@@ -66,7 +66,7 @@ it("u3730_no_group_or_row_repeats_the_scope_name", async () => {
   await select("backend");
   const repeats = () => [...document.querySelectorAll(".shelf-panel [data-shelf-group] .shelf-group-control, .shelf-panel .shelf-row")].filter(element => element.textContent === "backend" || element.closest("[hidden]") === null && element.textContent!.trim().startsWith("backend"));
   expect(repeats()).toEqual([]);
-  fireEvent.click(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: /^Pads/ }));
+  fireEvent.click(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /^Pads/ }));
   await showEverythingInApp();
   expect(document.querySelector('[data-shelf-group="backend"]')).toBeNull();
 });
