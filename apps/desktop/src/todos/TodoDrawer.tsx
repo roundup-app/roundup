@@ -1,6 +1,6 @@
 import { historyRegion } from "../keys/focus";
 import { outcomeOf } from "../app/seam";
-import { captureFocus } from "../keys/focus";
+import { captureFocus, keepRegionFocus } from "../keys/focus";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { TodoHeader } from "./TodoHeader";
@@ -259,6 +259,7 @@ export const TodoDrawer = (props: {
  if (drawer.content() === opening) {
    drawer.close("key");
    queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
+   void keepRegionFocus(props.todos.reload, ".todo-row-button");
  } }
       else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());
       setDeleting(false);
