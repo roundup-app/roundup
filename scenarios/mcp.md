@@ -141,7 +141,7 @@ Given an Agent calling an offered tool through the built `rup mcp <agent-id>` ov
 **Checks on main.** Implementation preserves these numbered anchors:
 
 1. MCP data, error and continued-service behaviour: `crates/rup/tests/mcp.rs`, `m2_a_created_todo_is_a_touch_by_the_calling_agent`, `m2_a_daemon_error_is_a_tool_error_carrying_code_and_message` and `m2_the_server_keeps_serving_after_a_daemon_error`.
-2. An unanswered call may have been applied: `crates/rup/tests/mcp.rs`, `m3_a_call_the_daemon_never_answers_exits_1_saying_it_may_have_been_applied`.
+2. An unanswered call fails that call alone and the work may still finish (M5159a): `crates/rup/tests/mcp.rs`, `m5159a_a_slow_call_fails_alone_and_the_shim_stays_up`.
 3. Project requests mean asked, not done: `scenarios/mcp.md`, heading M8; forwarding and result formatting: `crates/rup/src/mcp.rs`, `Shim::call` and `Shim::call_tool`.
 
 **Observer (policy).** Run the stdio acknowledgement regression with real Claude and aimock in an isolated temporary config and Project. In aimock's request log, find the model request after a unit tool use and match its `tool_result` by tool-use id: the text names the affected item and is not `null`. Record the command, tested commit, pinned Claude/aimock versions and matching log excerpt in the implementation PR. This observer complements the stdio regression; a fake `claude` alone does not satisfy it. The MCP scenario regressions and Checks 1–3 pass before implementation is ready.
