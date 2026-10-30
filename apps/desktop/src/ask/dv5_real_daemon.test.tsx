@@ -85,10 +85,11 @@ it("dv5_discover_open_retained_and_current_targets_after_reopen", async () => {
   if (padTarget.kind === "path") expect(await readFile(padTarget.path, "utf8")).toBe("Pad revision one");
   expect((await app.rpc("pad.read", { name: "published-pad" })).text).toBe("Pad revision two");
   expect(calls.filter(method => method.startsWith("agent.") || method.startsWith("message."))).toEqual([]);
-  connected.rail.select(home.id);
-  fireEvent.click(await screen.findByRole("button", { name: "Made" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Filter Made/ }));
+  fireEvent.click(await screen.findByRole("option", { name: "Made Home" }));
   await waitFor(() => expect(within(screen.getByRole("region", { name: "Made" })).getAllByRole("listitem")).toHaveLength(6));
-  connected.rail.select(makers[0]!.id);
+  fireEvent.click(screen.getByRole("button", { name: /^Filter Made/ }));
+  fireEvent.click(await screen.findByRole("option", { name: "Maker 0" }));
   await waitFor(() => expect(within(screen.getByRole("region", { name: "Made" })).getAllByRole("listitem")).toHaveLength(1));
 });
 
@@ -170,7 +171,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   unsafe.mockRestore();
   const rpc = app.rpc;
   app.rpc = (method, params) => method === "deliverable.list" ? Promise.reject(new Error("catalogue connection interrupted")) : rpc(method, params);
-  fireEvent.click(within(made).getByRole("button", { name: "Refresh" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(within(made).getAllByRole("alert").some(alert => alert.textContent?.includes("catalogue connection interrupted"))).toBe(true);
   expect(within(made).getAllByRole("listitem")).toHaveLength(count);
