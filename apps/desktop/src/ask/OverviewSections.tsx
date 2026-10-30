@@ -17,6 +17,7 @@ export const OverviewSections = (props: {
   const [open, setOpen] = createSignal<string[]>([]);
   let initialized = false;
   let chosen = false;
+  let workstreamsOpen = false;
   let root: HTMLDivElement | undefined;
 
   const unseen = (id: string) => props.items.find(item => item.id === id)?.records().filter(record => !seen().includes(`${id}:${record.id}`)) ?? [];
@@ -35,14 +36,17 @@ export const OverviewSections = (props: {
 
   createEffect(() => {
     const requested = connected.view();
+    if (!connected.hasView("workstreams")) workstreamsOpen = false;
 
     if (!props.ready) return;
 
-    if (requested !== "made" && requested !== "reactions" && requested !== "asks") return;
+    if (requested !== "made" && requested !== "reactions" && requested !== "asks" && requested !== "workstreams") return;
+    if (requested === "workstreams" && workstreamsOpen) return;
+    if (requested === "workstreams") workstreamsOpen = true;
     untrack(() => {
-      connected.rail.select(null);
-      setOpen([requested]);
-      connected.hideView(requested);
+      if (requested !== "workstreams") connected.rail.select(null);
+      setOpen([requested === "workstreams" ? "attention" : requested]);
+      if (requested !== "workstreams") connected.hideView(requested);
     });
   });
 

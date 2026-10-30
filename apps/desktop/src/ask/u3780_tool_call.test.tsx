@@ -187,6 +187,7 @@ const mountAskBar = async (...args: Parameters<typeof mountQuietAskBar>) => {
   const mounted = await mountQuietAskBar(...args);
   mounted.connected.showView(null);
   mounted.connected.showView("workstreams");
+  if (args[1] == null) await vi.waitFor(() => expect(screen.getByRole("region", { name: "Project overview" })).toBeTruthy());
 
   return mounted;
 };

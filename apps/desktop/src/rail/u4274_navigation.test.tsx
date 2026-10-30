@@ -12,7 +12,7 @@ it.each([true, false])("u4274b_landing_keeps_primary_navigation_and_attention: e
 
   if (!empty) {
     expect(document.querySelector('[role="treeitem"][data-id="a0"]')).not.toBeNull();
-    fireEvent.click(document.querySelector<HTMLButtonElement>(".overview-entry")!);
+    fireEvent.click(await screen.findByRole("button", { name: "Agent 0 Needs-you" }));
     await waitFor(() => expect(connected().rail.selected()).toBe("a0"));
     await waitFor(() => expect(document.querySelector('.pane-screen [data-terminal="t-a0"]')).not.toBeNull());
   }
@@ -25,8 +25,8 @@ it("u4274b_secondary_surfaces_keep_the_rail_available", async () => {
   fireEvent.click(document.querySelector<HTMLElement>(".todo-project-root")!);
   await screen.findByRole("textbox", { name: "Ask" });
   openProjectPage("view:made", "/p");
-  await waitFor(() => expect(connected().hasView("made")).toBe(true));
-  openProjectPage("view:made", "/p");
-  await waitFor(() => expect(connected().hasView("made")).toBe(false));
+  await screen.findByRole("region", { name: "Made" });
+  fireEvent.click(screen.getByRole("button", { name: "Made", exact: true }));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Made" })).toBeNull());
   expect(document.querySelector(".rail-tree")).toBe(rail);
 });

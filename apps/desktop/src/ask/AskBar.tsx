@@ -296,14 +296,14 @@ export const AskBar = (props: {
     else send();
   };
 
-  const sections = [
-          { id: "attention", label: copy.needsYou, records: () => attentionOrder(rail.nodes).map(node => ({ id: node.id + ":" + node.attempt + ":" + node.status_revision, at: node.status?.since ?? 0 })), content: () => <ProjectOverview /> },
-          { id: "asks", label: copy.askRows, records: () => asks.entries().flatMap(entry => entry.parts.map((_part, index) => ({ id: entry.key + ":" + index, at: entry.at ?? Number.MAX_SAFE_INTEGER }))), content: () => <><Show when={asks.entries().length === 0}><p class="overview-empty">{copy.askEmpty}</p></Show><AskRows keys={scope} onOpened={() => close(false)} /></> },
+  const sections = () => [
+          { id: "attention", label: copy.needsYou, actions: <Show when={attentionOrder(rail.nodes).length > 0}><span class="overview-heading" data-state="attention">{copy.projectAttention(attentionOrder(rail.nodes).length)}</span></Show>, records: () => attentionOrder(rail.nodes).map(node => ({ id: node.id + ":" + node.attempt + ":" + node.status_revision, at: node.status?.since ?? 0 })), content: () => <ProjectOverview /> },
+          { id: "asks", label: copy.askRows, records: () => asks.entries().flatMap(entry => entry.parts.map((_part, index) => ({ id: entry.key + ":" + index, at: entry.at ?? Number.MAX_SAFE_INTEGER }))), content: () => <><Show when={asks.entries().length === 0}><p class="overview-quiet">{copy.askEmpty}</p></Show><AskRows keys={scope} onOpened={() => close(false)} /></> },
           { id: "reactions", label: copy.reactions, records: () => reactions.read().list.map(record => ({ id: record.id, at: Date.parse(record.created_at) })), content: () => <Reactions state={reactions} /> },
           { id: "made", label: copy.deliverables, records: () => deliverables.records().map(record => ({ id: record.id, at: record.published_at })), actions: <button type="button" data-button="quiet" onClick={deliverables.refresh}>{copy.refresh}</button>, content: () => <Deliverables state={deliverables} /> },
         ];
 
-  const overview = <OverviewSections ready={treeReady() && asks.loadState() !== "loading" && !reactions.read.loading && !deliverables.loading()} items={sections} />;
+  const overview = <OverviewSections ready={treeReady() && asks.loadState() !== "loading" && !reactions.read.loading && !deliverables.loading()} items={sections()} />;
 
   return (<>
     <Show when={shown()}>
@@ -381,7 +381,7 @@ const ProjectOverview = () => {
 
   return <section class="project-overview" aria-label={copy.projectOverview} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }}>
     <Show when={hasView("workstreams")}><div class="made-heading"><h2 class="overview-heading">{copy.workstreams}</h2><button type="button" data-button="quiet" onClick={() => { hideView("workstreams"); queueFocus(() => document.querySelector<HTMLElement>(".ask-input")?.focus()); }}>{copy.closeView(copy.workstreams)}</button></div></Show>
-    <Show when={attention().length === 0}><p class="overview-empty">{emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0)}</p></Show>
+    <Show when={attention().length === 0}><p class="overview-quiet">{emptyWorkstreams() ? copy.noWorkstreamYet : copy.projectAttention(0)}</p></Show>
     <ul class="overview-list">
       <For each={hasView("workstreams") ? workstreams() : []}>{(node) => <li>
         {entry(node)}
@@ -562,7 +562,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
   return <section ref={section} on:click={{ capture: true, handleEvent: content.click }} on:keydown={{ capture: true, handleEvent: rowKey }} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <Combobox.Picker label={copy.deliverablesFilter} value={filter()} items={choices()} onSelect={setFilter} />
       <ReservedLine message={props.state.failure()} status={props.state.loading() ? copy.deliverablesLoading : null} />
-      <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-empty">{copy.deliverablesEmpty}</p></Show>
+      <Show when={!props.state.loading() && props.state.failure() === null && records().length === 0}><p class="overview-quiet">{copy.deliverablesEmpty}</p></Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-overview-item={record.id} data-selected={content.selection.isEmpty() ? selected() === record.id : content.selection.isSelected(record.id)}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
         <Tip disabled={failure(record.id) !== null} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" ref={element => {
