@@ -63,16 +63,17 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
 
 /** Project-owned receipts, never client snapshots. The current connection may change; the operation does not. */
 export function createTodoUndo() {
-  const [stack, setStack] = createSignal<({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] } | { kind: "rail"; receipt: RailDeletion; name: string })[]>([]);
+  const [stack, setStack] = createSignal<(({ kind: "todos"; receipt: Deletion } | { kind: "pads"; receipts: PadDeletion[] } | { kind: "rail"; receipt: RailDeletion; name: string }) & { regions: string[] })[]>([]);
 
   type Operation = ReturnType<typeof stack>[number];
 
   type PadRedo = { receipt: PadDeletion; operation: string; request: RedoDeleteParams | null };
 
-  type Redo = ({ kind: "todos"; receipt: Deletion; operation: string } | { kind: "rail"; receipt: RailDeletion; name: string; operation: string } | { kind: "pads"; source: Extract<Operation, { kind: "pads" }>; members: PadRedo[] }) & { state: "ready" | "unknown" };
+  type Redo = ({ kind: "todos"; receipt: Deletion; operation: string } | { kind: "rail"; receipt: RailDeletion; name: string; operation: string } | { kind: "pads"; source: Extract<Operation, { kind: "pads" }>; members: PadRedo[] }) & { state: "ready" | "unknown"; regions: string[] };
 
   const [redoes, setRedoes] = createSignal<Redo[]>([]);
-  const redoUnknown = () => redoes().at(-1)?.state === "unknown";
+  const redoUnknown = () => redoes().some(action => action.state === "unknown");
+  const clearRedoes = (region: string) => setRedoes(all => all.map(action => ({ ...action, regions: action.regions.filter(owner => owner !== region) })).filter(action => action.regions.length > 0));
   const [pending, setPending] = createSignal(false);
   const [failure, setFailure] = createSignal<{ kind: "delete" | "restore"; message: string } | null>(null);
   const [visible, setVisible] = createSignal(false);
@@ -81,11 +82,13 @@ export function createTodoUndo() {
   const [uncertain, setUncertain] = createSignal<number[]>();
 
   let deleted: number[] = [];
+  let todoRegion = "";
+  let padRegion = "";
   const [padPending, setPadPending] = createSignal<{ name: string; incarnation: string; operation: string }[]>([]);
   let padReceipts: PadDeletion[] = [];
-  const [railPending, setRailPending] = createSignal<{ id: string; name: string; project: string; operation: string }>();
+  const [railPending, setRailPending] = createSignal<{ id: string; name: string; project: string; operation: string; region: string }>();
 
-  const removeRail = async (id: string, name: string) => {
+  const removeRail = async (id: string, name: string, region = "") => {
     if (pending() || redoUnknown() || !connection || uncertain() || padPending().length) return false;
 
     if (railPending() && railPending()!.id !== id) return false;
@@ -94,7 +97,7 @@ export function createTodoUndo() {
     setFailure(null);
 
     try {
-      const chosen = railPending() ?? { id, name, project: (await app.rpc("daemon.ping", null)).projectKey, operation: crypto.randomUUID() };
+      const chosen = railPending() ?? { id, name, project: (await app.rpc("daemon.ping", null)).projectKey, operation: crypto.randomUUID(), region };
       const retry = !!railPending();
       setRailPending(chosen);
       let receipt = retry ? await app.rpc("rail.deletion", { project: chosen.project, operation: chosen.operation }) : null;
@@ -115,8 +118,8 @@ export function createTodoUndo() {
       if (!receipt?.deletion) throw new Error(copy.todoRestoreUnknown);
 
       if (!receipt.deletion.restored) {
-        setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: chosen.name }]);
-        setRedoes([]);
+        setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: chosen.name, regions: [chosen.region] }]);
+        clearRedoes(chosen.region);
       }
 
       setRailPending(undefined);
@@ -132,11 +135,13 @@ export function createTodoUndo() {
     } finally { setPending(false); }
   };
 
-  const remove = async (ids: number[]): Promise<boolean> => {
+  const remove = async (ids: number[], region = ""): Promise<boolean> => {
     if (pending() || redoUnknown() || !forwarding || padPending().length || railPending()) return false;
     deleted = [];
 
     if (uncertain() && JSON.stringify(uncertain()) !== JSON.stringify(ids)) return false;
+
+    if (!uncertain()) todoRegion = region;
     const chosen = uncertain() ?? [...ids];
     setUncertain(chosen);
     setPending(true);
@@ -148,8 +153,8 @@ export function createTodoUndo() {
       deleted = receipt.deleted;
 
       if (receipt.state === "deleted" && receipt.deleted.length) {
-        setStack(all => [...all, { kind: "todos", receipt }]);
-        setRedoes([]);
+        setStack(all => [...all, { kind: "todos", receipt, regions: [todoRegion] }]);
+        clearRedoes(todoRegion);
         setVisible(true);
       }
 
@@ -171,12 +176,14 @@ export function createTodoUndo() {
     } finally { setPending(false); }
   };
 
-  const removePads = async (pads: readonly Pick<Pad, "name" | "incarnation">[]) => {
+  const removePads = async (pads: readonly Pick<Pad, "name" | "incarnation">[], region = "") => {
     if (pending() || redoUnknown() || !connection || uncertain() || railPending()) return pads.map(pad => ({ id: pad.incarnation, message: failure()?.message ?? copy.deletePending }));
 
     if (padPending().length && JSON.stringify(padPending().map(pad => pad.incarnation)) !== JSON.stringify(pads.map(pad => pad.incarnation))) return pads.map(pad => ({ id: pad.incarnation, message: copy.deleteUnconfirmed }));
     const app = connection;
     const retry = padPending().length > 0;
+
+    if (!retry) padRegion = region;
     const chosen = retry ? padPending() : pads.map(pad => ({ ...pad, operation: crypto.randomUUID() }));
     setPadPending(chosen);
     setPending(true);
@@ -216,8 +223,8 @@ export function createTodoUndo() {
     setPadPending(unknown);
 
     if (!unknown.length && padReceipts.length) {
-      setStack(all => [...all, { kind: "pads", receipts: padReceipts }]);
-      setRedoes([]);
+      setStack(all => [...all, { kind: "pads", receipts: padReceipts, regions: [padRegion] }]);
+      clearRedoes(padRegion);
       padReceipts = [];
     }
 
@@ -228,8 +235,8 @@ export function createTodoUndo() {
     return failed;
   };
 
-  const undo = async () => {
-    const operation = stack().at(-1);
+  const undo = async (region?: string) => {
+    const operation = stack().findLast(action => region === undefined || action.regions.includes(region));
 
     if (!operation || pending() || redoUnknown() || !connection || uncertain() || padPending().length || railPending()) return;
     const app = connection;
@@ -254,7 +261,7 @@ export function createTodoUndo() {
         }
 
         if (!restored.deletion?.restored) throw new Error(copy.todoRestoreUnknown);
-        setRedoes(all => [...all, { kind: "rail", receipt: restored.deletion!, name: operation.name, operation: crypto.randomUUID(), state: "ready" }]);
+        setRedoes(all => [...all, { kind: "rail", receipt: restored.deletion!, name: operation.name, operation: crypto.randomUUID(), state: "ready", regions: operation.regions }]);
         setStack(all => all.filter(item => item !== operation));
         setVisible(stack().length > 0);
 
@@ -294,7 +301,7 @@ export function createTodoUndo() {
 
           return previous?.kind === "pads"
             ? all.map(item => item === previous ? { ...previous, members: [...previous.members, ...members] } : item)
-            : [...all, { kind: "pads", source: operation, members, state: "ready" }];
+            : [...all, { kind: "pads", source: operation, members, state: "ready", regions: operation.regions }];
         });
         operation.receipts = failed;
         setStack(all => failed.length ? [...all] : all.filter(item => item !== operation));
@@ -319,7 +326,7 @@ export function createTodoUndo() {
       }
 
       if (restored.state !== "restored") throw new Error(copy.todoRestoreUnknown);
-      setRedoes(all => [...all, { kind: "todos", receipt: restored, operation: crypto.randomUUID(), state: "ready" }]);
+      setRedoes(all => [...all, { kind: "todos", receipt: restored, operation: crypto.randomUUID(), state: "ready", regions: operation.regions }]);
       setStack(all => all.filter(item => item !== operation));
       setVisible(stack().length > 0);
     } catch (error) {
@@ -329,8 +336,8 @@ export function createTodoUndo() {
   };
 
   // The request keys live with the retained action: an unknown reply retries that exact attempt.
-  const redo = async () => {
-    const action = redoes().at(-1);
+  const redo = async (region?: string) => {
+    const action = redoes().findLast(item => region === undefined || item.regions.includes(region));
 
     if (!action || pending() || !connection || uncertain() || padPending().length || railPending()) return;
     const app = connection;
@@ -354,7 +361,7 @@ export function createTodoUndo() {
         }
 
         if (receipt.state !== "deleted") throw new Error(copy.todoRestoreUnknown);
-        setStack(all => [...all, { kind: "todos", receipt }]);
+        setStack(all => [...all, { kind: "todos", receipt, regions: action.regions }]);
       } else if (action.kind === "rail") {
         const restoration = action.receipt.restoration;
         const params = { project: action.receipt.project, operation: action.operation };
@@ -372,7 +379,7 @@ export function createTodoUndo() {
         }
 
         if (!receipt.deletion || receipt.deletion.restored) throw new Error(copy.todoRestoreUnknown);
-        setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: action.name }]);
+        setStack(all => [...all, { kind: "rail", receipt: receipt.deletion!, name: action.name, regions: action.regions }]);
       } else {
         const failed: PadRedo[] = [];
         const causes: Error[] = [];
@@ -413,6 +420,7 @@ export function createTodoUndo() {
         }
 
         if (receipts.length) {
+          action.source.regions = action.regions;
           action.source.receipts.push(...receipts);
           setStack(all => all.includes(action.source) ? [...all] : [...all, action.source]);
         }
@@ -444,12 +452,20 @@ export function createTodoUndo() {
       forwarding ??= { ...app, rpc: (method, params) => connection!.rpc(method, params) };
     },
     remove, removePads, removeRail,
-    removeTodos: async (ids: readonly number[]) => {
-      await remove([...ids]);
+    removeTodos: async (ids: readonly number[], region = "") => {
+      await remove([...ids], region);
 
       return ids.flatMap(id => deleted.includes(id) ? [] : [{ id, message: failure()?.message ?? copy.todoDeleteMissing }]);
     },
     undo, redo, pending, visible,
+    // A surviving focus destination shares the receipt, never a second history entry.
+    handoff: (from: string, to: string) => {
+      const operation = stack().findLast(action => action.regions.includes(from));
+
+      if (!operation || operation.regions.includes(to)) return;
+      operation.regions.push(to);
+      setStack(all => [...all]);
+    },
     failure: () => failure()?.message ?? null,
     feedback: () => {
       const operation = stack().at(-1);
@@ -463,8 +479,9 @@ export function createTodoUndo() {
 
       return problem && (problem.kind === "restore" || uncertain() || padPending().length || railPending()) ? problem.message : null;
     },
-    available: () => stack().length > 0 && !redoUnknown() && !uncertain() && !padPending().length && !railPending(),
-    retryDelete: () => redoUnknown() ? redo() : railPending() ? removeRail(railPending()!.id, railPending()!.name) : padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
+    available: (region?: string) => stack().some(action => region === undefined || action.regions.includes(region)) && !redoUnknown() && !uncertain() && !padPending().length && !railPending(),
+    redoAvailable: (region?: string) => redoes().some(action => region === undefined || action.regions.includes(region)) && !pending() && !uncertain() && !padPending().length && !railPending(),
+    retryDelete: () => redoUnknown() ? redo(redoes().findLast(action => action.state === "unknown")!.regions[0]) : railPending() ? removeRail(railPending()!.id, railPending()!.name) : padPending().length ? removePads(padPending()) : uncertain() ? remove(uncertain()!) : Promise.resolve(false),
     uncertain: () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending(),
     ids: () => uncertain() ?? [],
     dismiss: () => setVisible(false),
