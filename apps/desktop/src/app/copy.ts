@@ -45,6 +45,7 @@ export const copy = {
   loadingProject: "Loading Project…",
   recoverNotes: sharedCopy.recoverNotes,
   todoUndo: sharedCopy.todoUndo,
+  redo: sharedCopy.redo,
   todoDeleteRetry: sharedCopy.todoDeleteRetry,
   rowActionsFor: (id: number) => `Actions for todo ${id}`,
   selectTodo: "Select",
