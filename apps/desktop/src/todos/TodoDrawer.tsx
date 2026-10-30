@@ -25,6 +25,8 @@ import type { TodosState } from "./state";
 export const TodoDrawer = (props: {
   id: number;
   order?: readonly number[];
+  /** The list that opened this Drawer keeps its acknowledged deletion available to Undo. */
+  region?: string;
   onNavigate?: (id: number) => void;
   onComment?: (focus: ReturnType<typeof captureFocus>) => void;
   todos: TodosState;
@@ -74,7 +76,7 @@ export const TodoDrawer = (props: {
  return; }
 
     const ids = order();
-    drawer.open(() => <TodoDrawer id={id} todos={props.todos} order={ids} />, "key", { kind: "todo", project: project.path });
+    drawer.open(() => <TodoDrawer id={id} todos={props.todos} order={ids} region={props.region} />, "key", { kind: "todo", project: project.path });
   };
 
   const [noticeDismissed, setNoticeDismissed] = createSignal(false);
@@ -258,6 +260,7 @@ export const TodoDrawer = (props: {
 
  if (drawer.content() === opening) {
    drawer.close("key");
+   if (props.region) drafts.todoUndo.handoff(`todo:${id}`, props.region);
    queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
  } }
       else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());

@@ -119,7 +119,9 @@ const failedDeletionRefresh = async () => {
   row.focus();
   fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
   fireEvent.click(await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("button", { name: "More actions" }));
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Delete Todo" }));
+  const deletion = await screen.findByRole("menuitem", { name: "Delete Todo" });
+  deletion.focus();
+  fireEvent.click(deletion);
   await screen.findByText("Todo list unavailable");
   const connected = mounted.connections.get("/a")!;
 
