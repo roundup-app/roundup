@@ -78,7 +78,7 @@ describe("u41 rail by keyboard, the rest", () => {
 
     fireEvent.mouseEnter(rowOf("g"));
 
-    expect((within(rowOf("g")).getByRole("button", { name: "Collapse" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(within(rowOf("g")).getByRole("button", { name: "Collapse" }).hasAttribute("disabled")).toBe(false);
   });
 
   it("u5171_chevron_click_hides_and_shows_children", async () => {

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -12,6 +12,7 @@ import { Todos } from "../todos/Todos";
 import { todo, todoCallsTo as callsTo } from "../todos/testHarness";
 import { Help } from "./Help";
 import { pressOf } from "./chords";
+import { copy } from "./copy";
 
 afterEach(cleanup);
 
@@ -193,12 +194,14 @@ describe("u5171 Help names the arrows", () => {
 
     fireEvent.keyDown(screen.getByTestId("rail"), { key: "?", shiftKey: true });
 
-    const chips = await waitFor(() => {
-      const found = [...document.querySelectorAll(".help .key-chips")].map((chip) => chip.textContent);
-      expect(found.length).toBeGreaterThan(0);
-      return found;
+    const panel = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>(".help");
+
+      expect(found).not.toBeNull();
+
+      return found!;
     });
 
-    expect(chips).toContain("← →");
+    expect(within(panel).queryAllByText(copy.collapseExpand)).toHaveLength(1);
   });
 });
