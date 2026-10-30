@@ -3,7 +3,9 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 
 const dismiss = "Dismiss";
+
 const running = "Running";
+
 const failed = "Failed";
 
 const rpcFailures = new Map<number, string>([
