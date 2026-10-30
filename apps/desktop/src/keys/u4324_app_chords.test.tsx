@@ -120,6 +120,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
       target = document.querySelector<HTMLElement>(".todo-row-button")!;
 
       if (place === "drawer") {
+        target.focus();
         fireEvent.keyDown(target, { key: "Enter", code: "Enter" });
         await waitFor(() => expect(document.querySelector(".drawer[data-open=true] button")).not.toBeNull());
         target = document.querySelector<HTMLElement>(".drawer[data-open=true] button")!;

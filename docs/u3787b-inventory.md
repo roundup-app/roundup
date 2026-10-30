@@ -300,3 +300,45 @@ refusal shows its full cause/fix with the Todo retained. Screenshots and the key
 assignment recording remain uncommitted. These are Chromium observations only.
 The menu observer's cleanup batches disposal of production registrations using
 Solid's existing `batch`, avoiding repeated menu projection during unmount.
+
+## Focused Todo Open and Rename
+
+`RowButton` now captures its existing Open (Return) and Rename (F2) callbacks
+through the same row registration as navigation and nesting. The menu and key
+invoke that focused Todo, even when another row is selected. Editing, suspension,
+modal ownership, removal or leaving the row makes the capture unavailable. Both
+plain keys remain native menu hints, without accelerators.
+
+`u3787b_todo_open_uses_the_focused_row` proves one comments request for the focused
+Todo by either route. `u3787b_todo_rename_keeps_the_captured_row` proves the editor
+belongs to that Todo, sends no update on opening, and refuses retained/menu
+Rename while editing. `u2539b_native_menu_projects_the_task_chords` forwards Open
+and Rename through actual Tauri menu events for both Projects. No test is removed
+or retired; existing U3789 and U3787c observers retain selection and rename
+cancellation.
+
+Main check [41018682543](https://github.com/roundup-app/roundup/actions/runs/41018682543)
+at `3eb7454cd284bf09dcf5199ad3202d3683b54f1b` passed mac and mac-clippy. This is
+compilation evidence, with no new native dispatch claim. Remaining #4308 work:
+Pad/add-row command coverage, complete library/native inventory, responder
+Find/Close availability and final native displayed-key/combined-dispatch
+observations. This continuation closes neither #4308 nor #3843.
+
+Rendered comparison: `artifacts/ux/U3787b/open-rename/{base,head}/`, dark
+1512×950, tree-40/tabs-8/conflict, base `997b1e5a6`, implementation
+`aaec581772e66868b1edaaa09102d0b61ba920b9`. All D1–D14 and D16 readings
+pass; D2/D5/D6 retain their baseline. Interaction captures show focused Rename,
+Escape then Open, and full actionable rename failure beside retained input.
+Images and the interaction recording stay uncommitted. These observe Chromium
+only. `just capture U3787b` exits 1 because the installed observer table rejects
+that id; these explicit isolated captures supply the rendered evidence.
+
+The existing `u3723_keys_are_inert_in_the_drawer_field` fixture now focuses its
+row before Return, matching keyboard dispatch through the captured row holder.
+Its editor-key and zero-mutation assertions are unchanged.
+
+Connected-App Help/attention, row-name recovery, completion and unfinished-input
+fixtures focus the Todo row before Return/F2 and supply its key code. Their
+existing assertions remain. The U2580a browser observer installs before the
+registry at window capture, retaining its first-frame open/focus proof after
+the registry consumes Return. No test is removed or retired.
