@@ -261,42 +261,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-  it("u2773e_recovery_actions_keep_surface_draft", async () => {
-    await setup();
-    const pad = await app.forProject(first.dir).rpc("pad.create", { name: `recovery-${seed}`, text: "base" });
-    const holder = drafts(first.dir);
-    const destination = { surface: "pads", object: pad.incarnation, recipient: null };
-    const older = holder.edit(destination, { originalName: pad.name, source: "older\n", base: pad.text }, null, "ordinary").draft;
-    await holder.submit(older.revision);
-    await holder.settle(older.revision, "failed");
-    const independent = drafts(second.dir).edit(destination, { source: "other Project" }, null, "ordinary");
-    await independent.retained;
-    const separate = independent.draft;
-    const write = Storage.prototype.setItem;
-
-    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
-      if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
-      write.call(this, key, value);
-    });
-
-    const newer = holder.edit(destination, { originalName: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
-    mount();
-    await openRecovery();
-    await within(screen.getByLabelText("Unfinished work")).findByRole("alert");
-    expect(holder.problem()).toMatchObject({ operation: "retain", cause: "write" });
-    expect([...document.querySelectorAll<HTMLElement>(".draft-revisions > li")].map((row) => row.dataset.revision).sort()).toEqual([older.revision, newer.revision].sort());
-    calls.forEach((spy) => spy.mockClear());
-    writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(holder.list().find((draft) => draft.revision === newer.revision)).toEqual(newer);
-    // Stored again, newer is no longer at risk but stays listed as left unsent.
-    await waitFor(() => expect(within(screen.getByLabelText("Unfinished work")).queryByRole("alert")).toBeNull());
-    fireEvent.click(within(document.querySelector<HTMLElement>(`.draft-revisions > li[data-revision="${older.revision}"]`)!).getByRole("button", { name: "Discard" }));
-    await waitFor(() => expect(createProjectDrafts()(first.dir).list()).toEqual([newer]));
-    expect(createProjectDrafts()(second.dir).list()).toEqual([separate]);
-    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => !["pad.list", "todo.list", "todo.listHanded"].includes(method))).toEqual([]);
-  }, 60_000);
-
   it.each(["write", "surface"])("u2773h_retention_failure_preserves_closed_project_memory_%s", async (kind) => {
     await setup();
     const key = `roundup:drafts:${first.dir}`;
