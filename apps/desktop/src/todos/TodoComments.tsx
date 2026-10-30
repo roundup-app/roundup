@@ -196,7 +196,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
   return <section class="todo-comments" aria-label={copy.activity}>
     <div class="todo-activity-head"><h3>{copy.activity}</h3>{history.copy}</div>
     {history.feedback}
-    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
+    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onMouseDown={event => event.preventDefault()} onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
     <Collapsible.Root lazyMount open={expanded()} onOpenChange={details => setExpanded(details.open)}>
       <Show when={older().length > 0}><Collapsible.Trigger data-button="quiet" class="word todo-older">{copy.olderActivity(older().length)}</Collapsible.Trigger></Show>
       <Collapsible.Content class="todo-activity-entries"><For each={older()}>{renderEntry}</For></Collapsible.Content>
