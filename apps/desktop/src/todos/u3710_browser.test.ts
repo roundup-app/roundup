@@ -172,7 +172,8 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
 
       const extra = await page.call<number>(`async (order, child) => {
         const rpc = window.__fake.app.rpc;
-        const extra = await rpc('todo.create', {title:'Other blocker',body:null,blockers:null,owner:{kind:'user',id:'you',parent:null}});
+        const extra = await rpc('todo.create', {title:'Other blocker',body:null,blockers:null});
+        await rpc('todo.complete', {id:extra.id});
         await rpc('todo.setBlockers', {id:order[1],blockers:child ? [order[0],extra.id] : [extra.id]});
         await rpc('todo.update', {id:order[1],title:'Distance and blocker retention',body:null});
         window.__mark = window.__fake.app.calls.length;
