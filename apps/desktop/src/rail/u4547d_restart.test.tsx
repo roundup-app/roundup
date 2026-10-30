@@ -92,7 +92,7 @@ it("u4547d_restart_controls_share_the_focused_mode_action_in_the_native_menu", a
   daemon.handlers["workstream.restart"] = () => tree[0]!;
   rowOf("mode").focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:R")).toMatchObject({ enabled: true }));
-  expect(projectMenu.items.find(item => item.id === "action:chord:R")?.shortcut).toBeUndefined();
+  expect(projectMenu.items.find(item => item.id === "action:chord:R")?.shortcut).toBe("R");
   openProjectPage("action:chord:R", path("p"));
   await waitFor(() => expect(railCallsTo(daemon, "workstream.restart")).toHaveLength(1));
   expect(railCallsTo(daemon, "agent.resume")).toEqual([]);

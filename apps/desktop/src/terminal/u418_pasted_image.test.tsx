@@ -64,11 +64,12 @@ describe("u418 command v with an image pastes the saved file's path", () => {
     current = clipboard([image("image/png")]);
     const { app, connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
 
-    app.saveImageFailure = new RpcError(-32002, "the image is 30 MiB, over the 20 MiB a paste can save");
+    const failure = new RpcError(-32002, "the image is 30 MiB, over the 20 MiB a paste can save");
+    app.saveImageFailure = failure;
     connected.rail.select("a");
     press(container.querySelector("[data-terminal]")!);
 
-    expect((await screen.findByRole("alert")).textContent).toContain("Paste failed: the image is 30 MiB, over the 20 MiB a paste can save");
+    expect((await screen.findByRole("alert")).textContent).toContain(failure.message);
     expect(emulators.get("t-a")!.pasted).toEqual([]);
     expect(callsTo(app, "terminal.write")).toEqual([]);
   });
