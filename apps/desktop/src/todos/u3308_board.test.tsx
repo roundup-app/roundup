@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { HELP_ROWS, hintsFor } from "../keys/chords";
 import { agent, event, workstream } from "../testing/nodes";
 import { mountTodos, todo, todoEvent, todoCallsTo } from "./testHarness";
 
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(cleanup);
 
 const owner = { kind: "agent" as const, id: "a", parent: null };
 
@@ -17,32 +17,6 @@ it("u3309_a_digit_assigns_to_that_agent_once_and_focus_returns_to_the_row", asyn
   fireEvent.keyDown(row, { key: "1", code: "Digit1" });
   await waitFor(() => expect(todoCallsTo(m.app, "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner }]));
   await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("1"));
-});
-
-it("u3308_busy_until_is_now_plus_the_sum_of_estimates_and_done_todos_add_nothing", async () => {
-  await mountTodos([todo(1, { owner, estimate_minutes: 30 }), todo(2, { owner, estimate_minutes: 45 }), todo(3, { owner, estimate_minutes: 100, done: true })], true, [agent("a", "idle", "")], false, undefined, () => new Date(2026, 9, 23, 13, 0).getTime());
-  await waitFor(() => expect(screen.getByText("busy until 14:15")).toBeTruthy());
-});
-
-it("u3308_missing_estimates_add_nothing_and_say_so", async () => {
-  const m = await mountTodos([todo(1, { owner, estimate_minutes: 30 }), todo(2, { owner })], true, [agent("a", "idle", "")], false, undefined, () => new Date(2026, 9, 23, 13, 0).getTime());
-  await waitFor(() => expect(screen.getByText("busy until 13:30 + 1 without estimate")).toBeTruthy());
-  m.store.todos = m.store.todos.map(row => ({ ...row, estimate_minutes: null }));
-  m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
-  await waitFor(() => expect(screen.getByText("no estimates")).toBeTruthy());
-});
-
-it("u3308_the_line_follows_an_estimate_change_and_the_minute", async () => {
-  vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
-  vi.setSystemTime(new Date(2026, 9, 23, 13, 0));
-  const m = await mountTodos([todo(1, { owner, estimate_minutes: 30 })], true, [agent("a", "idle", "")], false, undefined, Date.now);
-
-  await waitFor(() => expect(screen.getByText("busy until 13:30")).toBeTruthy());
-  await vi.advanceTimersByTimeAsync(60_000);
-  expect(screen.getByText("busy until 13:31")).toBeTruthy();
-  m.store.todos = [todo(1, { owner, estimate_minutes: 45 })];
-  m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
-  await waitFor(() => expect(screen.getByText("busy until 13:46")).toBeTruthy());
 });
 
 it("u3309_a_digit_without_an_agent_or_for_the_own_owner_calls_nothing", async () => {

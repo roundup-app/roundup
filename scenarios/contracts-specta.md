@@ -59,8 +59,8 @@ file to compare; the addition and exposure observers exercise that code instead.
    `r16_event_data_keeps_the_generated_typescript_shape`,
    `a34_pad_deleted_round_trips_the_pad_name` and
    `a34_pad_deleted_is_in_generated_typescript`: wire values and EventData TS shape.
-3. `crates/rup/tests/mcp.rs`, `m1_offers_one_tool_per_method_and_no_others` and
-   `m1_input_schemas_are_the_contract_schemas`: tool inventory and JSON Schema.
+3. `crates/rup/tests/mcp.rs`, `m1_offers_one_tool_per_method_and_no_others`: stdio tool inventory;
+   `crates/rup/src/mcp/c4_policy.rs`, `c4_declarations_preserve_mcp_policy`: generated tool inventory and JSON Schema.
 4. `crates/rup/tests/mcp.rs`, `m5_every_app_action_has_a_tool_or_a_reason`, and
    `crates/rup/src/mcp.rs`, `door_tools`: explicit non-exposure and Door exclusions.
 5. `justfile`, `contracts-fresh`: committed-output drift detection. C4 adds
