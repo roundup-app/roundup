@@ -78,6 +78,8 @@ it("u491_keys_limits_and_reset_commit_the_final_pixels_once", async () => {
   edge.focus();
   await vi.advanceTimersByTimeAsync(0);
 
+  // Zag splitter.machine.invokeOnResizeEnd queues the commit on a microtask;
+  // drain that callback before the next input, without advancing elapsed time.
   for (const [key, shiftKey, pixels] of [["ArrowRight", false, 304], ["ArrowRight", true, 368], ["End", false, 480], ["Home", false, 252], ["Enter", false, 288]] as const) {
     commit.mockClear();
     fireEvent.keyDown(edge, { key, shiftKey });
