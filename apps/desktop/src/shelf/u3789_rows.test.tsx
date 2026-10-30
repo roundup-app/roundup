@@ -294,7 +294,8 @@ it.each(["overview", "workstream", "agent", "terminal"].flatMap(scope => ["key",
 it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_keeps_original_identity_%s", async kind => {
   // CI exceeded 15 s remounting two full trees; draft identity needs only its item's Home.
   const controls = await target(kind, ["payments"]);
-  fireEvent.keyDown(controls.row, {key:"F2"});
+  controls.row.focus();
+  fireEvent.keyDown(controls.row, {key:"F2", code:"F2"});
   const field = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
   // @zag-js/editable focusInput runs on raf; dom-query nextTick observes after that frame.
@@ -318,7 +319,8 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_reload_
 
  return row;});
 
-  fireEvent.keyDown(row, {key:"F2"});
+  row.focus();
+  fireEvent.keyDown(row, {key:"F2", code:"F2"});
 
   const restored = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(document.activeElement).toBe(restored));
@@ -333,7 +335,8 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_older_f
   const method = kind === "todo-shelf" ? "todo.update" : "pad.rename";
   const reply = gate<never>();
   app.handlers[method] = () => reply.promise;
-  fireEvent.keyDown(row, {key:"F2"});
+  row.focus();
+  fireEvent.keyDown(row, {key:"F2", code:"F2"});
   const field = await screen.findByRole<HTMLInputElement>("textbox", {name:copy.name});
   await waitFor(() => expect(field.getAttribute("aria-busy")).toBe("false"));
   fireEvent.input(field, {target:{value:"first revision"}});

@@ -376,3 +376,9 @@ U3787b numbered assignment menu items reuse the existing captured Todo/Agent
 assignment immediately. Projection changes no focus and selection uses the same
 assignment holder as the digit key. No transition, geometry or Token changes;
 D2/D5/D6 remain unchanged.
+
+U3787b focused Todo Open and Rename reuse the existing row callbacks immediately
+from either menu or Return/F2. Projection preserves focus; entering the existing
+editor and opening its Drawer add no transition or dispatch delay. Existing
+Drawer motion and draft recovery remain. No geometry or Token changes; D2/D5/D6
+remain unchanged.

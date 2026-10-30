@@ -8,7 +8,8 @@ const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
 const openDrawer = async () => {
   await mountTodos([todo(5, { title: "session store", body: "Move the cache." })]);
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 / }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   await within(drawer()).findByText("Blocker");
 };
 

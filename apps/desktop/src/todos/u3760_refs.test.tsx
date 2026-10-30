@@ -15,7 +15,8 @@ const open = async (refs: string[], missing: string[] = [], blockers: number[] =
   const m = await mountTodos([todo(1, { refs, blockers }), ...blockers.map((id) => todo(id))]);
   m.store.missing = new Set(missing);
   Object.assign(m.app.handlers, padHandlers({ pads: [padOf("notes", USER, "# Top\n\n## Plan\n\nstep one\n\n## 日本語\n\nlater\n")], history: [] }, () => {}));
-  fireEvent.keyDown(await screen.findByRole("button", { name: /^Idle #1 / }), { key: "Enter" });
+  { const focusedRow = await screen.findByRole("button", { name: /^Idle #1 / }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
   await within(panel()).findByRole("region", { name: /^Pads · / });
 
   return m;

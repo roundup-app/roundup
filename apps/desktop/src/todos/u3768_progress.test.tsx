@@ -131,7 +131,8 @@ describe("u3770 a finishing Todo plays one motion", () => {
     const mounted = await mountTodos([todo(1), todo(2)], false);
 
     if (actor === "user") {
-      fireEvent.keyDown(await screen.findByRole("button", { name: "Idle #1 todo 1" }), { key: "Enter" });
+      { const focusedRow = await screen.findByRole("button", { name: "Idle #1 todo 1" }); focusedRow.focus(); fireEvent.keyDown(focusedRow, { key: "Enter", code: "Enter" }); }
+
       await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("checkbox", { name: "Complete todo 1" });
     }
 
