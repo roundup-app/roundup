@@ -205,3 +205,65 @@ async fn u4593_reaction_keeps_resolved_identities() {
     assert_eq!(read["result"]["target"], "1");
     assert_eq!(read["result"]["condition"]["ids"], json!(["2"]));
 }
+
+#[tokio::test]
+async fn p14_pad_ask_is_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let created = tests::ask(
+        &daemon,
+        r#"{"id":1,"method":"pad.create","params":{"name":"notes","text":"start"}}"#,
+    )
+    .await;
+    assert!(created.get("error").is_none(), "{created}");
+    let before = tests::ask(&daemon, r#"{"id":2,"method":"rail.tree"}"#).await;
+    let history = tests::ask(
+        &daemon,
+        r#"{"id":3,"method":"provenance.history","params":{"item":"pad:notes"}}"#,
+    )
+    .await;
+
+    let reply = tests::ask(
+        &daemon,
+        r#"{"id":4,"method":"pad.ask","params":{"name":"notes","text":"shorten"}}"#,
+    )
+    .await;
+
+    assert_eq!(reply["error"]["code"], code::METHOD_NOT_FOUND);
+    assert_eq!(
+        tests::ask(&daemon, r#"{"id":2,"method":"rail.tree"}"#).await,
+        before
+    );
+    assert_eq!(
+        tests::ask(
+            &daemon,
+            r#"{"id":3,"method":"provenance.history","params":{"item":"pad:notes"}}"#,
+        )
+        .await,
+        history
+    );
+}
+
+#[tokio::test]
+async fn p14_pad_has_no_scribe_field() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = crate::test_daemon(dir.path()).unwrap();
+    let created = tests::ask(
+        &daemon,
+        r#"{"id":1,"method":"pad.create","params":{"name":"notes","text":"start"}}"#,
+    )
+    .await;
+    assert!(created.get("error").is_none(), "{created}");
+
+    let read = tests::ask(
+        &daemon,
+        r#"{"id":2,"method":"pad.read","params":{"name":"notes"}}"#,
+    )
+    .await;
+    let listed = tests::ask(&daemon, r#"{"id":3,"method":"pad.list"}"#).await;
+
+    assert_eq!(read["result"]["name"], "notes", "{read}");
+    assert_eq!(listed["result"][0]["name"], "notes", "{listed}");
+    assert!(read["result"].get("scribe").is_none());
+    assert!(listed["result"][0].get("scribe").is_none());
+}
