@@ -1,6 +1,6 @@
 import { DrawerExpandContext } from "../drawer/DrawerHost";
 import { registerKeys } from "../keys/registry";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, chordsFor } from "../keys/chords";
 import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBlockquoteCommand, wrapInBulletListCommand, wrapInOrderedListCommand, createCodeBlockCommand } from "@milkdown/kit/preset/commonmark";
 import { captureFocus } from "../keys/focus";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -199,7 +199,7 @@ export default function PadRichEditor(props: {
 
     registerKeys({ kind: "region", element: () => host }, toolbarCommands.map(({ action, label, command }) => ({
       action,
-      ...(action.keys.includes("⌥") ? {} : { match: "key" as const }),
+      chords: chordsFor(action.keys, action.keys.includes("⌥") ? "code" : "key"),
       capture: focus => {
         commandState();
 
