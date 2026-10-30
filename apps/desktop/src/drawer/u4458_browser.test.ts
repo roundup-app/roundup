@@ -93,7 +93,7 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
   await lane.evaluate("document.querySelectorAll('.shelf [data-part=branch-control][data-state=open]').forEach(el => el.click()); window.__cycle = { nodes: [], regions: [], ends: [] }");
   // Milkdown owns Tab inside its editor. Opposite sweeps meet there without editing the Pad.
   for (const key of covered ? ["Tab", "Shift+Tab"] : ["Tab"]) {
-    await lane.browser("focus", "[data-todo-root]");
+    await lane.browser("focus", covered ? "[data-todo-root]" : ".rail-actions button:last-child");
     await lane.evaluate("window.__cycle.start = document.activeElement");
     let complete = false;
     for (let step = 0; step < 160; step++) {
@@ -103,7 +103,7 @@ const cycle = async (lane: LaneBrowser, covered: boolean, shelf: boolean) => {
         const cycle = window.__cycle;
         cycle.nodes.push(el);
         for (const region of ['rail', 'drawer', 'shelf']) if (el.closest('.' + region) && !cycle.regions.includes(region)) cycle.regions.push(region);
-        const complete = el === cycle.start || el.matches('.drawer [contenteditable=true]');
+        const complete = ${covered ? "el === cycle.start || el.matches('.drawer [contenteditable=true]')" : "el === window.__covered.button"};
         if (complete) cycle.ends.push(el);
         return { complete, centre: !!el.closest('.centre') };
       })()`);
