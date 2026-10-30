@@ -43,7 +43,7 @@ export const copy = {
   captureFor: (name: string) => `For ${name}`,
   captureIn: (name: string) => `In ${name}`,
   capturePlaceholder: "A thought, then ⏎",
-  recoveredCaptureDraft: "Recovered capture draft",
+  recoveredCaptureDraft: sharedCopy.unfinishedWork,
   title: "Title",
   save: sharedCopy.save,
   copied: sharedCopy.copied,

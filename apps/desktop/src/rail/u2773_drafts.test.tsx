@@ -230,7 +230,7 @@ it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", asyn
   expect(field().value).toBe("");
 });
 
-it.each([null, "a"])("u3299c_retention_preserves_original_work_rail_%s", async parent => {
+it.each([null, "a"])("u471_action_labels_describe_the_existing_action_recovery_%s", async parent => {
   const { openTabs, tab, path } = await import("../header/stripFixture");
   const { agent, door } = await import("../testing/nodes");
   const { message } = await import("../testing/centreFixture");

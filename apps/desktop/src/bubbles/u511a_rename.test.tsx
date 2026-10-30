@@ -1,3 +1,4 @@
+import { copy as recoveryCopy } from "../sharedCopy";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createProjectDrafts } from "../state/connectedProject";
@@ -338,7 +339,7 @@ it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
   const selected = await screen.findByRole("dialog", { name: "Unfinished work" });
 
   fireEvent.click(within(selected).getByRole("button", { name: /^Inspect · Failed/ }));
-  fireEvent.click(within(selected).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(selected).getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(reloaded.connected.drafts.list().map(draft => draft.value.name)).toEqual(["  retained C 雪  "]);
 });
 
@@ -352,7 +353,7 @@ it("u2773c_bubbles_external_change_keeps_original", async () => {
   expect(field()!.value).toBe("  original e\u0301 🫧  ");
   fireEvent.keyDown(field()!, { key: "Enter" });
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(recovery).getByText(/original name changed/)).toBeDefined();
+  expect(within(recovery).getByText(recoveryCopy.railDraftConflict)).toBeDefined();
   expect(tab("2")!.getAttribute("aria-label")).toBe("external");
   mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, incarnation: "replacement" } : terminal));
   mounted.app.emit(event({ name: "terminal.changed" }));
@@ -390,7 +391,7 @@ it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
   fireEvent.click(within(recovery).getByRole("button", { name: "Retry storage only" }));
   await waitFor(() => expect(JSON.parse(window.localStorage.getItem("roundup:drafts:/p")!).drafts[0].value.name).toBe(text));
   expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
-  fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(recovery).getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(mounted.connected.drafts.list()).toEqual([]);
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
 });
@@ -550,7 +551,7 @@ it("u3021c_bubbles_selected_edit_keeps_captured_base_conflict_refusal", async ()
   fireEvent.input(field()!, { target: { value: "my edit" } });
   fireEvent.keyDown(field()!, { key: "Enter" });
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(recovery).getByText(/original name changed/)).toBeDefined();
+  expect(within(recovery).getByText(recoveryCopy.railDraftConflict)).toBeDefined();
   expect(tab("2")!.getAttribute("aria-label")).toBe("external");
   expect(drafts.list().find(draft => draft.value.name === "my edit")?.value.base).toBe("zsh");
   expect(drafts.list()).toContainEqual(b);
@@ -632,7 +633,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen", async ()
   vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith("  A e\u0301 🫧 雪  "));
-  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: recoveryCopy.discardRevision }));
   expect(drafts.list()).toEqual([b]);
   await waitFor(() => expect(createProjectDrafts()("/p").list()).toEqual([b]));
   cleanup();
