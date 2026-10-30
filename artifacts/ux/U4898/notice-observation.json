@@ -1,0 +1,371 @@
+{
+  "baseline": "Old bottom offset reproduced by CSS override on the current app, with current message wrapping; no main comparison claimed",
+  "results": [
+    {
+      "seed": "agents-10",
+      "before": {
+        "alert": "Copy failed: Clipboard unavailable. Try Copy link again.. Select the text to copy it.",
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "footer": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        "newModeHit": false,
+        "notice": {
+          "bottom": 910,
+          "height": 72,
+          "width": 287,
+          "x": 0,
+          "y": 838
+        },
+        "scheme": "dark",
+        "terminal": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "after": {
+        "alert": "Copy failed: Clipboard unavailable. Try Copy link again.. Select the text to copy it.",
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "footer": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        "newModeHit": true,
+        "notice": {
+          "bottom": 853,
+          "height": 72,
+          "width": 287,
+          "x": 0,
+          "y": 781
+        },
+        "scheme": "dark",
+        "terminal": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        },
+        "newModeOpened": true
+      }
+    },
+    {
+      "seed": "tree-40",
+      "before": {
+        "alert": "Copy failed: Clipboard unavailable. Try Copy link again.. Select the text to copy it.",
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "footer": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        "newModeHit": false,
+        "notice": {
+          "bottom": 910,
+          "height": 72,
+          "width": 287,
+          "x": 0,
+          "y": 838
+        },
+        "scheme": "dark",
+        "terminal": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "after": {
+        "alert": "Copy failed: Clipboard unavailable. Try Copy link again.. Select the text to copy it.",
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "footer": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        "newModeHit": true,
+        "notice": {
+          "bottom": 853,
+          "height": 72,
+          "width": 287,
+          "x": 0,
+          "y": 781
+        },
+        "scheme": "dark",
+        "terminal": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        },
+        "newModeOpened": true
+      }
+    },
+    {
+      "seed": "agents-10",
+      "before": {
+        "alert": "Copy failed: Clipboard unavailable. Try Copy link again.. Select the text to copy it.",
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "footer": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        "newModeHit": false,
+        "notice": {
+          "bottom": 910,
+          "height": 72,
+          "width": 287,
+          "x": 0,
+          "y": 838
+        },
+        "scheme": "light",
+        "terminal": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "after": {
+        "alert": "Copy failed: Clipboard unavailable. Try Copy link again.. Select the text to copy it.",
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "footer": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        "newModeHit": true,
+        "notice": {
+          "bottom": 853,
+          "height": 72,
+          "width": 287,
+          "x": 0,
+          "y": 781
+        },
+        "scheme": "light",
+        "terminal": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        },
+        "newModeOpened": true
+      }
+    },
+    {
+      "seed": "tree-40",
+      "before": {
+        "alert": "Copy failed: Clipboard unavailable. Try Copy link again.. Select the text to copy it.",
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "footer": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        "newModeHit": false,
+        "notice": {
+          "bottom": 910,
+          "height": 72,
+          "width": 287,
+          "x": 0,
+          "y": 838
+        },
+        "scheme": "light",
+        "terminal": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        }
+      },
+      "after": {
+        "alert": "Copy failed: Clipboard unavailable. Try Copy link again.. Select the text to copy it.",
+        "checks": {
+          "D1": "pass",
+          "D10": "pass",
+          "D11": "pass",
+          "D12": "pass",
+          "D13": "pass",
+          "D14": "pass",
+          "D16": "pass",
+          "D2": "pass",
+          "D3": "pass",
+          "D4": "pass",
+          "D5": "pass",
+          "D6": "pass",
+          "D7": "pass",
+          "D8": "pass",
+          "D9": "pass"
+        },
+        "footer": {
+          "bottom": 950,
+          "height": 97,
+          "width": 287,
+          "x": 0,
+          "y": 853
+        },
+        "newModeHit": true,
+        "notice": {
+          "bottom": 853,
+          "height": 72,
+          "width": 287,
+          "x": 0,
+          "y": 781
+        },
+        "scheme": "light",
+        "terminal": {
+          "bottom": 950,
+          "height": 40,
+          "width": 32,
+          "x": 288,
+          "y": 910
+        },
+        "newModeOpened": true
+      }
+    }
+  ],
+  "observer": "Isolated headless Chromium, fresh profile, 1512x950. Native menu opened with Shift+F10; fake clipboard refusal; pointer click opens New Mode while notice is visible.",
+  "changedChecks": [
+    "D2",
+    "D5",
+    "D6"
+  ]
+}

@@ -11,7 +11,7 @@ import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { registerKeys, type ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
-import { shelfKeyScope, shelfRowKeys } from "../shelf/keys";
+import { shelfRowKeys, todoCreationKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
 import { createSelection } from "../shelf/selection";
 import { Progress } from "../ui/Progress";
@@ -42,7 +42,7 @@ import { OwnerGroups } from "../shelf/OwnerGroups";
 import { NewWorkstream } from "./NewWorkstream";
 import { OwnerCommand, OwnerPicker } from "./OwnerPicker";
 import type { Actor } from "@contracts/Actor";
-import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
+import { CHORDS, chordsFor, chordsOf } from "../keys/chords";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
 import type { TodosState } from "./state";
@@ -518,10 +518,7 @@ export const Todos = (props: {
     setCreationRevision(null);
     openField(home, null);
   });
-  registerKeys(shelfKeyScope, [{ chords: ["n"],
-    when: event => !event.repeat && !event.isComposing && event.target instanceof Element && section?.contains(event.target) === true && !event.target.closest(TEXT_FIELDS),
-    run: () => openField(),
-  }]);
+  todoCreationKeys({ section: () => section, active, editing: typing, home: selectedWorkstream, owner: () => scope.agent()?.id ?? null, open: openField });
 
   const field = () => (
     <div class="shelf-list todo-create" ref={element => { creationRow = element; }}>

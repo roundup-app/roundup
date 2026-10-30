@@ -1,7 +1,7 @@
 import { rowTypeahead } from "../ui/RowCollection";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, TEXT_FIELDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import type { ActivationSource, KeyScope } from "../keys/registry";
 import type { ShelfFrame } from "./frame";
@@ -119,4 +119,29 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     moveFocus,
     stop,
   };
+};
+
+/** The Todos list captures creation scope for its key and menu item. */
+export const todoCreationKeys = (props: {
+  section: () => HTMLElement | undefined;
+  active: () => boolean;
+  editing: () => boolean;
+  home: () => string | null;
+  owner: () => string | null;
+  open: (home: string | null, owner: string | null) => void;
+}) => {
+  registerKeys(shelfKeyScope, [{ action: CHORDS.find(action => action.keys === "N")!, match: "key", searchable: false,
+    when: event => !event.repeat && !event.isComposing && !rowTypeahead(event),
+    capture: focus => {
+      const home = props.home();
+      const owner = props.owner();
+
+      return {
+        available: () => props.active() && !props.editing() && focus?.isConnected === true && props.section()?.contains(focus) === true
+          && !focus.closest(`${TEXT_FIELDS},select,[contenteditable], [hidden], [inert]`)
+          && props.home() === home && props.owner() === owner,
+        invoke: () => props.open(home, owner),
+      };
+    },
+  }]);
 };
