@@ -5,12 +5,36 @@ import { browser, read, url, wait } from "../ui/tabsBrowser";
 import { captureDir } from "../testing/captures";
 import type { Checks } from "../testing/checks";
 
-const ageCaptures = () => ["U4709a", "U4709b", "U4709c"].flatMap(id => { const dir = captureDir(id);
+const ageCaptures = () => ["U4709a", "U4709b", "U4709c"].flatMap(id => {
+  const dir = captureDir(id);
 
- return dir ? [dir] : []; });
+  return dir ? [dir] : [];
+});
 
 const shot = async (id: string, stage: string, step: string): Promise<Checks> => {
-  const {checks, columns, boxes} = await read<{checks: Checks; columns: unknown; boxes: unknown}>(`({checks:window.__checks(), columns:Array.from(document.querySelectorAll('.shelf-group-control, .shelf-row')).filter(row => row.checkVisibility()).map(row => ({name:row.textContent, mark:row.querySelector('[data-part=branch-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(), title:row.querySelector('.shelf-group-name, .shelf-title, .entry-field')?.getBoundingClientRect().toJSON(), age:row.querySelector(".item-age")?.getBoundingClientRect().toJSON(), figures:row.querySelector(".item-age") && getComputedStyle(row.querySelector(".item-age")).fontVariantNumeric, open:row.querySelector(".todo-open")?.getBoundingClientRect().toJSON(), grip:row.querySelector(".sortable-handle")?.getBoundingClientRect().toJSON(), count:row.querySelector('.shelf-group-count')?.getBoundingClientRect().toJSON()})), boxes:Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({id:row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation, box:row.getBoundingClientRect().toJSON(), state:row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .shelf-glyph .icon')?.getBoundingClientRect().toJSON(), name:row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(), controls:Array.from(row.querySelectorAll('button,input[type=checkbox]')).filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true})).map(control => control.getAttribute('aria-label'))}))})`);
+  const {checks, columns, boxes} = await read<{checks: Checks; columns: unknown; boxes: unknown}>(`({
+    checks: window.__checks(),
+    columns: Array.from(document.querySelectorAll('.shelf-group-control, .shelf-row'))
+      .filter(row => row.checkVisibility()).map(row => ({
+        name: row.textContent,
+        mark: row.querySelector('[data-part=branch-indicator], .shelf-glyph')?.getBoundingClientRect().toJSON(),
+        title: row.querySelector('.shelf-group-name, .shelf-title, .entry-field')?.getBoundingClientRect().toJSON(),
+        age: row.querySelector('.item-age')?.getBoundingClientRect().toJSON(),
+        figures: row.querySelector('.item-age') && getComputedStyle(row.querySelector('.item-age')).fontVariantNumeric,
+        open: row.querySelector('.todo-open')?.getBoundingClientRect().toJSON(),
+        grip: row.querySelector('.sortable-handle')?.getBoundingClientRect().toJSON(),
+        count: row.querySelector('.shelf-group-count')?.getBoundingClientRect().toJSON()
+      })),
+    boxes: Array.from(document.querySelectorAll('.rail-row, .shelf-row')).map(row => ({
+      id: row.dataset.id ?? row.dataset.todo ?? row.dataset.incarnation,
+      box: row.getBoundingClientRect().toJSON(),
+      state: row.querySelector('.row-state .glyph, .shelf-glyph .glyph, .shelf-glyph .icon')?.getBoundingClientRect().toJSON(),
+      name: row.querySelector('.name, .shelf-title, .pad-name')?.getBoundingClientRect().toJSON(),
+      controls: Array.from(row.querySelectorAll('button,input[type=checkbox]'))
+        .filter(control => getComputedStyle(control).opacity !== '0' && control.checkVisibility({opacityProperty:true}))
+        .map(control => control.getAttribute('aria-label'))
+    }))
+  })`);
   let picture: string | undefined;
 
   for (const directory of [captureDir(id), ...(id === "U4908" ? [captureDir("U4708"), ...ageCaptures()] : [])]) {
