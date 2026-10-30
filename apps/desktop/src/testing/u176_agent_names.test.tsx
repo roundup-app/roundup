@@ -244,7 +244,7 @@ describe("u2773 Rail persisted edits", () => {
     fireEvent.keyDown(name, { key: "Enter" });
     expect((await app.rpc("rail.tree", null)).find((entry) => entry.id === node.id)?.name).toBe("Changed elsewhere");
     await app.rpc("rail.remove", { id: node.id });
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: recoveryCopy.draftField("name"), exact: true })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: recoveryCopy.draftField("name") })).toBeNull());
     expect(screen.getByText(railCopy.railDraftUnavailable)).toBeDefined();
     expect(screen.getAllByLabelText<HTMLTextAreaElement>(recoveryCopy.unfinishedWork).map((field) => field.value)).toContain(" exact e\u0301 😀 ");
     expect(draftStorage(first.dir).list().find((entry) => entry.value.text === " exact e\u0301 😀 ")?.destination.object).toBe(node.id);
