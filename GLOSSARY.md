@@ -57,7 +57,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
 | Digest | same | — |
 | Wake request (`agent.wake`) | same | — |
-| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`) | Reaction | — |
+| Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, one-line `reason`, absent for legacy definitions) | Reaction | — |
 | Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
 | Preview (`reaction.preview`) | Time preview | — |
 | Firing (a Reaction's `firings`) | same | — |
@@ -115,6 +115,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Todo | same | task, ticket |
 | Reopen (`todo.reopen`, `todo_reopen`) | same | — |
 | Owner (`owner`, Todos only; Pads use Home) | same | assignee |
+| Priority (`Priority`, `priority`) | Priority | — |
 | Updated at (`updated_at`) | a Todo's last-change time | — |
 | Delegate Board | same | — |
 | Busy until | "free now", "busy until <HH:MM>" | — |

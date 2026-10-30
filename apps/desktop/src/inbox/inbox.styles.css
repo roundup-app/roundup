@@ -1,9 +1,6 @@
-.inbox { display: flex; flex-direction: column; gap: var(--space-3); font-family: var(--font-ui); overflow-wrap: anywhere; }
+.inbox { display: flex; flex-direction: column; gap: var(--space-1); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .inbox-title { min-height: var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.inbox h2 { font: inherit; font-weight: 600; margin: 0; }
 .inbox-group { display: flex; flex-direction: column; gap: var(--space-1); }
-.inbox-group-head { display: flex; align-items: baseline; gap: var(--space-2); }
-.inbox-group-head h3 { font: inherit; font-size: var(--text-small); font-weight: 600; margin: 0; color: var(--grey); }
 .inbox-count { font-size: var(--text-small); color: var(--grey); font-variant-numeric: tabular-nums; }
 .inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .inbox-item { display: block; }
@@ -20,11 +17,12 @@
   gap: var(--space-2);
   text-align: start;
 }
+.inbox-row .kind-mark { width: var(--space-3); height: var(--space-3); }
 .inbox-row-name { font-weight: 500; flex-shrink: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inbox-item [data-part="content"] { overflow: hidden; }
 .inbox-item [data-part="content"][data-state="open"] { animation: inbox-expand var(--duration-todo) var(--easing-out); }
 .inbox-item [data-part="content"][data-state="closed"] { animation: inbox-collapse var(--duration-todo) var(--easing-out); }
-.inbox-actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
+.inbox-actions { display: flex; gap: var(--space-2); flex-shrink: 0; margin-inline-start: var(--space-3); }
 .inbox-body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-1) 0 var(--space-2) var(--space-5); }
 .inbox-step { margin: 0; }
 .inbox-comment { width: 100%; }
@@ -41,4 +39,9 @@
 .inbox-row:is([data-selected="true"], :focus-visible) { background: var(--selected); color: var(--text); }
 .inbox-row:is([data-selected="true"], :focus-visible):hover { background: var(--selected-hover); color: var(--text); }
 
-.inbox { flex: 1; min-height: 0; }
+.inbox { flex: 1; min-height: 0; position: relative; padding-block-end: var(--line); }
+
+.inbox-actions { opacity: 0; }
+.inbox-head:focus-within .inbox-actions,
+.inbox-item:has([data-selected="true"]) .inbox-actions,
+.inbox-item:has([aria-expanded="true"]) .inbox-actions { opacity: 1; }

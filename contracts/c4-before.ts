@@ -575,7 +575,7 @@ export type reaction_CreateParams = {
 
 operation: string, 
 
-name: string, 
+name: string, reason: string, 
 
 target: string, 
 
@@ -637,7 +637,7 @@ offset: string, };
 
 export type reaction_Reaction = { project: string, id: string, name: string, 
 
-actor: Actor, 
+actor: Actor, reason: string | null, 
 
 home: string | null, target: string, instruction: string, condition: reaction_Condition, max_firings: number, remaining: number, rearm: boolean, 
 
@@ -759,7 +759,7 @@ export type todo_CreateParams = { title: string, body: string | null, blockers: 
 
 owner?: Actor, 
 
-};
+priority?: "low" | "medium" | "high" | "urgent" | null, };
 
 export type todo_HandParams = { agent: string, };
 
@@ -795,19 +795,19 @@ owner: Actor | null,
 
 refs: Array<string>, 
 
-};
+priority: "low" | "medium" | "high" | "urgent" | null, };
 
 export type todo_TodoId = { id: number, };
 
 export type todo_UnreadComment = { todo: number, title: string, comment: todo_Comment, };
 
-export type todo_UpdateParams = { id: number, title: string | null, body: string | null, expected_change?: number, };
+export type todo_UpdateParams = { id: number, title: string | null, body: string | null, priority?: "low" | "medium" | "high" | "urgent" | null, expected_change?: number, };
 
 export type todo_Values = { title: string, body: string, done: boolean, blockers: Array<number>, 
 
 owner: Actor | null, 
 
-};
+priority: "low" | "medium" | "high" | "urgent" | null, };
 
 export type workstream_AutoParams = { id: string, auto: boolean, };
 
