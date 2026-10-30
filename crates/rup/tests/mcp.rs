@@ -1219,3 +1219,19 @@ async fn t4902_public_todo_contract_has_no_duration() {
     assert_eq!(got["body"], "keep");
     assert_eq!(got["creator"], json!(agent("a1")));
 }
+
+#[tokio::test]
+async fn m5159c_no_checkpoint_surface_remains() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("none.sock");
+    let _server = m17_daemon(&socket, Value::Null);
+    let shim = spawn_shim(&socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let methods: Vec<_> = contracts::methods::METHODS.iter().map(|m| m.name).collect();
+    for gone in ["checkpoint_write", "checkpoint_list", "workstream_rewindPlan"] {
+        assert!(tools.iter().all(|tool| tool.name != gone), "{gone}");
+    }
+    for gone in ["checkpoint.write", "checkpoint.list", "workstream.rewindPlan"] {
+        assert!(!methods.contains(&gone), "{gone}");
+    }
+}
