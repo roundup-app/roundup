@@ -551,13 +551,17 @@ mod tests {
                 .unwrap()
                 .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap());
         });
-        for (label, enabled) in [("Undo Delete Todo", true), ("Undo", false)] {
+        for (label, enabled, redo_label, redo_enabled) in [
+            ("Undo Delete Todo", true, "Redo", false),
+            ("Undo", false, "Redo Delete Todo", true),
+            ("Undo", false, "Redo", false),
+        ] {
             let mut undo = item("action:chord:⌘Z", label, Some("⌘Z"), None);
             undo.group = Some("edit".into());
             undo.enabled = enabled;
-            let mut redo = item("action:chord:⇧⌘Z", "Redo", Some("⇧⌘Z"), None);
+            let mut redo = item("action:chord:⇧⌘Z", redo_label, Some("⇧⌘Z"), None);
             redo.group = Some("edit".into());
-            redo.enabled = false;
+            redo.enabled = redo_enabled;
             select_project_menu(
                 app.handle().clone(),
                 Some("/A".into()),
@@ -570,21 +574,19 @@ mod tests {
             let undo = plain(edit.get("action:chord:⌘Z").unwrap());
             assert_eq!(undo.text().unwrap(), label);
             assert_eq!(undo.is_enabled().unwrap(), enabled);
-            assert!(
-                !plain(edit.get("action:chord:⇧⌘Z").unwrap())
-                    .is_enabled()
-                    .unwrap()
-            );
-            app_chosen(
-                app.handle(),
-                &MenuEvent {
-                    id: "action:chord:⌘Z".into(),
-                },
-            );
+            let redo = plain(edit.get("action:chord:⇧⌘Z").unwrap());
+            assert_eq!(redo.text().unwrap(), redo_label);
+            assert_eq!(redo.is_enabled().unwrap(), redo_enabled);
+            for command in ["action:chord:⌘Z", "action:chord:⇧⌘Z"] {
+                app_chosen(app.handle(), &MenuEvent { id: command.into() });
+            }
         }
         assert_eq!(
             *received.lock().unwrap(),
-            [serde_json::json!({"path":"/A", "command":"action:chord:⌘Z"})]
+            [
+                serde_json::json!({"path":"/A", "command":"action:chord:⌘Z"}),
+                serde_json::json!({"path":"/A", "command":"action:chord:⇧⌘Z"}),
+            ]
         );
         select_project_menu(app.handle().clone(), Some("/A".into()), None).unwrap();
         let MenuItemKind::Submenu(edit) = app.menu().unwrap().get("edit-menu").unwrap() else {

@@ -359,10 +359,14 @@ export const TodoDrawer = (props: {
             const opening = drawer.content();
             setDeleting(true);
             void drafts.todoUndo.remove([id], `todo:${id}`).then(removed => {
-              if (removed) { setRemovedByMe(true);
+              if (removed) {
+                setRemovedByMe(true);
 
- if (drawer.content() === opening) { drawer.close("key"); queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement))); } }
-              else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());
+                if (drawer.content() === opening) {
+                  drawer.close("key");
+                  queueMicrotask(() => drafts.todoUndo.handoff(`todo:${id}`, historyRegion(document.activeElement)));
+                }
+              } else if (!drafts.todoUndo.uncertain()) setFailure(drafts.todoUndo.failure());
               setDeleting(false);
             });
           }}>
