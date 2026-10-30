@@ -197,7 +197,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
       return extra.id;
     }`, order);
 
-    await page.until(`() => document.querySelectorAll('.shelf .todo-row-button')[1].getAttribute('aria-label').toLowerCase().includes('blocked')`);
+    await page.until(`() => document.querySelectorAll('.shelf [data-shelf-group=unassigned] .todo-row-button')[1].getAttribute('aria-label').toLowerCase().includes('blocked')`);
     const from = await centre(1);
     await drag(from, {x:from.x+await treeStep(),y:from.y});
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c=>c.method === 'todo.setBlockers')`);
