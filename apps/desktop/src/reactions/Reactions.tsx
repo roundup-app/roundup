@@ -388,7 +388,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
 
     try {
       const made = await app.rpc("reaction.create", {
-        operation: f.operation, name: f.name, reason: "Requested by the user in the App.", target: f.target, instruction: f.instruction, condition: cond,
+        operation: f.operation, name: f.name, reason: reactionCopy.createReason, target: f.target, instruction: f.instruction, condition: cond,
         max_firings: Number(f.maxFirings), rearm: f.rearm, expires_at: until,
       });
 
