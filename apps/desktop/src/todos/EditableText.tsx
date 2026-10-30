@@ -60,7 +60,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
   );
 
-  return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
+  return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" data-in-drawer={props.inDrawer ? "" : undefined} aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
     <ReservedLine overlay={!props.inDrawer && props.object !== "new"} message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>

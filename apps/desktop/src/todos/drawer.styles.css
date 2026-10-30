@@ -170,5 +170,5 @@
 .todo-comment-head button { margin-inline-start: var(--space-3); }
 
 /* Recovery belongs after the composer, so it cannot cover a send failure. */
-.todo-detail .todo-draft-recovery .reserved-line { max-width: var(--reading-width); padding-inline: var(--reading-gutter); }
+.todo-draft-recovery[data-in-drawer] .reserved-line { max-width: var(--reading-width); padding-inline: var(--reading-gutter); }
 .todo-comments .reserved-content { align-items: flex-start; }
