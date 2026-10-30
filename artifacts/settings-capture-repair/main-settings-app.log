@@ -1,0 +1,37 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "../perf/idle" without a file extension (src/app/seam.ts:4:35). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.3 /tmp/roundup-5028/apps/desktop
+
+Chrome first start: 5218 ms
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ✓ |app| src/settings/u3799_app_settings.test.tsx (15 tests | 1 skipped) 17517ms
+   ✓ u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups 566ms
+   ✓ u3800_close_returns_the_center_and_focus 443ms
+   ✓ u3804_a_new_chord_opens_the_field_and_help_lists_it_KeyY 2455ms
+   ✓ u3804_a_new_chord_opens_the_field_and_help_lists_it_Numpad1 1911ms
+   ✓ u3804_a_new_chord_opens_the_field_and_help_lists_it_F13 1817ms
+   ✓ u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages 1243ms
+   ✓ u3814_project_switch_keeps_each_page_with_its_project_import-work 1264ms
+   ✓ u3814_project_switch_keeps_each_page_with_its_project_project-settings 820ms
+   ✓ u3814_escape_restores_the_previous_center_and_focus_missing_element_import-work 524ms
+   ✓ u3814_escape_restores_the_previous_center_and_focus_missing_element_project-settings 472ms
+   ✓ u3814_switching_settings_pages_keeps_the_original_return_destination 678ms
+   ✓ u4277a_sections_work_by_pointer_and_keyboard_project_false 2426ms
+   ✓ u4277a_sections_work_by_pointer_and_keyboard_project_true 2552ms
+   ✓ u4277a_section_navigation_keeps_unsubmitted_font_text 345ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed | 1 skipped (15)
+   Start at  04:31:00
+   Duration  31.95s (tests 77%, transform 17%, import 4%, environment 2%)
+
+{"numTotalTestSuites":1,"numPassedTestSuites":1,"numFailedTestSuites":0,"numPendingTestSuites":0,"numTotalTests":15,"numPassedTests":14,"numFailedTests":0,"numPendingTests":1,"numTodoTests":0,"snapshot":{"added":0,"failure":false,"filesAdded":0,"filesRemoved":0,"filesRemovedList":[],"filesUnmatched":0,"filesUpdated":0,"matched":0,"total":0,"unchecked":0,"uncheckedKeysByFile":[],"unmatched":0,"updated":0,"didUpdate":false},"startTime":1793334660410,"success":true,"testResults":[{"assertionResults":[{"ancestorTitles":[],"fullName":"u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups","status":"passed","title":"u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_groups","duration":565.993649,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3800_close_returns_the_center_and_focus","status":"passed","title":"u3800_close_returns_the_center_and_focus","duration":443.039855,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3804_a_new_chord_opens_the_field_and_help_lists_it_KeyY","status":"passed","title":"u3804_a_new_chord_opens_the_field_and_help_lists_it_KeyY","duration":2455.0676299999996,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3804_a_new_chord_opens_the_field_and_help_lists_it_Numpad1","status":"passed","title":"u3804_a_new_chord_opens_the_field_and_help_lists_it_Numpad1","duration":1911.1939599999987,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3804_a_new_chord_opens_the_field_and_help_lists_it_F13","status":"passed","title":"u3804_a_new_chord_opens_the_field_and_help_lists_it_F13","duration":1816.8448040000003,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages","status":"passed","title":"u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages","duration":1242.8884099999996,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3814_project_switch_keeps_each_page_with_its_project_import-work","status":"passed","title":"u3814_project_switch_keeps_each_page_with_its_project_import-work","duration":1264.2458279999992,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3814_project_switch_keeps_each_page_with_its_project_project-settings","status":"passed","title":"u3814_project_switch_keeps_each_page_with_its_project_project-settings","duration":820.0183669999988,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3814_escape_restores_the_previous_center_and_focus_missing_element_import-work","status":"passed","title":"u3814_escape_restores_the_previous_center_and_focus_missing_element_import-work","duration":523.593922,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3814_escape_restores_the_previous_center_and_focus_missing_element_project-settings","status":"passed","title":"u3814_escape_restores_the_previous_center_and_focus_missing_element_project-settings","duration":472.41249399999833,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3814_switching_settings_pages_keeps_the_original_return_destination","status":"passed","title":"u3814_switching_settings_pages_keeps_the_original_return_destination","duration":677.7620209999986,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u3813_u3814_u3815_rendered_project_pages","status":"skipped","title":"u3813_u3814_u3815_rendered_project_pages","failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277a_sections_work_by_pointer_and_keyboard_project_false","status":"passed","title":"u4277a_sections_work_by_pointer_and_keyboard_project_false","duration":2425.592701999998,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277a_sections_work_by_pointer_and_keyboard_project_true","status":"passed","title":"u4277a_sections_work_by_pointer_and_keyboard_project_true","duration":2551.7454069999985,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]},{"ancestorTitles":[],"fullName":"u4277a_section_navigation_keeps_unsubmitted_font_text","status":"passed","title":"u4277a_section_navigation_keeps_unsubmitted_font_text","duration":345.23459899999943,"failureMessages":[],"meta":{},"tags":[],"benchmarks":[]}],"startTime":1793334674865,"endTime":1793334692381.2346,"status":"passed","message":"","name":"/tmp/roundup-5028/apps/desktop/src/settings/u3799_app_settings.test.tsx"}]}
+real 32.98
+user 54.04
+sys 2.73
