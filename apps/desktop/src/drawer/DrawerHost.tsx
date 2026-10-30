@@ -1,3 +1,4 @@
+import { surfaceOpen } from "../ui/openSurfaces";
 import { CHORDS } from "../keys/chords";
 import Maximize from "lucide-solid/icons/maximize";
 import Minimize from "lucide-solid/icons/minimize";
@@ -122,7 +123,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
   registerKeys({ kind: "layer", element: panel, active: isOpen, modal: false }, [{
     chords: ["Escape"],
-    when: (press) => !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen')),
+    when: (press) => !surfaceOpen() && !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen, [role=menu], [role=menuitem]')),
     run: () => { captureFocus(true); props.drawer.close("key"); },
   }, {
     action: CHORDS.find(row => row.keys === "M")!,

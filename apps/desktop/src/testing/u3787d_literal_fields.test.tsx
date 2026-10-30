@@ -131,8 +131,8 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
         if (opening === "Todo body") fireEvent.click(await screen.findByRole("button", { name: "Add notes" }));
 
         if (opening === "Blocker query") {
-          fireEvent.click(await screen.findByRole("button", { name: "Blocker" }));
-          field = await screen.findByRole("combobox", { name: "Blocker" });
+          fireEvent.click(await screen.findByRole("button", { name: /^Blocked by/ }));
+          field = await screen.findByRole("combobox", { name: /^Blocked by/ });
         } else field = await screen.findByRole("textbox", { name: opening === "Todo title" ? "Title" : opening === "Todo body" ? "Body" : "Write a comment" });
       }
     }
