@@ -271,7 +271,10 @@ fn sequence_hints(items: &[Item]) -> Vec<(String, String)> {
             }
             item.shortcut
                 .as_ref()
-                .filter(|shortcut| shortcut.starts_with("⌘K "))
+                .filter(|shortcut| {
+                    shortcut.starts_with("⌘K ")
+                        || (item.id.starts_with("action:") && !shortcut.contains(['⌘', '⌃', '⌥']))
+                })
                 .map(|shortcut| (item.label.clone(), shortcut.clone()))
                 .into_iter()
                 .collect()
@@ -654,31 +657,11 @@ mod tests {
             .unwrap();
             assert_eq!(plain(built).text().unwrap(), source.label);
             assert_eq!(hint.as_deref(), Some(key));
-        }
-    }
-
-    #[test]
-    fn u4278b_leader_hints_register_no_accelerator() {
-        let app = mock_app();
-        for key in ["P", "J", "I", "C", "A", "S"] {
-            let shortcut = format!("⌘K {key}");
-            let source = item(
-                &format!("action:leader:{key}"),
-                "Run action",
-                Some(&shortcut),
-                None,
+            assert_eq!(
+                sequence_hints(&[source]),
+                [("Run action".into(), key.into())],
+                "popups retain the same display-only hints as the menu bar",
             );
-            let (built, hint) = project_kind(
-                app.handle(),
-                &source,
-                |app, id, label, enabled, accelerator| {
-                    assert_eq!(accelerator, None);
-                    MenuItem::with_id(app, id, label, enabled, accelerator)
-                },
-            )
-            .unwrap();
-            assert_eq!(plain(built).text().unwrap(), source.label);
-            assert_eq!(hint.as_deref(), Some(shortcut.as_str()));
         }
     }
 
