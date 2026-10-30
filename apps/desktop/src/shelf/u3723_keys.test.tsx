@@ -18,6 +18,7 @@ const open = async (pads = false, unnest?: boolean) => {
   // These shortcuts need row identities and a selectable Rail, not the 40-node stress fixture.
   const tree = await app.handlers["rail.tree"]!(null);
   app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend");
+
   if (unnest !== undefined) {
     const todos = await app.handlers["todo.list"]!(null);
     app.handlers["todo.list"] = () => todos.slice(0, 2).map(todo => ({ ...todo, blockers: todo.id === 2 && unnest ? [1] : [], blocked: todo.id === 2 && unnest }));
