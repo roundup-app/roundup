@@ -142,6 +142,7 @@ method without a measured mapping or non-empty reason fails live coverage.
   "message.drop": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
   "route.set": "Routing configuration is absent from the isolated Terminal and Rail-read workload.", "route.list": "Routing configuration is absent from the isolated Terminal and Rail-read workload.",
   "checkpoint.write": "Checkpoint persistence and inspection are absent from the fixed perf workload.", "checkpoint.list": "Checkpoint persistence and inspection are absent from the fixed perf workload.",
+  "rail.redo": "Retained Rail mutation is a user action, outside the repeated rail.tree latency sample.",
   "rail.remove": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
   "rail.deletion": "Deletion reconciliation is outside the Terminal echo and repeated rail.tree latency workload.",
   "rail.restore": "User-requested Rail restoration is outside the Terminal echo and repeated rail.tree latency workload.",

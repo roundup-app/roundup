@@ -108,12 +108,26 @@ pub struct DeletionParams {
     pub operation: String,
 }
 
+/// Reapply only the retained restored boundary. Read `restoration` from the successful
+/// restore/deletion receipt; retry the same request after an unknown reply. Conflicting
+/// placement, identity or authority refuses atomically and leaves the source retryable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RedoParams {
+    pub project: String,
+    pub source: String,
+    pub restoration: String,
+    pub operation: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct Deletion {
     pub project: String,
     pub operation: String,
     pub id: String,
     pub restored: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub restoration: Option<String>,
 }
 
 /// What `agent.worktreeState` returns (G3): commits only the branch has, commits only the Base
