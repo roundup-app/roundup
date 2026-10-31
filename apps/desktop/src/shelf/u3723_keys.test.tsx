@@ -151,7 +151,7 @@ it("u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row", 
   const { app, rows } = await open();
   rows[0]!.focus();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:chord:D")?.shortcut).toBe("D"));
-  expect(projectMenu.items.find(item => item.id === "action:chord:E")).toBeUndefined();
+  expect(projectMenu.items.find(item => item.id === "action:chord:E")?.enabled).toBe(false);
   expect(document.activeElement).toBe(rows[0]);
   openProjectPage("action:chord:D");
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.delete")).toHaveLength(1));
