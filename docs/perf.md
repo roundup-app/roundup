@@ -798,3 +798,9 @@ verdicts. The recorder now permits repeated observations with growth across
 the window. Output delivery yields in Rust, and live xterm parsing takes one
 8 KiB chunk at a time. No after-repair Mac distribution or <16 ms claim exists
 yet; #3550 remains open for the same three-run flood observation and full acceptance.
+
+## Switcher-open and switch budgets (SP1 to SP8, #5248)
+
+Two budgets on macOS, key press to DOM, measured in the real App's webview by `just perf-keystroke` (SP4) and held in `crates/perf/keystroke-budgets.json` (SP5), not in `budgets.json` (R7): the Switcher opens in under 80 ms p95 (`switcher_open_p95_ms`) and switching to another Agent or Terminal takes under 32 ms p95 (`switch_p95_ms`). AGENTS.md rule 7 is unchanged. Outside evidence, not a baseline: the owner measured Rex on the Mac, a palette open in 66 ms and a tab switch in 17 to 23 ms.
+
+What CI checks (SP8): the probe is absent from a normal build, the marks record the specified intervals under a fake clock, and the budget file and runner refusals hold. What only a Mac gives (SP7): the 80 ms and 32 ms readings. Implementation order is #5249 (App marks) then #5250 (workloads and limits); a baseline is added after the first recorded Mac run, and the 10% regression test then applies.
