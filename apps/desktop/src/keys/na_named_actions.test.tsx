@@ -22,6 +22,7 @@ const probe = (element: Element, name = "terminal.find") => {
 
   createRoot(dispose => {
     disposals.push(dispose);
+    // SAFETY: the probe region only reads `contains`, which any Element has.
     registerKeys({ kind: "region", element: () => element as HTMLElement }, [{
       action: ACTION_ROWS.find(row => row.name === name)!,
       capture: focus => ({ available: () => !!focus && element.contains(focus), invoke: args => { calls.push(args ?? null); } }),
@@ -36,6 +37,7 @@ const mountTerminal = async () => {
   mounted.connected().rail.select("a1");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a1"));
 
+  // SAFETY: the wait above proved focus is on the terminal element.
   return { ...mounted, terminal: document.activeElement as HTMLElement };
 };
 
@@ -68,7 +70,7 @@ it("na2_menu_key_and_switcher_run_one_action_by_name", async () => {
 });
 
 it.each([
-  ["unknown name", "terminal.fnd", [], "unknown-action", "terminal.fnd"],
+  ["unknown name", "terminal.nope", [], "unknown-action", "terminal.nope"],
   ["unknown argument", "terminal.find", [["x", "1"]], "unknown-argument", "x"],
   ["missing required", "todo.assign-slot", [], "missing-argument", "slot"],
   ["mistyped", "todo.assign-slot", [["slot", "two"]], "invalid-argument", "slot"],
@@ -115,5 +117,5 @@ it("na5_list_rows_carry_name_label_keys_arguments_and_availability", async () =>
   expect(rows.find(row => row.name === "leader.attention")).toMatchObject({ keys: "⌘K J", label: expect.any(String), args: [] });
   expect(rows.find(row => row.name === "todo.assign-slot")?.args).toMatchObject([{ key: "slot", type: "integer", min: 1, max: 9, required: true }]);
   expect(rows.find(row => row.name === "todo.capture")?.keys).toBe(CHORDS.find(row => row.name === "todo.capture")!.keys);
-  expect(rows.every(row => row.available || typeof row.cause === "string")).toBe(true);
+  expect(rows.every(row => row.available || row.cause !== undefined)).toBe(true);
 });

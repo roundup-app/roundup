@@ -5,7 +5,7 @@ import { captureEvery, leaderArmed, modalOpen } from "./registry";
 import type { CapturedAction } from "./registry";
 
 /** NA5: one row of the list. */
-export type ActionRow = { name: string; label: string; keys: string; args: readonly ActionArg[]; available: boolean; cause?: string };
+export type ActionRow = { name: string; label: string; keys: string; args: readonly ActionArg[]; available: boolean; cause: string | undefined };
 
 export type RefusalCode = "unknown-action" | "unknown-argument" | "missing-argument" | "invalid-argument" | "repeated-argument" | "unavailable";
 
@@ -18,7 +18,12 @@ const schemaOf = (arg: ActionArg) => {
   switch (arg.type) {
     case "string": return v.string();
     case "boolean": return v.pipe(v.picklist(["true", "false"]), v.transform(text => text === "true"));
-    case "choice": return v.picklist(arg.options as [string, ...string[]]);
+    case "choice": {
+      // SAFETY: a choice declares at least one option.
+      const options = arg.options as [string, ...string[]];
+
+      return v.picklist(options);
+    }
     case "integer": return v.pipe(v.string(), v.regex(/^-?\d+$/), v.transform(Number), v.minValue(arg.min), v.maxValue(arg.max));
   }
 };
@@ -39,7 +44,7 @@ export const listActions = (focus: Element | null = document.activeElement): Act
     return {
       name: row.name, label: row.what,
       keys: "press" in row ? `${ACTION_ROWS.find(chord => chord.name === "leader.open")!.keys} ${row.keys}` : row.keys,
-      args: row.args ?? [], available, ...(available ? {} : { cause: causeOf(row) }),
+      args: row.args ?? [], available, cause: available ? undefined : causeOf(row),
     };
   });
 };
@@ -83,6 +88,7 @@ export const runAction = (name: string, pairs: readonly (readonly [string, strin
 
   if (!target) return refuse("unavailable", `"${name}" is not available: ${causeOf(row)}. Change focus and run again.`);
 
+  // SAFETY: `values` holds only parsed values of the declared arguments.
   target.run(values as ActionValues);
 
   return { status: modalOpen() || leaderArmed() ? "awaiting" : "done" };
