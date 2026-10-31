@@ -192,7 +192,7 @@ struct Shared {
     scheme: Mutex<Option<scheme::Palette>>,
     /// PS1: one change per applied report, for the Daemon.
     status: broadcast::Sender<Arc<Change>>,
-    /// PS5: whether `ESC ] 7501 ; ? ST` gets its reply. Off until rupd reads the records (#5229): a
+    /// PS5: whether `ESC ] 7501 ; ? ST` gets its reply. Off until the daemon reads the records (#5229): a
     /// program that sees the reply stops moving its title, which the Daemon's interrupt ack reads.
     answer_status_query: AtomicBool,
 }
