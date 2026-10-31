@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { chooseAction, mountRail, rowOf } from "./railFixture";
+import { chooseAction, mountRail, rowOf, settled } from "./railFixture";
 import { agent, NOW, workstream } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -23,6 +23,8 @@ describe("U5151c", () => {
     const { app, rail } = await mountRail([failed("one"), failed("two")]);
 
     await chooseAction(app, "one", "Dismiss error");
+    fireEvent.click(rowOf("one"));
+    await settled();
 
     expect(rowOf("one").getAttribute("data-kind")).toBe("idle");
     expect(rowOf("one").textContent).toContain(`Dismissed: ${LABEL}`);
