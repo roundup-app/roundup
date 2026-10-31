@@ -1,0 +1,7 @@
+PROOF q5 created by roundup: 80x24 owner="client:01a18f53-ed3b-7bc3-a00d-da8bba17ca05"
+PROOF q5 roundup own_block take + resize 100x30: 100x30 owner="client:01a18f53-ed3b-7bc3-a00d-da8bba17ca05"
+PROOF q5 second client resize 60x20 without owning: 100x30 owner="client:01a18f53-ed3b-7bc3-a00d-da8bba17ca05"
+PROOF q5 second client own_block request: 100x30 owner="client:01a18f53-ed3b-7bc3-a00d-da8bba17ca05"
+PROOF q5 second client own_block take: 60x20 owner="client:01a18f53-ed73-75e3-a7f9-88f960109224"
+PROOF q5 program sees: Some("size rows_cols=20 60")
+PROOF q5 roundup takes back: 100x30 owner="client:01a18f53-ed3b-7bc3-a00d-da8bba17ca05"

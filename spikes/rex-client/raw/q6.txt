@@ -1,0 +1,5 @@
+PROOF q6 write-pipelined: 100 paste+\r pairs in 23.312541ms; turns=100 intact=74 broken examples=["turn 2 paste=false got=\"\"", "turn 6 paste=false got=\"\"", "turn 10 paste=false got=\"\""]
+PROOF q6 write result = {"bytes_written":36}
+PROOF q6 write-awaited: 100 paste+\r pairs in 31.096333ms; turns=100 intact=100 broken examples=[]
+PROOF q6 block.event result = {}; key result = Ok(Object {})
+PROOF q6 event-pipelined: 100 paste+\r pairs in 12.386667ms; turns=100 intact=100 broken examples=[]

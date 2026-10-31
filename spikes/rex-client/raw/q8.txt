@@ -1,0 +1,5 @@
+PROOF q8 working: stream bytes "\u{1b}]7501;state=working:msg=cmVhZGluZyBmaWxlcw==\u{1b}\\" at 0.4 ms; event record={"state":"working","msg":"reading files","owner":{"pid":15030,"name":"fake-agent"}} reason="report" at 0.5 ms
+PROOF q8 blocked: stream bytes "\u{1b}]7501;state=blocked:msg=bmVlZHMgeW91\u{1b}\\" at 0.3 ms; event record={"state":"blocked","msg":"needs you","owner":{"pid":15030,"name":"fake-agent"}} reason="report" at 0.3 ms
+PROOF q8 done: stream bytes "\u{1b}]7501;state=done:msg=b2s=\u{1b}\\" at 0.3 ms; event record={"state":"done","msg":"ok","owner":{"pid":15030,"name":"fake-agent"}} reason="report" at 0.3 ms
+PROOF q8 program_status (poll) = {"records":[{"state":"done","msg":"ok","updated_at":"2026-10-31T00:22:52.411836Z","owner":{"pid":15030,"name":"fake-agent"}}]}
+PROOF q8 title_changed event = Ok(Object {"title": String("◐ Working on spike"), "owner": Object {"pid": Number(15030), "name": String("fake-agent")}})
