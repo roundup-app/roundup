@@ -23,7 +23,7 @@ describe("u2 first run", () => {
     app.chooser.path = PROJECT.path;
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
 
     await waitFor(() => expect(projectMenu.path).toBe(PROJECT.path));
   });
@@ -33,7 +33,7 @@ describe("u2 first run", () => {
     app.chooser.path = null;
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
 
     expect(await screen.findByText(appCopy.openAFolderToStart)).toBeTruthy();
   });
@@ -61,7 +61,7 @@ describe("u2 first run", () => {
     app.chooseProjectPath = () => Promise.reject(new Error("the chooser could not open"));
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
 
     expect((await screen.findByText("the chooser could not open")).className).toBe("ink");
   });
@@ -73,7 +73,7 @@ describe("u2 first run", () => {
     app.opened.failure = failure;
     renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
 
     expect(await screen.findByText(failure.message)).toBeTruthy();
     expect(screen.queryByText(appCopy.openAFolderToStart)).toBeNull();
@@ -85,7 +85,7 @@ describe("u2 first run", () => {
     app.opened.failure = new RpcError(-32602, "not a directory");
     const { container } = renderApp(app);
 
-    fireEvent.click(await screen.findByText("Choose folder…"));
+    fireEvent.click(await screen.findByText("Choose Project…"));
     await screen.findByText("not a directory");
 
     expect(container.querySelectorAll(".ink").length).toBe(1);

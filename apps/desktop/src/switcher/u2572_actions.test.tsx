@@ -12,7 +12,7 @@ import { field, mountSwitcher, openSwitcher, switcherKey as press } from "./swit
 
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); });
 
-it.each(["new", " NeW ", "nsh", "New Agent with a prompt", "zzzz-no-match", "", "   "])(
+it.each(["new", " NeW ", "nsh", "Agent with prompt", "zzzz-no-match", "", "   "])(
   "z3788b_queries_rank_both_groups_and_keep_blank_order: %s", async (query) => {
     const destinations = [
       { value: "renew", label: "renew-token" },
@@ -113,7 +113,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: p
   const { app } = await mountSwitcher("ops");
   app.handlers["agent.spawn"] = () => (agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
 
-  if (byAction) { await show(); await chooseAction("New Agent with a prompt", "enter"); }
+  if (byAction) { await show(); await chooseAction("Agent with prompt", "enter"); }
   else press("N", { metaKey: true, shiftKey: true, code: "KeyN" });
   await waitFor(() => expect(document.activeElement?.matches(".spawn-prompt-field")).toBe(true));
   const prompt = document.querySelector<HTMLTextAreaElement>(".spawn-prompt-field")!;
@@ -138,7 +138,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: r
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: Ask %s", async (byAction) => {
   await mountSwitcher("ops");
 
-  if (byAction) { await show(); await chooseAction("Focus the Ask bar", "pointer"); }
+  if (byAction) { await show(); await chooseAction("Focus Ask bar", "pointer"); }
   else press("/", { metaKey: true, code: "Slash" });
   await waitFor(() => expect(document.activeElement?.closest(".ask-bar")).not.toBeNull());
 });
@@ -223,9 +223,9 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
   focus.focus();
   await show();
 
-  const expected = ["New Agent", "New Agent with a prompt", "New Workstream", "New Mode", ...(context === "editor" ? [] : ["New Terminal"]),
+  const expected = ["New Agent", "Agent with prompt", "New Workstream", "New Mode", ...(context === "editor" ? [] : ["New Terminal"]),
     "Next needs you", ...(context === "rail" ? ["Rename", "Remove"] : []),
-    "Focus the Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset text size", "Find…"] : []), "Assign / Ask", ...(["bubble", "editor"].includes(context) ? ["Minimise Bubble", "Close the Bubble"] : [])];
+    "Focus Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset text size", "Find…"] : []), "Assign / Ask", ...(["bubble", "editor"].includes(context) ? ["Minimise Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
   press("Escape", {}, field()!);
@@ -326,8 +326,7 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
   app.handlers["rail.createWorkstream"] = () => new Promise(() => {});
   fireEvent.click(document.querySelector<HTMLButtonElement>('.rail-actions [data-button="add"]')!);
   await show();
-  expect(actionNames()).toContain("New Agent");
-  expect(actionNames()).not.toContain("New Agent with a prompt");
+  expect(actionNames().filter(name => /prompt/i.test(name ?? ""))).toEqual([]);
   await chooseAction("New Agent", "enter");
   expect(document.activeElement).toBe(prompt);
   expect(prompt.value).toBe("keep my draft");

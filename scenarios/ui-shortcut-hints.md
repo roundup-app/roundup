@@ -37,7 +37,7 @@ Inventory on main (policy): qualification is by the action the tooltip-bearing c
 | Action | Existing tooltip-bearing control | Result |
 |---|---|---|
 | New Agent | Every Workstream row's `+ agent`, `apps/desktop/src/rail/RowIcons.tsx`, `RowIcons` | `New Agent`, then the New Agent row's key chips |
-| New Agent with a prompt | None | No tooltip added |
+| Agent with prompt | None | No tooltip added |
 | New Terminal | None (`apps/desktop/src/bubbles/Bubbles.tsx`, `Bubbles`, uses a plain add control) | No tooltip added |
 | Leader waits for a key | None | No tooltip added |
 | Take control in the Switcher | None | No tooltip added |

@@ -39,8 +39,8 @@ it("u426_menu_actions_run_without_selecting", async () => {
   await wait("window.__fake.app.editorOpened.length === 1");
   expect(await read("document.querySelector('.rail-row[data-selected=true]')?.dataset.id ?? null")).toBe(selected);
   await rightClick('.rail-row[data-id="backend"]');
-  await wait("window.__fake.app.menuLabels().includes('Open folder')");
-  await browser("eval", "window.__fake.app.pickMenu('Open folder')");
+  await wait("window.__fake.app.menuLabels().includes('Open directory')");
+  await browser("eval", "window.__fake.app.pickMenu('Open directory')");
   await wait("window.__fake.app.openedTargets.length === 1");
   expect(await read("document.querySelector('.rail-row[data-selected=true]')?.dataset.id ?? null")).toBe(selected);
 }, 60_000);
@@ -89,7 +89,7 @@ it.each(["tree-40", "agents-10", "door-stopped", "conflict"])("u350_rendered_wor
     if (seed === "tree-40") {
       await read(`window.__fake.app.openFailure = new Error('Folder unavailable; try again')`);
       await rightClick(selector);
-      await read(`window.__fake.app.pickMenu('Open folder')`);
+      await read(`window.__fake.app.pickMenu('Open directory')`);
       await wait(`document.body.textContent.includes('Folder unavailable; try again')`);
       await capture("tree-40-failure");
     }

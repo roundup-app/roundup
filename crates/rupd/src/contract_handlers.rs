@@ -30,6 +30,15 @@ impl Daemon {
         rpc::reply(&())
     }
 
+    pub(super) async fn rpc_skill(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        _params: Value,
+    ) -> Result<Value, RpcError> {
+        self.skill(conn, method)
+    }
+
     pub(super) async fn rpc_builtin(
         &self,
         conn: &mut Conn,

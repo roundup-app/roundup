@@ -428,7 +428,7 @@ it.each(["Remove", "Keep"])("u3512a_native_adapter_preserves_the_question_and_re
 });
 
 it.each(["this", "all", "cancel"])("u4461_the_native_alert_resolves_to_the_chosen_button_%s", async answer => {
-  const question = { title: "Remove chosen?", message: "Goes: Nothing", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Cancel" };
+  const question = { title: "Remove chosen?", message: "Goes: Nothing", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Keep" };
   mockIPC((command, args) => { calls.push({ command, args });
 
  return answer; });
@@ -438,5 +438,5 @@ it.each(["this", "all", "cancel"])("u4461_the_native_alert_resolves_to_the_chose
 
 it("u4461_a_rejected_native_alert_is_an_rpc_error", async () => {
   mockIPC(() => { throw "Native alert unavailable; retry"; });
-  await expect(createTauriApp().askRemoval({ title: "Remove?", message: "", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Cancel" })).rejects.toEqual(new RpcError(-32603, "Native alert unavailable; retry"));
+  await expect(createTauriApp().askRemoval({ title: "Remove?", message: "", thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Keep" })).rejects.toEqual(new RpcError(-32603, "Native alert unavailable; retry"));
 });
