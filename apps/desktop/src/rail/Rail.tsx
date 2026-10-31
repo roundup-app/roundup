@@ -1,10 +1,9 @@
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "../app/FirstRun";
-import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
-import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
+import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
@@ -14,15 +13,10 @@ import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { KIND_ICON } from "../ink/kindIcon";
-import { KeyChip } from "../keys/KeyChip";
-import { CHORDS, LEADER, ariaShortcut, type ActionValue } from "../keys/chords";
+import { CHORDS, LEADER, type ActionValue } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
-import type { RailSection } from "./persist/storage";
 import { TreeView, Trunks } from "../ui/TreeView";
-import { railCollection } from "./collection";
-import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { CreateMode } from "./CreateMode";
@@ -30,7 +24,7 @@ import { OpeningPrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { ancestorsOf, isWorkstream, layoutRail, siblingsOf, type NodeRow } from "./layout";
+import { ancestorsOf, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW, type RowActions } from "./rows";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -52,7 +46,7 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 
 export const Rail = () => {
   const connected = useConnectedProject();
-  const { app, project, rail, now, daemonExit } = connected;
+  const { app, project, rail, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
 
   const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
@@ -385,6 +379,7 @@ export const Rail = () => {
 
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
+
   const submitPrompt = async (prompt: string | null, snapshot = task() ?? keepDraft(draft())) => {
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
     const originalParent = v.is(v.nullable(v.string()), snapshot.value.parent) ? snapshot.value.parent : snapshot.destination.object === "" || snapshot.destination.object === project.path ? null : snapshot.destination.object;
