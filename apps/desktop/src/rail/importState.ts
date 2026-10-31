@@ -11,7 +11,7 @@ import type { ImportSelection } from "@contracts/project/ImportSelection";
 import type { AppSeam } from "../app/seam";
 import { storageSchema, storedValue, type draftStorage } from "../state/storage";
 
-const DEFAULT_PROMPT = "Find active and recent Claude Code conversations in this Project";
+const DEFAULT_PROMPT = copy.importDefaultPrompt;
 
 const PERIODS = ["day", "week", "month"] as const;
 

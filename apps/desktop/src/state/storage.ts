@@ -1,10 +1,7 @@
-import { storageCopy } from "./copy";
+import { storageCopy, storageLabel } from "./copy";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
 import { load } from "@tauri-apps/plugin-store";
-import { labels } from "../sharedCopy";
-
-const labelOf = (key: string) => String(labels.get(key.split(":")[1] ?? "") ?? labels.get("app-settings"));
 
 const schemas = new Map<string, v.GenericSchema>();
 
@@ -105,14 +102,14 @@ const invalidLegacy = (key: string, bytes: string): string => {
 
         return failure;
       } catch (error) {
-        return storageCopy.recoveryFailure(labelOf(key), error instanceof Error ? error.message : String(error));
+        return storageCopy.recoveryFailure(storageLabel(key), error instanceof Error ? error.message : String(error));
       }
     })().finally(() => { pending = undefined; });
 
     return pending;
   } });
 
-  return storageCopy.invalid(labelOf(key));
+  return storageCopy.invalid(storageLabel(key));
 };
 
 /** No editor is constructed before validation, acknowledged save and readback.

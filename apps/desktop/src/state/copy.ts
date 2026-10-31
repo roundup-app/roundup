@@ -1,4 +1,6 @@
-import { copy as sharedCopy } from "../sharedCopy";
+import { copy as sharedCopy, labels } from "../sharedCopy";
+
+export const storageLabel = (key: string) => String(labels.get(key.split(":")[1] ?? "") ?? labels.get("app-settings"));
 
 export const storageCopy = {
   invalid: (label: string) => `Could not restore ${label}. The saved format is invalid. Retry or continue; the original data is kept.`,

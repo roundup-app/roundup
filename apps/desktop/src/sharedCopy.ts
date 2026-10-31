@@ -8,9 +8,9 @@ const running = "Running";
 
 const failed = "Failed";
 
-const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", refresh: "Refresh", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads", defaultChoice: "Default", appearance: "Appearance" } as const;
+const word = { name: "Name", ask: "Ask", terminal: "Terminal", done: "Done", text: "Text", pad: "Pad", todo: "Todo", agent: "Agent", title: "Title", start: "Start", retry: "Retry", refresh: "Refresh", copied: "Copied", assign: "Assign", stop: "Stop", error: "Error", bench: "Bench", firstPrompt: "First prompt", unfinishedWork: "Unfinished work", projectRoot: "Project root", newMode: "New Mode", todos: "Todos", pads: "Pads" } as const;
 
-const staleSuffix = ", stale";
+export const staleSuffix = ", stale";
 
 const noCi = "No CI";
 
@@ -180,20 +180,16 @@ export const copy = {
   reactionsEmpty: "Agents create Reactions. Ask for one above.",
   reactionWhen: (at: string) => new Date(at).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
   askBarLabel: word.ask,
-  defaultChoice: word.defaultChoice,
   terminal: word.terminal,
-  appearance: word.appearance,
-  text: word.text,
   todos: word.todos,
   pads: word.pads,
-  staleSuffix,
+  roundup: "roundup",
   newMode: word.newMode,
   ci: "CI",
   questionMark: "?",
   triage: "Triage",
   auto: "Auto",
   unavailableAgent: "Unavailable Agent",
-  title: word.title,
   projectRoot: word.projectRoot,
   askBarShortcut: "Focus Ask bar",
   switcherPlaceholder: word.name,

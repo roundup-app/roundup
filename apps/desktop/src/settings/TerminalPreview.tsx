@@ -8,7 +8,9 @@ import { terminalThemeFor } from "../terminal/theme";
 import type { terminalType } from "./preferences";
 import { copy } from "./copy";
 
-const previewSample = "roundup  \x1b[1mTerminal preview\x1b[0m\r\n┌────────┬────────┐\r\n│ ░▒▓█   │ ready  │\r\n└────────┴────────┘\r\n\x1b[32m✓\x1b[0m tests passed";
+const reset = "\x1b[0m";
+
+const previewSample = [`${copy.previewApp}  \x1b[1m${copy.terminalPreview}${reset}`, copy.previewTop, copy.previewRow, copy.previewBottom, `\x1b[32m✓${reset} ${copy.previewResult}`].join("\r\n");
 
 /** A local, read-only xterm sample; it owns no Daemon identity or input subscription. */
 export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }) => {

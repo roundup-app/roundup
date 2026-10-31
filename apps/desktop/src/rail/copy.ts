@@ -1,6 +1,6 @@
 import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
-import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
+import { copy as sharedCopy, staleSuffix, type CopyValue } from "../sharedCopy";
 
 const railDraftLabels = new Map([["rail-task", "Work"], ["rail-name", sharedCopy.name]]);
 
@@ -43,6 +43,8 @@ export const copy = {
   close: sharedCopy.close,
   drawer: sharedCopy.drawer,
   cancel: sharedCopy.cancel,
+  /** @prose */
+  importDefaultPrompt: "Find active and recent Claude Code conversations in this Project",
   importAgentName: sharedCopy.importAgentName,
   importTitle: sharedCopy.importTitle,
   importTimeout: "Looking for conversations took too long. Refresh to try again, or choose a shorter period.",
@@ -104,9 +106,9 @@ export const copy = {
   worktreeCiText: sharedCopy.worktreeCiText,
   worktreeCiGlyph: (state: WorktreeCiState) => ({ passed: "✓", failed: "✗", running: "…", "no-ci": dash, conflicts: "!", error: "⚠", unknown: sharedCopy.questionMark }[state]),
   ci: sharedCopy.ci,
-  worktreeStale: sharedCopy.staleSuffix,
   worktreePrText: sharedCopy.worktreePrText,
-  worktreePrState: (number: number, stale: boolean) => `PR #${number}${stale ? sharedCopy.staleSuffix : ""}`,
+  worktreeStale: staleSuffix,
+  worktreePrState: (number: number, stale: boolean) => `PR ${sharedCopy.worktreePrText(number, stale)}`,
   worktreeUnavailableMark: dash,
   worktreeUnavailable: "Worktree state unavailable",
   worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 })}↑`,
