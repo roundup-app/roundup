@@ -71,7 +71,7 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
   if (!(terminal instanceof HTMLElement)) throw new Error("Terminal did not receive focus");
 
   const find = owner(terminal);
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F")).toBe(true));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F" && item.enabled)).toBe(true));
   const captured = captureActions(terminal).find(action => action.keys === "⌘F")!;
 
   if (state === "unavailable") find.setAvailable(false);
@@ -84,7 +84,7 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
   }
 
   // The Pane's own Find owner stays while the Terminal is mounted, so only the probe owner's absence is observable.
-  if (state !== "removed") await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F")).toBe(false));
+  if (state !== "removed") await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F" && item.enabled)).toBe(false));
   openProjectPage("action:chord:⌘F", "/p");
 
   if (state !== "editor") captured.run();
@@ -244,11 +244,11 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Rail rename from
 
   const field = await screen.findByRole("textbox", { name: "Name" });
   expect(field.closest("[data-id]")?.getAttribute("data-id")).toBe("a1");
-  expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(false);
+  expect(projectMenu.items.some(item => item.id === "action:chord:F2" && item.enabled)).toBe(false);
   expect(daemon.calls.filter(call => call.method === "rail.rename")).toHaveLength(0);
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(row));
-  expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(true);
+  expect(projectMenu.items.some(item => item.id === "action:chord:F2" && item.enabled)).toBe(true);
 });
 
 it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Help from %s returns focus without Terminal input", async source => {
@@ -335,7 +335,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Pad Rename from 
 
   const field = await screen.findByRole("textbox", { name: "Name" });
   expect(field.closest("[data-pad]")?.getAttribute("data-pad")).toBe("Focused");
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:F2" && item.enabled)).toBe(false));
   expect(captured.available()).toBe(false);
   captured.run();
   openProjectPage("action:chord:F2");
@@ -370,7 +370,7 @@ it.each(["key", "menu"])("u3787b_menu_and_key_share_one_action: Add Todo from %s
 
   const field = await screen.findByRole("textbox", { name: "New Todo title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
-  expect(projectMenu.items.some(item => item.id === "action:chord:N")).toBe(false);
+  expect(projectMenu.items.some(item => item.id === "action:chord:N" && item.enabled)).toBe(false);
   expect(fireEvent.keyDown(field, { key: "n", code: "KeyN" })).toBe(true);
   captured.run();
   openProjectPage("action:chord:N");
@@ -389,7 +389,7 @@ it("u3787b_scoped_menu_does_not_steal_terminal_input: Add Todo refuses a changed
   await showEverythingInApp();
   const list = document.querySelector<HTMLElement>('[data-todo="1"] .todo-row-button[aria-pressed]')!;
   list.focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:N")).toBe(true));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:N" && item.enabled)).toBe(true));
   const captured = captureActions(list).find(action => action.value === "action:chord:N")!;
   connected().rail.select("a2");
   await waitFor(() => expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-a2"));
