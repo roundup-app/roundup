@@ -24,7 +24,7 @@ it("u3729_a_todo_made_under_an_agent_is_owned_by_it_and_listed_in_its_group", as
   const { app, connected, store } = await mountTodos([], true, RAIL);
 
   connected.rail.select("a");
-  await waitFor(() => expect(screen.getByRole("button", { name: "Add Todo: alpha" })).toBeTruthy());
+  await screen.findByRole("button", { name: "Add Todo: alpha" });
   await file("Add Todo: alpha", "mine");
   await waitFor(() => expect(callsTo(app, "todo.move")).toHaveLength(1));
   app.emit(todoEvent("todo.updated", store.todos[0]!));
@@ -38,11 +38,11 @@ it("u3729_a_workstream_or_root_selection_keeps_todays_owner", async () => {
   const { app, connected } = await mountTodos([], true, RAIL);
 
   connected.rail.select("w");
-  await waitFor(() => expect(screen.getByRole("button", { name: "Add Todo: work" })).toBeTruthy());
+  await screen.findByRole("button", { name: "Add Todo: work" });
   await file("Add Todo: work", "ws");
   await waitFor(() => expect(callsTo(app, "todo.move")).toHaveLength(1));
   connected.rail.select(null);
-  await waitFor(() => expect(screen.getByRole("button", { name: "Add Todo: Overview" })).toBeTruthy());
+  await screen.findByRole("button", { name: "Add Todo: Overview" });
   await file("Add Todo: Overview", "root");
   await waitFor(() => expect(callsTo(app, "todo.create")).toHaveLength(2));
 
@@ -55,7 +55,7 @@ it("u3729_a_refused_create_keeps_the_title_and_shows_its_cause", async () => {
   app.handlers["todo.create"] = () => { throw new RpcError(-32004, "agent gone"); };
 
   connected.rail.select("a");
-  await waitFor(() => expect(screen.getByRole("button", { name: "Add Todo: alpha" })).toBeTruthy());
+  await screen.findByRole("button", { name: "Add Todo: alpha" });
   const field = await file("Add Todo: alpha", "kept");
 
   expect(await screen.findByText(/agent gone/)).toBeTruthy();

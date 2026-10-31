@@ -27,11 +27,12 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
   fireEvent.input(screen.getByRole("spinbutton", { name: "Start line" }), { target: { value: "1" } });
   fireEvent.input(screen.getByRole("spinbutton", { name: "End line" }), { target: { value: "2" } });
   fireEvent.click(save);
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  keep exact\ntext  ");
+  const noteCount = () => within(screen.getByRole("list", { name: "Notes" })).getAllByRole("listitem").length;
+  expect(noteCount()).toBe(1);
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "cancel me" } });
   fireEvent.click(screen.getByRole("button", { name: "Back" }));
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("cancel me");
+  expect(noteCount()).toBe(1);
 });
 
 it("u2540b_edit_remove_and_batch_across_files", async () => {

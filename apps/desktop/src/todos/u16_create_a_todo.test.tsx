@@ -19,7 +19,7 @@ describe("u16 create a Todo", () => {
 
     const field = await openField();
 
-    expect(screen.getByText("todo 2").compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("todo 2").compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
   });
 
   it("u16_clicking_plus_twice_still_shows_one_field", async () => {

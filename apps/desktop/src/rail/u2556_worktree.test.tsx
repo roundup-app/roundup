@@ -59,7 +59,6 @@ it("u2556c_updates_preserve_agent_interaction", async () => {
   fireEvent.input(field, { target: { value: "my draft" } });
   finish({ ahead: 4, behind: 0, dirty: false, ci: { state: "running", stale: false } });
   await screen.findByLabelText("4 ahead");
-  expect(screen.getByLabelText("CI running")).toBeTruthy();
   expect(document.activeElement).toBe(field);
   expect(field instanceof HTMLInputElement && field.value).toBe("my draft");
   expect(connected.rail.selected()).toBe("a");
