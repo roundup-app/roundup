@@ -204,7 +204,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   let openingFocus = captureFocus();
 
-  const show = (): void => {
+  const show = (query?: string): void => {
     if (modalOpen()) return;
     chosenPane = false;
     chosenAction = false;
@@ -213,12 +213,14 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     openingFocus = captureFocus(true);
     setOpening({ selected: rail.selected(), actions: captureActions(document.activeElement).filter(action => action.searchable) });
     props.onOpen();
-    savedSelection = current()?.selection ?? null;
+    savedSelection = query === undefined ? current()?.selection ?? null : null;
     restoring = true;
+
+    if (query !== undefined) setText(query);
     setOpen(true);
   };
 
-  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: show }) }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find(row => row.keys === "K")!, searchable: false, capture: () => ({ available: () => !open() && !modalOpen(), invoke: args => show(typeof args?.query === "string" ? args.query : undefined) }) }]);
   registerKeys({ kind: "layer", element: () => panel, active: () => open() && !dispatching(), modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
   ]);
