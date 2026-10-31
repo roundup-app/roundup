@@ -1,4 +1,4 @@
-//! LK1 to LK3 (`scenarios/rup-ext.md`): `link.read` on the real `rupd`, the way `rup link read` calls it.
+//! LK1 to LK5 (`scenarios/rup-ext.md`): `link.read` on the real `rupd`, the way `rup link read` calls it.
 
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
@@ -373,4 +373,99 @@ async fn lk3_a_terminal_link_fails_loud_after_a_restart() {
         "{}",
         err.message
     );
+}
+
+async fn as_agent(project: &daemon::Project, id: &str) -> Client {
+    let client = project.client().await;
+    client
+        .request(
+            "daemon.identify",
+            IdentifyParams {
+                actor: Actor {
+                    kind: ActorKind::Agent,
+                    id: id.into(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    client
+}
+
+/// A Door `m` with one child Agent, and an Agent outside both.
+async fn door_family(project: &daemon::Project, user: &Client) -> (String, String, String) {
+    let m = user
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "m", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    user.request("rail.startDoor", json!({ "id": m }))
+        .await
+        .unwrap();
+    let spawn = |parent: Option<String>| async move {
+        let node = user
+            .request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": null, "parent": parent}),
+            )
+            .await
+            .unwrap();
+        node["id"].as_str().unwrap().to_owned()
+    };
+    let child = spawn(Some(m.clone())).await;
+    let outsider = spawn(None).await;
+    (m, child, outsider)
+}
+
+#[tokio::test]
+async fn lk5_a_door_reads_its_childs_agent_link() {
+    let project = daemon::start(&[]);
+    let user = project.client().await;
+    let key = key(&user).await;
+    let (m, child, _) = door_family(&project, &user).await;
+    let door = as_agent(&project, &m).await;
+
+    let read = read(&door, &link("agent", &child, &key)).await.unwrap();
+
+    assert_eq!(read["kind"], "agent");
+    assert_eq!(read["id"], child.as_str());
+    assert!(read["digest"].is_null(), "{read}");
+}
+
+/// A Door is a Workstream, so no `agent` link names one and `agent.digest` answers every Agent link
+/// `CONFLICT` (LK2): the own-link read keeps that reply, with the digest the method gives, none.
+#[tokio::test]
+async fn lk5_a_door_reads_its_own_link_with_its_digest() {
+    let project = daemon::start(&[]);
+    let user = project.client().await;
+    let key = key(&user).await;
+    let (_, child, _) = door_family(&project, &user).await;
+    let own = as_agent(&project, &child).await;
+    let digest = own.request("agent.digest", json!({"id": child})).await;
+
+    let read = read(&own, &link("agent", &child, &key)).await.unwrap();
+
+    assert_eq!(digest.unwrap_err().code, code::CONFLICT);
+    assert!(read["digest"].is_null(), "{read}");
+}
+
+#[tokio::test]
+async fn lk5_an_agent_outside_the_reach_is_forbidden() {
+    let project = daemon::start(&[]);
+    let user = project.client().await;
+    let key = key(&user).await;
+    let (m, _, outsider) = door_family(&project, &user).await;
+    let door = as_agent(&project, &m).await;
+
+    let err = read(&door, &link("agent", &outsider, &key))
+        .await
+        .unwrap_err();
+
+    assert_eq!(err.code, code::FORBIDDEN);
 }
