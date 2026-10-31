@@ -81,7 +81,9 @@ fn report(flags: &[String]) -> ExitCode {
         }
     }
     if place {
-        println!(
+        // SK12: a stdout the vendor program closed must not fail the hook.
+        let _ = writeln!(
+            std::io::stdout(),
             "This session runs in a roundup Terminal (id {terminal}); run \"rup help\" to learn the commands."
         );
     }

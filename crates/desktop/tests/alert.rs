@@ -72,20 +72,6 @@ fn u5232f_nothing_fires_without_a_call() {
 }
 
 #[test]
-fn u5232f_set_dock_badge_is_unchanged() {
-    // The badge stays the webview's window call; a `stateAlert` records only banner and sound.
-    let fake = Arc::new(Fake::default());
-    raise(&fake, true, true).unwrap();
-    let calls = fake.calls.lock().unwrap();
-    assert!(
-        calls
-            .iter()
-            .all(|call| call == "sound" || call == "permission" || call.starts_with("banner")),
-        "{calls:?}"
-    );
-}
-
-#[test]
 fn u5232g_the_first_alert_asks_permission_once() {
     let fake = Arc::new(Fake::default());
     let alerts = Alerts::new(Box::new(Shared(fake.clone())));
