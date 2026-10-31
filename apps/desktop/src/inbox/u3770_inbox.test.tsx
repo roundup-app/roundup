@@ -115,9 +115,21 @@ it("u3770c_retry_resumes_the_failed_agent", async () => {
   expect(names(panel())).not.toContain("c");
 });
 
+it("u5265_an_error_row_that_can_resume_offers_retry", async () => {
+  const m = await mountInbox();
+  const row = () => within(panel()).getByText("gamma").closest<HTMLElement>("li")!;
+  expect(within(row()).queryByRole("button", { name: "Open" })).toBeNull();
+  fireEvent.click(within(row()).getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(calls(m, "agent.resume")).toEqual([{ id: "c" }]));
+});
+
 it("u5265_an_error_row_that_cannot_resume_offers_open_not_retry", async () => {
   const m = await mountInbox(NODES.map(node => node.id === "c" ? { ...node, can_resume: false } : node));
-  fireEvent.click(within(within(panel()).getByText("gamma").closest<HTMLElement>("li")!).getByRole("button", { name: "Open" }));
+  const row = () => within(panel()).getByText("gamma").closest<HTMLElement>("li")!;
+  expect(within(row()).queryByRole("button", { name: "Retry" })).toBeNull();
+  expect(row().textContent).toContain("crashed");
+  fireEvent.click(within(row()).getByRole("button", { name: "Open" }));
+  expect(m.connected.rail.selected()).toBe("c");
   expect(calls(m, "agent.resume")).toEqual([]);
 });
 
