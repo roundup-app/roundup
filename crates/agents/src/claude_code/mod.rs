@@ -17,6 +17,7 @@ mod rewind;
 pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
+pub mod skill_setup;
 mod skills;
 mod vendor_list;
 

@@ -245,7 +245,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (node.yolo && !(node.kind === "workstream" && node.opening_prompt?.trim()) && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
 
-    if (!node.yolo) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });
+    // A5213: the Daemon takes `mode` for a live row, or an exited one holding a saved conversation.
+    if (!node.yolo && (isRunning(node, exit) || node.can_resume)) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });
 
     if (isRunning(node, exit)) items.push({ id: "stop", label: copy.stop, run: () => requestStop(node, exit) });
 
