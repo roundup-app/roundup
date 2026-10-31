@@ -26,7 +26,7 @@ use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, mpsc};
 use std::time::Duration;
@@ -192,6 +192,9 @@ struct Shared {
     scheme: Mutex<Option<scheme::Palette>>,
     /// PS1: one change per applied report, for the Daemon.
     status: broadcast::Sender<Arc<Change>>,
+    /// PS5: whether `ESC ] 7501 ; ? ST` gets its reply. Off until rupd reads the records (#5229): a
+    /// program that sees the reply stops moving its title, which the Daemon's interrupt ack reads.
+    answer_status_query: AtomicBool,
 }
 
 impl Shared {
@@ -271,6 +274,7 @@ impl Terminals {
                     .collect(),
                 scheme: Mutex::new(None),
                 status: broadcast::channel(EVENT_BACKLOG).0,
+                answer_status_query: AtomicBool::new(false),
             }),
             integration_dir: dir.join("shell-integration"),
             next: AtomicU64::new(1),
@@ -827,6 +831,11 @@ impl Terminals {
             next: start,
             after_gap: None,
         })
+    }
+
+    /// PS5: answer, or stop answering, a program's feature-detection query.
+    pub fn answer_status_query(&self, on: bool) {
+        self.shared.answer_status_query.store(on, Ordering::Relaxed);
     }
 
     /// X17: set the scheme every program is answered in. A change from the one before (or from none)
