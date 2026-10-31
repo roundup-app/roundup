@@ -1,6 +1,7 @@
 //! The Daemon: every other part of roundup is a client of it.
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
+mod actions;
 mod attachment;
 mod auto;
 #[cfg(test)]
@@ -121,6 +122,8 @@ pub struct Daemon {
     reactions: Arc<reaction::Reactions>,
     /// An isolated observer pauses a guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
+    /// NA6: the App that answers `action.list` and `action.run`.
+    actions: actions::Answerer,
 }
 
 type Waiter = (
@@ -389,6 +392,8 @@ impl Daemon {
     }
 }
 
+#[cfg(test)]
+mod actions_tests;
 #[cfg(test)]
 mod tests;
 

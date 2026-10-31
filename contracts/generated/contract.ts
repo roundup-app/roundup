@@ -1,6 +1,9 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
 export const CONTRACT = {
   methods: {
+    "action.list": "8c08376ef3282445",
+    "action.run": "da0dc992e6d8031d",
+    "action.serve": "b1884dbf434a796c",
     "agent.brief": "578d4809b6cafc1b",
     "agent.changedFiles": "f80e4251cb77f2cd",
     "agent.channelUp": "f25fe63dfa04b01a",
