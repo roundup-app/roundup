@@ -9,6 +9,7 @@ async-trait.workspace = true
 contracts = { path = "../contracts" }
 getrandom = "0.3"
 notify = "8"
+provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
 rustix = { version = "1.1.5", features = ["fs", "process"] }
 rusqlite.workspace = true
@@ -36,7 +37,6 @@ terminal = { path = "../terminal", features = ["test-support"] }
 agents = { path = ".", features = ["test-support"] }
 stats_alloc = "0.1"
 messages = { path = "../messages" }
-provenance = { path = "../provenance" }
 tokio = { workspace = true, features = ["test-util"] }
 
 [features]
