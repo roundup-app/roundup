@@ -86,6 +86,7 @@ const cyclingAgents = (now: number, count: number, parentOf: (index: number) => 
       parent: parentOf(index),
       order: index,
       status: statusAt(now, kind, `${kind} label ${index + 1}`, index * 3 + 1),
+      can_resume: kind === "error",
     });
   });
 
@@ -113,6 +114,7 @@ const nestedTree = (now: number): RailNode[] => [
     name: "login-store",
     parent: "auth",
     order: 1,
+    can_resume: true,
     status: statusAt(now, "error", "tests failed: 3", 1),
   }),
   agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30) }),
