@@ -693,11 +693,7 @@ export const Rail = () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else {
-          openCompose();
-
-          if (args?.prompt !== undefined) keepDraft(String(args.prompt));
-        } } }) },
+    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else { openCompose(); if (args?.prompt !== undefined) keepDraft(String(args.prompt)); } } }) },
     { action: CHORDS.find(row => row.keys === "⌥⌘N")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
     { action: CHORDS.find(row => row.keys === "⇧⌘M")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
