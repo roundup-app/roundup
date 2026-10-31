@@ -27,6 +27,8 @@ export const copy = {
   railDraftDiscard: sharedCopy.discardRevision,
   deliverables: sharedCopy.deliverables,
   dismiss: sharedCopy.dismiss,
+  dismissError: "Dismiss error",
+  dismissedFailure: sharedCopy.dismissedFailure,
   retryStorage: sharedCopy.retryStorage,
   storageRetry: sharedCopy.storageRetry,
   draftRetention: sharedCopy.draftRetention,

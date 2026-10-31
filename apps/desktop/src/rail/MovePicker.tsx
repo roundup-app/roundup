@@ -1,3 +1,4 @@
+import { applying } from "../app/pending";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { SortableMove } from "../ui/sortable";
 import { createSignal, Show } from "solid-js";
@@ -55,7 +56,12 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
     const focus = rowElement(params.id) === document.activeElement ? captureFocus() : undefined;
 
     try {
-      await app.rpc("rail.move", params);
+      const base = rail.placeOf(params.id);
+      const result = await applying(() => app.rpc("rail.move", params));
+
+      if (result.kind === "refused") throw result.error;
+
+      if (result.kind === "pending" && base !== null) rail.keepAsked(params.id, { kind: "move", base, asked: { parent: params.parent, index: params.index } });
       rail.commandFailure.acknowledge(params.id);
 
       if (params.parent !== null) {

@@ -2,6 +2,7 @@ import { agent as agentNode } from "../testing/nodes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo as callsTo, todoRowOf as rowOf } from "./testHarness";
+import { RpcError } from "../app/seam";
 
 afterEach(cleanup);
 
@@ -54,7 +55,7 @@ it.each(["list", "agent-list", "drawer"].flatMap(surface => [false].map(done => 
   fireEvent.click(box);
   expect(callsTo(app, method)).toEqual([{ method, params: { id: 1 } }]);
   expect(box.checked).toBe(done);
-  reject(new Error("Cannot reopen"));
+  reject(new RpcError(-32003, "Cannot reopen"));
   await area.findByText("Cannot reopen");
   expect(box.checked).toBe(done);
   expect(document.activeElement).toBe(box);
