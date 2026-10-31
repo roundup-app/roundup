@@ -116,8 +116,16 @@ for (const chord of CHORDS) {
   if (!recordable(chord)) continue;
 
   Object.defineProperties(chord, {
-    keys: { enumerable: true, get: () => { const press = appSettings().shortcuts[chord.name]; return press ? shortcutLabel(press) : keys; } },
-    presses: { enumerable: true, get: () => { const press = appSettings().shortcuts[chord.name]; return press ? [press] : presses; } },
+    keys: { enumerable: true, get: () => {
+      const press = appSettings().shortcuts[chord.name];
+
+      return press ? shortcutLabel(press) : keys;
+    } },
+    presses: { enumerable: true, get: () => {
+      const press = appSettings().shortcuts[chord.name];
+
+      return press ? [press] : presses;
+    } },
   });
 }
 
