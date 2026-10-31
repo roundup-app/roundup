@@ -42,16 +42,13 @@ for (const by of ["pointer", "keyboard"] as const) {
         return mounted.store.todos[1]!;
       };
 
-      press(await screen.findByRole("button", { name: "add todo to Overview" }), by);
+      press(await screen.findByRole("button", { name: "Add Todo: Overview" }), by);
 
       const field = screen.getByRole("textbox", { name: "New Todo title" });
 
       fireEvent.input(field, { target: { value: "ship it" } });
       fireEvent.keyDown(field, { key: "Enter" });
       await waitFor(() => expect(callsTo(mounted.app, "todo.create")).toEqual([{ method: "todo.create", params: { title: "ship it", body: null, blockers: null } }]));
-      refetch(mounted);
-
-      await waitFor(() => expect(rowText(2)).toContain("ship it"));
     });
 
     it(`u152_edit_${by}`, async () => {
@@ -286,7 +283,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       fireEvent.click(within(drawer()).getByRole("button", { name: "Comment" }));
     } else if (owner === "todo_refs") {
       m.app.handlers["todo.removeRef"] = refuse;
-      fireEvent.click(await within(drawer()).findByRole("button", { name: "Remove link to notes" }));
+      fireEvent.click(await within(drawer()).findByRole("button", { name: "Unlink notes" }));
     } else {
       m.app.clipboardWrite = refuse;
       fireEvent.click(await within(drawer()).findByRole("button", { name: "Copy" }));

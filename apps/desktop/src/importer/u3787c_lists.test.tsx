@@ -1,11 +1,11 @@
-import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { mountApp, rpcCalls } from "../testing/appFixture";
 import { openProjectPage } from "../testing/menuProbe";
 
-// One owned collection: Project menu → Import Claude Code work → fresh candidates.
+// One owned collection: Project menu → Import Claude Code → fresh candidates.
 // Exclusions, refusal recovery and Copy actions are outside it; period and prompt stay native.
-const inventory = [{ opening: "Project menu → Import Claude Code work", open: () => openProjectPage("import-work") }];
+const inventory = [{ opening: "Project menu → Import Claude Code", open: () => openProjectPage("import-work") }];
 
 const candidates = ["alpha", "same é 🧭", "same é 🧭", "delta", "終 é 🧭", "hidden", "disabled", "folded"].map((title, at) => ({ source: `source-${at}`, revision: `revision-${at}`, title, cwd: "", last_activity_ms: 1n }));
 
@@ -87,7 +87,7 @@ it("u3787c_import_modifiers_retain_choices_across_the_actual_page_lifetime", asy
   const { app } = await mount(inventory[0]!.open);
   fireEvent.click(row(2), { metaKey: true });
   await waitFor(() => expect(selected()).toEqual(["source-2"]));
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("button", { name: "Close" }));
   await waitFor(() => expect(document.querySelector(".import-check")).toBeNull());
   inventory[0]!.open();
   await screen.findByRole("checkbox", { name: /alpha/ });

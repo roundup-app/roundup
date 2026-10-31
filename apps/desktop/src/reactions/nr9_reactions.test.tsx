@@ -336,7 +336,7 @@ it.each(([
         expect(screen.queryByRole("alert", { name: failure })).toBeNull();
       }
 
-      fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
+      fireEvent.click(within(screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
       fireEvent.click(await screen.findByRole("button", { name: /Other reaction/ }));
       await screen.findByText("other instruction");
       expect(screen.queryByRole("alert", { name: failure })).toBeNull();
@@ -359,7 +359,7 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_list_%s", asy
   await screen.findByRole("alert", { name: "list unavailable" });
   fireEvent.click(screen.getByRole("button", { name: /Ship it/ }));
   await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
-  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
+  fireEvent.click(within(screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: /^Close/ }));
   expect(screen.getByRole("alert")).toBeTruthy();
 
   if (transition === "recover") app.handlers["reaction.list"] = () => [saved()];

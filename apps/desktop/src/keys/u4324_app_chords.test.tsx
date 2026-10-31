@@ -92,7 +92,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
   let target: HTMLElement;
 
   if (first) {
-    target = await screen.findByRole("button", { name: "Choose folder…" });
+    target = await screen.findByRole("button", { name: "Choose Project…" });
 
     if (place === "first-frame") target = document.querySelector<HTMLElement>(".centre")!;
   } else {
@@ -201,7 +201,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
     expect(nativeShow).toHaveBeenCalledTimes(1);
     expect(calls("todo.create")).toHaveLength(0);
   } else if (chord === "prompt" || chord === "capture") {
-    const field = await screen.findByRole("textbox", { name: chord === "capture" ? "Capture a Todo" : "Task" });
+    const field = await screen.findByRole("textbox", { name: chord === "capture" ? "Capture a Todo" : "Work" });
     await waitFor(() => expect(document.activeElement).toBe(field));
     expect(calls("agent.spawn")).toHaveLength(0);
     expect(calls("todo.create")).toHaveLength(0);

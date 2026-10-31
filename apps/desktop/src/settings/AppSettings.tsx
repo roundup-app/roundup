@@ -233,7 +233,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const controls = {
     permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
-          { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },
+          { value: "", label: copy.permissionDefault }, { value: "default", label: copy.settingsDefault },
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
         ]} onValueChange={permissionMode => { if (permissionMode === "" || permissionMode === "default" || permissionMode === "acceptEdits" || permissionMode === "plan" || permissionMode === "auto") save({ permissionMode }); }} />
     ),
@@ -250,7 +250,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     naming: () => <NamingSettings app={props.app} />,
     fontFamily: () => <>
         <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
-          choices={[{ value: "", label: copy.fontDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
+          choices={[{ value: "", label: copy.settingsDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
           onValueChange={value => chooseType({ fontFamily: value })} />
         <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck={false} autocorrect="off" autocapitalize="off"
           onInput={event => edit("fontFamily", event.currentTarget)}
@@ -265,13 +265,13 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     quickAdd: () => <ShortcutSetting field="quickAdd" capture={props.app.capture} onFailure={setFailure} />,
     quickAddAnywhere: () => <ShortcutSetting field="quickAddAnywhere" capture={props.app.capture} onFailure={setFailure} />,
     mode: () => (
-        <SegmentGroup description={copy.modeHint} label={copy.mode} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
+        <SegmentGroup description={copy.modeHint} label={copy.settingsAppearance} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => void chooseAppearance({ mode })} />
     ),
     interfaceScale: () => (
         <SegmentGroup label={copy.interfaceScale} description={copy.interfaceScaleHint} value={appSettings().interfaceScale} segments={[
           { value: "small", label: copy.interfaceSmall, content: <span class="settings-scale-small">{copy.interfaceSample}</span> },
-          { value: "default", label: copy.interfaceDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
+          { value: "default", label: copy.settingsDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
     ),
@@ -297,7 +297,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       ...numericFields.map(({ name, label, hint }) => ({ id: name, page: copy.settingsTerminal, group: copy.groupFont, label, description: hint })),
       { id: "quickAdd", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddTodo, description: copy.quickAddHint },
       { id: "quickAddAnywhere", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddAnywhere, description: copy.quickAddAnywhereHint },
-      { id: "mode", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.mode, description: copy.modeHint },
+      { id: "mode", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.settingsAppearance, description: copy.modeHint },
       { id: "interfaceScale", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.interfaceScale, description: copy.interfaceScaleHint },
       { id: "focusMarkers", page: copy.settingsAppearance, group: copy.groupFocus, label: copy.focusMarkers, description: copy.focusMarkersHint, hiddenHint: true },
     ];

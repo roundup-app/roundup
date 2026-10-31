@@ -6,7 +6,7 @@ import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarne
 afterEach(cleanup);
 
 const openField = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add Todo: Overview" }));
 
   return screen.getByRole("textbox", { name: "New Todo title" });
 };
@@ -19,14 +19,14 @@ describe("u16 create a Todo", () => {
 
     const field = await openField();
 
-    expect(screen.getByText("todo 2").compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("todo 2").compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
   });
 
   it("u16_clicking_plus_twice_still_shows_one_field", async () => {
     await mountTodos([]);
     await openField();
 
-    fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
 
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
   });
@@ -35,7 +35,7 @@ describe("u16 create a Todo", () => {
     await mountTodos([]);
     type(await openField(), "half a thought");
 
-    fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
 
     expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "half a thought");
   });
@@ -78,7 +78,7 @@ describe("u16 create a Todo", () => {
     fireEvent.keyDown(field, { key: "Escape" });
 
     expect([screen.queryByRole("textbox"), callsTo(app, "todo.create")]).toEqual([null, []]);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo to Overview" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Todo: Overview" }));
   });
 
   it("u16_blur_closes_an_empty_field_and_keeps_a_typed_one", async () => {
@@ -127,7 +127,7 @@ describe("u16 create a Todo", () => {
     fireEvent.keyDown(field, { key: "Enter" });
     await screen.findByText(/title is empty/);
 
-    fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
 
     expect([screen.queryByText(/title is empty/), screen.getAllByRole("textbox")]).toEqual([null, [expect.anything()]]);
   });

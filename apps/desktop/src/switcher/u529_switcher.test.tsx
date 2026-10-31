@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { copy } from "./copy";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
@@ -241,7 +242,7 @@ it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "f
     const calls = app.calls.length;
     await screen.findByRole("button", { name: "Copy query" });
     fireEvent.click(await screen.findByRole("button", { name: "Copy query" }));
-    await screen.findByRole("alert", { name: "Could not copy query. Select the text and copy again." });
+    await screen.findByRole("alert", { name: copy.switcherCopyFailure });
     field()!.setSelectionRange(2, 9, "backward");
     fireEvent.keyUp(field()!);
     const before = connected.drafts.list();
@@ -263,7 +264,7 @@ it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "f
     if (action === "failed retry" || action === "storage recovery") fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     const keepsCopyFailure = ["unrelated discard", "failed retry", "storage recovery"].includes(action);
-    await waitFor(() => expect(screen.queryByRole("alert", { name: "Could not copy query. Select the text and copy again." }) !== null).toBe(keepsCopyFailure));
+    await waitFor(() => expect(screen.queryByRole("alert", { name: copy.switcherCopyFailure }) !== null).toBe(keepsCopyFailure));
     const discards = action === "discard" || action === "failed discard";
     expect(field()!.value).toBe(discards ? "" : exact);
 

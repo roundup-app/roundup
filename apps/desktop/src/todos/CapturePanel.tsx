@@ -87,6 +87,6 @@ export const CapturePanel = (props: { port: CapturePort }) => {
           if (current) void send({ kind: "discard-revision", session: current.session, revision: draft.revision }); }}>{copy.discardRevision}</button>
       </div>
     </div>}</For>
-    <div class="capture-actions"><button data-button="quiet" onClick={dismiss}>{copy.cancel}</button><button data-button="primary" disabled={!state() || text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
+    <div class="capture-actions"><button data-button="quiet" onClick={dismiss}>{copy.close}</button><button data-button="primary" disabled={!state() || text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
   </section>;
 };

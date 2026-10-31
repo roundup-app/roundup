@@ -26,7 +26,7 @@ it("u4463_each_head_is_one_row_of_title_and_controls", async () => {
   const head = document.querySelector<HTMLElement>("[data-shelf-scope]")!;
 
   expect(within(head).getAllByRole("switch")).toHaveLength(1);
-  expect(within(head).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["add todo to backend", "Triage"]);
+  expect(within(head).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Add Todo: backend", "Triage"]);
   fireEvent.click(within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /^Pads/ }));
   await waitFor(() => expect(within(head).getByRole("button", { name: copy.addPad })).toBeTruthy());
   expect(within(head).queryByRole("switch")).toBeNull();
