@@ -18,10 +18,18 @@ fn a5335b_a_restart_resumes_no_finished_child() {
             project.path(),
             false,
             |command| {
-                command.env("ROUNDUP_DATA_DIR", data.path()).env(
-                    "ROUNDUP_RUP_BIN",
-                    Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"),
-                );
+                command
+                    .env("ROUNDUP_DATA_DIR", data.path())
+                    .env(
+                        "ROUNDUP_CLAUDE_BIN",
+                        Path::new(env!("CARGO_MANIFEST_DIR"))
+                            .join("../rup/tests/e2e/fake_claude.py"),
+                    )
+                    .env("CLAUDE_CONFIG_DIR", data.path().join("config"))
+                    .env(
+                        "ROUNDUP_RUP_BIN",
+                        Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"),
+                    );
             },
         )
     };
