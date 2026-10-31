@@ -544,8 +544,12 @@ impl ServerHandler for Shim {
         match result {
             Ok(Ok(result)) => Ok(CallToolResult::success(vec![ContentBlock::text(result)]).into()),
             Ok(Err(err)) => {
-                let body = serde_json::to_string(&err)
+                let mut body = serde_json::to_string(&err)
                     .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+                // M5179: the request went out and no answer came.
+                if err.code == rpc::code::UNKNOWN_OUTCOME {
+                    body = format!("{}: {body}; the call may have been applied", request.name);
+                }
                 Ok(CallToolResult::error(vec![ContentBlock::text(body)]).into())
             }
             Err(gone) => {
