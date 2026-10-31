@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent } from "../testing/nodes";
+import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 import { RpcError } from "../app/seam";
 import { applying } from "../app/pending";
@@ -122,9 +122,33 @@ it("u5172a_every_mutation_goes_through_the_helper", () => {
     const text = readFileSync(path, "utf8");
 
     for (const match of text.matchAll(mutation)) {
-      if (!/(?:applying|applied|changeFailureOf)\((?:async )?\(\) =>[^;]*$/.test(text.slice(Math.max(0, match.index - 160), match.index))) bare.push(`${path.slice(root.length + 1)}: ${match[0]}`);
+      if (!/(?:(?:applying|applied|changeFailureOf)\((?:async )?|\.ask\([^;]*)\(\) =>[^;]*$/.test(text.slice(Math.max(0, match.index - 160), match.index))) bare.push(`${path.slice(root.length + 1)}: ${match[0]}`);
     }
   }
 
   expect(bare).toEqual([]);
+});
+
+it("u5172a_unanswered_rail_move_shows_the_asked_place_marked_until_a_read_settles_it", async () => {
+  const mounted = await mountRail([workstream("Research"), agent("free", "idle", "ready")]);
+
+  mounted.app.handlers["rail.move"] = () => { throw new RpcError(-32603, "no reply to rail.move within 5s"); };
+
+  mounted.rail.select("free");
+
+  const target = document.getElementById("rail-name-free")?.closest<HTMLElement>("[data-id]");
+  target!.focus();
+  fireEvent.keyDown(target!, { key: "m", code: "KeyM" });
+  fireEvent.click(await screen.findByRole("option", { name: "Research" }));
+  await waitFor(() => expect(mounted.connected.rail.pendingOf("free")).not.toBeNull());
+  expect(mounted.connected.rail.nodes.find(node => node.id === "free")?.parent).toBe("Research");
+  expect(screen.queryByRole("alert")).toBeNull();
+  mounted.app.emit({ name: "rail.changed", actor });
+  await mounted.connected.rail.settled();
+  expect(mounted.connected.rail.nodes.find(node => node.id === "free")?.parent).toBe("Research");
+  mounted.app.handlers["rail.tree"] = () => [workstream("Research"), agent("free", "idle", "ready", { parent: "Research" })];
+  mounted.app.emit({ name: "rail.changed", actor });
+  await mounted.connected.rail.settled();
+  expect(mounted.connected.rail.pendingOf("free")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
 });

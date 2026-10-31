@@ -14,6 +14,7 @@ import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
+import { useTodoList } from "./todoList";
 
 import { TickBox } from "./TickBox";
 import { RowButton } from "./RowButton";
@@ -79,6 +80,7 @@ export const OpenRow = (props: {
   nest?: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null };
 }) => {
   const connected = useConnectedProject();
+  const todos = useTodoList();
   const copied = createCopyFeedback();
   const unregisterCopy = props.copyWith?.(copied);
   onCleanup(() => unregisterCopy?.());
@@ -179,6 +181,7 @@ export const OpenRow = (props: {
       glyph={<span><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      aria-busy={todos.pendingOf(props.todo.id) ? true : undefined}
       data-requested={connected.padsTab() === "todos" && props.todo.creator.kind === "agent" && props.todo.creator.id === connected.padsOwner() ? "true" : undefined}
       onClick={event => {
         if (editing() || props.lifted || !(event.target instanceof Element) || event.target.closest("button, input, [role=checkbox]")) return;
