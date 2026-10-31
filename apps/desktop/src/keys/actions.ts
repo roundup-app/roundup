@@ -1,8 +1,9 @@
 import * as v from "valibot";
 import { ACTION_ROWS } from "./chords";
 import type { ActionArg, ActionValue, ActionValues } from "./chords";
+import type { RunParams } from "@contracts/action/RunParams";
 import { copy } from "./copy";
-import { captureEvery, leaderArmed, modalOpen } from "./registry";
+import { captureEvery, leaderArmed, modalOpen, questionPending } from "./registry";
 import type { CapturedAction } from "./registry";
 
 /** NA5: one row of the list. */
@@ -94,4 +95,22 @@ export const runAction = (name: string, pairs: readonly (readonly [string, strin
   target.run(values as ActionValues);
 
   return { status: modalOpen() || leaderArmed() ? "awaiting" : "done" };
+};
+
+/** The Daemon's relayed `action.list` and `action.run` (NA6, NA7) as the answer line the Daemon reads: a result, or an error whose message is the refusal's text. An unavailable action is CONFLICT, any other refusal INVALID_PARAMS. */
+export type ActionAnswer = { result: unknown } | { error: { code: number; message: string } };
+
+export const answerList = (focus: Element | null = document.activeElement): ActionAnswer => ({ result: listActions(focus).map(({ cause, ...row }) => cause === undefined ? row : { ...row, cause }) });
+
+export const answerRun = async (run: RunParams, focus: Element | null = document.activeElement): Promise<ActionAnswer> => {
+  const result = runAction(run.name, run.args.map(pair => [pair.key, pair.value] as const), focus);
+
+  if (result.status === "refused") return { error: { code: result.code === "unavailable" ? -32003 : -32602, message: result.message } };
+
+  if (result.status === "awaiting") return { result };
+
+  // A confirm opens a tick after its key runs, so `awaiting` is read once that has passed (NA10).
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  return { result: { status: modalOpen() || leaderArmed() || questionPending() ? "awaiting" : "done" } };
 };

@@ -4,6 +4,7 @@
 
 extern crate self as contracts;
 
+pub mod action;
 pub mod agent;
 pub mod ask;
 pub mod attachment;
