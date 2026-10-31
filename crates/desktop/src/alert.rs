@@ -2,6 +2,7 @@
 //! (`scenarios/ui-state-alerts.md` U5232e to U5232g). The App raises nothing of its own.
 
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use rpc::{RpcError, code};
 use serde::Deserialize;
@@ -33,13 +34,27 @@ pub struct Alerts {
     notifier: Box<dyn Notifier>,
     /// The answer of the permission request; a grant or refusal is kept, an unanswered request is asked again on the next alert.
     permission: Mutex<Option<Result<(), String>>>,
+    /// How long an alert waits for an open prompt before it ends as a timeout refusal.
+    wait: Duration,
 }
+
+/// How often an alert reads the owner's pending answer.
+const POLL: Duration = Duration::from_millis(100);
 
 impl Alerts {
     pub fn new(notifier: Box<dyn Notifier>) -> Self {
         Self {
             notifier,
             permission: Mutex::new(None),
+            wait: Duration::from_secs(60),
+        }
+    }
+
+    /// Alerts that end an unanswered prompt after `wait` instead of 60 s.
+    pub fn with_wait(notifier: Box<dyn Notifier>, wait: Duration) -> Self {
+        Self {
+            wait,
+            ..Self::new(notifier)
         }
     }
 
@@ -66,13 +81,24 @@ impl Alerts {
             .permission
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if cached.is_none() {
-            *cached = self.notifier.permission();
-        }
+        // The lock is held across the wait, so a second alert waits for the same answer and then raises its own banner.
         // An unanswered prompt ends as a refusal naming the timeout; it is not kept, so the next alert asks again.
-        let permission = cached
-            .clone()
-            .unwrap_or_else(|| Err("the permission prompt went unanswered for 60 s".into()));
+        let deadline = Instant::now() + self.wait;
+        while cached.is_none() {
+            *cached = self.notifier.permission();
+            if cached.is_none() {
+                if Instant::now() >= deadline {
+                    break;
+                }
+                std::thread::sleep(POLL.min(self.wait));
+            }
+        }
+        let permission = cached.clone().unwrap_or_else(|| {
+            Err(format!(
+                "the permission prompt went unanswered for {} s",
+                self.wait.as_secs()
+            ))
+        });
         drop(cached);
         permission.map_err(|cause| {
             RpcError::new(code::FORBIDDEN, format!("State alerts refused: {cause}"))
