@@ -375,6 +375,7 @@ impl Terminals {
         if self.shared.table().remove(&number).is_none() {
             return Err(RpcError::not_found(format!("terminal {id}")));
         }
+        self.shared.changed(number, Vec::new());
         self.shared
             .bus
             .emit(Actor::daemon(), EventData::TerminalChanged);
@@ -399,6 +400,7 @@ impl Terminals {
                 Err(err) => return Err(err),
             }
             self.shared.table().remove(number);
+            self.shared.changed(*number, Vec::new());
         }
         if !ids.is_empty() || remote_closed {
             self.shared
@@ -429,6 +431,7 @@ impl Terminals {
         match oldest_exited {
             Some(number) => {
                 table.remove(&number);
+                self.shared.changed(number, Vec::new());
                 Ok(true)
             }
             None => Err(RpcError::conflict(format!(

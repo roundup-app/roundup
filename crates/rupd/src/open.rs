@@ -42,6 +42,7 @@ impl Daemon {
             terminals = terminals.with_terminal_owner(&helper);
         }
         let terminals = Arc::new(terminals);
+        terminals.answer_status_query(true);
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
@@ -131,6 +132,8 @@ impl Daemon {
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
+            program_changes: std::sync::Mutex::new(Some(terminals.subscribe_status())),
+            program_statuses: Default::default(),
             terminals: Arc::clone(&terminals),
             wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
             renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
@@ -223,6 +226,14 @@ impl Daemon {
                     serde_json::from_value(list).ok()
                 }
             }));
+        }
+        if let Some(changes) = self
+            .program_changes
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+        {
+            tokio::spawn(Arc::clone(&self.program_statuses).run(changes, self.bus.clone()));
         }
         let events = self
             .pushes
