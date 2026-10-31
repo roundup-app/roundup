@@ -1,6 +1,6 @@
 # A Daemon restart keeps live children and never runs a finished one (A5335)
 
-Module: `crates/agents` (owner reattach, resume), `crates/rupd` (startup). Ids: A5335a–A5335c. Work order: #5335. Narrows A8, A12a and A22; the lifecycle contract is otherwise unchanged and adds no RPC or public type.
+Module: `crates/agents` (owner reattach, resume), `crates/rupd` (startup). Ids: A5335a–A5335d. Work order: #5335. Narrows A8, A12a and A22; the lifecycle contract is otherwise unchanged and adds no RPC or public type.
 
 ## Checks on main
 
@@ -13,6 +13,8 @@ Module: `crates/agents` (owner reattach, resume), `crates/rupd` (startup). Ids: 
 **A5335b a restart never starts a child that finished.** Given a child whose job ended (it sent its end note, or its Attempt ended with its Terminal gone), when the Daemon restarts, then no Attempt starts for it, no input reaches any program, it stays `done`, and no Model turn is spent (P9). Only a user's `agent.resume` or `rail.startDoor` (A22, A23) starts it again; no startup, reattach or notice path calls `resume_saved` for it. The observer reopens a Rail holding a finished child beside a live one and asserts the finished child's launch count is unchanged and the live one is reattached. Tests: `a5335b_a_restart_resumes_no_finished_child` (`crates/rupd/tests`).
 
 **A5335c a child with no saved conversation is not resumed.** Given an Agent with no A21 data, when any path other than the user's explicit start asks to resume it, then that is `CONFLICT` and no Terminal starts, so no second `ended with no finding` note (B49c) is made by a resume that had nothing to resume. Tests: `a5335c_resume_without_a_saved_conversation_starts_nothing` (`crates/agents/tests/scenarios/resume.rs`).
+
+**A5335d a reopen launches no child again.** Given the Rail of A5335a with three live children, each launched once, when `Agents::open` and `reattach_owners` run twice in turn, then every child's launch count is still one after each reopen, so a reopen that relaunches a child fails. The observer reads the launch count of each child from the fake owners and the Terminal list. Tests: `a5335d_reopen_keeps_each_launch_count_at_one` (`crates/agents/tests/owner_reopen.rs`).
 
 ## Gates
 
