@@ -207,8 +207,26 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const previewScale = () => pendingAppearance().interfaceScale ?? appSettings().interfaceScale;
 
+  const numericControl = (name: Numeric, label: string, hint: string) => <>
+        <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
+          <Field.Label>{label}</Field.Label>
+          <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
+            const range = terminalRanges[name];
+
+            if (value !== field(name) && value.trim() !== "" && Number.isFinite(valueAsNumber) && valueAsNumber >= range.min && valueAsNumber <= range.max)
+              drafts.edit(destination(name), { text: value, saved: current(name)?.value.saved ?? String(appSettings()[name]) }, null, "ordinary");
+          }}>
+            <module.NumberInput.Input aria-label={label} inputMode="decimal" value={field(name)}
+              onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
+              onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
+          </module.NumberInput.Root>}</Deferred>
+          <Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show>
+          <ReservedLine message={numericFailure()[name]} />
+        </Field.Root>
+  </>;
+
   // Each setting has one control; a page or a search result mounts it, never both (U5243b).
-  const controls: Record<string, () => JSX.Element> = {
+  const controls = {
     permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },
@@ -253,28 +271,14 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
     ),
+    fontSize: () => numericControl("fontSize", copy.fontSize, copy.fontSizeHint),
+    lineHeight: () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint),
+    letterSpacing: () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint),
     focusMarkers: () => (
         <Switch description={copy.focusMarkersHint} checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
     ),
   };
 
-  for (const { name, label, hint } of numericFields) controls[name] = () => <>
-        <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
-          <Field.Label>{label}</Field.Label>
-          <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
-            const range = terminalRanges[name];
-
-            if (value !== field(name) && value.trim() !== "" && Number.isFinite(valueAsNumber) && valueAsNumber >= range.min && valueAsNumber <= range.max)
-              drafts.edit(destination(name), { text: value, saved: current(name)?.value.saved ?? String(appSettings()[name]) }, null, "ordinary");
-          }}>
-            <module.NumberInput.Input aria-label={label} inputMode="decimal" value={field(name)}
-              onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
-              onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
-          </module.NumberInput.Root>}</Deferred>
-          <Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show>
-          <ReservedLine message={numericFailure()[name]} />
-        </Field.Root>
-  </>;
 
   type Entry = { id: string; page: string; group: string; label: string; description: string; hiddenHint?: boolean; when?: () => boolean };
 
@@ -318,7 +322,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <h2 class="settings-title">{copy.settings}</h2>
         <Field.Root class="settings-search">
           <Field.Label class="settings-search-label">{copy.settingsSearch}</Field.Label>
-          <Field.Input ref={searchInput} type="search" value={query()} placeholder={copy.settingsSearchPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" autocomplete="off"
+          <Field.Input ref={searchInput} type="search" value={query()} spellcheck={false} autocorrect="off" autocapitalize="off" autocomplete="off"
             onInput={event => setQuery(event.currentTarget.value)}
             onKeyDown={event => {
               if (event.isComposing) return;
@@ -346,28 +350,28 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       <div class="settings-content">
       <Show when={!searching()} fallback={<SettingsResults results={results()} controls={controls} />}>
       <Tabs.Content value="Agents"><SettingsGroup name={copy.settingsAgents}>
-        {controls.permission!()}
+        {controls.permission()}
         <Show when={props.project()}>
-          {controls.engine!()}
-          {controls.model!()}
+          {controls.engine()}
+          {controls.model()}
         </Show>
-        {controls.naming!()}
+        {controls.naming()}
         <ReservedLine message={offered()?.failure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
-        {controls.fontFamily!()}
-        {controls.fontWeight!()}
-        <For each={numericFields}>{({ name }) => controls[name]!()}</For>
+        {controls.fontFamily()}
+        {controls.fontWeight()}
+        {controls.fontSize()}{controls.lineHeight()}{controls.letterSpacing()}
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}>{controls.quickAdd!()}{controls.quickAddAnywhere!()}</SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}>{controls.quickAdd()}{controls.quickAddAnywhere()}</SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
-        {controls.mode!()}
-        {controls.interfaceScale!()}
+        {controls.mode()}
+        {controls.interfaceScale()}
         <section class={`settings-appearance-preview ${previewMode()}-theme`} aria-label={copy.appearancePreview} data-mode={previewMode()} data-scale={previewScale()}>
           <div class="settings-mode-preview">{copy.appearancePreviewSample}</div>
         </section>
-        {controls.focusMarkers!()}
+        {controls.focusMarkers()}
       </SettingsGroup></Tabs.Content>
       </Show>
       <ReservedLine message={failure()} />
