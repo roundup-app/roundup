@@ -16,7 +16,6 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
-
 #[path = "mcp/reconnect.rs"]
 mod reconnect;
 #[path = "mcp/removed_questions.rs"]
@@ -26,7 +25,6 @@ mod rewind;
 #[path = "mcp/tool_lists.rs"]
 mod tool_lists;
 use tool_lists::{DOOR_METHODS, NO_TOOL, TOOL_METHODS, expected_tools, seam_commands};
-
 const BOUND: Duration = Duration::from_secs(20);
 
 struct Shim {
