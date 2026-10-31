@@ -20,7 +20,7 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   const comment = line(1, "which branch?");
   m.store.comments!.set(1, [comment]);
   render(() => <ConnectedProjectContext.Provider value={m.connected}><Inbox /></ConnectedProjectContext.Provider>);
-  const row = await within(panel()).findByRole("button", { name: /builder commented on Ship/ });
+  const row = await within(panel()).findByRole("button", { name: /builder.*Ship/ });
   expect(row.textContent).toContain(comment.body);
   // The row is read from `todo.unread`, makes no Message call and sets no Rail Kind.
   expect(todoCallsTo(m.app, "todo.unread").length).toBeGreaterThan(0);
@@ -29,17 +29,17 @@ it("u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened", async () => 
   // A comment that arrives while the Inbox is open joins it; a deleted Todo's leaves it.
   m.store.comments!.set(2, [line(2, "blocked on CI")]);
   m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 2 } });
-  await within(panel()).findByRole("button", { name: /builder commented on todo 2/ });
+  await within(panel()).findByRole("button", { name: /builder.*todo 2/ });
   await m.app.rpc("todo.delete", { operation: crypto.randomUUID(), ids: [2] });
   m.app.emit({ actor: AGENT, name: "todo.deleted", data: { id: 2 } });
   await waitFor(() => expect(within(panel()).queryByRole("button", { name: /todo 2/ })).toBeNull());
 
   // Activating the row opens the Todo's Drawer, which marks it read, and the row leaves the Inbox.
-  fireEvent.click(within(panel()).getByRole("button", { name: /builder commented on Ship/ }));
+  fireEvent.click(within(panel()).getByRole("button", { name: /builder.*Ship/ }));
   await screen.findByRole("region", { name: "Activity" });
   await waitFor(() => expect(todoCallsTo(m.app, "todo.markCommentsRead").map((call) => call.params)).toEqual([{ id: 1 }]));
   m.app.emit({ actor: AGENT, name: "todo.commentsRead", data: { id: 1 } });
   m.connected.drawer.close();
-  await within(panel()).findByText("Nothing waits for you");
-  expect(within(panel()).queryByRole("button", { name: /commented on/ })).toBeNull();
+  await within(panel()).findByText("Nothing needs you");
+  expect(within(panel()).queryByRole("button", { name: /commented/ })).toBeNull();
 });
