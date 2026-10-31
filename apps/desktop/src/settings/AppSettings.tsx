@@ -207,6 +207,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const previewScale = () => pendingAppearance().interfaceScale ?? appSettings().interfaceScale;
 
+  // SAFETY: terminalRanges is declared with exactly the three Numeric keys, in this order.
   const [fontSizeKey, lineHeightKey, letterSpacingKey] = Object.keys(terminalRanges) as [Numeric, Numeric, Numeric];
 
   const numericControl = (name: Numeric, label: string, hint: string) => <>
