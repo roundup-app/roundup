@@ -45,7 +45,7 @@ impl Alerts {
         if !request.alert && !request.sound {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
-                "invalid: a state alert needs an alert or a sound",
+                "invalid: a State alert needs an alert or a sound",
             ));
         }
         if request.sound {
@@ -69,12 +69,16 @@ impl Alerts {
     }
 }
 
-/// The system banner. macOS sends it through `mac-notification-sys` and plays the sound with its system sound player; the App ships on macOS only.
+/// The system banner. macOS sends it through `mac-notification-sys`, reads the permission from `UNUserNotificationCenter` and plays the sound with `NSSound`; the App ships on macOS only.
 pub struct Plugin<R: Runtime>(pub AppHandle<R>);
 
 impl<R: Runtime> Notifier for Plugin<R> {
-    /// `mac-notification-sys` has no call to ask or read the permission: macOS asks the owner when the first banner is sent, and a refusal then shows as that send's error, logged by the banner thread. So the pre-check always passes.
+    /// Asks macOS once (it prompts the owner the first time) and returns the refusal as the cause. A dev build has no bundle, so there is no center to ask.
     fn permission(&self) -> Result<(), String> {
+        #[cfg(target_os = "macos")]
+        if is_bundled() {
+            return authorize();
+        }
         Ok(())
     }
 
@@ -110,13 +114,48 @@ impl<R: Runtime> Notifier for Plugin<R> {
 
     fn sound(&self) {
         #[cfg(target_os = "macos")]
-        if let Err(error) = std::process::Command::new("afplay")
-            .arg("/System/Library/Sounds/Glass.aiff")
-            .spawn()
         {
-            log::warn!(target: "roundup::shell", "play state alert sound: {error}");
+            use objc2_app_kit::NSSound;
+            use objc2_foundation::ns_string;
+            match NSSound::soundNamed(ns_string!("Glass")) {
+                Some(sound) => {
+                    sound.play();
+                }
+                None => {
+                    log::warn!(target: "roundup::shell", "play state alert sound: no Glass sound")
+                }
+            }
         }
     }
+}
+
+#[cfg(target_os = "macos")]
+fn is_bundled() -> bool {
+    std::env::current_exe().is_ok_and(|exe| exe.to_string_lossy().contains(".app/Contents/"))
+}
+
+/// The owner's answer to the system's banner permission, waited for up to a minute.
+#[cfg(target_os = "macos")]
+fn authorize() -> Result<(), String> {
+    use block2::RcBlock;
+    use objc2::runtime::Bool;
+    use objc2_foundation::NSError;
+    use objc2_user_notifications::{UNAuthorizationOptions, UNUserNotificationCenter};
+
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let answer = RcBlock::new(move |granted: Bool, error: *mut NSError| {
+        let cause = unsafe { error.as_ref() }.map(|error| error.localizedDescription().to_string());
+        let _ = sender.send(if granted.as_bool() {
+            Ok(())
+        } else {
+            Err(cause.unwrap_or_else(|| "macOS is blocking roundup's alerts".into()))
+        });
+    });
+    UNUserNotificationCenter::currentNotificationCenter()
+        .requestAuthorizationWithOptions_completionHandler(UNAuthorizationOptions::Alert, &answer);
+    receiver
+        .recv_timeout(std::time::Duration::from_secs(60))
+        .unwrap_or(Ok(()))
 }
 
 /// Sends banners as roundup (its icon, its permission, its click target) when running from the `.app` bundle; a dev build has no bundle and keeps the default sender.
@@ -124,9 +163,9 @@ impl<R: Runtime> Notifier for Plugin<R> {
 fn bundle(identifier: &str) {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
-        let bundled = std::env::current_exe()
-            .is_ok_and(|exe| exe.to_string_lossy().contains(".app/Contents/"));
-        if bundled && let Err(error) = mac_notification_sys::set_application(identifier) {
+        if is_bundled()
+            && let Err(error) = mac_notification_sys::set_application(identifier)
+        {
             log::warn!(target: "roundup::shell", "set banner application: {error}");
         }
     });
