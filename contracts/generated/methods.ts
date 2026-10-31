@@ -53,6 +53,9 @@ import type { ListParams as deliverable_ListParams } from "./deliverable/ListPar
 import type { MoveParams as deliverable_MoveParams } from "./deliverable/MoveParams";
 import type { PublishParams as deliverable_PublishParams } from "./deliverable/PublishParams";
 import type { Resolution as deliverable_Resolution } from "./deliverable/Resolution";
+import type { DescribeParams as describe_DescribeParams } from "./describe/DescribeParams";
+import type { MethodDescription as describe_MethodDescription } from "./describe/MethodDescription";
+import type { MethodList as describe_MethodList } from "./describe/MethodList";
 import type { LinkContent as link_LinkContent } from "./link/LinkContent";
 import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { AcceptResultParams as message_AcceptResultParams } from "./message/AcceptResultParams";
@@ -285,6 +288,8 @@ export type RpcMethods = {
   "deliverable.remove": { params: deliverable_DeliverableId; result: null };
   "daemon.ping": { params: null; result: common_Ping };
   "daemon.methods": { params: null; result: string[] };
+  "api.list": { params: null; result: describe_MethodList };
+  "api.describe": { params: describe_DescribeParams; result: describe_MethodDescription };
   "link.read": { params: link_LinkUrl; result: link_LinkContent };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: common_SubscribeParams | null; result: common_SubscribeResult };

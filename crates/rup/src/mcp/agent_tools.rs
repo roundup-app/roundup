@@ -70,13 +70,6 @@ pub(super) fn workstream_rewind() -> Offered {
     )
 }
 
-/// F8, M16: the Bubble rule every Terminal-starting tool's description states, as the Brief does.
-macro_rules! bubble_rule {
-    () => {
-        " Use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools."
-    };
-}
-
 /// F3, A26: the tool every Agent is offered; its child sits under it.
 pub(super) fn agent_spawn() -> Offered {
     offered::<agent::SpawnParams>(

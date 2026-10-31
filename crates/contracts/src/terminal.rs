@@ -22,7 +22,7 @@ pub struct TerminalId {
 }
 
 /// What `agent.run` and `terminal.open` return: the Terminal they started.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Opened {
     pub terminal_id: String,
 }
@@ -57,7 +57,7 @@ pub struct ResizeParams {
 }
 
 /// The App's light or dark colour scheme.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Scheme {
     Light,
@@ -66,14 +66,14 @@ pub enum Scheme {
 
 /// The scheme every Terminal's program is told it runs in (X17), with the two colours the Daemon
 /// reports for an OSC 10 or 11 query as `#rrggbb`.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SchemeParams {
     pub scheme: Scheme,
     pub background: String,
     pub foreground: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct TerminalInfo {
     /// Original program PID, reported only while the owner verifies it is live.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -96,14 +96,14 @@ pub struct TerminalInfo {
 }
 
 /// X14: what `terminal.output` returns: the offset of the first byte the stream delivers.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct OutputStarted {
     #[specta(type = specta_typescript::Number)]
     pub offset: u64,
 }
 
 /// X14: the `terminal.output` notification of a connection that selected the Terminal `id`.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct OutputEvent {
     pub id: String,
     /// Base64 of the bytes the program wrote.
@@ -114,7 +114,7 @@ pub struct OutputEvent {
 
 /// X14: the `terminal.gap` notification: the subscriber fell behind, bytes `from..to` were not
 /// delivered and `terminal.output` bytes resume at `to`. Recover with `terminal.snapshot`.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct OutputGap {
     pub id: String,
     #[specta(type = specta_typescript::Number)]
@@ -127,7 +127,7 @@ pub struct OutputGap {
 /// Subscribe only while selected, buffer live output, then request from the retained emulator's
 /// byte offset. INVALID_PARAMS when `after` is beyond the current end; CONFLICT for a replaced
 /// incarnation. No input, parser, clipboard or Message authority is granted.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct CatchUpParams {
     pub id: String,
     pub incarnation: String,
@@ -143,7 +143,7 @@ pub struct CatchUpParams {
 /// Gap returns no bytes: the requested start was evicted; `from` is the earliest retained byte.
 /// Recover with the existing authoritative snapshot, never treat the gap as contiguous replay.
 /// Both variants identify the original Terminal; the Project is the RPC connection's Project.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum CatchUp {
     Contiguous {
@@ -165,7 +165,7 @@ pub enum CatchUp {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Snapshot {
     pub cols: u16,
     pub rows: u16,
@@ -174,13 +174,13 @@ pub struct Snapshot {
     pub data: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct TitleEvent {
     pub id: String,
     pub title: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ExitedEvent {
     pub id: String,
     /// `None` when the program was killed by a signal; `-1` when the Daemon could not read the exit status.
@@ -202,7 +202,7 @@ pub struct ReadParams {
     pub max: Option<u32>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Read {
     /// Where the text begins: `after`, or the log's start when `after` is older.
     #[specta(type = specta_typescript::Number)]
@@ -227,7 +227,7 @@ pub struct SearchParams {
     pub max: Option<u32>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Match {
     /// The byte offset of the line's start.
     #[specta(type = specta_typescript::Number)]
@@ -236,7 +236,7 @@ pub struct Match {
     pub text: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Search {
     pub matches: Vec<Match>,
     pub truncated: bool,
@@ -246,7 +246,7 @@ pub struct Search {
 }
 
 /// X13: `terminal.screen`. The screen as it is now, as plain text.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Screen {
     pub cols: u16,
     pub rows: u16,
@@ -265,7 +265,7 @@ pub struct MeasureParams {
     pub run: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct KeystrokeSample {
     pub token: String,
     pub received: f64,
@@ -274,7 +274,7 @@ pub struct KeystrokeSample {
     pub ambiguous: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Measurement {
     pub at: f64,
     pub samples: Vec<KeystrokeSample>,

@@ -67,7 +67,7 @@ pub struct ListParams {
     pub workstream: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Checkpoint {
     /// The next integer of its Workstream: 1, then 2.
     pub id: u32,

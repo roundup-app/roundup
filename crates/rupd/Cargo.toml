@@ -42,6 +42,7 @@ rusqlite_migration.workspace = true
 [dev-dependencies]
 agents = { path = "../agents", features = ["test-support"] }
 async-trait.workspace = true
+jsonschema = { version = "0.60.2", default-features = false }
 tempfile.workspace = true
 
 [lints]
