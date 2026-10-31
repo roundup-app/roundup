@@ -478,7 +478,7 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
   await browser("open", url("/harness.html?seed=tree-40&renderer=dom", base));
   await wait("!!window.__fake && !!document.querySelector('.rail-row')");
   await read("[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label')?.startsWith('Overview')).dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,button:2}))");
-  await read("window.__fake.app.pickMenu(window.__fake.app.menuLabels().find(label => label.startsWith('Recover unfinished work')))");
+  await read("window.__fake.app.pickMenu(window.__fake.app.menuLabels().find(label => label.startsWith('Recover ')))");
   await wait("!!document.querySelector('.draft-recovery')");
   await snap("retired-note-recovery");
 }, 300_000);
