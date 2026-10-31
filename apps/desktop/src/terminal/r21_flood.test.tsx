@@ -141,7 +141,7 @@ it("r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind", async () => {
     const sizes = made.get("t-flood")!.written.map(bytes => bytes.length);
 
     expect(sizes[0]).toBe(8192);
-    expect(sizes.slice(1, -1).every(size => size >= 2500 && size <= 3500)).toBe(true);
+    expect(sizes.slice(1, -1).every(size => size >= 1500 && size <= 2500)).toBe(true);
     expect(sizes.reduce((sum, size) => sum + size, 0)).toBe(20_000);
   } finally {
     screens.dispose();
