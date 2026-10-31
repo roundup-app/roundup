@@ -116,7 +116,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Drawer | same | — |
 | Switcher | same | — |
 | Help | same | — |
-| Todo | same | ticket |
+| Todo | same | task, ticket |
 | Reopen (`todo.reopen`, `todo_reopen`) | same | — |
 | Owner (`owner`, Todos only; Pads use Home) | same | assignee |
 | Priority (`Priority`, `priority`) | Priority | — |
@@ -171,7 +171,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Signal | same | notification |
 | Steer (`PromptError`) | same | inject, nudge |
 | First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | same | — |
-| Interrupt | same | abort |
+| Interrupt | same | cancel, abort |
 | Toast | same | — |
 | State alert (`StateAlert`, `stateAlert`, `state_alert`, `state-alert-clicked`) | same | notification |
 | Work order | same | — |
