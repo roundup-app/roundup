@@ -204,12 +204,11 @@ impl Daemon {
             }
             "terminal.read" if params["after"].is_null() => fields.push(("reader", false)),
             "project.importDiscover" | "project.importCommit" => fields.push(("agent", false)),
-            "workstream.rewind" | "workstream.rewindPlan" => fields.push(("agent", false)),
             "reaction.create" => fields.push(("target", false)),
             _ => {}
         }
         let has_owner = matches!(method, "todo.create" | "todo.assign");
-        let has_list = method == "agent.wake"
+        let has_list = matches!(method, "agent.wake" | "workstream.rewind")
             || (method == "reaction.create" && params["condition"]["kind"] == "agents");
         if !has_owner && !has_list && !fields.iter().any(|(field, _)| params[*field].is_string()) {
             return Ok(params);
@@ -249,6 +248,13 @@ impl Daemon {
         if let Some(Value::Array(ids)) = list {
             for id in ids {
                 string(&nodes, actor, last_id, id, false)?;
+            }
+        }
+        if method == "workstream.rewind"
+            && let Some(Value::Array(turns)) = params.get_mut("turns")
+        {
+            for agent in turns.iter_mut().filter_map(|turn| turn.get_mut("agent")) {
+                string(&nodes, actor, last_id, agent, false)?;
             }
         }
         Ok(params)

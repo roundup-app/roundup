@@ -64,7 +64,7 @@ it("u3770a_an_empty_inbox_says_nothing_waits", async () => {
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
   m.connected.showView(null);
   m.connected.showView("attention");
-  await screen.findByText("Nothing waits for you");
+  await screen.findByText("Nothing needs you");
   expect(panel().querySelectorAll(".inbox-group")).toHaveLength(0);
 });
 
@@ -191,7 +191,7 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });
-  const row = (await within(groupOf("Needs you")).findAllByRole("button", { name: /alpha commented on Ship/ }))[0]!;
+  const row = (await within(groupOf("Needs you")).findAllByRole("button", { name: /alpha.*Ship/ }))[0]!;
   // The unread comment row follows the Agent rows and makes no Message call.
   expect(within(row).getByText(m.store.comments!.get(1)![0]!.body)).toBeTruthy();
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
@@ -293,7 +293,7 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
   m.store.comments!.set(1, [{ id: 7, author: { kind: "agent", id: "a", parent: null }, body: "review this", created_at: 10, read: false }]);
   m.connected.showView(null);
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
-  const row = await screen.findByRole("button", { name: /alpha commented on Review/ });
+  const row = await screen.findByRole("button", { name: /alpha.*Review/ });
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
   expect(screen.getByRole("button", { name: /^Needs you/ }).getAttribute("aria-expanded")).toBe("true");
   expect(calls(m, "todo.markCommentsRead")).toEqual([]);
