@@ -375,7 +375,7 @@ fn u5151d_status_labels_read_as_user_actions() {
             "ended session",
             Box::new(|a| signal(a, event(RUN1, "SessionEnd"))),
             Kind::Done,
-            "done",
+            "send a message",
         ),
     ];
     for (name, produce, expected, mention) in cases {
