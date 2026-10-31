@@ -301,7 +301,6 @@ async fn ps4_a_full_reset_clears_every_record() {
 }
 
 #[tokio::test]
-#[ignore = "PS5 reply held back until rupd reads the records (#5229)"]
 async fn ps5_the_query_gets_the_fixed_reply_and_nothing_else() {
     let reply =
         "\x1b]7501;?:states=idle,working,done,blocked,error,clear:kinds=permission,question,auth";
@@ -312,7 +311,14 @@ async fn ps5_the_query_gets_the_fixed_reply_and_nothing_else() {
          head -c {} | cat -v; echo END",
         2 * reply.len() + 3
     );
-    let ran = run_script(&dir, &script).await;
+    let (terminals, _) = open(&dir);
+    terminals.answer_status_query(true);
+    let mut spawned = terminals.spawn(sh(dir.path(), &script)).await.unwrap();
+    let (printed, _) = until_exit(&mut spawned).await;
+    let ran = Ran {
+        changes: Vec::new(),
+        printed,
+    };
     let shown = format!("{reply}\x1b\\{reply}\x07")
         .replace('\x1b', "^[")
         .replace('\x07', "^G");
