@@ -424,7 +424,7 @@ async fn door_family(project: &daemon::Project, user: &Client) -> (String, Strin
 }
 
 #[tokio::test]
-async fn lk5_a_door_reads_its_childs_agent_link() {
+async fn lk5_a_door_reads_its_child_agent_link() {
     let project = daemon::start(&[]);
     let user = project.client().await;
     let key = key(&user).await;
