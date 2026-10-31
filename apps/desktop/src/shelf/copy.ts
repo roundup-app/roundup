@@ -13,7 +13,7 @@ export const copy = {
   couldNotDelete: "Could not delete",
   todos: sharedCopy.todos,
   pads: sharedCopy.pads,
-  cancel: sharedCopy.cancel,
+  keep: sharedCopy.keep,
   rename: sharedCopy.rename,
   needsYouGlyph: sharedCopy.needsYouGlyph,
   blocked: sharedCopy.blocked,

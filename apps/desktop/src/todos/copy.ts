@@ -38,7 +38,7 @@ export const copy = {
   emptyTodosLine: sharedCopy.emptyTodosLine,
   todos: sharedCopy.todos,
   reopen: sharedCopy.reopen,
-  cancel: sharedCopy.cancel,
+  close: sharedCopy.close,
   rename: sharedCopy.rename,
   blocked: sharedCopy.blocked,
   idle: sharedCopy.idle,

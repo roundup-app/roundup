@@ -102,7 +102,7 @@ export const copy = {
   close: "Close",
   drawer: "Drawer",
   closeQuestion: (value1: CopyValue) => `Close ${value1}?`,
-  cancel: "Cancel",
+  work: "Work",
   importAgentName: "Import",
   importTitle: "Import Claude Code",
   importRefresh: word.refresh,

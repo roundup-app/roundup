@@ -73,7 +73,7 @@ it("u3512c_form_buttons_keep_submit_and_cancel", async () => {
   await key("Meta+Shift+t");
   await lane.until("!!document.querySelector('.capture-field')");
   await lane.browser("fill", ".capture-field", "Cancelled draft");
-  await lane.browser("find", "role", "button", "click", "--name", "Cancel", "--exact");
+  await lane.browser("find", "role", "button", "click", "--name", "Close", "--exact");
   await lane.until("!document.querySelector('.capture')");
   expect(await lane.calls("todo.create")).toEqual([]);
   await key("Meta+Shift+t");

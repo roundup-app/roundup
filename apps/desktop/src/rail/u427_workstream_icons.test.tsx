@@ -19,7 +19,7 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("Task");
+    const field = await screen.findByLabelText("Work");
 
     await chooseAction(mounted.app, "g", "Agent");
 
