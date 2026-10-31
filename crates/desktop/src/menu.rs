@@ -120,6 +120,43 @@ fn macos_version() -> String {
         .unwrap_or_else(|| "unknown".to_owned())
 }
 
+/// U5244e: the Daemon is reachable when an open Project's Daemon answers `daemon.ping`.
+async fn daemon_reachable<R: Runtime>(app: &AppHandle<R>) -> bool {
+    let Some(state) = app.try_state::<crate::AppState>() else {
+        return false;
+    };
+    let paths: Vec<String> = state
+        .projects()
+        .into_iter()
+        .filter(|project| project.running)
+        .map(|project| project.path)
+        .collect();
+    any_answers(paths, |path| {
+        let state = &state;
+        async move {
+            state
+                .rpc(&path, "daemon.ping", serde_json::Value::Null)
+                .await
+                .is_ok()
+        }
+    })
+    .await
+}
+
+/// True once any of `paths` has a Daemon whose `ping` answers.
+async fn any_answers<F, Fut>(paths: Vec<String>, ping: F) -> bool
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = bool>,
+{
+    for path in paths {
+        if ping(path).await {
+            return true;
+        }
+    }
+    false
+}
+
 /// The text a Copy item writes, or `None` for any other id.
 fn info_text<R: Runtime>(app: &AppHandle<R>, id: &str, daemon_reachable: bool) -> Option<String> {
     let version = app.package_info().version.to_string();
@@ -141,14 +178,16 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
         event.id().0.as_str(),
         "copy-version-info" | "copy-debug-info"
     ) {
-        let reachable = app
-            .try_state::<crate::AppState>()
-            .is_some_and(|state| state.projects().iter().any(|project| project.running));
-        if let Some(text) = info_text(app, &event.id().0, reachable)
-            && app.clipboard().write_text(text).is_err()
-        {
-            log::warn!(target: "roundup::shell", "copy info: clipboard write failed");
-        }
+        let app = app.clone();
+        let id = event.id().0.clone();
+        tauri::async_runtime::spawn(async move {
+            let reachable = daemon_reachable(&app).await;
+            if let Some(text) = info_text(&app, &id, reachable)
+                && app.clipboard().write_text(text).is_err()
+            {
+                log::warn!(target: "roundup::shell", "copy info: clipboard write failed");
+            }
+        });
     } else if event.id().0 == "app-settings" {
         if let Err(error) = app.emit("open-app-settings", ()) {
             crate::diagnostics::failure("open Settings", &error);
