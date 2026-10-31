@@ -1,6 +1,7 @@
 packages:
   - "tools/lint"
   - "apps/*"
+  - "site"
   - "ext/*"
   - "crates/agents/sidecar"
   - "loop/agent-runners"
