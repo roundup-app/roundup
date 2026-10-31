@@ -21,15 +21,15 @@ pub struct Request {
 
 /// What the system is asked to do; the plugin answers it in the App and a fake answers it in tests.
 pub trait Notifier: Send + Sync {
-    /// `Err` carries the cause of a refusal.
-    fn permission(&self) -> Result<(), String>;
+    /// `Err` carries the cause of a refusal; `None` is a request the owner has not answered yet.
+    fn permission(&self) -> Option<Result<(), String>>;
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String>;
     fn sound(&self);
 }
 
 pub struct Alerts {
     notifier: Box<dyn Notifier>,
-    /// The answer of the one permission request; a refusal is kept and returned, never asked again.
+    /// The answer of the permission request; a grant or refusal is kept, an unanswered request is asked again on the next alert.
     permission: Mutex<Option<Result<(), String>>>,
 }
 
@@ -54,12 +54,17 @@ impl Alerts {
         if !request.alert {
             return Ok(());
         }
-        let permission = self
+        let mut cached = self
             .permission
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get_or_insert_with(|| self.notifier.permission())
-            .clone();
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if cached.is_none() {
+            *cached = self.notifier.permission();
+        }
+        let Some(permission) = cached.clone() else {
+            return Ok(());
+        };
+        drop(cached);
         permission.map_err(|cause| {
             RpcError::new(code::FORBIDDEN, format!("State alerts refused: {cause}"))
         })?;
@@ -74,12 +79,12 @@ pub struct Plugin<R: Runtime>(pub AppHandle<R>);
 
 impl<R: Runtime> Notifier for Plugin<R> {
     /// Asks macOS once (it prompts the owner the first time) and returns the refusal as the cause. A dev build has no bundle, so there is no center to ask.
-    fn permission(&self) -> Result<(), String> {
+    fn permission(&self) -> Option<Result<(), String>> {
         #[cfg(target_os = "macos")]
         if is_bundled() {
             return authorize();
         }
-        Ok(())
+        Some(Ok(()))
     }
 
     #[cfg(target_os = "macos")]
@@ -134,9 +139,9 @@ fn is_bundled() -> bool {
     std::env::current_exe().is_ok_and(|exe| exe.to_string_lossy().contains(".app/Contents/"))
 }
 
-/// The owner's answer to the system's banner permission, waited for up to a minute.
+/// The owner's answer to the system's banner permission, waited for up to a minute; `None` when none came.
 #[cfg(target_os = "macos")]
-fn authorize() -> Result<(), String> {
+fn authorize() -> Option<Result<(), String>> {
     use block2::RcBlock;
     use objc2::runtime::Bool;
     use objc2_foundation::NSError;
@@ -148,14 +153,14 @@ fn authorize() -> Result<(), String> {
         let _ = sender.send(if granted.as_bool() {
             Ok(())
         } else {
-            Err(cause.unwrap_or_else(|| "macOS is blocking roundup's alerts".into()))
+            Err(cause.unwrap_or_else(|| "macOS is blocking roundup's alerts; allow them in System Settings > Notifications".into()))
         });
     });
     UNUserNotificationCenter::currentNotificationCenter()
         .requestAuthorizationWithOptions_completionHandler(UNAuthorizationOptions::Alert, &answer);
     receiver
         .recv_timeout(std::time::Duration::from_secs(60))
-        .unwrap_or(Ok(()))
+        .ok()
 }
 
 /// Sends banners as roundup (its icon, its permission, its click target) when running from the `.app` bundle; a dev build has no bundle and keeps the default sender.
@@ -183,7 +188,7 @@ pub fn clicked<R: Runtime>(app: &AppHandle<R>, agent: &str) {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn state_alert(alerts: State<'_, Arc<Alerts>>, request: Request) -> Result<(), RpcError> {
     alerts.raise(&request)
 }

@@ -17,9 +17,9 @@ struct Fake {
 struct Shared(Arc<Fake>);
 
 impl Notifier for Shared {
-    fn permission(&self) -> Result<(), String> {
+    fn permission(&self) -> Option<Result<(), String>> {
         self.0.calls.lock().unwrap().push("permission".into());
-        self.0.refuse.clone().map_or(Ok(()), Err)
+        Some(self.0.refuse.clone().map_or(Ok(()), Err))
     }
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String> {
         self.0
