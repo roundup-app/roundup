@@ -108,7 +108,7 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("g");
     await app.pickMenu("Remove");
-    expect(await questionDialog()).toMatchObject({ okLabel: "Remove", cancelLabel: "Back" });
+    expect(await questionDialog()).toMatchObject({ okLabel: "Remove", cancelLabel: "Cancel" });
     await questionDialog();
     await answerQuestion(false);
     await waitFor(() => expect(questionProbe.shown).toBeNull());
@@ -227,7 +227,7 @@ it.each(["chosen", "group", "supervisor"])("u4368_container_terminal_loss_still_
   open("chosen");
   await app.pickMenu("Remove");
   const question = await questionDialog();
-  expect(question).toMatchObject({ okLabel: "Remove", cancelLabel: "Back" });
+  expect(question).toMatchObject({ okLabel: "Remove", cancelLabel: "Cancel" });
   expect(removals(app)).toEqual([]);
   await answerQuestion(false);
   await waitFor(() => expect(questionProbe.shown).toBeNull());

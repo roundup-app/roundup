@@ -18,7 +18,7 @@ it("u426_arrow_down_skips_icons", async () => {
 it("u426_an_icon_runs_without_selecting_its_row", async () => {
   const mounted = await mountRail([workstream("g"), workstream("h")]);
   mounted.rail.select("g");
-  await chooseAction(mounted.app, "h", "Open directory");
+  await chooseAction(mounted.app, "h", "Open folder");
   expect(mounted.rail.selected()).toBe("g");
   expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p", line: null }]);
 });

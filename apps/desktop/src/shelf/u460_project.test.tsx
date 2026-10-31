@@ -47,7 +47,7 @@ it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", asy
   const row = await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / });
   fireEvent.click(row, { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }), { metaKey: true });
-  const cancel = screen.getByRole("button", { name: "Back" });
+  const cancel = screen.getByRole("button", { name: "Cancel" });
   const tab = within(screen.getByRole("tablist", { name: "Bench" })).getByRole("tab", { name: /Todos/ });
   tab.focus();
   const calls = app.calls.length;

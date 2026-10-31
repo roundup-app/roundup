@@ -21,7 +21,7 @@ export const copy = {
   askBarShortcut: sharedCopy.askBarShortcut,
   selectCommand: "Select command",
   addAgentMenu: sharedCopy.addAgentMenu,
-  noOutputKeptFromAnEarlierRun: "No earlier output exists.",
+  noOutputKeptFromAnEarlierRun: "No output kept from an earlier run.",
   terminalRestoreFailed: (cause: string) => `Could not restore Terminal output: ${cause}. Switch away and back to retry.`,
   latest: "↓ Latest",
   findLabel: "Find in Terminal",

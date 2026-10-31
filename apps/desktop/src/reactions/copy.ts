@@ -9,7 +9,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 const unexplained = "Observation unclear";
 
-const byYou = "Run by you";
+const byYou = "run by you";
 
 const rearms = "Re-arms";
 
@@ -19,7 +19,7 @@ const observationUnavailable = "Observation unavailable";
 
 const deliveryUnknown = "Delivery unknown";
 
-const reactionHealth = new Map<ObservationHealth, string>([["fired", "Sent on time"], ["fired-late", "Sent late"], ["expired", "Expired unsent"], ["skipped", "Missed, skipped"], ["observing", "Watching changes"], ["not-observing", "Not watching yet"], ["unavailable", observationUnavailable], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", prChanged], ["acceptance-failed", "Accept failed"], ["write-failed", "Save failed"], ["observation-save-failed", "Observation unsaved"]]);
+const reactionHealth = new Map<ObservationHealth, string>([["fired", "Sent on time"], ["fired-late", "Sent late"], ["expired", "Expired unsent"], ["skipped", "Missed, skipped"], ["observing", "Watching changes"], ["not-observing", "Not watching yet"], ["unavailable", observationUnavailable], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", prChanged], ["acceptance-failed", "Accept failed. Check again."], ["write-failed", "Save failed. Check again."], ["observation-save-failed", "Observation not saved. Retry storage."]]);
 
 const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", prChanged]]);
 
@@ -104,7 +104,7 @@ export const copy = {
   reactionNoHome: sharedCopy.projectRoot,
   reactionGone: () => sharedCopy.unavailableAgent,
   reactionBound: "Bound",
-  reactionRemaining: (remaining: number, max: number, rearm: boolean) => sharedCopy.draftIdentity(`${remaining}/${max} left`, ...(rearm ? [rearms] : [])),
+  reactionRemaining: (remaining: number, max: number, rearm: boolean) => sharedCopy.join(`${remaining}/${max} left`, ...(rearm ? [rearms] : [])),
   reactionHealth: (health: ObservationHealth = "unknown") => reactionHealth.get(health) ?? unexplained,
   reactionDelivery: (status: string) => reactionDelivery.get(status) ?? deliveryUnknown,
   reactionFeedback: (observation: Observation) => {
@@ -127,7 +127,7 @@ export const copy = {
   reactionMessageState: "Delivery",
   reactionFirings: "Firings",
   reactionNoFirings: "None yet",
-  reactionFiring: (ordinal: number, outcome: string, matched: boolean) => sharedCopy.draftIdentity(`Firing ${ordinal}`, reactionDelivery.get(outcome) ?? deliveryUnknown, ...(matched ? [] : [byYou])),
+  reactionFiring: (ordinal: number, outcome: string, matched: boolean) => sharedCopy.join(`Firing ${ordinal}`, reactionDelivery.get(outcome) ?? deliveryUnknown, ...(matched ? [] : [byYou])),
   reactionAgents: (names: string[], any: boolean) => `${any ? "Any of" : "All of"} ${names.join(", ")} finish.`,
   reactionPrChecks: (repository: string, number: number) => `Checks pass on ${repository}#${number}.`,
   reactionInstant: (at: string, late: string) => `At ${at}; ${late === "skip" ? "skip if missed" : "run once before expiry if missed"}.`,

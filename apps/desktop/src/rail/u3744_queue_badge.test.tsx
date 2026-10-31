@@ -49,7 +49,7 @@ it("u3744_the_row_menu_calls_one_method_per_choice", async () => {
   openMenu("one");
   await app.pickMenu("Move down");
   openMenu("two");
-  await app.pickMenu("Leave queue");
+  await app.pickMenu("Remove from queue");
   openMenu("one");
   await app.pickMenu("Start now");
 
