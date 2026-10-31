@@ -117,6 +117,8 @@
     Method { name: "deliverable.remove", params: "deliverable_DeliverableId", result: "null" },
     Method { name: "daemon.ping", params: "null", result: "common_Ping" },
     Method { name: "daemon.methods", params: "null", result: "string[]" },
+    Method { name: "api.list", params: "null", result: "describe_MethodList" },
+    Method { name: "api.describe", params: "describe_DescribeParams", result: "describe_MethodDescription" },
     Method { name: "link.read", params: "link_LinkUrl", result: "link_LinkContent" },
     Method { name: "daemon.identify", params: "common_IdentifyParams", result: "null" },
     Method { name: "events.subscribe", params: "common_SubscribeParams | null", result: "common_SubscribeResult" },

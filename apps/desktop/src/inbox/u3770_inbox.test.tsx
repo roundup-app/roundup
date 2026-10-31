@@ -24,7 +24,7 @@ const panel = () => document.querySelector<HTMLElement>(".inbox")!;
 const NODES: RailNode[] = [
   agent("a", "needs-you", "asks", { name: "alpha", order: 0 }),
   agent("b", "working", "editing Thread.tsx", { name: "beta", order: 1 }),
-  agent("c", "error", "crashed", { name: "gamma", order: 2 }),
+  agent("c", "error", "crashed", { name: "gamma", order: 2, can_resume: true }),
   agent("d", "done", "finished", { name: "delta", order: 3, status: { kind: "done", label: "finished", since: NOW - 10, finished: "0" } }),
   agent("e", "done", "finished", { name: "epsilon", order: 4, status: { kind: "done", label: "finished", since: NOW, finished: "0" } }),
   agent("f", "needs-you", "asks", { name: "zeta", order: 5, status: { kind: "needs-you", label: "asks", since: NOW + 1, finished: "0" } }),
@@ -115,6 +115,21 @@ it("u3770c_retry_resumes_the_failed_agent", async () => {
   expect(names(panel())).not.toContain("c");
 });
 
+it("u5265_an_error_row_that_can_resume_offers_retry", async () => {
+  const m = await mountInbox();
+  const row = () => within(panel()).getByText("gamma").closest<HTMLElement>("li")!;
+  fireEvent.click(within(row()).getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(calls(m, "agent.resume")).toEqual([{ id: "c" }]));
+});
+
+it("u5265_an_error_row_that_cannot_resume_offers_open_not_retry", async () => {
+  const m = await mountInbox(NODES.map(node => node.id === "c" ? { ...node, can_resume: false } : node));
+  const row = () => within(panel()).getByText("gamma").closest<HTMLElement>("li")!;
+  fireEvent.click(within(row()).getByRole("button", { name: "Open" }));
+  expect(m.connected.rail.selected()).toBe("c");
+  expect(calls(m, "agent.resume")).toEqual([]);
+});
+
 it("u3770c_a_failed_call_keeps_the_row_open_with_the_error", async () => {
   const m = await mountInbox();
   m.app.handlers["agent.resume"] = () => { throw new Error("cannot resume"); };
@@ -182,7 +197,7 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
 });
 
 it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_inboxrow_resume_%s", async (transition) => {
-  const nodes = [agent("a", "error", "crashed", { name: "alpha" }), agent("b", "error", "crashed", { name: "beta" })];
+  const nodes = [agent("a", "error", "crashed", { name: "alpha", can_resume: true }), agent("b", "error", "crashed", { name: "beta", can_resume: true })];
   const m = await mountInbox(nodes);
 
   fireEvent.click(screen.getByRole("button", { name: /^Add Todo:/ }));
