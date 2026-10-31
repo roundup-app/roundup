@@ -188,6 +188,7 @@ const owners: [string, string, () => Promise<HTMLElement>, (app: Awaited<ReturnT
 
 it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async (_owner, name, find, observe) => {
   const row = CHORDS.find(chord => chord.name === name)!;
+
   const run = async (how: "click" | "press") => {
     cleanup();
     localStorage.clear();
@@ -204,6 +205,7 @@ it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async 
 
     return [before, observe(app)];
   };
+
   const clicked = await run("click");
   const pressed = await run("press");
 
