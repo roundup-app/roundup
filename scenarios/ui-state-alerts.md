@@ -1,6 +1,6 @@
 # UI: the owner chooses what each state shows (U5232a to U5232k)
 
-Modules: `crates/desktop` (the App seam command, U5232f, U5232g) and `apps/desktop` (`rail/DockBadge.tsx`, `settings/`, the attention dispatch). Ids: U5232a to U5232i.
+Modules: `crates/desktop` (the App seam command, U5232f, U5232g) and `apps/desktop` (`rail/DockBadge.tsx`, `settings/`, the attention dispatch). Ids: U5232a to U5232k.
 
 Source: the owner studied Rex (Superlogical's Mac terminal multiplexer; https://www.superlogical.com/rex/docs/llms-full.txt), where each program state picks its own notification, sound and badge and the notification opens the session; the owner accepted this lesson on 2026-10-31 (#5232). Implementation: #5233 (App, `crates/desktop`), then #5234 (webview). Narrows U10 and U182 (the Dock badge counts the states the owner chose), U410 and U413 (the Toast's sound follows the same choice) and `docs/wireframes.md` decision 4 ("no macOS banners"); amends P3 (`PRINCIPLES.md`) in this PR. Words: a **State alert** is the macOS banner roundup raises for an Agent whose Kind became a state the owner turned it on for (`GLOSSARY.md`); "notification" is the Avoid word of Signal. The five states are the Kinds `working`, `blocked`, `needs-you`, `error` and `done`; `idle` has no choice and raises nothing.
 
