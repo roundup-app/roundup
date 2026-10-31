@@ -3,6 +3,7 @@ import { createCutTitle } from "../ui/cutTitle";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { agent, workstream } from "../testing/nodes";
+import { copy } from "../ink/copy";
 import { itemOf, mountRail, rowOf } from "./railFixture";
 
 afterEach(() => {
@@ -122,5 +123,5 @@ it("z3788c_cut_title_releases_changed_targets_and_disposed_owners", async () => 
 it("u5231a_rail_row_reveals_reason_and_age", async () => {
   await mountRail([agent("a", "working", "Editing Thread.tsx", { name: "alpha", status: { kind: "working", label: "Editing Thread.tsx", since: Date.now() - 12 * 60_000, finished: "0" } })]);
   fireEvent.pointerMove(rowOf("alpha"), { pointerType: "mouse" });
-  expect((await screen.findByRole("tooltip")).textContent).toMatch(/^Editing Thread\.tsx · 1[23] min$/);
+  expect((await screen.findByRole("tooltip")).textContent).toBe(copy.statusReveal("Editing Thread.tsx", copy.statusAge.minutes(12)));
 });
