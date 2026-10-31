@@ -94,6 +94,15 @@ impl Daemon {
         rpc::reply(&waker.ask(&conn.actor, params).await?)
     }
 
+    pub(super) async fn rpc_rewind(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        self.rewind_call(&conn.actor, params).await
+    }
+
     pub(super) async fn rpc_project_resources(
         &self,
         _conn: &mut Conn,

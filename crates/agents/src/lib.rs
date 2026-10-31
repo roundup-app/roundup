@@ -44,6 +44,7 @@ pub use peer::{classifications, parent_lookups};
 mod prepared;
 mod queue;
 mod rail;
+pub mod rewind;
 mod scan;
 pub mod worktree;
 

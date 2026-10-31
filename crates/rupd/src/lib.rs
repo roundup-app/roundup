@@ -37,6 +37,7 @@ mod selectors;
 mod specialist;
 mod storage;
 
+mod rewind;
 mod todo_refs;
 mod waits;
 mod wake;

@@ -41,6 +41,16 @@ pub(super) fn agent_set_order() -> Offered {
     )
 }
 
+/// M5159b: a Door's rewind of its children through each provider's own rewind. The shim fills `id`
+/// with the Door's own id.
+pub(super) fn workstream_rewind() -> Offered {
+    with_own_id::<workstream::RewindParams>(
+        "workstream.rewind",
+        "workstream_rewind",
+        "Ask each named child's provider to rewind it through the provider's own feature: Claude Code restores the child's files to the state at the user message `turn` of its conversation. Name each child (direct or nested, never yourself) with its `turn`; the result says for each `rewound`, `unavailable` (the provider has no rewind) or `failed` and why. Commits, pushes and Issues are never undone, and nothing is typed into the child's Terminal.",
+    )
+}
+
 /// F8, M16: the Bubble rule every Terminal-starting tool's description states, as the Brief does.
 macro_rules! bubble_rule {
     () => {

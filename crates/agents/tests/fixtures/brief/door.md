@@ -102,6 +102,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `agent_extras`: list the skills, plugins and servers of the user's setup that a child can be given.
 - `agent_extras_add`: give a running child of yours such extras by name; it is relaunched with its conversation.
 - `terminal_show`: show a Terminal in your Reach to the user, who sees its owner selected; it reads nothing.
+- `workstream_rewind`: ask the provider of a child of yours to rewind it through the provider's own feature, to a turn you name.
 
 To read a Terminal of your Runs or your Workstream, search first with `terminal_search` for a pattern, read what is new with `terminal_read` and the `next` of your last read, and look at what is on screen now with `terminal_screen`. Never read from 0 again; every answer is capped, and says `truncated` when more is left.
 
