@@ -1,5 +1,8 @@
 use super::*;
 
+/// Whether `ESC ] 7501 ; ? ST` gets its PS5 reply.
+const ANSWER_STATUS_QUERY: bool = false;
+
 /// Feed queued writes to the PTY. It blocks on a program that does not read, which is why it has a
 /// thread of its own instead of one from the pool `kill` also needs.
 pub(super) fn type_queued(
@@ -91,7 +94,9 @@ pub(super) fn read(
             };
             (seen, reported)
         };
-        if !reported.reply.is_empty() {
+        // PS5: held back until rupd folds the records (#5229). A program that sees the reply
+        // reports over OSC 7501 and stops moving its title, which the Daemon's interrupt ack reads.
+        if ANSWER_STATUS_QUERY && !reported.reply.is_empty() {
             shared.type_into(number, reported.reply);
         }
         for records in reported.changes {
