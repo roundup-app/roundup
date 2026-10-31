@@ -137,7 +137,11 @@ export const RailRowView = (props: {
     return (["error", "needs-you", "blocked", "working", "done", "idle"] as const).find(kind => kinds.includes(kind)) ?? null;
   };
 
-  const statusLabel = () => { const status = props.row.node.status; return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? ""; };
+  const statusLabel = () => {
+    const status = props.row.node.status;
+
+    return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? "";
+  };
 
   const unread = () => connected.unseen.of(props.row.node.id) || (workstream() && props.row.collapsed !== null && connected.unseen.below(props.row.node.id));
 
