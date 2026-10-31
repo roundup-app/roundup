@@ -82,7 +82,7 @@ impl<R: Runtime> Notifier for Plugin<R> {
     fn permission(&self) -> Option<Result<(), String>> {
         #[cfg(target_os = "macos")]
         if is_bundled() {
-            return authorize();
+            return native::banner_permission();
         }
         Some(Ok(()))
     }
@@ -137,30 +137,6 @@ impl<R: Runtime> Notifier for Plugin<R> {
 #[cfg(target_os = "macos")]
 fn is_bundled() -> bool {
     std::env::current_exe().is_ok_and(|exe| exe.to_string_lossy().contains(".app/Contents/"))
-}
-
-/// The owner's answer to the system's banner permission, waited for up to a minute; `None` when none came.
-#[cfg(target_os = "macos")]
-fn authorize() -> Option<Result<(), String>> {
-    use block2::RcBlock;
-    use objc2::runtime::Bool;
-    use objc2_foundation::NSError;
-    use objc2_user_notifications::{UNAuthorizationOptions, UNUserNotificationCenter};
-
-    let (sender, receiver) = std::sync::mpsc::channel();
-    let answer = RcBlock::new(move |granted: Bool, error: *mut NSError| {
-        let cause = unsafe { error.as_ref() }.map(|error| error.localizedDescription().to_string());
-        let _ = sender.send(if granted.as_bool() {
-            Ok(())
-        } else {
-            Err(cause.unwrap_or_else(|| "macOS is blocking roundup's alerts; allow them in System Settings > Notifications".into()))
-        });
-    });
-    UNUserNotificationCenter::currentNotificationCenter()
-        .requestAuthorizationWithOptions_completionHandler(UNAuthorizationOptions::Alert, &answer);
-    receiver
-        .recv_timeout(std::time::Duration::from_secs(60))
-        .ok()
 }
 
 /// Sends banners as roundup (its icon, its permission, its click target) when running from the `.app` bundle; a dev build has no bundle and keeps the default sender.
