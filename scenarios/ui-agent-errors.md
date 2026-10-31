@@ -49,6 +49,11 @@ Policy: this amends only the unconditional inclusion of an explicitly dismissed 
 - Retry that is acknowledged removes the line, and a reload then keeps the failure dismissed; a Retry that fails again keeps the line. A successful first write shows no line. Planned observer: `u5151e_retry_saves_the_dismissal`, covering both Retry outcomes and a reload with the persisted result.
 - The line is bound to the one failure it names (Project, Agent, Attempt, Status revision); a later failure of any Agent never inherits or hides it. Policy: reuse the existing failure line and persistence; no second store.
 
+**U5151f a dismissed error leaves the Inbox row.** Given an Agent whose current last-turn error was dismissed from its Rail menu (U5151c), when the Inbox lists that Agent, then:
+
+- Its row shows neither the error mark nor the failure line; the mark and line return for a later failure of that Agent, and another Agent's undismissed failure keeps both. Planned observer: `u5151f_inbox_row_drops_a_dismissed_error`, through the rendered Inbox and the production dismissal state, with two failed Agents, asserting the dismissed row's mark and failure line are absent, the other row's present, and the zero turn-producing calls.
+- The dismissed failure stays inspectable from the opened Agent, labelled as dismissed, as U5151c orders. Policy: the Inbox reads the same dismissal state as the Rail, Switcher, AskBar, AskRows and TodoComments; no second store.
+
 **U5151d audit every Agent status label.** Given the App's complete set of Status producers and presentation consumers, then:
 
 - Every known status code displayed as App copy is translated to its glossary user label or a cause and recovery action. Cover all six Kinds, starting, SessionEnd reasons, Terminal disappearance/exit, startup failures, blocked-Todo explanations and native permission/question labels. Preserve meaningful user/vendor-authored questions and commands rather than replacing them with a generic state. Unknown failure codes retain their raw evidence under U5151b. Planned observer: `u5151d_status_labels_read_as_user_actions`, table-driven production-path cases for each producer discovered in the audit; extend existing observers when they already prove a clause.
