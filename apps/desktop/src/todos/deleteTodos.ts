@@ -122,9 +122,18 @@ export function createTodoUndo() {
   const unconfirmed = () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending();
 
   const removeRail = async (id: string, name: string, region = "") => {
-    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length) { block(); return false; }
+    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length) {
+      block();
 
-    if (railPending() && railPending()!.id !== id) { block(); return false; }
+      return false;
+    }
+
+    if (railPending() && railPending()!.id !== id) {
+      block();
+
+      return false;
+    }
+
     const app = connection;
     setPending(true);
     setFailure(null);
@@ -167,10 +176,19 @@ export function createTodoUndo() {
   };
 
   const remove = async (ids: number[], region = ""): Promise<boolean> => {
-    if (pending() || redoUnknown() || !forwarding || padPending().length || railPending()) { block(); return false; }
+    if (pending() || redoUnknown() || !forwarding || padPending().length || railPending()) {
+      block();
+
+      return false;
+    }
+
     deleted = [];
 
-    if (uncertain() && JSON.stringify(uncertain()) !== JSON.stringify(ids)) { block(); return false; }
+    if (uncertain() && JSON.stringify(uncertain()) !== JSON.stringify(ids)) {
+      block();
+
+      return false;
+    }
 
     if (!uncertain()) todoRegion = region;
     const chosen = uncertain() ?? [...ids];
@@ -205,9 +223,18 @@ export function createTodoUndo() {
   };
 
   const removePads = async (pads: readonly Pick<Pad, "name" | "incarnation">[], region = "") => {
-    if (pending() || redoUnknown() || !connection || uncertain() || railPending()) { const message = block(); return pads.map(pad => ({ id: pad.incarnation, message })); }
+    if (pending() || redoUnknown() || !connection || uncertain() || railPending()) {
+      const message = block();
 
-    if (padPending().length && JSON.stringify(padPending().map(pad => pad.incarnation)) !== JSON.stringify(pads.map(pad => pad.incarnation))) { const message = block(); return pads.map(pad => ({ id: pad.incarnation, message })); }
+      return pads.map(pad => ({ id: pad.incarnation, message }));
+    }
+
+    if (padPending().length && JSON.stringify(padPending().map(pad => pad.incarnation)) !== JSON.stringify(pads.map(pad => pad.incarnation))) {
+      const message = block();
+
+      return pads.map(pad => ({ id: pad.incarnation, message }));
+    }
+
     const app = connection;
     const retry = padPending().length > 0;
 
@@ -267,7 +294,12 @@ export function createTodoUndo() {
 
     if (!operation) return;
 
-    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length || railPending()) { block(); return; }
+    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length || railPending()) {
+      block();
+
+      return;
+    }
+
     const app = connection;
     setPending(true);
     setFailure(null);
@@ -366,7 +398,12 @@ export function createTodoUndo() {
 
     if (!action) return;
 
-    if (pending() || !connection || uncertain() || padPending().length || railPending()) { block(); return; }
+    if (pending() || !connection || uncertain() || padPending().length || railPending()) {
+      block();
+
+      return;
+    }
+
     const app = connection;
     setPending(true);
     setFailure(null);
@@ -497,7 +534,12 @@ export function createTodoUndo() {
     failure: () => failure()?.message ?? null,
     // U5170b: Dismiss drops an unconfirmed state from the blocking set and says the Daemon may still hold it.
     dismiss: () => {
-      if (!unconfirmed()) { setFailure(null); return; }
+      if (!unconfirmed()) {
+        setFailure(null);
+
+        return;
+      }
+
       const name = unconfirmedName();
 
       if (uncertain()) calls.get(forwarding!)?.delete(JSON.stringify([...new Set(uncertain())].toSorted((a, b) => a - b)));

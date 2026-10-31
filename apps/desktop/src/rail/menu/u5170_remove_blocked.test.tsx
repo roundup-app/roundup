@@ -1,44 +1,41 @@
 import { expect, it } from "vitest";
 import { createRoot } from "solid-js";
 import type { AppSeam } from "../../app/seam";
+import { createFakeApp } from "../../testing/fakeApp";
 import { createTodoUndo } from "../../todos/deleteTodos";
-
-type CallParams = Record<string, unknown>;
-
-type Call = [string, CallParams];
 
 /** A todoUndo on a stub App: `lose` makes rail.remove's acknowledgement vanish; `hold` leaves it unanswered. */
 const harness = (initial: "idle" | "lose" | "hold" | "offline") => {
   let mode = initial;
-  const calls: Call[] = [];
+  const calls: string[] = [];
   let release: () => void = () => undefined;
 
-  // SAFETY: the todoUndo under test calls only `rpc`; every other App member is unreached here.
-  const app = {
-    rpc: (method: string, params: CallParams) => {
-      calls.push([method, params]);
+  const rpc = async (method: string): Promise<object | null> => {
+    calls.push(method);
 
-      if (method === "daemon.ping") return Promise.resolve({ projectKey: "p" });
+    if (method === "daemon.ping") return { projectKey: "p" };
 
-      if (method === "rail.deletion") return Promise.resolve(null);
+    if (method === "rail.deletion") return null;
 
-      if (method === "rail.remove") {
-        if (mode === "lose") return Promise.reject(new Error("link lost"));
+    if (method === "rail.remove") {
+      if (mode === "lose") throw new Error("link lost");
 
-        if (mode === "hold") return new Promise<never>((_, reject) => { release = () => reject(new Error("released")); });
+      if (mode === "hold") await new Promise<never>((_, reject) => { release = () => reject(new Error("released")); });
 
-        return Promise.resolve({ deletion: { operation: "o", project: "p", restored: false } });
-      }
+      return { deletion: { operation: "o", project: "p", restored: false } };
+    }
 
-      return Promise.resolve(null);
-    },
-  } as unknown as AppSeam;
+    return null;
+  };
+
+  // SAFETY: the todoUndo under test calls only `rpc`, and each method it sends answers with one of the shapes above.
+  const app: AppSeam = { ...createFakeApp(), rpc: rpc as AppSeam["rpc"] };
 
   const undo = createRoot(() => createTodoUndo());
 
   if (mode !== "offline") undo.reconnect(app);
 
-  return { undo, calls, lose: () => { mode = "lose"; }, release: () => release(), removes: () => calls.filter(([m]) => m === "rail.remove").length };
+  return { undo, calls, lose: () => { mode = "lose"; }, release: () => release(), removes: () => calls.filter(m => m === "rail.remove").length };
 };
 
 it("u5170a_remove_renamed_workstream_sends_rail_remove", async () => {
