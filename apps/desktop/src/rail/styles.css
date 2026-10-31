@@ -847,6 +847,7 @@
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
 .rail-row .hidden-agents {
   flex: none;
+  margin-inline-start: calc(var(--space-2) - var(--rail-gap));
   color: var(--grey);
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
