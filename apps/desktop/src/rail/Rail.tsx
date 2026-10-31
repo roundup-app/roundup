@@ -32,11 +32,10 @@ import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { ancestorsOf, isWorkstream, layoutRail, siblingsOf, type NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
-import { focusedRowId, ROW } from "./rows";
+import { focusedRowId, ROW, type RowActions } from "./rows";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
-import type { RowActions } from "./rows";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
@@ -162,6 +161,7 @@ export const Rail = () => {
 
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
+
     if (prompt !== undefined) keepDraft(String(prompt));
   };
 
