@@ -12,6 +12,7 @@ import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
+import { ProgramStatusMark, tabLabel } from "../terminal/programStatus";
 import { copy } from "./copy";
 
 /** Everything a Terminal tab reads from the Bubbles that owns it. */
@@ -131,14 +132,14 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
   return <>
     <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
       <Show when={editing()?.id === id ? editing() : null} keyed fallback={
-        <Tip content={name()} cut={nameCut}>
+        <Tip class="ink-tip terminal-tab-tip" content={<span class="terminal-tab-tip-label">{tabLabel(name(), terminal().status)}</span>} cut={() => nameCut() || !!terminal().status}>
           {(trigger) => (
             <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
-              aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
+              aria-label={tabLabel(name(), terminal().status)} aria-describedby={!terminal().status && props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
               onClick={() => toggleMinimised(id)}
               onDblClick={() => start()}>
               <span class="terminal-tab-name" ref={nameRef}>{copied.copied() ? copy.copied : name()}</span>
-              <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput} /></Show></span>
+              <span class="terminal-tab-slot"><Show when={terminal().status} fallback={<Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput} /></Show>}>{status => <ProgramStatusMark status={status()} />}</Show></span>
             </button>
           )}
         </Tip>
