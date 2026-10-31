@@ -41,11 +41,12 @@ async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
             .unwrap(),
     )
     .unwrap();
-    let todo = next(&mut client, |data| match data {
-        EventData::TodoCreated(todo) => Some(*todo),
-        _ => None,
-    })
-    .await;
+    let todo = project
+        .next(&mut client, |data| match data {
+            EventData::TodoCreated(todo) => Some(*todo),
+            _ => None,
+        })
+        .await;
     let result = project
         .model
         .as_ref()
@@ -631,11 +632,12 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
         .await
         .unwrap();
 
-    let updated = next(&mut client, |data| match data {
-        EventData::TodoUpdated(todo) if !todo.body.is_empty() => Some(todo),
-        _ => None,
-    })
-    .await;
+    let updated = project
+        .next(&mut client, |data| match data {
+            EventData::TodoUpdated(todo) if !todo.body.is_empty() => Some(todo),
+            _ => None,
+        })
+        .await;
     let model = project.model.as_ref().unwrap();
     let result = model.tool_result("toolu_update_todo").await;
     assert!(
@@ -1789,7 +1791,7 @@ async fn a33_blocked_agent(fixture: &str) -> (Project, rpc::Client, RailNode) {
     let client = project.client().await;
     let agent: RailNode = serde_json::from_value(
         tokio::time::timeout(
-            Duration::from_secs(30),
+            project.bound(),
             client.request(
                 "agent.spawn",
                 json!({
@@ -3138,4 +3140,11 @@ async fn u2773c_terminal_identity_distinguishes_replacement() {
         std::fs::read_to_string(fixture.path().join("writes")).unwrap(),
         ""
     );
+}
+
+#[test]
+fn e5417_a_real_project_waits_the_real_bound_and_a_fake_one_the_short_bound() {
+    assert_eq!(daemon::bound_for(true), daemon::aimock::REAL_BOUND);
+    assert_ne!(daemon::bound_for(false), daemon::aimock::REAL_BOUND);
+    assert!(daemon::bound_for(true) > daemon::bound_for(false));
 }

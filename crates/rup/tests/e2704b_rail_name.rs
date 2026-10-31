@@ -101,7 +101,7 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
             .unwrap()
         } else if role == "scout" {
             let parent = user.request("agent.spawn", json!({"name":"parent","cwd":project.dir.path(),"model":"sonnet","effort":"low"})).await.unwrap();
-            idle(&user, parent["id"].as_str().unwrap()).await;
+            idle(project.bound(), &user, parent["id"].as_str().unwrap()).await;
             let caller = as_door(&project, parent["id"].as_str().unwrap()).await;
             let scout = caller.request("agent.spawn", json!({"name":"sad","cwd":project.dir.path(),"scout":true,"model":"sonnet","order":{"kind":"work","title":"Identity observation","ask":"who are you? Answer in one short sentence.","done":"Identity answered","limits":["Read only"]}})).await.unwrap();
             user.request("agent.stop", json!({"id":parent["id"]}))
@@ -117,7 +117,7 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
             .unwrap()
         };
         let id = node["id"].as_str().unwrap();
-        idle(&user, id).await;
+        idle(project.bound(), &user, id).await;
         let mut observations = Vec::new();
         for name in ["sad", "sad-2"] {
             if name == "sad-2" {
@@ -141,7 +141,7 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
                 })
                 .await
                 .expect("rename note acknowledged in transcript");
-                idle(&user, id).await;
+                idle(project.bound(), &user, id).await;
             }
             let before = if name == "sad" {
                 Vec::new()
@@ -180,7 +180,7 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
             })
             .await
             .expect("real model answered the identity question");
-            idle(&user, id).await;
+            idle(project.bound(), &user, id).await;
             assert!(answer.contains(name), "{role}: {answer}");
             assert!(
                 !answer

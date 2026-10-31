@@ -5,14 +5,19 @@ mod daemon;
 
 use base64::Engine;
 use contracts::{EventData, Kind};
-use daemon::next;
 use serde_json::{Value, json};
 use std::time::Duration;
 
 /// Wait for a snapshot that draws `shown` and not `hidden`.
-async fn palette_is(client: &rpc::Client, terminal: &str, shown: &str, hidden: &str) {
+async fn palette_is(
+    bound: Duration,
+    client: &rpc::Client,
+    terminal: &str,
+    shown: &str,
+    hidden: &str,
+) {
     let mut last = String::new();
-    let waited = tokio::time::timeout(Duration::from_secs(30), async {
+    let waited = tokio::time::timeout(bound, async {
         loop {
             last = snapshot_text(client, terminal).await;
             if last.contains(shown) && !last.contains(hidden) {
@@ -83,21 +88,22 @@ async fn x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch() {
     )
     .unwrap();
     let terminal = agent.terminal_id.clone().unwrap();
-    palette_is(&client, &terminal, shown, hidden).await;
+    palette_is(project.bound(), &client, &terminal, shown, hidden).await;
 
     let (background, foreground, shown, hidden) = colours(then);
     set_scheme(&client, then, background, foreground).await;
-    palette_is(&client, &terminal, shown, hidden).await;
+    palette_is(project.bound(), &client, &terminal, shown, hidden).await;
     // The aimock fixture insists that Claude reached the model before the Daemon stops.
     for kind in [Kind::Working, Kind::Idle] {
-        next(&mut client, |event| match event {
-            EventData::AgentStatus(status)
-                if status.id == agent.id && status.status.kind == kind =>
-            {
-                Some(())
-            }
-            _ => None,
-        })
-        .await;
+        project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == agent.id && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
 }
