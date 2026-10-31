@@ -23,7 +23,7 @@ Policy: no new binding. Naming an action adds no chord, no menu accelerator and 
 | quick-add (configured) | `todo.capture` | — |
 | `⌘B` | `terminal.switch` | — |
 | `⌘=` `⌘-` `⌘0` `⌘F` | `terminal.text-larger` `terminal.text-smaller` `terminal.text-reset` `terminal.find` | — |
-| Rail `M` / rename / `R` / `⌘⌫` | `rail.move` / `rail.rename` / `agent.restart-mode` / `rail.remove` | — |
+| Rail `← →` / `M` / rename / `R` / `⌘⌫` | `rail.collapse-expand` / `rail.move` / `rail.rename` / `agent.restart-mode` / `rail.remove` | — |
 | `?` / `⌘/` / `⌘,` / `⌘O` | `help.open` / `ask.open` / `settings.open` / `project.choose-folder` | — |
 | `⌘Z` / `⇧⌘Z` | `edit.undo` / `edit.redo` | — |
 | Bench `1`–`9` | `todo.assign-slot` | `slot` integer 1–9, required |
