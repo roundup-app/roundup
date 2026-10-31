@@ -38,10 +38,11 @@ async fn ps8_terminal_list_carries_a_terminals_program_status() {
         .clone();
     tokio::time::timeout(Duration::from_secs(10), async {
         while let Some(event) = watcher.next_event().await {
-            if let contracts::EventData::TerminalStatus(status) = event.data {
-                if status.id == reporting.as_str().unwrap() && status.status.is_some() {
-                    return;
-                }
+            if let contracts::EventData::TerminalStatus(status) = event.data
+                && status.id == reporting.as_str().unwrap()
+                && status.status.is_some()
+            {
+                return;
             }
         }
     })
