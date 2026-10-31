@@ -1,10 +1,9 @@
 import { createMove, MovePicker } from "./MovePicker";
 import { WorkProgress } from "../orders/WorkProgress";
 import { EmptyRail } from "../app/FirstRun";
-import { createRowCollection } from "../ui/RowCollection";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
-import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
+import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
@@ -14,15 +13,10 @@ import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { KIND_ICON } from "../ink/kindIcon";
-import { KeyChip } from "../keys/KeyChip";
-import { CHORDS, LEADER, ariaShortcut, type ActionValue } from "../keys/chords";
+import { CHORDS, LEADER, type ActionValue } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
-import type { RailSection } from "./persist/storage";
 import { TreeView, Trunks } from "../ui/TreeView";
-import { railCollection } from "./collection";
-import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { CreateMode } from "./CreateMode";
@@ -30,7 +24,7 @@ import { OpeningPrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
-import { ancestorsOf, isWorkstream, layoutRail, siblingsOf, type NodeRow } from "./layout";
+import { ancestorsOf, isWorkstream, siblingsOf } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW, type RowActions } from "./rows";
 import { SpawnPromptField } from "./SpawnPromptField";
@@ -40,6 +34,11 @@ import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import { draftsOf } from "./persist/storage";
+import { createRailDrag } from "./drag";
+import { createRailSelection } from "./selection";
+import { createRailTree, sections } from "./railTree";
+import { RailRecovery } from "./RailRecovery";
+import { RailFooter } from "./RailFooter";
 import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
@@ -47,7 +46,7 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 
 export const Rail = () => {
   const connected = useConnectedProject();
-  const { app, project, rail, now, daemonExit } = connected;
+  const { app, project, rail, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
 
   const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
@@ -167,64 +166,12 @@ export const Rail = () => {
 
   const endCompose = () => setComposing(false);
 
-  const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
-    { id: "workstreams", label: copy.workstreamsHead, icon: KIND_ICON.workstream },
-    { id: "modes", label: copy.modesHead, icon: KIND_ICON.mode },
-    { id: "agents", label: copy.agentsHead, icon: KIND_ICON.agent },
-  ];
+  const { sectionRows, rows, collection, expanded, entryOf, nodeRows, nodeIds, indexOf, treeRows, byKey } = createRailTree(connected, unfolded, id => rowElement(id));
 
-  const sectionNodes = createMemo(() => {
-    const roots = new Map(rail.nodes.filter(node => node.parent === null).map(node => [node.id,
-      node.kind === "agent" ? "agents" : node.opening_prompt?.trim() ? "modes" : "workstreams"]));
-
-    return sections.map(section => ({ ...section, nodes: rail.nodes.filter(node => roots.get(ancestorsOf(rail.nodes, node.id).at(-1) ?? node.id) === section.id) }));
-  });
-
-  const sectionRows = createMemo(() => sectionNodes().filter(section => section.nodes.length > 0).map(section => ({
-    ...section,
-    rows: rail.closedSections().has(section.id) ? [] : layoutRail(section.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }),
-  })));
-
-  const rows = createMemo(() => sectionRows().flatMap(section => section.rows));
 
   /** U38: mounting follows the first tree answer; fetch failure takes precedence. */
   const isEmpty = () => rail.nodes.length === 0 && rail.failure() === null;
 
-  /** Section branches share Ark's keyboard walk and add one semantic level above their rows. */
-  const collection = createMemo(() => {
-    const children = sectionNodes().filter(section => section.nodes.length > 0).map(section => ({
-      id: `section:${section.id}`, name: section.label,
-      children: railCollection(layoutRail(section.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() })).rootNode.children ?? [],
-    }));
-
-    return createTreeCollection({
-      nodeToValue: node => node.id, nodeToString: node => node.name,
-      isNodeDisabled: node => Boolean(rowElement(node.id)?.closest("[hidden], [inert], [aria-disabled=true]")),
-      rootNode: { id: "", name: "", children },
-    });
-  });
-
-  const expanded = createMemo(() => collection().getBranchValues().filter(id => {
-    const section = sections.find(section => `section:${section.id}` === id);
-
-    return section ? !rail.closedSections().has(section.id) : !collapsed().has(id);
-  }));
-
-  /** The tree node and index path Ark's providers need for the row `id`. */
-  const entryOf = (id: string) => {
-    const indexPath = collection().getIndexPath(id);
-    const node = indexPath && collection().at(indexPath);
-
-    if (!indexPath || !node) throw new Error(`no node for row ${id}`);
-
-    return { node, indexPath };
-  };
-
-  const nodeRows = createMemo(() => rows().filter((row): row is NodeRow => row.kind === "node"));
-  const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
-  const indexOf = createMemo(() => new Map(nodeIds().map((id, at) => [id, at])));
-  const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: row.node.parent })));
-  const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
   const attempt = async <T,>(call: () => Promise<T>, item?: string): Promise<void> => {
     try {
@@ -256,66 +203,8 @@ export const Rail = () => {
 
   const focusRow = (id: string) => rowElement(id)?.focus();
 
-  const selection = createRowCollection(() => nodeRows().filter(row => {
-    const element = rowElement(row.node.id);
+  const { selection, selectClick, selectKey, anchorAt } = createRailSelection(connected, nodeRows, id => rowElement(id), focusRow);
 
-    return element && !element.closest("[hidden], [inert], [aria-disabled=true]");
-  }).map(row => ({ value: row.node.id, label: row.node.name })));
-
-  let anchor: string | undefined;
-  createEffect(on(rail.selected, id => {
-    selection.selection.setSelectedValues(id === null ? [] : [id]);
-    anchor = id ?? undefined;
-  }));
-
-  const range = (id: string) => selection.selection.setSelectedValues(anchor === undefined || !selection.collection().has(anchor)
-    ? [id] : selection.collection().getValueRange(anchor, id));
-
-  const selectClick = (event: MouseEvent) => {
-    if (event.ctrlKey) return;
-    const row = event.target instanceof Element ? event.target.closest<HTMLElement>(".rail-row") : null;
-    const id = row?.dataset.id;
-
-    if (id === undefined || event.target instanceof Element && event.target.closest("button,input") || !event.metaKey && !event.shiftKey) return;
-    event.preventDefault(); event.stopPropagation();
-
-    if (!selection.collection().has(id)) return;
-
-    if (event.shiftKey) range(id);
-    else { selection.selection.toggle(id); anchor = id; }
-
-    row?.focus();
-  };
-
-  const selectKey = (event: KeyboardEvent) => {
-    const id = focusedRowId(event);
-
-    if (id === undefined || !rail.nodes.some(node => node.id === id) || daemonExit() !== null || event.ctrlKey || event.altKey || event.isComposing) return;
-
-    if (event.metaKey && event.key.toLowerCase() === "a") {
-      event.preventDefault(); event.stopPropagation();
-      selection.selection.setSelectedValues(selection.collection().getValues());
-
-      return;
-    }
-
-    // Ark owns the complete walk, including section headings; selection still contains only data rows.
-    if (!event.metaKey && (event.key === "Home" || event.key === "End" || event.key === "ArrowUp" || event.key === "ArrowDown")) return;
-
-    if (event.target instanceof HTMLElement) event.target.dataset.collectionValue = id;
-    const match = selection.search(event);
-
-    if (match === null) {
-      if (!event.metaKey && event.key.length === 1 && event.key !== " ") {
-        event.preventDefault(); event.stopPropagation();
-      }
-
-      return;
-    }
-
-    event.preventDefault(); event.stopPropagation();
-    selection.selection.replace(match); anchor = match; rail.select(match); focusRow(match);
-  };
 
 
   /** U31: exactly one row is reachable by Tab, the selected row when one exists, else the first; moving focus by key does not move it. */
@@ -364,82 +253,8 @@ export const Rail = () => {
     void contextMenu(app, entries, box.left, box.bottom);
   };
 
-  /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
-  const [railStep, setRailStep] = createSignal(1);
+  const { railStep, pointerOutside, placeDrop } = createRailDrag(rail, container, openRow, focusRow);
 
-  /** Whether the press that began the drag was a pointer's: a keyboard lift has no pointer to leave the Rail. */
-  let pointerPressed = false;
-  let pointerAt: { x: number; y: number } | null = null;
-  /** The row a keyboard lift began on: the library returns focus only to a handle, and the whole row is the Rail's. */
-  let liftedRow: string | null = null;
-
-  const pointerOutside = () => {
-    const box = container()?.getBoundingClientRect();
-
-    return pointerPressed && pointerAt !== null && box !== undefined &&
-      (pointerAt.x < box.left || pointerAt.x >= box.right || pointerAt.y < box.top || pointerAt.y >= box.bottom);
-  };
-
-  createEffect(() => {
-    const tree = container();
-
-    if (!tree) return;
-
-    if (tree) {
-      // --rail-step is a calc(), so a probe resolves it to pixels once.
-      const probe = tree.appendChild(document.createElement("span"));
-      probe.style.display = "inline-block";
-      probe.style.width = "var(--rail-step)";
-      const width = probe.getBoundingClientRect().width;
-      probe.remove();
-
-      if (width > 0) setRailStep(width);
-    }
-
-    const press = (event: PointerEvent) => {
-      pointerPressed = true;
-      pointerAt = { x: event.clientX, y: event.clientY };
-    };
-
-    const follow = (event: PointerEvent) => { pointerAt = { x: event.clientX, y: event.clientY }; };
-
-    const lift = (key: KeyboardEvent) => {
-      pointerPressed = false;
-
-      if (key.code === "Space" && key.target instanceof HTMLElement && key.target.matches(ROW)) liftedRow = key.target.closest<HTMLElement>("[data-id]")?.dataset.id ?? null;
-
-      // U31: Enter on a row selects it. The library would lift on Enter too, so Enter stops here and selects, and only Space lifts.
-      if (key.key !== "Enter" || key.metaKey || key.ctrlKey || key.altKey || key.shiftKey || !(key.target instanceof HTMLElement) || !key.target.matches(ROW)) return;
-
-      const id = key.target.closest<HTMLElement>("[data-id]")?.dataset.id;
-
-      if (id === undefined || !rail.nodes.some(node => node.id === id)) return;
-      key.stopPropagation();
-      key.preventDefault();
-      openRow(id);
-    };
-
-    window.addEventListener("pointerdown", press, { capture: true });
-    window.addEventListener("pointermove", follow, { capture: true });
-    tree.addEventListener("keydown", lift, { capture: true });
-    onCleanup(() => {
-      window.removeEventListener("pointerdown", press, { capture: true });
-      window.removeEventListener("pointermove", follow, { capture: true });
-      tree.removeEventListener("keydown", lift, { capture: true });
-    });
-  });
-
-  const placeDrop = (next: { depth: number } | null) => {
-    if (next !== null) return;
-    const back = liftedRow;
-
-    liftedRow = null;
-
-    if (back !== null) {
-      const focus = captureFocus();
-      requestAnimationFrame(() => focus(() => focusRow(back)));
-    }
-  };
 
   /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
   const trueIndex = (id: string, parent: string | null, shown: number): number => {
@@ -564,7 +379,6 @@ export const Rail = () => {
 
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
-  const dismissalLine = () => !(failure.surface() === "rail" && failure.message()) && !rail.storageFailure() && rail.unsavedDismissal() !== null;
 
   const submitPrompt = async (prompt: string | null, snapshot = task() ?? keepDraft(draft())) => {
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
@@ -791,7 +605,7 @@ export const Rail = () => {
       onSelectionChange={(details) => {
         const id = details.selectedValue.at(-1);
 
-        if (id !== undefined && rail.nodes.some(node => node.id === id)) { selection.selection.replace(id); anchor = id; rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
+        if (id !== undefined && rail.nodes.some(node => node.id === id)) { selection.selection.replace(id); anchorAt(id); rail.select(id); queueMicrotask(() => rowElement(id)?.focus()); }
       }}
       onExpandedChange={(details) => {
         const open = new Set(details.expandedValue);
@@ -928,47 +742,12 @@ export const Rail = () => {
     </TreeView.Root>
     </div>
 
-      <Show when={recovery().length > 0}>
-        <details class="rail-recovery">
-          <summary><Icon name="right" />{copy.railDrafts}</summary>
-          <For each={recovery().map((entry) => entry.revision).reverse()}>{(revision) => (
-            <Show when={revisions().get(revision)}>{(entry) => {
-              const text = () => {
-                const value = entry().value.text;
+      <RailRecovery recovery={recovery} revisions={revisions} destinationName={destinationName} discard={revision => {
+        const current = task()?.revision === revision;
+        retained.discard(revision);
 
-                return v.is(v.string(), value) ? value : "";
-              };
-
-              const base = () => {
-                const value = entry().value.base;
-
-                return v.is(v.string(), value) ? value : null;
-              };
-
-              return (
-                <details class="rail-recovery-detail" data-revision={entry().revision}>
-                  <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
-                  <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
-                  <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
-                  <p>{copy.railDraftDestination(project.name, destinationName(entry().destination.recipient ?? entry().destination.object))}</p>
-                  <Show when={entry().destination.surface === "rail-task"}><p>{copy.railDraftTaskAction(entry().value.action === "note" || (entry().value.action === undefined && entry().destination.recipient !== null))}</p></Show>
-                  <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
-                  <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
-                  <div class="rail-recovery-actions">
-                  <CopyButton app={connected.app} identity={entry().revision} text={text()} onFailure={error => failure.show(error.message)}>{copy.railDraftCopy}</CopyButton>
-                  <button data-button="quiet" onClick={() => {
-                    const current = task()?.revision === entry().revision;
-                    retained.discard(entry().revision);
-
-                    if (current && !task()) setTaskDestination(parent());
-                  }}>{copy.railDraftDiscard}</button>
-                  </div>
-                </details>
-              );
-            }}</Show>
-          )}</For>
-        </details>
-      </Show>
+        if (current && !task()) setTaskDestination(parent());
+      }} />
       <Show when={savingMode()} keyed>{id => <SaveAsMode id={id} onClose={() => setSavingMode(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <Show when={openingPrompt()} keyed>{id => <OpeningPrompt restart={() => menu.restartSession(id)} id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <Show when={creatingMode()}><CreateMode finalFocus={id => rowElement(id) ?? null} onClose={() => setCreatingMode(false)} onCreated={(id, request) => {
@@ -979,22 +758,7 @@ export const Rail = () => {
         void menu.restartSession(id, request);
       }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
-      <div class="rail-footer">
-        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry() && !dismissalLine()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (rail.unsavedDismissal() !== null ? copy.dismissalUnsaved(rail.unsavedDismissal()!) : null) ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
-          status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
-          <Show when={failure.retry()}>{retry => <>
-            <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
-            <button type="button" data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>
-          </>}</Show>
-          <Show when={dismissalLine()}><button type="button" data-button="quiet" onClick={() => rail.retryDismissal()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => rail.clearUnsavedDismissal()}>{copy.dismiss}</button></Show>
-          <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
-        </ReservedLine>
-        <div class="rail-actions">
-          <button type="button" data-button="add" class="word" aria-label={copy.addWorkstream} aria-keyshortcuts={ariaShortcut("⌥⌘N")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) createWorkstream(); }}><Icon name={KIND_ICON.workstream} />{copy.addWorkstreamWord}<KeyChip keys="⌥⌘N" /></button>
-          <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-keyshortcuts={ariaShortcut("⇧⌘M")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name={KIND_ICON.mode} />{copy.modeWord}<KeyChip keys="⇧⌘M" /></button>
-          <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-keyshortcuts={ariaShortcut("⌘N")} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name={KIND_ICON.agent} />{copy.addAgentWord}<KeyChip keys="⌘N" /></button>
-        </div>
-      </div>
+      <RailFooter retained={retained} asking={asking} canSpawn={canSpawn} createWorkstream={createWorkstream} openCreateMode={() => setCreatingMode(true)} />
     </>
   );
 };
