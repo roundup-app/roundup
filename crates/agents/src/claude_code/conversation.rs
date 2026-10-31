@@ -151,77 +151,11 @@ impl Launcher {
             .unwrap()
     }
 
-    /// A2681a: a missing or unreadable transcript has no display parts.
+    /// A2681a: a missing or unreadable transcript has no display parts. RO1: reads only the
+    /// bytes appended since the last read of this transcript.
     pub fn read_overview(&self, cwd: &Path, id: &str) -> Option<ConversationOverview> {
-        let path = self.conversation_path(cwd, id).ok()?;
-        let text = std::fs::read_to_string(path).ok()?;
-        let mut name = None;
-        let mut custom_name = None;
-        let mut used = None;
-        let mut limit = None;
-        let mut measured = None;
-        let mut card = ConversationCard::default();
-        for line in text.lines() {
-            let Ok(record) = serde_json::from_str::<Value>(line) else {
-                continue;
-            };
-            if record["type"] == "assistant" {
-                let content = &record["message"]["content"];
-                let text = if let Some(text) = content.as_str() {
-                    text.to_owned()
-                } else {
-                    content
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .filter(|block| block["type"] == "text")
-                        .filter_map(|block| block["text"].as_str())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                };
-                merge_cards(&mut card, &text);
-                limit = record["message"]["model"].as_str().and_then(context_limit);
-                let usage = &record["message"]["usage"];
-                used = usage["input_tokens"].as_u64().and_then(|input| {
-                    input
-                        .checked_add(usage["cache_read_input_tokens"].as_u64().unwrap_or(0))?
-                        .checked_add(usage["cache_creation_input_tokens"].as_u64().unwrap_or(0))
-                });
-            }
-            if record["type"] == "system"
-                && record["subtype"] == "local_command"
-                && (record["commandRun"]["command"] == "context"
-                    || record["contextUsage"]["categories"].is_array())
-            {
-                measured = Some(measured_parts(&record["contextUsage"]["categories"]));
-            }
-            if record["type"] == "custom-title"
-                && let Some(title) = record["customTitle"]
-                    .as_str()
-                    .filter(|s| !s.trim().is_empty())
-            {
-                custom_name = Some(title.to_owned());
-            }
-            if record["type"] == "ai-title"
-                && let Some(title) = record["aiTitle"].as_str().filter(|s| !s.trim().is_empty())
-            {
-                name = Some(title.to_owned());
-            }
-        }
-        if card.facts.as_ref().is_some_and(Vec::is_empty) {
-            card.facts = None;
-        }
-        Some(ConversationOverview {
-            program: "Claude Code".into(),
-            id: id.into(),
-            name: custom_name.or(name),
-            used,
-            limit,
-            context_parts: used
-                .zip(measured)
-                .and_then(|(used, parts)| context_parts(used, parts)),
-            card: (card != ConversationCard::default()).then_some(card),
-        })
+        self.refresh_overview(cwd, id);
+        self.cached_overview(id)
     }
 
     /// A saved id whose file is missing is an error, never an empty conversation.
@@ -436,7 +370,7 @@ impl Launcher {
 // https://code.claude.com/docs/en/model-config#extended-context (2026-10-18).
 // https://platform.claude.com/docs/en/models/overview (Haiku 4.5: 200k).
 // Exact known ids only: a future model or gateway alias has no invented limit.
-fn context_limit(model: &str) -> Option<u64> {
+pub(super) fn context_limit(model: &str) -> Option<u64> {
     match model {
         "claude-haiku-4-5"
         | "claude-haiku-4-5-20251001"
@@ -466,7 +400,7 @@ static CARD_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?m)^```card[^\S\n]*\n([\s\S]*?)\n```[^\S\n]*\n?").expect("card fence pattern")
 });
 
-fn merge_cards(card: &mut ConversationCard, text: &str) {
+pub(super) fn merge_cards(card: &mut ConversationCard, text: &str) {
     // Forward overwrite is equivalent to latestCard's reverse first-write: absent/invalid
     // keys do nothing, and a present [] replaces the old facts before omission on the wire.
     for block in CARD_RE.captures_iter(text) {
@@ -501,7 +435,7 @@ fn merge_cards(card: &mut ConversationCard, text: &str) {
 
 /// A2681d: the parts Claude Code listed in a `/context` record, by the category names observed
 /// in 2.1.296; a category it does not list is omitted, never estimated.
-fn measured_parts(categories: &Value) -> Vec<ContextPart> {
+pub(super) fn measured_parts(categories: &Value) -> Vec<ContextPart> {
     [
         ("System prompt", ContextPartKind::System),
         ("System tools", ContextPartKind::Tools),
@@ -521,7 +455,7 @@ fn measured_parts(categories: &Value) -> Vec<ContextPart> {
 }
 
 /// A2681d: the measured parts plus one `Other` remainder, or none when they exceed `used`.
-fn context_parts(used: u64, mut parts: Vec<ContextPart>) -> Option<Vec<ContextPart>> {
+pub(super) fn context_parts(used: u64, mut parts: Vec<ContextPart>) -> Option<Vec<ContextPart>> {
     let sum = parts
         .iter()
         .try_fold(0u64, |sum, part| sum.checked_add(part.tokens))?;
