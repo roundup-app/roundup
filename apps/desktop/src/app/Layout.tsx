@@ -3,7 +3,6 @@ import Maximize from "lucide-solid/icons/maximize";
 import Minimize from "lucide-solid/icons/minimize";
 import X from "lucide-solid/icons/x";
 import { IconButton } from "../ui/IconButton";
-import { CHORDS } from "../keys/chords";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { triage } from "../todos/triage";
@@ -160,12 +159,12 @@ export const Layout = (props: {
       {props.shelfTabs}
       <div class="shelf-controls">
         <Show when={mode() === "reserved" && placement().onMaximise}>
-          <IconButton aria-label={placement().maximised ? copy.restore : copy.maximise} chord={shelfFocus() ? CHORDS.find(row => row.keys === "M") : undefined} onClick={event => placement().onMaximise?.(activationSource(event))}>
+          <IconButton aria-label={placement().maximised ? copy.restore : copy.maximise} action={shelfFocus() ? "shelf.maximise" : undefined} onClick={event => placement().onMaximise?.(activationSource(event))}>
             <Show when={placement().maximised} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>
           </IconButton>
         </Show>
         <Show when={placement().onClose}>
-          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={shelfFocus()?.closest(".shelf-controls") && !triage.on() ? CHORDS.find(row => row.keys === "Esc") : undefined} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
+          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} action={shelfFocus()?.closest(".shelf-controls") && !triage.on() ? "shelf.close" : undefined} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
         </Show>
       </div>
       {props.shelf}
