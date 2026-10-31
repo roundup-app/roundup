@@ -50,6 +50,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Running | same | — |
 | Home | same | — |
 | Contract methods (`daemon.methods`) | same | — |
+| Method description (`api.list`, `api.describe`) | same | — |
 | Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`) | same | — |
 | Contract export (`export::generate`, `export::types`, `event_data_declaration`) | same | — |
 | Contract fingerprint | same | — |
