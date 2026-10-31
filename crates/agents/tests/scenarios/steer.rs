@@ -440,7 +440,7 @@ async fn b37_live_error_owner_is_open_until_terminal_exit() {
         .unwrap();
     f.terminals.kill(&terminal).await.unwrap();
     f.until(|tree| {
-        status_of(tree, &id).kind == Kind::Error && status_of(tree, &id).label != "error"
+        status_of(tree, &id).kind == Kind::Error && status_of(tree, &id).label.starts_with("exited")
     })
     .await;
     f.agents

@@ -23,7 +23,14 @@ pub struct Delivery {
     pub plugins: Vec<PathBuf>,
     /// Server entries for the child's MCP config, by name.
     pub servers: Map<String, Value>,
+    /// LC18: Claude Code's built-in computer use, given by its own switch.
+    pub computer_use: bool,
 }
+
+/// LC18: the `mcp` name of Claude Code's built-in computer use; no user file names it.
+pub const COMPUTER_USE: &str = "computer-use";
+/// LC18: the switch that gives a session computer use (Claude Code 2.1.302).
+pub const COMPUTER_USE_SWITCH: &str = "--computer-use-mcp";
 
 fn read_json(path: &Path) -> Option<Value> {
     serde_json::from_slice(&std::fs::read(path).ok()?).ok()
@@ -86,6 +93,8 @@ fn servers(src: &Sources<'_>) -> Map<String, Value> {
     }
     // roundup's own server is the child's already.
     found.remove("roundup");
+    // A user server of that name never replaces the built-in.
+    found.remove(COMPUTER_USE);
     found
 }
 
@@ -98,7 +107,13 @@ pub fn available(src: &Sources<'_>) -> Extras {
     Extras {
         skills: named(skills(src).into_iter().map(|(name, _)| name).collect()),
         plugins: named(plugins(src).into_iter().map(|(key, _)| key).collect()),
-        mcp: named(servers(src).into_iter().map(|(name, _)| name).collect()),
+        mcp: named(
+            servers(src)
+                .into_iter()
+                .map(|(name, _)| name)
+                .chain([COMPUTER_USE.to_owned()])
+                .collect(),
+        ),
     }
 }
 
@@ -139,6 +154,10 @@ pub fn resolve(src: &Sources<'_>, extras: &Extras) -> Result<Delivery, RpcError>
         }
     }
     for name in &extras.mcp {
+        if name == COMPUTER_USE {
+            delivery.computer_use = true;
+            continue;
+        }
         match known_servers.get(name) {
             Some(server) => {
                 delivery.servers.insert(name.clone(), server.clone());
