@@ -46,6 +46,7 @@ import type { Actor } from "@contracts/Actor";
 import { CHORDS, chordsFor, chordsOf } from "../keys/chords";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
+import { reorderChange } from "./state";
 import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
@@ -246,17 +247,19 @@ export const Todos = (props: {
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
     reload: todos.reload,
-    call: (params) => changeFailureOf(() => connected.app.rpc("todo.reorder", params)),
+    call: (params) => todos.ask(params.id, reorderChange(todos.all(), params.id, params.before), () => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
     home: {
       target: targets.home,
-      move: (id, home) => changeFailureOf(() => connected.app.rpc("todo.move", { id, home })),
+      move: (id, home) => todos.ask(id, { kind: "home", asked: home, base: todos.byId().get(id)?.home ?? null }, () => connected.app.rpc("todo.move", { id, home })),
     },
     owner: {
       target: targets.owner,
-      assign: (id, owner) => changeFailureOf(() => connected.app.rpc("todo.assign", { id, owner })),
+      assign: (id, owner) => todos.ask(id, { kind: "owner", asked: owner, base: todos.byId().get(id)?.owner ?? null }, () => connected.app.rpc("todo.assign", { id, owner })),
     },
   });
+
+  onCleanup(todos.onContradicted((id, message) => sorted.show(id, message)));
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
@@ -695,7 +698,7 @@ export const Todos = (props: {
     const focus = captureFocus();
     const advance = moveAdvance;
     clearFailures();
-    const message = await changeFailureOf(() => connected.app.rpc("todo.move", { id, home }));
+    const message = await todos.ask(id, { kind: "home", asked: home, base: todos.byId().get(id)?.home ?? null }, () => connected.app.rpc("todo.move", { id, home }));
 
     pickFails.get(id)?.show(message);
 

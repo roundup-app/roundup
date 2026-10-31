@@ -56,11 +56,12 @@ export const createMove = ({ app, rail, daemonExit }: Pick<ConnectedProject, "ap
     const focus = rowElement(params.id) === document.activeElement ? captureFocus() : undefined;
 
     try {
+      const base = rail.placeOf(params.id);
       const result = await applying(() => app.rpc("rail.move", params));
 
       if (result.kind === "refused") throw result.error;
 
-      if (result.kind === "pending") await rail.refresh();
+      if (result.kind === "pending" && base !== null) rail.keepAsked(params.id, { kind: "move", base, asked: { parent: params.parent, index: params.index } });
       rail.commandFailure.acknowledge(params.id);
 
       if (params.parent !== null) {

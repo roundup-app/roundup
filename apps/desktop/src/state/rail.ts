@@ -53,6 +53,8 @@ export type RailState = {
   pendingOf(id: string): PendingChange | null;
   /** U5172a: keeps the asked change on Row `id`, marked, until an Event or a re-read settles it. */
   keepAsked(id: string, change: PendingChange): void;
+  /** U5172a: where Row `id` sits now. */
+  placeOf(id: string): RailPlace | null;
   /** U5172a: renames Row `id`; a refusal throws, an unanswered call keeps `name` marked as unconfirmed. */
   rename(id: string, name: string): Promise<void>;
   /** The message of the last failed fetch, until a later fetch succeeds. */
@@ -64,7 +66,30 @@ export type RailState = {
 };
 
 /** U5172a: a change the App asked and the Daemon has not answered. A rename shows `asked` over the `base` name. */
-export type PendingChange = { kind: "rename"; asked: string; base: string } | { kind: "remove" };
+export type PendingChange = { kind: "rename"; asked: string; base: string } | { kind: "remove" } | { kind: "move"; asked: RailPlace; base: RailPlace };
+
+/** U5172a: where a Row sits: its parent and its index among that parent's children. */
+export type RailPlace = { parent: string | null; index: number };
+
+const placeOf = (tree: readonly RailNode[], id: string): RailPlace | null => {
+  const node = tree.find(each => each.id === id);
+
+  return node === undefined ? null : { parent: node.parent, index: tree.filter(each => each.parent === node.parent).findIndex(each => each.id === id) };
+};
+
+/** U5172a: `tree` with Row `id` put at `place`: before the child of `place.parent` now at that index, else after the parent's last child (or its parent Row). */
+const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailNode[] => {
+  const node = tree.find(each => each.id === id);
+
+  if (node === undefined) return [...tree];
+  const rest = tree.filter(each => each.id !== id);
+  const siblings = rest.filter(each => each.parent === place.parent);
+  const before = siblings[place.index];
+  const last = siblings.at(-1);
+  const at = before !== undefined ? rest.indexOf(before) : last !== undefined ? rest.indexOf(last) + 1 : place.parent === null ? rest.length : rest.findIndex(each => each.id === place.parent) + 1;
+
+  return [...rest.slice(0, at), { ...node, parent: place.parent }, ...rest.slice(at)];
+};
 
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
@@ -122,6 +147,16 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         continue;
       }
 
+      if (change.kind === "move") {
+        const place = placeOf(tree, id)!;
+
+        if (place.parent === change.base.parent && place.index === change.base.index) continue;
+        setAsked(id, undefined!);
+
+        if (place.parent !== change.asked.parent || place.index !== change.asked.index) commandFailure.show(copy.moveDidNotApply, id, "rail");
+        continue;
+      }
+
       if (change.kind !== "rename" || node.name === change.base) continue;
       setAsked(id, undefined!);
 
@@ -152,11 +187,13 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     batch(() => {
       reconcileAsked(tree);
 
-      const shown = tree.map((node) => {
+      let shown = tree.map((node) => {
         const change = unconfirmed[node.id];
 
         return change?.kind === "rename" ? { ...node, name: change.asked } : node;
       });
+
+      for (const [id, change] of Object.entries(unconfirmed)) if (change.kind === "move") shown = movedTo(shown, id, change.asked);
 
       setModel("tree", reconcile(shown, { key: "id" }));
 
@@ -373,6 +410,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       return code === null ? { kind: "signal" } : { kind: "code", code };
     },
     pendingOf: (id) => unconfirmed[id] ?? null,
+    placeOf: (id) => placeOf(model.tree, id),
     rename: async (id, name) => {
       const base = model.tree.find(node => node.id === id)?.name ?? "";
       const result = await applying(() => app.rpc("rail.rename", { id, name }));
@@ -385,6 +423,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       setAsked(id, change);
 
       if (change.kind === "rename") setModel("tree", node => node.id === id, "name", change.asked);
+      else if (change.kind === "move") setModel("tree", reconcile(movedTo(model.tree, id, change.asked), { key: "id" }));
     },
     failure,
     refresh: async (options) => {
