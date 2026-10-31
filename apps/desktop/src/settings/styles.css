@@ -310,8 +310,8 @@
 .settings-forward { position: absolute; top: var(--space-2); right: var(--space-4); z-index: 1; }
 .settings-appearance-preview { display: flex; }
 .settings-mode-preview { padding: var(--space-3); border-radius: var(--radius-control); background: var(--ground); color: var(--text); font-size: var(--text-body); }
-.settings-mode-preview[data-scale="small"] { font-size: calc(13px * var(--scale-small)); }
-.settings-mode-preview[data-scale="large"] { font-size: calc(13px * var(--scale-large)); }
+.settings-mode-preview[data-scale="small"] { --interface-scale: var(--scale-small); }
+.settings-mode-preview[data-scale="large"] { --interface-scale: var(--scale-large); }
 .settings-content .app-segment[data-state="checked"] { color: var(--accent); }
 .settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .settings-preview-terminal { height: auto; overflow: hidden; background: var(--terminal-background); }
