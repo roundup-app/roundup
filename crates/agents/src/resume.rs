@@ -16,15 +16,28 @@ impl Agents {
         permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
         models::check_permissions(&ctx.actor, permission_mode)?;
-        {
+        // A5213: a Workstream resumes its Door's conversation in the mode it last ran in.
+        let mode = {
             let rail = self.shared.rail();
             let node = rail.node(id)?;
-            if node.kind != NodeKind::Agent
-                && !(mode.is_some() && node.kind == NodeKind::Workstream)
-            {
-                return Err(RpcError::conflict(format!("{id} is not an Agent")));
+            match (node.kind, mode) {
+                (_, Some(mode)) => Some(mode),
+                (NodeKind::Agent, None) => None,
+                (NodeKind::Workstream, None) => {
+                    if matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if !run.ended)
+                    {
+                        return Err(RpcError::conflict(format!(
+                            "{id} is a Workstream whose Door is running"
+                        )));
+                    }
+                    Some(if rail.conversation_yolo(id)? {
+                        contracts::agent::ResumeMode::Yolo
+                    } else {
+                        contracts::agent::ResumeMode::Normal
+                    })
+                }
             }
-        }
+        };
         self.resume_conversation(
             ctx,
             id,
