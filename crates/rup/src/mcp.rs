@@ -16,7 +16,6 @@ use rmcp::{ErrorData, ServerHandler, ServiceExt};
 use rpc::RpcError;
 use schemars::JsonSchema;
 use serde_json::Value;
-use tokio::sync::mpsc;
 
 /// A Todo or Pad call is a few SQLite statements; past this the Daemon is wedged, and a hung tool call would hang the Agent's turn.
 pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
@@ -72,9 +71,10 @@ impl Offered {
     }
 }
 
-/// The Daemon cannot be spoken to; the shim exits instead of answering the Agent.
+/// The Daemon cannot be spoken to; the call fails with a tool error and the next call connects afresh (M5179).
 #[derive(Debug)]
 enum Gone {
+    /// Nothing was sent.
     Unreachable(String),
 }
 
@@ -385,7 +385,6 @@ struct Shim {
     socket: PathBuf,
     actor: Actor,
     tools: Vec<Offered>,
-    gone: mpsc::Sender<Gone>,
 }
 
 impl Shim {
@@ -545,15 +544,23 @@ impl ServerHandler for Shim {
         match result {
             Ok(Ok(result)) => Ok(CallToolResult::success(vec![ContentBlock::text(result)]).into()),
             Ok(Err(err)) => {
-                let body = serde_json::to_string(&err)
+                let mut body = serde_json::to_string(&err)
                     .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+                // M5179: the request went out and no answer came.
+                if err.code == rpc::code::UNKNOWN_OUTCOME {
+                    body = format!("{}: {body}; the call may have been applied", request.name);
+                }
                 Ok(CallToolResult::error(vec![ContentBlock::text(body)]).into())
             }
             Err(gone) => {
-                let message = gone.to_string();
-                // A full channel means the shim is already exiting.
-                let _ = self.gone.try_send(gone);
-                Err(ErrorData::internal_error(message, None))
+                let applied = match gone {
+                    Gone::Unreachable(_) => "; the call was not sent",
+                };
+                Ok(CallToolResult::error(vec![ContentBlock::text(format!(
+                    "{}: {gone}{applied}",
+                    request.name
+                ))])
+                .into())
             }
         }
     }
@@ -572,12 +579,10 @@ pub async fn run(actor: Actor) -> ExitCode {
 
 async fn serve(actor: Actor) -> Result<(), String> {
     let socket = rpc::socket_path().map_err(|err| err.to_string())?;
-    let (gone, mut gone_rx) = mpsc::channel(1);
     let mut shim = Shim {
         socket,
         actor,
         tools: tools(false),
-        gone,
     };
     let start = shim.connect().await.map_err(|gone| gone.to_string())?;
     // Both wait on the same Daemon, so a mute one costs one `CALL_TIMEOUT`, not two.
@@ -600,10 +605,11 @@ async fn serve(actor: Actor) -> Result<(), String> {
         .serve(rmcp::transport::stdio())
         .await
         .map_err(|err| err.to_string())?;
-    tokio::select! {
-        ended = running.waiting() => ended.map(|_| ()).map_err(|err| err.to_string()),
-        Some(gone) = gone_rx.recv() => Err(gone.to_string()),
-    }
+    running
+        .waiting()
+        .await
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }
 
 #[cfg(test)]
