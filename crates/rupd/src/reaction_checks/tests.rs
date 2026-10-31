@@ -103,7 +103,6 @@ async fn daemon() -> (
         publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),
         reactions: Arc::new(Reactions::open(&dir).unwrap()),
         prompt_effect_gate: None,
-        actions: Default::default(),
         agents: agents.clone(),
         renames: std::sync::Mutex::new(None),
         owner_events: std::sync::Mutex::new(None),
