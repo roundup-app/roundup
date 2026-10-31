@@ -382,7 +382,7 @@ export const AskBar = (props: {
 
 const ProjectOverview = () => {
   const { rail, hasView, hideView } = useConnectedProject();
-  const attention = createMemo(() => attentionOrder(rail.nodes));
+  const attention = createMemo(() => attentionOrder(rail.nodes, rail.dismissed));
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
 

@@ -278,3 +278,35 @@ fn sk9_help_lists_the_skill_commands() {
     let help = str(&Command::new(RUP).arg("help").output().unwrap().stdout);
     assert!(help.contains("rup skill <setup|status|remove>"));
 }
+
+/// SK12: stdout is `/dev/full`, so every write to it fails; the tty still gets the report.
+#[test]
+fn sk12_a_closed_stdout_still_exits_0_with_the_report_written() {
+    let pair = native_pty_system()
+        .openpty(PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .unwrap();
+    let mut command = CommandBuilder::new("sh");
+    command.args([
+        "-c",
+        "exec \"$0\" skill report --state idle --where >/dev/full",
+        RUP,
+    ]);
+    command.env_remove("ROUNDUP_AGENT");
+    command.env("ROUNDUP_TERMINAL", "t1");
+    let mut child = pair.slave.spawn_command(command).unwrap();
+    drop(pair.slave);
+    let mut reader = pair.master.try_clone_reader().unwrap();
+    let status = child.wait().unwrap();
+    drop(pair.master);
+    let mut bytes = Vec::new();
+    let _ = reader.read_to_end(&mut bytes);
+    let out = str(&bytes);
+    assert!(status.success(), "{status:?} {out:?}");
+    assert!(out.contains("\x1b]7501;state=idle\x1b\\"), "{out:?}");
+    assert!(!out.contains("panicked"), "{out:?}");
+}
