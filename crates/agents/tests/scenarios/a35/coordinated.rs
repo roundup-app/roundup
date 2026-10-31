@@ -39,7 +39,10 @@ fn announcements(
     loop {
         match events.try_recv() {
             Ok(event) => match event.data {
-                contracts::EventData::RailChanged => rail += 1,
+                // RO2: a transcript read in the background announces itself as the Daemon.
+                contracts::EventData::RailChanged if event.actor != contracts::Actor::daemon() => {
+                    rail += 1;
+                }
                 contracts::EventData::AgentStatus(status) => statuses.push(status.id),
                 _ => {}
             },
