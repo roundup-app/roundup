@@ -5,6 +5,9 @@ import { createRecorder } from "./recorder";
 import type { Emulator } from "../terminal/emulator";
 import { PATIENCE_MS, WARMUP_KEYS, typeKeys } from "./keystrokes";
 import type { HopSummary, Summary } from "./keystrokes";
+import type { Series } from "./switch_run";
+import { SWITCH_PROBE } from "./switch";
+import { runSwitchWorkload } from "./switch_run";
 
 const KEYS = 1000;
 
@@ -103,7 +106,7 @@ type PerfReport =
       timer_resolution_ms: number;
       device_pixel_ratio: number;
       user_agent: string;
-    });
+    } & Partial<{ switcher_open_p95_ms: number; switch_p95_ms: number; switcher_open: Series; switch: Series }>);
 
 /** Follow the browser's cancellation rule: xterm can send the key on keydown, so forcing keypress would write the same identity twice. */
 export const press = (textarea: HTMLTextAreaElement) => {
@@ -338,6 +341,33 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
     await writeInChunks(new TextEncoder().encode(line), async (data) => void (await bounded(app.rpc("terminal.write", { id, data: toBase64(data) }), SETUP_BOUND_MS, "the keystroke report write")));
   };
 
+  const switchReport = async () => {
+    const probe = (window as unknown as Record<string, Parameters<typeof runSwitchWorkload>[0]["probe"] | undefined>)[SWITCH_PROBE];
+
+    if (!probe) throw new Error("the build has no Switcher probe");
+
+    const { switcher_open, switch: switched } = await runSwitchWorkload({
+      probe,
+      sleep,
+      random: Math.random,
+      until: (find, ms) => new Promise<void>((resolve) => {
+        const watch = new MutationObserver(() => find() && settle());
+        const timer = setTimeout(() => settle(), ms);
+
+        const settle = () => {
+          watch.disconnect();
+          clearTimeout(timer);
+          resolve();
+        };
+
+        watch.observe(document.body, { childList: true, subtree: true, attributes: true });
+        if (find()) settle();
+      }),
+    });
+
+    return { switcher_open_p95_ms: switcher_open.p95, switch_p95_ms: switched.p95, switcher_open, switch: switched };
+  };
+
   const measure = async () => {
     let frame: number | undefined;
 
@@ -373,8 +403,13 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
     await typeKeys(probe, { press: () => press(textarea), sleep: async (ms) => { await sleep(ms); await flood?.poll(); }, random: Math.random, expired: () => performance.now() > end }, KEYS + WARMUP_KEYS);
     await flood?.sample();
     const measured = await exchange();
+    const keystroke = recorder.report(measured.samples, exchanges, timerResolution, WARMUP_KEYS);
+    // SP4: the Switcher loops follow the typing, in the idle build only; a flood build keeps its one question.
+    const switcher = workload === "idle" ? await switchReport() : {};
+
     await report({
-      ...recorder.report(measured.samples, exchanges, timerResolution, WARMUP_KEYS),
+      ...keystroke,
+      ...switcher,
       keys: KEYS,
       patience_ms: PATIENCE_MS,
       renderer: recorder.webgl() ? "webgl" : "dom",

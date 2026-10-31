@@ -10,7 +10,7 @@ use std::time::Duration;
 use clap::Parser;
 use perf::gate::read_budgets;
 use perf::webview::failure;
-use perf::webview::{judge_runs, marked_line};
+use perf::webview::{judge_runs, judge_switch, marked_line};
 use rpc::Client;
 use serde_json::Value;
 use sysinfo::System;
@@ -316,6 +316,27 @@ async fn run_frames(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
     Ok(frame_exit(&report).unwrap_or(2))
 }
 
+/// K3's verdict, and in the idle workload SP6's on the Switcher metrics; the worse exit wins.
+fn judged(
+    reports: &[Value],
+    limit: f64,
+    budgets: &perf::budget::Budgets,
+    loads: &[f64],
+    flood: bool,
+) -> (u8, Vec<String>) {
+    let (exit, mut failures) = judge_runs(reports, limit);
+
+    if flood {
+        return (exit, failures);
+    }
+
+    let (switch_exit, more) = judge_switch(reports, budgets, loads);
+
+    failures.extend(more);
+
+    (exit.max(switch_exit), failures)
+}
+
 async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
     let budgets = read_budgets(&args.budgets)?;
     let limit = budgets
@@ -368,7 +389,7 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
         diagnostics.push(evidence);
         println!("run {turn}: {report}");
         reports.push(report);
-        let (exit, failures) = judge_runs(&reports, limit);
+        let (exit, failures) = judged(&reports, limit, &budgets, &loads, args.flood);
         // Save after every run, including invalid or failed observations, so a later
         // launch failure cannot discard the earlier evidence.
         if let Some(parent) = args.out.parent() {
@@ -390,7 +411,7 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
             }))?,
         )?;
     }
-    let (exit, failures) = judge_runs(&reports, limit);
+    let (exit, failures) = judged(&reports, limit, &budgets, &loads, args.flood);
     for message in failures {
         eprintln!("{message}");
     }
