@@ -188,8 +188,18 @@ export const ASK_CLOSE = "Escape".split(" ");
 export const TEXT_FIELDS = "input,textarea";
 
 /** U5217: a chord as `aria-keyshortcuts` writes it (`Alt+Meta+N`), read from the same press `CHORDS` binds. */
-export const ariaShortcut = (keys: string): string => {
-  const parts = ((CHORDS.find((chord) => DEFAULT_KEYS.get(chord.name) === keys) ?? CHORDS.find((chord) => chord.keys === keys))?.presses[0] ?? "").split("+");
+export const ariaShortcut = (keys: string): string => ariaChord(CHORDS.find((chord) => DEFAULT_KEYS.get(chord.name) === keys) ?? CHORDS.find((chord) => chord.keys === keys))!;
+
+/** The row named `name`, read live so a rebound key shows at once (U5247). */
+export const chordNamed = (name: string | undefined): Chord | undefined => CHORDS.find((chord) => chord.name === name);
+
+/** `aria-keyshortcuts` of a row's first press; undefined when it has none (U5247). */
+export const ariaChord = (chord: Chord | undefined): string | undefined => {
+  const press = chord?.presses[0];
+
+  if (!press) return undefined;
+
+  const parts = press.split("+");
   const names = { ctrl: "Control", alt: "Alt", shift: "Shift", meta: "Meta" };
 
   return [...Object.entries(names).filter(([part]) => parts.includes(part)).map(([, name]) => name), parts.at(-1)!.replace(/^Key/, "")].join("+");

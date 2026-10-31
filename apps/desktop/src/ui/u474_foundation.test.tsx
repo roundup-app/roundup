@@ -4,7 +4,8 @@ import { traverseFast, isJSXElement } from "@babel/types";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
-import { CHORDS } from "../keys/chords";
+import { CHORDS, ariaShortcut } from "../keys/chords";
+import { saveAppSettings } from "../settings/preferences";
 import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
 import { IconButton } from "./IconButton";
@@ -94,19 +95,48 @@ it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"
   expect(button.getAttribute("aria-describedby")).toBeNull();
 });
 
-it("u2570a_icon_button_forwards_its_chord_only_to_the_tooltip", async () => {
-  render(() => <IconButton aria-label={copy.newAgent} chord={CHORDS[0]}>+</IconButton>);
-  const button = screen.getByRole("button", { name: copy.newAgent });
+it("u5247_icon_button_reads_its_key_by_name", async () => {
+  render(() => <><IconButton aria-label="Maximise" action="shelf.maximise">+</IconButton><IconButton aria-label="Nothing" action="no.such">-</IconButton></>);
+  const button = screen.getByRole("button", { name: "Maximise" });
+  const maximise = CHORDS.find((row) => row.name === "shelf.maximise")!.keys;
 
   fireEvent.keyDown(document, { key: "Tab" });
   button.focus();
   const tip = await screen.findByRole("tooltip");
 
-  expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe(CHORDS[0]!.keys);
-  expect(button.hasAttribute("chord")).toBe(false);
-  expect(tip.hasAttribute("chord")).toBe(false);
+  expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe(maximise);
+  expect(button.getAttribute("aria-keyshortcuts")).toBe(ariaShortcut(maximise));
+  expect(button.hasAttribute("action")).toBe(false);
+  expect(screen.getByRole("button", { name: "Nothing" }).hasAttribute("aria-keyshortcuts")).toBe(false);
 });
 
+it("u5247_a_rebound_key_shows_everywhere", async () => {
+  render(() => <IconButton aria-label="Capture" action="todo.capture">+</IconButton>);
+  const button = screen.getByRole("button", { name: "Capture" });
+  const chips = () => [...screen.getByRole("tooltip").querySelectorAll("kbd")].map((key) => key.textContent).join("");
+
+  fireEvent.keyDown(document, { key: "Tab" });
+  button.focus();
+  await screen.findByRole("tooltip");
+  const before = button.getAttribute("aria-keyshortcuts");
+  await saveAppSettings({ quickAdd: "ctrl+shift+KeyY" });
+
+  await waitFor(() => expect(button.getAttribute("aria-keyshortcuts")).toBe("Control+Shift+Y"));
+  expect(before).not.toBe("Control+Shift+Y");
+  expect(chips()).toBe(CHORDS.find((row) => row.name === "todo.capture")!.keys);
+});
+
+it("u5247a_every_named_icon_button_key_runs_its_action", () => {
+  const names = ["shelf.maximise", "shelf.close", "todo.triage-enter", "agent.new"];
+
+  render(() => <>{names.map((name) => <IconButton aria-label={name} action={name}>+</IconButton>)}</>);
+
+  for (const name of names) {
+    const row = CHORDS.find((chord) => chord.name === name)!;
+
+    expect(screen.getByRole("button", { name }).getAttribute("aria-keyshortcuts")).toBe(ariaShortcut(row.keys));
+  }
+});
 
 it("u477_icon_button_preserves_button_props", () => {
   render(u474Fixture);
