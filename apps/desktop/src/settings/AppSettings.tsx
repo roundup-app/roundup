@@ -1,4 +1,5 @@
-import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show } from "solid-js";
+import fuzzysort from "fuzzysort";
+import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, type JSX } from "solid-js";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -14,9 +15,9 @@ import * as v from "valibot";
 import { draftStorage } from "../state/storage";
 import { createSettingsView } from "../state/settingsView";
 import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
-import { SettingsGroup, SettingsShell } from "./SettingsShell";
+import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
-import { ShortcutSettings } from "./ShortcutSetting";
+import { ShortcutSetting } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; navigation?: () => string }) => {
@@ -120,8 +121,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const numericFields = [
     { name: "fontSize", label: copy.fontSize, hint: copy.fontSizeHint },
-    { name: "lineHeight", label: copy.lineHeight, hint: "" },
-    { name: "letterSpacing", label: copy.letterSpacing, hint: "" },
+    { name: "lineHeight", label: copy.lineHeight, hint: copy.lineHeightHint },
+    { name: "letterSpacing", label: copy.letterSpacing, hint: copy.letterSpacingHint },
   ] as const;
 
   const validNumber = (name: Numeric) => {
@@ -206,58 +207,59 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const previewScale = () => pendingAppearance().interfaceScale ?? appSettings().interfaceScale;
 
-  return <>
-    <Show when={!view.open() && forward()}>
-      <button data-button="quiet" class="settings-forward word" type="button" onClick={show}>{copy.settingsForward}</button>
-    </Show>
-    <Show when={view.open()}>
-    <SettingsShell heading={copy.settings} hideHeading onClose={back}>
-      <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
-        <aside class="settings-navigation">
-        <div class="settings-history">
-          <button data-button="quiet" class="settings-back word" type="button" onClick={back}>{copy.settingsBack}</button>
-          <button data-button="quiet" class="settings-forward-disabled word" type="button" disabled>{copy.settingsForward}</button>
-        </div>
-        <h2 class="settings-title">{copy.settings}</h2>
-        <Tabs.List aria-label={copy.settings}>
-          <h3 class="settings-category">{copy.settingsAgents}</h3>
-          <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
-          <h3 class="settings-category">{copy.settingsTerminal}</h3>
-          <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
-          <h3 class="settings-category">{copy.settingsGeneral}</h3>
-          <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
-          <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
-        </Tabs.List>
-        </aside>
-      <div class="settings-content">
-      <Tabs.Content value="Agents"><SettingsGroup name={copy.settingsAgents}>
+  // Each setting has one control; a page or a search result mounts it, never both (U5243b).
+  const controls: Record<string, () => JSX.Element> = {
+    permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
         ]} onValueChange={permissionMode => { if (permissionMode === "" || permissionMode === "default" || permissionMode === "acceptEdits" || permissionMode === "plan" || permissionMode === "auto") save({ permissionMode }); }} />
-        <Show when={props.project()}>
+    ),
+    engine: () => (
           <Field.Root class="settings-field"><Field.Label>{copy.engine}</Field.Label><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
             items={[...defaults, ...(offered()?.list?.engines ?? []).map(item => ({ value: item.id, label: item.label }))]}
             onSelect={chooseEngine} /><Field.HelperText>{copy.engineHint}</Field.HelperText></Field.Root>
+    ),
+    model: () => (
           <Field.Root class="settings-field"><Field.Label>{copy.model}</Field.Label><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
             items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /><Field.HelperText>{copy.modelHint}</Field.HelperText></Field.Root>
-        </Show>
-        <NamingSettings app={props.app} />
-        <ReservedLine message={offered()?.failure} />
-      </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
+    ),
+    naming: () => <NamingSettings app={props.app} />,
+    fontFamily: () => <>
         <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
           choices={[{ value: "", label: copy.fontDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
           onValueChange={value => chooseType({ fontFamily: value })} />
         <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck={false} autocorrect="off" autocapitalize="off"
           onInput={event => edit("fontFamily", event.currentTarget)}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) void commit("fontFamily", field("fontFamily")); }} /></Field.Root>}</Show>
-        <SegmentGroup label={copy.fontWeight} value={String(appSettings().fontWeight)} segments={[300, 400, 500, 600].map(value => ({ value: String(value), label: String(value) }))}
+    </>,
+    fontWeight: () => (
+        <SegmentGroup label={copy.fontWeight} value={String(appSettings().fontWeight)} description={copy.fontWeightHint} segments={[300, 400, 500, 600].map(value => ({ value: String(value), label: String(value) }))}
           onValueChange={value => { const weight = Number(value);
 
  if (weight === 300 || weight === 400 || weight === 500 || weight === 600) void chooseType({ fontWeight: weight }); }} />
-        <For each={numericFields}>{({ name, label, hint }) => <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
+    ),
+    quickAdd: () => <ShortcutSetting field="quickAdd" capture={props.app.capture} onFailure={setFailure} />,
+    quickAddAnywhere: () => <ShortcutSetting field="quickAddAnywhere" capture={props.app.capture} onFailure={setFailure} />,
+    mode: () => (
+        <SegmentGroup description={copy.modeHint} label={copy.mode} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
+          onValueChange={mode => void chooseAppearance({ mode })} />
+    ),
+    interfaceScale: () => (
+        <SegmentGroup label={copy.interfaceScale} description={copy.interfaceScaleHint} value={appSettings().interfaceScale} segments={[
+          { value: "small", label: copy.interfaceSmall, content: <span class="settings-scale-small">{copy.interfaceSample}</span> },
+          { value: "default", label: copy.interfaceDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
+          { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
+        ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
+    ),
+    focusMarkers: () => (
+        <Switch description={copy.focusMarkersHint} checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
+    ),
+  };
+
+  for (const { name, label, hint } of numericFields) controls[name] = () => <>
+        <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
           <Field.Label>{label}</Field.Label>
           <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
             const range = terminalRanges[name];
@@ -271,23 +273,103 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           </module.NumberInput.Root>}</Deferred>
           <Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show>
           <ReservedLine message={numericFailure()[name]} />
-        </Field.Root>}</For>
+        </Field.Root>
+  </>;
+
+  type Entry = { id: string; page: string; group: string; label: string; description: string; hiddenHint?: boolean; when?: () => boolean };
+
+  const entries = (): Entry[] => {
+    const all: Entry[] = [
+      { id: "permission", page: copy.settingsAgents, group: copy.groupPermissions, label: copy.permissionMode, description: copy.permissionHint },
+      { id: "engine", page: copy.settingsAgents, group: copy.groupEngine, label: copy.engine, description: copy.engineHint, when: () => !!props.project() },
+      { id: "model", page: copy.settingsAgents, group: copy.groupEngine, label: copy.model, description: copy.modelHint, when: () => !!props.project() },
+      { id: "naming", page: copy.settingsAgents, group: copy.groupNaming, label: copy.automaticRenaming, description: `${copy.automaticRenamingHint} ${copy.namingGuide} ${copy.namingGuideHint}`, hiddenHint: true },
+      { id: "fontFamily", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontFamily, description: copy.fontFamilyHint },
+      { id: "fontWeight", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontWeight, description: copy.fontWeightHint },
+      ...numericFields.map(({ name, label, hint }) => ({ id: name, page: copy.settingsTerminal, group: copy.groupFont, label, description: hint })),
+      { id: "quickAdd", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddTodo, description: copy.quickAddHint },
+      { id: "quickAddAnywhere", page: copy.settingsShortcuts, group: copy.groupQuickAdd, label: copy.quickAddAnywhere, description: copy.quickAddAnywhereHint },
+      { id: "mode", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.mode, description: copy.modeHint },
+      { id: "interfaceScale", page: copy.settingsAppearance, group: copy.groupTheme, label: copy.interfaceScale, description: copy.interfaceScaleHint },
+      { id: "focusMarkers", page: copy.settingsAppearance, group: copy.groupFocus, label: copy.focusMarkers, description: copy.focusMarkersHint, hiddenHint: true },
+    ];
+
+    return all.filter(entry => entry.when?.() ?? true);
+  };
+
+  // U5243a: `fuzzysort` ranks the live entries by label, description, page and group.
+  const [query, setQuery] = createSignal("");
+  const searching = () => query().trim() !== "";
+  const results = createMemo(() => searching() ? fuzzysort.go(query().trim(), entries(), { keys: ["label", "description", "page", "group"] }).map(result => result.obj) : []);
+  let searchInput: HTMLInputElement | undefined;
+
+  return <>
+    <Show when={!view.open() && forward()}>
+      <button data-button="quiet" class="settings-forward word" type="button" onClick={show}>{copy.settingsForward}</button>
+    </Show>
+    <Show when={view.open()}>
+    <SettingsShell heading={copy.settings} hideHeading onClose={back}>
+      <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
+        <aside class="settings-navigation">
+        <div class="settings-history">
+          <button data-button="quiet" class="settings-back word" type="button" onClick={back}>{copy.settingsBack}</button>
+          <button data-button="quiet" class="settings-forward-disabled word" type="button" disabled>{copy.settingsForward}</button>
+        </div>
+        <h2 class="settings-title">{copy.settings}</h2>
+        <Field.Root class="settings-search">
+          <Field.Label class="settings-search-label">{copy.settingsSearch}</Field.Label>
+          <Field.Input ref={searchInput} type="search" value={query()} placeholder={copy.settingsSearchPlaceholder} spellcheck={false} autocorrect="off" autocapitalize="off" autocomplete="off"
+            onInput={event => setQuery(event.currentTarget.value)}
+            onKeyDown={event => {
+              if (event.isComposing) return;
+
+              if (event.key === "Escape" && query() !== "") { event.preventDefault(); setQuery(""); }
+
+              if (event.key === "ArrowDown" && searching()) {
+                event.preventDefault();
+                document.querySelector<HTMLElement>(".settings-result :is(input, button, [role=combobox], [role=radio], [role=switch], textarea)")?.focus();
+              }
+            }} />
+        </Field.Root>
+        <Show when={!searching()}>
+        <Tabs.List aria-label={copy.settings}>
+          <h3 class="settings-category">{copy.settingsAgents}</h3>
+          <Tabs.Trigger value="Agents">{copy.settingsAgents}</Tabs.Trigger>
+          <h3 class="settings-category">{copy.settingsTerminal}</h3>
+          <Tabs.Trigger value="Terminal">{copy.settingsTerminal}</Tabs.Trigger>
+          <h3 class="settings-category">{copy.settingsGeneral}</h3>
+          <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
+          <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
+        </Tabs.List>
+        </Show>
+        </aside>
+      <div class="settings-content">
+      <Show when={!searching()} fallback={<SettingsResults results={results()} controls={controls} />}>
+      <Tabs.Content value="Agents"><SettingsGroup name={copy.settingsAgents}>
+        {controls.permission!()}
+        <Show when={props.project()}>
+          {controls.engine!()}
+          {controls.model!()}
+        </Show>
+        {controls.naming!()}
+        <ReservedLine message={offered()?.failure} />
+      </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
+        {controls.fontFamily!()}
+        {controls.fontWeight!()}
+        <For each={numericFields}>{({ name }) => controls[name]!()}</For>
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSettings capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}>{controls.quickAdd!()}{controls.quickAddAnywhere!()}</SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
-        <SegmentGroup description={copy.modeHint} label={copy.mode} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
-          onValueChange={mode => void chooseAppearance({ mode })} />
-        <SegmentGroup label={copy.interfaceScale} value={appSettings().interfaceScale} segments={[
-          { value: "small", label: copy.interfaceSmall, content: <span class="settings-scale-small">{copy.interfaceSample}</span> },
-          { value: "default", label: copy.interfaceDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
-          { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
-        ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
+        {controls.mode!()}
+        {controls.interfaceScale!()}
         <section class={`settings-appearance-preview ${previewMode()}-theme`} aria-label={copy.appearancePreview} data-mode={previewMode()} data-scale={previewScale()}>
           <div class="settings-mode-preview">{copy.appearancePreviewSample}</div>
         </section>
-        <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
+        {controls.focusMarkers!()}
       </SettingsGroup></Tabs.Content>
+      </Show>
       <ReservedLine message={failure()} />
       <ReservedLine message={numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null}>
         <For each={numericFields.filter(({ name }) => conflicted(name))}>{({ name, label }) => <button data-button="quiet" type="button" onClick={() => { const draft = current(name);
