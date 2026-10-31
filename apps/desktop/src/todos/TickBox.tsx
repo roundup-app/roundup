@@ -27,10 +27,13 @@ export const TickBox = (props: { todo: Todo; onToggle: () => Promise<string | nu
           return;
         }
 
+        const box = event.currentTarget;
         setPending(true);
         void props.onToggle().then((failure) => {
-          if (failure !== null) setPending(false);
-          else setAsked(true);
+          if (failure !== null) {
+            box.checked = shown();
+            setPending(false);
+          } else setAsked(true);
         });
       }}
     />
