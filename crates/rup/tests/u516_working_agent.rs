@@ -28,7 +28,7 @@ async fn u516_a_working_agent_is_sent_nothing_until_idle() {
     let project = daemon::start_real("u516_excerpt", &[("ROUNDUP_CLAUDE_BIN", &gate.wrapper())]);
     let client = project.subscribed().await;
     let door = started_door(&client).await;
-    until("the Door's launch is held", || {
+    until(project.bound(), "the Door's launch is held", || {
         gate.held.exists().then_some(())
     })
     .await;
@@ -52,7 +52,7 @@ async fn u516_a_working_agent_is_sent_nothing_until_idle() {
     );
 
     std::fs::write(&gate.hold, "").unwrap();
-    until_async("the Excerpt reaches the model", || async {
+    until_async(project.bound(), "the Excerpt reaches the model", || async {
         (requests_holding(model, "```\n$ ls\nfile\n```") > 0).then_some(())
     })
     .await;
@@ -61,6 +61,6 @@ async fn u516_a_working_agent_is_sent_nothing_until_idle() {
         "the whole body is typed: {:#?}",
         model.journal()
     );
-    idle(&client, &door).await;
+    idle(project.bound(), &client, &door).await;
     model.assert_matched();
 }
