@@ -96,7 +96,7 @@ pub struct RunParams {
     pub operation: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum State {
     Active,
@@ -106,7 +106,7 @@ pub enum State {
 }
 
 /// Typed reaction observation identity; diagnostics never supply this fact.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ObservationCause {
     HeadMoved,
@@ -133,7 +133,7 @@ pub enum ObservationCause {
 }
 
 /// Typed reaction observation identity; diagnostics never supply this fact.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ObservationGap {
     HistoryExpired,
@@ -149,7 +149,7 @@ pub enum ObservationGap {
 }
 
 /// Typed reaction observation identity; diagnostics never supply this fact.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ObservationRecovery {
     Check,
@@ -166,7 +166,7 @@ pub enum ObservationRecovery {
 }
 
 /// Typed reaction observation identity; diagnostics never supply this fact.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ObservationHealth {
     Fired,
@@ -190,7 +190,7 @@ pub enum ObservationHealth {
 /// Whether the condition's source is being watched: `not-observing` until a source is, then
 /// `observing`, or `unavailable` while a read failed or a named identity is gone (NR5). A gap, once
 /// recorded, stays recorded after the state is reconciled.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Observation {
     /// Absent in legacy records: explicitly unknown, never inferred from prose.
     #[serde(default)]
@@ -226,7 +226,7 @@ pub struct Observation {
 /// An accepted firing and the Message it made (NR3, NR8). `matched` says whether a condition was met; an
 /// explicit run claims none. `outcome` is the Message's status in the history, and a delivered Message
 /// is not verified work.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Firing {
     pub id: String,
     pub ordinal: u32,
@@ -240,7 +240,7 @@ pub struct Firing {
     pub outcome: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Reaction {
     pub project: String,
     pub id: String,
