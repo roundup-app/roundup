@@ -155,9 +155,11 @@ it.each(["pad.list", "todo.list"] as const)("u5301a_a_failed_pad_or_todo_read_op
   const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
   app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
   app.handlers[method] = () => { throw new RpcError(-32603, `no reply to ${method} within 5s`); };
+
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.removalQuestions).toHaveLength(1));
+
   const unread = method === "pad.list" ? "Pads could not be read. Try again." : "Todos could not be read. Try again.";
   expect(app.removalQuestions[0]!.message.split("\n")).toContain(unread);
   expect(app.removalQuestions[0]!.message).not.toMatch(/\b0 /);
