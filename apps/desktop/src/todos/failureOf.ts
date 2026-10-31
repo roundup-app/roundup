@@ -1,5 +1,5 @@
 import type { Event } from "@contracts/Event";
-import { applying } from "../app/pending";
+import { outcomeOf } from "../app/seam";
 
 /** The message of a failed call, or `null` when it succeeded. Anything that is not an Error is a bug and escapes. */
 export const failureOf = async <Result>(call: () => Promise<Result>): Promise<string | null> => {
@@ -18,9 +18,13 @@ export const failureOf = async <Result>(call: () => Promise<Result>): Promise<st
 export const doesClearTodoFailure = (event: Event, id: number): boolean =>
   (event.name === "todo.restored" || event.name === "todo.updated" || event.name === "todo.deleted" || event.name === "todo.commented" || event.name === "todo.refAdded" || event.name === "todo.refRemoved") && event.data.id === id;
 
-/** U5172a: the message of a refused change, or `null` when it applied or is still pending; the Daemon's event or a re-read settles a pending one. */
+/** U5172a: the message of a refused change, or `null` when it applied or is still pending; the Daemon's event or a re-read settles a pending one. Classified like `applying`, with no extra await so the caller resumes as `failureOf` did. */
 export const changeFailureOf = async <Result>(call: () => Promise<Result>): Promise<string | null> => {
-  const result = await applying(call);
+  try {
+    await call();
 
-  return result.kind === "refused" ? result.error.message : null;
+    return null;
+  } catch (thrown) {
+    return outcomeOf(thrown) === "failed" && thrown instanceof Error ? thrown.message : null;
+  }
 };

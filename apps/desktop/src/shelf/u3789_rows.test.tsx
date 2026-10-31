@@ -345,7 +345,7 @@ it.each(["todo-shelf", "pad-shelf"] as const)("u3789a_rename_never_opens_older_f
   await waitFor(() => expect(rpcCalls(app, method)).toHaveLength(1));
   const next = "  next 日本語 🌱  ";
   fireEvent.input(field, {target:{value:next}});
-  reply.reject(new Error("rename refused"));
+  reply.reject(new RpcError(-32003, "rename refused"));
   await screen.findByText("rename refused");
   expect(field.value).toBe(next);
   const saved = drafts("/Users/you/harness").list().filter(draft => draft.destination.surface === "row-name");
@@ -448,7 +448,7 @@ it("u3789d_controls_keep_all_actions_dismisses_failure_from_menu", async () => {
   const frame = row.closest('.shelf-row')!;
   const tick = frame.querySelector<HTMLInputElement>('.todo-tick')!;
   tick.focus();
-  app.handlers["todo.complete"] = () => { throw new Error("completion refused"); };
+  app.handlers["todo.complete"] = () => { throw new RpcError(-32003, "completion refused"); };
 
   fireEvent.click(tick);
   await screen.findByText("completion refused");
