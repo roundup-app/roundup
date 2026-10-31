@@ -3240,6 +3240,7 @@ dependencies = [
  "contracts",
  "rpc",
  "rupd",
+ "rusqlite",
  "serde",
  "serde_json",
  "shlex 2.0.1",
