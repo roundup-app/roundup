@@ -79,6 +79,6 @@ Principles: this changes engineering checks only. No product Gate gains a new pa
 | Neither | `pre` passes |
 
 - The scans run once per `pre`: `lint-rust` runs them, `lint-web` does not, and a push to `main` runs them through `lint` as a PR does. The web tests still run only for web changes (L89).
-- `pre.yml` is frozen (L118), so the lane is a `justfile` change: `lint-rust` runs `python3 tools/lint/setup.py web` and `python3 tools/lint/scan.py web`, removed from `lint-web`'s `pnpm lint:boundaries`. The scans add under one minute to a PR with no web change.
+- `pre.yml` is frozen (L118), so the lane is a `justfile` change: a `lint-repo` recipe running `python3 tools/lint/setup.py web` and `python3 tools/lint/scan.py web`, called by `lint-rust` and removed from `lint-web`'s `pnpm lint:boundaries`. The scans add under one minute to a PR with no web change.
 - No scan is dropped, no `tools/lint/debt.json` exception is added and the web lane does not run for a scenario-only change.
 - Test `l5398_repo_wide_scans_run_in_the_lane_every_pr_runs` runs `just --dry-run lint-rust` and `just --dry-run lint-web` and asserts that only the first prints the `scan.py web` command (policy: it pins a gate boundary, which of the two lanes runs the scans). The first observer is `pre` on the implementing PR's head (policy).
