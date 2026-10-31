@@ -26,7 +26,11 @@ export const copy = {
   settingsShortcuts: "Shortcuts",
   settingsAppearance: "Appearance",
   settingsAlerts: "Alerts",
-  stateLabels: { working: "Working", blocked: "Blocked", "needs-you": "Needs you", error: "Error", done: "Done" },
+  working: sharedCopy.working,
+  blocked: sharedCopy.blocked,
+  needsYou: sharedCopy.needsYou,
+  error: sharedCopy.error,
+  done: sharedCopy.done,
   choiceLabels: { alert: "Alert", sound: "Sound", badge: "Dock badge" },
   permissionMode: "Permission mode",
   permissionDefault: "Use my Claude Code default",
@@ -73,3 +77,7 @@ export const copy = {
   captureATodo: sharedCopy.captureATodo,
   save: sharedCopy.save,
 } as const;
+
+/** The Rail's word for an Agent's state, as the Alerts group and the banner body show it. */
+export const stateLabel = (state: "working" | "blocked" | "needs-you" | "error" | "done" | string): string =>
+  ({ working: copy.working, blocked: copy.blocked, "needs-you": copy.needsYou, error: copy.error, done: copy.done } as Record<string, string>)[state] ?? state;

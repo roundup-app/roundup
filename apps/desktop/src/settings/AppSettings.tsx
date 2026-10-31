@@ -1,6 +1,6 @@
 import { createResource, createSignal, createMemo, For, onCleanup, Show } from "solid-js";
 import type { App } from "../app/seam";
-import { copy } from "./copy";
+import { copy, stateLabel } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
@@ -233,9 +233,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
-        <For each={alertStates}>{state => <div class="settings-field" role="group" aria-label={copy.stateLabels[state]}>
+        <For each={alertStates}>{state => <div class="settings-field" role="group" aria-label={stateLabel(state)}>
           <For each={alertChoices}>{choice => <Switch checked={appSettings().stateAlerts[state][choice]}
-            onCheckedChange={checked => save({ stateAlerts: { ...appSettings().stateAlerts, [state]: { ...appSettings().stateAlerts[state], [choice]: checked } } })}>{`${copy.stateLabels[state]} ${copy.choiceLabels[choice]}`}</Switch>}</For>
+            onCheckedChange={checked => save({ stateAlerts: { ...appSettings().stateAlerts, [state]: { ...appSettings().stateAlerts[state], [choice]: checked } } })}>{`${stateLabel(state)} ${copy.choiceLabels[choice]}`}</Switch>}</For>
         </div>}</For>
       </SettingsGroup></Tabs.Content>
       <ReservedLine message={failure()} />
