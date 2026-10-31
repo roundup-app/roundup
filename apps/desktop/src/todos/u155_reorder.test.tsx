@@ -69,7 +69,7 @@ describe("u155 reorder a Todo row", () => {
     const mounted = await three();
 
     mounted.app.handlers["todo.reorder"] = () => {
-      throw new RpcError(-32000, "no room");
+      throw new RpcError(-32003, "no room");
     };
 
     await screen.findByText(/todo 3/);

@@ -174,7 +174,8 @@ it("u461a_success_refetches_surfaces_and_keeps_focus_in_the_drawer", async () =>
   box.focus(); fireEvent.click(box);
   await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen").map(call => call.params)).toEqual([{id:1}]));
   mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
-  await waitFor(() => expect(box.checked).toBe(false));
+  await within(document.body).findByRole("button", { name: "Blocked #2 todo 2" });
+  expect(box.checked).toBe(false);
   expect(document.activeElement).toBe(box);
   expect(mounted.connected.drawer.content()).not.toBeNull();
   const rows = [...document.querySelectorAll<HTMLElement>(".shelf [data-todo]")];

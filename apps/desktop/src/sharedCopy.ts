@@ -66,6 +66,7 @@ export const copy = {
     "materialization-failed": "Unavailable: the saved version could not be opened.",
   },
   dismissFailure: dismiss,
+  dismissedFailure: (label: string) => `Dismissed: ${label}`,
   dismiss,
   retryStorage: "Try again",
   draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? word.unfinishedWork,

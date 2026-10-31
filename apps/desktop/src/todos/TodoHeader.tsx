@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { createSignal } from "solid-js";
 import { captureFocus } from "../keys/focus";
 import { Portal } from "solid-js/web";
@@ -80,8 +81,8 @@ export const TodoHeader = (props: {
     <OwnerPicker target={picking} offers={offers} label={id => copy.ownersFor(id ?? "")} close={closePicker}
       choose={(id, owner) => { closePicker();
 
- if (!props.todo.done) void attempt(() => connected.app.rpc("todo.assign", { id, owner })); }} />
+ if (!props.todo.done) void attempt(() => applied(() => connected.app.rpc("todo.assign", { id, owner }))); }} />
     <HomePicker target={moving} offers={() => homesToOffer(connected.rail.nodes, props.todo.home)} close={closeHome}
-      choose={(id, home) => { closeHome(); void attempt(() => connected.app.rpc("todo.move", { id, home })); }} />
+      choose={(id, home) => { closeHome(); void attempt(() => applied(() => connected.app.rpc("todo.move", { id, home }))); }} />
   </>;
 };

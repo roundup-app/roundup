@@ -14,6 +14,8 @@ export const storageCopy = {
 export const copy = {
   projectNoLongerOpen: "Project is closed.",
   terminalOutcomeUnknown: sharedCopy.terminalOutcomeUnknown,
+  renameDidNotApply: (asked: string, kept: string) => `Rename to ${asked} did not apply; ${kept} was kept. Rename again.`,
+  moveDidNotApply: "The move did not apply; the row stayed where it was. Move it again.",
   keep: sharedCopy.keep,
   newWorkstreamTitle: sharedCopy.newWorkstreamTitle,
   worktreeReadUnavailable: sharedCopy.worktreeReadUnavailable,

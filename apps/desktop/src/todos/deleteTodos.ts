@@ -1,3 +1,4 @@
+import { applied, applying } from "../app/pending";
 import type { Deletion as RailDeletion } from "@contracts/agent/Deletion";
 import { createSignal } from "solid-js";
 import { copy } from "./copy";
@@ -34,7 +35,7 @@ export function deleteTodos(app: AppSeam, ids: number[]): Promise<Deletion> {
         if (retained) return retained;
       }
 
-      return await app.rpc("todo.delete", { operation, ids: chosen });
+      return await applied(() => app.rpc("todo.delete", { operation, ids: chosen }));
     } catch (error) {
       // Even a post-commit server error cannot override an authoritative receipt.
       const observed = await app.rpc("todo.deletion", { operation }).then(
@@ -145,13 +146,16 @@ export function createTodoUndo() {
       let receipt = retry ? await app.rpc("rail.deletion", { project: chosen.project, operation: chosen.operation }) : null;
 
       if (!receipt) {
-        try { receipt = await app.rpc("rail.remove", { id: chosen.id, operation: chosen.operation }); }
-        catch (error) {
+        const removed = await applying(() => app.rpc("rail.remove", { id: chosen.id, operation: chosen.operation }));
+
+        if (removed.kind === "applied") receipt = removed.value;
+        else {
+          const error = removed.error;
           const observed = await app.rpc("rail.deletion", { project: chosen.project, operation: chosen.operation });
 
           if (observed) receipt = observed;
           else {
-            if (outcomeOf(error) === "failed") setRailPending(undefined);
+            if (removed.kind === "refused") setRailPending(undefined);
             throw error;
           }
         }
@@ -256,7 +260,7 @@ export function createTodoUndo() {
         }
 
         if (!receipt) {
-          try { receipt = await app.rpc("pad.delete", { name: pad.name, expectedIncarnation: pad.incarnation, operation: pad.operation }); }
+          try { receipt = await applied(() => app.rpc("pad.delete", { name: pad.name, expectedIncarnation: pad.incarnation, operation: pad.operation })); }
           catch (error) {
             try { receipt = await app.rpc("pad.getDeletion", { operation: pad.operation }); }
             catch (readError) {
@@ -337,7 +341,7 @@ export function createTodoUndo() {
             let restored = await app.rpc("pad.getDeletion", { operation: receipt.operation });
 
             if (!restored.restored) {
-              try { restored = await app.rpc("pad.restore", { project: receipt.project, operation: receipt.operation }); }
+              try { restored = await applied(() => app.rpc("pad.restore", { project: receipt.project, operation: receipt.operation })); }
               catch (error) {
                 const retained = await app.rpc("pad.getDeletion", { operation: receipt.operation });
 
@@ -374,7 +378,7 @@ export function createTodoUndo() {
       let restored = await app.rpc("todo.deletion", { operation: receipt.operation });
 
       if (restored?.state !== "restored") {
-        try { restored = await app.rpc("todo.restore", { operation: receipt.operation }); }
+        try { restored = await applied(() => app.rpc("todo.restore", { operation: receipt.operation })); }
         catch (error) {
           const retained = await app.rpc("todo.deletion", { operation: receipt.operation });
 
@@ -416,7 +420,7 @@ export function createTodoUndo() {
         let receipt = await app.rpc("todo.deletion", { operation: action.operation });
 
         if (!receipt) {
-          try { receipt = await app.rpc("todo.redo", { source: action.receipt.operation, restoration, operation: action.operation }); }
+          try { receipt = await applied(() => app.rpc("todo.redo", { source: action.receipt.operation, restoration, operation: action.operation })); }
           catch (error) {
             receipt = await app.rpc("todo.deletion", { operation: action.operation });
 
@@ -463,7 +467,9 @@ export function createTodoUndo() {
                 member.request = { project: member.receipt.project, restoredOperation: member.receipt.operation, operation: member.operation, expectedIncarnation: member.receipt.pad.incarnation, expectedRevision: current.revision, expectedHome: current.home };
               }
 
-              try { receipt = await app.rpc("pad.redoDelete", member.request); }
+              const request = member.request;
+
+              try { receipt = await applied(() => app.rpc("pad.redoDelete", request)); }
               catch (error) {
                 try { receipt = await app.rpc("pad.getDeletion", { operation: member.operation }); }
                 catch (readError) {

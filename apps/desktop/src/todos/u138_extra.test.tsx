@@ -25,7 +25,7 @@ describe("u138 a failed complete schedules no later focus move", () => {
   it("u138_extra_a_failed_complete_does_not_move_focus_when_the_row_later_leaves_by_another_route", async () => {
     const mounted = await mountTodos([todo(1), todo(2)]);
     mounted.app.handlers["todo.complete"] = () => {
-      throw new RpcError(-32000, "boom");
+      throw new RpcError(-32003, "boom");
     };
 
     (await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / })).focus();

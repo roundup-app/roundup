@@ -51,7 +51,7 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
   it("u138_a_failed_complete_keeps_focus_on_complete", async () => {
     const mounted = await mountTodos([todo(1), todo(2)]);
     mounted.app.handlers["todo.complete"] = () => {
-      throw new RpcError(-32000, "boom");
+      throw new RpcError(-32003, "boom");
     };
 
     (await rowButton(1)).focus();

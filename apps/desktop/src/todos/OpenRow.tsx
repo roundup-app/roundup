@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { Age } from "../shelf/Age";
 import { OpenButton } from "../ink/OpenButton";
 import { Sortable } from "../ui/sortable";
@@ -13,6 +14,7 @@ import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
+import { useTodoList } from "./todoList";
 
 import { TickBox } from "./TickBox";
 import { RowButton } from "./RowButton";
@@ -78,6 +80,7 @@ export const OpenRow = (props: {
   nest?: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null };
 }) => {
   const connected = useConnectedProject();
+  const todos = useTodoList();
   const copied = createCopyFeedback();
   const unregisterCopy = props.copyWith?.(copied);
   onCleanup(() => unregisterCopy?.());
@@ -136,7 +139,7 @@ export const OpenRow = (props: {
         {props.disclosure}
         <Show when={!editing()} fallback={<NameField object={`todo:${props.todo.id}`} name={props.todo.title}
           version={async () => String((await connected.app.rpc("todo.getHistory", { id: props.todo.id })).changes.at(-1)?.seq ?? 0)}
-          commit={async (text, _base, version) => { if (version === null) throw new Error(copy.originalUnverified); await connected.app.rpc("todo.update", { id: props.todo.id, title: text, body: null, expected_change: Number(version) }); }}
+          commit={async (text, _base, version) => { if (version === null) throw new Error(copy.originalUnverified); await applied(() => connected.app.rpc("todo.update", { id: props.todo.id, title: text, body: null, expected_change: Number(version) })); }}
           close={closeName} fail={message => { setFailedAction(copy.rename); setFailure(message); }} />}>
         <RowButton
           hang={false}
@@ -178,6 +181,7 @@ export const OpenRow = (props: {
       glyph={<span><KindGlyph kind={failure() !== null ? "error" : props.todo.blocked ? "blocked" : props.todo.done ? "done" : "idle"} /></span>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      aria-busy={todos.pendingOf(props.todo.id) ? true : undefined}
       data-requested={connected.padsTab() === "todos" && props.todo.creator.kind === "agent" && props.todo.creator.id === connected.padsOwner() ? "true" : undefined}
       onClick={event => {
         if (editing() || props.lifted || !(event.target instanceof Element) || event.target.closest("button, input, [role=checkbox]")) return;
