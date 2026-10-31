@@ -441,3 +441,10 @@ pub async fn allow_prompt(client: &Client, agent: &str) {
         .await
         .unwrap();
 }
+
+#[test]
+fn e5417_a_real_project_waits_the_real_bound_and_a_fake_one_the_short_bound() {
+    assert_eq!(bound_for(true), aimock::REAL_BOUND);
+    assert_ne!(bound_for(false), aimock::REAL_BOUND);
+    assert!(bound_for(true) > bound_for(false));
+}
