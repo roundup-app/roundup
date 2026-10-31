@@ -219,6 +219,8 @@ mod tests {
             terminal_id: None,
             worktree: None,
             can_resume: false,
+            can_make_workstream: false,
+            can_save_as_mode: false,
             yolo: false,
             channel: None,
             stray: Vec::new(),

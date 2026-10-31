@@ -862,10 +862,10 @@ def link(pr, issue=None):
 
 
 def ended(pr, verdict, run_url):
-    """After a run that worked: a ready PR gets auto-merge (L46); a draft's `Stopped:` question goes where its screen
-    `verdict` says (`put`), one the screen sends back to the loop resumes (`resume`), and another draft gets a fix run."""
+    """After a run that worked: a draft's `Stopped:` question goes where its screen `verdict` says (`put`), one the screen
+    sends back resumes (`resume`), another gets a fix run; a ready PR keeps what its run armed (L46): this job's token can't."""
     if not pr['isDraft']:
-        return call('pr', 'merge', str(pr['number']), '--auto', '--merge')
+        return
     if ask := stopped(pr):
         put(pr['number'], ask, verdict, run_url, lambda reason: resume(pr, ask, reason, run_url))
     else:

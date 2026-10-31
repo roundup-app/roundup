@@ -27,6 +27,7 @@ mod observers;
 mod open;
 mod output;
 mod owner_told;
+mod program_status;
 mod queue;
 mod reaction;
 mod reaction_checks;
@@ -106,6 +107,10 @@ pub struct Daemon {
     agents: Arc<agents::Agents>,
     /// X14: where a connection's selected output streams come from.
     terminals: Arc<terminal::Terminals>,
+    /// PS8: each Terminal's program status; the changes are subscribed at `open`, taken once.
+    program_statuses: Arc<program_status::Statuses>,
+    program_changes:
+        std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<Arc<terminal::Change>>>>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
     /// U419: where `attachment.save` keeps a pasted image.
