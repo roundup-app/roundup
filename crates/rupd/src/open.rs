@@ -237,6 +237,7 @@ impl Daemon {
                 changes,
                 self.bus.clone(),
                 Arc::clone(&self.terminals),
+                Arc::clone(&self.agents),
             ));
         }
         let events = self
