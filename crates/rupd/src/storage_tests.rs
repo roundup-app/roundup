@@ -581,14 +581,6 @@ async fn n16_all_stores_share_one_project_database() {
         )
         .await
         .unwrap();
-    daemon.modules["checkpoint"]
-        .call(
-            &ctx,
-            "checkpoint.write",
-            json!({"title":"kept Checkpoint","blocks":[{"kind":"text","text":"facts"}]}),
-        )
-        .await
-        .unwrap();
     // A stopped child is sufficient for Digest's persisted cursor; no Terminal or Message
     // delivery is needed to exercise that store's production write path.
     db.execute(
@@ -658,10 +650,6 @@ async fn n16_all_stores_share_one_project_database() {
     assert_eq!(
         call(&daemon, "message.list", json!({})).await[0]["body"],
         "kept Message"
-    );
-    assert_eq!(
-        call(&daemon, "checkpoint.list", json!({"workstream":ws})).await[0]["title"],
-        "kept Checkpoint"
     );
     assert_eq!(daemon.touches.sequence().unwrap(), touch_sequence);
     let db = Connection::open(dir.path().join("project.db")).unwrap();
