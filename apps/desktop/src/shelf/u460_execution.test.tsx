@@ -83,7 +83,7 @@ it("u460_backspace_is_local_and_repeat_safe", async () => {
   fireEvent.keyDown(row, { key: "Backspace", repeat: true });
   fireEvent.keyDown(row, { key: "Backspace", metaKey: true });
   fireEvent.keyDown(screen.getByRole("checkbox", { name: "Complete todo 1" }), { key: "Backspace" });
-  expect(screen.getByRole("button", { name: "Delete 2" })).toBeTruthy();
+  expect([screen.queryByRole("button", { name: "Keep" })]).toEqual([null]);
   fireEvent.keyDown(row, { key: "Backspace" });
   expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ operation: expect.any(String), ids: [1, 2] }]);
 });
