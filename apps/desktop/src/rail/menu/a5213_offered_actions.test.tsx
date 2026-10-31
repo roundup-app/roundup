@@ -36,6 +36,7 @@ describe("a5213 offered means accepted", () => {
 
         await app.pickMenu(label);
         await waitFor(() => expect(railCallsTo(app, "agent.resume").length).toBe(before + 1));
+        // SAFETY: railCallsTo returns unknown params; agent.resume params carry an optional `mode`.
         const params = railCallsTo(app, "agent.resume").at(-1) as { mode?: string };
 
         expect(accepted(node, live, params), `${label} on ${name}`).toBe(true);
