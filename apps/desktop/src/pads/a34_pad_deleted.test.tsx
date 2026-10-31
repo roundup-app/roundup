@@ -67,12 +67,13 @@ it("a34_pad_deleted_refreshes_the_open_drawers_touch_history", async () => {
   const { app, state } = await openShelf([padOf("plan", AGENT)]);
   await openPad("plan");
   state.pads = [];
-  state.history = [{ actor: AGENT, verb: "wrote", item: "pad:plan", at: 123 }];
+  const verb = "wrote";
+  state.history = [{ actor: AGENT, verb, item: "pad:plan", at: 123 }];
 
   app.emit({ actor: AGENT, name: "pad.deleted", data: { name: "plan" } });
 
-  expect((await screen.findByText(/auth-refactor wrote this Pad at/)).textContent)
-    .toContain("auth-refactor wrote this Pad at");
+  const line = await screen.findByText((text) => text.startsWith(`auth-refactor ${verb}`));
+  expect(line.closest("[aria-label='Drawer']")).not.toBeNull();
 });
 
 const failedSave = async (close = true) => {
