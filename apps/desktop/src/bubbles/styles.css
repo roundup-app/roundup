@@ -235,8 +235,6 @@
 
 .terminal-tab-unseen {
   color: var(--grey);
-  font-size: var(--text-caption);
-  line-height: 1;
 }
 
 .terminal-tab-name {

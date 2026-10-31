@@ -106,9 +106,9 @@ describe("u3566b summaries retain every unread child", () => {
     fireEvent.click(row("c"));
     finish(app, "api", "b", 2, "idle", "1");
     finish(app, "web", "a", 2, "idle", "1");
-    await waitFor(() => expect(unread(tab("web"))).toBe(true));
-    expect(unread(row("b"))).toBe(true);
-    expect(unread(tab("api"))).toBe(true);
+    await waitFor(() => expect(unread(row("b"))).toBe(true));
+    expect(unread(tab("web"))).toBe(false);
+    expect(unread(tab("api"))).toBe(false);
 
     fireEvent.click(within(row("w1")).getByRole("button", { name: "Collapse" }));
     await waitFor(() => expect(unread(row("w1"))).toBe(true));
@@ -123,11 +123,32 @@ describe("u3566b summaries retain every unread child", () => {
 
     fireEvent.click(row("a"));
     finish(app, "api", "b", 2, "idle", "1");
-    await waitFor(() => expect(unread(tab("api"))).toBe(true));
+    await waitFor(() => expect(unread(row("b"))).toBe(true));
 
     expect(app.badges.at(-1)).toBe(1);
-    ;
     expect(screen.queryAllByRole("img", { name: "Unread result" }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("u5153a only attention marks a Project tab", () => {
+  const mark = (name: string) => tab(name).querySelector(".tab-mark")?.getAttribute("aria-label") ?? null;
+
+  it("u5153a_tabs_follow_attention_not_unread_finishes", async () => {
+    const { app } = await openTabs({
+      api: [agent("a", "working", "x"), agent("b", "working", "x")],
+      web: [agent("n", "needs-you", "x"), agent("e", "error", "x")],
+    });
+
+    finish(app, "api", "a", 2, "idle", "1");
+    finish(app, "api", "b", 2, "idle", "1");
+    fireEvent.click(tab("api"));
+    await waitFor(() => expect(unread(row("a")) && unread(row("b"))).toBe(true));
+    expect(unread(tab("api"))).toBe(false);
+    expect(mark("api")).toBeNull();
+    expect(mark("web")).toBe("Error");
+
+    finish(app, "web", "e", 2, "idle", "1");
+    await waitFor(() => expect(mark("web")).toBe("Needs you"));
   });
 });
 
