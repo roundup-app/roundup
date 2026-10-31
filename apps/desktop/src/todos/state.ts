@@ -7,7 +7,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
 import type { Actor } from "@contracts/Actor";
-import { applying } from "../app/pending";
+import { outcomeOf } from "../app/seam";
 import { failureOf } from "./failureOf";
 
 /** U5172a: a change of a Todo that the Daemon has not answered. `base` is the value before it, so a read that still holds `base` leaves it pending and one that holds another value than `asked` contradicts it. A reorder holds the ids of the whole list in order. */
@@ -177,12 +177,15 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
 
   const byId = createMemo(() => new Map(all().map((todo) => [todo.id, todo])));
 
+  // One await like `failureOf`, so a caller resumes in the tick it did before (U3720's reveal races the refetch).
   const ask: TodosState["ask"] = async (id, change, call) => {
-    const result = await applying(call);
-
-    if (result.kind === "refused") return result.error.message;
-
-    if (result.kind === "pending") setAsked(id, change);
+    try {
+      await call();
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
+      if (outcomeOf(thrown) === "failed") return thrown.message;
+      setAsked(id, change);
+    }
 
     return null;
   };
