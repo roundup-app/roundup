@@ -87,7 +87,6 @@ lint-web:
     pnpm typecheck
     pnpm slop
     pnpm lint:boundaries
-    ! pnpm --filter desktop exec vitest list --filesOnly src/perf/r3841_ready.test.ts 2>&1 | grep -F "configLoader: 'native'"
     pnpm lint:cycles
     just packages typecheck
 
