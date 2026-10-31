@@ -7,6 +7,7 @@ import { createContext, createEffect, createRoot, createSignal, getOwner, onClea
 import type { Accessor } from "solid-js";
 import { createImport } from "../rail/importState";
 import { draftStorage } from "./storage";
+import { copy } from "./copy";
 import { checkContract } from "../app/contractMatch";
 import { serveActions } from "../keys/actions";
 import { connectEvents } from "../app/events";
@@ -229,7 +230,7 @@ export const connectProject = async (
   let stopRail = () => {};
 
   // NA6: from here the Daemon can relay `action.list` and `action.run` to this window.
-  serveActions(app).catch(error => console.error("the App could not register its actions", error));
+  serveActions(app).catch(error => console.error(copy.actionsUnregistered, error));
 
   const rail = createRoot(dispose => {
     stopRail = dispose;

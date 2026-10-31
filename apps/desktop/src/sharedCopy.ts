@@ -16,6 +16,7 @@ const rpcFailures = new Map<number, string>([
   [-32005, "The Agent is busy. Wait until it is idle."], [-32006, "Acceptance is unconfirmed. Check the Agent before trying again."],
   [-32007, "The Agent is not running. Refresh to check again."], [-32008, "The interruption is unconfirmed. Check the Agent before trying again."],
   [-32009, "Earlier changes are unavailable. Refresh to check current work."], [-32010, "The inbox is unavailable. Check the Agent before trying again."],
+  [-32011, "The roundup App is not open. Open it and try again."],
 ]);
 
 export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": "New Mode", "opening-prompt": "First prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));

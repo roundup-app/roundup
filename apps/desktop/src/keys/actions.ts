@@ -121,7 +121,7 @@ export const serveActions = async (calls: Pick<ProjectCalls, "serveActions">): P
   await calls.serveActions?.(async ({ id, method, params }) => {
     const answer: ActionAnswer = method === "action.list" ? answerList()
       : method === "action.run" && params ? await answerRun(params)
-      : { error: { code: -32601, message: `the App answers action.list and action.run, not ${method}` } };
+      : { error: { code: -32601, message: copy.actionMethodUnknown(method) } };
 
     return { jsonrpc: "2.0", id, ...answer };
   });

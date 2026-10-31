@@ -12,6 +12,7 @@ export const storageCopy = {
 } as const;
 
 export const copy = {
+  actionsUnregistered: "The App could not register its actions.",
   projectNoLongerOpen: "Project is no longer open",
   terminalOutcomeUnknown: sharedCopy.terminalOutcomeUnknown,
   renameDidNotApply: (asked: string, kept: string) => `Rename to ${asked} did not apply; ${kept} was kept. Rename again.`,
