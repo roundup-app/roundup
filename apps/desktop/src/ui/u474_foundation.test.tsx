@@ -1,14 +1,21 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { parse } from "@babel/parser";
 import { traverseFast, isJSXElement } from "@babel/types";
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
-import { CHORDS, ariaShortcut } from "../keys/chords";
+import { CHORDS, ariaChord, ariaShortcut } from "../keys/chords";
 import { saveAppSettings } from "../settings/preferences";
 import { Tip } from "../ui/Tip";
 import { copy } from "./copy";
 import { IconButton } from "./IconButton";
+import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { showShelfTab } from "../testing/shelfTabs";
+import { padHandlers } from "../testing/stores";
+import { rowOf } from "../rail/railFixture";
+import { createFakeApp } from "../testing/fakeApp";
+import { agent, door } from "../testing/nodes";
 
 afterEach(cleanup);
 
@@ -126,16 +133,84 @@ it("u5247_a_rebound_key_shows_everywhere", async () => {
   expect(chips()).toBe(CHORDS.find((row) => row.name === "todo.capture")!.keys);
 });
 
-it("u5247a_every_named_icon_button_key_runs_its_action", () => {
-  const names = ["shelf.maximise", "shelf.close", "todo.triage-enter", "agent.new"];
+// U5247a: each owner mounts for real; the button's attribute names the press, and that press must do what a click does.
+const mountOwners = async () => {
+  await import("../todos/Todos");
+  const app = createFakeApp();
 
-  render(() => <>{names.map((name) => <IconButton aria-label={name} action={name}>+</IconButton>)}</>);
+  app.opened.project = { name: "p", path: "/p" };
+  app.handlers["rail.tree"] = () => [door("w", "idle", "idle", { name: "lead" }), agent("a", "idle", "x", { parent: "w" })];
+  app.handlers["agent.spawn"] = () => agent("b", "idle", "x", { parent: "w" });
+  Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
+  render(() => <App prepareIdle={open => { open.showView("workstreams"); }} app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  await waitFor(() => rowOf("a"));
+  fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!);
 
-  for (const name of names) {
-    const row = CHORDS.find((chord) => chord.name === name)!;
+  return app;
+};
 
-    expect(screen.getByRole("button", { name }).getAttribute("aria-keyshortcuts")).toBe(ariaShortcut(row.keys));
-  }
+const shelfButton = async (name: string) => {
+  showShelfTab("Todos");
+
+  return within(document.querySelector<HTMLElement>(".shelf")!).findByRole("button", { name });
+};
+
+const openDrawerButton = async () => {
+  showShelfTab("Pads");
+  const group = document.querySelector('.pads-tab [data-shelf-group="unassigned"]');
+
+  if (group?.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+  const pad = await screen.findByRole("button", { name: "notes" });
+  pad.focus();
+  fireEvent.keyDown(pad, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(document.querySelector(".drawer")?.getAttribute("data-open")).toBe("true"));
+
+  return await within(document.querySelector<HTMLElement>(".drawer")!).findByRole("button", { name: /^(Maximise|Restore)$/ });
+};
+
+const pressOf = (shortcut: string, target: Element) => {
+  const parts = shortcut.split("+");
+  const code = parts.at(-1)!;
+
+  return fireEvent.keyDown(target, {
+    code: /^[A-Z]$/.test(code) ? `Key${code}` : code, key: code.length > 1 ? code : code.toLowerCase(),
+    ctrlKey: parts.includes("Control"), altKey: parts.includes("Alt"), metaKey: parts.includes("Meta"), shiftKey: parts.includes("Shift"),
+  });
+};
+
+const owners: [string, string, () => Promise<HTMLElement>, (app: Awaited<ReturnType<typeof mountOwners>>) => string][] = [
+  ["Layout shelf.maximise", "shelf.maximise", () => shelfButton("Maximise"), () => String(screen.queryByRole("button", { name: "Restore" }) !== null)],
+  ["Layout shelf.close", "shelf.close", () => shelfButton("Close the Bench"), () => String(document.querySelector<HTMLElement>(".window")!.dataset["shelf"])],
+  ["Todos todo.triage-enter", "todo.triage-enter", () => shelfButton("Triage"), () => String(screen.getByRole("button", { name: "Triage" }).getAttribute("aria-pressed"))],
+  ["DrawerHost shelf.maximise", "shelf.maximise", openDrawerButton, () => String(document.querySelector<HTMLElement>(".drawer")?.dataset["maximised"])],
+  ["RowIcons agent.new", "agent.new", async () => await within(document.querySelector<HTMLElement>('.rail-row[data-id="w"]')!).findByRole("button", { name: "Add Agent" }), app => String(app.calls.filter(call => call.method === "agent.spawn").length)],
+];
+
+it.each(owners)("u5247a_every_named_icon_button_key_runs_its_action: %s", async (_owner, name, find, observe) => {
+  const row = CHORDS.find(chord => chord.name === name)!;
+
+  const run = async (how: "click" | "press") => {
+    cleanup();
+    localStorage.clear();
+    const app = await mountOwners();
+    const button = await find();
+    button.focus();
+    await waitFor(() => expect(button.getAttribute("aria-keyshortcuts"), "shown key").toBe(ariaChord(row)));
+    const shortcut = button.getAttribute("aria-keyshortcuts");
+    const before = observe(app);
+
+    if (how === "click") fireEvent.click(button);
+    else pressOf(shortcut!, button);
+    await waitFor(() => expect(observe(app)).not.toBe(before), { timeout: 2000 }).catch(() => {});
+
+    return [before, observe(app)];
+  };
+
+  const clicked = await run("click");
+  const pressed = await run("press");
+
+  expect(clicked[1]).not.toBe(clicked[0]);
+  expect(pressed).toEqual(clicked);
 });
 
 it("u477_icon_button_preserves_button_props", () => {

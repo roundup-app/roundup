@@ -548,3 +548,12 @@ fn a2681a_stopping_attempt_hides_parts() {
     }
     assert!(shared.node(&id).unwrap().overview.is_none());
 }
+
+#[test]
+fn u5151d_a_failed_resume_reads_as_a_user_action() {
+    let [wait, stop] = [true, false].map(super::resume_cleanup_label);
+    assert!(wait.contains("wait") && stop.contains("stop"));
+    for label in [wait, stop] {
+        assert!(label.ends_with("resume again") && !label.contains("cleanup"));
+    }
+}
