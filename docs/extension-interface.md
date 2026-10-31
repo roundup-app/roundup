@@ -24,6 +24,14 @@ export function register(on) {
 }
 ```
 
+## Where Extensions run
+
+Each Extension is a child process of `rupd` running its `module` with the owner's `node`, started by the Extension host (`crates/rupd`, `src/extensions/`) after the Daemon serves its socket. Extensions are folders in `~/.roundup/extensions/`; a Project folder never loads code. `rupd` enforces `permissions` (`agents`, `todos`, `pads`, `bus`, `ui`, `store`, `clock`) on the child's calls. A failure ends the child only and raises one `extension.problem` (a Toast). Acceptance: `scenarios/user-actions.md`.
+
+## User actions
+
+`on("action", { name, label, args? }, hook)` declares a named action; `hook` returns `{done}` or `{deny}`. It is listed after the built-in ones by `action.list`, shown in the Switcher when it needs no argument, and run with `rup do <name>`. A name never takes a built-in one.
+
 ## Hooks (each has a built-in default; the default is itself a module)
 
 | Concern | Hook | Returns |
