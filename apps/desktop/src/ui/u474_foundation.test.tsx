@@ -94,19 +94,19 @@ it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"
   expect(button.getAttribute("aria-describedby")).toBeNull();
 });
 
-it("u2570a_icon_button_forwards_its_chord_only_to_the_tooltip", async () => {
-  render(() => <IconButton aria-label={copy.newAgent} chord={CHORDS[0]}>+</IconButton>);
-  const button = screen.getByRole("button", { name: copy.newAgent });
+it("u5247_icon_button_reads_its_key_by_name", async () => {
+  render(() => <><IconButton aria-label="Maximise" action="shelf.maximise">+</IconButton><IconButton aria-label="Nothing" action="no.such">-</IconButton></>);
+  const button = screen.getByRole("button", { name: "Maximise" });
 
   fireEvent.keyDown(document, { key: "Tab" });
   button.focus();
   const tip = await screen.findByRole("tooltip");
 
-  expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe(CHORDS[0]!.keys);
-  expect(button.hasAttribute("chord")).toBe(false);
-  expect(tip.hasAttribute("chord")).toBe(false);
+  expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe("M");
+  expect(button.getAttribute("aria-keyshortcuts")).toBe("M");
+  expect(button.hasAttribute("action")).toBe(false);
+  expect(screen.getByRole("button", { name: "Nothing" }).hasAttribute("aria-keyshortcuts")).toBe(false);
 });
-
 
 it("u477_icon_button_preserves_button_props", () => {
   render(u474Fixture);
