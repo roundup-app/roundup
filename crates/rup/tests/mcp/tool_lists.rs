@@ -115,7 +115,7 @@ pub const DOOR_METHODS: [&str; 5] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 81] = [
+pub const NO_TOOL: [&str; 82] = [
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
     "daemon.getNaming",
     "daemon.setNaming",
