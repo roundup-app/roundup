@@ -46,7 +46,6 @@ pub fn build<R: Runtime>(
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_filter(|label| label == "main")
@@ -67,7 +66,6 @@ pub fn build<R: Runtime>(
         .invoke_handler(invoke_handler())
         .setup(move |app| {
             app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(alert::Plugin(app.handle().clone())))));
-            alert::listen(app.handle())?;
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;
             let state = app.state::<AppState>();

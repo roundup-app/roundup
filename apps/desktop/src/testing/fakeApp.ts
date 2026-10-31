@@ -363,6 +363,7 @@ export const createFakeApp = (): FakeApp => {
     },
     stateAlert: async (alert) => {
       app.stateAlerts.push(alert);
+
       if (app.stateAlertFailure) throw app.stateAlertFailure;
     },
     onStateAlertClicked: async (listener) => {
