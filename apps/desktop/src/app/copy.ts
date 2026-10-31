@@ -89,7 +89,6 @@ export const copy = {
   clipboardCopyRetry: "Try again, or select text and use the context menu.",
   copy: sharedCopy.copy,
   centreRegion: "Centre",
-  thatIsGone: "That is gone",
   daemonExit: (exit: string) => `Disconnected: ${exit}`,
   moveToInRail: "Move · Rail",
 } as const;

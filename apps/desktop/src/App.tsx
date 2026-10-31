@@ -14,6 +14,7 @@ import { captureActions, registerKeys } from "./keys/registry";
 import { Combobox } from "./ui/Combobox";
 import { CHORDS, LEADER, shortcutLabel } from "./keys/chords";
 import { copy } from "./app/copy";
+import { copy as toastCopy } from "./toasts/copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, getOwner, on, onCleanup, onMount, runWithOwner, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
@@ -580,7 +581,7 @@ export const App = (props: {
   void props.app.onStateAlertClicked(agent => {
     const path = [...connections().keys()].find(each => railOf(each)?.nodes.some(node => node.id === agent));
 
-    if (path === undefined) return setAlertFailure(copy.thatIsGone);
+    if (path === undefined) return setAlertFailure(toastCopy.thatIsGone);
 
     projects.select(path);
     railOf(path)?.select(agent);
