@@ -61,7 +61,7 @@ impl Alerts {
             .get_or_insert_with(|| self.notifier.permission())
             .clone();
         permission.map_err(|cause| {
-            RpcError::new(code::FORBIDDEN, format!("notifications refused: {cause}"))
+            RpcError::new(code::FORBIDDEN, format!("State alerts refused: {cause}"))
         })?;
         self.notifier
             .banner(&request.agent, &request.title, &request.body)
@@ -80,7 +80,7 @@ impl<R: Runtime> Notifier for Plugin<R> {
 
     #[cfg(target_os = "macos")]
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String> {
-        bundle();
+        bundle(&self.0.config().identifier);
         let handle = self.0.clone();
         let (agent, title, body) = (agent.to_owned(), title.to_owned(), body.to_owned());
         std::thread::Builder::new()
@@ -121,12 +121,12 @@ impl<R: Runtime> Notifier for Plugin<R> {
 
 /// Sends banners as roundup (its icon, its permission, its click target) when running from the `.app` bundle; a dev build has no bundle and keeps the default sender.
 #[cfg(target_os = "macos")]
-fn bundle() {
+fn bundle(identifier: &str) {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
         let bundled = std::env::current_exe()
             .is_ok_and(|exe| exe.to_string_lossy().contains(".app/Contents/"));
-        if bundled && let Err(error) = mac_notification_sys::set_application("dev.roundup.app") {
+        if bundled && let Err(error) = mac_notification_sys::set_application(identifier) {
             log::warn!(target: "roundup::shell", "set banner application: {error}");
         }
     });
