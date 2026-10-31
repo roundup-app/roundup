@@ -32,3 +32,7 @@
   flex-basis: 100%;
   padding-inline-start: var(--space-4);
 }
+
+.app-mentions [data-part="item-text"]:has(.failure-line) {
+  flex-wrap: wrap;
+}
