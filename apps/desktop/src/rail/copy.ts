@@ -141,7 +141,7 @@ export const copy = {
   openTodoCount: (count: number) => `${count} open ${removalPlurals.select(count) === "one" ? "Todo" : "Todos"}`,
   removalPadCount: (count: number) => `${count} ${removalPlurals.select(count) === "one" ? "Pad" : "Pads"}`,
   staysRemoveThis: (items: string) => `Stays (Remove this): ${items}`,
-  listUnread: (list: "Todos" | "Pads") => `${list} could not be read`,
+  listUnread: (list: "Todos" | "Pads") => `${list} could not be read. Try again.`,
   goes: (value1: CopyValue) => `Goes: ${value1}`,
   todoCount: (value1: CopyValue) => `${value1} todos`,
   comma: sharedCopy.comma,
