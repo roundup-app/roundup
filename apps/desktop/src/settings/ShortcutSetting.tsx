@@ -36,7 +36,13 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   const [mode, setMode] = createSignal<Mode | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [found, setFound] = createSignal<string | null>(null);
-  const rows = createMemo(() => { appSettings(); return listActions(); });
+
+  const rows = createMemo(() => {
+    appSettings();
+
+    return listActions();
+  });
+
   const overrides = () => appSettings().shortcuts;
   let active: HTMLElement | undefined;
 
@@ -50,6 +56,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     const holder = holderOf(press, name);
 
     if (holder) return setFailure(copy.shortcutRefusal(label, holder));
+
     if (!appScope().has(press)) return setFailure(copy.shortcutTerminal(label));
 
     await change(name, press);
@@ -75,10 +82,21 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
 
   registerKeys({ kind: "layer", element: () => active, active: () => mode() !== null, modal: true }, [
     { chords: ["Escape"], run: stop },
-    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => !isModifier(event), run: event => { const current = mode(); if (current?.kind === "record") void record(current.name, event); else if (current) look(event); } },
+    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => !isModifier(event), run: event => {
+      const current = mode();
+
+      if (current?.kind === "record") void record(current.name, event);
+      else if (current) look(event);
+    } },
   ]);
 
-  const begin = (next: Mode) => (event: MouseEvent) => { active = event.currentTarget as HTMLElement; setFound(null); setFailure(null); setMode(next); };
+  const recording = (name: string) => {
+    const current = mode();
+
+    return current?.kind === "record" && current.name === name;
+  };
+
+  const begin = (next: Mode) => (event: MouseEvent & { currentTarget: HTMLElement }) => { active = event.currentTarget; setFound(null); setFailure(null); setMode(next); };
 
   const save = async () => {
     if (!props.app) return;
@@ -104,14 +122,14 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     <ReservedLine message={failure()} status={found()} />
     <For each={rows()}>{row => row.name === "todo.capture"
       ? <><ShortcutSetting field="quickAdd" {...props} /><ShortcutSetting field="quickAddAnywhere" {...props} /></>
-      : <ActionShortcut label={row.label} keys={row.keys} recording={(mode() as Mode | null)?.kind === "record" && (mode() as { name: string }).name === row.name}
+      : <ActionShortcut label={row.label} keys={row.keys} recording={recording(row.name)}
           {...(CHORDS.some(chord => chord.name === row.name && recordable(chord)) ? { onRecord: begin({ kind: "record", name: row.name }) } : {})}
           overridden={row.name in overrides()} onReset={() => change(row.name, null)} />}</For>
   </>;
 };
 
 /** One action's row: its label and keys, and where recordable the button to press a new key and the Reset. */
-const ActionShortcut = (props: { label: string; keys: string; recording: boolean; overridden: boolean; onRecord?: ((event: MouseEvent) => void) | undefined; onReset: () => void }) => {
+const ActionShortcut = (props: { label: string; keys: string; recording: boolean; overridden: boolean; onRecord?: ((event: MouseEvent & { currentTarget: HTMLElement }) => void) | undefined; onReset: () => void }) => {
   const caption = createUniqueId();
   const value = createUniqueId();
 

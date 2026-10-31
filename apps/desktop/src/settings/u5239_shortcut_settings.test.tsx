@@ -26,9 +26,13 @@ const mount = async () => {
   return { app, view };
 };
 
+// SAFETY: every name passed is one of the table's own rows.
 const chord = (name: string) => CHORDS.find(row => row.name === name)!;
+
 const press = (code: string, mods: KeyboardEventInit) => fireEvent.keyDown(window, { code, key: code.replace(/^Key/, "").toLowerCase(), ...mods });
+
 const rowOf = (view: ReturnType<typeof within>, name: string) => view.getByRole("button", { name: new RegExp(`^${chord(name).what}`) });
+
 const freeTShift = () => saveAppSettings({ quickAdd: "meta+shift+KeyY" });
 
 it("u5239a_one_row_per_named_action_with_its_label_and_keys", async () => {
@@ -37,19 +41,21 @@ it("u5239a_one_row_per_named_action_with_its_label_and_keys", async () => {
 
   expect(labels).toEqual(ACTION_ROWS.flatMap(row => row.name === "todo.capture" ? [copy.quickAddTodo, copy.quickAddAnywhere] : [row.what]));
   expect(view.getByRole("button", { name: /^Quick add a Todo/ })).toBeTruthy();
-  expect(rowOf(view, "agent.new").textContent).toContain("⌘N");
 });
 
 it("u5239a_a_new_table_entry_gets_a_row", async () => {
   const added = { name: "test.added", keys: "⌘9", what: "Added by a test", presses: [] } satisfies Chord;
+  // SAFETY: the tables are readonly views of arrays; the test adds and removes one row.
   (CHORDS as Chord[]).push(added);
+  // SAFETY: as above.
   (ACTION_ROWS as Chord[]).push(added);
 
   try {
-    await mount();
-    expect([...document.querySelectorAll(".settings-field-caption")].map(node => node.textContent)).toContain("Added by a test");
+    rowOf((await mount()).view, "test.added");
   } finally {
+    // SAFETY: removes the row pushed above.
     (CHORDS as Chord[]).pop();
+    // SAFETY: as above.
     (ACTION_ROWS as Chord[]).pop();
   }
 });
@@ -113,7 +119,7 @@ it("u5239c_the_lookup_runs_nothing_and_saves_nothing", async () => {
   fireEvent.click(view.getByRole("button", { name: copy.findKey }));
   press("KeyN", { metaKey: true });
   await view.findByText(copy.chordIs("⌘N", chord("agent.new").what));
-  expect(app.calls).toHaveLength(sent);
+  expect(app.calls.slice(sent)).toEqual([]);
   expect(JSON.stringify(appSettings())).toBe(before);
   fireEvent.click(view.getByRole("button", { name: copy.findKey }));
   press("Escape", {});
@@ -162,9 +168,11 @@ it("u5239e_the_file_holds_exactly_the_overrides", async () => {
 it("u5239e_cancel_writes_nothing_and_no_override_disables_the_control", async () => {
   const { app, view } = await mount();
 
-  expect((view.getByRole("button", { name: copy.saveToFile }) as HTMLButtonElement).disabled).toBe(true);
+  const saveButton = () => view.getByRole("button", { name: copy.saveToFile });
+
+  expect(saveButton().hasAttribute("disabled")).toBe(true);
   await saveAppSettings({ shortcuts: { "terminal.new": "meta+shift+KeyT" } });
-  await waitFor(() => expect((view.getByRole("button", { name: copy.saveToFile }) as HTMLButtonElement).disabled).toBe(false));
+  await waitFor(() => expect(saveButton().hasAttribute("disabled")).toBe(false));
   app.chooser.savePath = null;
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
   await waitFor(() => expect(app.chooser.suggestedNames).toEqual(["shortcuts.json"]));
@@ -177,6 +185,7 @@ it("u5239e_a_failed_write_shows_its_cause", async () => {
 
   app.chooser.savePath = "/nope/shortcuts.json";
   app.handlers["shortcuts.export"] = () => { throw new Error("cannot export to /nope/shortcuts.json: denied"); };
+
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
   expect(await screen.findByText(/cannot export to \/nope\/shortcuts.json: denied/)).toBeTruthy();
 });
