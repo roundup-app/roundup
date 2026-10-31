@@ -1,3 +1,4 @@
+import type { Kind } from "@contracts/Kind";
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
@@ -28,6 +29,13 @@ export const copy = {
   settingsTerminal: "Terminal",
   settingsShortcuts: "Shortcuts",
   settingsAppearance: "Appearance",
+  settingsAlerts: "Alerts",
+  working: sharedCopy.working,
+  blocked: sharedCopy.blocked,
+  needsYou: sharedCopy.needsYou,
+  error: sharedCopy.error,
+  done: sharedCopy.done,
+  choiceLabels: { alert: "Alert", sound: "Sound", badge: "Dock badge" },
   permissionMode: "Permission mode",
   permissionDefault: "Use my Claude Code default",
   permissionNormal: "Default",
@@ -73,3 +81,7 @@ export const copy = {
   captureATodo: sharedCopy.captureATodo,
   save: sharedCopy.save,
 } as const;
+
+/** The Rail's word for an Agent's state, as the Alerts group and the banner body show it. */
+export const stateLabel = (state: Exclude<Kind, "idle">): string =>
+  ({ working: copy.working, blocked: copy.blocked, "needs-you": copy.needsYou, error: copy.error, done: copy.done })[state];

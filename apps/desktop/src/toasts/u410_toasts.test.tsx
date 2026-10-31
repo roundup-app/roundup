@@ -277,7 +277,7 @@ describe("u414 few Toasts, never in the way, quiet when idle", () => {
     expect(names(toasts())).toEqual(["agent 9 Needs you", "agent 8 Needs you", "And 8 more"]);
   });
 
-  it("u414_repeats_replace_and_one_sound_per_second", async () => {
+  it("u414_repeats_replace_and_one_sound_per_agent_per_five_seconds", async () => {
     const { app, toasts, sounds } = await mountToasts(tree());
 
     app.emit(status("a", "needs-you"));
@@ -288,7 +288,7 @@ describe("u414 few Toasts, never in the way, quiet when idle", () => {
     expect(toasts()).toHaveLength(1);
     expect(sounds).toHaveLength(1);
 
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(5000);
     app.emit(status("a", "error"));
     await settle();
 

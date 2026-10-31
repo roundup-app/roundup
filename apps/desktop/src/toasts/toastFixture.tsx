@@ -14,6 +14,7 @@ import { event, NOW } from "../testing/nodes";
 import { createToastQueue } from "./queue";
 import { Toasts } from "./Toasts";
 import { watchProject } from "./watch";
+import { createStateAlerts } from "../rail/stateAlerts";
 
 export const TOAST_AGENT: Actor = { kind: "agent", id: "a", parent: null };
 
@@ -43,13 +44,14 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
   const [front, setFront] = createSignal(options.front ?? true);
   const sounds: number[] = [];
   const shown: string[] = [];
+  const alertFailures: (string | null)[] = [];
   let queue!: ReturnType<typeof createToastQueue>;
 
   if (options.selected !== undefined) connected.rail.select(options.selected);
 
   const view = render(() => {
     queue = createToastQueue(front, () => sounds.push(Date.now()));
-    watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle);
+    watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle, createStateAlerts(alert => app.stateAlert(alert), front, message => alertFailures.push(message)));
 
     return (
       <ConnectedProjectContext.Provider value={connected}>
@@ -61,6 +63,6 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
 
   const toasts = () => [...view.container.querySelectorAll<HTMLElement>(".app-toast-action")];
 
-  return { app, connected, view, queue, sounds, shown, toasts, setFront, leaveWindow: () => { setFront(false); }, comeBack: () => { setFront(true); fireEvent(window, new Event("focus")); } };
+  return { alertFailures, app, connected, view, queue, sounds, shown, toasts, setFront, leaveWindow: () => { setFront(false); }, comeBack: () => { setFront(true); fireEvent(window, new Event("focus")); } };
 };
 
