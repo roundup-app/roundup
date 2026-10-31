@@ -11,6 +11,8 @@ use tauri::test::{mock_builder, mock_context, noop_assets};
 #[derive(Default)]
 struct Fake {
     refuse: Option<String>,
+    /// The permission request ends unanswered, as at the 60 s timeout.
+    unanswered: bool,
     denied: bool,
     calls: Mutex<Vec<String>>,
 }
@@ -20,6 +22,9 @@ struct Shared(Arc<Fake>);
 impl Notifier for Shared {
     fn permission(&self) -> Option<Result<(), String>> {
         self.0.calls.lock().unwrap().push("permission".into());
+        if self.0.unanswered {
+            return None;
+        }
         Some(self.0.refuse.clone().map_or(Ok(()), Err))
     }
     fn denied(&self) -> bool {
@@ -157,6 +162,25 @@ fn u5232i_an_allowed_or_undetermined_state_sends() {
     raise(&fake, true, false).unwrap();
     assert!(
         fake.calls
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|c| c.starts_with("banner"))
+    );
+}
+
+#[test]
+fn u5232k_no_alert_returns_ok_without_a_banner() {
+    let fake = Arc::new(Fake {
+        unanswered: true,
+        ..Fake::default()
+    });
+    let error = raise(&fake, true, false).unwrap_err();
+    assert_eq!(error.code, code::FORBIDDEN);
+    assert!(error.message.contains("unanswered"), "{}", error.message);
+    assert!(
+        !fake
+            .calls
             .lock()
             .unwrap()
             .iter()
