@@ -299,6 +299,16 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | chordsFor | none | — |
 | Leader | same | — |
 
+### Named actions
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Named action (`NamedAction`, `ActionName`, `ActionArg`, `runAction`) | action | — |
+| Action list (`action.list`, `rup actions`) | actions | — |
+| Action run (`action.run`, `rup do`) | do | — |
+| Action answerer (`action.serve`) | none | — |
+| App closed (`APP_CLOSED`) | none | — |
+
 ### Ask placement
 
 | Code term | User label | Avoid |
