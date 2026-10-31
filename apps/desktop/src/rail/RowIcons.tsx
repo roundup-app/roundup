@@ -1,4 +1,3 @@
-import { CHORDS } from "../keys/chords";
 import { copy } from "./copy";
 import { Show, type JSX } from "solid-js";
 import { Icon } from "../ink/Icon";
@@ -29,7 +28,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
           class="rail-add"
           aria-label={copy.addAgentLabel}
           aria-disabled={add().disabled || undefined}
-          chord={add().disabled || add().shortcut === false ? undefined : CHORDS[0]}
+          action={add().disabled || add().shortcut === false ? undefined : "agent.new"}
           onClick={(click) => {
             click.stopPropagation();
             add().run();
