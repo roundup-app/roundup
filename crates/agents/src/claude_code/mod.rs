@@ -438,12 +438,31 @@ fn hook_status(payload: &Value) -> Option<(Kind, String)> {
         }
         "PermissionRequest" => Some((Kind::NeedsYou, permission_label(payload))),
         "StopFailure" => Some((Kind::Error, failure_label(payload["error"].as_str()))),
-        "SessionEnd" => Some((Kind::Done, text("reason").unwrap_or_else(|| "done".into()))),
+        "SessionEnd" => Some((Kind::Done, session_end_label(text("reason").as_deref()))),
         "Notification" | "SubagentStop" | "MessageDisplay" | "PostToolBatch" => None,
         other => {
             eprintln!("agents: ignoring an unrecognised hook event {other}");
             None
         }
+    }
+}
+
+/// U5151d: what a `SessionEnd` reason means to the owner. An unrecognised reason is kept
+/// verbatim; a missing or empty one reads as plain `done`.
+fn session_end_label(reason: Option<&str>) -> String {
+    match reason.map(str::trim).unwrap_or_default() {
+        "" | "other" => "done".into(),
+        "clear" => "Session cleared; send a message to start again".into(),
+        "resume" => "Session replaced by a resumed one".into(),
+        "logout" => "Claude signed out; sign in from its Terminal, then send a message".into(),
+        "prompt_input_exit" => {
+            "Claude was exited from its prompt; send a message to restart it".into()
+        }
+        "bypass_permissions_disabled" => {
+            "Claude ended because bypassing permissions is disabled; check its settings, then retry"
+                .into()
+        }
+        other => format!("Session ended: {other}"),
     }
 }
 
