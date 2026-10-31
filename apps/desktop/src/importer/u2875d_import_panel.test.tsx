@@ -128,7 +128,7 @@ it.each([false, true])("u3815_cancel_keeps_the_exact_current_choices (empty: %s)
     await screen.findByRole("button", { name: "Import" });
   }
 
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   cleanup();
   render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
@@ -186,7 +186,7 @@ it("u3037d_discovery_deadline_and_retry", async () => {
   openProjectPage("import-work");
   await vi.advanceTimersByTimeAsync(0);
   expect(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("status")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty("disabled", false);
+  expect(screen.getByRole("button", { name: "Dismiss" })).toHaveProperty("disabled", false);
   await vi.advanceTimersByTimeAsync(20_000);
   expect(screen.getByRole("alert")).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "Import Claude Code" })).queryByRole("status")).toBeNull();
@@ -213,7 +213,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
   else if (action === "period") {
     fireEvent.click(screen.getByRole("button", { name: "Last day" }));
     await vi.advanceTimersByTimeAsync(0);
-  } else if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  } else if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else {
     cleanup();
     const other = createFakeApp();
