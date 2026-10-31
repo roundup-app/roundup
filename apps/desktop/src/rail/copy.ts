@@ -1,3 +1,4 @@
+import type { Kind } from "@contracts/Kind";
 import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
@@ -160,3 +161,7 @@ export const copy = {
   removeQuestion: (name: string) => `Remove ${name}?`,
   moveTo: sharedCopy.moveTo,
 } as const;
+
+/** The word for an Agent's state in a State alert's body. */
+export const stateLabel = (state: Exclude<Kind, "idle">): string =>
+  ({ working: sharedCopy.working, blocked: sharedCopy.blocked, "needs-you": sharedCopy.needsYou, error: sharedCopy.error, done: sharedCopy.done })[state];
