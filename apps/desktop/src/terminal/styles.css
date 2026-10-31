@@ -165,4 +165,16 @@
   flex-direction: column;
 }
 
+.pane .terminal-find {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-4);
+  z-index: 1;
+  width: calc(var(--space-6) * 6);
+  padding: var(--space-2);
+}
 
+.pane .terminal-find-miss {
+  font-size: var(--text-caption);
+  color: var(--grey);
+}

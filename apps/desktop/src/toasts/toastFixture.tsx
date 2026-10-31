@@ -21,8 +21,11 @@ export const toastTodo = (id: number, creator: Actor, title = "ship it"): Todo =
 
 export const pad = (name: string, _actor: Actor): Pad => ({ incarnation: `fixture-${name}`, name, text: "", updated_at: 0, revision: 1, home: null });
 
+/** U5151a: the Adapter-mapped cause and next action a failed turn carries. */
+export const FAILURE = "Claude's servers failed; send the Agent a message to retry.";
+
 export const status = (id: string, kind: Kind) =>
-  event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind, since: NOW, finished: "0" } } });
+  event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind === "error" ? FAILURE : kind, since: NOW, finished: "0" } } });
 
 export const by = (actor: Actor, data: Parameters<typeof event>[0]) => ({ ...event(data), actor });
 
