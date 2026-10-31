@@ -532,6 +532,7 @@ export function createTodoUndo() {
       setStack(all => [...all]);
     },
     failure: () => failure()?.message ?? null,
+    blocked: () => failure()?.kind === "blocked",
     // U5170b: Dismiss drops an unconfirmed state from the blocking set and says the Daemon may still hold it.
     dismiss: () => {
       if (!unconfirmed()) {

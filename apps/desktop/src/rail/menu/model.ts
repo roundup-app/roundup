@@ -175,7 +175,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       if (removed) {
         current.removed?.();
         acknowledge(current.node.id);
-      } else if (storage.todoUndo.failure()) onFailure(storage.todoUndo.failure()!, current.node.id);
+      } else if (storage.todoUndo.failure() && !storage.todoUndo.blocked()) onFailure(storage.todoUndo.failure()!, current.node.id);
     } catch (error) {
       close();
 
