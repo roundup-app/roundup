@@ -93,13 +93,22 @@ export const copy = {
   triageDone: sharedCopy.done,
   triageComment: sharedCopy.comment,
   triageLeave: "Leave",
-  actionUnknown: (name: string) => `Unknown action "${name}". Read the list for the names.`,
-  actionNoArgument: (name: string, key: string, declared: string) => `"${name}" takes no argument "${key}". Its arguments: ${declared || "none"}.`,
+  /** @prose */
+  actionUnknown: (name: string) => `Roundup has no action "${name}". Read the list for the names.`,
+  /** @prose */
+  actionNoArgument: (name: string, key: string, declared: string) => `"${name}" takes no argument "${key}". It takes ${declared || "no arguments"}.`,
+  /** @prose */
   actionRepeated: (key: string) => `Argument "${key}" is given twice. Give it once.`,
+  /** @prose */
   actionMissing: (name: string, arg: string) => `"${name}" needs argument ${arg}. Add it and run again.`,
+  /** @prose */
   actionInvalid: (key: string, arg: string) => `Argument "${key}" must be ${arg}. Correct it and run again.`,
+  /** @prose */
   actionUnavailable: (name: string, cause: string) => `"${name}" is not available: ${cause}. Change focus and run again.`,
+  /** @prose */
   actionCauseDialog: "a dialog is open",
+  /** @prose */
   actionCauseRail: "needs a Rail row",
+  /** @prose */
   actionCauseFocus: "not available where focus is now",
 } as const;
