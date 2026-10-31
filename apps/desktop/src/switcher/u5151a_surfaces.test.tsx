@@ -6,18 +6,20 @@ import { field, mountSwitcher, openSwitcher } from "./switcherFixture";
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 const LABEL = "Claude's servers failed; send the Agent a message to retry. The next turn replaces this mark.";
+
 const failed = agent("cy", "error", "x", { name: "Cy", status: { kind: "error", label: LABEL, since: NOW, finished: "0" } });
+
 const TURNS = /^(agent|terminal)\.(send|write|stop|restart)|^(message|workstream)\./;
 
 describe("U5151a", () => {
   it("u5151a_each_error_surface_explains_recovery", async () => {
     await mountSwitcher(null, [failed]);
 
-    expect(screen.getByRole("treeitem", { name: /Cy/ }).textContent).toContain(LABEL);
+    expect(screen.getByRole("treeitem", { name: /Cy/ }).textContent).toContain(failed.status!.label);
 
     openSwitcher();
     await waitFor(() => expect(field()).not.toBeNull());
-    expect(document.querySelector(".switcher")!.textContent).toContain(LABEL);
+    expect(document.querySelector(".switcher")!.textContent).toContain(failed.status!.label);
   });
 
   it("u5151a_reading_a_failure_spends_no_turn", async () => {
