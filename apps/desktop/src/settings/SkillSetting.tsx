@@ -75,13 +75,18 @@ export const SkillSetting = (props: { app: App }) => {
   };
 
   return <Show when={items()}>{list => <>
-    <Switch checked={on(list())} disabled={busy()} invalid={!!failure()} description={copy.skillHint}
+    <Switch checked={on(list())} disabled={busy()} description={copy.skillHint}
       onCheckedChange={checked => void run(checked ? "skill.setup" : "skill.remove")}>{copy.skill}</Switch>
     <div class="settings-skill-state">
-      <Show when={failure()} fallback={<span>{stateWords(list())}</span>}>{lines => <>
-        <span>{lines()[0]}</span>
-        <span>{lines()[1]}</span>
-      </>}</Show>
+      <div class="settings-skill-lines">
+        <Show when={failure()} fallback={<>
+          <span>{stateWords(list())}</span>
+          <Show when={stateWords(list()) === copy.skillPartial}><span>{copy.skillPartialFix}</span></Show>
+        </>}>{lines => <>
+          <span class="settings-skill-cause">{lines()[0]}</span>
+          <span>{lines()[1]}</span>
+        </>}</Show>
+      </div>
       <Show when={list().some(i => i.state === "outdated")}>
         <button class="word" data-button="quiet" type="button" disabled={busy()} onClick={() => void run("skill.setup")}>{copy.skillUpdate}</button>
       </Show>
