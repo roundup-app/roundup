@@ -11,7 +11,6 @@ test-support = ["agents/test-support", "dep:async-trait"]
 async-trait = { workspace = true, optional = true }
 agents = { path = "../agents" }
 base64.workspace = true
-checkpoints = { path = "../checkpoints" }
 contracts = { path = "../contracts" }
 getrandom = "0.3"
 memchr = "2"

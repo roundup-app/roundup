@@ -249,11 +249,6 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/checkpoints/src/schema.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "crates/contracts/src/common.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -416,11 +411,6 @@
     "kind": "reference"
   },
   "crates/rup/tests/a34.rs": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
-  "crates/rup/tests/a35.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -824,11 +814,5 @@
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
     "kind": "in-process",
     "sha256": "0f662e999a1d5b5a332a06c336ea7f86e1c220fa3bb26e70437650affb06069f"
-  },
-  "crates/rup/tests/debug_checkpoint.rs": {
-    "cleanup": "Attached EOF stops and reaps the fake vendor; the fixture waits for the Daemon before its temporary directories drop. The shared harness kills and reaps failed launches.",
-    "data": "Real debug executable receives private temporary Project, data root, HOME, vendor storage and socket; ROUNDUP_SIDECAR_DIR is explicitly removed.",
-    "kind": "real",
-    "issue": 4691
   }
 }
