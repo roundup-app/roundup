@@ -221,6 +221,28 @@ pub fn checked_switch(report: &Value) -> io::Result<()> {
     Ok(())
 }
 
+/// Keystroke runs, plus (SP6) the Switcher-open and switch metrics outside a flood: a run that did not measure them is an error.
+pub fn judge_idle(
+    reports: &[Value],
+    limit_ms: f64,
+    budgets: &Budgets,
+    loads: &[f64],
+    flood: bool,
+) -> (u8, Vec<String>) {
+    let (mut exit, mut failures) = judge_runs(reports, limit_ms);
+    if !flood {
+        let cpus = std::thread::available_parallelism().map_or(1, |n| n.get());
+        let (switch_exit, more) = judge_switch(reports, budgets, std::env::consts::OS, loads, cpus);
+        exit = if exit == 2 || switch_exit == 2 {
+            2
+        } else {
+            exit.max(switch_exit)
+        };
+        failures.extend(more);
+    }
+    (exit, failures)
+}
+
 /// SP6: each metric is the median over the runs of the run's p95, judged against its limit and its baseline for `baseline_key`.
 /// Exit 2 for an invalid run or a budgeted metric the runs did not measure, exit 1 naming the metric, its value and its limit or baseline.
 pub fn judge_switch(
