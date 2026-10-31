@@ -24,6 +24,7 @@ objc2 = "0.6"
 objc2-app-kit = "0.3"
 objc2-foundation = { version = "0.3", features = ["block2"] }
 block2 = "0.6"
+objc2-user-notifications = "0.3"
 
 # The sole repository-owned native FFI owner. Other crates inherit workspace forbid.
 [lints.rust]

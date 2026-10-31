@@ -4,7 +4,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -109,6 +109,11 @@ export type FakeApp = AppSeam & {
   windowTitleHandler: ((title: string) => Promise<void>) | null;
   /** Every Dock badge count set so far, in order. */
   badges: number[];
+  /** Every `stateAlert` call in order, and the rejection the next ones fail with. */
+  stateAlerts: StateAlert[];
+  stateAlertFailure: RpcError | null;
+  /** Emits `state-alert-clicked` for the Agent, as a click on its banner does. */
+  clickStateAlert(agent: string): void;
   /** The first open Project (setting it makes it the only one open), or the error `open_project` fails with. */
   opened: { project: Project | null; failure: RpcError | null };
   /** Opens another Project beside those open, as `open_project` does, and returns its name and path. */
@@ -123,6 +128,7 @@ export const createFakeApp = (): FakeApp => {
   const nativeListeners = new Set<(request: NativeOpen) => void>();
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const live = new Map<string, FakeOutputSubscription>();
+  const alertClicks = new Set<(agent: string) => void>();
   const exitListeners = new Set<(exit: DaemonExited) => void>();
   const exited = new Set<string>();
   const dropListeners = new Set<(drop: FileDrop) => void>();
@@ -155,6 +161,9 @@ export const createFakeApp = (): FakeApp => {
     },
     chooser: { path: null, savePath: null, suggestedNames: [] },
     badges: [],
+    stateAlerts: [],
+    stateAlertFailure: null,
+    clickStateAlert: agent => { for (const listener of alertClicks) listener(agent); },
     windowOperations: [],
     windowTitleHandler: null,
     openedTargets: [],
@@ -298,6 +307,8 @@ export const createFakeApp = (): FakeApp => {
         ask: app.ask,
         askRemoval: app.askRemoval,
         setDockBadge: app.setDockBadge,
+        stateAlert: app.stateAlert,
+        onStateAlertClicked: app.onStateAlertClicked,
         setWindowTitle: app.setWindowTitle,
         dragWindow: app.dragWindow,
         zoomWindow: app.zoomWindow,
@@ -349,6 +360,16 @@ export const createFakeApp = (): FakeApp => {
     },
     setDockBadge: async (count) => {
       app.badges.push(count);
+    },
+    stateAlert: async (alert) => {
+      app.stateAlerts.push(alert);
+
+      if (app.stateAlertFailure) throw app.stateAlertFailure;
+    },
+    onStateAlertClicked: async (listener) => {
+      alertClicks.add(listener);
+
+      return () => alertClicks.delete(listener);
     },
     setWindowTitle: async (title) => {
       app.windowOperations.push({ kind: "title", title });

@@ -174,6 +174,12 @@ verify_closed() {
   fi
 }
 
+# U4698a opens a Todo or Pad maximised; U430's side Drawer is the minimised state, and the saved size persists across viewports.
+minimise_drawer() {
+  browser eval 'document.querySelector(".drawer[data-maximised=true] button[aria-label=Restore]")?.click()' >/dev/null || fail "$1 Drawer could not minimise at $2"
+  browser wait --fn 'document.querySelector(".drawer")?.getAttribute("data-maximised") === "false" && document.querySelector(".drawer").getAttribute("data-settling") !== "true"' >/dev/null || fail "$1 Drawer did not minimise at $2"
+}
+
 for size in 1280x400 1280x800; do
   width=${size%x*}
   height=${size#*x}
@@ -186,6 +192,7 @@ for size in 1280x400 1280x800; do
   browser wait --fn 'document.querySelector("[aria-label=Todos] [data-id=\"1\"] .todo-row-button")?.checkVisibility()' >/dev/null || fail "Todo row did not appear at ${width}×${height}"
   browser focus '[aria-label="Todos"] [data-id="1"] .todo-row-button' >/dev/null && browser press Enter >/dev/null || fail "Todo Drawer could not open at ${width}×${height}"
   browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer did not open at ${width}×${height}"
+  minimise_drawer Todo "${width}×${height}"
   measure todo "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Todo Drawer could not close at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Todo Drawer remained open at ${width}×${height}"
@@ -197,6 +204,7 @@ for size in 1280x400 1280x800; do
   browser scrollintoview '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null || fail "Pad row could not be reached at ${width}×${height}"
   browser focus '[aria-label="Pads"] [data-pad="pad-3"] .pad-name' >/dev/null && browser press Enter >/dev/null || fail "Pad Drawer could not open at ${width}×${height}"
   browser wait --fn '!document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer did not open at ${width}×${height}"
+  minimise_drawer Pad "${width}×${height}"
   measure pad "$width" "$height" true
   browser click '.drawer .close' >/dev/null || fail "Pad Drawer could not close at ${width}×${height}"
   browser wait --fn 'document.querySelector("[aria-label=Drawer]").hasAttribute("inert")' >/dev/null || fail "Pad Drawer remained open at ${width}×${height}"

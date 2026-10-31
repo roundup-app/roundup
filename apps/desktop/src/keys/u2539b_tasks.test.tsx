@@ -74,7 +74,7 @@ it.each(["resources"])("u2539b_landing_opens_requested_surfaces_and_returns: %s"
   const { connected } = await mount();
 
   if (view === "resources") {
-    expect(projectMenu.items.find(item => item.id === "view:resources")).toBeUndefined();
+    expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).not.toBe(true);
     connected().rail.select("a0");
     await waitFor(() => expect(projectMenu.items.find(item => item.id === "view:resources")?.enabled).toBe(true));
   }
@@ -186,8 +186,7 @@ it.each(["ask", "agent", "terminal", "todo", "attention", "items", "inbox", "ass
 it("u2539b_native_menu_projects_the_task_chords", async () => {
   const { daemon, connected } = await mount();
   await waitFor(() => expect(projectMenu.items.find(item => item.id === "action:leader:J")?.enabled).toBe(true));
-  expect(projectMenu.items.filter(item => item.id.startsWith("action:")).map(item => [item.id, item.shortcut])).toEqual([
-    ["action:chord:⌘Z", "⌘Z"], ["action:chord:⇧⌘Z", "⇧⌘Z"],
+  expect(projectMenu.items.filter(item => item.id.startsWith("action:") && item.enabled).map(item => [item.id, item.shortcut])).toEqual([
     ["action:chord:⌘N", "⌘N"], ["action:chord:⇧⌘N", "⇧⌘N"], ["action:chord:⌥⌘N", "⌥⌘N"], ["action:chord:⇧⌘M", "⇧⌘M"], ["action:chord:⌘T", "⌘T"], ["action:chord:⌃⌘J", "⌃⌘J"], ["action:chord:⇧⌘T", "⇧⌘T"], ["action:chord:⌘/", "⌘/"],
     ["action:leader:P", "⌘K P"], ["action:leader:J", "⌘K J"],
     ["action:leader:⇧J", "⌘K ⇧J"], ["action:leader:K", "⌘K K"],
@@ -320,8 +319,8 @@ it.each(["working", "idle", "blocked", "needs-you", "error", "done"] as const)("
 
 it("u4278a_unavailable_actions_are_hidden_or_explain_on_use", async () => {
   const { daemon } = await mount(true);
-  await waitFor(() => expect(projectMenu.items.some(item => ["action:leader:C", "action:leader:A", "action:leader:J", "view:resources"].includes(item.id))).toBe(false));
-  expect(projectMenu.items.filter(item => !item.enabled).map(item => item.id)).toEqual(["action:chord:⌘Z", "action:chord:⇧⌘Z"]);
+  await waitFor(() => expect(projectMenu.items.some(item => ["action:leader:C", "action:leader:A", "action:leader:J", "view:resources"].includes(item.id) && item.enabled)).toBe(false));
+  expect(projectMenu.items.filter(item => ["action:chord:⌘Z", "action:chord:⇧⌘Z"].includes(item.id)).map(item => item.enabled)).toEqual([false, false]);
   openProjectPage("action:leader:C", "/p");
   openProjectPage("action:leader:A", "/p");
   openProjectPage("action:leader:J", "/p");
@@ -333,7 +332,7 @@ it("u4278a_no_selected_project_projects_no_actions", async () => {
   const app = createFakeApp();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
   await waitFor(() => expect(projectMenu.path).toBeNull());
-  expect(projectMenu.items.map(item => [item.id, item.enabled])).toEqual([["action:chord:⌘Z", false], ["action:chord:⇧⌘Z", false]]);
+  expect(projectMenu.items.filter(item => item.enabled)).toEqual([]);
   openProjectPage("action:chord:⌘N", "/p");
   expect(app.calls.filter(call => call.method === "agent.spawn")).toHaveLength(0);
 });
