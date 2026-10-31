@@ -178,8 +178,9 @@
   --text-caption: calc(11px * var(--interface-scale));
   --text-small: calc(12px * var(--interface-scale));
   --text-body: calc(13px * var(--interface-scale));
-  --text-sample-small: calc(13px * var(--scale-small));
-  --text-sample-large: calc(13px * var(--scale-large));
+  --text-sample-small: 12px;
+  --text-sample-default: 13px;
+  --text-sample-large: 14px;
   --text-row: calc(14px * var(--interface-scale));
   --text-terminal-min: 9px;
   --text-terminal-max: 21px;
@@ -282,7 +283,7 @@ button, file-tree-container, diffs-container {
 }
 
 /* U3805: Explicit choices use the same Token columns regardless of the host scheme. */
-:is(:root, .settings-mode-preview)[data-mode="light"] {
+:is(:root, .settings-appearance-preview)[data-mode="light"] {
   --surface: #ffffff;
   --terminal-background: #ffffff;
   --terminal-foreground: #4d4d4c;
@@ -331,7 +332,7 @@ button, file-tree-container, diffs-container {
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
 }
 
-:is(:root, .settings-mode-preview)[data-mode="dark"] {
+:is(:root, .settings-appearance-preview)[data-mode="dark"] {
     --surface: var(--gray-3);
     --terminal-background: #1a1b1d;
     --terminal-foreground: #d4d4d4;
