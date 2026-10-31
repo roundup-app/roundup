@@ -102,7 +102,7 @@ describe("u5170d", () => {
     const history = connected.drafts.todoUndo;
     const lost = () => { throw new Error("link lost"); };
 
-    const held = () => new Promise<never>(() => undefined);
+    const pending = () => new Promise<never>(() => undefined);
 
     const receipt = (params: { operation: string; ids: number[] }) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" as const });
 
@@ -110,7 +110,7 @@ describe("u5170d", () => {
 
     if (state === "unconfirmed_todo" || state === "todo_in_flight") {
       app.handlers["todo.deletion"] = lost;
-      app.handlers["todo.delete"] = state === "todo_in_flight" ? held : lost;
+      app.handlers["todo.delete"] = state === "todo_in_flight" ? pending : lost;
       const seeded = history.removeTodos([1], "todos");
 
       if (state === "unconfirmed_todo") await seeded;
@@ -125,7 +125,7 @@ describe("u5170d", () => {
       await history.redo();
     } else {
       app.handlers["pad.getDeletion"] = lost;
-      app.handlers["pad.delete"] = state === "pad_in_flight" ? held : lost;
+      app.handlers["pad.delete"] = state === "pad_in_flight" ? pending : lost;
       const seeded = history.removePads([{ name: "notes", incarnation: "i" }], "pads");
 
       if (state === "pad_pending") await seeded;
