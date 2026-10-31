@@ -240,6 +240,9 @@ pub const NO_TOOL: [&str; 84] = [
     "native_open",
     "rpc",
     "subscribe",
+    // NA6: the user's App answers the Daemon's relayed action calls; an Agent reaches actions through `action.list` and `action.run`.
+    "action_serve",
+    "action_answer",
     "terminal_output",
     "terminal_output_stop",
 ];

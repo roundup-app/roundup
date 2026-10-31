@@ -3,7 +3,18 @@ import { afterEach, expect, it } from "vitest";
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { agent } from "../testing/nodes";
 import { mountRail, railCallsTo, rowOf } from "../rail/railFixture";
-import { answerRun } from "./actions";
+import type { ProjectCalls } from "../app/seam";
+import { serveActions } from "./actions";
+
+/** The Daemon's relayed `action.run`, through the handler the App registered with `action.serve`. */
+const answerRun = async (run: { name: string; args: { key: string; value: string }[] }) => {
+  let answer: Parameters<NonNullable<ProjectCalls["serveActions"]>>[0] | undefined;
+  await serveActions({ serveActions: async handler => { answer = handler; } });
+  const { jsonrpc: _jsonrpc, id, ...rest } = await answer!({ id: 7, method: "action.run", params: run });
+  expect(id).toBe(7);
+
+  return rest;
+};
 
 afterEach(cleanup);
 

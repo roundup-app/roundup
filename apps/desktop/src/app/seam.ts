@@ -63,6 +63,17 @@ export type OutputMessage = Uint8Array | { gap: { from: number; to: number } };
 /** `offset` is the position of the first byte the stream delivers. `release` ends only this subscription; after it the listener is never called. */
 export type OutputSubscription = { offset: number; release(): Promise<void> };
 
+/** NA6: a request line the Daemon relays to the App, and the line the App answers it with. */
+export const actionRequestSchema = v.object({
+  id: v.number(),
+  method: v.string(),
+  params: v.optional(v.nullable(v.object({ name: v.string(), args: v.array(v.object({ key: v.string(), value: v.string() })) }))),
+});
+
+export type ActionRequest = v.InferOutput<typeof actionRequestSchema>;
+
+export type ActionReply = { jsonrpc: "2.0"; id: number; result: object } | { jsonrpc: "2.0"; id: number; error: { code: number; message: string } };
+
 /** The calls into one Project's Daemon, bound to its path (S8); regions use only these and the choosers. */
 export type ProjectCalls = {
   rpc<M extends RpcMethodName>(
@@ -74,6 +85,8 @@ export type ProjectCalls = {
    * Resolves the Daemon's `head`, the highest Event number saved when it accepted.
    */
   subscribe(onEvent: (event: DaemonEvent) => void, after?: number): Promise<number>;
+  /** NA6: registers this window as the Project's action answerer; each request line the Daemon relays goes to `answer`, whose line goes back. */
+  serveActions?(answer: (request: ActionRequest) => Promise<ActionReply>): Promise<void>;
   /** Delivers the raw output of the Terminal `id`, and of no other, to `listener` in order; a second call for the same Terminal replaces the first. Rejects NOT_FOUND for an unknown or exited Terminal. */
   selectOutput(id: string, listener: (message: OutputMessage) => void): Promise<OutputSubscription>;
 };
@@ -94,6 +107,8 @@ export const SEAM_COMMANDS = [
   "rename_project",
   "rpc",
   "subscribe",
+  "action_serve",
+  "action_answer",
   "terminal_output",
   "terminal_output_stop",
   "open_target",
