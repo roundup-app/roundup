@@ -361,7 +361,7 @@ export const Capture = (props: { onFile: (() => void) | undefined; onNativeOpen?
             </div>
           </div>}</For>
 
-          <div class="capture-actions"><Dialog.CloseTrigger data-button="quiet" onClick={discard}>{copy.cancel}</Dialog.CloseTrigger><button type="button" data-button="primary" disabled={text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
+          <div class="capture-actions"><Dialog.CloseTrigger data-button="quiet" onClick={discard}>{copy.close}</Dialog.CloseTrigger><button type="button" data-button="primary" disabled={text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
         </Dialog.Content></Dialog.Positioner>
       </Dialog.Root>
   );

@@ -21,7 +21,7 @@ Capture panel is a separate production entry point and is tested through Capture
 | `ui/Mentions.tsx` | Project overview → Ask → Ask prompt |
 | `rail/SpawnPromptField.tsx` | Workstreams → ⇧⌘N → Spawn prompt |
 | `rail/OpeningPrompt.tsx` | Workstream native menu → Opening prompt → Opening prompt |
-| `importer/ImportPanel.tsx` | Project menu → Import Claude Code work → Import prompt |
+| `importer/ImportPanel.tsx` | Project menu → Import Claude Code → Import prompt |
 | `todos/EditableText.tsx` | Open Todo → title double-click / Add notes → Todo title / Todo body |
 | `todos/TodoComments.tsx` | Open Todo → comment field → Todo comment |
 | `changes/NoteForm.tsx` | Agent → changed files → file → View diff → Add note → Change note |
@@ -31,7 +31,7 @@ Capture panel is a separate production entry point and is tested through Capture
 | `ui/Combobox.tsx` | Settings → Agents → Engine / Model → Engine query / Model query |
 | `ui/Combobox.tsx` | New reaction → Target Agent → Reaction target query |
 | `ui/Combobox.tsx` | Todo selection → ⌘K A → Owner query; Todo → Blocker → Blocker query |
-| `ui/Combobox.tsx` | Todo → O → New Workstream → Start after another Todo → Choose a Todo → Wait-for query |
+| `ui/Combobox.tsx` | Todo → O → New Workstream → Start after Todo → Choose a Todo → Wait-for query |
 
 ## Dependency and excluded-field audit
 

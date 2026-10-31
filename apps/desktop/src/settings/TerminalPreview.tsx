@@ -8,6 +8,10 @@ import { terminalThemeFor } from "../terminal/theme";
 import type { terminalType } from "./preferences";
 import { copy } from "./copy";
 
+const reset = "\x1b[0m";
+
+const previewSample = [`${copy.previewApp}  \x1b[1m${copy.terminalPreview}${reset}`, copy.previewTop, copy.previewRow, copy.previewBottom, `\x1b[32m✓${reset} ${copy.previewResult}`].join("\r\n");
+
 /** A local, read-only xterm sample; it owns no Daemon identity or input subscription. */
 export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }) => {
   let host!: HTMLDivElement;
@@ -19,10 +23,10 @@ export const TerminalPreview = (props: { type: ReturnType<typeof terminalType> }
   const repaint = () => {
     fit.fit();
     // Keep the complete sample visible at every font metric; xterm owns the five-row height.
-    terminal.resize(terminal.cols, copy.terminalPreviewSample.split("\r\n").length);
+    terminal.resize(terminal.cols, previewSample.split("\r\n").length);
     // With no scrollback, resizing can discard sample rows. Rebuild the complete sample after fitting.
     // Queue the reset with its text so an earlier asynchronous write cannot append after it.
-    terminal.write(`\x1bc${copy.terminalPreviewSample}`);
+    terminal.write(`\x1bc${previewSample}`);
   };
 
   let themeFrame: number | undefined;

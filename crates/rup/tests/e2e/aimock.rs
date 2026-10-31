@@ -4,6 +4,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
+/// How long a test that started the pinned vendor waits for one event, probe or model request: a real
+/// `claude` on a loaded runner takes longer than a fake one's `BOUND` to start and answer.
+pub const REAL_BOUND: Duration = Duration::from_secs(120);
+
 pub const KEY: &str = "sk-mock-key-000000000000000000000001";
 
 pub struct Model {
@@ -110,7 +114,7 @@ impl Model {
     }
 
     pub async fn tool_result(&self, id: &str) -> Value {
-        tokio::time::timeout(Duration::from_secs(30), async {
+        tokio::time::timeout(REAL_BOUND, async {
             loop {
                 let journal = self.journal();
                 assert!(

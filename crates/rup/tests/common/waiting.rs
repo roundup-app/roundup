@@ -1,12 +1,12 @@
 //! Waits on a probe, a Door turn or a model request.
-use crate::daemon::{aimock, rail_tree};
+use crate::daemon::{aimock, rail_tree_within};
 
 use contracts::Kind;
 
 use std::time::Duration;
 
-pub async fn until<T>(what: &str, mut probe: impl FnMut() -> Option<T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), async {
+pub async fn until<T>(bound: Duration, what: &str, mut probe: impl FnMut() -> Option<T>) -> T {
+    tokio::time::timeout(bound, async {
         loop {
             if let Some(found) = probe() {
                 return found;
@@ -18,9 +18,9 @@ pub async fn until<T>(what: &str, mut probe: impl FnMut() -> Option<T>) -> T {
     .unwrap_or_else(|_| panic!("never: {what}"))
 }
 
-pub async fn idle(client: &rpc::Client, id: &str) {
-    until_async(&format!("{id} idle"), || async {
-        rail_tree(client)
+pub async fn idle(bound: Duration, client: &rpc::Client, id: &str) {
+    until_async(bound, &format!("{id} idle"), || async {
+        rail_tree_within(bound, client)
             .await
             .into_iter()
             .find(|n| n.id == id)
@@ -31,8 +31,12 @@ pub async fn idle(client: &rpc::Client, id: &str) {
     .await;
 }
 
-pub async fn until_async<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), async {
+pub async fn until_async<T>(
+    bound: Duration,
+    what: &str,
+    mut probe: impl AsyncFnMut() -> Option<T>,
+) -> T {
+    tokio::time::timeout(bound, async {
         loop {
             if let Some(found) = probe().await {
                 return found;
@@ -47,8 +51,8 @@ pub async fn until_async<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T
 /// The model's journal holds a user message with `needle`: the prompt reached real Claude. aimock
 /// truncates a body over 64 KB, as a long resumed conversation is; the fixture it then matched on the
 /// user message names the prompt instead.
-pub async fn received(model: &aimock::Model, needle: &str) {
-    until(&format!("the model received {needle:?}"), || {
+pub async fn received(bound: Duration, model: &aimock::Model, needle: &str) {
+    until(bound, &format!("the model received {needle:?}"), || {
         model
             .journal()
             .iter()
@@ -74,7 +78,13 @@ pub async fn received(model: &aimock::Model, needle: &str) {
 /// The Door ended the turn that took a prompt holding `needle`. The model's journal proves the prompt
 /// arrived, and an Idle read after that is the turn's end: a Status event is not, because an Idle
 /// can arrive as the next turn begins.
-pub async fn turn_done(model: &aimock::Model, client: &rpc::Client, door: &str, needle: &str) {
-    received(model, needle).await;
-    idle(client, door).await;
+pub async fn turn_done(
+    bound: Duration,
+    model: &aimock::Model,
+    client: &rpc::Client,
+    door: &str,
+    needle: &str,
+) {
+    received(bound, model, needle).await;
+    idle(bound, client, door).await;
 }

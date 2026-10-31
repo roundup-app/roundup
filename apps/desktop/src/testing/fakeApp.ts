@@ -152,6 +152,7 @@ export const createFakeApp = (): FakeApp => {
     calls: [],
     handlers: { ...emptyReads,
       "daemon.getNaming": () => ({ ...naming }),
+      "skill.status": () => ({ items: [{ item: "skill", state: "missing", path: "/fake/skill" }, { item: "hook", state: "missing", path: "/fake/settings.json" }] }),
       "daemon.setNaming": params => {
         if (!params.namingGuide.trim()) throw new RpcError(-32602, "Enter a naming guide before saving.");
         naming = { ...params };

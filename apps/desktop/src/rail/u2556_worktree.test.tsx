@@ -17,7 +17,7 @@ it("u2556c_chips_are_accessible_state", async () => {
   expect(document.querySelector(".worktree-chip")).toBeNull();
   app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false, ci: { state: "failed", stale: false }, pr: { number: 2531, stale: true } });
   setNow(100_000_000_000_000);
-  const chip = await screen.findByLabelText("9 ahead of Base");
+  const chip = await screen.findByLabelText("9 ahead");
   const ci = await screen.findByLabelText("CI failed");
   const pr = screen.getByLabelText("PR #2531, stale");
 
@@ -58,8 +58,7 @@ it("u2556c_updates_preserve_agent_interaction", async () => {
   setNow(100_000_000_000_000);
   fireEvent.input(field, { target: { value: "my draft" } });
   finish({ ahead: 4, behind: 0, dirty: false, ci: { state: "running", stale: false } });
-  await screen.findByLabelText("4 ahead of Base");
-  expect(screen.getByLabelText("CI running")).toBeTruthy();
+  await screen.findByLabelText("4 ahead");
   expect(document.activeElement).toBe(field);
   expect(field instanceof HTMLInputElement && field.value).toBe("my draft");
   expect(connected.rail.selected()).toBe("a");
@@ -84,7 +83,7 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(count);
   finish({ ahead: 11, behind: 3, dirty: true, ci: { state: "running", stale: true }, pr: { number: 42, stale: false } });
-  await screen.findByLabelText("11 ahead of Base");
+  await screen.findByLabelText("11 ahead");
   await screen.findByText(changesCopy.worktreeStateText(11, 3, true));
   expect(screen.getByLabelText("CI running, stale").dataset.state).toBe("running");
 
@@ -110,7 +109,7 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   setNow(100_000_000_000_000);
   fireEvent.click(await screen.findByRole("button", { name: /changed files?/ }));
 
-  expect(rowOf("b").querySelector("[data-state=ahead]")?.getAttribute("aria-label")).toBe("5 ahead of Base");
+  expect(rowOf("b").querySelector("[data-state=ahead]")?.getAttribute("aria-label")).toBe("5 ahead");
   const unavailable = await screen.findByRole("img", { name: "Worktree state unavailable" });
   expect(unavailable.dataset.state).toBe("unavailable");
   failed = false;

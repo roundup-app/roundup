@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { copy } from "./copy";
 import { expect, it } from "vitest";
 import { gate, mountApp, select, openWorkProgress } from "../testing/appFixture";
 import { WorkProgress } from "./WorkProgress";
@@ -79,7 +80,7 @@ it("u3078i_open_inspect_resume_and_reconcile", async () => {
   resume.focus();
   fireEvent.click(resume);
   await view.findByRole("button", { name: "Try resuming again" });
-  expect(view.getByText(/may have reached the Daemon/)).toBeTruthy();
+  expect(view.getByText(copy.resumeUnknown)).toBeTruthy();
   expect(document.activeElement).toBe(view.getByRole("button", { name: "Try resuming again" }));
   const reads = app.calls.filter((call) => call.method === "message.reconcileWork").length;
   const retry = view.getByRole("button", { name: /resuming/i });

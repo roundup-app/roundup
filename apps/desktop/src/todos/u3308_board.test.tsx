@@ -38,7 +38,7 @@ it("u3309_the_keys_are_inert_in_fields_with_modifiers_and_on_done_rows", async (
   row.focus();
 
   for (const modifier of ["metaKey", "ctrlKey", "altKey", "shiftKey"]) for (const key of ["1", "Enter"]) fireEvent.keyDown(row, { key, code: key === "1" ? "Digit1" : key, [modifier]: true });
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   const field = await screen.findByRole("textbox", { name: "New Todo title" });
   fireEvent.keyDown(field, { key: "1", code: "Digit1" });
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
@@ -115,7 +115,7 @@ it("u3311_a_door_hand_off_reveals_folded_destinations_without_stealing_focus", a
   const m = await mountTodos([todo(1, { owner }), todo(2, { owner: other }), todo(3), todo(4)], true, [agent("a", "idle", "", { name: "Writer" }), agent("b", "idle", "", { name: "Reviewer", order: 1 })]);
 
   for (const id of ["a", "b"]) fireEvent.click(document.querySelector(`[data-shelf-group="${id}"] [data-part="branch-control"]`)!);
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   fireEvent.input(input, { target: { value: "keep writing" } });

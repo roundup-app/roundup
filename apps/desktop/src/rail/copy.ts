@@ -1,11 +1,15 @@
 import type { Kind } from "@contracts/Kind";
 import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
-import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
+import { copy as sharedCopy, staleSuffix, type CopyValue } from "../sharedCopy";
 
-const railDraftLabels = new Map([["rail-task", "Work"], ["rail-name", "Name"]]);
+const work = "Work";
+
+const railDraftLabels = new Map([["rail-task", work], ["rail-name", sharedCopy.name]]);
 
 const railDraftStatuses = new Map([["draft", sharedCopy.draftStatus.draft], ["pending", "Submitting…"], ["unknown", "Unconfirmed"], ["failed", "Unsent"]]);
+
+const dash = "—";
 
 const removalPlurals = new Intl.PluralRules("en");
 
@@ -42,7 +46,7 @@ export const copy = {
   running: sharedCopy.running,
   close: sharedCopy.close,
   drawer: sharedCopy.drawer,
-  cancel: sharedCopy.cancel,
+  /** @prose */
   importDefaultPrompt: "Find active and recent Claude Code conversations in this Project",
   importAgentName: sharedCopy.importAgentName,
   importTitle: sharedCopy.importTitle,
@@ -52,13 +56,13 @@ export const copy = {
   openAFolder: sharedCopy.openAFolder,
   newAgent: sharedCopy.newAgent,
   newAgentWithAPrompt: sharedCopy.newAgentWithAPrompt,
-  removeProcessLoss: (name: string) => `Stop the running process for ${name}. Its live Terminal input cannot be restored.`,
+  removeProcessLoss: (name: string) => `Stop the running program for ${name}. Its live Terminal input cannot be restored.`,
   removeWorktreeLoss: (name: string) => `Discard the Worktree for ${name}. Its files cannot be restored with Undo.`,
   remove: sharedCopy.remove,
   removeThis: "Remove this",
   removeAll: "Remove all",
   copied: sharedCopy.copied,
-  task: "Task",
+  task: work,
   taskHint: "What should the Agent do?",
   keep: sharedCopy.keep,
   pad: sharedCopy.pad,
@@ -69,13 +73,13 @@ export const copy = {
   startNow: sharedCopy.startNow,
   queuedBadge: (place: number) => `queued · ${place}`,
   afterBadge: (id: number) => `after #${id}`,
-  takeOutOfQueue: "Take out of queue",
+  takeOutOfQueue: "Remove from queue",
   projectSettings: "Project settings",
   workstreams: sharedCopy.workstreams,
   runAtMost: "Run at most",
   workstreamsAtOnce: "Workstreams at once",
   noLimit: "No limit",
-  capRefusal: "Enter a whole number of 1 or more",
+  capRefusal: "Enter a whole number, 1 or more.",
   assign: sharedCopy.assign,
   overview: sharedCopy.overview,
   overviewLabel: (count: number) => count > 0 ? `Overview, Project root, ${count} ${count === 1 ? "needs" : "need"} you` : "Overview, Project root",
@@ -105,26 +109,26 @@ export const copy = {
   doorStopped: sharedCopy.doorStopped,
   doorStoppedWithExit: sharedCopy.doorStoppedWithExit,
   worktreeCiText: sharedCopy.worktreeCiText,
-  worktreeCiChip: (state: WorktreeCiState) => ({ passed: "✓ CI", failed: "✗ CI", running: "… CI", "no-ci": "— CI", conflicts: "! CI", error: "⚠ CI", unknown: "? CI" }[state]),
-  worktreeStale: ", stale",
+  worktreeCiGlyph: (state: WorktreeCiState) => ({ passed: "✓", failed: "✗", running: "…", "no-ci": dash, conflicts: "!", error: "⚠", unknown: sharedCopy.questionMark }[state]),
+  ci: sharedCopy.ci,
   worktreePrText: sharedCopy.worktreePrText,
-  worktreePrState: (number: number, stale: boolean) => `PR #${number}${stale ? ", stale" : ""}`,
-  worktreeUnavailableMark: "—",
+  worktreeStale: staleSuffix,
+  worktreePrState: (number: number, stale: boolean) => `PR ${sharedCopy.worktreePrText(number, stale)}`,
+  worktreeUnavailableMark: dash,
   worktreeUnavailable: "Worktree state unavailable",
   worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 })}↑`,
-  worktreeAheadState: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead of Base`,
+  worktreeAheadState: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead`,
   noMatch: sharedCopy.noMatch,
   sendToAgentMenu: sharedCopy.sendToAgentMenu,
   renameChord: sharedCopy.renameChord,
   addMenu: "Add",
   addAgentMenu: sharedCopy.addAgentMenu,
-  addTerminalMenu: "Terminal",
+  addTerminalMenu: sharedCopy.terminal,
   copyLink: sharedCopy.copyLink,
   restart: "Restart",
   startYolo: "Start YOLO",
   failed: sharedCopy.failed,
   moveItem: sharedCopy.moveItem,
-  restartSession: "Restart session",
   newMode: sharedCopy.newMode,
   makeWorkstream: "Make a Workstream",
   saveAsMode: "Save as Mode…",
@@ -137,20 +141,20 @@ export const copy = {
   openingPromptFor: (name: string) => `First prompt · ${name}`,
   openingPromptPlaceholder: "Your first prompt",
   openingPromptConflict: "The saved first prompt changed. Your unfinished work remains; saving replaces the saved prompt.",
-  modePromptHint: "Typed once when this Mode starts a fresh session",
-  openingPromptHint: "Typed once when this Workstream starts a fresh session",
+  modePromptHint: "Sent when this Mode starts a new Agent.",
+  openingPromptHint: "Sent when this Workstream starts a new Agent.",
   changeReopened: sharedCopy.changeReopened,
   todo: sharedCopy.todo,
   newTodoTitle: sharedCopy.newTodoTitle,
   resume: sharedCopy.resume,
-  resumeOutcomeUnknownTheDaemonMayHaveResumed: "Resume outcome unknown: The Daemon may have resumed it",
-  unlandedWorkAhead: (value1: CopyValue) => `Unlanded work: ${value1} ahead`,
-  unlandedWorkUncommittedChanges: "Unlanded work: Uncommitted changes",
+  resumeOutcomeUnknownTheDaemonMayHaveResumed: "Resume status is unknown. It may have resumed.",
+  unlandedWorkAhead: (value1: CopyValue) => `Unlanded: ${value1} ahead`,
+  unlandedWorkUncommittedChanges: "Unlanded: uncommitted changes",
   removeWorkstreamQuestion: (name: string) => `Remove “${name}”?`,
-  doneTodoCount: (count: number) => `${count} done ${removalPlurals.select(count) === "one" ? "Todo" : "Todos"}`,
-  openTodoCount: (count: number) => `${count} open ${removalPlurals.select(count) === "one" ? "Todo" : "Todos"}`,
-  removalPadCount: (count: number) => `${count} ${removalPlurals.select(count) === "one" ? "Pad" : "Pads"}`,
-  staysRemoveThis: (items: string) => `Stays (Remove this): ${items}`,
+  doneTodoCount: (count: number) => `${count} done ${removalPlurals.select(count) === "one" ? sharedCopy.todo : sharedCopy.todos}`,
+  openTodoCount: (count: number) => `${count} open ${removalPlurals.select(count) === "one" ? sharedCopy.todo : sharedCopy.todos}`,
+  removalPadCount: (count: number) => `${count} ${removalPlurals.select(count) === "one" ? sharedCopy.pad : sharedCopy.pads}`,
+  staysRemoveThis: (items: string) => `Stays: ${items}`,
   listUnread: (list: "todo" | "pad") => `${list === "todo" ? sharedCopy.todos : sharedCopy.pads} could not be read.`,
   goes: (value1: CopyValue) => `Goes: ${value1}`,
   todoCount: (value1: CopyValue) => `${value1} todos`,
