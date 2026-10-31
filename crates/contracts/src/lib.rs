@@ -10,6 +10,7 @@ pub mod attachment;
 pub mod common;
 mod declarations;
 pub mod deliverable;
+pub mod describe;
 pub mod event;
 pub mod export;
 pub mod github;

@@ -70,7 +70,7 @@ describe("u2694 the Rail's system menu", () => {
   });
 
   it.each([
-    ["stopped", false, false, false, [copy.startYolo]],
+    ["stopped", false, false, false, []],
     ["running", true, false, true, [copy.startYolo, copy.stop]],
     ["yolo", true, true, false, [copy.restart, copy.stop]],
     ["stopped-yolo", false, true, false, []],

@@ -25,6 +25,8 @@ export const CONTRACT = {
     "agent.stop": "57c202cf4fc7d9c0",
     "agent.wake": "9c757b5158c12baa",
     "agent.worktreeState": "79ecd2bbd18d5127",
+    "api.describe": "36e296d0464a22ca",
+    "api.list": "b37e12c7f2862ecd",
     "ask.list": "dd8bee1eec2326f2",
     "ask.pick": "d0407cda8d9f736b",
     "ask.send": "153fa70f0447722d",
