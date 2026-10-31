@@ -1,6 +1,6 @@
 # Terminal program status
 
-Module: `crates/terminal` (PS1–PS6), `crates/rupd` with `crates/contracts` (PS7–PS9) and `apps/desktop` (PS10–PS11). Ids: PS1–PS11. Work order: [#5227](https://github.com/roundup-app/roundup/issues/5227); implementation Issues #5228 (parse), #5229 (fold), #5230 (App), in that order. Principles served: P3, P4 (`PRINCIPLES.md`). Term: **Program status** (`GLOSSARY.md`).
+Module: `crates/terminal` (PS1–PS6), `crates/rupd` with `crates/contracts` (PS7–PS9) and `apps/desktop` (PS10–PS12). Ids: PS1–PS12. Work order: [#5227](https://github.com/roundup-app/roundup/issues/5227); implementation Issues #5228 (parse), #5229 (fold), #5230 (App), in that order. Principles served: P3, P4 (`PRINCIPLES.md`). Term: **Program status** (`GLOSSARY.md`).
 
 Outside evidence: the Program Status Protocol, OSC 7501, rev 0.4 (https://www.superlogical.com/rex/docs/build/program-status), read by Rex. Any program in a Terminal can report that it is working, waiting on the user, done or failed, and why; roundup shows that state as it shows an Agent's Kind. This file fixes the wire syntax, limits and lifetime (PS1–PS6), how records become one Terminal Status (PS7), how it is published (PS8), how it meets Agents (PS9) and how the App shows it (PS10, PS11). Merging this specification delivers no runtime change.
 
@@ -72,3 +72,11 @@ Tests (`ps10_`, `apps/desktop/src/`, behaviour only): `ps10_a_terminal_row_shows
 5. OSC 133 Turn marks and OSC 7 cwd keep working in a Terminal that reports (`apps/desktop/src/terminal/turns.ts`, the OSC 133 handler).
 
 Tests (`ps11_`, `apps/desktop/src/`): `ps11_needs_you_lists_needs_you_and_error_terminals_with_their_names`, `ps11_open_focuses_the_reporting_terminal`, `ps11_routine_kinds_add_no_entry_and_no_interruption`, `ps11_a_reporting_terminal_keeps_its_turn_marks_and_cwd`. Observers: the design critic's captures of PS10 and PS11 on the densest seed, and a real-Daemon run (the U144 harness) in which a shell runs `printf '\e]7501;state=blocked:kind=question:msg=%s\e\\' …` and the Rail row and Needs you entry appear, then `state=clear` removes them. Regression checks on main: `scenarios/ui-inbox.md`, U3770a–U3770d, whose amended tests stay green, and `scenarios/native-questions.md`, A3564a. The Top ten tasks keep their press counts.
+
+**PS12 the dock badge and the tab count it, with its age.** Narrows U182 and U10. Given Terminals with program status, then in `apps/desktop`:
+
+1. the Project tab's counts (U182's `n` and `m`), its Tab mark (U398) and the Dock badge (U10) count each `needs-you` Terminal with the `needs-you` Agents and each `error` Terminal with the `error` Agents, so one Terminal reporting `state=blocked` makes the badge 1 and the tab's tooltip `1 needs you; 0 have errors.`; a `working`, `idle` or `done` Terminal adds none; a Terminal leaving `needs-you` or `error` leaves the counts in the same frame;
+2. the counts and the entries of Needs you (PS11.1) agree: for any set of Agents and Terminals the badge equals the number of attention entries of `attentionOrder` that are not dismissed (U5151c);
+3. a Terminal's own tab shows the label and its age (D5) on hover, focus or selection, as its Rail row does (PS10.2); with an empty label it shows the Kind's word.
+
+Tests (`ps12_`, `apps/desktop/src/`): `ps12_a_blocked_terminal_counts_in_the_tab_and_the_dock_badge`, `ps12_counts_equal_the_attention_entries_for_agents_and_terminals`, `ps12_a_terminal_tab_shows_its_status_label_and_age_on_focus`. Regression checks on main: `u182_` and `u10_dock_badge.test.tsx` stay green; PS10 and PS11 tests. Layout and looks are the design critic's. Moves: D5.
