@@ -81,7 +81,7 @@ impl Alerts {
             .permission
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // The lock is held across the wait, so a second alert waits for the same answer and then raises its own banner.
+        // The lock stays taken across the wait, so a second alert waits for the same answer and then raises its own banner.
         // An unanswered prompt ends as a refusal naming the timeout; it is not kept, so the next alert asks again.
         let deadline = Instant::now() + self.wait;
         while cached.is_none() {
@@ -90,7 +90,7 @@ impl Alerts {
                 if Instant::now() >= deadline {
                     break;
                 }
-                std::thread::sleep(POLL.min(self.wait));
+                std::thread::park_timeout(POLL.min(self.wait));
             }
         }
         let permission = cached.clone().unwrap_or_else(|| {
