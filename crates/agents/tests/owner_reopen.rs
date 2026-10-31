@@ -141,6 +141,12 @@ async fn a12a_an_exited_owner_falls_back_to_done() {
     let node = tree(&agents, &bus).await.remove(0);
     assert_eq!(node.status.as_ref().map(|s| s.kind), Some(Kind::Done));
     assert_eq!(node.terminal_id, None);
+    // U5151d: the label says what to do next, not an internal state.
+    let label = node.status.as_ref().unwrap().label.as_str();
+    assert!(
+        label.contains("resume") && !label.contains("gone"),
+        "{label}"
+    );
     assert!(terminals.list().await.iter().all(|t| !t.running));
 }
 
@@ -177,7 +183,7 @@ async fn a5335a_two_restarts_keep_every_live_child() {
             assert!(node.terminal_id.is_some());
             let status = node.status.as_ref().expect("status");
             assert_ne!(status.kind, Kind::Done);
-            assert_ne!(status.label, "terminal gone");
+            assert!(!status.label.starts_with("Terminal closed"));
         }
         assert_eq!(
             terminals.list().await.iter().filter(|t| t.running).count(),
