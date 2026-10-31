@@ -207,6 +207,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const previewScale = () => pendingAppearance().interfaceScale ?? appSettings().interfaceScale;
 
+  const [fontSizeKey, lineHeightKey, letterSpacingKey] = Object.keys(terminalRanges) as [Numeric, Numeric, Numeric];
+
   const numericControl = (name: Numeric, label: string, hint: string) => <>
         <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
           <Field.Label>{label}</Field.Label>
@@ -271,9 +273,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
     ),
-    fontSize: () => numericControl("fontSize", copy.fontSize, copy.fontSizeHint),
-    lineHeight: () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint),
-    letterSpacing: () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint),
+    fontSize: () => numericControl(fontSizeKey, copy.fontSize, copy.fontSizeHint),
+    lineHeight: () => numericControl(lineHeightKey, copy.lineHeight, copy.lineHeightHint),
+    letterSpacing: () => numericControl(letterSpacingKey, copy.letterSpacing, copy.letterSpacingHint),
     focusMarkers: () => (
         <Switch description={copy.focusMarkersHint} checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
     ),
