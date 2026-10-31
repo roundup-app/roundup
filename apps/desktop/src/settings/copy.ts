@@ -10,6 +10,7 @@ export const copy = {
   skillOutdated: "Out of date",
   skillMissing: "Not installed",
   skillPartial: "Partly installed",
+  skillPartialFix: "Turn the switch on to finish installing.",
   skillUpdate: "Update",
   skillForeignCause: "A roundup skill is there that roundup did not install.",
   skillForeignFix: "Remove it, or run rup skill setup --force.",
