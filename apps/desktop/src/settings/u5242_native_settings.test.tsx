@@ -95,7 +95,7 @@ it("u5242c_forward_clears_when_the_user_selects_another_view", async () => {
 it("u5242d_mode_and_scale_previews_follow_the_draft_without_committing", async () => {
   await mount();
   await section("Appearance");
-  const preview = () => document.querySelector<HTMLElement>(".settings-mode-preview")!;
+  const preview = () => document.querySelector<HTMLElement>(".settings-appearance-preview")!;
   fireEvent.click(screen.getByRole("radio", { name: "Large" }));
   fireEvent.click(screen.getByRole("radio", { name: "Light" }));
   await waitFor(() => expect(preview().dataset).toMatchObject({ scale: "large", mode: "light" }));
