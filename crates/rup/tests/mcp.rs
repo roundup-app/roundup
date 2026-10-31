@@ -17,6 +17,8 @@ use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
 
+#[path = "mcp/reconnect.rs"]
+mod reconnect;
 #[path = "mcp/removed_questions.rs"]
 mod removed_questions;
 #[path = "mcp/tool_lists.rs"]
@@ -436,7 +438,10 @@ async fn m5159a_a_slow_call_fails_alone_and_the_shim_stays_up() {
     let message = error_text(&slow);
     assert!(message.contains("todo_create"), "{message}");
     assert!(message.contains("10 s"), "{message}");
-    assert!(message.contains("may still finish"), "{message}");
+    assert!(
+        message.contains("may still finish") && message.contains("may have been applied"),
+        "{message}"
+    );
     assert_eq!(shim.child.try_wait().unwrap(), None, "the shim exited");
     let after = shim.call("todo_list", json!({})).await;
     assert_eq!(after.is_error, Some(false), "the shim stays up");
