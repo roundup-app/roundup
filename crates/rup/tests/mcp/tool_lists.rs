@@ -123,7 +123,7 @@ pub const DOOR_METHODS: [&str; 10] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 87] = [
+pub const NO_TOOL: [&str; 92] = [
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
     "daemon.getNaming",
     "daemon.setNaming",
@@ -244,6 +244,12 @@ pub const NO_TOOL: [&str; 87] = [
     "native_open",
     "rpc",
     "subscribe",
+    // NA6: the user's App answers the Daemon's relayed action calls; the Daemon's action methods carry no tool.
+    "action.serve",
+    "action.list",
+    "action.run",
+    "action_serve",
+    "action_answer",
     "terminal_output",
     "terminal_output_stop",
 ];

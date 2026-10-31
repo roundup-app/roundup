@@ -9,7 +9,7 @@ import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
-import { stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
+import { actionRequestSchema, stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
 import type { App, CaptureAction, CaptureState, OutputMessage } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
@@ -158,6 +158,15 @@ export const createTauriApp = (): App => {
         }
       },
       subscribe: (onEvent, after) => parsedCommand(v.number(), "subscribe", { path, channel: new Channel<DaemonEvent>(onEvent), after: after ?? null }),
+      serveActions: async (answer) => {
+        const channel = new Channel<unknown>(message => {
+          const request = v.safeParse(actionRequestSchema, message);
+
+          if (request.success) void answer(request.output).then(line => command("action_answer", { path, line }));
+        });
+
+        await command("action_serve", { path, channel });
+      },
       selectOutput: async (id, listener) => {
         const key = JSON.stringify([path, id]);
         const token = {};

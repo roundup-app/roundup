@@ -151,6 +151,7 @@ impl Daemon {
                 Arc::new(reactions)
             },
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
+            actions: Default::default(),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
                 Arc::clone(&agents),

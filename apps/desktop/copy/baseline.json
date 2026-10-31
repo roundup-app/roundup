@@ -1,6 +1,1 @@
-[
-{"rule":"duplicate-copy","identity":"overviewLabel","branch":"literal:266d1c70a4cb","fingerprint":"266d1c70a4cbe7cdb557b609eb9051660b1d446549a2b16d680ff8ecde11bccc"},
-{"rule":"duplicate-copy","identity":"overviewLabel","branch":"literal:be8dff00b0d4","fingerprint":"be8dff00b0d468b29d804886729be5b430163ad625b1b621d943c2f80005281a"},
-{"rule":"label-length","identity":"overviewLabel","branch":"0","fingerprint":"93dfe64ad6b3fa19b79023a7aae5d063b8805afd8ff2a7eb3685011fa6604013"},
-{"rule":"label-length","identity":"overviewLabel","branch":"1","fingerprint":"e0e9bd0e004b2ffe7b6bc13a5f73f2e79d365bc7f56c6b3c393abab0cc276ab7"}
-]
+[]
