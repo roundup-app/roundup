@@ -442,7 +442,7 @@ const d6 = (page: Page): Measure => {
 
     // Every fault of the first failing target is named at once, so one fix answers them all.
     // U353: a text field answers with a caret, so only its hit area is measured.
-    const text = el.matches("input[type=text]");
+    const text = el.matches("input[type=text], input[type=search]");
 
     const missing = text ? [] : (declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color") ? [] : ["hover"]);
 
