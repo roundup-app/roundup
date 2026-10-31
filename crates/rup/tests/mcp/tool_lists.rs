@@ -103,13 +103,15 @@ pub const TOOL_METHODS: [&str; 89] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-pub const DOOR_METHODS: [&str; 4] = [
+pub const DOOR_METHODS: [&str; 5] = [
     "agent.digest",
     // LC7, LC8
     "agent.extras",
     "agent.extras_add",
     // B53
     "terminal.show",
+    // M5159b
+    "workstream.rewind",
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.

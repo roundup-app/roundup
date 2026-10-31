@@ -85,6 +85,7 @@ async fn m5159b_rewind_selection_is_the_doors_children() {
 #[tokio::test]
 async fn m5159b_rewind_reaches_the_providers_native_rewind() {
     let r = rewinding(false).await;
+    let typed_before = lines(&r.typed);
     let result = r
         .door
         .call(
@@ -102,10 +103,9 @@ async fn m5159b_rewind_reaches_the_providers_native_rewind() {
         json!(["--resume", SESSION, "--rewind-files", TURN])
     );
     assert_eq!(received[0]["checkpointing"], "1");
-    assert!(
-        std::fs::read_to_string(&r.typed)
-            .unwrap_or_default()
-            .is_empty(),
+    assert_eq!(
+        lines(&r.typed),
+        typed_before,
         "the Terminal received no input"
     );
 }
