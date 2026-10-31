@@ -1,5 +1,4 @@
-//! The whole Daemon as the App runs it. Todo creation runs real Claude against aimock;
-//! the remaining cases retain the stub while E10 is migrated.
+//! The whole Daemon as the App runs it. Todo creation runs real Claude against aimock; the rest keep the stub while E10 migrates.
 
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
@@ -1784,8 +1783,7 @@ async fn a31_a_workstream_id_resolves_to_its_door() {
     assert_eq!(names, ["project-only", "reduce"]);
 }
 
-/// A33: an idle Agent whose own Todo waits on an open blocker reads `blocked`, and idle again
-/// once the blocker completes or the Todo is deleted.
+/// A33: an idle Agent whose Todo waits on an open blocker reads `blocked`; idle again once it clears.
 async fn a33_blocked_agent(fixture: &str) -> (Project, rpc::Client, RailNode) {
     let project = daemon::start_real(fixture, &[]);
     let client = project.client().await;
