@@ -43,6 +43,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Snapshot | same | — |
 | Workstream | same | room, folder |
 | Mode | same | — |
+| Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
+| Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
 | Start choice | same | — |
 | Queue | same | — |

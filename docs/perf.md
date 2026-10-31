@@ -153,7 +153,7 @@ method without a measured mapping or non-empty reason fails live coverage.
   "rail.remove": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
   "rail.deletion": "Deletion reconciliation is outside the Terminal echo and repeated rail.tree latency workload.",
   "rail.restore": "User-requested Rail restoration is outside the Terminal echo and repeated rail.tree latency workload.",
-  "agent.resume": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setModel": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
+  "agent.resume": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setModel": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.makeWorkstream": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.saveAsMode": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
   "workstream.rewind": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
   "todo.startWorkstream": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
   "workstream.queue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.dequeue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",

@@ -256,6 +256,11 @@ impl Agents {
             rail.has_conversation(id)?
         };
         let own = model.is_some() || effort.is_some();
+        // A5214b: a Mode's Door starts on the Model its Mode parked.
+        let (model, effort) = match self.shared.rail().node(id)? {
+            parked if !saved && !own => (parked.model, parked.effort),
+            _ => (model, effort),
+        };
         let pair = self.choose(&ctx.actor, Role::Door, model, effort)?;
         if saved && first.is_none() {
             // A36: a resume takes the pair the Door parked; one the call names replaces it.
