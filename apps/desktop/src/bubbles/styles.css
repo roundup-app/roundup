@@ -328,3 +328,13 @@
     backdrop-filter: none;
   }
 }
+
+/* PS10.3: the tab's tooltip shows at most two lines of the program status, shortened with `…`, above the floating bubbles. */
+.terminal-tab-tip {
+  z-index: var(--layer-tooltip);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
