@@ -186,7 +186,7 @@ pub struct TitleEvent {
 
 /// PS8: a Terminal's program status changed; `None` when its last record was removed.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct StatusEvent {
+pub struct TerminalStatusEvent {
     pub id: String,
     pub status: Option<crate::Status>,
 }

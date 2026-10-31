@@ -17,9 +17,7 @@ async fn ps8_terminal_list_carries_a_terminals_program_status() {
         |_| {},
     );
     let client = rpc::Client::connect(&daemon.socket).await.unwrap();
-    let spawn = |script: &str| {
-        json!({"cwd": dir.path(), "command": ["sh", "-c", script], "env": {}, "cols": 80, "rows": 24})
-    };
+    let spawn = |script: &str| json!({"cwd": dir.path(), "command": ["sh", "-c", script], "env": {}, "cols": 80, "rows": 24});
     let plain = client
         .request("terminal.spawn", spawn("sleep 30"))
         .await
