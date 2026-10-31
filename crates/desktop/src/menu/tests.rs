@@ -708,3 +708,11 @@ fn u5244e_debug_info_holds_exactly_the_four_facts() {
         "roundup 1.2.3 (abc)\nDaemon unknown\nmacOS 15.1\nDaemon unreachable"
     );
 }
+
+#[test]
+fn u5244e_debug_info_holds_no_secret_or_usage_value() {
+    // SAFETY-free: the text takes four facts as arguments, so a token in the environment cannot reach it.
+    let text = debug_info("1.2.3", "abc", "15.1", true);
+    assert_eq!(text.lines().count(), 4);
+    assert!(!text.contains('$') && !text.contains('/') && !text.contains("sk-"));
+}
