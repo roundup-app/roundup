@@ -678,10 +678,10 @@ it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retenti
   vi.spyOn(app, "clipboardWrite").mockImplementation(async () => { throw new Error("clipboard blocked"); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
-  expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
+  expect(within(dialog).getByRole("alert", { name: /Storage could not save unfinished work/ })).toBeDefined();
   fireEvent.click(within(dialog).getByRole("button", { name: action === "dismiss" ? "Close · Copy name" : recoveryCopy.discardRevision }));
   await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ })).toBeNull());
-  expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
+  expect(within(dialog).getByRole("alert", { name: /Storage could not save unfinished work/ })).toBeDefined();
   expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: "Retry storage only" }).disabled).toBe(false);
 
   if (action === "dismiss") expect(within(dialog).getByText(memory, { exact: true, normalizer: text => text })).toBeDefined();
