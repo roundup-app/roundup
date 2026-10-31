@@ -7,7 +7,7 @@
     {"path": "crates/rup/tests/e2e.rs", "ceiling": 3141, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rup/tests/mcp.rs", "ceiling": 1221, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "crates/rupd/src/queue.rs", "ceiling": 1030, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
-    {"path": "crates/rupd/tests/b50_note_inbox.rs", "ceiling": 1389, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
+    {"path": "crates/rupd/tests/b50_note_inbox.rs", "ceiling": 1318, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "loop/builder.py", "ceiling": 1451, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "loop/builder.test.py", "ceiling": 1656, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."},
     {"path": "proofs/messages/PROOF.bend", "ceiling": 1630, "reason": "Historical hand-written file; freeze its measured ceiling rather than split unrelated code in a lint rollout."}
