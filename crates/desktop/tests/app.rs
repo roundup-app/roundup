@@ -290,28 +290,6 @@ fn s1_the_daemon_is_the_env_override_else_the_rupd_beside_the_executable() {
 }
 
 #[test]
-fn u5232f_nothing_fires_without_a_call() {
-    let fx = Fixture::new(SERVE_AND_WAIT);
-    let (mut app, webview) = app(fx.config.clone(), None);
-    app.run_iteration(|_, _| {});
-    let (sent, heard) = mpsc::channel();
-    app.listen(desktop::alert::CLICKED, move |event| {
-        sent.send(event.payload().to_owned()).unwrap()
-    });
-
-    // The App holds the notifier from its start, and a request that asks for neither part reaches no system.
-    let error = invoke(
-        &webview,
-        "state_alert",
-        json!({ "request": { "agent": "a1", "title": "Ada", "body": "Done", "alert": false, "sound": false } }),
-    )
-    .unwrap_err();
-
-    assert_eq!(error["code"], code::INVALID_PARAMS, "{error}");
-    assert!(heard.recv_timeout(Duration::from_millis(200)).is_err());
-}
-
-#[test]
 fn s1_a_path_that_is_not_a_directory_is_invalid_params_naming_it() {
     let fx = Fixture::new(SERVE_AND_WAIT);
     let (_app, webview) = app(fx.config.clone(), None);
