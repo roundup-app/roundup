@@ -367,6 +367,7 @@ pub(super) fn save_signal_conversation(
         return Ok(());
     };
     rail.save_conversation(id, &conversation_id, &run.cwd)?;
+    rail.save_conversation_yolo(id, run.yolo)?;
     Ok(())
 }
 
