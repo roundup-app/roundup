@@ -27,10 +27,10 @@ import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { CreateMode } from "./CreateMode";
 import { OpeningPrompt } from "./OpeningPrompt";
+import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
-import { createRailMenu } from "./menu/model";
-import { ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
-import type { NodeRow } from "./layout";
+import { canMakeWorkstream, canSaveAsMode, createRailMenu } from "./menu/model";
+import { ancestorsOf, isWorkstream, layoutRail, siblingsOf, type NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
 import { Trunks } from "../ui/TreeView";
@@ -63,6 +63,7 @@ export const Rail = () => {
 
   const [creatingMode, setCreatingMode] = createSignal(false);
   const [openingPrompt, setOpeningPrompt] = createSignal<string | null>(null);
+  const [savingMode, setSavingMode] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
   const moveAgent = createMove(connected, id => rowElement(id));
@@ -75,6 +76,8 @@ export const Rail = () => {
     return [
       ...(node.kind === "agent" && node.status?.kind === "error" && !rail.dismissed(node) ? [{ id: "dismiss", label: copy.dismissError, run: () => { rail.dismiss(node); } }] : []),
       ...(moveAgent.available(node.id) ? [{ id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) }] : []),
+      ...(canMakeWorkstream(node, rail.exitOf(node)) ? [{ id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } }] : []),
+      ...(canSaveAsMode(node) ? [{ id: "save-as-mode", label: copy.saveAsMode, run: () => { setSavingMode(node.id); } }] : []),
       ...(node.kind === "workstream" && node.opening_prompt?.trim() ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartSession(node.id); } }] : []),
       ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
         id: "progress", label: copy.workProgress, run: () => {
@@ -969,6 +972,7 @@ export const Rail = () => {
           )}</For>
         </details>
       </Show>
+      <Show when={savingMode()} keyed>{id => <SaveAsMode id={id} onClose={() => setSavingMode(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <Show when={openingPrompt()} keyed>{id => <OpeningPrompt restart={() => menu.restartSession(id)} id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <Show when={creatingMode()}><CreateMode finalFocus={id => rowElement(id) ?? null} onClose={() => setCreatingMode(false)} onCreated={(id, request) => {
         setCreatingMode(false);

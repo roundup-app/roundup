@@ -105,7 +105,7 @@ pub const TOOL_METHODS: [&str; 91] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-pub const DOOR_METHODS: [&str; 5] = [
+pub const DOOR_METHODS: [&str; 10] = [
     "agent.digest",
     // LC7, LC8
     "agent.extras",
@@ -114,10 +114,16 @@ pub const DOOR_METHODS: [&str; 5] = [
     "terminal.show",
     // M5159b
     "workstream.rewind",
+    // A5168a, A5168b
+    "github.prGet",
+    "github.issueGet",
+    "github.prSetBody",
+    "github.prReady",
+    "github.prAutoMerge",
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 81] = [
+pub const NO_TOOL: [&str; 83] = [
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
     "daemon.getNaming",
     "daemon.setNaming",
@@ -200,6 +206,8 @@ pub const NO_TOOL: [&str; 81] = [
     "project.importDiscover",
     "project.importCommit",
     "agent.setModel",
+    "agent.makeWorkstream",
+    "agent.saveAsMode",
     // D8: the App's Resource strip
     "project.resources",
     "close_project",
