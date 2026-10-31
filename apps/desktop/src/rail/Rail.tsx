@@ -50,7 +50,7 @@ export const Rail = () => {
   const { app, project, rail, now, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
 
-  const attention = createMemo(() => attentionCount(rail.nodes));
+  const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
   const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
@@ -71,6 +71,7 @@ export const Rail = () => {
     const actions = actionsOf(node);
 
     return [
+      ...(node.kind === "agent" && node.status?.kind === "error" && !rail.dismissed(node) ? [{ id: "dismiss", label: copy.dismissError, run: () => { rail.dismiss(node); } }] : []),
       ...(moveAgent.available(node.id) ? [{ id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) }] : []),
       ...(node.kind === "workstream" && node.opening_prompt?.trim() ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartSession(node.id); } }] : []),
       ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
