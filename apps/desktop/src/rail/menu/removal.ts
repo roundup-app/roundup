@@ -15,6 +15,8 @@ export type Removal = {
   affectedIds: string[];
   goes: { agents: string[]; todos: number; pads: number };
   stays: { agents: Stay[]; todos: number; pads: number };
+  /** Lists whose read failed (U5301a): their counts are unknown, not zero. */
+  unread: ("todo" | "pad")[];
 };
 
 const FINISHED = new Set(["done", "error"]);
@@ -27,8 +29,10 @@ const unlanded = (state: WorktreeState): string | null =>
 
 /** Reads what `rail.remove` of Workstream `id` will judge: its Agents by Status and Worktree, its Todos by `done`, its Pads by Home. Writes nothing. */
 export const judgeRemoval = async (app: AppSeam, nodes: readonly RailNode[], id: string): Promise<Removal> => {
-  const [todos, pads] = await Promise.all([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
-  const removal: Removal = { affectedIds: below(nodes, id).map(node => node.id), removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 } };
+  const [todoRead, padRead] = await Promise.allSettled([app.rpc("todo.list", null), app.rpc("pad.list", null)]);
+  const todos: Todo[] = todoRead.status === "fulfilled" ? todoRead.value : [];
+  const pads: Pad[] = padRead.status === "fulfilled" ? padRead.value : [];
+  const removal: Removal = { affectedIds: below(nodes, id).map(node => node.id), removedIds: [], goes: { agents: [], todos: 0, pads: 0 }, stays: { agents: [], todos: 0, pads: 0 }, unread: [...(todoRead.status === "rejected" ? ["todo" as const] : []), ...(padRead.status === "rejected" ? ["pad" as const] : [])] };
   const staying = new Set<string>();
 
   for (const node of below(nodes, id)) {
@@ -79,7 +83,7 @@ export const removalQuestion = (removal: Removal, name: string) => {
 
   const summary = {
     title: copy.removeWorkstreamQuestion(name),
-    message: [goesLine(removal, name), stays].filter(Boolean).join("\n"),
+    message: [goesLine(removal, name), stays, ...removal.unread.map(list => copy.listUnread(list))].filter(Boolean).join("\n"),
     cancelLabel: copy.cancel,
   };
 

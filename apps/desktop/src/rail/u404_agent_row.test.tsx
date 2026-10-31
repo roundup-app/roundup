@@ -38,7 +38,7 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     fireEvent.mouseEnter(rowOf("gate"));
     rail.select("b");
     fireEvent.click(rowOf("ws").querySelector('button[aria-label="Collapse"]')!);
-    fireEvent.click(rowOf("ws").querySelector('button[aria-label="Collapse"]')!);
+    fireEvent.click(rowOf("ws").querySelector('button[aria-label="Expand"]')!);
 
     expect(order()).toEqual(before);
   });
