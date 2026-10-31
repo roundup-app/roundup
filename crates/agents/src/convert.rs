@@ -24,8 +24,8 @@ impl Agents {
             }
             matches!(self.shared.runs().get(id), Some(Slot::Running(run)) if !run.ended)
         };
-        if live {
-            if let Err(error) = self
+        if live
+            && let Err(error) = self
                 .resume_conversation(
                     ctx,
                     id,
@@ -38,10 +38,9 @@ impl Agents {
                     (80, 24),
                 )
                 .await
-            {
-                self.shared.rail().convert_kind(id, false)?;
-                return Err(error);
-            }
+        {
+            self.shared.rail().convert_kind(id, false)?;
+            return Err(error);
         }
         ctx.emit(EventData::RailChanged);
         self.shared.node(id)
