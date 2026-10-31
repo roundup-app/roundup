@@ -43,8 +43,8 @@ it("u3743_create_calls_start_workstream_once_with_the_chosen_start", async () =>
   const dialog = within(await openDialog());
 
   expect(dialog.getByLabelText<HTMLTextAreaElement>("Workstream name").value).toBe("Ship the login fix");
-  expect(dialog.getAllByRole("radio").map(radio => radio.closest("label")?.textContent)).toEqual(["Start now", "Start when a slot frees", "Start after another Todo"]);
-  expect(dialog.getByRole<HTMLInputElement>("radio", { name: "Start when a slot frees" }).checked).toBe(true);
+  expect(dialog.getAllByRole("radio").map(radio => radio.closest("label")?.textContent)).toEqual(["Start now", "Start when free", "Start after Todo"]);
+  expect(dialog.getByRole<HTMLInputElement>("radio", { name: "Start when free" }).checked).toBe(true);
   await pick(dialog.getByRole("radio", { name: "Start now" }));
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "Login" } });
   fireEvent.click(dialog.getByRole("button", { name: "Create" }));
@@ -68,7 +68,7 @@ it("u3743_after_todo_needs_a_picked_todo_and_a_name_is_required", async () => {
   expect(create().getAttribute("aria-disabled")).toBe("true");
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "Docs" } });
   expect(create().getAttribute("aria-disabled")).toBe("false");
-  await pick(dialog.getByRole("radio", { name: "Start after another Todo" }));
+  await pick(dialog.getByRole("radio", { name: "Start after Todo" }));
   expect(create().getAttribute("aria-disabled")).toBe("true");
 
   fireEvent.click(await dialog.findByRole("button", { name: "Choose a Todo" }));

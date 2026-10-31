@@ -309,7 +309,7 @@ it("u3787f_shortcut_collision_preserves_the_acknowledged_setting_and_shows_the_c
   const before = appSettings().quickAdd;
   const causes: (string | null)[] = [];
   render(() => <ShortcutSetting capture={{ configure: async () => { throw new Error("Shortcut is already registered. Choose another shortcut."); }, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {}, onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {} }} onFailure={cause => causes.push(cause)} />);
-  fireEvent.click(screen.getByRole("button", { name: /Quick add a Todo/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Quick add Todo/ }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", metaKey: true, altKey: true });
   await waitFor(() => expect(causes.at(-1)).toContain("already registered"));
   expect(appSettings().quickAdd).toBe(before);

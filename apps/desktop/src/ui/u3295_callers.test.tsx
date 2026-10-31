@@ -118,7 +118,7 @@ it("u3295b_dialog_owned_controls_still_work: Start-after Todo picker", async () 
   fireEvent.click(within(await screen.findByRole("menu", { name: "Owners for #1" })).getByText("New Workstream…"));
   const dialog = within(await screen.findByRole("dialog", { name: "New Workstream" }));
 
-  fireEvent.click(dialog.getByRole("radio", { name: "Start after another Todo" }));
+  fireEvent.click(dialog.getByRole("radio", { name: "Start after Todo" }));
   const trigger = await dialog.findByRole("button", { name: "Choose a Todo" });
 
   fireEvent.click(trigger);

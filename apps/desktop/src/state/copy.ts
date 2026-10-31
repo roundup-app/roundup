@@ -1,10 +1,8 @@
-import { labels, copy as sharedCopy } from "../sharedCopy";
-
-const fallbackLabel = "settings";
+import { copy as sharedCopy } from "../sharedCopy";
 
 export const storageCopy = {
-  invalid: (key: string) => `Could not restore ${labels.get(key.split(":")[1] ?? "") ?? fallbackLabel}. The saved format is invalid. Retry or continue; the original data is kept.`,
-  recoveryFailure: (key: string, cause: string) => `A recovery copy is unavailable for ${labels.get(key.split(":")[1] ?? "") ?? fallbackLabel}: ${cause}. Try again.`,
+  invalid: (label: string) => `Could not restore ${label}. The saved format is invalid. Retry or continue; the original data is kept.`,
+  recoveryFailure: (label: string, cause: string) => `A recovery copy is unavailable for ${label}: ${cause}. Try again.`,
   recoveryReadback: "Could not verify the saved recovery copy. Retry restoring saved work.",
   restoreFailure: (cause: string) => `Could not restore saved work: ${cause}.`,
   readFailure: (cause: string) => `Could not read saved work: ${cause}.`,

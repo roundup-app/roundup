@@ -54,7 +54,7 @@ it("u3760_a_missing_ref_is_not_activatable", async () => {
 it("u3760_remove_calls_once_and_events_update_the_list", async () => {
   const first = link("notes");
   const m = await open([first]);
-  fireEvent.click(within(panel()).getByRole("button", { name: "Remove link to notes" }));
+  fireEvent.click(within(panel()).getByRole("button", { name: "Unlink notes" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.removeRef")).toHaveLength(1));
   expect(todoCallsTo(m.app, "todo.removeRef")[0]!.params).toEqual({ id: 1, url: first });
   // The Daemon's event, not the click, takes the row away; a Todo with none shows no section.
@@ -70,7 +70,7 @@ it("u3760_remove_calls_once_and_events_update_the_list", async () => {
 
 it("u3760_removing_the_last_link_moves_focus_to_the_next_control", async () => {
   const m = await open([link("notes")], [], [2]);
-  const button = within(panel()).getByRole("button", { name: "Remove link to notes" });
+  const button = within(panel()).getByRole("button", { name: "Unlink notes" });
   button.focus();
   m.store.todos = m.store.todos.map((item) => ({ ...item, refs: [] }));
   fireEvent.click(button);

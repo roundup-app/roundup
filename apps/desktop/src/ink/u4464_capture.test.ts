@@ -104,8 +104,8 @@ it.skipIf(!captureDir("U4464"))("u4464_capture_empty_views_in_both_themes", asyn
       await load("empty-project");
       await read(`(async () => { const {draftStorage} = await import('/src/state/storage.ts'); draftStorage(window.__fake.app.opened.project.path).edit({surface:'terminal_selection', object:'missing', recipient:'missing'}, {note:'Unfinished selection', excerpt:'Earlier output', source:'gone'}, null, 'ordinary'); })()`);
       await browser("reload");
-      await wait(`!!window.__fake && !!document.querySelector('[aria-label="Overview, Project root"]')`);
-      await read(`document.querySelector('[aria-label="Overview, Project root"]').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
+      await wait(`!!window.__fake && !!document.querySelector('[aria-label="Overview"]')`);
+      await read(`document.querySelector('[aria-label="Overview"]').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,clientX:30,clientY:60}))`);
       await read(`(async () => { const {menuProbe} = await import('/src/testing/menuProbe.ts'); const item = menuProbe.shown.find(item => item.id === 'recover'); if (!item) throw new Error('Recovery menu unavailable'); menuProbe.answer(item.id); })()`);
       await wait(`!!document.querySelector('.draft-recovery')`);
       await read(`[...document.querySelectorAll('.draft-recovery button')].find(button => button.textContent === 'Discard').click()`);

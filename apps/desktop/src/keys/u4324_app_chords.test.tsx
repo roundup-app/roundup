@@ -92,7 +92,7 @@ it.each(rows)("u4324b_app_chords_follow_focus: $chord / $place / native=$native 
   let target: HTMLElement;
 
   if (first) {
-    target = await screen.findByRole("button", { name: "Choose folder…" });
+    target = await screen.findByRole("button", { name: "Choose Project…" });
 
     if (place === "first-frame") target = document.querySelector<HTMLElement>(".centre")!;
   } else {
