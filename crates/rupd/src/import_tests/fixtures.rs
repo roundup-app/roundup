@@ -223,7 +223,22 @@ async fn u4251b_sdk_membership_survives_snapshot_validation() {
         .collect();
     let params = json!({"selections":selections});
     let committed = import_rpc(&daemon, "project.importCommit", params.clone()).await;
-    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    // RO2: `rail.tree` answers from the cache, so read it until the background read lands.
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(50));
+    let tree = loop {
+        tick.tick().await;
+        let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+        let imported = committed["result"]["outcomes"].as_array().unwrap();
+        let ready =
+            imported.iter().all(|outcome| {
+                tree["result"].as_array().unwrap().iter().any(|node| {
+                    node["id"] == outcome["agent"] && node["overview"]["id"].is_string()
+                })
+            });
+        if ready {
+            break tree;
+        }
+    };
     for outcome in committed["result"]["outcomes"].as_array().unwrap() {
         assert!(outcome["error"].is_null(), "{committed}");
         let node = tree["result"]

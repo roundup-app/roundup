@@ -702,8 +702,19 @@ async fn a35_rewind_applies_the_selection_and_files_it_is_given() {
     .await;
 
     // `workstream.rewound` is emitted once, after the last session start.
-    let before = rail_tree(&fx.user).await;
     let mut events = fx.project.subscribed().await;
+    let before = rail_tree(&fx.user).await;
+    // RO2: the first `rail.tree` starts the overview reads; let their announcements pass.
+    while tokio::time::timeout(Duration::from_millis(1500), async {
+        daemon::next(&mut events, |e| match e {
+            contracts::EventData::RailChanged => Some(()),
+            _ => None,
+        })
+        .await
+    })
+    .await
+    .is_ok()
+    {}
     rewind(&fx, None, "keep").await;
     let rail_changes = std::cell::Cell::new(0);
     let restarted = std::cell::RefCell::new(std::collections::HashSet::new());
@@ -717,13 +728,13 @@ async fn a35_rewind_applies_the_selection_and_files_it_is_given() {
                     restarted.borrow_mut().insert(status.id.clone());
                 }
             }
-            contracts::EventData::RailChanged => {
-                assert_eq!(restarted.borrow().len(), 2);
+            // An overview announcement (RO2) may come earlier; the rewind's own comes last.
+            contracts::EventData::RailChanged if restarted.borrow().len() == 2 => {
                 rail_changes.set(rail_changes.get() + 1);
             }
             contracts::EventData::WorkstreamRewound(data) => {
                 assert_eq!((data.id.as_str(), data.checkpoint), (fx.ws.as_str(), 1));
-                assert_eq!(rail_changes.get(), 1);
+                assert!(rail_changes.get() >= 1);
                 return Some(());
             }
             _ => {}
