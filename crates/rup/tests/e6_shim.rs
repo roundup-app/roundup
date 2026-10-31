@@ -4,7 +4,6 @@
 mod daemon;
 
 use contracts::{EventData, Kind};
-use daemon::{next, rail_tree};
 use serde_json::{Value, json};
 
 #[tokio::test]
@@ -18,7 +17,7 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
 
     let node: RailNode = serde_json::from_value(
         tokio::time::timeout(
-            Duration::from_secs(30),
+            project.bound(),
             events.request(
                 "agent.spawn",
                 json!({
@@ -36,11 +35,12 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
     let started = std::time::Instant::now();
     let mut channels = vec![Channel::Pending];
     loop {
-        let channel = daemon::next(&mut events, |data| match data {
-            EventData::AgentChannel(event) if event.id == node.id => Some(event.channel),
-            _ => None,
-        })
-        .await;
+        let channel = project
+            .next(&mut events, |data| match data {
+                EventData::AgentChannel(event) if event.id == node.id => Some(event.channel),
+                _ => None,
+            })
+            .await;
         eprintln!(
             "E6 channel {channel:?} at {:?} after spawn response",
             started.elapsed()
@@ -56,11 +56,14 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
     assert!(
         tokio::time::timeout(agents::CHANNEL_DEADLINE, async {
             loop {
-                let channel = daemon::next(&mut events, |data| match data {
-                    EventData::AgentChannel(event) if event.id == node.id => Some(event.channel),
-                    _ => None,
-                })
-                .await;
+                let channel = project
+                    .next(&mut events, |data| match data {
+                        EventData::AgentChannel(event) if event.id == node.id => {
+                            Some(event.channel)
+                        }
+                        _ => None,
+                    })
+                    .await;
                 assert_eq!(channel, Channel::Up, "Channel changed after Up");
             }
         })
@@ -68,7 +71,8 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
         .is_err()
     );
     assert_eq!(
-        daemon::rail_tree(&events)
+        project
+            .rail_tree(&events)
             .await
             .into_iter()
             .find(|entry| entry.id == node.id)
@@ -77,7 +81,7 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
         Some(Channel::Up)
     );
     let model = project.model.as_ref().unwrap();
-    tokio::time::timeout(Duration::from_secs(30), async {
+    tokio::time::timeout(project.bound(), async {
         while !model
             .journal()
             .iter()
@@ -133,18 +137,20 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
         .unwrap();
     let id = agent["id"].as_str().unwrap();
     assert_eq!(agent["channel"], "pending");
-    let missing = next(&mut events, |event| match event {
-        EventData::AgentChannel(channel) if channel.id == id => Some(channel.channel),
-        _ => None,
-    })
-    .await;
+    let missing = project
+        .next(&mut events, |event| match event {
+            EventData::AgentChannel(channel) if channel.id == id => Some(channel.channel),
+            _ => None,
+        })
+        .await;
     assert_eq!(missing, Channel::Missing);
     std::fs::write(release, "release real MCP").unwrap();
-    let up = next(&mut events, |event| match event {
-        EventData::AgentChannel(channel) if channel.id == id => Some(channel.channel),
-        _ => None,
-    })
-    .await;
+    let up = project
+        .next(&mut events, |event| match event {
+            EventData::AgentChannel(channel) if channel.id == id => Some(channel.channel),
+            _ => None,
+        })
+        .await;
     assert_eq!(up, Channel::Up);
     let model = project.model.as_ref().unwrap();
     model.tool_result("toolu_e6_context").await;
@@ -200,16 +206,17 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
     let mut stopped = false;
     let mut missing = false;
     while !stopped || !missing {
-        let event = next(&mut events, |event| match event {
-            EventData::AgentStatus(status) if status.id == id => {
-                Some(EventData::AgentStatus(status))
-            }
-            EventData::AgentChannel(channel) if channel.id == id => {
-                Some(EventData::AgentChannel(channel))
-            }
-            _ => None,
-        })
-        .await;
+        let event = project
+            .next(&mut events, |event| match event {
+                EventData::AgentStatus(status) if status.id == id => {
+                    Some(EventData::AgentStatus(status))
+                }
+                EventData::AgentChannel(channel) if channel.id == id => {
+                    Some(EventData::AgentChannel(channel))
+                }
+                _ => None,
+            })
+            .await;
         match event {
             EventData::AgentStatus(status) => {
                 initial.get_or_insert(status.status.kind);
@@ -223,7 +230,8 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
             _ => unreachable!(),
         }
     }
-    let node = rail_tree(&events)
+    let node = project
+        .rail_tree(&events)
         .await
         .into_iter()
         .find(|node| node.id == id)
