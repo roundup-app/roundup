@@ -107,6 +107,7 @@ export const copy = {
   error: "Error",
   needsYou: "Needs you",
   needsYouGlyph: "Needs-you",
+  thatIsGone: "That is gone",
   blocked: "Blocked",
   working: "Working",
   idle: "Idle",

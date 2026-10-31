@@ -9,6 +9,7 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { TodoHost } from "../todos/TodoDrawer";
 import { PadHost } from "../pads/PadDrawer";
 import type { Candidate } from "./queue";
+import type { StateAlerts } from "../rail/stateAlerts";
 
 const TITLE_CHARS = 60;
 
@@ -21,7 +22,7 @@ const todoItem = (id: number) => `todo:${id}`;
 const padItem = (name: string) => `pad:${name}`;
 
 /** U410: the Events of one open Project that make a Toast, as Candidates. `select` is how a click reaches the Agent's row, `show` the Project's tab. */
-export const watchProject = (connected: ConnectedProject, pushCandidate: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settleItem: (item: string) => void): Unsubscribe => {
+export const watchProject = (connected: ConnectedProject, pushCandidate: (candidate: Candidate) => void, show: () => void, isActive: () => boolean, settleItem: (item: string) => void, alerts?: StateAlerts): Unsubscribe => {
   const { rail, events, app, drawer } = connected;
   const owned = (item: string) => JSON.stringify([connected.project.path, item]);
   const settle = (item: string) => settleItem(owned(item));
@@ -99,9 +100,13 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
 
       seen.set(id, status.kind);
 
-      if (before === status.kind || (status.kind !== "needs-you" && status.kind !== "error")) return;
+      if (before === status.kind) return;
 
       const node = rail.nodes.find((each) => each.id === id);
+      const selected = isActive() && rail.selected() === id;
+      const raised = alerts?.changed({ key: owned(id), id, name: node?.name ?? id, kind: status.kind, selected });
+
+      if (status.kind !== "needs-you" && status.kind !== "error") return;
 
       push({
         key: id,
@@ -109,7 +114,8 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
         kind: status.kind,
         name: node?.name ?? id,
         line: status.kind === "error" ? status.label : copy.needsYou,
-        selected: isActive() && rail.selected() === id,
+        selected,
+        silent: raised !== undefined && !raised.chime,
         open: openAgent(id),
       });
     } else if (event.name === "todo.deleted") {
