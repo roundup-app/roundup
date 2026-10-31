@@ -10,7 +10,7 @@ export const Leader = () => {
   registerKeys({ kind: "app" }, [{
     action: CHORDS.find(row => row.keys === "⌘K")!,
     searchable: false,
-    capture: () => ({ available: () => daemonExit() === null && document.querySelector(".spawn-prompt-field") === null, invoke: armLeader }),
+    capture: () => ({ available: () => daemonExit() === null && document.querySelector(".spawn-prompt-field") === null, invoke: () => armLeader() }),
   }]);
 
   createEffect(() => { if (leaderArmed() && modalOpen()) endLeader(); });
