@@ -2,7 +2,7 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 import { copy as sharedCopy, staleSuffix, type CopyValue } from "../sharedCopy";
 
-const railDraftLabels = new Map([["rail-task", sharedCopy.prompt], ["rail-name", sharedCopy.name]]);
+const railDraftLabels = new Map([["rail-task", "Work"], ["rail-name", sharedCopy.name]]);
 
 const railDraftStatuses = new Map([["draft", sharedCopy.draftStatus.draft], ["pending", "Submitting…"], ["unknown", "Unconfirmed"], ["failed", "Unsent"]]);
 
@@ -59,7 +59,7 @@ export const copy = {
   removeThis: "Remove this",
   removeAll: "Remove all",
   copied: sharedCopy.copied,
-  task: sharedCopy.prompt,
+  task: "Task",
   taskHint: "What should the Agent do?",
   keep: sharedCopy.keep,
   pad: sharedCopy.pad,
@@ -79,7 +79,7 @@ export const copy = {
   capRefusal: "Enter a whole number, 1 or more.",
   assign: sharedCopy.assign,
   overview: sharedCopy.overview,
-  overviewLabel: (count: number) => count > 0 ? `${sharedCopy.overview}, ${count} need` : sharedCopy.overview,
+  overviewLabel: (count: number) => count > 0 ? `Overview, Project root, ${count} ${count === 1 ? "needs" : "need"} you` : "Overview, Project root",
   modesHead: "MODES",
   agentsHead: "AGENTS",
   workstreamsHead: "WORKSTREAMS",

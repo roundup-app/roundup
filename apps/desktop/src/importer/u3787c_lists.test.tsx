@@ -87,7 +87,7 @@ it("u3787c_import_modifiers_retain_choices_across_the_actual_page_lifetime", asy
   const { app } = await mount(inventory[0]!.open);
   fireEvent.click(row(2), { metaKey: true });
   await waitFor(() => expect(selected()).toEqual(["source-2"]));
-  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   await waitFor(() => expect(document.querySelector(".import-check")).toBeNull());
   inventory[0]!.open();
   await screen.findByRole("checkbox", { name: /alpha/ });

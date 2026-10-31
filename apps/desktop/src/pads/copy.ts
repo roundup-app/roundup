@@ -37,7 +37,7 @@ export const copy = {
   table: "Table",
   padEditorHostIsMissing: "Editor host missing",
   padEditorToolbarActionHasNoName: (value1: CopyValue) => `Unnamed action ${value1}`,
-  text: sharedCopy.text,
+  text: "Text",
   headingOne: "Heading 1",
   headingTwo: "Heading 2",
   headingThree: "Heading 3",
