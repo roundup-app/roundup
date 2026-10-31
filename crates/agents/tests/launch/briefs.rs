@@ -251,3 +251,36 @@ fn e3_workstream_guidance_precedes_tools() {
         }
     }
 }
+
+#[test]
+fn b5168e_the_door_brief_names_the_tools_and_the_ask_once_rule() {
+    let text = brief(&setup(), "7", Role::Door);
+    for tool in [
+        "github_pr_get",
+        "github_issue_get",
+        "github_pr_set_body",
+        "github_pr_ready",
+        "github_pr_auto_merge",
+    ] {
+        assert!(text.contains(&format!("- `{tool}`: ")), "{tool}");
+    }
+    assert!(text.contains("never ask the user to run `gh` for it"));
+    assert!(text.contains("you do not restate it unless something changed since you made it"));
+}
+
+#[test]
+fn b5168g_no_coordinator_brief_asks_the_user_to_run_a_covered_gh_command() {
+    let s = setup();
+    for role in [Role::Door, Role::Agent] {
+        let text = brief(&s, "7", role);
+        for command in [
+            "gh pr view",
+            "gh pr edit",
+            "gh pr ready",
+            "gh pr merge --auto",
+            "gh issue view",
+        ] {
+            assert!(!text.contains(command), "{command}");
+        }
+    }
+}

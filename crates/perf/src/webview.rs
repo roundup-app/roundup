@@ -2,6 +2,8 @@ use std::io;
 
 use serde_json::Value;
 
+use crate::budget::{Budgets, Miss, Report, judge_all, median};
+
 /// Frames slower than this mean the window was not drawn at full rate (behind other windows, occluded): the run says nothing about rendering.
 const FRAME_LIMIT_MS: f64 = 25.0;
 
@@ -173,4 +175,154 @@ fn calibration(report: &Value) -> io::Result<f64> {
         return Err(invalid());
     }
     Ok(uncertainty)
+}
+
+/// The two metrics SP4 adds beside K3's fields, each with the sample counts of its own kind.
+pub const SWITCH_METRICS: [(&str, &str); 2] = [
+    ("switcher_open_p95_ms", "switcher_open"),
+    ("switch_p95_ms", "switch"),
+];
+
+/// SP4: the samples of each kind a run takes after the warm-up; fewer, dropped or kept, is a run that skipped steps.
+const SWITCH_STEPS: u64 = 100;
+
+/// SP6: more than this share of either kind of sample dropped leaves no verdict.
+const DROPPED_SHARE: f64 = 0.05;
+
+/// SP6: a report without a usable Switcher-open and switch reading is invalid (exit 2), never a pass.
+pub fn checked_switch(report: &Value) -> io::Result<()> {
+    if let Some(error) = report["error"].as_str() {
+        return Err(failure(format!("the webview failed: {error}")));
+    }
+    match report["frame_ms"].as_f64() {
+        Some(frame) if frame.is_finite() && frame <= FRAME_LIMIT_MS => {}
+        Some(frame) => {
+            return Err(failure(format!(
+                "frames took {frame:.1} ms on average: the window was not drawn at full rate; bring it to the front and rerun"
+            )));
+        }
+        None => return Err(failure("the report has no frame_ms")),
+    }
+    for (metric, kind) in SWITCH_METRICS {
+        match report[metric].as_f64() {
+            Some(value) if value.is_finite() && value >= 0.0 => {}
+            _ => return Err(failure(format!("the report has no valid {metric}"))),
+        }
+        let (Some(n), Some(dropped)) =
+            (report[kind]["n"].as_u64(), report[kind]["dropped"].as_u64())
+        else {
+            return Err(failure(format!("the report has no {kind} sample counts")));
+        };
+        let total = n.saturating_add(dropped);
+        if total < SWITCH_STEPS || dropped as f64 > DROPPED_SHARE * total as f64 {
+            return Err(failure(format!(
+                "{dropped} of {total} {kind} samples dropped, above {}%",
+                DROPPED_SHARE * 100.0
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// SP6: each metric is the median over the runs of the run's p95, judged against its limit and its baseline for `baseline_key`.
+/// Exit 2 for an invalid run or a budgeted metric the runs did not measure, exit 1 naming the metric, its value and its limit or baseline.
+pub fn judge_switch(
+    reports: &[Value],
+    budgets: &Budgets,
+    os: &str,
+    loads: &[f64],
+    cpus: usize,
+) -> (u8, Vec<String>) {
+    if reports.is_empty() {
+        return (2, vec!["no runs".into()]);
+    }
+    let invalid: Vec<String> = reports
+        .iter()
+        .enumerate()
+        .filter_map(|(index, report)| {
+            checked_switch(report)
+                .err()
+                .map(|error| format!("run {}: invalid observation: {error}", index + 1))
+        })
+        .collect();
+    if !invalid.is_empty() {
+        return (2, invalid);
+    }
+
+    let mut per_run = std::collections::BTreeMap::new();
+    for (metric, _) in SWITCH_METRICS {
+        per_run.insert(
+            metric.to_string(),
+            reports
+                .iter()
+                .map(|report| report[metric].as_f64().expect("checked metric"))
+                .collect::<Vec<f64>>(),
+        );
+    }
+    let metrics = per_run
+        .iter()
+        .map(|(name, values)| (name.clone(), median(values)))
+        .collect();
+    let result = Report {
+        os: os.to_string(),
+        class: None,
+        cpus,
+        runs: reports.len(),
+        loads: loads.to_vec(),
+        metrics,
+        per_run,
+        skipped: vec![],
+    };
+    // Keystroke latency has its own judgement (`judge_runs`); it is not a switch metric.
+    let budgets: Budgets = budgets
+        .iter()
+        .filter(|(name, _)| SWITCH_METRICS.iter().any(|(metric, _)| metric == name))
+        .map(|(name, budget)| (name.clone(), budget.clone()))
+        .collect();
+    for (metric, _) in SWITCH_METRICS {
+        if !budgets.contains_key(metric) {
+            return (
+                2,
+                vec![format!(
+                    "budget {metric:?} is missing from the budgets file"
+                )],
+            );
+        }
+    }
+    let outcome = match judge_all(&result, &budgets) {
+        Ok(outcome) => outcome,
+        Err(error) => return (2, vec![error]),
+    };
+    let failures: Vec<String> = outcome
+        .misses
+        .iter()
+        .map(|(name, miss)| {
+            let value = result.metrics[name];
+            match miss {
+                Miss::OverLimit { limit } => format!("{name} {value} ms, over its limit {limit} ms"),
+                Miss::Regressed { baseline, ceiling } => format!(
+                    "{name} {value} ms, over {ceiling:.3} ms: more than 10% over its baseline {baseline} ms"
+                ),
+            }
+        })
+        .collect();
+    (u8::from(!failures.is_empty()), failures)
+}
+
+/// K3's verdict, and in the idle workload SP6's on the Switcher metrics; the worse exit wins.
+pub fn judged(
+    reports: &[Value],
+    limit: f64,
+    budgets: &Budgets,
+    loads: &[f64],
+    flood: bool,
+) -> (u8, Vec<String>) {
+    let (exit, mut failures) = judge_runs(reports, limit);
+    if flood {
+        return (exit, failures);
+    }
+    let cpus = std::thread::available_parallelism().map_or(1, usize::from);
+    let (switch_exit, more) = judge_switch(reports, budgets, std::env::consts::OS, loads, cpus);
+    failures.extend(more);
+    (exit.max(switch_exit), failures)
 }

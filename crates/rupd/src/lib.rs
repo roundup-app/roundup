@@ -18,6 +18,7 @@ mod describe_tests;
 mod digest;
 mod event_log;
 mod evidence;
+mod github;
 mod guards;
 mod link;
 #[cfg(test)]
