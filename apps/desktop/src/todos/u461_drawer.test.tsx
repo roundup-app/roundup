@@ -70,7 +70,7 @@ it("u461_pad_drawer_keeps_its_touch_line", async () => {
 
   await openPad("Notes");
 
-  expect(await screen.findByText(/You wrote this Pad at/)).toBeTruthy();
+  expect(await screen.findByText(/You wrote · /)).toBeTruthy();
 });
 
 const doneSurface = async (surface: "fold" | "drawer" | "agent", input: "pointer" | "space") => {

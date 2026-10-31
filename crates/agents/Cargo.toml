@@ -7,7 +7,6 @@ version.workspace = true
 [dependencies]
 async-trait.workspace = true
 contracts = { path = "../contracts" }
-checkpoints = { path = "../checkpoints" }
 getrandom = "0.3"
 notify = "8"
 rpc = { path = "../rpc" }

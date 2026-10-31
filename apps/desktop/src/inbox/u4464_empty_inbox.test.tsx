@@ -14,5 +14,5 @@ it("u4464_no_empty_view_before_the_first_answer", async () => {
   render(() => <ConnectedProjectContext.Provider value={connected}><Inbox /></ConnectedProjectContext.Provider>);
   expect(document.querySelector(".overview-quiet")).toBeNull();
   answer.resolve([]);
-  await screen.findByText("Nothing waits for you");
+  await screen.findByText("Nothing needs you");
 });
