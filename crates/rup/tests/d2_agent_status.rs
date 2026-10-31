@@ -4,7 +4,7 @@
 mod daemon;
 
 use contracts::{EventData, Kind};
-use daemon::{next, rail_tree};
+
 use serde_json::{Value, json};
 use std::time::Duration;
 
@@ -25,7 +25,7 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
         .await
         .unwrap();
     let model = project.model.as_ref().unwrap();
-    let request = tokio::time::timeout(Duration::from_secs(30), async {
+    let request = tokio::time::timeout(project.bound(), async {
         loop {
             if let Some(entry) = model
                 .journal()
@@ -75,15 +75,16 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
         assert!(messages.contains(line), "{line}");
     }
     for kind in [Kind::Working, Kind::Idle] {
-        next(&mut events, |event| match event {
-            EventData::AgentStatus(status)
-                if status.id == node["id"].as_str().unwrap() && status.status.kind == kind =>
-            {
-                Some(())
-            }
-            _ => None,
-        })
-        .await;
+        project
+            .next(&mut events, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == node["id"].as_str().unwrap() && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
     model.assert_matched();
     assert_eq!(
@@ -102,7 +103,7 @@ async fn d2_the_first_prompt_names_the_agent() {
     let mut client = project.subscribed().await;
     let agent: contracts::agent::RailNode = serde_json::from_value(
         tokio::time::timeout(
-            Duration::from_secs(30),
+            project.bound(),
             client.request(
                 "agent.spawn",
                 json!({"cwd": project.dir.path(), "prompt": "fix the refresh race"}),
@@ -114,17 +115,18 @@ async fn d2_the_first_prompt_names_the_agent() {
     )
     .unwrap();
     for kind in [Kind::Working, Kind::Idle] {
-        next(&mut client, |event| match event {
-            EventData::AgentStatus(status)
-                if status.id == agent.id && status.status.kind == kind =>
-            {
-                Some(())
-            }
-            _ => None,
-        })
-        .await;
+        project
+            .next(&mut client, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == agent.id && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
     }
-    let tree = rail_tree(&client).await;
+    let tree = project.rail_tree(&client).await;
     let named: Vec<_> = tree.iter().filter(|node| node.id == agent.id).collect();
     assert_eq!(named.len(), 1);
     assert_eq!(named[0].name, "fix-refresh-race");
@@ -185,7 +187,7 @@ sys.exit(result.returncode)
     let mut client = project.subscribed().await;
     let agent: contracts::agent::RailNode = serde_json::from_value(
         tokio::time::timeout(
-            Duration::from_secs(30),
+            project.bound(),
             client.request(
                 "agent.spawn",
                 json!({"cwd": project.dir.path(), "name":"hook-reader", "prompt": "H15 exercise ten tools"}),
@@ -248,7 +250,7 @@ sys.exit(result.returncode)
             && pair.iter().all(|hook| hook["exit"] == 0)),
         "{hooks:#?}"
     );
-    let tree = rail_tree(&client).await;
+    let tree = project.rail_tree(&client).await;
     assert_eq!(
         tree.iter()
             .find(|node| node.id == agent.id)

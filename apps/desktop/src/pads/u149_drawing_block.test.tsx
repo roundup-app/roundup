@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { copy } from "./copy";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
@@ -118,7 +119,7 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
     await openPad("note");
 
     await waitFor(() => expect(document.querySelectorAll(".visual-error")).toHaveLength(1));
-    expect(document.querySelector(".visual-error")?.textContent).toBe("Drawing: Not an Excalidraw scene");
+    expect(document.querySelector(".visual-error")?.textContent).toBe(copy.drawing(copy.notAnExcalidrawScene));
   });
 
   it("u149_a_pad_changed_with_a_new_drawing_renders_it", async () => {

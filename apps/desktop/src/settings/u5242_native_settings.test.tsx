@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { AppSettings } from "./AppSettings";
+import { copy } from "./copy";
 import { appSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
 
@@ -103,4 +104,59 @@ it("u5242d_mode_and_scale_previews_follow_the_draft_without_committing", async (
   // Nothing applied the App's appearance here, so the preview alone shows the choice.
   expect(document.documentElement.dataset.interfaceScale).toBeUndefined();
   expect(preview().dataset).toMatchObject({ scale: "large", mode: "light" });
+});
+
+const search = () => {
+  const field = screen.getByRole("searchbox", { name: copy.settingsSearch });
+
+  if (!(field instanceof HTMLInputElement)) throw new Error("search field is not an input");
+
+  return field;
+};
+
+it("u5243a_search_results_show_place_control_and_description", async () => {
+  await mount();
+  await section("Terminal");
+  fireEvent.input(search(), { target: { value: "font family" } });
+  const first = (await screen.findAllByRole("listitem"))[0]!;
+  expect(first.textContent).toContain(`${copy.settingsTerminal} › ${copy.groupFont}`);
+  const control = within(first).getByRole("combobox", { name: "Font family" });
+  expect(first.contains(document.getElementById(control.getAttribute("aria-describedby")!))).toBe(true);
+  expect(screen.queryByRole("tablist")).toBeNull();
+  fireEvent.input(search(), { target: { value: "zzzzqx" } });
+  expect((await screen.findByRole("status")).textContent).toBe(copy.settingsNoResults);
+  expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  fireEvent.input(search(), { target: { value: "" } });
+  expect((await screen.findByRole("tab", { name: "Terminal" })).getAttribute("aria-selected")).toBe("true");
+});
+
+it("u5243b_a_result_control_edits_the_same_setting", async () => {
+  await mount();
+  fireEvent.input(search(), { target: { value: "font size" } });
+  const input = await screen.findByRole("spinbutton", { name: "Font size" });
+  fireEvent.input(input, { target: { value: "19" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(appSettings().fontSize).toBe(19));
+  fireEvent.input(search(), { target: { value: "" } });
+  await section("Terminal");
+  expect(await screen.findByRole("spinbutton", { name: "Font size" })).toHaveProperty("value", "19");
+});
+
+it("u5243c_search_typing_changes_nothing_but_the_results", async () => {
+  await mount();
+  await section("Terminal");
+  fireEvent.input(search(), { target: { value: "x" } });
+  expect(search().getAttribute("spellcheck")).toBe("false");
+  expect(search().getAttribute("autocorrect")).toBe("off");
+  expect(search().getAttribute("autocapitalize")).toBe("off");
+  fireEvent.input(search(), { target: { value: "font family" } });
+  search().focus();
+  fireEvent.keyDown(search(), { key: "ArrowDown" });
+  expect(screen.getByRole("combobox", { name: "Font family" })).toBe(document.activeElement);
+  fireEvent.keyDown(search(), { key: "Escape" });
+  expect(search().value).toBe("");
+  expect(screen.getByRole("region", { name: copy.settings })).toBe(document.querySelector(".settings-view"));
+  expect(screen.getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(search(), { key: "Escape" });
+  await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
 });

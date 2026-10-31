@@ -30,9 +30,11 @@ async fn q11_plugins_survive_real_daemon_launch_and_resume() {
         plugin_fixture("a32_plugins", &[("ROUNDUP_CLAUDE_BIN", &wrapper)]).await;
     let model = project.model.as_ref().unwrap();
     let a = child_of(&client, &door).await;
-    until("initial Door and children launched", || {
-        (gate.rows().len() == 3).then_some(())
-    })
+    until(
+        project.bound(),
+        "initial Door and children launched",
+        || (gate.rows().len() == 3).then_some(()),
+    )
     .await;
     for id in [&door, &a] {
         client
@@ -59,20 +61,24 @@ async fn q11_plugins_survive_real_daemon_launch_and_resume() {
             .await
             .unwrap();
         let phase = format!("resume_{id}");
-        until("resumed Claude finishes the plugin probe", || {
-            model
-                .journal()
-                .iter()
-                .any(|entry| {
-                    entry["response"]["fixture"]["match"]["toolCallId"]
-                        == format!("toolu_q11_{phase}_{}", if id == &door { 0 } else { 2 })
-                })
-                .then_some(())
-        })
+        until(
+            project.bound(),
+            "resumed Claude finishes the plugin probe",
+            || {
+                model
+                    .journal()
+                    .iter()
+                    .any(|entry| {
+                        entry["response"]["fixture"]["match"]["toolCallId"]
+                            == format!("toolu_q11_{phase}_{}", if id == &door { 0 } else { 2 })
+                    })
+                    .then_some(())
+            },
+        )
         .await;
-        idle(&client, id).await;
+        idle(project.bound(), &client, id).await;
     }
-    until("Door and child resumed", || {
+    until(project.bound(), "Door and child resumed", || {
         (gate.rows().len() == 5).then_some(())
     })
     .await;
@@ -106,7 +112,7 @@ async fn q11_plugins_survive_real_daemon_launch_and_resume() {
         }
         assert_eq!(row["functionHooks"], "1");
     }
-    idle(&client, &door).await;
+    idle(project.bound(), &client, &door).await;
     for (phase, skills) in [
         ("initial_door", &["hope:intent"][..]),
         (
@@ -125,7 +131,7 @@ async fn q11_plugins_survive_real_daemon_launch_and_resume() {
             } else {
                 format!("Launching skill: {skill}")
             };
-            until(&format!("{phase} loaded {skill}"), || {
+            until(project.bound(), &format!("{phase} loaded {skill}"), || {
                 model
                     .journal()
                     .iter()
