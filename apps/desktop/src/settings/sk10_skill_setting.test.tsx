@@ -60,7 +60,7 @@ it("sk11_a_refused_setup_shows_cause_and_fix_and_the_switch_returns", async () =
   });
   const toggle = screen.getByRole("switch", { name: label });
   fireEvent.click(toggle);
-  await screen.findByText(/did not install is in the folder/);
+  await screen.findByText(/roundup skill is there that roundup did not install/);
   expect(screen.getByText(/rup skill setup --force/)).toBeTruthy();
   await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("false"));
   expect(screen.queryByRole("alert")).toBeNull();

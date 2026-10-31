@@ -10,7 +10,7 @@ export const copy = {
   skillMissing: "Not installed",
   skillPartial: "Partly installed",
   skillUpdate: "Update",
-  skillForeignCause: "A skill named roundup is there, and roundup did not install it.",
+  skillForeignCause: "A roundup skill is there that roundup did not install.",
   skillForeignFix: "Remove it, or run rup skill setup --force.",
   skillUnreadableCause: (path: string) => `Cannot read ${path}; roundup leaves it as it is.`,
   skillUnreadableFix: "Fix the file, then turn this on again.",
