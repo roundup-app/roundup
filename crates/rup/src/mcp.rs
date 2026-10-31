@@ -99,6 +99,21 @@ fn offered_without_params(method: &'static str, description: &'static str) -> Of
     offer(method, description, schema, false)
 }
 
+/// The tool for a method: its name with `.` as `_`. The `github.` methods read `github_pr_get`
+/// (their camelCase parts split on `_`), the names B5168e lists.
+fn tool_name(method: &str) -> String {
+    let mut name = String::new();
+    for ch in method.replace('.', "_").chars() {
+        if ch.is_ascii_uppercase() && method.starts_with("github.") {
+            name.push('_');
+            name.push(ch.to_ascii_lowercase());
+        } else {
+            name.push(ch);
+        }
+    }
+    name
+}
+
 fn offer(
     method: &'static str,
     description: &'static str,
@@ -108,7 +123,7 @@ fn offer(
     Offered {
         method,
         tool: Tool::new(
-            method.replace('.', "_"),
+            tool_name(method),
             format!(
                 "{description} Agent references accept `me` (you), an exact case-sensitive Rail name, `name:<Rail name>` for collisions, or a canonical id. Owner fields also accept explicit Actors; omitted/null Todo owners remain Unassigned."
             ),

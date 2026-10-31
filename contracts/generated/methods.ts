@@ -53,6 +53,10 @@ import type { Resolution as deliverable_Resolution } from "./deliverable/Resolut
 import type { DescribeParams as describe_DescribeParams } from "./describe/DescribeParams";
 import type { MethodDescription as describe_MethodDescription } from "./describe/MethodDescription";
 import type { MethodList as describe_MethodList } from "./describe/MethodList";
+import type { Issue as github_Issue } from "./github/Issue";
+import type { Number as github_Number } from "./github/Number";
+import type { Pr as github_Pr } from "./github/Pr";
+import type { SetBodyParams as github_SetBodyParams } from "./github/SetBodyParams";
 import type { LinkContent as link_LinkContent } from "./link/LinkContent";
 import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { AcceptResultParams as message_AcceptResultParams } from "./message/AcceptResultParams";
@@ -279,6 +283,11 @@ export type RpcMethods = {
   "deliverable.resolve": { params: deliverable_DeliverableId; result: deliverable_Resolution };
   "deliverable.move": { params: deliverable_MoveParams; result: deliverable_Deliverable };
   "deliverable.remove": { params: deliverable_DeliverableId; result: null };
+  "github.prGet": { params: github_Number; result: github_Pr };
+  "github.issueGet": { params: github_Number; result: github_Issue };
+  "github.prSetBody": { params: github_SetBodyParams; result: github_Pr };
+  "github.prReady": { params: github_Number; result: github_Pr };
+  "github.prAutoMerge": { params: github_Number; result: github_Pr };
   "daemon.ping": { params: null; result: common_Ping };
   "daemon.methods": { params: null; result: string[] };
   "api.list": { params: null; result: describe_MethodList };
