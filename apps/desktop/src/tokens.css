@@ -279,7 +279,7 @@ button, file-tree-container, diffs-container {
 }
 
 /* U3805: Explicit choices use the same Token columns regardless of the host scheme. */
-:root[data-mode="light"] {
+:is(:root, .settings-mode-preview)[data-mode="light"] {
   --surface: #ffffff;
   --terminal-background: #ffffff;
   --terminal-foreground: #4d4d4c;
@@ -328,7 +328,7 @@ button, file-tree-container, diffs-container {
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
 }
 
-:root[data-mode="dark"] {
+:is(:root, .settings-mode-preview)[data-mode="dark"] {
     --surface: var(--gray-3);
     --terminal-background: #1a1b1d;
     --terminal-foreground: #d4d4d4;
