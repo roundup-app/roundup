@@ -400,7 +400,7 @@ it.each([
   },
   {
     name: "Agent row",
-    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["remove", "7"]],
+    expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["make-workstream", "5"], ["save-as-mode", "5"], ["remove", "7"]],
     receivers: ["b"],
     mount: async () => {
       const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })]);
