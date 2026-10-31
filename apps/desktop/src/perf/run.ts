@@ -342,7 +342,7 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
   };
 
   const switchReport = async () => {
-    const probe = (window as unknown as Record<string, Parameters<typeof runSwitchWorkload>[0]["probe"] | undefined>)[SWITCH_PROBE];
+    const probe = window[SWITCH_PROBE];
 
     if (!probe) throw new Error("the build has no Switcher probe");
 
@@ -361,6 +361,7 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
         };
 
         watch.observe(document.body, { childList: true, subtree: true, attributes: true });
+
         if (find()) settle();
       }),
     });
