@@ -106,6 +106,13 @@ impl Statuses {
         Self::release(terminal, slot, now).into_iter().collect()
     }
 
+    /// PS8.1: the Terminal's Status now, whether or not its event has left yet.
+    pub(crate) fn current(&self, terminal: &str) -> Option<Status> {
+        self.slots()
+            .get(terminal)
+            .and_then(|slot| slot.status.clone())
+    }
+
     /// PS8.3: the events whose window ended by `now`.
     pub(crate) fn due(&self, now: i64) -> Vec<EventData> {
         let mut slots = self.slots();
@@ -158,6 +165,7 @@ impl Statuses {
         self: Arc<Self>,
         mut changes: tokio::sync::broadcast::Receiver<Arc<terminal::Change>>,
         bus: rpc::Bus,
+        terminals: Arc<terminal::Terminals>,
     ) {
         use tokio::sync::broadcast::error::RecvError;
         let send = |events: Vec<EventData>| {
@@ -171,7 +179,11 @@ impl Statuses {
             });
             tokio::select! {
                 change = changes.recv() => match change {
-                    Ok(change) => send(self.changed(&change.terminal, &change.records, wall_ms())),
+                    Ok(change) => {
+                        let events = self.changed(&change.terminal, &change.records, wall_ms());
+                        terminals.set_program_status(&change.terminal, self.current(&change.terminal));
+                        send(events);
+                    }
                     Err(RecvError::Lagged(_)) => {}
                     Err(RecvError::Closed) => return,
                 },
