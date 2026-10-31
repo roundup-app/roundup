@@ -26,6 +26,8 @@ pub mod code {
     pub const EVENTS_EXPIRED: i64 = -32009;
     /// A pending `inbox` note was asked for by hand while the Agent's Claude inbox is still unusable (B51).
     pub const INBOX_UNAVAILABLE: i64 = -32010;
+    /// The roundup App is not open, so no named action can be listed or run (NA6).
+    pub const APP_CLOSED: i64 = -32011;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]

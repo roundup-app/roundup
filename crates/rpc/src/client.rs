@@ -46,6 +46,7 @@ pub struct Client {
     state: State,
     next_id: AtomicU64,
     events: mpsc::UnboundedReceiver<Event>,
+    requests: Option<mpsc::UnboundedReceiver<Value>>,
     reader: Option<tokio::task::JoinHandle<()>>,
 }
 
@@ -54,18 +55,37 @@ impl Client {
         let (read, writer) = UnixStream::connect(socket).await?.into_split();
         let state = State::default();
         let (event_tx, events) = mpsc::unbounded_channel();
+        let (request_tx, requests) = mpsc::unbounded_channel();
         let reader = tokio::spawn(read_loop(
             BufReader::new(read),
             Arc::clone(&state),
             event_tx,
+            request_tx,
         ));
         Ok(Self {
             writer: tokio::sync::Mutex::new(writer),
             state,
             next_id: AtomicU64::new(1),
             events,
+            requests: Some(requests),
             reader: Some(reader),
         })
+    }
+
+    /// The requests the Daemon sends this connection (the App's actions, NA6): whole request lines.
+    /// Returns `None` if already taken.
+    pub fn take_requests(&mut self) -> Option<mpsc::UnboundedReceiver<Value>> {
+        self.requests.take()
+    }
+
+    /// Writes `line`, an answer to a request the Daemon sent, as it is.
+    pub async fn reply(&self, line: &Value) -> Result<(), RpcError> {
+        self.writer
+            .lock()
+            .await
+            .write_all(format!("{line}\n").as_bytes())
+            .await
+            .map_err(|err| RpcError::internal(format!("the answer was not sent: {err}")))
     }
 
     /// Receive the Terminal output this connection selects with `terminal.output`.
@@ -165,6 +185,7 @@ async fn read_loop(
     reader: BufReader<tokio::net::unix::OwnedReadHalf>,
     state: State,
     events: mpsc::UnboundedSender<Event>,
+    requests: mpsc::UnboundedSender<Value>,
 ) {
     let mut lines = reader.lines();
     while let Ok(Some(line)) = lines.next_line().await {
@@ -207,6 +228,10 @@ async fn read_loop(
                     eprintln!("rpc: dropped an event that does not match the contract: {err}")
                 }
             }
+            continue;
+        }
+        if frame["method"].is_string() && frame["id"].is_u64() {
+            let _ = requests.send(frame);
             continue;
         }
         let Some(id) = frame["id"].as_u64() else {
@@ -270,6 +295,7 @@ mod tests {
             state: State::default(),
             next_id: AtomicU64::new(1),
             events,
+            requests: None,
             reader: None,
         };
 
