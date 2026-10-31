@@ -13,6 +13,8 @@ mod contract_handlers;
 mod contract_tests;
 pub mod data;
 mod deliverables;
+#[cfg(test)]
+mod describe_tests;
 mod digest;
 mod event_log;
 mod evidence;

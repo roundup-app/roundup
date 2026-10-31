@@ -15,7 +15,7 @@ pub struct SetBodyParams {
     pub body: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum State {
     Open,
@@ -23,7 +23,7 @@ pub enum State {
     Merged,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Pr {
     pub number: u32,
     pub url: String,
@@ -40,7 +40,7 @@ pub struct Pr {
     pub merged_at: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Issue {
     pub number: u32,
     pub url: String,

@@ -115,6 +115,7 @@ export const copy = {
   maximise: "Maximise",
   restore: "Restore",
   newAgent: "New Agent",
+  newMode: "New Mode",
   newAgentWithAPrompt: "New Agent with a prompt",
   newTerminal: "New Terminal",
   remove: "Remove",

@@ -118,7 +118,7 @@ describe("u165 the keys for bubbles", () => {
 
     bubble("1").dispatchEvent(escape);
     expect(escape.defaultPrevented).toBe(false);
-    expect(CHORDS.slice(0, 3).map((entry) => entry.keys)).toEqual(["⌘N", "⇧⌘N", "⌘T"]);
+    expect(CHORDS.slice(0, 5).map((entry) => entry.keys)).toEqual(["⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T"]);
     fireEvent.keyDown(document.body, { key: "x" });
   });
 });
