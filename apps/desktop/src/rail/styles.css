@@ -845,7 +845,10 @@
 .rail:has(.empty-state) .rail-scroll { flex: none; }
 
 /* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
+.rail-row .name:has(+ .hidden-agents) { flex: 0 1 auto; }
 .rail-row .hidden-agents {
+  flex: none;
+  margin-inline-end: auto;
   padding-inline-start: var(--space-2);
   color: var(--grey);
   font-size: var(--text-caption);
