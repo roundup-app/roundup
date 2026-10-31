@@ -564,8 +564,7 @@ export const Rail = () => {
 
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
-  /** U5151e: the dismissal line is the footer's message only when no higher failure shows; its Retry and Dismiss act on it alone. */
-  const dismissalLine = () => (failure.surface() === "rail" && failure.message() ? false : rail.storageFailure() ? false : rail.unsavedDismissal() !== null);
+  const dismissalLine = () => !(failure.surface() === "rail" && failure.message()) && !rail.storageFailure() && rail.unsavedDismissal() !== null;
 
   const submitPrompt = async (prompt: string | null, snapshot = task() ?? keepDraft(draft())) => {
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
