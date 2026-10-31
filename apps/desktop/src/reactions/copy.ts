@@ -19,7 +19,7 @@ const observationUnavailable = "Observation unavailable";
 
 const deliveryUnknown = "Delivery unknown";
 
-const reactionHealth = new Map<ObservationHealth, string>([["fired", "Sent on time"], ["fired-late", "Sent late"], ["expired", "Expired unsent"], ["skipped", "Missed, skipped"], ["observing", "Watching changes"], ["not-observing", "Not watching yet"], ["unavailable", observationUnavailable], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", prChanged], ["acceptance-failed", "Accept failed. Check again."], ["write-failed", "Save failed. Check again."], ["observation-save-failed", "Observation not saved. Retry storage."]]);
+const reactionHealth = new Map<ObservationHealth, string>([["fired", "Sent on time"], ["fired-late", "Sent late"], ["expired", "Expired unsent"], ["skipped", "Missed, skipped"], ["observing", "Watching changes"], ["not-observing", "Not watching yet"], ["unavailable", observationUnavailable], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", prChanged], ["acceptance-failed", "Accept failed, recheck"], ["write-failed", "Save failed, recheck"], ["observation-save-failed", "Unsaved, retry storage"]]);
 
 const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", prChanged]]);
 

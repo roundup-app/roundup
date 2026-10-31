@@ -224,13 +224,13 @@ it("u4275b_tab_reaches_quick_actions", async () => {
   await shelf.setup();
   await page.call(`() => document.querySelector('.rail-row[data-id="tokens"]').focus()`);
 
-  for (const name of ["Stop", "Open folder", "Open in editor"]) {
+  for (const name of ["Stop", "Open directory", "Open in editor"]) {
     await page.press("Tab", "Tab");
     await page.until(`() => document.activeElement?.getAttribute('aria-label') === ${JSON.stringify(name)}`);
   }
 
   await page.press("Tab", "Tab", 8);
-  await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Open folder'`);
+  await page.until(`() => document.activeElement?.getAttribute('aria-label') === 'Open directory'`);
   await page.press("Enter", "Enter");
   await page.until(`() => window.__fake.app.openedTargets.length === 1`);
   await page.press(" ", "Space");
