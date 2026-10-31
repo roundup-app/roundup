@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { chooseAction, mountRail, rowOf, settled } from "./railFixture";
 import { agent, NOW, workstream } from "../testing/nodes";
 
@@ -43,5 +43,44 @@ describe("U5151c", () => {
     fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
 
     expect(rowOf("g").getAttribute("data-kind")).not.toBe("error");
+  });
+});
+
+describe("U5151e", () => {
+  beforeEach(() => { localStorage.clear(); });
+
+  const failed = (id: string) => agent(id, "error", "x", { status: { kind: "error", label: LABEL, since: NOW, finished: "0" } });
+  const turns = (app: { calls: { method: string }[] }) => app.calls.map((call) => call.method).filter((method) => /^(agent|terminal)\.(send|write|stop|restart)|^message\./.test(method));
+
+  it("u5151e_unsaved_dismissal_is_explained", async () => {
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+    const { app } = await mountRail([failed("one")]);
+
+    await chooseAction(app, "one", "Dismiss error");
+    await settled();
+
+    expect(rowOf("one").getAttribute("data-kind")).toBe("idle");
+    expect(screen.getByText(/one: the dismissal could not be saved/)).toBeTruthy();
+    expect(turns(app)).toEqual([]);
+    writes.mockRestore();
+  });
+
+  it("u5151e_retry_saves_the_dismissal", async () => {
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+    const { app } = await mountRail([failed("one")]);
+
+    await chooseAction(app, "one", "Dismiss error");
+    await settled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await settled();
+    expect(screen.getByText(/one: the dismissal could not be saved/)).toBeTruthy();
+
+    writes.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await settled();
+
+    expect(screen.queryByText(/the dismissal could not be saved/)).toBeNull();
+    expect(Object.entries(localStorage).some(([key, value]) => key.startsWith("roundup:dismissed:") && value.includes("one:"))).toBe(true);
+    expect(turns(app)).toEqual([]);
   });
 });
