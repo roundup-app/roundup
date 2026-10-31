@@ -2,6 +2,7 @@ import * as v from "valibot";
 import { ACTION_ROWS } from "./chords";
 import type { ActionArg, ActionValue, ActionValues } from "./chords";
 import type { RunParams } from "@contracts/action/RunParams";
+import type { ProjectCalls } from "../app/seam";
 import { copy } from "./copy";
 import { captureEvery, leaderArmed, modalOpen, questionPending } from "./registry";
 import type { CapturedAction } from "./registry";
@@ -98,11 +99,11 @@ export const runAction = (name: string, pairs: readonly (readonly [string, strin
 };
 
 /** The Daemon's relayed `action.list` and `action.run` (NA6, NA7) as the answer line the Daemon reads: a result, or an error whose message is the refusal's text. An unavailable action is CONFLICT, any other refusal INVALID_PARAMS. */
-export type ActionAnswer = { result: unknown } | { error: { code: number; message: string } };
+type ActionAnswer = { result: object } | { error: { code: number; message: string } };
 
-export const answerList = (focus: Element | null = document.activeElement): ActionAnswer => ({ result: listActions(focus).map(({ cause, ...row }) => cause === undefined ? row : { ...row, cause }) });
+const answerList = (focus: Element | null = document.activeElement): ActionAnswer => ({ result: listActions(focus).map(({ cause, ...row }) => cause === undefined ? row : { ...row, cause }) });
 
-export const answerRun = async (run: RunParams, focus: Element | null = document.activeElement): Promise<ActionAnswer> => {
+const answerRun = async (run: RunParams, focus: Element | null = document.activeElement): Promise<ActionAnswer> => {
   const result = runAction(run.name, run.args.map(pair => [pair.key, pair.value] as const), focus);
 
   if (result.status === "refused") return { error: { code: result.code === "unavailable" ? -32003 : -32602, message: result.message } };
@@ -113,4 +114,15 @@ export const answerRun = async (run: RunParams, focus: Element | null = document
   await new Promise(resolve => setTimeout(resolve, 0));
 
   return { result: { status: modalOpen() || leaderArmed() || questionPending() ? "awaiting" : "done" } };
+};
+
+/** NA6: registers this window with the Daemon and answers each relayed `action.list` and `action.run` through `answerList` and `answerRun`. */
+export const serveActions = async (calls: Pick<ProjectCalls, "serveActions">): Promise<void> => {
+  await calls.serveActions?.(async ({ id, method, params }) => {
+    const answer: ActionAnswer = method === "action.list" ? answerList()
+      : method === "action.run" && params ? await answerRun(params)
+      : { error: { code: -32601, message: `the App answers action.list and action.run, not ${method}` } };
+
+    return { jsonrpc: "2.0", id, ...answer };
+  });
 };
