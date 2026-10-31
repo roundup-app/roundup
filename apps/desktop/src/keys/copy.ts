@@ -93,4 +93,13 @@ export const copy = {
   triageDone: sharedCopy.done,
   triageComment: sharedCopy.comment,
   triageLeave: "Leave",
+  actionUnknown: (name: string) => `Unknown action "${name}". Read the list for the names.`,
+  actionNoArgument: (name: string, key: string, declared: string) => `"${name}" takes no argument "${key}". Its arguments: ${declared || "none"}.`,
+  actionRepeated: (key: string) => `Argument "${key}" is given twice. Give it once.`,
+  actionMissing: (name: string, arg: string) => `"${name}" needs argument ${arg}. Add it and run again.`,
+  actionInvalid: (key: string, arg: string) => `Argument "${key}" must be ${arg}. Correct it and run again.`,
+  actionUnavailable: (name: string, cause: string) => `"${name}" is not available: ${cause}. Change focus and run again.`,
+  actionCauseDialog: "a dialog is open",
+  actionCauseRail: "needs a Rail row",
+  actionCauseFocus: "not available where focus is now",
 } as const;
