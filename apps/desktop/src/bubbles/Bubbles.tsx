@@ -19,6 +19,9 @@ import { Portal } from "solid-js/web";
 import { HintLine } from "../keys/HintLine";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Icon } from "../ink/Icon";
+import { KindGlyph, LABELS } from "../ink/KindGlyph";
+import { age } from "../shelf/Age";
+import { useDisplayNow } from "../state/clock";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { surfaceOpen } from "../ui/openSurfaces";
@@ -793,6 +796,15 @@ export const Bubbles = (props: {
 
     const name = () => nameFor(terminal());
     const [nameRef, nameCut] = createCut();
+    const now = useDisplayNow(() => terminal().status !== undefined);
+
+    /** PS12.3: the program's label (the Kind's word when empty) and its age, beside the name. */
+    const tip = () => {
+      const status = terminal().status;
+
+      return status ? `${name()} · ${status.label || LABELS[status.kind]} · ${age(status.since, now())}` : name();
+    };
+
     let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
     createEffect(() => { if (editing()?.id === id) onCleanup(drafts.editor(destination)); });
     const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft" && !draft.value.recovery).at(-1);
@@ -878,12 +890,13 @@ export const Bubbles = (props: {
     return <>
       <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
         <Show when={editing()?.id === id ? editing() : null} keyed fallback={
-          <Tip content={name()} cut={nameCut}>
+          <Tip content={tip()} cut={() => terminal().status !== undefined || nameCut()}>
             {(trigger) => (
               <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                 aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
                 onClick={() => toggleMinimised(id)}
                 onDblClick={() => start()}>
+                <Show when={terminal().status}>{status => <KindGlyph kind={status().kind} decorative />}</Show>
                 <span class="terminal-tab-name" ref={nameRef}>{copied.copied() ? copy.copied : name()}</span>
                 <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput} /></Show></span>
               </button>

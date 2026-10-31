@@ -33,7 +33,7 @@ import { ReservedLine } from "./ink/ReservedLine";
 import { failureLine } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
-import { attentionCounts, nextAttention } from "./rail/attention";
+import { attentionCounts, attentionHolders, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
 import { createStateAlerts } from "./rail/stateAlerts";
 import type { StateAlerts } from "./rail/stateAlerts";
@@ -366,7 +366,7 @@ export const App = (props: {
         base: projects.base(tab.project.path),
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: !connections().has(tab.project.path),
-        ...attentionCounts(nodes, railOf(tab.project.path)?.dismissed),
+        ...attentionCounts(attentionHolders(nodes, railOf(tab.project.path)?.terminals() ?? [], railOf(tab.project.path)?.dismissed)),
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
     }),
@@ -614,7 +614,7 @@ export const App = (props: {
       <For each={keys()}>
         {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
-      <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes.filter((node) => !connection.rail.dismissed(node))]))} onFailure={setBadgeFailure} />
+      <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [attentionHolders(connection.rail.nodes, connection.rail.terminals(), connection.rail.dismissed)]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
           trigger: (path) => `tabs:${tabsId}:trigger-${encodeURIComponent(path)}`,

@@ -1,3 +1,4 @@
+import { createNow, DisplayClockContext } from "../state/clock";
 import { render, waitFor } from "@solidjs/testing-library";
 import { vi } from "vitest";
 import { createSignal, onCleanup, Show } from "solid-js";
@@ -75,15 +76,17 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
 
     const [screens, setScreens] = createSignal<Screens>();
 
+    const now = createNow(() => Date.now());
+
     return (
-      <ConnectedProjectContext.Provider value={connected}>
+      <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}>
         <div class="rail-row" tabindex="0">row</div>
         <div class="centre-stack">
           <Pane createEmulator={unfocused} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
           <Show when={hasHost()}><ResourceStrip /></Show>
         </div>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
     );
   });
 
