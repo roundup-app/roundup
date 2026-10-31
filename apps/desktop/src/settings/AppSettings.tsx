@@ -226,6 +226,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   </>;
 
   // Each setting has one control; a page or a search result mounts it, never both (U5243b).
+  const fontSizeControl = () => numericControl("fontSize", copy.fontSize, copy.fontSizeHint);
+  const lineHeightControl = () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint);
+  const letterSpacingControl = () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint);
   const controls = {
     permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
@@ -271,9 +274,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
     ),
-    fontSize: () => numericControl("fontSize", copy.fontSize, copy.fontSizeHint),
-    lineHeight: () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint),
-    letterSpacing: () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint),
+    fontSize: fontSizeControl,
+    lineHeight: lineHeightControl,
+    letterSpacing: letterSpacingControl,
     focusMarkers: () => (
         <Switch description={copy.focusMarkersHint} checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
     ),
