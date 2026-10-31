@@ -3,8 +3,8 @@ import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 export const copy = {
   rpcFailure: sharedCopy.rpcFailure,
   progress: "Progress",
-  progressEmpty: "No reported work yet",
-  progressUnreadable: (value1: CopyValue) => `Progress could not be read: ${value1}`,
+  progressEmpty: "No reported work",
+  progressUnreadable: (value1: CopyValue) => `Progress unreadable: ${value1}`,
   progressRetry: "Read again",
   progressAccepted: "Accepted",
   progressChecked: "Checked independently",
@@ -22,7 +22,7 @@ export const copy = {
   resuming: "Resuming…",
   resumed: "Resumed: the Agent has the unfinished work.",
   resumeNothing: "No unfinished work to resume.",
-  resumeUnknown: "Resume may have reached the Daemon. It checks before it tries again.",
+  resumeUnknown: "Resume may have started. It checks before retrying.",
   error: sharedCopy.error,
   clearName: (value1: CopyValue) => `Clear ${value1}`,
 } as const;
