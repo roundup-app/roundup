@@ -265,10 +265,25 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick
             .collect::<Vec<_>>();
         drop(typing);
         let ids = idle_batch(&pending);
-        pending
+        let batch = pending
             .into_iter()
             .filter(|m| ids.contains(&m.id))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        // B5168f: a batch of Quiet Digests alone starts no turn; it rides the next delivery.
+        let given = batch
+            .iter()
+            .any(|m| pushes::is_digest(&m.from, &m.body))
+            .then(|| store.delivered_to(agent))
+            .transpose()
+            .expect("message store")
+            .unwrap_or_default();
+        if batch
+            .iter()
+            .all(|m| receiver_view::is_quiet_digest(&given, m))
+        {
+            return;
+        }
+        batch
     };
     if !found.is_empty() {
         inbox::send(inner, agent, at, pick, found, state).await;

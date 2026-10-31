@@ -366,3 +366,15 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     expect(daemon.calls.slice(before).filter(call => ["terminal.write", "ask.send", "agent.resume", "rail.startDoor", "agent.spawn"].includes(call.method))).toEqual([]);
   }
 });
+
+it("u5151f_inbox_row_drops_a_dismissed_error", async () => {
+  const m = await mountInbox([agent("a", "error", "crashed", { name: "alpha" }), agent("b", "error", "crashed", { name: "beta" })]);
+  const failed = (id: string) => panel().querySelector(`[data-row="a:${id}"]`);
+
+  expect(failed("a")?.querySelector(".inbox-failure")).not.toBeNull();
+  m.connected.rail.dismiss(m.connected.rail.nodes.find((node) => node.id === "a")!);
+  await waitFor(() => expect(failed("a")).toBeNull());
+
+  expect(failed("b")?.querySelector(".inbox-failure")).not.toBeNull();
+  expect(m.app.calls.map((call) => call.method).filter((method) => /^(agent|terminal)\.(send|write|stop|restart|resume)|^message\./.test(method))).toEqual([]);
+});

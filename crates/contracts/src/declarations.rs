@@ -87,6 +87,8 @@ declarations! { $;
         "project.rename": contracts::project::RenameParams => (), rpc_project_rename, all(schema(contracts::project::RenameParams,"Ask the App to give this Project a name of 1 to 40 characters. The answer means asked, not done."));
         "rail.remove": contracts::agent::RemoveParams => Option<contracts::agent::Removal>, rpc_rail_remove, all(schema(contracts::agent::RemoveParams,"Remove a node in your Reach, never yourself. Workstream scope this (default) keeps unfinished work; all stops and removes its contents. All is only valid for a Workstream and cannot retain an operation."));
         "agent.resume": contracts::agent::ResumeParams => contracts::agent::RailNode, rpc_agent_resume, all(schema(contracts::agent::ResumeParams,"Continue a saved conversation in your Reach. An explicit normal or yolo mode stops a running Agent or Door first; omitted mode requires an exited Agent."));
+        "agent.makeWorkstream": contracts::agent::NodeId => contracts::agent::RailNode, rpc_agent_make_workstream, none();
+        "agent.saveAsMode": contracts::agent::SaveAsModeParams => contracts::agent::RailNode, rpc_agent_save_as_mode, none();
         "agent.setModel": contracts::agent::SetModelParams => contracts::agent::RailNode, rpc_agent_set_model, none();
     }
     todos_methods["todo"] {
@@ -176,6 +178,11 @@ declarations! { $;
         "deliverable.resolve": contracts::deliverable::DeliverableId => contracts::deliverable::Resolution, deliverable_call, all(schema(contracts::deliverable::DeliverableId,"Resolve the recorded revision or exact current external target, or its unavailability cause."));
         "deliverable.move": contracts::deliverable::MoveParams => contracts::deliverable::Deliverable, deliverable_call, all(schema(contracts::deliverable::MoveParams,"Move a published result; an Agent cannot override user placement."));
         "deliverable.remove": contracts::deliverable::DeliverableId => (), deliverable_call, all(schema(contracts::deliverable::DeliverableId,"Explicitly remove a publication. User only; the identity and key cannot be reused."));
+        "github.prGet": contracts::github::Number => contracts::github::Pr, github_call, door(schema(contracts::github::Number,"Read a PR of the Project's repository as GitHub holds it now: title, body, state, draft, autoMerge, head and mergedAt. Read it before you state it or ask the user to act on it."));
+        "github.issueGet": contracts::github::Number => contracts::github::Issue, github_call, door(schema(contracts::github::Number,"Read an Issue of the Project's repository as GitHub holds it now: title, body, state, labels and stateReason."));
+        "github.prSetBody": contracts::github::SetBodyParams => contracts::github::Pr, github_call, door(schema(contracts::github::SetBodyParams,"Replace a PR's body with `body` (not empty); the answer is the PR as it now stands."));
+        "github.prReady": contracts::github::Number => contracts::github::Pr, github_call, door(schema(contracts::github::Number,"Mark a draft PR ready for review; a PR already ready is left as it is."));
+        "github.prAutoMerge": contracts::github::Number => contracts::github::Pr, github_call, door(schema(contracts::github::Number,"Enable auto-merge (merge commit) on an open PR; one already enabled is left as it is."));
         "daemon.ping": () => contracts::common::Ping, rpc_builtin, none();
         "daemon.methods": () => Vec<String>, rpc_builtin, none();
         "api.list": () => contracts::describe::MethodList, rpc_builtin, all(empty("List every method the Daemon serves with a one-line summary."));
