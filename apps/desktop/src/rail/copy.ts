@@ -119,7 +119,7 @@ export const copy = {
   failed: sharedCopy.failed,
   moveItem: sharedCopy.moveItem,
   restartSession: "Restart session",
-  newMode: "New Mode",
+  newMode: sharedCopy.newMode,
   modeWord: "Mode",
   createMode: "Create Mode",
   openingPrompt: sharedCopy.openingPrompt,
