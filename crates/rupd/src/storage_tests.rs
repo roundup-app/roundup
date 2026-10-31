@@ -531,6 +531,9 @@ async fn n16_all_stores_share_one_project_database() {
         standalone::schema(&db).into_iter().collect();
     // The Project-only publication trigger is proved through the Daemon's U3787a RPC test.
     actual.remove("pad_publications_revoked");
+    // M5159c: no migration drops the retired Checkpoint tables; no store creates or reads them.
+    actual.remove("checkpoints");
+    actual.remove("marks");
     assert_eq!(actual, expected);
     assert_eq!(
         Migrations::new(migrations()).current_version(&db).unwrap(),

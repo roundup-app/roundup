@@ -1,7 +1,7 @@
 //! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what is the same
 //! for every Agent of a role (E9): that roundup supervises it, the tools `rup mcp` offers and,
 //! for a Door, B24's role guidance. A name, Terminal id, parent, peer or Todo changes, so none is
-//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` only to a Door.
+//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest` and `workstream_rewind` only to a Door.
 
 /// What an Agent is to roundup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -332,7 +332,7 @@ const TOOLS: &[(&str, &str)] = &[
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 4] = [
+const DOOR_TOOLS_EXTRA: [(&str, &str); 5] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
@@ -348,6 +348,10 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 4] = [
     (
         "terminal_show",
         "show a Terminal in your Reach to the user, who sees its owner selected; it reads nothing",
+    ),
+    (
+        "workstream_rewind",
+        "ask the provider of a child of yours to rewind it through the provider's own feature, to a turn you name",
     ),
 ];
 

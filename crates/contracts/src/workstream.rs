@@ -91,3 +91,47 @@ pub struct CapParams {
     #[specta(type = Option<specta_typescript::Number>)]
     pub cap: Option<serde_json::Value>,
 }
+
+/// One Agent to rewind and the turn to return it to.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RewindTurn {
+    /// A child of the Door's Workstream, direct or nested; never the Door itself.
+    pub agent: String,
+    /// The provider's own id of the turn to return to: for Claude Code, the UUID of a user message
+    /// in that Agent's conversation.
+    pub turn: String,
+}
+
+/// `workstream.rewind` (M5159b): ask each named Agent's provider to rewind through its own feature.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct RewindParams {
+    pub id: String,
+    /// One entry per Agent; name every child to rewind them all.
+    pub turns: Vec<RewindTurn>,
+}
+
+/// How one named Agent ended up.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum RewindState {
+    Rewound,
+    Unavailable,
+    Failed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct RewindAgent {
+    pub agent: String,
+    pub name: String,
+    pub state: RewindState,
+    /// Why it was `unavailable` or `failed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub reason: Option<String>,
+}
+
+/// What `workstream.rewind` returns to the Door: one outcome per named Agent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub struct Rewind {
+    pub agents: Vec<RewindAgent>,
+}

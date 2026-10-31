@@ -194,6 +194,7 @@ declarations! { $;
         "message.resolveResult": contracts::message::ResolveResultParams => contracts::message::ResultObservation, rpc_evidence, all(schema(contracts::message::ResolveResultParams,"User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect."));
         "message.reconcileWork": contracts::message::ProgressParams => contracts::message::Reconciliation, resume_call, all(schema(contracts::message::ProgressParams,"Read which retained work is unfinished, confirmed, pending a check or uncertain, without sending or starting anything."));
         "message.resumeWork": contracts::message::ResumeWorkParams => contracts::message::ResumeWork, resume_call, all(schema(contracts::message::ResumeWorkParams,"User only: resume an Agent's eligible unfinished work with one successor Message. Retry with the same request id after an unknown reply; it never repeats an uncertain external effect, restarts a stopped Agent or starts a program."));
+        "workstream.rewind": contracts::workstream::RewindParams => contracts::workstream::Rewind, rpc_rewind, door(custom(workstream_rewind()));
         "workstream.restart": contracts::workstream::RestartParams => contracts::agent::RailNode, rpc_workstream_restart, none();
         "todo.startWorkstream": contracts::workstream::StartWorkstreamParams => contracts::agent::RailNode, rpc_queue, none();
         "workstream.queue": () => contracts::workstream::QueueState, rpc_queue, none();

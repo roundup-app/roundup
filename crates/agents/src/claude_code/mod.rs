@@ -12,6 +12,7 @@ mod launch_files;
 mod models;
 mod placement;
 mod profiles;
+mod rewind;
 pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;

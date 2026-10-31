@@ -62,7 +62,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Preview (`reaction.preview`) | Time preview | — |
 | Firing (a Reaction's `firings`) | same | — |
 | Observation (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | same | — |
-| Rewind | same | roll back |
+| Rewind (`workstream.rewind`, `RewindTurn`; the provider's own rewind, M5159b) | same | roll back |
 | Block | same | — |
 | Rollup | same | — |
 | Attempt | same | — |

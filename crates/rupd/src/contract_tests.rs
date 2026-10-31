@@ -72,8 +72,12 @@ async fn u4593_agent_inputs_resolve_before_dispatch() {
                 "/actor_id",
             ),
             ("terminal.read", json!({"reader":selector}), "/reader"),
-            ("workstream.rewindPlan", json!({"agent":selector}), "/agent"),
             ("agent.wake", json!({"ids":[selector]}), "/ids/0"),
+            (
+                "workstream.rewind",
+                json!({"turns":[{"agent":selector,"turn":"t"}]}),
+                "/turns/0/agent",
+            ),
             (
                 "reaction.create",
                 json!({"target":selector,"condition":{"kind":"agents","ids":[selector]}}),
@@ -266,106 +270,6 @@ async fn p14_pad_has_no_scribe_field() {
     assert_eq!(listed["result"][0]["name"], "notes", "{listed}");
     assert!(read["result"].get("scribe").is_none());
     assert!(listed["result"][0].get("scribe").is_none());
-}
-
-#[tokio::test]
-async fn m10_a_block_over_its_limit_is_invalid_params() {
-    let dir = tempfile::tempdir().unwrap();
-    let daemon = crate::test_daemon(dir.path()).unwrap();
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute(
-        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'workstream','Door',0)",
-        [],
-    )
-    .unwrap();
-    let (events, _) = mpsc::unbounded_channel();
-    let mut conn = Conn {
-        actor: Actor {
-            kind: ActorKind::Agent,
-            id: "1".into(),
-            parent: None,
-        },
-        peer: None,
-        events,
-        output: None,
-    };
-    let text = |n: usize| json!({ "kind": "text", "text": "x".repeat(n) });
-    let rows = |n: usize| {
-        let row = json!({ "label": "a", "value": "b" });
-        json!({ "kind": "rows", "rows": vec![row; n] })
-    };
-    let bad = [
-        json!({ "title": "x".repeat(81), "blocks": [text(1)] }),
-        json!({ "title": "t", "blocks": [] }),
-        json!({ "title": "t", "blocks": vec![text(1); 9] }),
-        json!({ "title": "t", "blocks": [{ "kind": "chart", "text": "x" }] }),
-        json!({ "title": "t", "blocks": [rows(13)] }),
-        json!({ "title": "t", "blocks": [{ "kind": "table", "head": ["1","2","3","4","5","6","7"], "rows": [] }] }),
-        json!({ "title": "t", "blocks": [{ "kind": "table", "head": ["1"], "rows": vec![json!(["a"]); 13] }] }),
-        json!({ "title": "t", "blocks": [{ "kind": "diagram", "mermaid": "x".repeat(2001) }] }),
-        json!({ "title": "t", "blocks": [text(401)] }),
-    ];
-
-    for params in bad {
-        let err = daemon
-            .route(&mut conn, "checkpoint.write", params.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, code::INVALID_PARAMS, "{params}");
-    }
-
-    let listed = daemon
-        .route(&mut conn, "checkpoint.list", json!({ "workstream": "1" }))
-        .await
-        .unwrap();
-    assert_eq!(listed.as_array().unwrap().len(), 0);
-    let at_limits = json!({ "title": "x".repeat(80), "blocks": [
-        text(400), rows(12), json!({ "kind": "diagram", "mermaid": "x".repeat(2000) }),
-        json!({ "kind": "table", "head": ["1","2","3","4","5","6"], "rows": vec![json!(["a"]); 12] }),
-    ] });
-    daemon
-        .route(&mut conn, "checkpoint.write", at_limits)
-        .await
-        .unwrap();
-}
-
-#[tokio::test]
-async fn m10_a_subagent_cannot_write_a_checkpoint() {
-    let dir = tempfile::tempdir().unwrap();
-    let daemon = crate::test_daemon(dir.path()).unwrap();
-    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
-    db.execute_batch("INSERT INTO nodes(id,kind,name,ord,parent) VALUES(1,'workstream','Door',0,NULL),(2,'agent','Child',0,1);").unwrap();
-    let (events, _) = mpsc::unbounded_channel();
-    let mut conn = Conn {
-        actor: Actor::user(),
-        peer: None,
-        events,
-        output: None,
-    };
-    for caller in [
-        Actor {
-            kind: ActorKind::Agent,
-            id: "2".into(),
-            parent: None,
-        },
-        Actor::user(),
-    ] {
-        conn.actor = caller;
-        let err = daemon
-            .route(
-                &mut conn,
-                "checkpoint.write",
-                json!({"title":"nope","blocks":[{"kind":"text","text":"nope"}]}),
-            )
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, code::FORBIDDEN);
-    }
-    let listed = daemon
-        .route(&mut conn, "checkpoint.list", json!({"workstream":"1"}))
-        .await
-        .unwrap();
-    assert_eq!(listed.as_array().unwrap().len(), 0);
 }
 
 #[tokio::test]
