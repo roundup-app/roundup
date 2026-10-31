@@ -438,7 +438,7 @@ async fn b5168f_a_quiet_digest_starts_no_turn() {
 }
 
 #[tokio::test]
-async fn b5168f_a_kept_quiet_digest_rides_the_next_delivery_once() {
+async fn b5168f_a_held_quiet_digest_rides_the_next_delivery_once() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
     let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
@@ -455,7 +455,7 @@ async fn b5168f_a_kept_quiet_digest_rides_the_next_delivery_once() {
 }
 
 #[tokio::test]
-async fn b5168f_a_restart_keeps_a_pending_quiet_digest() {
+async fn b5168f_a_restart_keeps_a_held_quiet_digest() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
     let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
@@ -475,4 +475,33 @@ async fn b5168f_a_restart_keeps_a_pending_quiet_digest() {
     h.call_as(agent("a"), "message.send", note).await.unwrap();
     settle().await;
     assert_eq!(h.inbox.written().len(), 2);
+}
+
+#[tokio::test]
+async fn b5168f_a_finished_result_starts_one_turn() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = idle_receiver(dir.path()).await;
+    let news = crate::digest::push_body(&contracts::agent::DigestEntry {
+        name: "c".into(),
+        kind: Kind::Working,
+        last: "done: the build is green".into(),
+        todos: 0,
+        pads: vec![],
+    });
+    let sent = json!({"to":"b", "kind":"note", "body": news});
+    h.call_as(contracts::Actor::daemon(), "message.send", sent)
+        .await
+        .unwrap();
+    settle().await;
+    assert_eq!(h.inbox.typed().len(), 1);
+}
+
+#[tokio::test]
+async fn b5168f_a_new_question_starts_one_turn() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = idle_receiver(dir.path()).await;
+    let sent = json!({"to":"b", "kind":"question", "body":"which branch?"});
+    h.call_as(agent("a"), "message.send", sent).await.unwrap();
+    settle().await;
+    assert_eq!(h.inbox.typed().len(), 1);
 }

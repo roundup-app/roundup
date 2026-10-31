@@ -110,18 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn b5168f_a_quiet_digest_starts_no_turn() {
-        let given = [digest(
-            1,
-            MessageStatus::Delivered,
-            &entry(Kind::Working, "a", 2),
-        )];
-        let more_todos = digest(2, MessageStatus::Pending, &entry(Kind::Idle, "a", 3));
-        assert!(is_quiet_digest(&given, &more_todos));
-    }
-
-    #[test]
-    fn b5168f_a_finished_result_starts_one_turn() {
+    fn a_digest_with_news_is_not_quiet() {
         let given = [digest(
             1,
             MessageStatus::Delivered,
@@ -136,12 +125,5 @@ mod tests {
             let next = digest(2, MessageStatus::Pending, &next);
             assert!(!is_quiet_digest(&given, &next), "{}", next.body);
         }
-    }
-
-    #[test]
-    fn b5168f_a_new_question_starts_one_turn() {
-        let mut question = digest(2, MessageStatus::Pending, &entry(Kind::Working, "a", 2));
-        question.from = Actor::user();
-        assert!(!is_quiet_digest(&[], &question));
     }
 }
