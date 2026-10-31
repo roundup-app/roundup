@@ -2,6 +2,7 @@ import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "./copy";
+import { applying } from "../app/pending";
 import { batch, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
@@ -52,6 +53,8 @@ export type RailState = {
   pendingOf(id: string): PendingChange | null;
   /** U5172a: keeps the asked change on Row `id`, marked, until an Event or a re-read settles it. */
   keepAsked(id: string, change: PendingChange): void;
+  /** U5172a: renames Row `id`; a refusal throws, an unanswered call keeps `name` marked as unconfirmed. */
+  rename(id: string, name: string): Promise<void>;
   /** The message of the last failed fetch, until a later fetch succeeds. */
   failure(): string | null;
   /** Fetches the current tree after a write found that its row had already gone; `terminals` also refetches `terminal.list`, so a missed exit shows. */
@@ -370,6 +373,14 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       return code === null ? { kind: "signal" } : { kind: "code", code };
     },
     pendingOf: (id) => unconfirmed[id] ?? null,
+    rename: async (id, name) => {
+      const base = model.tree.find(node => node.id === id)?.name ?? "";
+      const result = await applying(() => app.rpc("rail.rename", { id, name }));
+
+      if (result.kind === "refused") throw result.error;
+
+      if (result.kind === "pending") state.keepAsked(id, { kind: "rename", asked: name, base });
+    },
     keepAsked: (id, change) => {
       setAsked(id, change);
 
