@@ -291,7 +291,6 @@
   column-gap: var(--space-4);
   align-items: baseline;
 }
-.settings-content .app-switch-row { display: grid; }
 /* U5242a: each group of rows is one inset box; rows are divided by hairlines, never boxed alone. */
 .settings-content .settings-rows {
   display: flex;
@@ -300,10 +299,18 @@
   background: var(--sunken);
   overflow: hidden;
 }
-.settings-content .settings-rows > * {
+.settings-rows .app-select,
+.settings-rows .settings-field,
+.settings-rows .app-segments,
+.settings-rows .app-switch,
+.settings-rows .settings-appearance-preview {
   padding: var(--space-3) var(--space-4);
 }
-.settings-content .settings-rows > * + * {
+.settings-rows .app-select:not(:first-child),
+.settings-rows .settings-field:not(:first-child),
+.settings-rows .app-segments:not(:first-child),
+.settings-rows .app-switch:not(:first-child),
+.settings-rows .settings-appearance-preview:not(:first-child) {
   border-top: var(--hairline-width) solid var(--hairline);
 }
 .settings-history { display: flex; gap: var(--space-3); align-items: center; }
