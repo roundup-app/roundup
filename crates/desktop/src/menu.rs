@@ -8,6 +8,7 @@ use serde::Deserialize;
 use tauri::Emitter;
 use tauri::menu::{Menu, MenuEvent, MenuItem, MenuItemKind, Submenu};
 use tauri::{AppHandle, LogicalPosition, Manager, Runtime, State, WebviewWindow};
+use tauri_plugin_clipboard_manager::ClipboardExt;
 use tokio::sync::oneshot;
 
 /// U3799: extend Tauri's standard application menu without replacing its native actions.
@@ -34,8 +35,28 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         submenu
     };
     application.insert(
-        &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
+        &MenuItem::with_id(
+            app,
+            "copy-version-info",
+            "Copy Version Info",
+            true,
+            None::<&str>,
+        )?,
         1,
+    )?;
+    application.insert(
+        &MenuItem::with_id(
+            app,
+            "copy-debug-info",
+            "Copy Debug Info",
+            true,
+            None::<&str>,
+        )?,
+        2,
+    )?;
+    application.insert(
+        &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
+        3,
     )?;
     // Keep the standard native editing commands; only history changes with region focus.
     let edit_position = menu
@@ -70,8 +91,65 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
     Ok(menu)
 }
 
+/// U5244d: the one line `roundup <App version> (<build>)`.
+fn version_info(version: &str, build: &str) -> String {
+    format!("roundup {version} ({build})")
+}
+
+/// U5244e: exactly four lines, each a fact about the install; no Project, path or usage value.
+fn debug_info(version: &str, build: &str, macos: &str, daemon_reachable: bool) -> String {
+    let (daemon_version, reachability) = if daemon_reachable {
+        // The Daemon ships in the App bundle, so it runs the App's own version.
+        (version, "reachable")
+    } else {
+        ("unknown", "unreachable")
+    };
+    format!(
+        "roundup {version} ({build})\nDaemon {daemon_version}\nmacOS {macos}\nDaemon {reachability}"
+    )
+}
+
+fn macos_version() -> String {
+    std::fs::read_to_string("/System/Library/CoreServices/SystemVersion.plist")
+        .ok()
+        .and_then(|plist| {
+            let (_, rest) = plist.split_once("<key>ProductVersion</key>")?;
+            let (_, rest) = rest.split_once("<string>")?;
+            Some(rest.split_once("</string>")?.0.to_owned())
+        })
+        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+/// The text a Copy item writes, or `None` for any other id.
+fn info_text<R: Runtime>(app: &AppHandle<R>, id: &str, daemon_reachable: bool) -> Option<String> {
+    let version = app.package_info().version.to_string();
+    let build = option_env!("ROUNDUP_BUILD").unwrap_or("dev");
+    match id {
+        "copy-version-info" => Some(version_info(&version, build)),
+        "copy-debug-info" => Some(debug_info(
+            &version,
+            build,
+            &macos_version(),
+            daemon_reachable,
+        )),
+        _ => None,
+    }
+}
+
 pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
-    if event.id().0 == "app-settings" {
+    if matches!(
+        event.id().0.as_str(),
+        "copy-version-info" | "copy-debug-info"
+    ) {
+        let reachable = app
+            .try_state::<crate::AppState>()
+            .is_some_and(|state| state.projects().iter().any(|project| project.running));
+        if let Some(text) = info_text(app, &event.id().0, reachable)
+            && app.clipboard().write_text(text).is_err()
+        {
+            log::warn!(target: "roundup::shell", "copy info: clipboard write failed");
+        }
+    } else if event.id().0 == "app-settings" {
         if let Err(error) = app.emit("open-app-settings", ()) {
             crate::diagnostics::failure("open Settings", &error);
         }
