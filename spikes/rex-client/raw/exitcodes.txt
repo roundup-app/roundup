@@ -1,0 +1,3 @@
+PROOF exit [shell /bin/sh, login false] sh exit 7 after 1 s: child_exited=Ok("{\"exit_code\":7,\"error\":\"exit status 7\"}") last_exit={"exit_code":7,"error":"exit status 7"}
+PROOF exit [login shell] sh exit 7 after 1 s: child_exited=Ok("{\"exit_code\":7,\"error\":\"exit status 7\"}") last_exit={"exit_code":7,"error":"exit status 7"}
+PROOF exit [login shell, closes] sh exit 7 after 1 s: child_exited=Ok("{\"exit_code\":7,\"error\":\"exit status 7\"}") last_exit="com.superlogical.terminal.process: {\"code\":\"not_found\",\"message\":\"block not found: block:01a18f4f-2995-73e8-ac7a-3d234ec442bf\",\"status\":404}"

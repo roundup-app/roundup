@@ -1,0 +1,30 @@
+PROOF q4 program prints one tick every 20 ms, 100 ticks
+PROOF q4 format vt ticks Some(2)..Some(16); live stream ticks Some(17)..Some(100); overlap=0
+PROOF q4 format vt + live bytes: ticks Some(2)..Some(100), repeated=0, missing=0 (vt has 18 ticks, live has 84)
+PROOF q4 live + resumed program bytes: ticks Some(17)..Some(100), gaps or repeats=0
+PROOF q4 program prints one tick every 20 ms, 100 ticks
+PROOF q4 format vt ticks Some(2)..Some(17); live stream ticks Some(18)..Some(100); overlap=0
+PROOF q4 format vt + live bytes: ticks Some(2)..Some(100), repeated=0, missing=0 (vt has 19 ticks, live has 83)
+PROOF q4 live + resumed program bytes: ticks Some(18)..Some(100), gaps or repeats=0
+PROOF q4 program prints one tick every 2 ms, 640 ticks
+PROOF q4 format vt ticks Some(2)..Some(164); live stream ticks Some(165)..Some(640); overlap=0
+PROOF q4 format vt + live bytes: ticks Some(2)..Some(640), repeated=0, missing=0 (vt has 166 ticks, live has 476)
+PROOF q4 live + resumed program bytes: ticks Some(165)..Some(640), gaps or repeats=0
+PROOF q4 program prints one tick every 2 ms, 640 ticks
+PROOF q4 format vt ticks Some(2)..Some(164); live stream ticks Some(165)..Some(640); overlap=0
+PROOF q4 format vt + live bytes: ticks Some(2)..Some(640), repeated=0, missing=0 (vt has 166 ticks, live has 476)
+PROOF q4 live + resumed program bytes: ticks Some(165)..Some(640), gaps or repeats=0
+PROOF q4 program prints one tick every 1 ms, 1240 ticks
+PROOF q4 format vt ticks Some(2)..Some(323); live stream ticks Some(324)..Some(1240); overlap=0
+PROOF q4 format vt + live bytes: ticks Some(218)..Some(1240), repeated=0, missing=0 (vt has 325 ticks, live has 917)
+PROOF q4 live + resumed program bytes: ticks Some(324)..Some(1240), gaps or repeats=0
+PROOF q4 program prints one tick every 1 ms, 1240 ticks
+PROOF q4 format vt ticks Some(2)..Some(323); live stream ticks Some(324)..Some(1240); overlap=0
+PROOF q4 format vt + live bytes: ticks Some(218)..Some(1240), repeated=0, missing=0 (vt has 325 ticks, live has 917)
+PROOF q4 live + resumed program bytes: ticks Some(324)..Some(1240), gaps or repeats=0
+PROOF q4 format vt requested 5 ms after the stream's WELCOME
+PROOF q4 format vt ticks Some(2)..Some(166); live stream ticks Some(165)..Some(640); overlap=2
+PROOF q4 format vt + live bytes: ticks Some(2)..Some(640), repeated=1, missing=0 (vt has 168 ticks, live has 476)
+PROOF q4 format vt requested 50 ms after the stream's WELCOME
+PROOF q4 format vt ticks Some(2)..Some(184); live stream ticks Some(164)..Some(640); overlap=21
+PROOF q4 format vt + live bytes: ticks Some(2)..Some(640), repeated=1, missing=0 (vt has 186 ticks, live has 477)

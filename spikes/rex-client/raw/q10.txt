@@ -1,0 +1,2 @@
+PROOF q10 today: Terminals with 10 fake agents grew this process by 5008 KB
+PROOF q10 Rex: server 37968→46976 KB (+9008), this client 13504→15104 KB (+1600), total +10608 KB
