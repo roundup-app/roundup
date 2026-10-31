@@ -361,11 +361,19 @@ it("u4523_current_owner_uses_rail_identity_and_liveness", async () => {
 
 describe("U5151c", () => {
   const failed = (revision: string, attempt = "1") => agent("a", "error", "Claude's servers failed", { attempt, status_revision: revision });
+
   const storageDouble = (saved: string[] | null = null): DismissalStorage & { saved: () => string[] | null } => {
     let kept = saved;
 
-    return { read: () => kept, write: async (keys) => { kept = keys; return null; }, saved: () => kept };
+    const write = async (keys: string[]) => {
+      kept = keys;
+
+      return null;
+    };
+
+    return { read: () => kept, write, saved: () => kept };
   };
+
   const mount = async (tree: RailNode[], dismissals: DismissalStorage) => {
     const app = createFakeApp();
     app.handlers["rail.tree"] = () => tree;
