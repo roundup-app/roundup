@@ -98,13 +98,14 @@ it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"
 it("u5247_icon_button_reads_its_key_by_name", async () => {
   render(() => <><IconButton aria-label="Maximise" action="shelf.maximise">+</IconButton><IconButton aria-label="Nothing" action="no.such">-</IconButton></>);
   const button = screen.getByRole("button", { name: "Maximise" });
+  const maximise = CHORDS.find((row) => row.name === "shelf.maximise")!.keys;
 
   fireEvent.keyDown(document, { key: "Tab" });
   button.focus();
   const tip = await screen.findByRole("tooltip");
 
-  expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe("M");
-  expect(button.getAttribute("aria-keyshortcuts")).toBe("M");
+  expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe(maximise);
+  expect(button.getAttribute("aria-keyshortcuts")).toBe(ariaShortcut(maximise));
   expect(button.hasAttribute("action")).toBe(false);
   expect(screen.getByRole("button", { name: "Nothing" }).hasAttribute("aria-keyshortcuts")).toBe(false);
 });
@@ -129,6 +130,7 @@ it("u5247a_every_named_icon_button_key_runs_its_action", () => {
   const names = ["shelf.maximise", "shelf.close", "todo.triage-enter", "agent.new"];
 
   render(() => <>{names.map((name) => <IconButton aria-label={name} action={name}>+</IconButton>)}</>);
+
   for (const name of names) {
     const row = CHORDS.find((chord) => chord.name === name)!;
 
