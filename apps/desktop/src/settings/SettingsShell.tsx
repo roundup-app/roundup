@@ -35,7 +35,7 @@ type Result = { id: string; page: string; group: string; label: string; descript
 /** U5243a: one result per matching setting, with its place, its live control and its description. */
 export const SettingsResults = (props: { results: Result[]; controls: Record<string, () => JSX.Element> }) => (
   <Show when={props.results.length > 0} fallback={<ReservedLine class="settings-no-results" status={copy.settingsNoResults} />}>
-    <ul class="settings-results" aria-label={copy.settingsResults}>
+    <ul class="settings-results settings-rows" aria-label={copy.settingsResults}>
       <For each={props.results}>{result => <li class="settings-result">
         <p class="settings-place">{copy.settingsPlace(result.page, result.group)}</p>
         {props.controls[result.id]?.()}

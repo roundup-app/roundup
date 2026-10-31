@@ -207,9 +207,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   const previewScale = () => pendingAppearance().interfaceScale ?? appSettings().interfaceScale;
 
-  // SAFETY: terminalRanges is declared with exactly the three Numeric keys, in this order.
-  const [fontSizeKey, lineHeightKey, letterSpacingKey] = Object.keys(terminalRanges) as [Numeric, Numeric, Numeric];
-
   const numericControl = (name: Numeric, label: string, hint: string) => <>
         <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
           <Field.Label>{label}</Field.Label>
@@ -274,9 +271,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
     ),
-    fontSize: () => numericControl(fontSizeKey, copy.fontSize, copy.fontSizeHint),
-    lineHeight: () => numericControl(lineHeightKey, copy.lineHeight, copy.lineHeightHint),
-    letterSpacing: () => numericControl(letterSpacingKey, copy.letterSpacing, copy.letterSpacingHint),
+    fontSize: () => numericControl("fontSize", copy.fontSize, copy.fontSizeHint),
+    lineHeight: () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint),
+    letterSpacing: () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint),
     focusMarkers: () => (
         <Switch description={copy.focusMarkersHint} checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
     ),
@@ -290,7 +287,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       { id: "permission", page: copy.settingsAgents, group: copy.groupPermissions, label: copy.permissionMode, description: copy.permissionHint },
       { id: "engine", page: copy.settingsAgents, group: copy.groupEngine, label: copy.engine, description: copy.engineHint, when: () => !!props.project() },
       { id: "model", page: copy.settingsAgents, group: copy.groupEngine, label: copy.model, description: copy.modelHint, when: () => !!props.project() },
-      { id: "naming", page: copy.settingsAgents, group: copy.groupNaming, label: copy.automaticRenaming, description: `${copy.automaticRenamingHint} ${copy.namingGuide} ${copy.namingGuideHint}`, hiddenHint: true },
+      { id: "naming", page: copy.settingsAgents, group: copy.groupNaming, label: copy.automaticRenaming, description: copy.automaticRenamingHint, hiddenHint: true },
       { id: "fontFamily", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontFamily, description: copy.fontFamilyHint },
       { id: "fontWeight", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontWeight, description: copy.fontWeightHint },
       ...numericFields.map(({ name, label, hint }) => ({ id: name, page: copy.settingsTerminal, group: copy.groupFont, label, description: hint })),
@@ -325,7 +322,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <h2 class="settings-title">{copy.settings}</h2>
         <Field.Root class="settings-search">
           <Field.Label class="settings-search-label">{copy.settingsSearch}</Field.Label>
-          <Field.Input ref={searchInput} type="search" value={query()} spellcheck={false} autocorrect="off" autocapitalize="off" autocomplete="off"
+          <Field.Input ref={searchInput} type="search" placeholder={copy.settingsSearch} value={query()} spellcheck={false} autocorrect="off" autocapitalize="off" autocomplete="off"
             onInput={event => setQuery(event.currentTarget.value)}
             onKeyDown={event => {
               if (event.isComposing) return;
