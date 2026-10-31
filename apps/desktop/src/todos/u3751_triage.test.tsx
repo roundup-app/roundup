@@ -83,7 +83,7 @@ it("u3751_t_is_ignored_in_fields_and_with_modifiers", async () => {
   await waitFor(() => expect(row(2)?.closest("[hidden]")).toBeNull());
 
   for (const init of [{ metaKey: true }, { ctrlKey: true }, { altKey: true }, { shiftKey: true }, { repeat: true }, { isComposing: true }]) press(row(2), "t", init);
-  fireEvent.click(screen.getAllByRole("button", { name: /add todo to/ })[0]!);
+  fireEvent.click(screen.getAllByRole("button", { name: /add todo:/i })[0]!);
   press(await screen.findByRole("textbox", { name: "New Todo title" }), "t");
   expect(shelf().getAttribute("data-triage")).toBe("off");
 });
@@ -179,7 +179,7 @@ it("u3755_esc_in_the_comment_field_keeps_the_draft", async () => {
 it.each(["body", "toggle", "control", "heading"])("u3474a_enters_and_leaves_from_each_todos_target: %s", async (target) => {
   await mount();
   const toggle = screen.getByRole("button", { name: "Triage" });
-  const start = target === "body" ? document.body : target === "toggle" ? toggle : target === "heading" ? document.querySelector<HTMLElement>(".shelf-group-control")! : screen.getAllByRole("button", { name: /add todo to/ })[0]!;
+  const start = target === "body" ? document.body : target === "toggle" ? toggle : target === "heading" ? document.querySelector<HTMLElement>(".shelf-group-control")! : screen.getAllByRole("button", { name: /add todo:/i })[0]!;
 
   if (target === "body" && document.activeElement instanceof HTMLElement) document.activeElement.blur();
   else start.focus();

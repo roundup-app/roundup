@@ -62,7 +62,7 @@ it("u2744a_shelf_scope_agent_lists_only_its_own", async () => {
 
 const tab = async (name: "Todos" | "Pads") => {
   fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
-  await waitFor(() => expect(document.querySelector(name === "Todos" ? "[data-shelf-scope] [aria-label^=\"add todo to\"]" : "[data-shelf-scope] [aria-label=\"Add Pad\"]")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(name === "Todos" ? "[data-shelf-scope] [aria-label^=\"Add Todo: \"]" : "[data-shelf-scope] [aria-label=\"Add Pad\"]")).not.toBeNull());
 };
 
 const names = () => [...document.querySelectorAll('.shelf-panel:not([hidden]) .pad-name')].map(el => el.textContent);
@@ -231,7 +231,7 @@ it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, nul
   connected.rail.select(selected);
 
   if (terminal) await chooseTerminal(terminal);
-  fireEvent.click(await within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).findByRole("button", { name: /add todo to/i }));
+  fireEvent.click(await within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).findByRole("button", { name: /add todo:/i }));
   const title = await screen.findByRole("textbox", { name: /New Todo title/ });
   fireEvent.input(title, { target: { value: "new scope item" } });
   fireEvent.keyDown(title, { key: "Enter" });

@@ -79,6 +79,6 @@ export const NativeAlert = (props: {
 
   return <Show when={failure()}><ReservedLine class="native-alert-failure" ref={element => { line = element; }} message={failure()}><>
     <button data-button="quiet" type="button" onClick={() => void request()}>{copy.retry}</button>
-    <button data-button="quiet" type="button" onClick={() => { props.onCancel(); props.finalFocus()?.focus(); }}>{copy.cancel}</button>
+    <button data-button="quiet" type="button" onClick={() => { props.onCancel(); props.finalFocus()?.focus(); }}>{copy.keep}</button>
   </></ReservedLine></Show>;
 };

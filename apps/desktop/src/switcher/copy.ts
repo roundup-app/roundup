@@ -4,10 +4,10 @@ export const copy = {
   switcherRetentionFailure: (operation: "restore" | "retain", project: string) => operation === "restore"
     ? `Your saved search in ${project} could not be restored. Try again to recover it.`
     : `Your search in ${project} won't be kept after reload. Keep this Project open to recover your work.`,
-  switcherCopyFailure: "Could not copy query. Select the text and copy again.",
+  switcherCopyFailure: "Copy failed. Select the text and copy it yourself.",
   copyQuery: "Copy query",
   retryStorage: sharedCopy.retryStorage,
-  queryCopied: "Copied",
+  queryCopied: sharedCopy.copied,
   discardQuery: "Discard query",
   close: sharedCopy.close,
   switcherActions: "Actions",

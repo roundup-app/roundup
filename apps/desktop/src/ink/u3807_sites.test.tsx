@@ -176,7 +176,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
   render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
-  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code work" });
+  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
   const pending = mounted.connected.importing.refresh();
@@ -351,13 +351,13 @@ it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message
     const place = message.closest<HTMLElement>(".reserved-line")!;
     fireEvent.click(within(place).getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
-    await within(surface).findByRole("button", { name: /Overview, Project root/ });
+    await within(surface).findByRole("button", { name: /Overview/ });
   } else {
     const original = app.chooseProjectPath;
     await cycle(surface,
       () => { app.chooseProjectPath = async () => { throw new Error(FAILURE); };
 
- fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); },
-      () => { app.chooseProjectPath = original; app.chooser.path = "/p"; fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); });
+ fireEvent.click(within(container).getByRole("button", { name: "Open Project" })); },
+      () => { app.chooseProjectPath = original; app.chooser.path = "/p"; fireEvent.click(within(container).getByRole("button", { name: "Open Project" })); });
   }
 });

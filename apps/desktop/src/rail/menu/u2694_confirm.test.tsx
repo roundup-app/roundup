@@ -108,7 +108,7 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("g");
     await app.pickMenu("Remove");
-    expect(await questionDialog()).toMatchObject({ okLabel: "Remove", cancelLabel: "Cancel" });
+    expect(await questionDialog()).toMatchObject({ okLabel: "Remove", cancelLabel: "Keep" });
     await questionDialog();
     await answerQuestion(false);
     await waitFor(() => expect(questionProbe.shown).toBeNull());
@@ -211,7 +211,7 @@ it("u4368_nested_agents_keep_a34_classification", async () => {
   expect(railCallsTo(app, "agent.worktreeState")).toEqual([{ id: "finished" }]);
   expect([goesLine(result, "chosen"), staysLine(result)]).toEqual([
     "Goes: chosen, finished, 1 done Todo, 2 Pads",
-    "Stays (Remove this): running, 1 open Todo",
+    "Stays: running, 1 open Todo",
   ]);
 });
 
@@ -227,7 +227,7 @@ it.each(["chosen", "group", "supervisor"])("u4368_container_terminal_loss_still_
   open("chosen");
   await app.pickMenu("Remove");
   const question = await questionDialog();
-  expect(question).toMatchObject({ okLabel: "Remove", cancelLabel: "Cancel" });
+  expect(question).toMatchObject({ okLabel: "Remove", cancelLabel: "Keep" });
   expect(removals(app)).toEqual([]);
   await answerQuestion(false);
   await waitFor(() => expect(questionProbe.shown).toBeNull());

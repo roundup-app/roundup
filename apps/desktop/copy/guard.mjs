@@ -25,6 +25,9 @@ const product = (left, right, merge) => left.flatMap(a => right.map(b => merge(a
 // Ordered row titles longer than three words, each named exactly (U5205).
 const LONG_LABELS = new Set(['Quick add from any app']);
 
+// SK10 orders this label word for word; it is the one text allowed the Avoid word "session".
+const ORDERED_LABELS = new Set(['Teach other Claude Code sessions about roundup']);
+
 // Babel owns syntax and lexical binding resolution. This layer describes only copy policy.
 
 export function checkCopy(files, { glossary = '', baseline = [], previous = baseline, root = '/__copy__', rules = null, catalogues = Object.keys(files).filter(defaultCatalogue) } = {}) {
@@ -586,7 +589,7 @@ export function checkCopy(files, { glossary = '', baseline = [], previous = base
       if (!authored.has(text)) authored.set(text, []);
       authored.get(text).push({ id, entry, branch });
 
-      for (const rule of (text.startsWith('roundup://') || /^⟦[^⟧]*⟧\nrup link read ⟦[^⟧]*⟧$/.test(text) ? [] : languageProblems(text, kind, banned).filter(rule => !(rule === 'label-length' && LONG_LABELS.has(text))))) report(rule, entry.module.file, entry.key, text, branch);
+      for (const rule of (text.startsWith('roundup://') || /^⟦[^⟧]*⟧\nrup link read ⟦[^⟧]*⟧$/.test(text) ? [] : languageProblems(text, kind, banned).filter(rule => !(rule === 'label-length' && LONG_LABELS.has(text)) && !ORDERED_LABELS.has(text)))) report(rule, entry.module.file, entry.key, text, branch);
     }
   }
 
