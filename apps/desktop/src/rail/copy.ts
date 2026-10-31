@@ -28,6 +28,7 @@ export const copy = {
   deliverables: sharedCopy.deliverables,
   dismiss: sharedCopy.dismiss,
   dismissError: "Dismiss error",
+  dismissalUnsaved: (agent: string) => `${agent}: the dismissal could not be saved, so its failure mark will return after a reload.`,
   dismissedFailure: sharedCopy.dismissedFailure,
   retryStorage: sharedCopy.retryStorage,
   storageRetry: sharedCopy.storageRetry,
