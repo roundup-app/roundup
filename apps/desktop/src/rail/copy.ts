@@ -87,7 +87,7 @@ export const copy = {
   name: sharedCopy.name,
   collapse: "Collapse",
   expand: "Expand",
-  hiddenAgents: (n: number) => `Hidden Agents: ${n}`,
+  hiddenAgents: (n: number) => `${n} hidden Agents`,
   retryDoor: sharedCopy.retryDoor,
   startDoor: sharedCopy.startDoor,
   rowActions: "Row actions",
