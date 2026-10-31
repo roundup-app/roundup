@@ -7,7 +7,7 @@ import { activationSource } from "../keys/registry";
 import { PadHost } from "../pads/PadDrawer";
 import { useConnectedProject } from "../state/connectedProject";
 import { createCutTitle } from "../ui/cutTitle";
-import { doesClearTodoFailure, failureOf } from "./failureOf";
+import { changeFailureOf, doesClearTodoFailure, failureOf } from "./failureOf";
 import { refTarget } from "./refTarget";
 
 /** U3760: the Todo's Pad links in the order added. An `ok` one opens its Pad; a `missing` one is text. An Agent's change shows without reopening. */
@@ -56,7 +56,7 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
     const at = rows.indexOf(button.closest(".todo-ref") as HTMLElement);
 
     const id = props.id;
-    const message = await failureOf(async () => { await app.rpc("todo.removeRef", { id, url }); });
+    const message = await changeFailureOf(async () => { await app.rpc("todo.removeRef", { id, url }); });
 
     if (!alive || id !== props.id) return;
     setActionFailure(message);
