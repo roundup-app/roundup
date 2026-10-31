@@ -6,3 +6,5 @@ extend-exclude = ["tools/lint/debt.json", "docs/perf-*.json"]
 [default.extend-words]
 # C9d inventories the installed Highlights alias for Extensible Data Notation.
 edn = "edn"
+# NA12 names the misspelled action "agent.nwe" that `rup do` rejects.
+nwe = "nwe"
