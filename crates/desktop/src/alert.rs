@@ -73,13 +73,14 @@ impl Alerts {
 pub struct Plugin<R: Runtime>(pub AppHandle<R>);
 
 impl<R: Runtime> Notifier for Plugin<R> {
-    /// macOS asks the owner on the first banner and has no call to ask earlier.
+    /// `mac-notification-sys` has no call to ask or read the permission: macOS asks the owner when the first banner is sent, and a refusal then shows as that send's error, logged by the banner thread. So the pre-check always passes.
     fn permission(&self) -> Result<(), String> {
         Ok(())
     }
 
     #[cfg(target_os = "macos")]
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String> {
+        bundle();
         let handle = self.0.clone();
         let (agent, title, body) = (agent.to_owned(), title.to_owned(), body.to_owned());
         std::thread::Builder::new()
@@ -116,6 +117,19 @@ impl<R: Runtime> Notifier for Plugin<R> {
             log::warn!(target: "roundup::shell", "play state alert sound: {error}");
         }
     }
+}
+
+/// Sends banners as roundup (its icon, its permission, its click target) when running from the `.app` bundle; a dev build has no bundle and keeps the default sender.
+#[cfg(target_os = "macos")]
+fn bundle() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let bundled = std::env::current_exe()
+            .is_ok_and(|exe| exe.to_string_lossy().contains(".app/Contents/"));
+        if bundled && let Err(error) = mac_notification_sys::set_application("dev.roundup.app") {
+            log::warn!(target: "roundup::shell", "set banner application: {error}");
+        }
+    });
 }
 
 /// Reports a click on a banner: the window comes to the front and the webview hears whose banner it was.
