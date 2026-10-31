@@ -327,3 +327,65 @@ fn u5151d_session_end_reasons_read_as_user_actions() {
         assert!(!end(Some(raw)).contains(raw), "{raw} must not show raw");
     }
 }
+
+#[test]
+fn u5151d_status_labels_read_as_user_actions() {
+    // Each Adapter producer of a Status label, through its production path: the label
+    // names the Kind's user meaning, keeps the evidence the owner needs, and never leaks
+    // a vendor code. A3 and A21 pin the exit and save labels, which carry their evidence.
+    type Produce = Box<dyn Fn(&mut ClaudeCode) -> Option<Status>>;
+    let cases: Vec<(&str, Produce, Kind, &str)> = vec![
+        (
+            "stopped",
+            Box::new(|a| a.observe(Observation::Stopped)),
+            Kind::Done,
+            "stopped",
+        ),
+        (
+            "exit by code",
+            Box::new(|a| a.observe(Observation::Exit { code: Some(3) })),
+            Kind::Error,
+            "exited 3",
+        ),
+        (
+            "exit by signal",
+            Box::new(|a| a.observe(Observation::Exit { code: None })),
+            Kind::Error,
+            "signal",
+        ),
+        (
+            "prompt refused",
+            Box::new(|a| a.refuse_prompt()),
+            Kind::Error,
+            "prompt not accepted",
+        ),
+        (
+            "conversation not saved",
+            Box::new(|a| a.fail("cannot save conversation: disk full".into())),
+            Kind::Error,
+            "disk full",
+        ),
+        (
+            "failed turn",
+            Box::new(|a| signal(a, event(FAILURE, "StopFailure"))),
+            Kind::Error,
+            "retry",
+        ),
+        (
+            "ended session",
+            Box::new(|a| signal(a, event(RUN1, "SessionEnd"))),
+            Kind::Done,
+            "done",
+        ),
+    ];
+    for (name, produce, expected, mention) in cases {
+        let (mut adapter, _) = adapter();
+        let status = produce(&mut adapter).unwrap_or_else(|| panic!("{name}: no status"));
+        assert_eq!(status.kind, expected, "{name}");
+        assert!(status.label.contains(mention), "{name}: {}", status.label);
+        assert!(!status.label.trim().is_empty(), "{name}");
+        for raw in ["server_error", "StopFailure", "SessionEnd", "undefined"] {
+            assert!(!status.label.contains(raw), "{name} leaks {raw}");
+        }
+    }
+}
