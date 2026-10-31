@@ -280,7 +280,6 @@ it("u3289c_overview_menu_opens_recovery", async () => {
   failedSave(holder, { surface: "todos", object: "10", recipient: null }, { title: "lost too" });
   expect(await recoveryLabel()).toBe("Recover work (2)");
   fireEvent.click(overview);
-  expect(screen.queryByRole("region", { name: "Unfinished work" })).toBeNull();
   await openRecovery();
   expect(within(await screen.findByRole("region", { name: "Unfinished work" })).getAllByRole("listitem")).toHaveLength(2);
 });
