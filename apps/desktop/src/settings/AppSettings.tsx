@@ -233,7 +233,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
-        <For each={alertStates}>{state => <div class="settings-field" role="group" aria-label={stateLabel(state)}>
+        <For each={alertStates}>{state => <div class="settings-alert-row" role="group" aria-label={stateLabel(state)}>
           <For each={alertChoices}>{choice => <Switch checked={appSettings().stateAlerts[state][choice]}
             onCheckedChange={checked => save({ stateAlerts: { ...appSettings().stateAlerts, [state]: { ...appSettings().stateAlerts[state], [choice]: checked } } })}>{`${stateLabel(state)} ${copy.choiceLabels[choice]}`}</Switch>}</For>
         </div>}</For>

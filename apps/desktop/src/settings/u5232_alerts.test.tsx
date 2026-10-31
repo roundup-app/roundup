@@ -35,7 +35,7 @@ it("u5232b_the_group_lists_five_states_with_three_switches", async () => {
   await open();
 
   const groups = await screen.findAllByRole("group");
-  const states = groups.map(group => group.getAttribute("aria-label")).filter(label => label !== null);
+  const states = groups.map(group => group.getAttribute("aria-label")).filter(label => label !== null && label !== "Agents" && label !== "Alerts");
 
   expect(states).toEqual(["Working", "Blocked", "Needs you", "Error", "Done"]);
   expect(within(screen.getByRole("group", { name: "Needs you" })).getAllByRole("switch").map(each => each.getAttribute("aria-checked"))).toEqual(["false", "true", "true"]);
