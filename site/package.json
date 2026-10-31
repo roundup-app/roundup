@@ -1,0 +1,13 @@
+{
+  "name": "site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vitepress build && node search-index.mjs",
+    "dev": "vitepress dev"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4",
+    "vitepress-plugin-llms": "1.14.0"
+  }
+}
