@@ -5,8 +5,8 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { connectEvents } from "../app/events";
 import { RpcError } from "../app/seam";
 import { createFakeApp } from "../testing/fakeApp";
-import { event, info, node, workstream, door, USER } from "../testing/nodes";
-import { createRailState, currentOwner } from "./rail";
+import { agent, event, info, node, workstream, door, USER } from "../testing/nodes";
+import { createRailState, currentOwner, type DismissalStorage } from "./rail";
 
 const status = (label: string): Status => ({ kind: "working", label, since: 1, finished: "0" });
 
@@ -357,4 +357,49 @@ it("u4523_current_owner_uses_rail_identity_and_liveness", async () => {
     await rail.refresh({ terminals: true });
     expect(currentOwner(rail, row.owner)).toEqual(row.expected);
   }
+});
+
+describe("U5151c", () => {
+  const failed = (revision: string, attempt = "1") => agent("a", "error", "Claude's servers failed", { attempt, status_revision: revision });
+  const storageDouble = (saved: string[] | null = null): DismissalStorage & { saved: () => string[] | null } => {
+    let kept = saved;
+
+    return { read: () => kept, write: async (keys) => { kept = keys; return null; }, saved: () => kept };
+  };
+  const mount = async (tree: RailNode[], dismissals: DismissalStorage) => {
+    const app = createFakeApp();
+    app.handlers["rail.tree"] = () => tree;
+    app.handlers["terminal.list"] = () => [];
+    const rail = createRailState(app, await connectEvents(app), undefined, dismissals);
+    await rail.settled();
+
+    return { app, rail };
+  };
+
+  it("u5151c_dismissal_is_scoped_to_one_failure", async () => {
+    const store = storageDouble();
+    const first = await mount([failed("1")], store);
+
+    first.rail.dismiss(first.rail.nodes[0]!);
+    const reloaded = await mount([failed("1")], storageDouble(store.saved()));
+    const otherProject = await mount([failed("1")], storageDouble());
+    const laterRevision = await mount([failed("2")], storageDouble(store.saved()));
+    const laterAttempt = await mount([failed("1", "2")], storageDouble(store.saved()));
+
+    expect(reloaded.rail.dismissed(reloaded.rail.nodes[0]!)).toBe(true);
+    expect(otherProject.rail.dismissed(otherProject.rail.nodes[0]!)).toBe(false);
+    expect(laterRevision.rail.dismissed(laterRevision.rail.nodes[0]!)).toBe(false);
+    expect(laterAttempt.rail.dismissed(laterAttempt.rail.nodes[0]!)).toBe(false);
+    expect(first.app.calls.map(call => call.method)).not.toContain("agent.send");
+  });
+
+  it("u5151c_next_status_replaces_the_failure", async () => {
+    const { app, rail } = await mount([failed("1")], storageDouble());
+
+    app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "a", status: status("working again") } }));
+
+    expect(rail.nodes[0]?.status?.kind).toBe("working");
+    expect(rail.dismissed(rail.nodes[0]!)).toBe(false);
+    expect(app.calls.filter(call => !call.method.startsWith("rail.") && !call.method.startsWith("terminal.list"))).toEqual([]);
+  });
 });
