@@ -1,3 +1,5 @@
 {
-  "keystroke_p95_ms": { "limit": 16 }
+  "keystroke_p95_ms": { "limit": 16 },
+  "switcher_open_p95_ms": { "limit": 80 },
+  "switch_p95_ms": { "limit": 32 }
 }
