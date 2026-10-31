@@ -284,7 +284,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
         <section class="settings-appearance-preview" aria-label={copy.appearancePreview}>
-          <div class={`settings-mode-preview ${previewMode()}`} data-mode={previewMode()} data-scale={previewScale()}>{copy.appearancePreviewSample}</div>
+          <div class={`settings-mode-preview ${previewMode()}-theme`} data-mode={previewMode()} data-scale={previewScale()}>{copy.appearancePreviewSample}</div>
         </section>
         <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
       </SettingsGroup></Tabs.Content>
