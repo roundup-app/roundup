@@ -16,6 +16,8 @@ mod pty;
 mod recorder;
 mod scheme;
 mod screen;
+mod status;
+pub use status::{BlockedKind, Change, ProgramState, Record};
 
 use program::Program;
 use screen::{ScreenParser, ScreenState, Seen};
@@ -24,7 +26,7 @@ use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, mpsc};
 use std::time::Duration;
@@ -188,6 +190,11 @@ struct Shared {
     clean_env: Vec<String>,
     /// X17: the App's scheme; `None` until it is told, and until then no program is answered.
     scheme: Mutex<Option<scheme::Palette>>,
+    /// PS1: one change per applied report, for the Daemon.
+    status: broadcast::Sender<Arc<Change>>,
+    /// PS5: whether `ESC ] 7501 ; ? ST` gets its reply. Off until the daemon reads the records (#5229): a
+    /// program that sees the reply stops moving its title, which the Daemon's interrupt ack reads.
+    answer_status_query: AtomicBool,
 }
 
 impl Shared {
@@ -212,39 +219,9 @@ impl Shared {
         self.publish(number, EventData::TerminalTitle(TitleEvent { id, title }));
     }
 
-    /// X17: queue `bytes` for the program of Terminal `number`; a program that no longer reads is told on stderr.
-    fn type_into(&self, number: u64, bytes: Vec<u8>) {
-        let handle = self
-            .table()
-            .get(&number)
-            .and_then(|entry| entry.handle.clone());
-        if let Some(handle) = handle
-            && let Err(err) = handle.input.try_send(Input::Bytes(bytes, Vec::new()))
-        {
-            eprintln!("terminal {number}: scheme reply dropped: {err}");
-        }
-    }
-
-    /// X17: one reply per query, in the order asked, from the scheme the App last set.
-    fn answer(&self, number: u64, requests: &[scheme::Request]) {
-        let Some(palette) = *self.scheme.lock().expect("terminal scheme lock") else {
-            return;
-        };
-        let replies: Vec<u8> = requests
-            .iter()
-            .filter_map(|request| match request {
-                scheme::Request::Ask(query) => Some(palette.answer(*query)),
-                scheme::Request::Notices(_) => None,
-            })
-            .flatten()
-            .collect();
-        if !replies.is_empty() {
-            self.type_into(number, replies);
-        }
-    }
-
     fn finish(&self, number: u64, code: Option<i32>) {
         let id = number.to_string();
+        self.program_exited(number);
         if let Some(entry) = self.table().get_mut(&number) {
             entry.info.running = false;
             entry.handle = None;
@@ -296,6 +273,8 @@ impl Terminals {
                     .map(|marker| (*marker).to_owned())
                     .collect(),
                 scheme: Mutex::new(None),
+                status: broadcast::channel(EVENT_BACKLOG).0,
+                answer_status_query: AtomicBool::new(false),
             }),
             integration_dir: dir.join("shell-integration"),
             next: AtomicU64::new(1),
@@ -474,6 +453,7 @@ impl Terminals {
         let pair = native_pty_system()
             .openpty(window(params.cols, params.rows)?)
             .map_err(RpcError::internal)?;
+        let number = self.next.fetch_add(1, Ordering::Relaxed);
         let mut command = match &params.command {
             Some(argv) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
             None => CommandBuilder::new_default_prog(),
@@ -486,6 +466,8 @@ impl Terminals {
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
         }
+        // SK7.2: `rup skill report` writes only where this is set; a caller's value never stands.
+        command.env("ROUNDUP_TERMINAL", number.to_string());
         // All three threads start before the program, so a thread-creation failure leaves no
         // program behind. The reaper observes completion independently of PTY EOF.
         let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;
@@ -494,7 +476,6 @@ impl Terminals {
             Some(adapt) => adapt(writer),
             None => writer,
         };
-        let number = self.next.fetch_add(1, Ordering::Relaxed);
         let snapshot_available = screen::snapshot_size_supported(params.cols, params.rows);
         let scrollback = if snapshot_available {
             SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(params.cols))
@@ -511,6 +492,7 @@ impl Terminals {
             cols: params.cols,
             rows: params.rows,
             scheme_notices: false,
+            status: Default::default(),
         }));
         let (program_arrival, program_arrives) = mpsc::channel::<Program>();
         let (reaped, completion) = mpsc::channel();
@@ -851,6 +833,11 @@ impl Terminals {
             next: start,
             after_gap: None,
         })
+    }
+
+    /// PS5: answer, or stop answering, a program's feature-detection query.
+    pub fn answer_status_query(&self, on: bool) {
+        self.shared.answer_status_query.store(on, Ordering::Relaxed);
     }
 
     /// X17: set the scheme every program is answered in. A change from the one before (or from none)

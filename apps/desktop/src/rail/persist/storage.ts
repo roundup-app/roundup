@@ -40,3 +40,8 @@ export const draftsOf = (storage: Drafts) => {
     retry: () => { storage.retry(); },
   };
 };
+
+const dismissedSchema = storageSchema("roundup:dismissed", v.array(v.string()));
+
+/** U5151c: the failures the owner dismissed in one Project. */
+export const dismissalStorage = (path: string) => storedValue(`roundup:dismissed:${path}`, dismissedSchema);
