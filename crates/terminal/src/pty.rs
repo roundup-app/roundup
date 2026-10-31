@@ -126,7 +126,7 @@ pub(super) fn pump(
 
 impl Shared {
     /// X17: queue `bytes` for the program of Terminal `number`; a program that no longer reads is told on stderr.
-    fn type_into(&self, number: u64, bytes: Vec<u8>) {
+    pub(super) fn type_into(&self, number: u64, bytes: Vec<u8>) {
         let handle = self
             .table()
             .get(&number)
@@ -139,7 +139,7 @@ impl Shared {
     }
 
     /// X17: one reply per query, in the order asked, from the scheme the App last set.
-    fn answer(&self, number: u64, requests: &[scheme::Request]) {
+    pub(super) fn answer(&self, number: u64, requests: &[scheme::Request]) {
         let Some(palette) = *self.scheme.lock().expect("terminal scheme lock") else {
             return;
         };

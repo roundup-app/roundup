@@ -218,15 +218,7 @@ impl Shared {
 
     fn finish(&self, number: u64, code: Option<i32>) {
         let id = number.to_string();
-        let screen = self
-            .table()
-            .get(&number)
-            .map(|entry| Arc::clone(&entry.screen));
-        if let Some(records) =
-            screen.and_then(|screen| screen.lock().expect("terminal screen lock").status.exited())
-        {
-            self.changed(number, records);
-        }
+        self.program_exited(number);
         if let Some(entry) = self.table().get_mut(&number) {
             entry.info.running = false;
             entry.handle = None;
