@@ -15,6 +15,7 @@ import { Pane } from "../terminal/Pane";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { AttentionKey } from "./AttentionKey";
 import { DockBadge } from "./DockBadge";
+import { attentionHolders } from "./attention";
 import { ProjectSettingsView } from "./ProjectSettings";
 import { Rail } from "./Rail";
 
@@ -53,7 +54,7 @@ export const mountRail = async (
     return (
       <ConnectedProjectContext.Provider value={connected}>
         <AttentionKey />
-        <DockBadge app={app} rails={() => [connected.rail.nodes]} onFailure={() => {}} />
+        <DockBadge app={app} rails={() => [attentionHolders(connected.rail.nodes, connected.rail.terminals(), connected.rail.dismissed)]} onFailure={() => {}} />
         <Rail />
         <Show when={neighbors.pane}>
           <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
