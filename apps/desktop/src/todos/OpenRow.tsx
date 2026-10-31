@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { Age } from "../shelf/Age";
 import { OpenButton } from "../ink/OpenButton";
 import { Sortable } from "../ui/sortable";
@@ -136,7 +137,7 @@ export const OpenRow = (props: {
         {props.disclosure}
         <Show when={!editing()} fallback={<NameField object={`todo:${props.todo.id}`} name={props.todo.title}
           version={async () => String((await connected.app.rpc("todo.getHistory", { id: props.todo.id })).changes.at(-1)?.seq ?? 0)}
-          commit={async (text, _base, version) => { if (version === null) throw new Error(copy.originalUnverified); await connected.app.rpc("todo.update", { id: props.todo.id, title: text, body: null, expected_change: Number(version) }); }}
+          commit={async (text, _base, version) => { if (version === null) throw new Error(copy.originalUnverified); await applied(() => connected.app.rpc("todo.update", { id: props.todo.id, title: text, body: null, expected_change: Number(version) })); }}
           close={closeName} fail={message => { setFailedAction(copy.rename); setFailure(message); }} />}>
         <RowButton
           hang={false}

@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { EmptyState } from "../ink/EmptyState";
 import { NameField } from "../ui/Editable";
 import { CopyButton } from "../ui/CopyButton";
@@ -75,8 +76,8 @@ const DraftRecoveryPanel = () => {
       return () => drawer.open(() => <NameField object={object} name={todo?.title ?? pad?.name ?? String(row.draft.value.base)}
         version={async () => null} close={() => drawer.close("key")} fail={message => { if (message) setFailures(current => ({ ...current, [row.draft.revision]: message })); }}
         commit={async (text, base, version) => {
-          if (todo) await app.rpc("todo.update", { id: todo.id, title: text, body: null, expected_change: Number(version) });
-          else if (pad) await app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: pad.incarnation });
+          if (todo) await applied(() => app.rpc("todo.update", { id: todo.id, title: text, body: null, expected_change: Number(version) }));
+          else if (pad) await applied(() => app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: pad.incarnation }));
           else throw new Error(copy.railDraftMissingTarget);
         }} />, "key");
     }

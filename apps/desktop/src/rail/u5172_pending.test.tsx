@@ -114,10 +114,17 @@ const sources = (dir: string): string[] => readdirSync(dir).flatMap(name => {
 });
 
 it("u5172a_every_mutation_goes_through_the_helper", () => {
-  const adopted = ["rail/Rail.tsx", "rail/menu/model.ts", "rail/MovePicker.tsx", "todos/deleteTodos.ts"];
   const root = join(__dirname, "..");
-  const direct = sources(root).filter(path => /app\.rpc\(\s*"rail\.(rename|remove|move)"/.test(readFileSync(path, "utf8")));
-  expect(direct.map(path => path.slice(root.length + 1)).filter(path => !adopted.includes(path))).toEqual(["perf/fixture.ts"]);
+  const mutation = /rpc\(\s*"(?:rail\.(?:rename|remove|move)|todo\.(?:create|move|reopen|complete|setBlockers|update|comment|assign|delete|reorder|removeRef|startWorkstream|restore|redo)|pad\.(?:create|move|reorder|rename|write|delete|restore|redoDelete))"/g;
+  const bare: string[] = [];
 
-  for (const file of adopted) expect(readFileSync(join(root, file), "utf8")).toContain("applying(");
+  for (const path of sources(root).filter(each => !each.includes("/perf/"))) {
+    const text = readFileSync(path, "utf8");
+
+    for (const match of text.matchAll(mutation)) {
+      if (!/(?:applying|applied|changeFailureOf)\((?:async )?\(\) =>[^;]*$/.test(text.slice(Math.max(0, match.index - 160), match.index))) bare.push(`${path.slice(root.length + 1)}: ${match[0]}`);
+    }
+  }
+
+  expect(bare).toEqual([]);
 });

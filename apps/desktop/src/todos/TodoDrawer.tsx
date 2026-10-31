@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { historyRegion } from "../keys/focus";
 import { outcomeOf } from "../app/seam";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
@@ -121,7 +122,7 @@ export const TodoDrawer = (props: {
     const focus = captureFocus();
     const focused = document.activeElement === titleRow?.querySelector("input");
     const reopening = props.todos.byId().get(props.id)?.done;
-    await (reopening ? app.rpc("todo.reopen", { id: props.id }) : app.rpc("todo.complete", { id: props.id }));
+    await (reopening ? applied(() => app.rpc("todo.reopen", { id: props.id })) : applied(() => app.rpc("todo.complete", { id: props.id })));
 
     const stayed = document.activeElement === titleRow?.querySelector("input") || document.activeElement === document.body;
 
@@ -193,7 +194,8 @@ export const TodoDrawer = (props: {
       (await drafts.submit(draft.revision));
 
       try {
-        const accepted = await app.rpc("todo.setBlockers", { id: targetId, blockers, expected_change: change.seq });
+        const seq = change.seq;
+        const accepted = await applied(() => app.rpc("todo.setBlockers", { id: targetId, blockers, expected_change: seq }));
 
         if (targetId === props.id) setAnswered(accepted);
         drafts.settle(draft.revision, "acknowledged");
@@ -234,7 +236,8 @@ export const TodoDrawer = (props: {
     }
 
     try {
-      setAnswered(await app.rpc("todo.setBlockers", { id: target, blockers: form.blockers.map(Number), expected_change: form.expected_change }));
+      const expected = form.expected_change;
+      setAnswered(await applied(() => app.rpc("todo.setBlockers", { id: target, blockers: form.blockers.map(Number), expected_change: expected })));
       drafts.settle(draft.revision, "acknowledged");
       clearFailure();
     } catch (error) {
@@ -305,7 +308,7 @@ export const TodoDrawer = (props: {
                     onFailure={(message, dismiss) => { setTitleFailure(message); dismissTitle = dismiss; }}
                     name="title"
                     multiline={false}
-                    commit={async (title, expected_change) => { await app.rpc("todo.update", { id: props.id, title, body: null, expected_change }); }}
+                    commit={async (title, expected_change) => { await applied(() => app.rpc("todo.update", { id: props.id, title, body: null, expected_change })); }}
                   />
                 </div>
                 <ReservedLine class="todo-title-feedback" message={titleFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>{copy.dismissFailure}</button></ReservedLine>
@@ -321,7 +324,7 @@ export const TodoDrawer = (props: {
                   revision={bodyRevision()}
                   name="body"
                   multiline
-                  commit={async (body, expected_change) => { await app.rpc("todo.update", { id: props.id, title: null, body, expected_change }); }}
+                  commit={async (body, expected_change) => { await applied(() => app.rpc("todo.update", { id: props.id, title: null, body, expected_change })); }}
                 />
                 </div>
                 <Show when={!props.recovery}><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>

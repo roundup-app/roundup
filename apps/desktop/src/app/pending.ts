@@ -13,3 +13,11 @@ export const applying = async <T>(call: () => Promise<T>): Promise<Applied<T>> =
     return { kind: outcomeOf(thrown) === "failed" ? "refused" : "pending", error };
   }
 };
+
+/** U5172a: the value of an applied call; a refusal or pending outcome rethrows for a caller that settles its own draft with `outcomeOf`. */
+export const applied = async <T>(call: () => Promise<T>): Promise<T> => {
+  const result = await applying(call);
+
+  if (result.kind === "applied") return result.value;
+  throw result.error;
+};

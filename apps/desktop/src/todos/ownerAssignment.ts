@@ -10,7 +10,7 @@ import { rowButtonOf } from "./triage";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, TEXT_FIELDS } from "../keys/chords";
 import { shelfKeyScope } from "../shelf/keys";
-import { failureOf } from "./failureOf";
+import { changeFailureOf } from "./failureOf";
 
 /** U3720: a hand-off unfolds its destination and restores the moved row's focus after the authoritative refetch. */
 export const createOwnerAssignment = (source: {
@@ -65,7 +65,7 @@ export const createOwnerAssignment = (source: {
   const assign = async (id: number, owner: Actor | null) => {
     const focus = captureFocus();
     const advance = source.advance();
-    const message = await failureOf(() => source.connected.app.rpc("todo.assign", { id, owner }));
+    const message = await changeFailureOf(() => source.connected.app.rpc("todo.assign", { id, owner }));
 
     source.fail(id, message);
 

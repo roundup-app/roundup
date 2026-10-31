@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { historyRegion } from "../keys/focus";
 import { captureFocus, keepRegionFocus } from "../keys/focus";
 import { CopyButton } from "../ui/CopyButton";
@@ -273,7 +274,7 @@ const PadBody = (props: {
       }, 15_000);
 
       try {
-        const next = await connected.app.rpc("pad.write", { name, text, expectedRevision, expectedIncarnation: destination.object });
+        const next = await applied(() => connected.app.rpc("pad.write", { name, text, expectedRevision, expectedIncarnation: destination.object }));
         connected.drafts.settle(submission.draft.revision, "acknowledged");
         actionFailure.clear();
         props.onFailureCleared?.();

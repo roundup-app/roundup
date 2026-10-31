@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { Age } from "../shelf/Age";
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
@@ -12,7 +13,7 @@ import { copy } from "./copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
-import { failureOf } from "../todos/failureOf";
+import { changeFailureOf, failureOf } from "../todos/failureOf";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
@@ -115,11 +116,11 @@ export const Pads = (props: {
       let action: string = copy.addPad;
 
       try {
-        await connected.app.rpc("pad.create", { name: target, text: null });
+        await applied(() => connected.app.rpc("pad.create", { name: target, text: null }));
 
         if (targetHome !== null) {
           action = copy.movePad(target);
-          await connected.app.rpc("pad.move", { name: target, home: targetHome });
+          await applied(() => connected.app.rpc("pad.move", { name: target, home: targetHome }));
         }
 
         connected.drafts.settle(submitted.draft.revision, "acknowledged");
@@ -189,7 +190,7 @@ export const Pads = (props: {
 
     if (!source || !pads().some(pad => pad.incarnation === source.incarnation && pad.name === source.name)) return;
     const before = ids[ids.indexOf(source.name) + 1] ?? null;
-    const message = await failureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
+    const message = await changeFailureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
 
     reportItemFailure(source, message, copy.movePad(source.name));
     await list.reload();
@@ -380,7 +381,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             <div class="pad-row-head">
             <Show when={!editing()} fallback={<NameField object={`pad:${pad.incarnation}`} name={pad.name}
               version={async () => pad.incarnation} commit={async (text, base, version) => {
-                await connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! });
+                await applied(() => connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! }));
                 await useList.reload();
               }} close={closeName} fail={message => props.onItemFailure(pad, message, copy.rename)} />}>
             <button

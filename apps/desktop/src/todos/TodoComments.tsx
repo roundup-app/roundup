@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { captureFocus } from "../keys/focus";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
@@ -167,7 +168,7 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
  return; }
 
     const message = await failureOf(async () => {
-      try { await app.rpc("todo.comment", { id, body }); drafts.settle(revision, "acknowledged"); }
+      try { await applied(() => app.rpc("todo.comment", { id, body })); drafts.settle(revision, "acknowledged"); }
       catch (error) { if (!(error instanceof Error)) throw error; drafts.settle(revision, outcomeOf(error)); throw error; }
     });
 
