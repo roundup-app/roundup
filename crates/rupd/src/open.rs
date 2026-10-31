@@ -233,7 +233,11 @@ impl Daemon {
             .unwrap_or_else(|p| p.into_inner())
             .take()
         {
-            tokio::spawn(Arc::clone(&self.program_statuses).run(changes, self.bus.clone()));
+            tokio::spawn(Arc::clone(&self.program_statuses).run(
+                changes,
+                self.bus.clone(),
+                Arc::clone(&self.terminals),
+            ));
         }
         let events = self
             .pushes

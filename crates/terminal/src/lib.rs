@@ -594,6 +594,7 @@ impl Terminals {
                     running: true,
                     exit_code: None,
                     owner,
+                    status: None,
                 },
                 events: sender,
                 output: Some(output.clone()),
@@ -839,6 +840,14 @@ impl Terminals {
     }
 
     /// PS5: answer, or stop answering, a program's feature-detection query.
+    /// PS8.1: the program status `terminal.list` shows for a Terminal; `None` clears it.
+    pub fn set_program_status(&self, id: &str, status: Option<contracts::Status>) {
+        let Ok(number) = id.parse() else { return };
+        if let Some(entry) = self.shared.table().get_mut(&number) {
+            entry.info.status = status;
+        }
+    }
+
     pub fn answer_status_query(&self, on: bool) {
         self.shared.answer_status_query.store(on, Ordering::Relaxed);
     }
