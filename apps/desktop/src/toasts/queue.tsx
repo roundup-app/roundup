@@ -34,6 +34,8 @@ export type Candidate = {
   line: string;
   /** U413: this event is for the Agent the user has selected. */
   selected: boolean;
+  /** U5232c: the owner turned `Sound` off for this Kind. */
+  silent?: boolean;
   open: (source: ActivationSource) => Promise<string | null> | string | null;
 };
 
@@ -200,7 +202,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
         setListening(true);
       }
 
-      sound();
+      if (!candidate.silent) sound();
     },
   };
 };
