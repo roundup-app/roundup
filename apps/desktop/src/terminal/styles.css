@@ -172,9 +172,6 @@
   z-index: 1;
   width: calc(var(--space-6) * 6);
   padding: var(--space-2);
-  border-radius: var(--radius-control);
-  background: var(--ground);
-  box-shadow: var(--elevation);
 }
 
 .pane .terminal-find-miss {
