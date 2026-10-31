@@ -56,7 +56,7 @@ pub(super) fn read(
                 .expect("recorder lock")
                 .read(&chunk[..read], at);
         }
-        let seen = {
+        let (seen, reported) = {
             let mut state = screen.lock().expect("terminal screen lock");
             let offset = state.after;
             let parsed = state.ensure_parser().map(|parser| {
@@ -65,6 +65,7 @@ pub(super) fn read(
                     std::mem::take(parser.callbacks_mut())
                 }))
             });
+            let reported = state.status.feed(&chunk[..read], (shared.clock)());
             state.after += read as u64;
             state.log.push(&chunk[..read]);
             // Sent under the lock so a snapshot's `after` and a subscription's start never straddle a chunk.
@@ -72,7 +73,7 @@ pub(super) fn read(
                 offset,
                 bytes: Arc::from(&chunk[..read]),
             });
-            match parsed {
+            let seen = match parsed {
                 Some(Ok(seen)) => {
                     for request in &seen.requests {
                         if let scheme::Request::Notices(on) = request {
@@ -87,8 +88,15 @@ pub(super) fn read(
                     Seen::default()
                 }
                 None => Seen::default(),
-            }
+            };
+            (seen, reported)
         };
+        if !reported.reply.is_empty() {
+            shared.type_into(number, reported.reply);
+        }
+        for records in reported.changes {
+            shared.changed(number, records);
+        }
         shared.answer(number, &seen.requests);
         seen.titles
             .into_iter()
@@ -114,4 +122,37 @@ pub(super) fn pump(
     }
     drop(output);
     shared.finish(number, code);
+}
+
+impl Shared {
+    /// X17: queue `bytes` for the program of Terminal `number`; a program that no longer reads is told on stderr.
+    fn type_into(&self, number: u64, bytes: Vec<u8>) {
+        let handle = self
+            .table()
+            .get(&number)
+            .and_then(|entry| entry.handle.clone());
+        if let Some(handle) = handle
+            && let Err(err) = handle.input.try_send(Input::Bytes(bytes, Vec::new()))
+        {
+            eprintln!("terminal {number}: scheme reply dropped: {err}");
+        }
+    }
+
+    /// X17: one reply per query, in the order asked, from the scheme the App last set.
+    fn answer(&self, number: u64, requests: &[scheme::Request]) {
+        let Some(palette) = *self.scheme.lock().expect("terminal scheme lock") else {
+            return;
+        };
+        let replies: Vec<u8> = requests
+            .iter()
+            .filter_map(|request| match request {
+                scheme::Request::Ask(query) => Some(palette.answer(*query)),
+                scheme::Request::Notices(_) => None,
+            })
+            .flatten()
+            .collect();
+        if !replies.is_empty() {
+            self.type_into(number, replies);
+        }
+    }
 }

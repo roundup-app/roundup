@@ -16,6 +16,8 @@ mod pty;
 mod recorder;
 mod scheme;
 mod screen;
+mod status;
+pub use status::{BlockedKind, Change, ProgramState, Record};
 
 use program::Program;
 use screen::{ScreenParser, ScreenState, Seen};
@@ -188,6 +190,8 @@ struct Shared {
     clean_env: Vec<String>,
     /// X17: the App's scheme; `None` until it is told, and until then no program is answered.
     scheme: Mutex<Option<scheme::Palette>>,
+    /// PS1: one change per applied report, for the Daemon.
+    status: broadcast::Sender<Arc<Change>>,
 }
 
 impl Shared {
@@ -212,39 +216,17 @@ impl Shared {
         self.publish(number, EventData::TerminalTitle(TitleEvent { id, title }));
     }
 
-    /// X17: queue `bytes` for the program of Terminal `number`; a program that no longer reads is told on stderr.
-    fn type_into(&self, number: u64, bytes: Vec<u8>) {
-        let handle = self
-            .table()
-            .get(&number)
-            .and_then(|entry| entry.handle.clone());
-        if let Some(handle) = handle
-            && let Err(err) = handle.input.try_send(Input::Bytes(bytes, Vec::new()))
-        {
-            eprintln!("terminal {number}: scheme reply dropped: {err}");
-        }
-    }
-
-    /// X17: one reply per query, in the order asked, from the scheme the App last set.
-    fn answer(&self, number: u64, requests: &[scheme::Request]) {
-        let Some(palette) = *self.scheme.lock().expect("terminal scheme lock") else {
-            return;
-        };
-        let replies: Vec<u8> = requests
-            .iter()
-            .filter_map(|request| match request {
-                scheme::Request::Ask(query) => Some(palette.answer(*query)),
-                scheme::Request::Notices(_) => None,
-            })
-            .flatten()
-            .collect();
-        if !replies.is_empty() {
-            self.type_into(number, replies);
-        }
-    }
-
     fn finish(&self, number: u64, code: Option<i32>) {
         let id = number.to_string();
+        let screen = self
+            .table()
+            .get(&number)
+            .map(|entry| Arc::clone(&entry.screen));
+        if let Some(records) =
+            screen.and_then(|screen| screen.lock().expect("terminal screen lock").status.exited())
+        {
+            self.changed(number, records);
+        }
         if let Some(entry) = self.table().get_mut(&number) {
             entry.info.running = false;
             entry.handle = None;
@@ -296,6 +278,7 @@ impl Terminals {
                     .map(|marker| (*marker).to_owned())
                     .collect(),
                 scheme: Mutex::new(None),
+                status: broadcast::channel(EVENT_BACKLOG).0,
             }),
             integration_dir: dir.join("shell-integration"),
             next: AtomicU64::new(1),
@@ -511,6 +494,7 @@ impl Terminals {
             cols: params.cols,
             rows: params.rows,
             scheme_notices: false,
+            status: Default::default(),
         }));
         let (program_arrival, program_arrives) = mpsc::channel::<Program>();
         let (reaped, completion) = mpsc::channel();
