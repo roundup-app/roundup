@@ -1,5 +1,6 @@
 //! Methods the Daemon answers itself: `daemon.*`, `events.*`, `provenance.*`.
 
+use contracts::describe::{self, DescribeParams};
 use contracts::methods;
 use contracts::{HistoryParams, IdentifyParams, SubscribeParams, TouchedParams};
 use rpc::{RpcError, params, reply};
@@ -18,6 +19,17 @@ pub(crate) fn call(
     Some(match (namespace, method) {
         (_, "daemon.ping") => serde_json::from_str(&ping_json(daemon)).map_err(RpcError::internal),
         (_, "daemon.methods") => Ok(json!(methods::method_names())),
+        (_, "api.list") => reply(&describe::list()),
+        (_, "api.describe") => params::<DescribeParams>(args.clone()).and_then(|p| {
+            let described = describe::describe(&p.method).map_err(|closest| {
+                let hint = closest.map_or_else(String::new, |name| format!("; closest: {name}"));
+                RpcError::new(
+                    rpc::code::METHOD_NOT_FOUND,
+                    format!("method not found: {}{hint}", p.method),
+                )
+            })?;
+            reply(&described)
+        }),
         (_, "daemon.identify") => params::<IdentifyParams>(args.clone()).map(|p| {
             conn.actor = p.actor;
             Value::Null
@@ -34,7 +46,7 @@ pub(crate) fn call(
                     .map_err(RpcError::internal)
             })
             .and_then(|touches| reply(&touches)),
-        ("daemon" | "events" | "provenance", _) => Err(RpcError::method_not_found(method)),
+        ("daemon" | "api" | "events" | "provenance", _) => Err(RpcError::method_not_found(method)),
         _ => return None,
     })
 }

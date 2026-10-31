@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { createSignal, For } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { Todo } from "@contracts/todo/Todo";
@@ -34,7 +35,7 @@ export const TodoMeta = (props: {
       const choice = priorities.find(priority => (priority.value ?? "unset") === value);
 
       if (!choice || choice.value === props.todo.priority) return;
-      void app.rpc("todo.update", { id: props.todo.id, title: null, body: null, priority: choice.value })
+      void applied(() => app.rpc("todo.update", { id: props.todo.id, title: null, body: null, priority: choice.value }))
         .then(() => props.fail(null), error => { if (!(error instanceof Error)) throw error; props.fail(error.message); });
     }}>
       <Menu.Trigger data-button="quiet" class="word todo-meta-chip" aria-label={copy.todoPriority}><Icon name="diamond" />{priorities.find(priority => priority.value === props.todo.priority)?.label}</Menu.Trigger>
