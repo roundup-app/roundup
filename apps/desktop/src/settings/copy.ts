@@ -14,6 +14,7 @@ export const copy = {
   settingsSearch: "Search settings",
   settingsNoResults: "No settings match.",
   settingsResults: "Search results",
+  settingsPlace: (page: string, group: string) => `${page} › ${group}`,
   groupPermissions: "Permissions",
   groupEngine: "Engine and model",
   groupNaming: "Naming",
