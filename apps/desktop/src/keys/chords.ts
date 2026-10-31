@@ -43,6 +43,8 @@ export const CHORDS: readonly Chord[] = [
   { name: "attention.jump", keys: "⌃⌘J", what: copy.jumpToWhatNeedsYou, presses: ["ctrl+meta+KeyJ"], hint: { label: copy.jumpToWhatNeedsYou, at: { rail: -1, agent: -1, bubble: -1, shelf: -1, pad: -1, drawer: -1 } } },
   { name: "todo.capture", get keys() { return shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey); }, what: copy.captureATodo, get presses() { return [appSettings().quickAdd]; } },
   { name: "terminal.switch", keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.switchAgentTerminal, at: { agent: 0, bubble: 0 } } },
+  // U5171: the Rail binds the arrows itself (RAIL_KEYS), so Help names them with no press for the chord probe to compare.
+  { name: "rail.collapse-expand", keys: "← →", what: copy.collapseExpand, presses: [], inRail: true },
   { name: "rail.move", keys: "M", what: copy.moveTo, presses: ["KeyM"], inRail: true },
   { name: "rail.rename", keys: copy.renameChord, what: copy.rename, presses: [copy.renameChord], inRail: true },
   // Help follows the logical ? through HELP_KEYS, rather than a physical US-layout chord.

@@ -73,6 +73,29 @@ const press = (key: string, kept: KeyboardEventInit = {}) =>
   fireEvent.keyDown(document.activeElement ?? document, { key, ...kept });
 
 describe("u41 rail by keyboard, the rest", () => {
+  it("u5171_hovering_the_row_exposes_collapse", async () => {
+    await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
+
+    fireEvent.mouseEnter(rowOf("g"));
+
+    expect(within(rowOf("g")).getByRole("button", { name: "Collapse" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("u5171_chevron_click_hides_and_shows_children", async () => {
+    await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
+    const rows = () => screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+    await settled();
+
+    expect(rows()).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand" }));
+    await settled();
+
+    expect(rows()).toHaveLength(2);
+  });
+
   it("u41_left_on_an_expanded_group_collapses_it", async () => {
     await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
     rowOf("g").focus();

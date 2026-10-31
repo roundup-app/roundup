@@ -287,7 +287,9 @@ mod switch {
         no_switch.as_object_mut().unwrap().remove("switch_p95_ms");
         let mut dropped = run(10.0, 10.0);
         dropped["switch"] = json!({"n": 94, "dropped": 6});
-        for bad in [errored, slow, no_open, no_switch, dropped] {
+        let mut short = run(10.0, 10.0);
+        short["switch"] = json!({"n": 60, "dropped": 0});
+        for bad in [errored, slow, no_open, no_switch, dropped, short] {
             // An over-limit run beside it never turns exit 2 into exit 1.
             assert_eq!(judge(&[run(90.0, 10.0), bad]).0, 2);
         }

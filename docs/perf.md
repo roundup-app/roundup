@@ -8,6 +8,7 @@ Rule 7's budgets and what measures each. Linux VM numbers are Linux numbers. The
 | Cold plugin materialization < 300 ms | `just perf` (`cold_plugin_materialization_ms`: pinned Q11 plugins into fresh empty storage) | any machine; 10% regression against its recorded Linux baseline |
 | 10 idle Agents < 150 MB extra RSS | `just perf` (`rss_extra_mb`: the Daemon's growth with ten login-shell Terminals) | any machine; the Agents' own processes are manual |
 | Keystroke-to-render < 16 ms p95 | `just perf-keystroke`, only when the user asks ([native keystroke runbook](perf-keystroke.md)) | the macOS App only |
+| Switcher open < 80 ms and switch < 32 ms p95 | `just perf-keystroke` idle run (SP4): after the typing, on the `tree-40` Project with a second shell Terminal, 110 opens and 110 switches, the first 10 of each discarded | the macOS App only |
 | Regression above 10% fails | `just perf`: stored class baseline, or R16 same-job merge-base/head pair on an uncalibrated supported Builder | same class; paired builds share one host/job |
 | 100-tool-use loop's hook-process cost stays within a fixed limit | `just perf` (`hook_loop_ms`: 200 `rup signal` calls against a fresh Daemon, H15) | any machine; limit-only on the stored path, paired regression on uncalibrated Builders |
 

@@ -64,7 +64,7 @@ describe("u8 folding", () => {
     await mountRail([workstream("migrate"), agent("a", "working", "w", { parent: "migrate" })]);
     fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Collapse]")!);
 
-    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Collapse]")!);
+    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Expand]")!);
 
     expect(rowNames()).toEqual(["migrate", "a"]);
   });
