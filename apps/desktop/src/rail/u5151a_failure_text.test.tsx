@@ -83,4 +83,41 @@ describe("U5151e", () => {
     expect(Object.entries(localStorage).some(([key, value]) => key.startsWith("roundup:dismissed:") && value.includes("one:"))).toBe(true);
     expect(turns(app)).toEqual([]);
   });
+  it("u5151g_later_saved_dismissal_clears_the_earlier_line", async () => {
+    const real = Storage.prototype.setItem;
+    let refuse = true;
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) { if (refuse) throw new Error("full"); real.call(this, key, value); });
+    const { app } = await mountRail([failed("one"), failed("two")]);
+
+    await chooseAction(app, "one", "Dismiss error");
+    await settled();
+    expect(screen.getByText(/dismissal for one did not save/)).toBeTruthy();
+
+    refuse = false;
+    await chooseAction(app, "two", "Dismiss error");
+    await settled();
+
+    expect(screen.queryByText(/did not save/)).toBeNull();
+    const stored = Object.entries(localStorage).find(([key]) => key.startsWith("roundup:dismissed:"))?.[1] ?? "";
+    expect(stored).toContain("one:");
+    expect(stored).toContain("two:");
+    expect(turns(app)).toEqual([]);
+    writes.mockRestore();
+  });
+
+  it("u5151g_each_unsaved_dismissal_keeps_its_line", async () => {
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+    const { app } = await mountRail([failed("one"), failed("two")]);
+
+    await chooseAction(app, "one", "Dismiss error");
+    await settled();
+    await chooseAction(app, "two", "Dismiss error");
+    await settled();
+    expect(screen.getByText(/dismissal for one did not save/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await settled();
+    expect(screen.getByText(/dismissal for two did not save/)).toBeTruthy();
+    writes.mockRestore();
+  });
 });
