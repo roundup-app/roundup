@@ -38,7 +38,7 @@ pub enum Reason {
 
 /// A typed envelope between Actors. `reply_to` names the Message this answers, if any; `reason`
 /// names why a `dropped` Message was dropped, and is `None` otherwise.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Message {
     pub id: u32,
     pub from: Actor,
@@ -86,7 +86,7 @@ pub enum Delivery {
 }
 
 /// A sender-to-receiver delivery rule. Both `from` and `to` are Actor ids.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Route {
     pub from: String,
     pub to: String,
@@ -209,7 +209,7 @@ pub enum ResultOutcome {
 
 /// Immutable claim, retaining attribution and exact instruction/output identity.
 /// order_revision precedes this exact instruction; it is never the Order at report time.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ResultReport {
     pub order_revision: Option<String>,
     pub report: String,
@@ -221,14 +221,14 @@ pub struct ResultReport {
     pub publication: crate::deliverable::Deliverable,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ResultAcceptance {
     pub actor: Actor,
     pub evidence: String,
 }
 
 /// A Daemon observation of the report's declared source, never caller-supplied authority.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "verdict", rename_all = "kebab-case")]
 pub enum ResultObservation {
     Passed {
@@ -248,7 +248,7 @@ pub enum ResultObservation {
 
 /// Unresolved external effects remain current despite later claims or changed instructions.
 /// Other current results require the same instruction and latest reported target version.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ResultProgress {
     pub report: ResultReport,
     pub current: bool,
@@ -257,7 +257,7 @@ pub struct ResultProgress {
     pub availability: crate::deliverable::Resolution,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Progress {
     pub instructions: crate::agent::Instructions,
     pub results: Vec<ResultProgress>,
@@ -279,7 +279,7 @@ pub struct ResumeWorkParams {
 
 /// One unfinished action for exact instruction/target/output versions. `id` hashes those
 /// versions and the pending next step, never a report key, so it is stable across retries.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContinuationAction {
     pub id: String,
     pub report: String,
@@ -293,7 +293,7 @@ pub struct ContinuationAction {
 
 /// Work that cannot be continued now: an unknown or unavailable fact, with its cause and the
 /// action that checks it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContinuationBlock {
     pub report: String,
     pub target: ResultTarget,
@@ -303,7 +303,7 @@ pub struct ContinuationBlock {
 
 /// Retained evidence that was confirmed for its exact version. `current` is false for an older
 /// version, which verifies nothing about the version that replaced it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContinuationContext {
     pub report: String,
     pub target: ResultTarget,
@@ -312,7 +312,7 @@ pub struct ContinuationContext {
 }
 
 /// The Daemon's read of one Agent's retained evidence, changing nothing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Reconciliation {
     pub agent: String,
     pub actions: Vec<ContinuationAction>,
@@ -322,7 +322,7 @@ pub struct Reconciliation {
 }
 
 /// An accepted decision and the one successor Message it made.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContinuationChoice {
     pub id: String,
     pub request: String,
@@ -331,7 +331,7 @@ pub struct ContinuationChoice {
 }
 
 /// `decision` is absent when no unfinished work was eligible, and then no Message was made.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ResumeWork {
     pub decision: Option<ContinuationChoice>,
     pub reconciliation: Reconciliation,
