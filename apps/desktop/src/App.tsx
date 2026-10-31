@@ -498,7 +498,7 @@ export const App = (props: {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
         const label = (what: string) => row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : what;
         const group = "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const;
-        const live = actions.filter(action => action.available() && (action.value === id || action.value.startsWith(`${id}:`)));
+        const live = actions.filter(action => (action.value === id || action.value.startsWith(`${id}:`)) && action.available());
 
         if (!live.length && "keys" in row && (nativeKeys.has(row.keys) || "inTriage" in row && row.inTriage)) return [];
 
