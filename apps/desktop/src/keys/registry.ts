@@ -1,7 +1,7 @@
 import { rowKey } from "../ui/RowCollection";
 import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
-import { CHORDS, LEADER, chordsFor, leaderChord, TEXT_FIELDS } from "./chords";
+import { CHORDS, LEADER, chordsOf, defaultKeys, leaderChord, TEXT_FIELDS } from "./chords";
 import type { ActionValues, Chord, LeaderKey } from "./chords";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
 
@@ -197,7 +197,7 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
     if (!("action" in binding)) return binding;
 
     const key: Binding = {
-      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsFor(binding.action.keys, binding.match) : leaderChord(binding.action.keys)),
+      chords: binding.chords ?? (binding.press ? [binding.press] : "presses" in binding.action ? chordsOf(binding.action, binding.match) : leaderChord(binding.action.keys)),
       run: (event) => {
         const captured = binding.capture(event.target instanceof Element ? event.target : document.activeElement);
 
@@ -244,10 +244,10 @@ const captureAll = (focus: Element | null) => {
     const available = () => registrations.has(registration) && captured.available();
 
     return {
-      value: `action:${leader ? "leader" : "chord"}:${binding.action.keys}${binding.press ? `:${binding.press}` : ""}`,
+      value: `action:${leader ? "leader" : "chord"}:${defaultKeys(binding.action)}${binding.press ? `:${binding.press}` : ""}`,
       name: binding.action.name, action: binding.action, press: binding.press, searchable: binding.searchable !== false,
       label: captured.label ?? binding.action.what,
-      keys: leader ? `${CHORDS.find((row) => row.keys === "⌘K")!.keys} ${binding.action.keys}` : binding.action.keys,
+      keys: leader ? `${CHORDS.find((row) => row.name === "leader.open")!.keys} ${binding.action.keys}` : binding.action.keys,
       available,
       run: (args?: ActionValues) => { if (available()) captured.invoke(args); },
       at: rows.findIndex(row => row.keys === binding.action.keys && ("press" in row) === leader),

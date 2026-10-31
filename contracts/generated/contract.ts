@@ -112,6 +112,7 @@ export const CONTRACT = {
     "reaction.stop": "7f76744550a78b3b",
     "route.list": "5aac961a9745025c",
     "route.set": "d871b2b8a6257592",
+    "shortcuts.export": "cfe56a2ba943c3a3",
     "terminal.catchUp": "127e301fef91d04b",
     "terminal.close": "1c27c5a6fa7bae68",
     "terminal.kill": "7980d904f9b34556",

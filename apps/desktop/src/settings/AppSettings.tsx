@@ -275,7 +275,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Field.Root>}</For>
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSettings capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSettings capture={props.app.capture} app={props.app} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
         <SegmentGroup description={copy.modeHint} label={copy.mode} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => void chooseAppearance({ mode })} />
