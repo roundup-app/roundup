@@ -7,6 +7,7 @@ import type { CreateParams } from "@contracts/todo/CreateParams";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it, vi } from "vitest";
 import { NOW_TICK_MS } from "../state/clock";
+import { RpcError } from "../app/seam";
 import { USER } from "../testing/nodes";
 import { RequestedApp as App } from "../testing/requestedApp";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -460,7 +461,7 @@ it("u3789d_controls_keep_all_actions_dismisses_failure_from_menu", async () => {
 
 it("u3789d_failed_rail_rename_keeps_retry_after_selection_changes", async () => {
   const { app, row } = await target("agent");
-  const refused = new Error("name already taken");
+  const refused = new RpcError(-32003, "name already taken");
   app.handlers["rail.rename"] = () => { throw refused; };
 
   fireEvent.keyDown(row, { key: "F2" });
