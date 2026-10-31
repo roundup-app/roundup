@@ -38,9 +38,6 @@ import type { PickParams as ask_PickParams } from "./ask/PickParams";
 import type { SendParams as ask_SendParams } from "./ask/SendParams";
 import type { SaveParams as attachment_SaveParams } from "./attachment/SaveParams";
 import type { Saved as attachment_Saved } from "./attachment/Saved";
-import type { Checkpoint as checkpoint_Checkpoint } from "./checkpoint/Checkpoint";
-import type { ListParams as checkpoint_ListParams } from "./checkpoint/ListParams";
-import type { WriteParams as checkpoint_WriteParams } from "./checkpoint/WriteParams";
 import type { HistoryParams as common_HistoryParams } from "./HistoryParams";
 import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
 import type { Ping as common_Ping } from "./Ping";
@@ -162,8 +159,6 @@ import type { QueuedWorkstream as workstream_QueuedWorkstream } from "./workstre
 import type { RestartParams as workstream_RestartParams } from "./workstream/RestartParams";
 import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
 import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
-import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPlan";
-import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
 import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "./workstream/StartWorkstreamParams";
 
 export type RpcMethods = {
@@ -270,8 +265,6 @@ export type RpcMethods = {
   "terminal.screen": { params: terminal_TerminalId; result: terminal_Screen };
   "terminal.read": { params: terminal_ReadParams; result: terminal_Read };
   "terminal.search": { params: terminal_SearchParams; result: terminal_Search };
-  "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
-  "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
@@ -316,9 +309,8 @@ export type RpcMethods = {
   "message.resolveResult": { params: message_ResolveResultParams; result: message_ResultObservation };
   "message.reconcileWork": { params: message_ProgressParams; result: message_Reconciliation };
   "message.resumeWork": { params: message_ResumeWorkParams; result: message_ResumeWork };
-  "workstream.restart": { params: workstream_RestartParams; result: agent_RailNode };
-  "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
+  "workstream.restart": { params: workstream_RestartParams; result: agent_RailNode };
   "todo.startWorkstream": { params: workstream_StartWorkstreamParams; result: agent_RailNode };
   "workstream.queue": { params: null; result: workstream_QueueState };
   "workstream.dequeue": { params: workstream_QueuedWorkstream; result: null };

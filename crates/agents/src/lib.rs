@@ -31,7 +31,6 @@ mod asks;
 mod auto;
 pub mod claude_code;
 mod convert;
-pub mod marks;
 mod models;
 pub mod placement;
 mod pr_checks;
@@ -46,6 +45,7 @@ pub use peer::{classifications, parent_lookups};
 mod prepared;
 mod queue;
 mod rail;
+pub mod rewind;
 mod scan;
 pub mod worktree;
 

@@ -86,7 +86,7 @@ export const copy = {
   failed: sharedCopy.failed,
   changedTodo: sharedCopy.changedTodo,
   body: "Body",
-  move: "Move",
+  move: sharedCopy.move,
   moveItem: sharedCopy.moveItem,
   moveTodoRow: (id: number, title: string) => `Move #${id} ${title}`,
   homesFor: (value1: CopyValue) => `Homes for #${value1}`,
@@ -117,7 +117,7 @@ export const copy = {
   olderActivity: (count: number) => `${count} older ${count === 1 ? "entry" : "entries"}`,
   commentField: "Write a comment",
   commentPlaceholder: "Add a comment",
-  comment: "Comment",
+  comment: sharedCopy.comment,
   reply: "Reply",
   commentTime: (at: number, now: number) => {
     const minutes = Math.max(0, Math.floor((now - at) / 60_000));
