@@ -143,3 +143,109 @@ async fn a12a_an_exited_owner_falls_back_to_done() {
     assert_eq!(node.terminal_id, None);
     assert!(terminals.list().await.iter().all(|t| !t.running));
 }
+
+/// A5335a: two restarts in a row keep every live child, each with its Terminal and never
+/// `terminal gone`, and the owner records survive the first restart.
+#[tokio::test]
+async fn a5335a_two_restarts_keep_every_live_child() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().canonicalize().unwrap();
+    let script = data.join("fake-claude");
+    std::fs::write(&script, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nexec sleep 30\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bus = Bus::new();
+
+    let (agents, _terminals) = open(&data, &bus);
+    let cwd = data.to_string_lossy().into_owned();
+    let mut ids = Vec::new();
+    for _ in 0..3 {
+        let node: RailNode =
+            serde_json::from_value(call(&agents, &bus, "agent.spawn", json!({"cwd": cwd})).await)
+                .unwrap();
+        ids.push(node.id);
+    }
+    drop(agents);
+
+    for _ in 0..2 {
+        let (agents, terminals) = open(&data, &bus);
+        let mut kept = agents.reattach_owners().await;
+        kept.sort();
+        assert_eq!(kept, ids);
+        let nodes = tree(&agents, &bus).await;
+        assert_eq!(nodes.len(), 3);
+        for node in &nodes {
+            assert!(node.terminal_id.is_some());
+            let status = node.status.as_ref().expect("status");
+            assert_ne!(status.kind, Kind::Done);
+            assert_ne!(status.label, "terminal gone");
+        }
+        assert_eq!(
+            terminals.list().await.iter().filter(|t| t.running).count(),
+            3
+        );
+        drop(agents);
+    }
+}
+
+/// A5335d: a reopen launches no child again; the fake `claude` logs its cwd on each launch.
+#[tokio::test]
+async fn a5335d_reopen_keeps_each_launch_count_at_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let data = dir.path().canonicalize().unwrap();
+    let log = data.join("launches.log");
+    let script = data.join("fake-claude");
+    std::fs::write(&script, format!("#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\npwd >> '{}'\nexec sleep 30\n", log.display())).unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bus = Bus::new();
+
+    let (agents, _terminals) = open(&data, &bus);
+    let mut ids = Vec::new();
+    for name in ["one", "two", "three"] {
+        let cwd = data.join(name);
+        std::fs::create_dir(&cwd).unwrap();
+        let node: RailNode = serde_json::from_value(
+            call(
+                &agents,
+                &bus,
+                "agent.spawn",
+                json!({"cwd": cwd.to_string_lossy()}),
+            )
+            .await,
+        )
+        .unwrap();
+        ids.push(node.id);
+    }
+    drop(agents);
+
+    for round in 0..2 {
+        let (agents, terminals) = open(&data, &bus);
+        let mut kept = agents.reattach_owners().await;
+        kept.sort();
+        ids.sort();
+        assert_eq!(kept, ids);
+        let nodes = tree(&agents, &bus).await;
+        assert_eq!(nodes.len(), 3);
+        assert!(
+            nodes.iter().all(|n| n.terminal_id.is_some()
+                && n.status.as_ref().map(|s| s.kind) != Some(Kind::Done))
+        );
+        assert_eq!(
+            terminals.list().await.iter().filter(|t| t.running).count(),
+            3
+        );
+        let launched = std::fs::read_to_string(&log).unwrap();
+        for name in ["one", "two", "three"] {
+            let n = launched
+                .lines()
+                .filter(|l| l.ends_with(&format!("/{name}")))
+                .count();
+            assert_eq!(n, 1, "{name} launched {n} times");
+        }
+        drop(agents);
+        if round == 1 {
+            for t in terminals.list().await {
+                terminals.kill(&t.id).await.unwrap();
+            }
+        }
+    }
+}

@@ -22,6 +22,11 @@ inputs:
 runs:
   using: composite
   steps:
+    # CI5330: setup unpacks the Rust cache (1.9 GB compressed), pnpm and a browser into a 14 GB runner; free the image's unused toolchains first.
+    - if: runner.environment != 'self-hosted' && runner.os == 'Linux'
+      name: Free runner disk
+      shell: bash
+      run: bash "${{ github.action_path }}/disk.sh" free
     - if: runner.environment == 'self-hosted'
       name: Verify prepared boxd toolchain
       shell: bash

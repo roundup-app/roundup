@@ -87,6 +87,7 @@ export const SEAM_COMMANDS = [
   "recent_projects",
   "claude_binary",
   "record_idle_evidence",
+  "state_alert",
   "select_project_menu",
   "open_project",
   "close_project",
@@ -149,6 +150,10 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
 
+export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
+
+export const stateAlertClickedSchema = v.object({ agent: v.string() });
+
 export type App = {
   recentProjects(): Promise<string[]>;
   claudeBinary(): Promise<v.InferOutput<typeof claudeBinarySchema> | null>;
@@ -176,6 +181,10 @@ export type App = {
   chooseSavePath(suggestedName: string): Promise<string | null>;
   /** Shows `count` on the Dock icon; zero clears the badge. */
   setDockBadge(count: number): Promise<void>;
+  /** U5232f: shows one macOS banner naming the Agent when `alert`, plays one system sound when `sound`; both false rejects INVALID_PARAMS, a refused permission rejects FORBIDDEN with its cause (and a sound still plays). */
+  stateAlert(alert: StateAlert): Promise<void>;
+  /** U5232e: a click on a State alert's banner; the window is already in front. */
+  onStateAlertClicked(listener: (agent: string) => void): Promise<Unsubscribe>;
   /** Writes the full native title of the current window; a native failure rejects as RpcError. */
   setWindowTitle(title: string): Promise<void>;
   /** Requests a native drag of the current window; rejects as RpcError on failure. */

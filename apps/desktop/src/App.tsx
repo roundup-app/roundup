@@ -476,6 +476,9 @@ export const App = (props: {
 
   const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
 
+  // U5244a: plain list and text-editing keys, Triage's keys and Settings (App menu) stay native: listed only while something binds them (U3787b).
+  const nativeKeys = new Set(["⌘,", "?", "⏎", "Esc", "Tab", "⇧Tab", "J K"]);
+
   const menuItems = createMemo(() => {
     menuFocus();
     const actions = captureActions(menuFocus());
@@ -493,18 +496,31 @@ export const App = (props: {
       ...views.map(([id, label]) => ({ id: `view:${id}`, label: id === "notes" ? (available && connected.hasView(id) ? copy.closeView(label) : label) : id === "resources" ? copy.showView(label, available && connected.hasView(id)) : available && connected.hasView(id) ? copy.closeView(label) : copy.openEvidence(label), group: "views" as const, enabled: available && (id !== "resources" || connected.rail.nodes.some(node => node.id === connected.rail.selected() && (node.kind === "agent" || node.kind === "workstream" && node.attempt !== null))) })),
       ...[...CHORDS.filter(row => row.keys !== copy.leaderChord && row.keys !== "⌘Z" && row.keys !== "⇧⌘Z"), ...LEADER.filter(row => row.keys !== "T")].flatMap(row => {
         const id = `action:${"press" in row ? "leader" : "chord"}:${row.keys}`;
+        const label = (what: string) => row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : what;
+        const group = "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const;
+        const live = actions.filter(action => (action.value === id || action.value.startsWith(`${id}:`)) && action.available());
 
-        const items = actions.filter(action => (action.value === id || action.value.startsWith(`${id}:`)) && action.available()).map(action => {
-          const item: MenuItem = { id: action.value, label: row.keys === "M" && "inRail" in row && row.inRail ? copy.moveToInRail : row.keys === "R" && "inRail" in row && row.inRail ? copy.restartModeInRail : "press" in row && row.keys === "B" ? (frame.open() ? copy.closeShelf : copy.openShelf) : action.label, group: "press" in row || row.keys === "⌘/" || row.keys === "⌘F" || row.keys === "⌃⌘J" || !taskKeys.has(row.keys) && row.what !== copy.captureATodo ? "navigate" as const : "create" as const, enabled: available || row.keys === "⌘O" };
+        if (!live.length && "keys" in row && (nativeKeys.has(row.keys) || "inTriage" in row && row.inTriage)) return [];
 
-          item.shortcut = "press" in row ? `⌘K ${row.keys}` : action.press ? shortcutLabel(action.press) : row.keys;
+        // U5244b: a command that cannot act now keeps its place, label and key, disabled.
+        const items = (live.length ? live : [null]).map(action => {
+          const item: MenuItem = { id: action?.value ?? id, label: label(action?.label ?? row.what), group, enabled: action !== null && (available || row.keys === "⌘O") };
+
+          item.shortcut = "press" in row ? `⌘K ${row.keys}` : action?.press ? shortcutLabel(action.press) : row.keys;
 
           return item;
         });
 
-        return row.keys === "1–9" && items.length ? [{ id, label: copy.assignTo(""), group: "navigate" as const, enabled: available, children: items }] : items;
+        return row.keys === "1–9" ? [{ id, label: copy.assignTo(""), group: "navigate" as const, enabled: available && live.length > 0, children: live.length ? items : [] }] : items;
       }),
-    ].filter((item, at, all) => (item.enabled || item.group === "edit") && all.findIndex(other => other.id === item.id) === at);
+    ].reduce<MenuItem[]>((kept, item) => {
+      const at = kept.findIndex(other => other.id === item.id);
+
+      if (at < 0) kept.push(item);
+      else if (!kept[at]!.enabled && item.enabled) kept[at] = item;
+
+      return kept;
+    }, []);
   });
 
   let menuWriting = false;
