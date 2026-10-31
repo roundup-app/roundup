@@ -831,3 +831,6 @@ mod modes;
 
 #[path = "resume/history.rs"]
 mod history;
+
+#[path = "resume/conversion.rs"]
+mod conversion;

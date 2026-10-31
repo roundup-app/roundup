@@ -384,6 +384,24 @@ impl Rail {
         Ok(())
     }
 
+    /// A5214a: turn root Agent `id` into a Workstream in place; `Ok(false)` when it is not a root
+    /// Agent. `to_workstream = false` undoes it.
+    pub fn convert_kind(&mut self, id: &str, to_workstream: bool) -> Result<bool, RpcError> {
+        let (from, to) = if to_workstream {
+            ("agent", "workstream")
+        } else {
+            ("workstream", "agent")
+        };
+        let changed = self
+            .db
+            .execute(
+                "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL",
+                params![to, id, from],
+            )
+            .map_err(sql)?;
+        Ok(changed == 1)
+    }
+
     /// M7: the ids of the Workstreams Agent `creator` created and that still exist.
     pub fn created_by(&self, creator: &str) -> Result<Vec<String>, RpcError> {
         Self::created_by_in(&self.db, creator)

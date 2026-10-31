@@ -75,6 +75,8 @@ declarations! { $;
         "project.rename": contracts::project::RenameParams => (), rpc_project_rename, all(schema(contracts::project::RenameParams,"Ask the App to give this Project a name of 1 to 40 characters. The answer means asked, not done."));
         "rail.remove": contracts::agent::RemoveParams => Option<contracts::agent::Removal>, rpc_rail_remove, all(schema(contracts::agent::RemoveParams,"Remove a node in your Reach, never yourself. Workstream scope this (default) keeps unfinished work; all stops and removes its contents. All is only valid for a Workstream and cannot retain an operation."));
         "agent.resume": contracts::agent::ResumeParams => contracts::agent::RailNode, rpc_agent_resume, all(schema(contracts::agent::ResumeParams,"Continue a saved conversation in your Reach. An explicit normal or yolo mode stops a running Agent or Door first; omitted mode requires an exited Agent."));
+        "agent.makeWorkstream": contracts::agent::NodeId => contracts::agent::RailNode, rpc_agent_make_workstream, none();
+        "agent.saveAsMode": contracts::agent::SaveAsModeParams => contracts::agent::RailNode, rpc_agent_save_as_mode, none();
         "agent.setModel": contracts::agent::SetModelParams => contracts::agent::RailNode, rpc_agent_set_model, none();
     }
     todos_methods["todo"] {
