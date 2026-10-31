@@ -64,7 +64,7 @@ it("u3770a_an_empty_inbox_says_nothing_waits", async () => {
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
   m.connected.showView(null);
   m.connected.showView("attention");
-  await screen.findByText("Nothing waits for you");
+  await screen.findByText("Nothing needs you");
   expect(panel().querySelectorAll(".inbox-group")).toHaveLength(0);
 });
 

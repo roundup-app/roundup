@@ -122,7 +122,7 @@ export const copy = {
   leaderShortShelf: "Bench",
   leaderShortCapture: "Capture",
   captureATodo: "Capture a Todo",
-  inboxEmpty: "Nothing waits for you",
+  inboxEmpty: "Nothing needs you",
   save: "Save",
   copied: "Copied",
   exportMd: "Export .md",

@@ -68,7 +68,7 @@ export const copy = {
   openTheInbox: "Open the Inbox",
   leaderWaitsForAKey: "Choose next key",
   switchToARowByName: "Find row",
-  jumpToWhatNeedsYouInAnotherProject: "Other Project attention",
+  jumpToWhatNeedsYouInAnotherProject: "Reach attention elsewhere",
   exportMd: sharedCopy.exportMd,
   assign: sharedCopy.assign,
   assignTodo: sharedCopy.assignTodo,
