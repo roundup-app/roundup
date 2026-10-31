@@ -164,7 +164,6 @@ export const Rail = () => {
 
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
-
     if (prompt !== undefined) keepDraft(String(prompt));
   };
 
