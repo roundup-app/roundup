@@ -52,7 +52,7 @@ export const Rail = () => {
   const { app, project, rail, now, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
 
-  const attention = createMemo(() => attentionCount(rail.nodes));
+  const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
   const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
@@ -74,6 +74,7 @@ export const Rail = () => {
     const actions = actionsOf(node);
 
     return [
+      ...(node.kind === "agent" && node.status?.kind === "error" && !rail.dismissed(node) ? [{ id: "dismiss", label: copy.dismissError, run: () => { rail.dismiss(node); } }] : []),
       ...(moveAgent.available(node.id) ? [{ id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) }] : []),
       ...(canMakeWorkstream(node, rail.exitOf(node)) ? [{ id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } }] : []),
       ...(canSaveAsMode(node) ? [{ id: "save-as-mode", label: copy.saveAsMode, run: () => { setSavingMode(node.id); } }] : []),
@@ -884,7 +885,7 @@ export const Rail = () => {
                           }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
-                            await app.rpc("rail.rename", { id: view().node.id, name });
+                            await rail.rename(view().node.id, name);
                             failure.acknowledge(view().node.id);
                           }}
                           lifted={parts.isDragging()}

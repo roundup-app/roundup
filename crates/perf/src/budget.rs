@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub const REGRESSION: f64 = 0.10;
 
 /// What one metric may measure. A metric with neither a limit nor a baseline for this OS is reported, never failed.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Budget {
     /// Absolute ceiling from rule 7.
     pub limit: Option<f64>,
