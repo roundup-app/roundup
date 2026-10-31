@@ -87,6 +87,7 @@ export const SEAM_COMMANDS = [
   "recent_projects",
   "claude_binary",
   "record_idle_evidence",
+  "state_alert",
   "select_project_menu",
   "open_project",
   "close_project",
