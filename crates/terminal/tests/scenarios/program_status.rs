@@ -301,6 +301,7 @@ async fn ps4_a_full_reset_clears_every_record() {
 }
 
 #[tokio::test]
+#[ignore = "PS5 reply held back until rupd reads the records (#5229)"]
 async fn ps5_the_query_gets_the_fixed_reply_and_nothing_else() {
     let reply =
         "\x1b]7501;?:states=idle,working,done,blocked,error,clear:kinds=permission,question,auth";
