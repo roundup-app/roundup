@@ -314,16 +314,16 @@
 .settings-center { display: flex; flex-direction: column; }
 .settings-center .settings-center-content { flex: 1; height: auto; min-height: 0; }
 .settings-forward { order: -1; align-self: flex-end; margin: var(--space-2) var(--space-4) 0; }
-.settings-appearance-preview { display: flex; background: var(--gray-1); color: var(--gray-12); font-size: var(--text-sample-default); }
-.settings-appearance-preview[data-scale="small"] { font-size: var(--text-sample-small); }
-.settings-appearance-preview[data-scale="large"] { font-size: var(--text-sample-large); }
+.settings-appearance-preview { display: flex; background: var(--gray-1); color: var(--gray-12); --interface-scale: 1; --text-body: calc(13px * var(--interface-scale)); font-size: var(--text-body); }
+.settings-appearance-preview[data-scale="small"] { --interface-scale: var(--scale-small); --text-body: calc(13px * var(--interface-scale)); }
+.settings-appearance-preview[data-scale="large"] { --interface-scale: var(--scale-large); --text-body: calc(13px * var(--interface-scale)); }
 .settings-history .settings-forward-disabled { color: var(--disabled); }
 .settings-content .app-segment[data-state="checked"] { color: var(--accent); }
 .settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .settings-preview-terminal { height: auto; overflow: hidden; background: var(--terminal-background); }
-.settings-scale-small { font-size: var(--text-sample-small); }
-.settings-scale-default { font-size: var(--text-sample-default); }
-.settings-scale-large { font-size: var(--text-sample-large); }
+.settings-scale-small { font-size: var(--text-small); }
+.settings-scale-default { font-size: var(--text-body); }
+.settings-scale-large { font-size: var(--text-row); }
 
 .settings-naming button {
   grid-column: 2;
