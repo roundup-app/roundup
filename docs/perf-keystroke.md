@@ -299,3 +299,37 @@ proves that same clause with ordered bytes independent of write boundaries.
 the cap through a real factory-created emulator instead of copying config values.
 U11's refused-subscription observer keeps its one semantic alert assertion;
 its paragraph-tag and icon-shape assertions are retired as appearance checks.
+
+### 2026-10-30: draw Turn gutters at render only
+
+The owner's observation at `1cd37792e`, after #5103, still exits 1 on AC
+power, idle and unlocked, with stray test browsers closed first:
+
+| Flood run | Load | p50 / p95 / p99 ms | Dropped | dispatch→daemon p95 | echo read→event p95 | parsed→frame p95 |
+|---|---|---|---|---|---|---|
+| 1 | 4.0 | 11 / 19 / 23 | 0 | 7 | 4 | 13 |
+| 2 | 4.8 | 11 / 19 / 25 | 0 | 7 | 5 | 14 |
+| 3 | 6.1 | 11 / 19 / 24 | 0 | 6 | 5 | 13 |
+
+The 120 Hz WebGL recorder still spends more than one frame in parsed→frame.
+A window-free real-xterm observer found 198 gutter `clientHeight` reads while
+parsing 200 output lines: `onScroll` fires per line, and each gutter draw
+interleaves a layout read with style writes. `onWriteParsed` and `onResize`
+repeat that work before `onRender` draws it again. The gutter now uses xterm's
+existing `onRender` event for output, scroll and resize; no new scheduler is
+introduced. Explicit shell marks retain their existing immediate updates.
+
+`r21_flood_gutters_draw_once_per_frame_without_losing_turn_selection` reproduces
+those 198 reads before the repair, then asserts zero during parsing and one at
+the next render, with a gutter click selecting the complete 200-line Turn.
+The isolated headless Chromium observer at 1512×950 in dark mode confirms
+187 reads during parsing plus one at render before, versus zero plus one
+after; both gutter clicks select the complete Turn. Its records and captures
+are under `artifacts/ux/R21/{base,head}/`. All tree-40 Checks remain passing.
+This continues #4879's adaptive scheduling, already preserved on main, and
+changes no byte ordering or recorder boundary. It proves fewer layout reads,
+not native latency. R20/R21 remain open. Before review, run
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood` once on the owner's Mac at
+the PR head and retain all three reports. Every run must have p95 < 16 ms and
+zero dropped keys; another exit 1 keeps the measured render hop open, and exit
+2 means the recorder needs repair. No after-repair native timing is claimed.

@@ -19,6 +19,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Combobox } from "../ui/Combobox";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
+import { FailureLine } from "../ink/FailureLine";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
@@ -454,6 +455,7 @@ const OverviewEntry = (props: { node: RailNode; status: boolean; waiting: boolea
         </span>
       }</Tip>
       <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
+      <FailureLine status={status()} />
     </button>;
   }}</Tip>;
 };

@@ -203,10 +203,9 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
 
       return true;
     }),
-    // A running Turn grows with its output.
-    terminal.onWriteParsed(drawGutters),
-    terminal.onScroll(drawGutters),
-    terminal.onResize(drawGutters),
+    // R21: flood scroll events fire per line. Reading layout and writing gutter
+    // styles there forces layout during parsing; onRender covers output, scroll
+    // and resize together, once the viewport has reached its final frame state.
     terminal.onRender(drawGutters),
   );
 

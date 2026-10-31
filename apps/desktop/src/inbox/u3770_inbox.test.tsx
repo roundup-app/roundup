@@ -73,7 +73,7 @@ it("u3770b_a_row_opens_to_its_state_s_one_action", async () => {
   const head = (name: string) => within(panel()).getByText(name).closest("button")!;
   fireEvent.click(head("gamma"));
   await waitFor(() => expect(head("gamma").getAttribute("aria-expanded")).toBe("true"));
-  await within(panel()).findByText(NODES[2]!.status!.label);
+  await within(panel()).findAllByText(NODES[2]!.status!.label);
   await within(panel()).findByRole("button", { name: "Retry" });
   fireEvent.click(head("alpha"));
   await within(panel()).findByText(NODES[0]!.status!.label);
