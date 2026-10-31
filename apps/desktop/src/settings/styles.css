@@ -299,17 +299,20 @@
   background: var(--inset-box);
   overflow: hidden;
 }
-.settings-rows > :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview) {
+.settings-rows :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview) {
   box-sizing: border-box;
   padding: var(--space-3) var(--space-4);
 }
-.settings-rows > :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview):not(:first-child) {
+.settings-rows :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview):not(:first-child) {
   border-top: var(--hairline-width) solid var(--hairline);
 }
+/* A picker inside a field is part of that row, not a row of its own. */
+.settings-field .app-select { padding: 0; }
+.settings-field .app-select:not(:first-child) { border-top: 0; }
 .settings-history { display: flex; gap: var(--space-3); align-items: center; }
 /* Forward sits in a header row of the centre, above the view it restores, never over it. */
 .settings-center { display: flex; flex-direction: column; }
-.settings-center > .settings-center-content { flex: 1; height: auto; min-height: 0; }
+.settings-center .settings-center-content { flex: 1; height: auto; min-height: 0; }
 .settings-forward { order: -1; align-self: flex-end; margin: var(--space-2) var(--space-4) 0; }
 .settings-appearance-preview { display: flex; }
 .settings-mode-preview { padding: var(--space-3); border-radius: var(--radius-control); background: var(--terminal-background); color: var(--terminal-foreground); }
