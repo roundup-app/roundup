@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -12,6 +12,7 @@ import { Todos } from "../todos/Todos";
 import { todo, todoCallsTo as callsTo } from "../todos/testHarness";
 import { Help } from "./Help";
 import { pressOf } from "./chords";
+import { copy } from "./copy";
 
 afterEach(cleanup);
 
@@ -184,5 +185,23 @@ describe("u3740 the field shows the Owner and Home", () => {
     press(field()!);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(callsTo(app, "todo.create")).toHaveLength(2);
+  });
+});
+
+describe("u5171 Help names the arrows", () => {
+  it("u5171_help_names_left_and_right_for_rows", async () => {
+    await mount();
+
+    fireEvent.keyDown(screen.getByTestId("rail"), { key: "?", shiftKey: true });
+
+    const panel = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>(".help");
+
+      expect(found).not.toBeNull();
+
+      return found!;
+    });
+
+    expect(within(panel).queryAllByText(copy.collapseExpand)).toHaveLength(1);
   });
 });

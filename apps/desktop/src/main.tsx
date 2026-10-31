@@ -41,7 +41,7 @@ const keystrokes = !import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VI
         return createFrameRun(tauri.forProject(measured.path), workload, measured.path, reducedMotion);
       }
 
-      return createKeystrokeRun(tauri.forProject(measured.path), workload === "flood" ? "flood" : "idle");
+      return createKeystrokeRun(tauri.forProject(measured.path), workload === "flood" ? "flood" : "idle", measured.path);
     })
   : null;
 

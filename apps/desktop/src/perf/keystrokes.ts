@@ -13,7 +13,7 @@ export type Summary = { n: number; dropped: number } & (
 );
 
 /** Nearest rank, the same rule as `crates/perf`. */
-const percentile = (sorted: number[], share: number): number => {
+export const percentile = (sorted: number[], share: number): number => {
   const value = sorted[Math.max(Math.ceil(share * sorted.length), 1) - 1];
 
   if (value === undefined)
