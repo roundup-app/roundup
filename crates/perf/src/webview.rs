@@ -277,3 +277,24 @@ pub fn judge_switch(reports: &[Value], budgets: &Budgets, loads: &[f64]) -> (u8,
         }
     }
 }
+
+/// K3's verdict, and in the idle workload SP6's on the Switcher metrics; the worse exit wins.
+pub fn judged(
+    reports: &[Value],
+    limit: f64,
+    budgets: &Budgets,
+    loads: &[f64],
+    flood: bool,
+) -> (u8, Vec<String>) {
+    let (exit, mut failures) = judge_runs(reports, limit);
+
+    if flood {
+        return (exit, failures);
+    }
+
+    let (switch_exit, more) = judge_switch(reports, budgets, loads);
+
+    failures.extend(more);
+
+    (exit.max(switch_exit), failures)
+}
