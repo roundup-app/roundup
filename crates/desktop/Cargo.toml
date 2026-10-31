@@ -34,7 +34,6 @@ tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5
 time = "0.3.55"
 which = "8.0.6"
 tokio = { workspace = true, features = ["process", "io-util"] }
-tauri-plugin-notification = "2"
 
 [[test]]
 name = "s2297a"
@@ -57,3 +56,4 @@ workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-deep-link = "=2.6.2"
 tauri-plugin-single-instance = { version = "=2.5.4", features = ["deep-link"] }
+mac-notification-sys = "0.6.15"
