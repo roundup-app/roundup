@@ -71,7 +71,7 @@ it("u3720_o_is_inert_in_text_fields_with_modifiers_and_on_done_rows", async () =
 it("u3720_a_failed_assign_shows_its_cause_and_keeps_the_group", async () => {
   const { app } = await mount();
 
-  app.handlers["todo.assign"] = () => { throw new RpcError(-32004, "no such owner"); };
+  app.handlers["todo.assign"] = () => { throw new RpcError(-32001, "no such owner"); };
 
   await waitFor(() => expect(groups()).toContain("a"));
   fireEvent.contextMenu(document.querySelector('[data-todo="3"]')!);

@@ -8,9 +8,9 @@ export const AttentionKey = () => {
   const { rail } = useConnectedProject();
 
   const capture = () => ({
-    available: () => nextAttention(rail.nodes, rail.selected()) !== null,
+    available: () => nextAttention(rail.nodes, rail.selected(), rail.dismissed) !== null,
     invoke: () => {
-      const next = nextAttention(rail.nodes, rail.selected());
+      const next = nextAttention(rail.nodes, rail.selected(), rail.dismissed);
 
       if (next) rail.select(next.id);
     },
