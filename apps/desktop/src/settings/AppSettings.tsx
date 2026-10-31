@@ -17,6 +17,7 @@ import { createSettingsView } from "../state/settingsView";
 import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
+import { SkillSetting } from "./SkillSetting";
 import { ShortcutSetting } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
@@ -248,6 +249,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /><Field.HelperText>{copy.modelHint}</Field.HelperText></Field.Root>
     ),
     naming: () => <NamingSettings app={props.app} />,
+    skill: () => <SkillSetting app={props.app} />,
     fontFamily: () => <>
         <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
           choices={[{ value: "", label: copy.settingsDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
@@ -292,6 +294,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       { id: "engine", page: copy.settingsAgents, group: copy.groupEngine, label: copy.engine, description: copy.engineHint, when: () => !!props.project() },
       { id: "model", page: copy.settingsAgents, group: copy.groupEngine, label: copy.model, description: copy.modelHint, when: () => !!props.project() },
       { id: "naming", page: copy.settingsAgents, group: copy.groupNaming, label: copy.automaticRenaming, description: copy.automaticRenamingHint, hiddenHint: true },
+      { id: "skill", page: copy.settingsAgents, group: copy.groupSkill, label: copy.skill, description: copy.skillHint, hiddenHint: true },
       { id: "fontFamily", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontFamily, description: copy.fontFamilyHint },
       { id: "fontWeight", page: copy.settingsTerminal, group: copy.groupFont, label: copy.fontWeight, description: copy.fontWeightHint },
       ...numericFields.map(({ name, label, hint }) => ({ id: name, page: copy.settingsTerminal, group: copy.groupFont, label, description: hint })),
@@ -361,6 +364,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           {controls.model()}
         </Show>
         {controls.naming()}
+        {controls.skill()}
         <ReservedLine message={offered()?.failure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>

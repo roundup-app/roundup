@@ -183,7 +183,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Spawn prompt | same | — |
 | Clarification order | same | — |
 | Skill | same | — |
-| Skill setup (`Install`, `Plan`, `ItemState`, `Outcome`) | teach other sessions | — |
+| Skill setup (`Install`, `Plan`, `ItemState`, `Outcome`, `skill.status`, `skill.setup`, `skill.remove`) | teach other sessions | — |
 | Brief | same | — |
 | Context | same | — |
 | Channel | same | — |

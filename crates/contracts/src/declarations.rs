@@ -169,6 +169,9 @@ declarations! { $;
     daemon_methods["daemon"] {
         "daemon.getNaming": () => contracts::project::NamingSettings, rpc_naming, none();
         "daemon.setNaming": contracts::project::NamingSettings => (), rpc_naming, none();
+        "skill.status": () => contracts::skill::SkillFiles, rpc_skill, none();
+        "skill.setup": () => contracts::skill::SkillFiles, rpc_skill, none();
+        "skill.remove": () => contracts::skill::SkillFiles, rpc_skill, none();
         "rail.deletion": contracts::agent::DeletionParams => Option<contracts::agent::Removal>, rail_deletion_call, none();
         "rail.redo": contracts::agent::RedoParams => contracts::agent::Removal, rail_redo_call, none();
         "rail.restore": contracts::agent::DeletionParams => contracts::agent::Removal, rail_deletion_call, none();
