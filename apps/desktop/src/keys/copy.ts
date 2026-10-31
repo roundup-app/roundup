@@ -2,6 +2,8 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 const assignOrAsk = "Assign / Ask";
 
+const minimiseBubble = "Minimise Bubble";
+
 export const copy = {
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
@@ -28,7 +30,7 @@ export const copy = {
   projects: sharedCopy.projects,
   help: "Help",
   helpScope: { app: "App", leader: "Leader", terminals: "Terminals and Bubbles", rail: "Rail row", shelf: sharedCopy.shelfLabel, todos: "Todos view", triage: "Triage", editor: "Pad editor focus" },
-  helpBubbleScope: { M: "Minimise Bubble", W: "Close focused Bubble" },
+  helpBubbleScope: { M: minimiseBubble, W: "Close focused Bubble" },
   helpRowScope: { O: sharedCopy.assign, D: "Delete focused item", E: "Export focused Pad" },
   closeShelf: sharedCopy.closeShelf,
   openShelf: sharedCopy.openShelf,
@@ -49,7 +51,7 @@ export const copy = {
   newAgentWithAPrompt: sharedCopy.newAgentWithAPrompt,
   newTerminal: sharedCopy.newTerminal,
   switchAgentTerminal: "Switch Agent / Terminal",
-  minimiseOrRestoreTheBubble: "Minimise Bubble",
+  minimiseOrRestoreTheBubble: minimiseBubble,
   closeTheBubble: "Close the Bubble",
   remove: sharedCopy.remove,
   leaderChord: sharedCopy.leaderChord,

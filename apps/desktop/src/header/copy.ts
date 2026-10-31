@@ -23,13 +23,15 @@ export const copy = {
   projectName: sharedCopy.draftSurface("header"),
   rename: sharedCopy.rename,
   closeProject: sharedCopy.closeView,
-  hiddenAttention: (value1: CopyValue, value2: CopyValue, value3: CopyValue) => `${value1} ${value2} to the ${value3}`,
+  hiddenAttention: (value1: CopyValue, value2: CopyValue, value3: CopyValue) => `${value1} ${value2} (${value3})`,
   projects: sharedCopy.projects,
   openAFolder: sharedCopy.openAFolder,
   addProjectMark: "+",
   error: sharedCopy.error,
   needsYou: sharedCopy.needsYou,
-  needYouError: (value1: CopyValue, value2: CopyValue) => `${value1} ${value1 === 1 ? "needs" : "need"} you · ${value2} ${value2 === 1 ? "error" : "errors"}`,
+  needYouError: (value1: CopyValue, value2: CopyValue) => value1 === 1
+    ? value2 === 1 ? "1 needs you; 1 has an error." : `1 needs you; ${value2} have errors.`
+    : value2 === 1 ? `${value1} need you; 1 has an error.` : `${value1} need you; ${value2} have errors.`,
   copied: sharedCopy.copied,
   copy: sharedCopy.copy,
   comma: sharedCopy.comma,
