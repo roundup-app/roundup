@@ -22,7 +22,7 @@ it("r3800_enter_loading_populated_and_failure", async () => {
       app.handlers['daemon.ping'] = () => new Promise(resolve => { window.releaseStartup = () => resolve(ping()); });
       return true;
     })()`);
-    await browser("find", "role", "button", "click", "--name", "Choose folder…", "--exact");
+    await browser("find", "role", "button", "click", "--name", "Choose Project…", "--exact");
     await until("!!window.releaseStartup && document.querySelectorAll('[aria-busy=true][data-layout-panel]').length === 2");
     await capture("R3800", "loading");
     await evaluate("window.releaseStartup(); true");

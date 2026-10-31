@@ -50,7 +50,7 @@ it.each(["project-settings", "import-work", "app-settings"])("u4315a_requested_s
 
   if (command === "app-settings") window.dispatchEvent(new Event("open-app-settings"));
   else openProjectPage(command, "/p");
-  const name = command === "project-settings" ? "Project settings" : command === "import-work" ? "Import Claude Code work" : "Settings";
+  const name = command === "project-settings" ? "Project settings" : command === "import-work" ? "Import Claude Code" : "Settings";
   const view = await screen.findByRole("region", { name });
   fireEvent.click(within(view).getByRole("button", { name: command === "app-settings" ? "← Back" : "Close" }));
   await waitFor(() => expect(screen.queryByRole("region", { name })).toBeNull());
@@ -70,7 +70,7 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
   const commits = () => daemon.calls.filter(call => call.method === "project.importCommit");
   connected().rail.select("a0");
   openProjectPage("import-work", "/p");
-  const region = await screen.findByRole("region", { name: "Import Claude Code work" });
+  const region = await screen.findByRole("region", { name: "Import Claude Code" });
   const panel = within(region);
   await panel.findByRole("checkbox", { name: /First work/ });
   fireEvent.click(panel.getByRole("button", { name: "Last month" }));
@@ -88,7 +88,7 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
   fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });
   fireEvent.keyDown(document.body, { key: "a", code: "KeyA" });
   fireEvent.click(screen.getByRole("button", { name: /^Overview/ }));
-  expect(screen.getByRole("region", { name: "Import Claude Code work" })).toBe(region);
+  expect(screen.getByRole("region", { name: "Import Claude Code" })).toBe(region);
   expect(connected().importing.pending()).toBe(true);
   expect(connected().rail.selected()).toBe("a0");
   expect(connected().project.path).toBe("/p");
@@ -112,7 +112,7 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
     await waitFor(() => expect(connected().rail.selected()).toBe("imported-agent"));
     expect(region.isConnected).toBe(false);
   } else {
-    expect(screen.getByRole("region", { name: "Import Claude Code work" })).toBe(region);
+    expect(screen.getByRole("region", { name: "Import Claude Code" })).toBe(region);
     expect(connected().rail.selected()).toBe("a0");
     expect(panel.getAllByRole("alert").length).toBeGreaterThan(0);
     expect(panel.getByRole("button", { name: "Import 2" })).toHaveProperty("disabled", false);
@@ -121,7 +121,7 @@ it.each(["success", "refused"])("u4355_close_keeps_pending_import: %s", async ou
     expect(connected().rail.selected()).toBe("a0");
     openProjectPage("import-work", "/p");
     await waitFor(() => expect(connected().importing.loading()).toBe(false));
-    const reopened = within(screen.getByRole("region", { name: "Import Claude Code work" }));
+    const reopened = within(screen.getByRole("region", { name: "Import Claude Code" }));
     expect(reopened.getByRole("checkbox", { name: /First work/ })).toHaveProperty("checked", true);
     expect(reopened.getByRole("checkbox", { name: /Second work/ })).toHaveProperty("checked", true);
     expect(reopened.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");

@@ -125,7 +125,7 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
   await commit("Font size", "16");
   await select("Appearance", "Dark");
   await section("Shortcuts");
-  fireEvent.click(screen.getByRole("button", { name: /^Quick add a Todo / }));
+  fireEvent.click(screen.getByRole("button", { name: /^Quick add Todo / }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAdd).toBe("ctrl+shift+KeyY"));
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
@@ -152,7 +152,7 @@ it("u3806_an_invalid_field_falls_back_alone", async () => {
 it("u3804_a_clashing_chord_is_refused_naming_the_holder", async () => {
   await mount();
   await section("Shortcuts");
-  fireEvent.click(screen.getByRole("button", { name: /^Quick add a Todo / }));
+  fireEvent.click(screen.getByRole("button", { name: /^Quick add Todo / }));
   fireEvent.keyDown(window, { key: "n", code: "KeyN", metaKey: true });
   expect(await screen.findByText(/⌘N is already New Agent/)).toBeTruthy();
   fireEvent.keyDown(window, { key: "q", code: "KeyQ", metaKey: true });
@@ -191,7 +191,7 @@ it("u4686d_controls_have_labels_and_descriptions", async () => {
   for (const [page, controls] of [
     ["Agents", [["combobox", "Permission mode"], ["button", /^Engine /], ["button", /^Model /]]],
     ["Terminal", [["combobox", "Font family"], ["spinbutton", "Font size"]]],
-    ["Shortcuts", [["button", /^Quick add a Todo /]]],
+    ["Shortcuts", [["button", /^Quick add Todo /]]],
 
   ] as const) {
     await section(page);
@@ -253,12 +253,12 @@ it.each([["Line height", "lineHeight", "1", "2"], ["Letter spacing", "letterSpac
 it("u4687d_marker_visibility_is_saved_and_shared", async () => {
   await mount();
   await section("Appearance");
-  fireEvent.click(screen.getByRole("switch", { name: "Show region focus markers" }));
+  fireEvent.click(screen.getByRole("switch", { name: "Show focus markers" }));
   await waitFor(() => expect(appSettings().focusMarkers).toBe(false));
   cleanup();
   await mount();
   await section("Appearance");
-  expect(screen.getByRole("switch", { name: "Show region focus markers" }).getAttribute("aria-checked")).toBe("false");
+  expect(screen.getByRole("switch", { name: "Show focus markers" }).getAttribute("aria-checked")).toBe("false");
 });
 
 it("u4687b_preview_follows_valid_drafts_without_committing", async () => {
@@ -296,7 +296,7 @@ it("u4687c_unfinished_settings_survive_external_changes", async () => {
   fireEvent.keyDown(input, { key: "Enter" });
   expect(input.value).toBe(" 1.25 ");
   expect(appSettings().lineHeight).toBe(1.5);
-  expect(screen.getAllByText(/Settings changed elsewhere/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Settings were changed elsewhere/).length).toBeGreaterThan(0);
 });
 
 it("u4687c_a_failed_save_keeps_its_revision_and_a_newer_edit", async () => {
