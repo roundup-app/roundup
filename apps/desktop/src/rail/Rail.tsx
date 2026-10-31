@@ -158,11 +158,12 @@ export const Rail = () => {
     return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.doorPending(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
   };
 
-  const openCompose = () => {
+  const openCompose = (prompt?: unknown) => {
     captureFocus(true);
 
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
+    if (prompt !== undefined) keepDraft(String(prompt));
   };
 
   const endCompose = () => setComposing(false);
@@ -693,7 +694,7 @@ export const Rail = () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else { openCompose(); if (args?.prompt !== undefined) keepDraft(String(args.prompt)); } } }) },
+    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(args?.prompt); } }) },
     { action: CHORDS.find(row => row.keys === "⌥⌘N")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
     { action: CHORDS.find(row => row.keys === "⇧⌘M")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
