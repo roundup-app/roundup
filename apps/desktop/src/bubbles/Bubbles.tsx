@@ -879,7 +879,7 @@ export const Bubbles = (props: {
     return <>
       <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
         <Show when={editing()?.id === id ? editing() : null} keyed fallback={
-          <Tip class="ink-tip terminal-tab-tip" content={tabLabel(name(), terminal().status)} cut={() => nameCut() || !!terminal().status}>
+          <Tip class="ink-tip terminal-tab-tip" content={<span class="terminal-tab-tip-label">{tabLabel(name(), terminal().status)}</span>} cut={() => nameCut() || !!terminal().status}>
             {(trigger) => (
               <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                 aria-label={tabLabel(name(), terminal().status)} aria-describedby={!terminal().status && props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
