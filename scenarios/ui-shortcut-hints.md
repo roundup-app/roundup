@@ -1,6 +1,6 @@
 # UI: shortcut hints (U2230 to U2230b, U2541 to U2541e, U2570a to U2570c, U5247 to U5247b)
 
-Module: `apps/desktop/src/keys` and `apps/desktop/src/app`. Ids: U2230, U2230a, U2230b, U2541, U2541a, U2541b, U2541c, U2541d, U2541e, U2570a, U2570b, U2570c, U5247, U5247a, U5247b. Terms: Agent, Terminal, Bubble, Rail (`GLOSSARY.md`). Direction: Issues #2230 and #2541 (the owner, 2026-10-18, after comparing Orca's `ShortcutKeyCombo`: "agree on your porposals to enhance key hints"); U2541 to U2541c replace #2230's "no box, pill, outline or background" and widen #2366's count to two to four hints per place; the keyboard route to message a running Agent is #2223's, and the bottom bar's space is #2225's.
+Module: `apps/desktop/src/keys` and `apps/desktop/src/app`. Ids: U2230, U2230a, U2230b, U2541, U2541a, U2541b, U2541c, U2541d, U2541e, U2570a, U2570b, U2570c, U5247, U5247a, U5247b. Terms: Agent, Terminal, Bubble, Rail (`GLOSSARY.md`). Direction: Issues #2230 and #2541 (the owner, 2026-10-18, after comparing Orca's `ShortcutKeyCombo`: "agree on your proposals to enhance key hints"); U2541 to U2541c replace #2230's "no box, pill, outline or background" and widen #2366's count to two to four hints per place; the keyboard route to message a running Agent is #2223's, and the bottom bar's space is #2225's.
 
 The hint line serves the Intervene stage of `.agents/data/journey.md`: the user learns the keys that act where focus is, without opening Help. This specification defines implementation acceptance; it claims no shipped hint line.
 

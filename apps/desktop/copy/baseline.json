@@ -1,1 +1,4 @@
-[]
+[
+{"rule":"vocabulary","identity":"cancel","branch":"0","fingerprint":"19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27"},
+{"rule":"vocabulary","identity":"task","branch":"0","fingerprint":"4bc74b21357c6cf5cca8f66b4d4ee948be64d0396feb434c9645e168ad61ceaf"}
+]
