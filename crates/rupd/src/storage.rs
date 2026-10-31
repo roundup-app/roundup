@@ -16,6 +16,9 @@ const EVENTS: &str = include_str!("../migrations/006/up.sql");
 const FLIGHT: &str = include_str!("../../messages/migrations/002/up.sql");
 const WAKES: &str = include_str!("../../messages/migrations/003/up.sql");
 
+const PAD_DELETIONS: &str = include_str!("../migrations/project/0026-pad-deletions.sql");
+const PAD_REPAIR: &str = include_str!("../migrations/project/0030-repair-pad-deletions.sql");
+
 const SCHEMA: &str = include_str!("../migrations/001/up.sql");
 
 mod added {
@@ -121,11 +124,73 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<Connection> {
     let _ = seed_fresh(&path);
     let run = || -> rusqlite::Result<Connection> {
         let mut db = Connection::open(&path)?;
+        refuse_divergent(&db)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         apply(&mut db, migrations())?;
         Ok(db)
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
+}
+
+/// N5420a: the schema the first `prefix` migrations build; the embedded image when `prefix` is all of them.
+/// `skip_pad` leaves out the Pad-deletion migration, the B4522 drift.
+fn reference(prefix: usize, skip_pad: bool) -> rusqlite::Result<Connection> {
+    let mut db = Connection::open_in_memory()?;
+    let all = migrations();
+    if prefix == all.len() && !skip_pad {
+        // The image is a WAL database; bytes 18 and 19 of its header say rollback journal for memory.
+        let image = std::io::Read::chain(
+            std::io::Read::chain(&FRESH[..18], &[1u8, 1][..]),
+            &FRESH[20..],
+        );
+        db.deserialize_read_exact(rusqlite::MAIN_DB, image, FRESH.len(), true)?;
+        return Ok(db);
+    }
+    let sequence = all.into_iter().take(prefix).enumerate().map(|(i, m)| {
+        if skip_pad && i == added_at(PAD_DELETIONS) {
+            M::up("-- the skipped Pad migration")
+        } else {
+            m
+        }
+    });
+    if prefix > 0 {
+        Migrations::new(sequence.collect())
+            .to_latest(&mut db)
+            .map_err(|e| error(format!("reference schema through {prefix}: {e}")))?;
+    }
+    Ok(db)
+}
+
+/// The position of an added migration in the whole sequence, after the frozen head.
+fn added_at(sql: &str) -> usize {
+    10 + added::ADDED.iter().position(|added| *added == sql).unwrap()
+}
+
+/// N5420a: a database whose schema is not the one its `user_version` migrations build is refused
+/// before any migration runs, except the B4522 drift, which the repair migration fixes.
+fn refuse_divergent(db: &Connection) -> rusqlite::Result<()> {
+    let known = migrations().len();
+    let stored: i64 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    let Ok(prefix) = usize::try_from(stored) else {
+        return Ok(());
+    };
+    if prefix > known {
+        return Ok(());
+    }
+    let Some(difference) = provenance::migration::difference(db, &reference(prefix, false)?)?
+    else {
+        return Ok(());
+    };
+    if prefix <= added_at(PAD_REPAIR)
+        && provenance::migration::difference(db, &reference(prefix, true)?)?.is_none()
+    {
+        return Ok(());
+    }
+    Err(error(provenance::migration::divergence(
+        &difference,
+        stored,
+        known,
+    )))
 }
 
 fn apply(db: &mut Connection, migrations: Vec<M<'_>>) -> rusqlite::Result<()> {
@@ -198,5 +263,50 @@ mod newer_tests {
             .unwrap(),
             0
         );
+    }
+
+    #[test]
+    fn n5420a_project_refuses_a_divergent_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("project.db");
+        let mut swapped = migrations();
+        let known = swapped.len();
+        let priority = added_at(include_str!("../migrations/project/0037-todo-priority.sql"));
+        swapped[priority] = M::up("ALTER TABLE todos ADD COLUMN n5420a_swapped INTEGER;");
+        let mut db = Connection::open(&path).unwrap();
+        Migrations::new(swapped).to_latest(&mut db).unwrap();
+        drop(db);
+        let schema = || -> Vec<(String, String)> {
+            Connection::open(&path)
+                .unwrap()
+                .prepare("SELECT name, coalesce(sql, '') FROM sqlite_schema ORDER BY name")
+                .unwrap()
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+                .unwrap()
+                .map(Result::unwrap)
+                .collect()
+        };
+        let before = schema();
+
+        let message = open(dir.path()).unwrap_err().to_string();
+        assert!(message.contains(&path.display().to_string()), "{message}");
+        assert!(message.contains("lacks column `priority`"), "{message}");
+        assert!(
+            message.contains(&format!("database version {known}")),
+            "{message}"
+        );
+        assert!(
+            message.contains(&format!("supports through {known}")),
+            "{message}"
+        );
+        assert!(message.contains("newer or branch build"), "{message}");
+
+        let db = Connection::open(&path).unwrap();
+        assert_eq!(
+            db.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+                .unwrap(),
+            i64::try_from(known).unwrap()
+        );
+        assert_eq!(schema(), before);
     }
 }
