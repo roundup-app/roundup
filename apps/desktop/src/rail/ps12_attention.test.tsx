@@ -4,6 +4,7 @@ import { mountRail, settled } from "./railFixture";
 import { attentionCount, attentionHolders, attentionCounts } from "./attention";
 import { agent, event, info } from "../testing/nodes";
 import { renderTabs, path, tab } from "../header/stripFixture";
+import { copy as headerCopy } from "../header/copy";
 import { mountBubbles, TERMINALS, TREE } from "../bubbles/bubblesFixture";
 
 afterEach(cleanup);
@@ -45,7 +46,7 @@ describe("ps12 Terminals count toward attention", () => {
 
     fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 
-    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toContain("1 needs you; 0 have errors."));
+    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toContain(headerCopy.needYouError(1, 0)));
   });
 
   it("ps12_a_terminal_tab_shows_its_status_label_and_age_on_focus", async () => {
