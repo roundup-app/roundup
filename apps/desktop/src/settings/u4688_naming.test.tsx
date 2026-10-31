@@ -49,7 +49,7 @@ it("u4688a_global_naming_controls", async () => {
     expect(screen.getByRole("switch", { name: "Automatic renaming" }).getAttribute("aria-checked")).toBe("false");
   }
 
-  expect(app.calls.filter(call => !["daemon.getNaming", "daemon.setNaming", "models.list"].includes(call.method))).toEqual([]);
+  expect(app.calls.filter(call => !["daemon.getNaming", "daemon.setNaming", "models.list", "skill.status"].includes(call.method))).toEqual([]);
 });
 
 it("u4688b_guide_drafts_and_retry", async () => {

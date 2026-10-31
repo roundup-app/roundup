@@ -51,7 +51,7 @@ describe("u184 close with a question", () => {
     const dialog = await questionDialog();
 
     expect(`${dialog.title} ${dialog.message}`).toContain("1 Agent runs: solo.");
-    expect(dialog.cancelLabel).toBe("Cancel");
+    expect(dialog.cancelLabel).toBe("Keep");
   });
 
   it("u184_cancel_and_esc_close_nothing", async () => {
@@ -109,7 +109,7 @@ describe("u184 close with a question", () => {
 
     fireEvent.click(closer("api"));
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
-    await screen.findByRole("button", { name: /folder/ });
+    await screen.findByRole("button", { name: "Choose Project…" });
   });
 
   it("u184_a_failed_close_keeps_the_tab", async () => {
@@ -250,7 +250,7 @@ describe("u184 overflow", () => {
 
   it("u184_the_plus_stays_outside_the_scrolling_strip_at_its_right_end", async () => {
     await withLayout(async () => {
-      const add = screen.getByRole("button", { name: "Open a folder" });
+      const add = screen.getByRole("button", { name: "Open Project" });
       const scroll = document.querySelector(".strip-scroll")!;
 
       expect(screen.getByRole("tablist", { name: "Projects" }).contains(add)).toBe(false);

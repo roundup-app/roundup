@@ -42,7 +42,6 @@ export const copy = {
   retryStorage: sharedCopy.retryStorage,
   riskTime: sharedCopy.riskTime,
   copyDraftFailure: sharedCopy.copyDraftFailure,
-  cancel: sharedCopy.cancel,
   importPrompt: "Import instructions",
   importStart: "Start import Agent",
   importAgentName: sharedCopy.importAgentName,
