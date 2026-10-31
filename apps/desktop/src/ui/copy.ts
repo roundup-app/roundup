@@ -7,7 +7,7 @@ export const copy = {
   copyDraftFailure: sharedCopy.copyDraftFailure,
   minimise: sharedCopy.minimise,
   close: sharedCopy.close,
-  cancel: sharedCopy.cancel,
+  keep: sharedCopy.keep,
   newAgent: sharedCopy.newAgent,
   nativeRemovalAlertUnavailable: "The removal alert is unavailable. Retry.",
   copied: sharedCopy.copied,

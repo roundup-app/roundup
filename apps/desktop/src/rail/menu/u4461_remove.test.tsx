@@ -15,7 +15,7 @@ it("u4601_buttons_follow_what_stays_nonempty", async () => {
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.removalQuestions).toHaveLength(1));
-  expect(app.removalQuestions[0]).toMatchObject({ thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Cancel" });
+  expect(app.removalQuestions[0]).toMatchObject({ thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Keep" });
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
 });
 
@@ -73,7 +73,7 @@ it.each([false, true])("u4601_buttons_follow_what_stays_empty_answer_%s", async 
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.questions).toHaveLength(1));
-  expect(app.questions[0]).toMatchObject({ okLabel: "Remove", cancelLabel: "Cancel" });
+  expect(app.questions[0]).toMatchObject({ okLabel: "Remove", cancelLabel: "Keep" });
   expect(app.removalQuestions).toEqual([]);
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
   app.answerQuestion!(answer);
@@ -119,7 +119,7 @@ it.each([
   expect(removalQuestion(plan, "workstream")).toEqual({
     title: "Remove “workstream”?",
     message: fixture.expected.filter(Boolean).join("\n"),
-    cancelLabel: "Cancel",
+    cancelLabel: "Keep",
     ...(fixture.open ? { thisLabel: "Remove this", allLabel: "Remove all" } : { okLabel: "Remove" }),
   });
 });

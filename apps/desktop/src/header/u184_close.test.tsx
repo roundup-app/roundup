@@ -51,7 +51,7 @@ describe("u184 close with a question", () => {
     const dialog = await questionDialog();
 
     expect(`${dialog.title} ${dialog.message}`).toContain("1 Agent runs: solo.");
-    expect(dialog.cancelLabel).toBe("Cancel");
+    expect(dialog.cancelLabel).toBe("Keep");
   });
 
   it("u184_cancel_and_esc_close_nothing", async () => {

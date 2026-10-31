@@ -78,7 +78,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
 
     if (opening === "Spawn prompt") {
       fireEvent.keyDown(document, { key: "n", code: "KeyN", metaKey: true, shiftKey: true });
-      field = await screen.findByRole("textbox", { name: "Task" });
+      field = await screen.findByRole("textbox", { name: "Work" });
     } else if (opening === "Opening prompt") {
       const row = document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!;
       fireEvent.contextMenu(row);

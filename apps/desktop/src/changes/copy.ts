@@ -59,7 +59,6 @@ export const copy = {
   close: sharedCopy.close,
   closeChanges: "Close changes",
   note: "Note",
-  cancel: sharedCopy.cancel,
   remove: sharedCopy.remove,
   save: sharedCopy.save,
   retry: sharedCopy.retry,

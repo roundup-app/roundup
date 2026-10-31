@@ -9,7 +9,7 @@ const SPAWNED = agent("fresh", "idle", "starting");
 
 const chord = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
-const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+const field = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
 const type = (text: string) => fireEvent.input(field(), { target: { value: text } });
 
@@ -60,7 +60,7 @@ describe("u2227 the task field", () => {
     type("keep me");
     fireEvent.keyDown(field(), { key: "Escape" });
 
-    expect(screen.queryByLabelText("Task")).toBeNull();
+    expect(screen.queryByLabelText("Work")).toBeNull();
 
     chord();
     await Promise.resolve();
@@ -83,7 +83,7 @@ describe("u2227 the task field", () => {
 
     type("sent");
     fireEvent.keyDown(field(), { key: "Enter" });
-    await waitFor(() => expect(screen.queryByLabelText("Task")).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText("Work")).toBeNull());
     await waitFor(() => {
       chord();
       expect(field().value).toBe("");

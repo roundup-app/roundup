@@ -13,7 +13,7 @@ const SPAWNED = agent("fresh", "idle", "starting");
 const chord = (key: string, kept: KeyboardEventInit = { metaKey: true, shiftKey: true }) =>
   fireEvent.keyDown(document, { key, ...kept });
 
-const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+const field = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
 describe("u33 spawn with a prompt", () => {
   it("u33_shift_cmd_n_opens_a_focused_prompt_field_at_the_top_of_the_rail", async () => {
@@ -51,7 +51,7 @@ describe("u33 spawn with a prompt", () => {
     fireEvent.input(field(), { target: { value: "f" } });
     fireEvent.keyDown(field(), { key: "f" });
 
-    expect(screen.queryByLabelText("Task")).toBe(field());
+    expect(screen.queryByLabelText("Work")).toBe(field());
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
@@ -130,7 +130,7 @@ describe("u33 spawn with a prompt", () => {
     chord("n");
     fireEvent.keyDown(field(), { key: "Enter" });
 
-    await waitFor(() => expect(screen.queryByLabelText("Task")).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText("Work")).toBeNull());
   });
 
   it("u33_escape_closes_the_field_and_calls_nothing", async () => {
@@ -139,7 +139,7 @@ describe("u33 spawn with a prompt", () => {
     chord("n");
     fireEvent.keyDown(field(), { key: "Escape" });
 
-    expect([screen.queryByLabelText("Task"), railCallsTo(mounted.app, "agent.spawn")]).toEqual([null, []]);
+    expect([screen.queryByLabelText("Work"), railCallsTo(mounted.app, "agent.spawn")]).toEqual([null, []]);
   });
 
   it("u33_a_failed_call_shows_the_error_line_and_keeps_the_fields_text", async () => {
@@ -165,7 +165,7 @@ describe("u33 spawn with a prompt", () => {
     await waitFor(() =>
       expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: null, model: null, effort: null }]),
     );
-    expect(screen.queryByLabelText("Task")).toBeNull();
+    expect(screen.queryByLabelText("Work")).toBeNull();
   });
 
   it("u33_with_caps_lock_on_the_chord_still_opens_the_field", async () => {
@@ -173,7 +173,7 @@ describe("u33 spawn with a prompt", () => {
 
     chord("N");
 
-    expect(screen.queryByLabelText("Task")).not.toBeNull();
+    expect(screen.queryByLabelText("Work")).not.toBeNull();
   });
 
   it.each<[string, KeyboardEventInit]>([
@@ -185,7 +185,7 @@ describe("u33 spawn with a prompt", () => {
 
     chord("n", kept);
 
-    expect(screen.queryByLabelText("Task")).toBeNull();
+    expect(screen.queryByLabelText("Work")).toBeNull();
   });
 
   it("u33_shift_cmd_n_does_nothing_while_a_spawn_is_in_flight", async () => {
@@ -197,7 +197,7 @@ describe("u33 spawn with a prompt", () => {
     // guarded() sets pending() synchronously, so canSpawn() already reads false; this just gives a tick before asserting nothing slipped through.
     await Promise.resolve();
 
-    expect(screen.queryByLabelText("Task")).toBeNull();
+    expect(screen.queryByLabelText("Work")).toBeNull();
   });
 
   it("u33_shift_cmd_n_does_nothing_after_the_daemon_exited", async () => {
@@ -206,7 +206,7 @@ describe("u33 spawn with a prompt", () => {
 
     chord("n");
 
-    expect(screen.queryByLabelText("Task")).toBeNull();
+    expect(screen.queryByLabelText("Work")).toBeNull();
   });
 
   it("u33_enter_after_the_daemon_exited_calls_nothing", async () => {
@@ -242,7 +242,7 @@ describe("u33 spawn with a prompt", () => {
 
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
     expect(field().value).toBe("keep me");
-    expect(screen.queryByLabelText("Task")).not.toBeNull();
+    expect(screen.queryByLabelText("Work")).not.toBeNull();
   });
 
   it("u33_shift_cmd_n_does_nothing_while_the_field_is_already_open", async () => {
@@ -254,7 +254,7 @@ describe("u33 spawn with a prompt", () => {
 
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
     expect(field().value).toBe("keep me");
-    expect(screen.queryByLabelText("Task")).not.toBeNull();
+    expect(screen.queryByLabelText("Work")).not.toBeNull();
   });
 
   it("u33_cmd_n_is_a_bound_shortcut_so_it_never_reaches_the_field_while_the_field_is_open", async () => {
@@ -278,7 +278,7 @@ describe("u33 spawn with a prompt", () => {
 
       expect(handled).toBe(true);
       expect(field().value).toBe("keep me");
-      expect(screen.queryByLabelText("Task")).not.toBeNull();
+      expect(screen.queryByLabelText("Work")).not.toBeNull();
     },
   );
 

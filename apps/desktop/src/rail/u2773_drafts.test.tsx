@@ -9,7 +9,7 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
-const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+const field = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
 it.each(["acknowledged", "failed", "unknown", "transport"])("u2773b_rail_settlement_preserves_other_revisions_%s", async (outcome) => {
   const { RpcError } = await import("../app/seam");

@@ -261,7 +261,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   let newer: ReturnType<typeof connected.drafts.list>[number] | undefined;
 
   if (row.label === "Agent with prompt") {
-    const prompt = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Task" });
+    const prompt = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Work" });
     fireEvent.input(prompt, { target: { value: " A\ne\u0301 🧭 " } });
     submitted = connected.drafts.list().find(entry => entry.destination.surface === "rail-task");
     switcherKey("Enter", {}, prompt);

@@ -3,7 +3,7 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 import { copy as sharedCopy, staleSuffix, type CopyValue } from "../sharedCopy";
 
-const railDraftLabels = new Map([["rail-task", "Work"], ["rail-name", sharedCopy.name]]);
+const railDraftLabels = new Map([["rail-task", sharedCopy.work], ["rail-name", sharedCopy.name]]);
 
 const railDraftStatuses = new Map([["draft", sharedCopy.draftStatus.draft], ["pending", "Submitting…"], ["unknown", "Unconfirmed"], ["failed", "Unsent"]]);
 
@@ -44,7 +44,6 @@ export const copy = {
   running: sharedCopy.running,
   close: sharedCopy.close,
   drawer: sharedCopy.drawer,
-  cancel: sharedCopy.cancel,
   /** @prose */
   importDefaultPrompt: "Find active and recent Claude Code conversations in this Project",
   importAgentName: sharedCopy.importAgentName,
@@ -61,7 +60,7 @@ export const copy = {
   removeThis: "Remove this",
   removeAll: "Remove all",
   copied: sharedCopy.copied,
-  task: "Task",
+  task: sharedCopy.work,
   taskHint: "What should the Agent do?",
   keep: sharedCopy.keep,
   pad: sharedCopy.pad,
