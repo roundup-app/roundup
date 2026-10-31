@@ -157,7 +157,7 @@ it("u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row", 
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.delete")).toHaveLength(1));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   screen.getByLabelText("New Todo title").focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:D")).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:D" && item.enabled)).toBe(false));
 });
 
 
@@ -194,10 +194,10 @@ it("u3787b_triage_menu_refuses_an_owner_after_leaving_the_mode", async () => {
   const { app, rows } = await open();
   rows[0]!.focus();
   fireEvent.click(screen.getByRole("button", { name: "Triage" }));
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X")).toBe(true));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X" && item.enabled)).toBe(true));
   const captured = captureActions(document.activeElement).find(action => action.value === "action:chord:X")!;
   fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X")).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:X" && item.enabled)).toBe(false));
   expect(fireEvent.keyDown(document.activeElement!, { key: "x", code: "KeyX" })).toBe(true);
   openProjectPage("action:chord:X");
   captured.run();
@@ -220,7 +220,7 @@ it.each([false, true].flatMap(out => ["key", "menu"].map(source => ({ out, sourc
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.setBlockers").map(call => call.params)).toEqual([{ id: 2, blockers: out ? [] : [1] }]));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   screen.getByLabelText("New Todo title").focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === `action:chord:${chord}`)).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === `action:chord:${chord}` && item.enabled)).toBe(false));
   captured.run();
   openProjectPage(`action:chord:${chord}`);
   expect(app.calls.filter(call => call.method === "todo.setBlockers")).toHaveLength(1);
@@ -256,7 +256,7 @@ it.each(["key", "menu"])("u3787b_todo_rename_keeps_the_captured_row: %s", async 
 
   const field = await screen.findByRole("textbox", { name: "Name" });
   expect(field.closest("[data-todo]")).toBe(target);
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:F2")).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:F2" && item.enabled)).toBe(false));
   captured.run();
   openProjectPage("action:chord:F2");
   expect(screen.getAllByRole("textbox", { name: "Name" })).toEqual([field]);
