@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { ACTION_ROWS } from "./chords";
 import type { ActionArg, ActionValue, ActionValues } from "./chords";
+import { copy } from "./copy";
 import { captureEvery, leaderArmed, modalOpen } from "./registry";
 import type { CapturedAction } from "./registry";
 
@@ -30,7 +31,7 @@ const schemaOf = (arg: ActionArg) => {
 
 const describe = (arg: ActionArg) => `${arg.key}=${arg.type === "integer" ? `${arg.min}–${arg.max}` : arg.type === "choice" ? arg.options.join("|") : arg.type}`;
 
-const causeOf = (row: (typeof ACTION_ROWS)[number]) => modalOpen() ? "a dialog is open" : "inRail" in row && row.inRail ? "needs a Rail row" : "not available where focus is now";
+const causeOf = (row: (typeof ACTION_ROWS)[number]) => modalOpen() ? copy.actionCauseDialog : "inRail" in row && row.inRail ? copy.actionCauseRail : copy.actionCauseFocus;
 
 const bindingsOf = (name: string, focus: Element | null): CapturedAction[] => captureEvery(focus).filter(row => row.name === name);
 
@@ -53,15 +54,15 @@ export const listActions = (focus: Element | null = document.activeElement): Act
 export const runAction = (name: string, pairs: readonly (readonly [string, string])[] = [], focus: Element | null = document.activeElement): ActionResult => {
   const row = ACTION_ROWS.find(each => each.name === name);
 
-  if (!row) return refuse("unknown-action", `Unknown action "${name}". Read the list for the names.`);
+  if (!row) return refuse("unknown-action", copy.actionUnknown(name));
 
   const declared = row.args ?? [];
   const given = new Map<string, string>();
 
   for (const [key, text] of pairs) {
-    if (!declared.some(arg => arg.key === key)) return refuse("unknown-argument", `"${name}" takes no argument "${key}". Its arguments: ${declared.map(describe).join(", ") || "none"}.`);
+    if (!declared.some(arg => arg.key === key)) return refuse("unknown-argument", copy.actionNoArgument(name, key, declared.map(describe).join(", ")));
 
-    if (given.has(key)) return refuse("repeated-argument", `Argument "${key}" is given twice. Give it once.`);
+    if (given.has(key)) return refuse("repeated-argument", copy.actionRepeated(key));
 
     given.set(key, text);
   }
@@ -72,13 +73,13 @@ export const runAction = (name: string, pairs: readonly (readonly [string, strin
     const text = given.get(arg.key);
 
     if (text === undefined) {
-      if (arg.required) return refuse("missing-argument", `"${name}" needs argument ${describe(arg)}. Add it and run again.`);
+      if (arg.required) return refuse("missing-argument", copy.actionMissing(name, describe(arg)));
       continue;
     }
 
     const parsed = v.safeParse(schemaOf(arg), text);
 
-    if (!parsed.success) return refuse("invalid-argument", `Argument "${arg.key}" must be ${describe(arg)}. Correct it and run again.`);
+    if (!parsed.success) return refuse("invalid-argument", copy.actionInvalid(arg.key, describe(arg)));
 
     values[arg.key] = parsed.output;
   }
@@ -86,7 +87,7 @@ export const runAction = (name: string, pairs: readonly (readonly [string, strin
   const wanted = declared.flatMap(arg => arg.press && arg.key in values ? [arg.press(values[arg.key]!)] : [])[0];
   const target = bindingsOf(name, focus).find(binding => (wanted === undefined || binding.press === wanted) && !modalOpen() && binding.available());
 
-  if (!target) return refuse("unavailable", `"${name}" is not available: ${causeOf(row)}. Change focus and run again.`);
+  if (!target) return refuse("unavailable", copy.actionUnavailable(name, causeOf(row)));
 
   // SAFETY: `values` holds only parsed values of the declared arguments.
   target.run(values as ActionValues);
