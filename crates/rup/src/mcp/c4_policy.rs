@@ -38,3 +38,16 @@ fn c4_declarations_preserve_mcp_policy() {
         }
     }
 }
+
+#[test]
+fn a5168a_only_a_door_is_offered_the_tools() {
+    let names = |door| -> Vec<String> {
+        tools(door)
+            .into_iter()
+            .map(|offer| offer.tool.name.to_string())
+            .filter(|name| name.starts_with("github_"))
+            .collect()
+    };
+    assert!(names(false).is_empty());
+    assert_eq!(names(true).len(), 5);
+}

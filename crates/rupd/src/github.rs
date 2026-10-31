@@ -315,13 +315,13 @@ mod tests {
 
     async fn call(daemon: &Daemon, method: &str, params: Value) -> Result<Value, RpcError> {
         let (events, _) = tokio::sync::mpsc::unbounded_channel();
-        let mut conn = Conn {
+        let conn = Conn {
             actor: Actor::user(),
             peer: None,
             events,
             output: None,
         };
-        daemon.github(&mut conn, method, params).await
+        daemon.github(&conn, method, params).await
     }
 
     fn argv(bin: &tempfile::TempDir) -> String {
@@ -446,7 +446,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a5168d_gh_runs_in_the_project_folder_with_its_argv() {
+    async fn a5168d_gh_runs_in_the_project_folder_with_the_daemons_environment() {
         let bin = tempfile::tempdir().unwrap();
         let project = tempfile::tempdir().unwrap();
         let fake = fake_gh(bin.path(), "echo '{}'");
