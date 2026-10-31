@@ -129,10 +129,10 @@ describe("u3711 a move that would make a cycle is refused and says why", () => {
 describe("u3809 dependency groups retain their members", () => {
   it("u3809_group_and_scope_progress_have_distinct_membership", async () => {
     await mountTodos([todo(1), todo(2, { done: true, blockers: [1] }), todo(3, { blockers: [1] }), todo(4, { blockers: [2] })]);
-    const group = await screen.findByRole("progressbar", { name: "Todos done in todo 1" });
+    const group = await screen.findByRole("progressbar", { name: "Done in todo 1" });
     expect(group.getAttribute("aria-valuenow")).toBe("1");
     expect(group.getAttribute("aria-valuemax")).toBe("3");
-    expect(screen.getByRole("progressbar", { name: "Todos done in todo 2" }).getAttribute("aria-valuemax")).toBe("1");
+    expect(screen.getByRole("progressbar", { name: "Done in todo 2" }).getAttribute("aria-valuemax")).toBe("1");
     expect(screen.getByRole("progressbar", { name: "Todos done" }).getAttribute("aria-valuemax")).toBe("4");
     expect(document.querySelectorAll('[data-todo="2"]')).toHaveLength(1);
   });
@@ -227,7 +227,7 @@ describe("u3811 completion advances the visible dependency groups", () => {
 
   it("u3811_an_agent_finish_keeps_focus_outside_the_closing_group", async () => {
     const mounted = await setup();
-    const add = screen.getByRole("button", { name: "add todo to Overview" });
+    const add = screen.getByRole("button", { name: "Add Todo: Overview" });
     add.focus();
     await accept(mounted);
     expect(disclosure(1).getAttribute("aria-expanded")).toBe("false");
@@ -260,8 +260,8 @@ it("u3810_locked_ticks_keep_the_same_calls_refetch_and_failure", async () => {
 
 it("u3809_membership_counts_each_descendant_once_across_completion", async () => {
   const mounted = await mountTodos([todo(1), todo(2, { blockers: [1] }), todo(3, { blockers: [2, 1] }), todo(4)]);
-  await screen.findByRole("progressbar", { name: "Todos done in todo 1" });
-  const progress = () => screen.getByRole("progressbar", { name: "Todos done in todo 1" });
+  await screen.findByRole("progressbar", { name: "Done in todo 1" });
+  const progress = () => screen.getByRole("progressbar", { name: "Done in todo 1" });
   expect(progress().getAttribute("aria-valuemax")).toBe("2");
   mounted.store.todos = [todo(1, { done: true }), todo(2, { blockers: [1], done: true }), todo(3, { blockers: [2, 1] }), todo(4)];
   await mounted.todos.reload();
@@ -272,7 +272,7 @@ it("u3809_membership_counts_each_descendant_once_across_completion", async () =>
   expect(progress().getAttribute("aria-valuemax")).toBe("1");
   mounted.store.todos = [todo(1, { done: true }), todo(3), todo(4)];
   await mounted.todos.reload();
-  expect(screen.queryByRole("progressbar", { name: "Todos done in todo 1" })).toBeNull();
+  expect(screen.queryAllByRole("progressbar")).toHaveLength(0);
 });
 
 

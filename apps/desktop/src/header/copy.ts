@@ -39,7 +39,7 @@ export const copy = {
   unreadResult: sharedCopy.unreadResult,
   previousProjectsMark: "◂ ",
   nextProjectsMark: " ▸",
-  roundup: "roundup",
+  roundup: sharedCopy.roundup,
   left: "left",
   right: "right",
 } as const;

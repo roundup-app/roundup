@@ -119,7 +119,7 @@ export const Pads = (props: {
         await applied(() => connected.app.rpc("pad.create", { name: target, text: null }));
 
         if (targetHome !== null) {
-          action = copy.movePad(target);
+          action = copy.moveItem(target);
           await applied(() => connected.app.rpc("pad.move", { name: target, home: targetHome }));
         }
 
@@ -192,7 +192,7 @@ export const Pads = (props: {
     const before = ids[ids.indexOf(source.name) + 1] ?? null;
     const message = await changeFailureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
 
-    reportItemFailure(source, message, copy.movePad(source.name));
+    reportItemFailure(source, message, copy.moveItem(source.name));
     await list.reload();
   };
 

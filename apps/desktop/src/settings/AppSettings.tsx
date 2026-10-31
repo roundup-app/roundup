@@ -179,7 +179,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       <div class="settings-content">
       <Tabs.Content value="Agents"><SettingsGroup name={copy.settingsAgents}>
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
-          { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },
+          { value: "", label: copy.permissionDefault }, { value: "default", label: copy.settingsDefault },
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
         ]} onValueChange={permissionMode => { if (permissionMode === "" || permissionMode === "default" || permissionMode === "acceptEdits" || permissionMode === "plan" || permissionMode === "auto") save({ permissionMode }); }} />
         <Show when={props.project()}>
@@ -195,7 +195,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>
         <Select label={copy.fontFamily} description={copy.fontFamilyHint} value={appSettings().fontFamily}
-          choices={[{ value: "", label: copy.fontDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
+          choices={[{ value: "", label: copy.settingsDefault }, ...[...new Set(["Fira Code", "Menlo", "Monaco", "monospace", appSettings().fontFamily].filter(Boolean))].map(value => ({ value, label: value }))]}
           onValueChange={value => chooseType({ fontFamily: value })} />
         <Show when={current("fontFamily")}>{draft => <Field.Root class="settings-field"><Field.Label>{copy.fontFamily}</Field.Label><Field.Input aria-label={copy.fontFamily} value={String(draft().value.text)} spellcheck={false} autocorrect="off" autocapitalize="off"
           onInput={event => edit("fontFamily", event.currentTarget)}
@@ -222,11 +222,11 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSettings capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
-        <SegmentGroup description={copy.modeHint} label={copy.mode} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
+        <SegmentGroup description={copy.modeHint} label={copy.settingsAppearance} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => save({ mode })} />
         <SegmentGroup label={copy.interfaceScale} value={appSettings().interfaceScale} segments={[
           { value: "small", label: copy.interfaceSmall, content: <span class="settings-scale-small">{copy.interfaceSample}</span> },
-          { value: "default", label: copy.interfaceDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
+          { value: "default", label: copy.settingsDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => save({ interfaceScale })} />
         <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>

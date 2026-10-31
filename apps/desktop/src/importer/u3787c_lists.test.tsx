@@ -3,9 +3,9 @@ import { expect, it } from "vitest";
 import { mountApp, rpcCalls } from "../testing/appFixture";
 import { openProjectPage } from "../testing/menuProbe";
 
-// One owned collection: Project menu → Import Claude Code work → fresh candidates.
+// One owned collection: Project menu → Import Claude Code → fresh candidates.
 // Exclusions, refusal recovery and Copy actions are outside it; period and prompt stay native.
-const inventory = [{ opening: "Project menu → Import Claude Code work", open: () => openProjectPage("import-work") }];
+const inventory = [{ opening: "Project menu → Import Claude Code", open: () => openProjectPage("import-work") }];
 
 const candidates = ["alpha", "same é 🧭", "same é 🧭", "delta", "終 é 🧭", "hidden", "disabled", "folded"].map((title, at) => ({ source: `source-${at}`, revision: `revision-${at}`, title, cwd: "", last_activity_ms: 1n }));
 

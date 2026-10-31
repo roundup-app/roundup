@@ -33,7 +33,7 @@ export const copy = {
   shelfDeletion: "Bench deletion",
   selected: " selected",
   deleteWord: "Delete ",
-  agentsMayStillBeWritingDeletingDoesNot: (names: CopyValue) => `${names} may still be writing; deleting does not stop them`,
+  agentsMayStillBeWritingDeletingDoesNot: (names: CopyValue) => `${names} may still be writing. Deleting does not stop them.`,
   refresh: sharedCopy.refresh,
   colon: ": ",
   shelfLabel: sharedCopy.shelfLabel,

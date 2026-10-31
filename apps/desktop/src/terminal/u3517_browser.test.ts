@@ -439,7 +439,7 @@ it.skipIf(!groundOutput)("u4456c_floating_menu_picker_dialog", async () => {
     await read("[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.includes('New Workstream')).click()");
     await wait("!!document.querySelector('.new-workstream')");
     await groundCapture(base, "tree-40", "system", "dialog");
-    await read("[...document.querySelectorAll('.new-workstream label')].find(label => label.textContent.includes('Start after another Todo')).click()");
+    await read("[...document.querySelectorAll('.new-workstream label')].find(label => label.textContent.includes('Start after Todo')).click()");
     await browser("click", ".app-dialog-pick");
     await wait("!!document.querySelector('.todo-blocker-menu [role=combobox]')");
     await groundCapture(base, "tree-40", "system", "picker");
