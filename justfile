@@ -29,6 +29,10 @@ lint-rust base="":
     cargo machete crates
     python3 tools/lint/setup.py rust
     python3 tools/lint/scan.py rust
+    # The size, typos and ruff scans cover the whole repo, so the PR that adds a break fails its own `pre` (L5398).
+    ast-grep --version
+    python3 tools/lint/setup.py web
+    python3 tools/lint/scan.py web
     spikes/context-injection/e7_report.test.sh
     tools/question-guard/guard.test.sh
     tools/question-guard/guard.sh
