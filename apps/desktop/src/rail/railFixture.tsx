@@ -1,4 +1,3 @@
-import { DisplayClockContext } from "../state/clock";
 // fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
@@ -18,6 +17,7 @@ import { AttentionKey } from "./AttentionKey";
 import { DockBadge } from "./DockBadge";
 import { ProjectSettingsView } from "./ProjectSettings";
 import { Rail } from "./Rail";
+import { DisplayClockContext } from "../state/clock";
 
 // Drafts survive unmount; unrelated layout fixtures retain their existing lifecycle.
 afterEach(() => {
