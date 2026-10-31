@@ -5,6 +5,7 @@ const assignOrAsk = "Assign / Ask";
 const minimiseBubble = "Minimise Bubble";
 
 export const copy = {
+  actionMethodUnknown: (method: string) => `The App answers only action.list and action.run, not ${method}.`,
   bold: sharedCopy.bold,
   italic: sharedCopy.italic,
   quote: sharedCopy.quote,
