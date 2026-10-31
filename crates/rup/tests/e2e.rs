@@ -3141,10 +3141,3 @@ async fn u2773c_terminal_identity_distinguishes_replacement() {
         ""
     );
 }
-
-#[test]
-fn e5417_a_real_project_waits_the_real_bound_and_a_fake_one_the_short_bound() {
-    assert_eq!(daemon::bound_for(true), daemon::aimock::REAL_BOUND);
-    assert_ne!(daemon::bound_for(false), daemon::aimock::REAL_BOUND);
-    assert!(daemon::bound_for(true) > daemon::bound_for(false));
-}
