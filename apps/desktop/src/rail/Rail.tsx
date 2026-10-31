@@ -6,6 +6,7 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
+import type { ActionValue } from "../keys/chords";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
@@ -20,7 +21,7 @@ import { CHORDS, LEADER, ariaShortcut } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import type { RailSection } from "./persist/storage";
-import { TreeView } from "../ui/TreeView";
+import { TreeView, Trunks } from "../ui/TreeView";
 import { railCollection } from "./collection";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { useConnectedProject } from "../state/connectedProject";
@@ -33,7 +34,6 @@ import { createRailMenu } from "./menu/model";
 import { ancestorsOf, isWorkstream, layoutRail, siblingsOf, type NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
-import { Trunks } from "../ui/TreeView";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
@@ -158,11 +158,13 @@ export const Rail = () => {
     return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.doorPending(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
   };
 
-  const openCompose = () => {
+  const openCompose = (prompt?: ActionValue) => {
     captureFocus(true);
 
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
+
+    if (prompt !== undefined) keepDraft(String(prompt));
   };
 
   const endCompose = () => setComposing(false);
@@ -694,7 +696,7 @@ export const Rail = () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: () => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(); } }) },
+    { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: args => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(args?.prompt); } }) },
     { action: CHORDS.find(row => row.keys === "⌥⌘N")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
     { action: CHORDS.find(row => row.keys === "⇧⌘M")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
