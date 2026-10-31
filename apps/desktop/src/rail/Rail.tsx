@@ -7,7 +7,7 @@ import { type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, createUniqueId, For, on, onCleanup, onMount, Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -543,6 +543,11 @@ export const Rail = () => {
     }
   });
 
+  const overviewName = createUniqueId();
+  const overviewRoot = createUniqueId();
+  const overviewWaiting = createUniqueId();
+  const waitingShown = () => rail.selected() !== null && attention() > 0;
+
   return (
     <>
     <MovePicker target={moveAgent.target()} destinations={moveAgent.destinations()} close={moveAgent.close} choose={(id, parent) => { void moveAgent.move({ id, parent, index: siblingsOf(rail.nodes, parent).length }); }} />
@@ -552,7 +557,7 @@ export const Rail = () => {
       data-todo-root
       data-history-region="rail"
       aria-pressed={rail.selected() === null}
-      aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
+      aria-labelledby={`${overviewName} ${overviewRoot}${waitingShown() ? ` ${overviewWaiting}` : ""}`}
       data-scrolled={scrolled()}
       class="todo-project-root"
       onClick={backToAsk}
@@ -563,7 +568,9 @@ export const Rail = () => {
       })}
     >
       <span class="overview-tile"><Icon name="layout-dashboard" /></span>
-      <span>{copy.overview}</span>
+      <span id={overviewName}>{copy.overview}</span>
+      <span id={overviewRoot} class="rail-label">{copy.projectRoot}</span>
+      <Show when={waitingShown()}><span id={overviewWaiting} class="rail-label">{copy.overviewWaiting(attention())}</span></Show>
       <Show when={attention() > 0 && rail.selected() !== null && connected.drawer.content() === null}>
         <span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">
           <KindGlyph kind="needs-you" decorative /> {attention()}
