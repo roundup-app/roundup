@@ -425,7 +425,7 @@ async fn settle() {
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn b5168f_a_quiet_digest_starts_no_turn() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
@@ -437,8 +437,8 @@ async fn b5168f_a_quiet_digest_starts_no_turn() {
     assert!(h.inbox.typed().is_empty());
 }
 
-#[tokio::test]
-async fn b5168f_a_parked_quiet_digest_rides_the_next_delivery_once() {
+#[tokio::test(start_paused = true)]
+async fn b5168f_a_held_quiet_digest_rides_the_next_delivery_once() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
     let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
@@ -454,8 +454,8 @@ async fn b5168f_a_parked_quiet_digest_rides_the_next_delivery_once() {
     assert!(typed.iter().any(|(_, body)| body == "hello"));
 }
 
-#[tokio::test]
-async fn b5168f_a_restart_keeps_a_parked_quiet_digest() {
+#[tokio::test(start_paused = true)]
+async fn b5168f_a_restart_keeps_a_held_quiet_digest() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
     let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
@@ -477,7 +477,7 @@ async fn b5168f_a_restart_keeps_a_parked_quiet_digest() {
     assert_eq!(h.inbox.written().len(), 2);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn b5168f_a_finished_result_starts_one_turn() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
@@ -496,7 +496,7 @@ async fn b5168f_a_finished_result_starts_one_turn() {
     assert_eq!(h.inbox.typed().len(), 1);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn b5168f_a_new_question_starts_one_turn() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
