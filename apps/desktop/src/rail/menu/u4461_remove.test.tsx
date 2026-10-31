@@ -83,7 +83,7 @@ it.each([false, true])("u4601_buttons_follow_what_stays_empty_answer_%s", async 
 
 it("u4461_a_failed_removal_shows_the_message", async () => {
   const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
-  app.handlers["rail.remove"] = () => { throw new RpcError(-32603, "Cannot remove: stop the process and retry"); };
+  app.handlers["rail.remove"] = () => { throw new RpcError(-32003, "Cannot remove: stop the process and retry"); };
 
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
@@ -149,4 +149,21 @@ it("u4601_the_lists_follow_the_removal_plan", async () => {
     "Goes: chosen, finished, 1 done Todo, 3 Pads",
     "Stays (Remove this): running, dirty, ahead, 1 open Todo",
   ]);
+});
+
+it.each(["pad.list", "todo.list"] as const)("u5301a_a_failed_pad_or_todo_read_opens_the_confirm_naming_it_%s", async method => {
+  const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
+  app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
+  app.handlers[method] = () => { throw new RpcError(-32603, `no reply to ${method} within 5s`); };
+
+  fireEvent.contextMenu(rowOf("chosen"));
+  await app.pickMenu("Remove");
+  await waitFor(() => expect(app.removalQuestions).toHaveLength(1));
+
+  const unread = method === "pad.list" ? "Pads could not be read." : "Todos could not be read.";
+  expect(app.removalQuestions[0]!.message.split("\n")).toContain(unread);
+  expect(app.removalQuestions[0]!.message).not.toMatch(/\b0 /);
+  expect(railCallsTo(app, "rail.remove")).toEqual([]);
+  app.answerRemoval!("all");
+  await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "chosen", scope: "all" }]));
 });

@@ -24,5 +24,7 @@ export const copy = {
   noOutputKeptFromAnEarlierRun: "No output kept from an earlier run",
   terminalRestoreFailed: (cause: string) => `Could not restore Terminal output: ${cause}. Switch away and back to retry.`,
   latest: "↓ Latest",
+  findLabel: "Find in Terminal",
+  findNoMatch: "No matches",
   doesNotExist: (value1: CopyValue) => `${value1} does not exist`,
 } as const;

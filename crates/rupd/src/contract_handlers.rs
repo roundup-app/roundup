@@ -46,6 +46,15 @@ impl Daemon {
         .expect("declared built-in method")
     }
 
+    pub(super) async fn github_call(
+        &self,
+        conn: &mut Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        self.github(conn, method, params).await
+    }
+
     pub(super) async fn rpc_link_read(
         &self,
         conn: &mut Conn,
@@ -94,6 +103,15 @@ impl Daemon {
         rpc::reply(&waker.ask(&conn.actor, params).await?)
     }
 
+    pub(super) async fn rpc_rewind(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        self.rewind_call(&conn.actor, params).await
+    }
+
     pub(super) async fn rpc_project_resources(
         &self,
         _conn: &mut Conn,
@@ -138,17 +156,6 @@ impl Daemon {
                 .restart_session(&conn.actor, rpc::params(params)?)
                 .await?,
         )
-    }
-
-    pub(super) async fn rpc_rewind(
-        &self,
-        conn: &mut Conn,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        let children = self.rewind_children(&conn.actor, method, &params).await?;
-        self.rewind_call(&conn.actor, method, params, children)
-            .await
     }
 
     pub(super) async fn rpc_queue(

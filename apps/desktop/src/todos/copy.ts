@@ -1,6 +1,7 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
+  changeDidNotApply: "The change did not apply; the earlier value was kept. Try again.",
   dismissFailure: sharedCopy.dismissFailure,
   draftSurface: sharedCopy.draftSurface,
   draftField: sharedCopy.draftField,
@@ -14,7 +15,11 @@ export const copy = {
   draftRetention: sharedCopy.draftRetention,
   copyField: sharedCopy.copyField,
   copyDraftFailure: sharedCopy.copyDraftFailure,
-  deletePending: "An earlier deletion is still pending. Check deletion first.",
+  deleteBusy: "Another delete is still finishing. Try again in a moment.",
+  deleting: (ids: string) => `Deleting ${ids}`,
+  deleteNotConnected: "The project is not connected yet. Try again in a moment.",
+  deleteBlockedBy: (name: string) => `${name} is unconfirmed. Press Check deletion to check it, or Dismiss to leave it.`,
+  deleteStaysUnconfirmed: (name: string) => `${name} is still unconfirmed.`,
   deleteUnconfirmed: "An earlier deletion is unconfirmed. Check deletion first.",
   todoUndo: sharedCopy.todoUndo,
   redo: sharedCopy.redo,
@@ -82,7 +87,7 @@ export const copy = {
   failed: sharedCopy.failed,
   changedTodo: sharedCopy.changedTodo,
   body: "Body",
-  move: "Move",
+  move: sharedCopy.move,
   moveItem: sharedCopy.moveItem,
   moveTodoRow: (id: number, title: string) => `Move #${id} ${title}`,
   homesFor: (value1: CopyValue) => `Homes for #${value1}`,
@@ -113,7 +118,7 @@ export const copy = {
   olderActivity: (count: number) => `${count} older ${count === 1 ? "entry" : "entries"}`,
   commentField: "Write a comment",
   commentPlaceholder: "Add a comment",
-  comment: "Comment",
+  comment: sharedCopy.comment,
   reply: "Reply",
   commentTime: (at: number, now: number) => {
     const minutes = Math.max(0, Math.floor((now - at) / 60_000));

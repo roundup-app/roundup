@@ -17,10 +17,20 @@
 
 /* U3566d: an Agent, folded Workstream or Project whose latest finish is unread. U3704's mark in the accent; passive, so no cursor or action. */
 .unread-dot {
-  flex: none;
   color: var(--accent);
-  font-size: var(--text-caption);
-  line-height: 1;
+}
+
+/* U5153b: every unread or attention dot is one filled circle of --space-1, never a text character. */
+.unread-dot,
+.tab-mark,
+.terminal-tab-unseen,
+.overview-unseen {
+  flex: none;
+  display: inline-block;
+  width: var(--space-1);
+  height: var(--space-1);
+  border-radius: var(--radius-round);
+  background-color: currentColor;
   cursor: default;
 }
 

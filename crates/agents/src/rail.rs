@@ -384,6 +384,24 @@ impl Rail {
         Ok(())
     }
 
+    /// A5214a: turn root Agent `id` into a Workstream in place; `Ok(false)` when it is not a root
+    /// Agent. `to_workstream = false` undoes it.
+    pub fn convert_kind(&mut self, id: &str, to_workstream: bool) -> Result<bool, RpcError> {
+        let (from, to) = if to_workstream {
+            ("agent", "workstream")
+        } else {
+            ("workstream", "agent")
+        };
+        let changed = self
+            .db
+            .execute(
+                "UPDATE nodes SET kind = ?1 WHERE id = ?2 AND kind = ?3 AND parent IS NULL",
+                params![to, id, from],
+            )
+            .map_err(sql)?;
+        Ok(changed == 1)
+    }
+
     /// M7: the ids of the Workstreams Agent `creator` created and that still exist.
     pub fn created_by(&self, creator: &str) -> Result<Vec<String>, RpcError> {
         Self::created_by_in(&self.db, creator)
@@ -529,6 +547,30 @@ impl Rail {
             return Err(RpcError::not_found(GONE_AGENT));
         }
         Ok(())
+    }
+
+    /// A5213: the permission mode the saved conversation's Attempt last ran in, beside A21's data.
+    pub fn save_conversation_yolo(&mut self, id: &str, yolo: bool) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET conversation_yolo = ? WHERE id = ?",
+                params![yolo, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// A5213: whether the saved conversation last ran in YOLO.
+    pub fn conversation_yolo(&self, id: &str) -> Result<bool, RpcError> {
+        self.db
+            .query_row(
+                "SELECT conversation_yolo FROM nodes WHERE id = ?",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sql)?
+            .ok_or_else(|| RpcError::not_found(GONE_AGENT))
     }
 
     /// The saved conversation id and cwd (A21), if any.

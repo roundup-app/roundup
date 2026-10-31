@@ -779,7 +779,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
     // After T4902's removal, version 41 precedes 0028-deliverable-files.sql and Door columns.
     db.execute_batch("ALTER TABLE message_restarts DROP COLUMN session")
         .unwrap();
-    db.execute_batch("ALTER TABLE nodes DROP COLUMN opening_prompt")
+    db.execute_batch("ALTER TABLE nodes DROP COLUMN opening_prompt; ALTER TABLE nodes DROP COLUMN conversation_yolo")
         .unwrap();
     db.execute_batch(
         "DROP TRIGGER instruction_message; DROP TRIGGER instruction_message_outcome;
@@ -791,7 +791,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
     db.execute_batch("ALTER TABLE nodes ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
         ALTER TABLE marks ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
         CREATE TABLE iterations (door TEXT NOT NULL, iteration INTEGER NOT NULL, upto INTEGER NOT NULL, PRIMARY KEY (door, iteration));").unwrap();
-    // ... and the Todo columns added by 0036 and 0037.
+    // ... the Todo columns added by 0036 and 0037, and the conversation column of 0038.
     db.execute_batch(
         "ALTER TABLE todos DROP COLUMN updated_at; ALTER TABLE deleted_todos DROP COLUMN updated_at;
          ALTER TABLE todos DROP COLUMN priority; ALTER TABLE deleted_todos DROP COLUMN priority;",

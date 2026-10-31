@@ -3,7 +3,7 @@ import { createToastQueue } from "./queue";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agent, USER } from "../testing/nodes";
-import { TOAST_AGENT as AGENT, by, mountToasts, pad, status, toastTodo as todo } from "./toastFixture";
+import { FAILURE, TOAST_AGENT as AGENT, by, mountToasts, pad, status, toastTodo as todo } from "./toastFixture";
 
 const tree = () => [agent("a", "working", "x", { name: "scout" }), agent("b", "working", "x", { name: "mason" })];
 
@@ -39,7 +39,7 @@ describe("u410 which events make a Toast", () => {
     app.emit(status("b", "error"));
     await settle();
 
-    expect(names(toasts())).toEqual(["mason Failed"]);
+    expect(names(toasts())).toEqual([`mason ${FAILURE}`]);
     expect(sounds).toHaveLength(1);
   });
 
@@ -211,7 +211,7 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     comeBack();
     await settle();
 
-    expect(names(toasts())).toEqual(["mason Failed", "scout Needs you"]);
+    expect(names(toasts())).toEqual([`mason ${FAILURE}`, "scout Needs you"]);
     expect(sounds).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(6000);

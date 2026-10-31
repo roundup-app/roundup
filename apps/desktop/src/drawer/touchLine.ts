@@ -2,7 +2,7 @@ import { clockTime, copy } from "./copy";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
 
-/** `Last  <name> <read|wrote> <hh:mm>` for the newest Touch, in local time; `null` when the item was never touched. */
+/** `<name> <read|wrote> · <hh:mm>` for the newest Touch, in local time; `null` when the item was never touched. */
 export const lastTouchLine = (history: readonly Touch[], nameOf: (actor: Actor) => string): string | null => {
   const newest = history.reduce<Touch | null>(
     (best, touch) => (best === null || touch.at >= best.at ? touch : best),
@@ -16,7 +16,7 @@ export const lastTouchLine = (history: readonly Touch[], nameOf: (actor: Actor) 
   return copy.lastTouch(nameOf(newest.actor), newest.verb, time);
 };
 
-/** U190: `<name> <read|wrote> this Pad at <time>` for a Pad's newest Touch, the time in the user's locale; `null` when it was never touched. */
+/** U190: `<name> <read|wrote> · <time>` for a Pad's newest Touch, the time in the user's locale; `null` when it was never touched. */
 export const padTouchSentence = (history: readonly Touch[], nameOf: (actor: Actor) => string): string | null => {
   const newest = history.reduce<Touch | null>(
     (best, touch) => (best === null || touch.at >= best.at ? touch : best),

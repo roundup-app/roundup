@@ -24,7 +24,7 @@ const panel = () => document.querySelector<HTMLElement>(".inbox")!;
 const NODES: RailNode[] = [
   agent("a", "needs-you", "asks", { name: "alpha", order: 0 }),
   agent("b", "working", "editing Thread.tsx", { name: "beta", order: 1 }),
-  agent("c", "error", "crashed", { name: "gamma", order: 2 }),
+  agent("c", "error", "crashed", { name: "gamma", order: 2, can_resume: true }),
   agent("d", "done", "finished", { name: "delta", order: 3, status: { kind: "done", label: "finished", since: NOW - 10, finished: "0" } }),
   agent("e", "done", "finished", { name: "epsilon", order: 4, status: { kind: "done", label: "finished", since: NOW, finished: "0" } }),
   agent("f", "needs-you", "asks", { name: "zeta", order: 5, status: { kind: "needs-you", label: "asks", since: NOW + 1, finished: "0" } }),
@@ -64,7 +64,7 @@ it("u3770a_an_empty_inbox_says_nothing_waits", async () => {
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
   m.connected.showView(null);
   m.connected.showView("attention");
-  await screen.findByText("Nothing waits for you");
+  await screen.findByText("Nothing needs you");
   expect(panel().querySelectorAll(".inbox-group")).toHaveLength(0);
 });
 
@@ -113,6 +113,21 @@ it("u3770c_retry_resumes_the_failed_agent", async () => {
   await waitFor(() => expect(calls(m, "agent.resume")).toEqual([{ id: "c" }]));
   await send(m, status("c", "working"));
   expect(names(panel())).not.toContain("c");
+});
+
+it("u5265_an_error_row_that_can_resume_offers_retry", async () => {
+  const m = await mountInbox();
+  const row = () => within(panel()).getByText("gamma").closest<HTMLElement>("li")!;
+  fireEvent.click(within(row()).getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(calls(m, "agent.resume")).toEqual([{ id: "c" }]));
+});
+
+it("u5265_an_error_row_that_cannot_resume_offers_open_not_retry", async () => {
+  const m = await mountInbox(NODES.map(node => node.id === "c" ? { ...node, can_resume: false } : node));
+  const row = () => within(panel()).getByText("gamma").closest<HTMLElement>("li")!;
+  fireEvent.click(within(row()).getByRole("button", { name: "Open" }));
+  expect(m.connected.rail.selected()).toBe("c");
+  expect(calls(m, "agent.resume")).toEqual([]);
 });
 
 it("u3770c_a_failed_call_keeps_the_row_open_with_the_error", async () => {
@@ -173,7 +188,7 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   m.connected.showView(null);
   m.connected.showView("attention");
   await screen.findByRole("region", { name: "Needs you" });
-  const row = (await within(groupOf("Needs you")).findAllByRole("button", { name: /alpha commented on Ship/ }))[0]!;
+  const row = (await within(groupOf("Needs you")).findAllByRole("button", { name: /alpha.*Ship/ }))[0]!;
   // The unread comment row follows the Agent rows and makes no Message call.
   expect(within(row).getByText(m.store.comments!.get(1)![0]!.body)).toBeTruthy();
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
@@ -182,7 +197,7 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
 });
 
 it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_inboxrow_resume_%s", async (transition) => {
-  const nodes = [agent("a", "error", "crashed", { name: "alpha" }), agent("b", "error", "crashed", { name: "beta" })];
+  const nodes = [agent("a", "error", "crashed", { name: "alpha", can_resume: true }), agent("b", "error", "crashed", { name: "beta", can_resume: true })];
   const m = await mountInbox(nodes);
 
   fireEvent.click(screen.getByRole("button", { name: /^add todo to/ }));
@@ -275,7 +290,7 @@ it("u3770a_comment_only_attention_opens_needs_you_without_marking_read", async (
   m.store.comments!.set(1, [{ id: 7, author: { kind: "agent", id: "a", parent: null }, body: "review this", created_at: 10, read: false }]);
   m.connected.showView(null);
   render(() => <ConnectedProjectContext.Provider value={m.connected}><AskBar /></ConnectedProjectContext.Provider>);
-  const row = await screen.findByRole("button", { name: /alpha commented on Review/ });
+  const row = await screen.findByRole("button", { name: /alpha.*Review/ });
   expect(row.closest(".inbox-group")?.getAttribute("data-agent")).toBe("a");
   expect(screen.getByRole("button", { name: /^Needs you/ }).getAttribute("aria-expanded")).toBe("true");
   expect(calls(m, "todo.markCommentsRead")).toEqual([]);
@@ -350,4 +365,16 @@ it.each(["rail", "ask", "bench", "drawer", "agent-terminal", "shell-terminal", "
     expect(screen.getByRole("textbox", { name: "Ask" })).toHaveProperty("value", draft);
     expect(daemon.calls.slice(before).filter(call => ["terminal.write", "ask.send", "agent.resume", "rail.startDoor", "agent.spawn"].includes(call.method))).toEqual([]);
   }
+});
+
+it("u5151f_inbox_row_drops_a_dismissed_error", async () => {
+  const m = await mountInbox([agent("a", "error", "crashed", { name: "alpha" }), agent("b", "error", "crashed", { name: "beta" })]);
+  const failed = (id: string) => panel().querySelector(`[data-row="a:${id}"]`);
+
+  expect(failed("a")?.querySelector(".inbox-failure")).not.toBeNull();
+  m.connected.rail.dismiss(m.connected.rail.nodes.find((node) => node.id === "a")!);
+  await waitFor(() => expect(failed("a")).toBeNull());
+
+  expect(failed("b")?.querySelector(".inbox-failure")).not.toBeNull();
+  expect(m.app.calls.map((call) => call.method).filter((method) => /^(agent|terminal)\.(send|write|stop|restart|resume)|^message\./.test(method))).toEqual([]);
 });

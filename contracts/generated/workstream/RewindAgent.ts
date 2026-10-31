@@ -5,5 +5,6 @@ export type RewindAgent = {
 	agent: string,
 	name: string,
 	state: workstream$RewindState.RewindState,
+	/**  Why it was `unavailable` or `failed`. */
 	reason?: string,
 };

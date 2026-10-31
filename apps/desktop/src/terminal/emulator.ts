@@ -9,6 +9,7 @@ import type { Printed } from "./links";
 import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
 import type { TurnRows } from "./turns";
+import { SearchAddon } from "@xterm/addon-search";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -54,6 +55,8 @@ export type Emulator = {
   /** Parsed output only, at the grid SerializeAddon requires for restoration. */
   serialize?(): Size & { data: string };
   selection(): string;
+  /** Z3788a: selects the next (or, `backwards`, previous) occurrence of `query` in the retained output and scrolls to it; false when none matches. Writes nothing. */
+  find?(query: string, backwards?: boolean): boolean;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
   /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
@@ -203,6 +206,8 @@ export const createXtermEmulators = (
     const terminal = new Terminal({ ...xtermOptions, ...terminalType() });
     const serializer = new SerializeAddon();
     terminal.loadAddon(serializer);
+    const searcher = new SearchAddon();
+    terminal.loadAddon(searcher);
     terminal.loadAddon(new ClipboardAddon(undefined, {
       readText: () => "",
       writeText: (selection, text) => selection === "c" ? copy?.(text) : undefined,
@@ -219,6 +224,9 @@ export const createXtermEmulators = (
     terminal.unicode.activeVersion = "11";
     const fitter = new FitAddon();
     const element = document.createElement("div");
+
+    element.dataset.terminal = id;
+
     let resized: (size: Size) => void = () => {};
 
     let opened = false;
@@ -655,6 +663,7 @@ export const createXtermEmulators = (
       },
       serialize: () => ({ cols: terminal.cols, rows: terminal.rows, data: serializer.serialize({ scrollback: SCROLLBACK_LINES }) }),
       selection: () => terminal.getSelection(),
+      find: (query, backwards = false) => query !== "" && (backwards ? searcher.findPrevious(query) : searcher.findNext(query)),
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),

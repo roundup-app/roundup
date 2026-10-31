@@ -1,7 +1,16 @@
 //! One declaration supplies the method table, owning module router, TS bindings and MCP exposure.
+use crate::describe::{Declared, role_summary, schema_of};
 #[cfg(feature = "export")]
 use crate::methods::Method;
 use crate::methods::{ExportedMethod, typed};
+
+/// F8, M16: the Bubble rule every Terminal-starting tool's description states, as the Brief does.
+#[macro_export]
+macro_rules! bubble_rule {
+    () => {
+        " Use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools."
+    };
+}
 
 macro_rules! declarations {
     ($d:tt; $($owner:ident [$namespace:literal] { $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)* })*) => {
@@ -11,6 +20,9 @@ macro_rules! declarations {
             match method { $($($wire => Some($namespace),)*)* _ => None }
         }
         pub(crate) fn exported() -> Vec<ExportedMethod> { vec![$($(typed::<$params, $result>($wire),)*)*] }
+        pub(crate) fn declared() -> Vec<Declared> {
+            vec![$($(Declared { name: $wire, tool_summary: role_summary!($role($($tool)*)), params: schema_of::<$params>, result: schema_of::<$result>, },)*)*]
+        }
         pub(crate) fn types() -> specta::Types { specta::Types::default() $($(.register::<$params>().register::<$result>())*)* }
         $(
             #[macro_export]
@@ -75,6 +87,8 @@ declarations! { $;
         "project.rename": contracts::project::RenameParams => (), rpc_project_rename, all(schema(contracts::project::RenameParams,"Ask the App to give this Project a name of 1 to 40 characters. The answer means asked, not done."));
         "rail.remove": contracts::agent::RemoveParams => Option<contracts::agent::Removal>, rpc_rail_remove, all(schema(contracts::agent::RemoveParams,"Remove a node in your Reach, never yourself. Workstream scope this (default) keeps unfinished work; all stops and removes its contents. All is only valid for a Workstream and cannot retain an operation."));
         "agent.resume": contracts::agent::ResumeParams => contracts::agent::RailNode, rpc_agent_resume, all(schema(contracts::agent::ResumeParams,"Continue a saved conversation in your Reach. An explicit normal or yolo mode stops a running Agent or Door first; omitted mode requires an exited Agent."));
+        "agent.makeWorkstream": contracts::agent::NodeId => contracts::agent::RailNode, rpc_agent_make_workstream, none();
+        "agent.saveAsMode": contracts::agent::SaveAsModeParams => contracts::agent::RailNode, rpc_agent_save_as_mode, none();
         "agent.setModel": contracts::agent::SetModelParams => contracts::agent::RailNode, rpc_agent_set_model, none();
     }
     todos_methods["todo"] {
@@ -147,10 +161,6 @@ declarations! { $;
         "terminal.read": contracts::terminal::ReadParams => contracts::terminal::Read, rpc_terminal_read, all(custom(terminal_read()));
         "terminal.search": contracts::terminal::SearchParams => contracts::terminal::Search, rpc_terminal_search, all(schema(contracts::terminal::SearchParams,"Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call."));
     }
-    checkpoints_methods["checkpoint"] {
-        "checkpoint.write": contracts::checkpoint::WriteParams => contracts::checkpoint::Checkpoint, rpc_checkpoint_write, door(custom(checkpoint_write()));
-        "checkpoint.list": contracts::checkpoint::ListParams => Vec<contracts::checkpoint::Checkpoint>, rpc_checkpoint_list, all(schema(contracts::checkpoint::ListParams,"List the Checkpoints of a Workstream, oldest first."));
-    }
     asks_methods["ask"] {
         "ask.send": contracts::ask::SendParams => contracts::ask::Ask, rpc_ask_send, none();
         "ask.list": () => Vec<contracts::ask::Ask>, rpc_ask_list, none();
@@ -168,8 +178,15 @@ declarations! { $;
         "deliverable.resolve": contracts::deliverable::DeliverableId => contracts::deliverable::Resolution, deliverable_call, all(schema(contracts::deliverable::DeliverableId,"Resolve the recorded revision or exact current external target, or its unavailability cause."));
         "deliverable.move": contracts::deliverable::MoveParams => contracts::deliverable::Deliverable, deliverable_call, all(schema(contracts::deliverable::MoveParams,"Move a published result; an Agent cannot override user placement."));
         "deliverable.remove": contracts::deliverable::DeliverableId => (), deliverable_call, all(schema(contracts::deliverable::DeliverableId,"Explicitly remove a publication. User only; the identity and key cannot be reused."));
+        "github.prGet": contracts::github::Number => contracts::github::Pr, github_call, door(schema(contracts::github::Number,"Read a PR of the Project's repository as GitHub holds it now: title, body, state, draft, autoMerge, head and mergedAt. Read it before you state it or ask the user to act on it."));
+        "github.issueGet": contracts::github::Number => contracts::github::Issue, github_call, door(schema(contracts::github::Number,"Read an Issue of the Project's repository as GitHub holds it now: title, body, state, labels and stateReason."));
+        "github.prSetBody": contracts::github::SetBodyParams => contracts::github::Pr, github_call, door(schema(contracts::github::SetBodyParams,"Replace a PR's body with `body` (not empty); the answer is the PR as it now stands."));
+        "github.prReady": contracts::github::Number => contracts::github::Pr, github_call, door(schema(contracts::github::Number,"Mark a draft PR ready for review; a PR already ready is left as it is."));
+        "github.prAutoMerge": contracts::github::Number => contracts::github::Pr, github_call, door(schema(contracts::github::Number,"Enable auto-merge (merge commit) on an open PR; one already enabled is left as it is."));
         "daemon.ping": () => contracts::common::Ping, rpc_builtin, none();
         "daemon.methods": () => Vec<String>, rpc_builtin, none();
+        "api.list": () => contracts::describe::MethodList, rpc_builtin, all(empty("List every method the Daemon serves with a one-line summary."));
+        "api.describe": contracts::describe::DescribeParams => contracts::describe::MethodDescription, rpc_builtin, all(schema(contracts::describe::DescribeParams,"Describe one method: its summary, params and result schemas and an example."));
         "link.read": contracts::link::LinkUrl => contracts::link::LinkContent, rpc_link_read, all(schema(contracts::link::LinkUrl,"Read a Project roundup:// link: current Pad, Todo, Agent, Workstream or Terminal content, or a Deliverable recorded revision/current external target and its availability."));
         "daemon.identify": contracts::common::IdentifyParams => (), rpc_builtin, none();
         "events.subscribe": Option<contracts::common::SubscribeParams> => contracts::common::SubscribeResult, rpc_builtin, all(custom(events_stream()));
@@ -198,9 +215,8 @@ declarations! { $;
         "message.resolveResult": contracts::message::ResolveResultParams => contracts::message::ResultObservation, rpc_evidence, all(schema(contracts::message::ResolveResultParams,"User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect."));
         "message.reconcileWork": contracts::message::ProgressParams => contracts::message::Reconciliation, resume_call, all(schema(contracts::message::ProgressParams,"Read which retained work is unfinished, confirmed, pending a check or uncertain, without sending or starting anything."));
         "message.resumeWork": contracts::message::ResumeWorkParams => contracts::message::ResumeWork, resume_call, all(schema(contracts::message::ResumeWorkParams,"User only: resume an Agent's eligible unfinished work with one successor Message. Retry with the same request id after an unknown reply; it never repeats an uncertain external effect, restarts a stopped Agent or starts a program."));
-        "workstream.restart": contracts::workstream::RestartParams => contracts::agent::RailNode, rpc_workstream_restart, none();
-        "workstream.rewindPlan": contracts::workstream::RewindPlanParams => contracts::workstream::RewindPlan, rpc_rewind, door(custom(workstream_rewind_plan()));
         "workstream.rewind": contracts::workstream::RewindParams => contracts::workstream::Rewind, rpc_rewind, door(custom(workstream_rewind()));
+        "workstream.restart": contracts::workstream::RestartParams => contracts::agent::RailNode, rpc_workstream_restart, none();
         "todo.startWorkstream": contracts::workstream::StartWorkstreamParams => contracts::agent::RailNode, rpc_queue, none();
         "workstream.queue": () => contracts::workstream::QueueState, rpc_queue, none();
         "workstream.dequeue": contracts::workstream::QueuedWorkstream => (), rpc_queue, none();

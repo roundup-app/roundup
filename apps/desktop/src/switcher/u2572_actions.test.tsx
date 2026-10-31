@@ -159,7 +159,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: R
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: attention %s", async (byAction) => {
   const { connected } = await mountSwitcher("ops");
 
-  if (byAction) { await show(); await chooseAction("Jump to what needs you", "enter"); }
+  if (byAction) { await show(); await chooseAction("Next needs you", "enter"); }
   else leaderKey("KeyJ");
   expect(connected.rail.selected()).toBe("cy");
 });
@@ -173,7 +173,7 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
     emulators.made.get("7")!.focus();
     await waitFor(() => expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("7"));
 
-    if (byAction) { await show(); await chooseAction(key === "M" ? "Minimise or restore the Bubble" : "Close the Bubble", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "M" ? "Minimise Bubble" : "Close the Bubble", "enter"); }
     else leaderKey(`Key${key}`, {}, document.activeElement!);
 
     if (key === "W") {
@@ -195,7 +195,7 @@ it.each(["B", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
 
     const beforeShelf = document.querySelector<HTMLElement>(".window")?.dataset.shelf;
 
-    if (byAction) { await show(); await chooseAction(key === "B" ? "Open the Bench" : "Jump to what needs you in another Project", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "B" ? "Open the Bench" : "Needs you elsewhere", "enter"); }
     else leaderKey("Key" + (key === "B" ? "B" : "J"), { shiftKey: key === "⇧J" });
 
     if (key === "B") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
@@ -223,9 +223,9 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
   focus.focus();
   await show();
 
-  const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
-    "Jump to what needs you", ...(context === "rail" ? ["Rename", "Remove"] : []),
-    "Focus the Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset Terminal text size"] : []), "Assign a Todo to an owner, or go back to Ask", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
+  const expected = ["New Agent", "New Agent with a prompt", "New Workstream", "New Mode", ...(context === "editor" ? [] : ["New Terminal"]),
+    "Next needs you", ...(context === "rail" ? ["Rename", "Remove"] : []),
+    "Focus the Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset text size", "Find…"] : []), "Assign / Ask", ...(["bubble", "editor"].includes(context) ? ["Minimise Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
   press("Escape", {}, field()!);
@@ -268,7 +268,7 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
 it("u2572c_no_selection_no_attention_and_a_removed_Bubble_never_fall_back", async () => {
   const { app, connected } = await mountSwitcher(null, [workstream("ws", { name: "only" })], [info("7", { owner: "ws" })]);
   await show();
-  expect(actionRows().map(row => row.dataset.value)).toEqual(["action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T", "action:chord:⌘/"]);
+  expect(actionRows().map(row => row.dataset.value)).toEqual(["action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌥⌘N", "action:chord:⇧⌘M", "action:chord:⌘T", "action:chord:⌘/"]);
   press("Escape", {}, field()!);
   connected.rail.select("ws");
   document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
@@ -290,7 +290,7 @@ it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s"
 
   for (const option of actionRows()) {
     const row = [...CHORDS, ...LEADER].find(row => `action:${"press" in row ? "leader" : "chord"}:${row.keys}` === option.dataset.value)!;
-    const keys = "press" in row ? `${CHORDS[3]!.keys} ${row.keys}` : row.keys;
+    const keys = "press" in row ? `${CHORDS.find(chord => chord.keys === "⌘K")!.keys} ${row.keys}` : row.keys;
     expect([...option.querySelectorAll("kbd.key-chip")].map((chip) => chip.textContent).join("")).toBe(keys.replaceAll(" ", ""));
   }
 });

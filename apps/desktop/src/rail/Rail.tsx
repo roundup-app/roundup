@@ -14,7 +14,9 @@ import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
-import { CHORDS, LEADER } from "../keys/chords";
+import { KIND_ICON } from "../ink/kindIcon";
+import { KeyChip } from "../keys/KeyChip";
+import { CHORDS, LEADER, ariaShortcut } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import type { RailSection } from "./persist/storage";
@@ -25,10 +27,10 @@ import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { CreateMode } from "./CreateMode";
 import { OpeningPrompt } from "./OpeningPrompt";
+import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
-import { createRailMenu } from "./menu/model";
-import { ancestorsOf, isWorkstream, layoutRail, siblingsOf } from "./layout";
-import type { NodeRow } from "./layout";
+import { canMakeWorkstream, canSaveAsMode, createRailMenu } from "./menu/model";
+import { ancestorsOf, isWorkstream, layoutRail, siblingsOf, type NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
 import { Trunks } from "../ui/TreeView";
@@ -50,7 +52,7 @@ export const Rail = () => {
   const { app, project, rail, now, daemonExit } = connected;
   const recoveryEntries = useRecoveryMenu();
 
-  const attention = createMemo(() => attentionCount(rail.nodes));
+  const attention = createMemo(() => attentionCount(rail.nodes, rail.dismissed));
   const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
@@ -61,6 +63,7 @@ export const Rail = () => {
 
   const [creatingMode, setCreatingMode] = createSignal(false);
   const [openingPrompt, setOpeningPrompt] = createSignal<string | null>(null);
+  const [savingMode, setSavingMode] = createSignal<string | null>(null);
   const copied = new Map<string, ReturnType<typeof createCopyFeedback>>();
 
   const moveAgent = createMove(connected, id => rowElement(id));
@@ -71,7 +74,10 @@ export const Rail = () => {
     const actions = actionsOf(node);
 
     return [
+      ...(node.kind === "agent" && node.status?.kind === "error" && !rail.dismissed(node) ? [{ id: "dismiss", label: copy.dismissError, run: () => { rail.dismiss(node); } }] : []),
       ...(moveAgent.available(node.id) ? [{ id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) }] : []),
+      ...(canMakeWorkstream(node, rail.exitOf(node)) ? [{ id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } }] : []),
+      ...(canSaveAsMode(node) ? [{ id: "save-as-mode", label: copy.saveAsMode, run: () => { setSavingMode(node.id); } }] : []),
       ...(node.kind === "workstream" && node.opening_prompt?.trim() ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartSession(node.id); } }] : []),
       ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
         id: "progress", label: copy.workProgress, run: () => {
@@ -161,10 +167,10 @@ export const Rail = () => {
 
   const endCompose = () => setComposing(false);
 
-  const sections: { id: RailSection; label: string; icon: "messages" | "bot" | "workflow" }[] = [
-    { id: "workstreams", label: copy.workstreamsHead, icon: "messages" },
-    { id: "modes", label: copy.modesHead, icon: "workflow" },
-    { id: "agents", label: copy.agentsHead, icon: "bot" },
+  const sections: { id: RailSection; label: string; icon: typeof KIND_ICON[keyof typeof KIND_ICON] }[] = [
+    { id: "workstreams", label: copy.workstreamsHead, icon: KIND_ICON.workstream },
+    { id: "modes", label: copy.modesHead, icon: KIND_ICON.mode },
+    { id: "agents", label: copy.agentsHead, icon: KIND_ICON.agent },
   ];
 
   const sectionNodes = createMemo(() => {
@@ -501,6 +507,7 @@ export const Rail = () => {
   };
 
   const spawnAgent = () => spawnAgentWith(null);
+  const createWorkstream = () => guarded(() => rail.createWorkstream());
 
   /** U427, U428: a Workstream's folder is its Door's, an Agent's is its Worktree's, else the Project's. */
   const directoryOf = (node: RailNode) => node.worktree?.path ?? project.path;
@@ -687,6 +694,8 @@ export const Rail = () => {
       else spawnAgent();
     } }) },
     { action: { ...CHORDS.find((row) => row.keys === "⇧⌘N")!, get what() { return isEmpty() ? copy.newWorkstreamTitle : copy.newAgentWithAPrompt; } }, match: "key", capture: () => ({ available: canSpawn, invoke: () => { if (isEmpty()) guarded(() => rail.createWorkstream()); else openCompose(); } }) },
+    { action: CHORDS.find(row => row.keys === "⌥⌘N")!, capture: () => ({ available: canSpawn, invoke: createWorkstream }) },
+    { action: CHORDS.find(row => row.keys === "⇧⌘M")!, capture: () => ({ available: canSpawn, invoke: () => setCreatingMode(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
@@ -876,7 +885,7 @@ export const Rail = () => {
                           }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
-                            await app.rpc("rail.rename", { id: view().node.id, name });
+                            await rail.rename(view().node.id, name);
                             failure.acknowledge(view().node.id);
                           }}
                           lifted={parts.isDragging()}
@@ -959,6 +968,7 @@ export const Rail = () => {
           )}</For>
         </details>
       </Show>
+      <Show when={savingMode()} keyed>{id => <SaveAsMode id={id} onClose={() => setSavingMode(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <Show when={openingPrompt()} keyed>{id => <OpeningPrompt restart={() => menu.restartSession(id)} id={id} onClose={() => setOpeningPrompt(null)} finalFocus={() => rowElement(id) ?? null} />}</Show>
       <Show when={creatingMode()}><CreateMode finalFocus={id => rowElement(id) ?? null} onClose={() => setCreatingMode(false)} onCreated={(id, request) => {
         setCreatingMode(false);
@@ -978,17 +988,9 @@ export const Rail = () => {
           <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
         </ReservedLine>
         <div class="rail-actions">
-          <button data-button="add"
-            aria-label={copy.addWorkstream}
-            class="word"
-            aria-disabled={canSpawn() ? undefined : true}
-            onClick={() => {
-              if (canSpawn()) guarded(() => rail.createWorkstream());
-            }}
-          >
-            <Icon name="messages" />{copy.addWorkstreamWord}</button>
-          <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name="workflow" />{copy.modeWord}</button>
-          <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name="circle" />{copy.addAgentWord}</button>
+          <button type="button" data-button="add" class="word" aria-label={copy.addWorkstream} aria-keyshortcuts={ariaShortcut("⌥⌘N")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) createWorkstream(); }}><Icon name={KIND_ICON.workstream} />{copy.addWorkstreamWord}<KeyChip keys="⌥⌘N" /></button>
+          <button type="button" data-button="add" class="word" aria-label={copy.newMode} aria-keyshortcuts={ariaShortcut("⇧⌘M")} aria-disabled={canSpawn() ? undefined : true} onClick={() => { if (canSpawn()) setCreatingMode(true); }}><Icon name={KIND_ICON.mode} />{copy.modeWord}<KeyChip keys="⇧⌘M" /></button>
+          <button type="button" data-button="add" class="word" aria-label={copy.newAgent} aria-keyshortcuts={ariaShortcut("⌘N")} aria-disabled={canSpawn() ? undefined : true} onClick={() => captureActions(document.activeElement).find(action => action.value === "action:chord:⌘N")?.run()}><Icon name={KIND_ICON.agent} />{copy.addAgentWord}<KeyChip keys="⌘N" /></button>
         </div>
       </div>
     </>

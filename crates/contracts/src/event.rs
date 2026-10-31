@@ -1,11 +1,12 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::common::Actor;
-use crate::{agent, checkpoint, message, pad, project, terminal, todo, workstream};
+use crate::{agent, message, pad, project, terminal, todo, workstream};
 
 /// Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "name", content = "data")]
 pub enum EventData {
     #[serde(rename = "workstream.updated")]
@@ -77,10 +78,6 @@ pub enum EventData {
     /// A2741a: the exact destination and name committed under the Rail mutation lock.
     #[serde(rename = "rail.renamed")]
     RailRenamed { id: String, name: String },
-    #[serde(rename = "checkpoint.written")]
-    CheckpointWritten(checkpoint::Checkpoint),
-    #[serde(rename = "workstream.rewound")]
-    WorkstreamRewound(workstream::Rewound),
     #[serde(rename = "project.requested")]
     ProjectRequested(project::Requested),
     /// A3195: the Queue or the Project's cap changed; read `workstream.queue`.
@@ -88,7 +85,7 @@ pub enum EventData {
     WorkstreamQueueChanged,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Event {
     /// The Event number: set on every saved Event (D10).
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -18,7 +18,7 @@ pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
         .filter(|n| *n > 0 && n.to_string() == value)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum NodeKind {
     Workstream,
@@ -27,7 +27,7 @@ pub enum NodeKind {
 
 /// The git worktree Provisioning made for a node's Agent (G2, `scenarios/worktrees.md`).
 /// `base` is the branch that was checked out in the Project when it was made.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Worktree {
     pub path: String,
     pub branch: String,
@@ -35,7 +35,7 @@ pub struct Worktree {
 }
 
 /// A34: what a Workstream's removal took off the Rail, the Todos and the Pads.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum RemovalKind {
     Agent,
@@ -44,7 +44,7 @@ pub enum RemovalKind {
 }
 
 /// A34: why a Workstream's removal kept an item at the Project root.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum KeptReason {
     Running,
@@ -54,7 +54,7 @@ pub enum KeptReason {
 }
 
 /// A34: one item `rail.remove` of a Workstream deleted.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RemovedItem {
     pub id: String,
     pub kind: RemovalKind,
@@ -62,7 +62,7 @@ pub struct RemovedItem {
 }
 
 /// A34: one item `rail.remove` of a Workstream moved to the Project root.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct KeptItem {
     pub id: String,
     pub kind: RemovalKind,
@@ -71,7 +71,7 @@ pub struct KeptItem {
 }
 
 /// A34: what `rail.remove` of a Workstream returns.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Removal {
     pub removed: Vec<RemovedItem>,
     pub kept: Vec<KeptItem>,
@@ -119,7 +119,7 @@ pub struct RedoParams {
     pub operation: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Deletion {
     pub project: String,
     pub operation: String,
@@ -132,7 +132,7 @@ pub struct Deletion {
 
 /// What `agent.worktreeState` returns (G3): commits only the branch has, commits only the Base
 /// has, and whether the Worktree has a staged, unstaged or untracked change outside `.roundup/`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct WorktreeState {
     pub ahead: u32,
     pub behind: u32,
@@ -151,7 +151,7 @@ pub struct WorktreeState {
 
 /// NR10: only `Complete` carries a concluded required-check set; every other state keeps
 /// `checks` empty so it never reads as passing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum WorktreeEvidenceState {
     Complete,
@@ -165,7 +165,7 @@ pub enum WorktreeEvidenceState {
     Unavailable,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum WorktreeCheckConclusion {
     Passed,
@@ -174,13 +174,13 @@ pub enum WorktreeCheckConclusion {
     Cancelled,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct WorktreeRequiredCheck {
     pub name: String,
     pub conclusion: WorktreeCheckConclusion,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct WorktreeEvidence {
     pub state: WorktreeEvidenceState,
     /// The read is older than the refresh interval or a later refresh failed.
@@ -204,13 +204,13 @@ pub struct WorktreeEvidence {
 }
 
 /// Optional forge checks, independent of an Agent's Kind or local git state.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct WorktreeCi {
     pub state: WorktreeCiState,
     pub stale: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum WorktreeCiState {
     Passed,
@@ -223,7 +223,7 @@ pub enum WorktreeCiState {
 }
 
 /// A positive forge PR number, optionally retained after a failed refresh.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct WorktreePr {
     #[specta(type = specta_typescript::Number)]
     pub number: std::num::NonZeroU64,
@@ -231,7 +231,7 @@ pub struct WorktreePr {
 }
 
 /// How a Changed file differs from the Agent's Base (U2539a).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ChangedStatus {
     Added,
@@ -243,7 +243,7 @@ pub enum ChangedStatus {
 
 /// One file the Agent's Worktree differs in: `line` is the 1-based first differing line in the
 /// working copy (`null` for a deleted or binary file), `from` the old path of a renamed file.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ChangedFile {
     pub path: String,
     pub status: ChangedStatus,
@@ -254,20 +254,20 @@ pub struct ChangedFile {
 }
 
 /// What `agent.changedFiles` returns (U2539a), sorted by `path`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ChangedFiles {
     pub files: Vec<ChangedFile>,
 }
 
 /// Select one relative path in an Agent's Worktree (U2540a).
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct CompareFileParams {
     pub id: String,
     pub path: String,
 }
 
 /// Exact present bytes use SHA-256 revisions; an absent side uses `absent`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum FileContent {
     Absent { revision: String },
@@ -278,7 +278,7 @@ pub enum FileContent {
 /// Merge-base versus current disk content, never the index (U2540a).
 /// Each side is capped at 4 MiB; oversized or special files fail explicitly.
 /// Status is null when no change remains against the merge base.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FileComparison {
     pub base: String,
@@ -290,7 +290,7 @@ pub struct FileComparison {
 }
 
 /// What `agent.land` returns (G4): the commit the Base points at after Landing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Landed {
     pub base: String,
 }
@@ -394,7 +394,7 @@ pub const ASK_CAP: usize = 200;
 /// O14: the most words of a Work order's `title`, split on whitespace.
 pub const TITLE_CAP: usize = 6;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RailNode {
     /// A3308: the Workstream's Auto choice; absent on an Agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -455,7 +455,7 @@ pub struct RailNode {
 }
 
 /// A2681a: display data from a closed Agent's saved conversation, never authority.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ConversationOverview {
     pub program: String,
     pub id: String,
@@ -481,7 +481,7 @@ pub struct ConversationOverview {
 }
 
 /// A2681d: one measured part of the context.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContextPart {
     pub kind: ContextPartKind,
     #[specta(type = specta_typescript::Number)]
@@ -489,7 +489,7 @@ pub struct ContextPart {
 }
 
 /// A2681d: `Other` is the remainder of `used` no measured part accounts for.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContextPartKind {
     System,
@@ -500,7 +500,7 @@ pub enum ContextPartKind {
 }
 
 /// A2681c: the available parts of the conversation's latest card.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ConversationCard {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = String)]
@@ -518,7 +518,7 @@ pub struct ConversationCard {
 
 /// B51: the outcome of checking an Agent's Claude inbox: `ok`, `missing` (absent or not writable)
 /// or `mismatch` (present, listing a messaging protocol the adapter does not speak).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Inbox {
     Ok,
@@ -527,14 +527,14 @@ pub enum Inbox {
 }
 
 /// F5: one process found by name under a Door, by its pid and the command line `ps` printed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Stray {
     pub pid: u32,
     pub command: String,
 }
 
 /// The `agent.stray` event: the Door `id` now holds exactly `stray`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct StrayEvent {
     pub id: String,
     pub stray: Vec<Stray>,
@@ -542,7 +542,7 @@ pub struct StrayEvent {
 
 /// E6: `pending` from the start, `up` once `agent.channelUp` arrived, `missing` when it had not
 /// within the Daemon's deadline.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Channel {
     Pending,
@@ -551,20 +551,20 @@ pub enum Channel {
 }
 
 /// The `agent.channel` event: Agent `id`'s Channel changed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ChannelEvent {
     pub id: String,
     pub channel: Channel,
 }
 
 /// What `agent.brief` returns (E3): the text `rup context` prints, verbatim.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Brief {
     pub stdout: String,
 }
 
 /// A31: one Skill a Door can call, by the name the user types after `/`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Skill {
     pub name: String,
     /// One line of at most 160 characters; empty when the Skill has none.
@@ -572,20 +572,20 @@ pub struct Skill {
 }
 
 /// What `agent.skills` returns (A31), sorted by `name`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Skills {
     pub skills: Vec<Skill>,
 }
 
 /// The node an Agent sits under: a Workstream with no running Door, or an Agent (a Door or the Agent that started it).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ParentNode {
     Group,
     Agent,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContextSelf {
     pub id: String,
     pub name: String,
@@ -594,7 +594,7 @@ pub struct ContextSelf {
     pub order: Option<Order>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContextParent {
     pub id: String,
     pub name: String,
@@ -602,19 +602,19 @@ pub struct ContextParent {
 }
 
 /// Who a Message for help goes to: a Door's id, or the user's Actor id.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContextAsk {
     pub to: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContextPeer {
     pub id: String,
     pub name: String,
     pub status: Status,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContextTodo {
     pub id: u32,
     pub title: String,
@@ -623,7 +623,7 @@ pub struct ContextTodo {
 
 /// B19: what a Door is told about one child. `last` is one line, `todos` counts the open Todos
 /// whose Home is the child, and `pads` names the child's Pads written since the previous envelope.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct DigestEntry {
     pub name: String,
     pub kind: crate::Kind,
@@ -634,7 +634,7 @@ pub struct DigestEntry {
 
 /// B20: one item of `agent.digest`'s `children`: a child's entry, or the last item `{more: n}` when
 /// the Door has more children than the result holds.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(untagged)]
 pub enum DigestItem {
     Child(DigestEntry),
@@ -642,7 +642,7 @@ pub enum DigestItem {
 }
 
 /// What `agent.digest` returns (B20).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Digest {
     pub children: Vec<DigestItem>,
 }
@@ -660,7 +660,7 @@ pub struct WakeParams {
 
 /// What `agent.wake` returns (B41, B48): the request's number, whether it already fired, and,
 /// when it did not, why the request waits.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Woken {
     pub id: u32,
     pub fired: bool,
@@ -670,7 +670,7 @@ pub struct Woken {
 }
 
 /// What `agent.context` returns (E2).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Context {
     #[serde(rename = "self")]
     pub this: ContextSelf,
@@ -800,7 +800,7 @@ pub struct PromptParams {
 }
 
 /// One adapter-specific Signal for an Agent; for Claude Code, a hook payload.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SignalParams {
     pub id: String,
     pub attempt: String,
@@ -810,7 +810,7 @@ pub struct SignalParams {
 
 /// What `agent.signal` answers when it has something to say (otherwise `null`): `drop` tells the
 /// hook to exit 2, which blocks a prompt that repeats Messages already delivered (B39).
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SignalOutcome {
     pub drop: bool,
 }
@@ -852,6 +852,13 @@ pub struct MoveParams {
     pub index: u32,
 }
 
+/// A5214b: `agent.saveAsMode`, the Mode's name.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct SaveAsModeParams {
+    pub id: String,
+    pub name: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RenameParams {
     pub id: String,
@@ -859,7 +866,7 @@ pub struct RenameParams {
 }
 
 /// `ended` records an Attempt ending even when its final Kind is error.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct StatusEvent {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     #[specta(optional, type = bool)]
@@ -874,7 +881,7 @@ pub struct StatusEvent {
 mod tests;
 
 /// U3780a: where a tool call stands.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ToolCallState {
     Running,
@@ -884,7 +891,7 @@ pub enum ToolCallState {
 
 /// U3780a: an Agent's current or last tool call, bounded and free of terminal escapes. `summary`,
 /// `arguments` and `result` are plain text; a cut one ends with a mark.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ToolCall {
     pub tool: String,
     /// One line: the command, file, pattern or query; absent for a tool with none.
@@ -907,14 +914,14 @@ pub struct ToolCall {
 }
 
 /// The `agent.toolCall` event: Agent `id` now holds `call`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ToolCallEvent {
     pub id: String,
     pub call: ToolCall,
 }
 
 /// The existing optional first prompt returned by agent.spawnPrompt.
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Deserialize, Type, JsonSchema)]
 pub struct SpawnPrompt {
     pub prompt: Option<String>,
 }

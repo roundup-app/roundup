@@ -43,6 +43,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Snapshot | same | — |
 | Workstream | same | room, folder |
 | Mode | same | — |
+| Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
+| Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
 | Start choice | same | — |
 | Queue | same | — |
@@ -50,6 +52,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Running | same | — |
 | Home | same | — |
 | Contract methods (`daemon.methods`) | same | — |
+| Method description (`api.list`, `api.describe`) | same | — |
 | Contract declaration (`declarations`, `Method`, `METHODS`, `owner_namespace`) | same | — |
 | Contract export (`export::generate`, `export::types`, `event_data_declaration`) | same | — |
 | Contract fingerprint | same | — |
@@ -57,14 +60,14 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
 | Digest | same | — |
 | Wake request (`agent.wake`) | same | — |
+| GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
+| Quiet Digest (`is_quiet_digest`) | same | — |
 | Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, one-line `reason`, absent for legacy definitions) | Reaction | — |
 | Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
 | Preview (`reaction.preview`) | Time preview | — |
 | Firing (a Reaction's `firings`) | same | — |
 | Observation (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | same | — |
-| Mark | same | — |
-| Rewind (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`) | same | roll back |
-| Checkpoint | same | — |
+| Rewind (`workstream.rewind`, `RewindTurn`; the provider's own rewind, M5159b) | same | roll back |
 | Block | same | — |
 | Rollup | same | — |
 | Attempt | same | — |
@@ -153,6 +156,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ink | same | — |
 | Chip | same | — |
 | Live line | same | — |
+| Program status (`ProgramStatus`, `terminal.status`) | status | — |
+
+**Program status.** What a program in a Terminal reports about itself with OSC 7501 (`scenarios/terminal-program-status.md`): records of a state, a message and a title that the Daemon folds into the Terminal's Status. `blocked` in a report is Kind `needs-you`; Kind `blocked` stays the Daemon's.
 
 **Glyph.** The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ⊖ ◔ ○ ✓`.
 
@@ -166,6 +172,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | same | — |
 | Interrupt | same | cancel, abort |
 | Toast | same | — |
+| State alert (`StateAlert`, `stateAlert`) | same | notification |
 | Work order | same | — |
 | Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | same | — |
 | Instruction delivery (`InstructionDelivery`, `InstructionState`) | same | — |
@@ -175,6 +182,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Spawn prompt | same | — |
 | Clarification order | same | — |
 | Skill | same | — |
+| Skill setup (`Install`, `Plan`, `ItemState`, `Outcome`) | teach other sessions | — |
 | Brief | same | — |
 | Context | same | — |
 | Channel | same | — |
@@ -234,6 +242,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | open_in_editor | none | — |
 | Extension | same | — |
 | Hook | same | — |
+| User action (`UserAction`, `action.userList`, `action.userChanged`) | action | — |
+| Extension host (`crates/rupd` `src/extensions/`, `extension.problem`) | none | — |
 
 ### Design system
 
@@ -298,6 +308,16 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | registerKeys | none | — |
 | chordsFor | none | — |
 | Leader | same | — |
+
+### Named actions
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Named action (`NamedAction`, `ActionName`, `ActionArg`, `runAction`) | action | — |
+| Action list (`action.list`, `rup actions`) | actions | — |
+| Action run (`action.run`, `rup do`) | do | — |
+| Action answerer (`action.serve`) | none | — |
+| App closed (`APP_CLOSED`) | none | — |
 
 ### Ask placement
 
