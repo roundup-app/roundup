@@ -42,6 +42,9 @@ pub(super) struct State {
     pub(super) launcher: Launcher,
 }
 
+/// U5151d: the Status label of an Agent whose Terminal is not running, as an action.
+pub(super) const TERMINAL_GONE: &str = "Terminal closed; resume or start it again";
+
 impl Shared {
     pub(super) fn rail(&self) -> MutexGuard<'_, rail::Rail> {
         agent_lock(&self.rail).expect("rail lock")
@@ -144,7 +147,7 @@ impl Shared {
         };
         node.status = Some(live.unwrap_or_else(|| Status {
             kind: Kind::Done,
-            label: "terminal gone".into(),
+            label: TERMINAL_GONE.into(),
             since: self.rail_view.opened,
             finished: finished.to_string(),
         }));
