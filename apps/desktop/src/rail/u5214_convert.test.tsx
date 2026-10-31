@@ -18,11 +18,11 @@ const labelsOf = async (m: Awaited<ReturnType<typeof mountRail>>, id: string) =>
 
 it("u5214_offered_entries_match_the_daemon_guard", async () => {
   const tree = [
-    agent("running", "working", ""),
-    agent("exited", "done", "", { can_resume: true }),
-    agent("nothing", "done", ""),
+    agent("running", "working", "", { can_make_workstream: true, can_save_as_mode: true }),
+    agent("exited", "done", "", { can_resume: true, can_make_workstream: true, can_save_as_mode: true }),
+    agent("nothing", "done", "", { can_save_as_mode: true }),
     workstream("ws"),
-    agent("child", "working", "", { parent: "ws" }),
+    agent("child", "working", "", { parent: "ws", can_save_as_mode: true }),
     door("lead", "working", ""),
   ];
 
@@ -42,8 +42,28 @@ it("u5214_offered_entries_match_the_daemon_guard", async () => {
   expect(await offered("lead")).toEqual([false, false]);
 });
 
+it("u5287_the_entries_follow_the_row_flags", async () => {
+  const tree = [
+    agent("by-hand", "working", "", { can_make_workstream: true }),
+    agent("just-launched", "working", "", { can_save_as_mode: true }),
+    agent("neither", "working", ""),
+  ];
+
+  const m = await mountRail(tree);
+
+  const offered = async (id: string) => {
+    const labels = await labelsOf(m, id);
+
+    return [labels.includes(copy.makeWorkstream), labels.includes(copy.saveAsMode)];
+  };
+
+  expect(await offered("by-hand")).toEqual([true, false]);
+  expect(await offered("just-launched")).toEqual([false, true]);
+  expect(await offered("neither")).toEqual([false, false]);
+});
+
 it("u5214_make_a_workstream_calls_the_method", async () => {
-  const tree = [agent("a", "done", "", { can_resume: true })];
+  const tree = [agent("a", "done", "", { can_resume: true, can_make_workstream: true })];
   const m = await mountRail(tree, [exitedTerminal("a", 0)]);
   m.app.handlers["agent.makeWorkstream"] = () => {
     tree[0] = workstream("a", { name: "a", attempt: "1", can_resume: true });
@@ -59,7 +79,7 @@ it("u5214_make_a_workstream_calls_the_method", async () => {
 });
 
 it("u5214_save_as_mode_asks_for_a_name", async () => {
-  const tree = [agent("a", "working", "")];
+  const tree = [agent("a", "working", "", { can_save_as_mode: true })];
   const m = await mountRail(tree);
   m.app.handlers["agent.saveAsMode"] = () => workstream("mode", { opening_prompt: "p" });
   fireEvent.contextMenu(rowOf("a"), { clientX: 1, clientY: 1 });

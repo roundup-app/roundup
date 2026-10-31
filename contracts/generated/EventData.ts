@@ -10,6 +10,7 @@ import type { Route } from "./message/Route";
 import type { StatusEvent } from "./agent/StatusEvent";
 import type { StrayEvent } from "./agent/StrayEvent";
 import type { TerminalId } from "./terminal/TerminalId";
+import type { TerminalStatusEvent } from "./terminal/TerminalStatusEvent";
 import type { TitleEvent } from "./terminal/TitleEvent";
 import type { Todo } from "./todo/Todo";
 import type { TodoId } from "./todo/TodoId";
@@ -18,7 +19,7 @@ import type { ToolCallEvent } from "./agent/ToolCallEvent";
 /**  Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`. */
 export type EventData = { "name": "workstream.updated", "data": AutoParams } | { "name": "ask.changed", "data": {
 	ask: Ask,
-} } | { "name": "terminal.title", "data": TitleEvent } | { "name": "terminal.exited", "data": ExitedEvent } | 
+} } | { "name": "terminal.title", "data": TitleEvent } | { "name": "terminal.status", "data": TerminalStatusEvent } | { "name": "terminal.exited", "data": ExitedEvent } | 
 /**  A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`. */
 { "name": "terminal.changed" } | 
 /**  B53: the Daemon answered a Show request; the App selects the Terminal's owner so the user sees it. */

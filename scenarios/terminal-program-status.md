@@ -37,12 +37,12 @@ Tests (`ps7_`, Rust, `crates/rupd/`): `ps7_each_state_maps_to_its_kind_and_block
 
 **PS8 publication.** Given a Terminal with a program status, then (Contract recipe of `.agents/builder.md`; `crates/contracts`, regenerated `contracts/generated/`, every caller in the same PR):
 
-1. `rail.tree` returns it as `status` on that Terminal's `RailNode` (today `None` for every Terminal); a Terminal with no program status keeps `status: None`;
+1. `terminal.list` returns it as `status` on that Terminal's entry, and the Rail node of the Agent that owns the Terminal carries it for PS9 (a Terminal is never a Rail node: A10, X11); a Terminal with no program status has no `status`;
 2. a new event `terminal.status {id, status}` is emitted when the Terminal's Status changes, with `status: null` when its last record is removed;
 3. what a record causes outside the Terminal is rate-limited: at most one `terminal.status` per Terminal per 250 ms, the first at once and the last value always delivered after the window (an injected clock decides), and a report that leaves the Status as it was emits nothing; nothing a report holds reaches a log, an OS call or a file;
 4. a Terminal's removal or exit-and-removal ends its Status and emits `status: null` once.
 
-Tests: `ps8_rail_tree_carries_a_terminals_program_status`, `ps8_status_events_are_coalesced_per_terminal_and_the_last_is_delivered`, `ps8_a_removed_terminal_loses_its_status_once` in `crates/rupd/tests/`; the generated-contract case (regeneration changes nothing) and `just ready`. Observer: `just perf` holds `rail_tree_10_p95_ms` and `rail_tree_40_p95_ms`, and #5180's fix stays (`crates/perf/budgets.json`). Names to add to `GLOSSARY.md`: **Program status** (code `ProgramStatus`, `terminal.status`, user label "status").
+Tests: `ps8_terminal_list_carries_a_terminals_program_status` in `crates/rupd/tests/`, `ps8_status_events_are_coalesced_per_terminal_and_the_last_is_delivered`, `ps8_a_removed_terminal_loses_its_status_once` in `crates/rupd/src/program_status/tests.rs`; the generated-contract case (regeneration changes nothing) and `just ready`. Observer: `just perf` holds `rail_tree_10_p95_ms` and `rail_tree_40_p95_ms`, and #5180's fix stays (`crates/perf/budgets.json`). Names to add to `GLOSSARY.md`: **Program status** (code `ProgramStatus`, `terminal.status`, user label "status").
 
 **PS9 Agents keep their Kind.** Given a Terminal that backs an Agent, then:
 
@@ -50,7 +50,7 @@ Tests: `ps8_rail_tree_carries_a_terminals_program_status`, `ps8_status_events_ar
 2. an Agent whose Adapter has no hook Signal takes the Terminal's Status as an Observation: the Kind of PS7 becomes the Agent's Kind and the label its label, `blocked` from Todos and Routes (A33) still applying over it;
 3. an Agent Terminal's exit ends it as before (a stopped Agent is `done`, not `error`).
 
-Tests: `ps9_a_report_in_a_hooked_agents_terminal_never_changes_its_kind` and `ps9_an_agent_without_signals_takes_its_terminals_status` in `crates/rupd/tests/`, the second with a fake Adapter that has no Signal and so names no vendor (P4: no vendor string outside `crates/agents/<vendor>/`; `loop/rules.sh vocab` passes). Regression checks on main: `scenarios/agents.md`, A1 and A33, whose tests stay green.
+Tests: `ps9_a_report_in_a_hooked_agents_terminal_never_changes_its_kind` and `ps9_an_agent_without_signals_takes_its_terminals_status` in `crates/agents/tests/scenarios/ps9.rs`, the second with a fake Adapter that has no Signal and so names no vendor (P4: no vendor string outside `crates/agents/<vendor>/`; `loop/rules.sh vocab` passes). Regression checks on main: `scenarios/agents.md`, A1 and A33, whose tests stay green.
 
 **PS10 the Rail and the Terminal tab show it.** Given a Terminal with a program status, when `rail.tree` or `terminal.status` delivers it, then in `apps/desktop`:
 
