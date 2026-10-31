@@ -7,7 +7,6 @@ extern crate self as contracts;
 pub mod agent;
 pub mod ask;
 pub mod attachment;
-pub mod checkpoint;
 pub mod common;
 mod declarations;
 pub mod deliverable;

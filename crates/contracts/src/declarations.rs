@@ -147,10 +147,6 @@ declarations! { $;
         "terminal.read": contracts::terminal::ReadParams => contracts::terminal::Read, rpc_terminal_read, all(custom(terminal_read()));
         "terminal.search": contracts::terminal::SearchParams => contracts::terminal::Search, rpc_terminal_search, all(schema(contracts::terminal::SearchParams,"Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call."));
     }
-    checkpoints_methods["checkpoint"] {
-        "checkpoint.write": contracts::checkpoint::WriteParams => contracts::checkpoint::Checkpoint, rpc_checkpoint_write, door(custom(checkpoint_write()));
-        "checkpoint.list": contracts::checkpoint::ListParams => Vec<contracts::checkpoint::Checkpoint>, rpc_checkpoint_list, all(schema(contracts::checkpoint::ListParams,"List the Checkpoints of a Workstream, oldest first."));
-    }
     asks_methods["ask"] {
         "ask.send": contracts::ask::SendParams => contracts::ask::Ask, rpc_ask_send, none();
         "ask.list": () => Vec<contracts::ask::Ask>, rpc_ask_list, none();
@@ -203,9 +199,8 @@ declarations! { $;
         "message.resolveResult": contracts::message::ResolveResultParams => contracts::message::ResultObservation, rpc_evidence, all(schema(contracts::message::ResolveResultParams,"User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect."));
         "message.reconcileWork": contracts::message::ProgressParams => contracts::message::Reconciliation, resume_call, all(schema(contracts::message::ProgressParams,"Read which retained work is unfinished, confirmed, pending a check or uncertain, without sending or starting anything."));
         "message.resumeWork": contracts::message::ResumeWorkParams => contracts::message::ResumeWork, resume_call, all(schema(contracts::message::ResumeWorkParams,"User only: resume an Agent's eligible unfinished work with one successor Message. Retry with the same request id after an unknown reply; it never repeats an uncertain external effect, restarts a stopped Agent or starts a program."));
-        "workstream.restart": contracts::workstream::RestartParams => contracts::agent::RailNode, rpc_workstream_restart, none();
-        "workstream.rewindPlan": contracts::workstream::RewindPlanParams => contracts::workstream::RewindPlan, rpc_rewind, door(custom(workstream_rewind_plan()));
         "workstream.rewind": contracts::workstream::RewindParams => contracts::workstream::Rewind, rpc_rewind, door(custom(workstream_rewind()));
+        "workstream.restart": contracts::workstream::RestartParams => contracts::agent::RailNode, rpc_workstream_restart, none();
         "todo.startWorkstream": contracts::workstream::StartWorkstreamParams => contracts::agent::RailNode, rpc_queue, none();
         "workstream.queue": () => contracts::workstream::QueueState, rpc_queue, none();
         "workstream.dequeue": contracts::workstream::QueuedWorkstream => (), rpc_queue, none();

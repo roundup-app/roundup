@@ -87,7 +87,6 @@ fn f8_the_door_brief_delegates_and_uses_its_terminal() {
         "You cannot execute commands or open or write to a Terminal",
         "Report the outcome directly in your Terminal",
         "ask with `AskUserQuestion`",
-        "`checkpoint_write`",
         "`order`",
         "`prompt`",
         "You write orders only for the Agents you spawn",
@@ -149,20 +148,6 @@ fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
     assert!(door.contains("You cannot execute commands or open or write to a Terminal"));
     assert!(agent.contains("- `agent_spawn`:"));
     assert!(!agent.contains("You cannot execute commands or open or write to a Terminal"));
-}
-
-#[test]
-fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
-    let s = setup();
-
-    let door = brief(&s, "7", Role::Door);
-    let agent = brief(&s, "8", Role::Agent);
-
-    assert!(door.contains("- `checkpoint_write`:"));
-    assert!(door.contains("`reduce`") && door.contains("`show-me`"));
-    assert!(door.contains("facts needed to understand that point in the work"));
-    assert!(!agent.contains("checkpoint_write"));
-    assert!(agent.contains("- `checkpoint_list`:"));
 }
 
 #[test]

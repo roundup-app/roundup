@@ -16,15 +16,15 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
-
 #[path = "mcp/reconnect.rs"]
 mod reconnect;
 #[path = "mcp/removed_questions.rs"]
 mod removed_questions;
+#[path = "mcp/rewind.rs"]
+mod rewind;
 #[path = "mcp/tool_lists.rs"]
 mod tool_lists;
 use tool_lists::{DOOR_METHODS, NO_TOOL, TOOL_METHODS, expected_tools, seam_commands};
-
 const BOUND: Duration = Duration::from_secs(20);
 
 struct Shim {
@@ -736,7 +736,7 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
     let shim = spawn_shim(&socket, "a1").await;
     let tools = shim.client.list_all_tools().await.unwrap();
     assert!(
-        tools.iter().any(|tool| tool.name == "checkpoint_write"),
+        tools.iter().any(|tool| tool.name == "agent_digest"),
         "the fixture must be a Door to cover its unit methods"
     );
     for method in contracts::methods::METHODS

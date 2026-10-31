@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 90] = [
+pub const TOOL_METHODS: [&str; 89] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -61,8 +61,6 @@ pub const TOOL_METHODS: [&str; 90] = [
     "message.get",
     "message.list",
     "route.list",
-    // M10
-    "checkpoint.list",
     // E2, O4, F3
     "agent.context",
     "agent.instructions",
@@ -105,15 +103,14 @@ pub const TOOL_METHODS: [&str; 90] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-pub const DOOR_METHODS: [&str; 12] = [
+pub const DOOR_METHODS: [&str; 10] = [
     "agent.digest",
     // LC7, LC8
     "agent.extras",
     "agent.extras_add",
     // B53
     "terminal.show",
-    "checkpoint.write",
-    "workstream.rewindPlan",
+    // M5159b
     "workstream.rewind",
     // A5168a, A5168b
     "github.prGet",
