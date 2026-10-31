@@ -56,7 +56,7 @@ impl Actor {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Kind {
     Error,
@@ -67,7 +67,7 @@ pub enum Kind {
     Done,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Status {
     pub kind: Kind,
     pub label: String,
@@ -79,7 +79,7 @@ pub struct Status {
     pub finished: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum Verb {
     Read,
@@ -87,7 +87,7 @@ pub enum Verb {
 }
 
 /// One logged read or write of a Todo, Pad or Agent order. `item` is `todo:<id>`, `pad:<name>` or `agent:<id>`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Touch {
     pub actor: Actor,
     pub verb: Verb,
@@ -96,13 +96,13 @@ pub struct Touch {
     pub at: i64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct IdentifyParams {
     pub actor: Actor,
 }
 
 /// `events.subscribe`'s answer: the highest Event number saved when it was accepted, 0 for an empty log (I9).
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct SubscribeResult {
     #[specta(type = specta_typescript::Number)]
     pub head: u64,
@@ -127,7 +127,7 @@ pub struct TouchedParams {
 }
 
 /// The existing daemon.ping reply; its literal true marker never changes the wire boolean.
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Deserialize, Type, JsonSchema)]
 pub struct Ping {
     #[specta(type = Pong)]
     pub pong: bool,
@@ -138,7 +138,7 @@ pub struct Ping {
     pub contract: ContractFingerprint,
 }
 
-#[derive(Serialize, Deserialize, Type)]
+#[derive(Serialize, Deserialize, Type, JsonSchema)]
 pub struct ContractFingerprint {
     pub fingerprint: String,
 }
@@ -151,7 +151,7 @@ impl Type for Pong {
 }
 
 /// Structured JSON-RPC error data a caller acts on: Event replay recovery, or a link another Project owns.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum RpcErrorData {
     EventsExpired {

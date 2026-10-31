@@ -48,7 +48,7 @@ pub struct StartWorkstreamParams {
 }
 
 /// A3195: a Workstream in the Queue, with the failure of its last start when that failed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct QueueEntry {
     pub workstream: String,
     pub start: StartChoice,
@@ -57,7 +57,7 @@ pub struct QueueEntry {
     pub failure: Option<QueueFailure>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct QueueFailure {
     #[specta(type = specta_typescript::BigInt)]
     pub code: i64,
@@ -65,7 +65,7 @@ pub struct QueueFailure {
 }
 
 /// `workstream.queue`: the running count, the Project's cap and the entries in Queue order.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct QueueState {
     pub running: u32,
     pub cap: Option<u32>,
@@ -111,7 +111,7 @@ pub struct RewindParams {
 }
 
 /// How one named Agent ended up.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RewindState {
     Rewound,
@@ -119,7 +119,7 @@ pub enum RewindState {
     Failed,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RewindAgent {
     pub agent: String,
     pub name: String,
@@ -131,7 +131,7 @@ pub struct RewindAgent {
 }
 
 /// What `workstream.rewind` returns to the Door: one outcome per named Agent.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Rewind {
     pub agents: Vec<RewindAgent>,
 }
