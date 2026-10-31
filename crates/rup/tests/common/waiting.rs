@@ -1,12 +1,12 @@
 //! Waits on a probe, a Door turn or a model request.
-use crate::daemon::{aimock, rail_tree};
+use crate::daemon::{aimock, rail_tree, wait_bound};
 
 use contracts::Kind;
 
 use std::time::Duration;
 
 pub async fn until<T>(what: &str, mut probe: impl FnMut() -> Option<T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), async {
+    tokio::time::timeout(wait_bound(), async {
         loop {
             if let Some(found) = probe() {
                 return found;
@@ -32,7 +32,7 @@ pub async fn idle(client: &rpc::Client, id: &str) {
 }
 
 pub async fn until_async<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), async {
+    tokio::time::timeout(wait_bound(), async {
         loop {
             if let Some(found) = probe().await {
                 return found;

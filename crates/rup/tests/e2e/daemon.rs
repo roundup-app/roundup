@@ -24,6 +24,19 @@ pub const INSTRUCTION_MESSAGES: &str =
 /// How long the Daemon, its Agents' hooks and their tools have to answer.
 const BOUND: Duration = Duration::from_secs(30);
 
+/// Set by `start_real`. Each test is its own process under nextest, so a fake-`claude` test never sees it.
+static REAL_CLAUDE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// How long this test waits on the Daemon, a probe or the model: `REAL_CLAUDE_BOUND` once it started a
+/// real `claude`, else `BOUND`.
+pub fn wait_bound() -> Duration {
+    if REAL_CLAUDE.load(std::sync::atomic::Ordering::Relaxed) {
+        aimock::REAL_CLAUDE_BOUND
+    } else {
+        BOUND
+    }
+}
+
 /// How long ten Agents' `SessionStart` hooks have to reach the Daemon (D4's bound), counted from
 /// the first `agent.spawn`. Kept apart from `BOUND`, which `Drop` also uses, so this cannot drift.
 pub const TEN_IDLE_BOUND: Duration = Duration::from_secs(30);
@@ -210,7 +223,7 @@ impl Drop for Project {
 
 /// The next event the Daemon pushes that satisfies `pick`.
 pub async fn next<T>(client: &mut Client, pick: impl Fn(EventData) -> Option<T>) -> T {
-    tokio::time::timeout(BOUND, async {
+    tokio::time::timeout(wait_bound(), async {
         while let Some(event) = client.next_event().await {
             if let Some(found) = pick(event.data) {
                 return found;
@@ -334,6 +347,7 @@ pub async fn wait_until_idle(
 
 /// Start the actual pinned vendor against this test's model fixture.
 pub fn start_real(fixture: &str, env: &[(&str, &str)]) -> Project {
+    REAL_CLAUDE.store(true, std::sync::atomic::Ordering::Relaxed);
     let model = aimock::Model::start(fixture);
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path().join("home");
@@ -364,7 +378,7 @@ pub async fn needs_you(client: &Client, agent: &str) {
 }
 
 pub async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), async {
+    tokio::time::timeout(wait_bound(), async {
         loop {
             if let Some(value) = found().await {
                 return value;
