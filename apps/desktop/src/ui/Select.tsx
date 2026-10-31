@@ -83,7 +83,6 @@ export const Select = (props: {
   return <div class="app-select" ref={setRoot} onKeyDown={(event) => { if (closing.has(event)) event.stopPropagation(); }}>
     <ArkSelect.RootProvider value={api} lazyMount unmountOnExit>
       <ArkSelect.Label class="app-select-label">{props.label}</ArkSelect.Label>
-      {props.description && <span id={`${id}-hint`} class="app-select-hint">{props.description}</span>}
       <ArkSelect.Control>
         <ArkSelect.Trigger ref={element => {
           trigger = element;
@@ -97,6 +96,7 @@ export const Select = (props: {
           <ChevronDown aria-hidden="true" class="app-select-mark" size={16} />
         </ArkSelect.Trigger>
       </ArkSelect.Control>
+      {props.description && <span id={`${id}-hint`} class="app-select-hint">{props.description}</span>}
       <Portal>
         <ArkSelect.Positioner>
           <ArkSelect.Content class="app-select-list" ref={element => {

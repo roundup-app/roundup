@@ -862,8 +862,8 @@ def link(pr, issue=None):
 
 
 def ended(pr, verdict, run_url):
-    """After a run that worked: a draft's `Stopped:` question goes where its screen `verdict` says (`put`), and one the
-    screen sends back to the loop resumes (`resume`); another draft gets a fix run."""
+    """After a run that worked: a draft's `Stopped:` question goes where its screen `verdict` says (`put`), one the screen
+    sends back resumes (`resume`), another gets a fix run; a ready PR keeps what its run armed (L46): this job's token can't."""
     if not pr['isDraft']:
         return
     if ask := stopped(pr):

@@ -60,6 +60,10 @@ export type RailState = {
   toggleCollapsed(id: string): void;
   storageFailure(): string | null;
   clearStorageFailure(): void;
+  /** U5151e: the Agent whose dismissal the storage rejected, until a Retry saves it or the owner dismisses the line. */
+  unsavedDismissal(): string | null;
+  retryDismissal(): void;
+  clearUnsavedDismissal(): void;
   select(id: string | null): void;
   nameOf(actor: Actor): string;
   /** U5172a: the change asked of Row `id` that the Daemon has not yet confirmed, or `null`. */
@@ -132,6 +136,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [closedSections, setClosedSections] = createSignal<ReadonlySet<RailSection>>(new Set());
   const [restored, setRestored] = createSignal(false);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
+  const [unsaved, setUnsaved] = createSignal<string | null>(null);
   let firstTree = true;
 
   const save = async () => {
@@ -452,8 +457,13 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const next = new Set(dismissedKeys()).add(key);
 
       setDismissedKeys(next);
-      void dismissals?.write([...next]);
+      void dismissals?.write([...next]).then(problem => { if (problem !== null) setUnsaved(node.name); });
     },
+    unsavedDismissal: unsaved,
+    retryDismissal: () => {
+      void dismissals?.write([...dismissedKeys()]).then(problem => { if (problem === null) setUnsaved(null); });
+    },
+    clearUnsavedDismissal: () => setUnsaved(null),
     refresh: async (options) => {
       if (options?.terminals) fetching(async () => { await Promise.all([fetchTree(), fetchTerminals()]); });
       else fetching(fetchTree);

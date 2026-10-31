@@ -93,6 +93,10 @@ pub struct TerminalInfo {
     pub exit_code: Option<i32>,
     /// The Workstream, Agent or absolute Project folder path whose bubble shows it (X11, X12); `None` for a raw spawn (X1).
     pub owner: Option<String>,
+    /// PS8.1: the Terminal's program status (PS7); absent when no program reported one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = crate::Status)]
+    pub status: Option<crate::Status>,
 }
 
 /// X14: what `terminal.output` returns: the offset of the first byte the stream delivers.
@@ -178,6 +182,13 @@ pub struct Snapshot {
 pub struct TitleEvent {
     pub id: String,
     pub title: String,
+}
+
+/// PS8: a Terminal's program status changed; `None` when its last record was removed.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct TerminalStatusEvent {
+    pub id: String,
+    pub status: Option<crate::Status>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
