@@ -11,6 +11,7 @@ const REVEALING = new Set<Status["kind"]>(["blocked", "needs-you", "working", "e
 /** Mounted only while the Tooltip is open, so a hidden reveal subscribes to no clock. */
 const Reveal = (props: { status: Status }) => {
   const now = useDisplayNow(() => true);
+
   const age = () => {
     const span = elapsed(props.status.since, now());
 

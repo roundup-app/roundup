@@ -17,7 +17,6 @@ import { AttentionKey } from "./AttentionKey";
 import { DockBadge } from "./DockBadge";
 import { ProjectSettingsView } from "./ProjectSettings";
 import { Rail } from "./Rail";
-import { DisplayClockContext } from "../state/clock";
 
 // Drafts survive unmount; unrelated layout fixtures retain their existing lifecycle.
 afterEach(() => {
@@ -52,7 +51,7 @@ export const mountRail = async (
     connected.worktrees.watch(() => true);
 
     return (
-      <DisplayClockContext.Provider value={() => () => Date.now()}><ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext.Provider value={connected}>
         <AttentionKey />
         <DockBadge app={app} rails={() => [connected.rail.nodes]} onFailure={() => {}} />
         <Rail />
@@ -63,7 +62,7 @@ export const mountRail = async (
         <Show when={neighbors.drawer}>
           <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
         </Show>
-      </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
+      </ConnectedProjectContext.Provider>
     );
   });
 
