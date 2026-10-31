@@ -155,6 +155,8 @@ terminal_id: string | null,
 worktree: agent_Worktree | null, 
 
 can_resume: boolean, 
+can_make_workstream: boolean,
+can_save_as_mode: boolean,
 
 yolo: boolean, 
 

@@ -196,7 +196,11 @@ async fn a5324_flags_match_the_guards() {
     assert_eq!(flags(&f, &saved.id).await, (true, false));
     assert_eq!(flags(&f, &exited.id).await, (true, false));
     assert!(make(&f, &exited.id).await.is_ok());
-    assert_eq!(flags(&f, &exited.id).await, (false, false), "now a Workstream");
+    assert_eq!(
+        flags(&f, &exited.id).await,
+        (false, false),
+        "now a Workstream"
+    );
 }
 
 #[tokio::test]

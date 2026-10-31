@@ -19,6 +19,7 @@ const labelsOf = async (m: Awaited<ReturnType<typeof mountRail>>, id: string) =>
 it("u5324_entries_follow_the_node_flags", async () => {
   const flags = (id: string, can_make_workstream: boolean, can_save_as_mode: boolean) =>
     agent(id, "working", "", { can_make_workstream, can_save_as_mode });
+
   const m = await mountRail([flags("both", true, true), flags("none", false, false), flags("mode", false, true), flags("ws", true, false)]);
 
   const offered = async (id: string) => {
