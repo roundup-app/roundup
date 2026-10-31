@@ -171,7 +171,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await browser("click", `[data-path='${real.dir}'] button[aria-label^='Close ']`);
     await browser("wait", "--fn", "!document.querySelector('.project-tab')");
     await real.restart();
-    await browser("find", "role", "button", "click", "--name", "Choose folder…", "--exact");
+    await browser("find", "role", "button", "click", "--name", "Choose Project…", "--exact");
     await openRealPad(false);
     await browser("wait", ".visual-mermaid svg");
     await browser("wait", ".visual-drawing .excalidraw");

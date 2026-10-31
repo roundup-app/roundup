@@ -78,7 +78,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
 
     if (opening === "Spawn prompt") {
       fireEvent.keyDown(document, { key: "n", code: "KeyN", metaKey: true, shiftKey: true });
-      field = await screen.findByRole("textbox", { name: "Task" });
+      field = await screen.findByRole("textbox", { name: "Work" });
     } else if (opening === "Opening prompt") {
       const row = document.querySelector<HTMLElement>('.rail-row[data-id="home"]')!;
       fireEvent.contextMenu(row);
@@ -94,7 +94,7 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
     showShelfTab(opening === "New Pad" ? "Pads" : "Todos");
 
     if (opening === "New Todo" || opening === "New Pad") {
-      fireEvent.click(await screen.findByRole("button", { name: opening === "New Todo" ? "add todo to Overview" : "Add Pad" }));
+      fireEvent.click(await screen.findByRole("button", { name: opening === "New Todo" ? "Add Todo: Overview" : "Add Pad" }));
       field = await screen.findByRole("textbox", { name: opening === "New Todo" ? "New Todo title" : "Pad name" });
     } else {
       const group = await waitFor(() => { const found = document.querySelector<HTMLElement>('.todos-tab [data-shelf-group="unassigned"] .shelf-group-control'); expect(found).not.toBeNull();
@@ -118,9 +118,9 @@ it.each(inventory)("u3787d_each_field_keeps_literal_input %s", async opening => 
         fireEvent.click(await screen.findByText("New Workstream…"));
 
         if (opening === "Wait-for query") {
-          fireEvent.click(await screen.findByRole("radio", { name: "Start after another Todo" }));
+          fireEvent.click(await screen.findByRole("radio", { name: "Start after Todo" }));
           fireEvent.click(await screen.findByRole("button", { name: "Choose a Todo" }));
-          field = await screen.findByRole("combobox", { name: "Todo to wait for" });
+          field = await screen.findByRole("combobox", { name: "Wait for Todo" });
         } else field = await screen.findByRole("textbox", { name: "Workstream name" });
       } else {
         fireEvent.keyDown(row, { key: "Enter" });

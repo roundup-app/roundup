@@ -64,7 +64,7 @@ const ROWS: Row[] = [
 
       return gate;
     } },
-  { owner: "Rail", label: "New Agent with a prompt", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
+  { owner: "Rail", label: "Agent with prompt", selected: "ops", origin: '[data-id="ops"][role="treeitem"]', method: "agent.spawn", confirms: false, removes: "bob",
     params: { cwd: "/p", prompt: "A\ne\u0301 🧭", parent: "ops", model: null, effort: null },
     hold: (app, entered) => {
       const { handler, gate } = pending(entered, agent("created", "idle", "idle"));
@@ -260,8 +260,8 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
   let submitted: ReturnType<typeof connected.drafts.list>[number] | undefined;
   let newer: ReturnType<typeof connected.drafts.list>[number] | undefined;
 
-  if (row.label === "New Agent with a prompt") {
-    const prompt = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Task" });
+  if (row.label === "Agent with prompt") {
+    const prompt = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Work" });
     fireEvent.input(prompt, { target: { value: " A\ne\u0301 🧭 " } });
     submitted = connected.drafts.list().find(entry => entry.destination.surface === "rail-task");
     switcherKey("Enter", {}, prompt);
@@ -434,7 +434,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       await waitFor(() => expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes(`${row.label} late rejection`))).toBe(true));
       expect(connected.drafts.list()).toEqual(drafts);
       expect(ofMethod()).toHaveLength(1);
-      expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes("Outcome unknown"))).toBe(true);
+      expect(screen.getAllByRole("alert").some(alert => alert.textContent?.includes("Outcome is unknown"))).toBe(true);
       fireEvent.click(screen.getByRole("button", { name: "Open first" }));
       await waitFor(() => expect(document.querySelector(row.origin)).not.toBeNull());
       expect(ofMethod()).toHaveLength(1);
@@ -490,7 +490,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(connected.drafts.list()).toContainEqual(newer);
     }
   } else {
-    reply.reject(outcome === "unknown" ? new Error(`${row.label} rejected by the Daemon`) : new RpcError(row.label === "New Agent with a prompt" || row.label === "Remove" ? -32003 : -32000, `${row.label} rejected by the Daemon`));
+    reply.reject(outcome === "unknown" ? new Error(`${row.label} rejected by the Daemon`) : new RpcError(row.label === "Agent with prompt" || row.label === "Remove" ? -32003 : -32000, `${row.label} rejected by the Daemon`));
     await waitFor(() => expect(document.body.textContent).toContain(`${row.label} rejected by the Daemon`));
 
     if (row.method === "agent.spawn") {

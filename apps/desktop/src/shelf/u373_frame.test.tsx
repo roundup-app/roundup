@@ -218,7 +218,7 @@ describe("u373 the Shelf has two tabs", () => {
   it("u373_add_keeps_its_path", async () => {
     // Add has no dependency on the forty owners used by the scope/count probes.
     await mountApp("empty-project");
-    fireEvent.click(await within(shelf()).findByRole("button", { name: "add todo to Overview" }));
+    fireEvent.click(await within(shelf()).findByRole("button", { name: "Add Todo: Overview" }));
     const todoField = await screen.findByLabelText("New Todo title");
     await waitFor(() => expect(document.activeElement).toBe(todoField));
     fireEvent.click(tabNamed("Pads"));
