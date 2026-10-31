@@ -1,4 +1,5 @@
 import { captureFocus } from "../keys/focus";
+import { questionAsked } from "../keys/registry";
 import { createEffect, createSignal, Show, on, onCleanup, untrack } from "solid-js";
 import type { App, NativeQuestion, RemovalQuestion, RemovalAnswer } from "../app/seam";
 import { copy } from "./copy";
@@ -25,6 +26,7 @@ export const NativeAlert = (props: {
     const mine = generation;
     const focus = captureFocus();
     let repeat = false;
+    const answered = questionAsked();
     setFailure(null);
 
     try {
@@ -61,6 +63,7 @@ export const NativeAlert = (props: {
         queueMicrotask(() => focus(() => line?.querySelector("button")?.focus()));
       }
     } finally {
+      answered();
       pending = false;
 
       if (repeat) void request();

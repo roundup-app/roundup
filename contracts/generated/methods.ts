@@ -1,4 +1,7 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
+import type { ActionRow as action_ActionRow } from "./action/ActionRow";
+import type { RunParams as action_RunParams } from "./action/RunParams";
+import type { RunResult as action_RunResult } from "./action/RunResult";
 import type { Brief as agent_Brief } from "./agent/Brief";
 import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
 import type { CompareFileParams as agent_CompareFileParams } from "./agent/CompareFileParams";
@@ -295,6 +298,9 @@ export type RpcMethods = {
   "github.prSetBody": { params: github_SetBodyParams; result: github_Pr };
   "github.prReady": { params: github_Number; result: github_Pr };
   "github.prAutoMerge": { params: github_Number; result: github_Pr };
+  "action.serve": { params: null; result: null };
+  "action.list": { params: null; result: action_ActionRow[] };
+  "action.run": { params: action_RunParams; result: action_RunResult };
   "daemon.ping": { params: null; result: common_Ping };
   "daemon.methods": { params: null; result: string[] };
   "api.list": { params: null; result: describe_MethodList };
