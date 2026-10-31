@@ -20,11 +20,12 @@ fn u2875c_each_reservation_write_rolls_back_without_a_partial_rail_entry() {
         rail.db.execute_batch(failure).unwrap();
         assert!(rail.reserve_closed("failed", "hidden").is_err());
         assert!(rail.tree().unwrap().is_empty());
+        // A reopen refuses a schema that differs from the migrations' (N5420a).
+        rail.db.execute_batch("DROP TRIGGER fail").unwrap();
         drop(rail);
         let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
         assert!(rail.tree().unwrap().is_empty());
         assert!(rail.closed_source("failed").unwrap().is_none());
-        rail.db.execute_batch("DROP TRIGGER fail").unwrap();
         rail.reserve_closed("failed", "retry").unwrap();
     }
 }
@@ -45,10 +46,13 @@ fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
     assert!(rail.tree().unwrap().is_empty());
     assert!(rail.node(&workstream).is_err());
     assert!(rail.has_conversation(&agent).is_err());
+    // A reopen refuses a schema that differs from the migrations' (N5420a).
+    rail.db
+        .execute_batch("DROP TRIGGER fail; DROP TABLE commit_guard;")
+        .unwrap();
     drop(rail);
     let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
     assert!(rail.tree().unwrap().is_empty());
-    rail.db.execute_batch("DROP TRIGGER fail").unwrap();
     rail.publish_closed("failed").unwrap();
     assert_eq!(rail.tree().unwrap().len(), 2);
 }
