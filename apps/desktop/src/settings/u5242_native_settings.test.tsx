@@ -14,7 +14,7 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
-const mount = async (navigation: () => unknown = () => 0) => {
+const mount = async (navigation: () => string = () => "") => {
   const app = createFakeApp();
   app.handlers["models.list"] = () => ({ engines: [{ id: "engine-one", label: "Engine One" }], models: [{ id: "model-one", label: "Model One" }], efforts: [] });
   render(() => <AppSettings app={app} project={() => "/p"} navigation={navigation} />);
@@ -86,7 +86,7 @@ it("u5242c_forward_clears_when_the_user_selects_another_view", async () => {
   select("b");
   await waitFor(() => expect(() => screen.getByRole("button", { name: "Forward →" })).toThrow());
   fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
-  expect(screen.queryByRole("region", { name: "Settings" })).toBeNull();
+  await waitFor(() => expect(() => screen.getByRole("region", { name: "Settings" })).toThrow());
 });
 
 it("u5242d_mode_and_scale_previews_follow_the_draft_without_committing", async () => {
