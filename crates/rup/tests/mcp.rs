@@ -438,10 +438,8 @@ async fn m5159a_a_slow_call_fails_alone_and_the_shim_stays_up() {
     let message = error_text(&slow);
     assert!(message.contains("todo_create"), "{message}");
     assert!(message.contains("10 s"), "{message}");
-    assert!(
-        message.contains("may still finish") && message.contains("may have been applied"),
-        "{message}"
-    );
+    assert!(message.contains("may still finish"), "{message}");
+    assert!(message.contains("may have been applied"), "{message}");
     assert_eq!(shim.child.try_wait().unwrap(), None, "the shim exited");
     let after = shim.call("todo_list", json!({})).await;
     assert_eq!(after.is_error, Some(false), "the shim stays up");
@@ -505,11 +503,8 @@ async fn m3_stdout_carries_only_protocol_messages_after_the_daemon_goes() {
     )
     .await;
     loop {
-        let line = tokio::time::timeout(BOUND, stdout.next_line())
-            .await
-            .expect("the shim answered todo_list")
-            .unwrap()
-            .expect("stdout stays open");
+        let next = tokio::time::timeout(BOUND, stdout.next_line()).await;
+        let line = next.expect("no answer").unwrap().expect("stdout closed");
         let answers_list = serde_json::from_str::<Value>(&line).is_ok_and(|m| m["id"] == 3);
         lines.push(line);
         if answers_list {
