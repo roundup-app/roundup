@@ -149,7 +149,6 @@ export const ImportPanel = (props: { onClose: () => void }) => {
           <p class="import-words">
             <button data-button="quiet" type="button" class="word" onClick={() => void discover()}>{copy.importRefresh}</button>
             <span class="import-actions">
-              <button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.close}</button>
               <button data-button="primary" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || state.starting() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
                 {copy.importConfirm(wanted().size)}
               </button>

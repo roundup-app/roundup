@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { mountApp, rpcCalls } from "../testing/appFixture";
 import { openProjectPage } from "../testing/menuProbe";
@@ -87,7 +87,7 @@ it("u3787c_import_modifiers_retain_choices_across_the_actual_page_lifetime", asy
   const { app } = await mount(inventory[0]!.open);
   fireEvent.click(row(2), { metaKey: true });
   await waitFor(() => expect(selected()).toEqual(["source-2"]));
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("button", { name: "Close" }));
   await waitFor(() => expect(document.querySelector(".import-check")).toBeNull());
   inventory[0]!.open();
   await screen.findByRole("checkbox", { name: /alpha/ });

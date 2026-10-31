@@ -109,7 +109,7 @@ describe("u184 close with a question", () => {
 
     fireEvent.click(closer("api"));
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
-    await screen.findByRole("button", { name: /folder/ });
+    await screen.findByRole("button", { name: "Choose Project…" });
   });
 
   it("u184_a_failed_close_keeps_the_tab", async () => {
