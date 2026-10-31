@@ -185,7 +185,7 @@ it("u3037d_discovery_deadline_and_retry", async () => {
   vi.useFakeTimers();
   openProjectPage("import-work");
   await vi.advanceTimersByTimeAsync(0);
-  expect(within(screen.getByRole("region", { name: "Import Claude Code work" })).getByRole("status")).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("status")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty("disabled", false);
   await vi.advanceTimersByTimeAsync(20_000);
   expect(screen.getByRole("alert")).toBeTruthy();

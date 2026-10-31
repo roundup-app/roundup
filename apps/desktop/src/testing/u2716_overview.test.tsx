@@ -38,12 +38,12 @@ it("u2716a_attention_name_follows_tree_and_status", async () => {
   daemon.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(document.querySelectorAll(".overview-sections .inbox-row")).toHaveLength(2));
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="worker"]')!);
-  await waitFor(() => expect(band.getAttribute("aria-description")).toMatch(/\b2\b/));
+  await waitFor(() => expect(band.getAttribute("aria-label")).toMatch(/\b2\b/));
   fireEvent.click(band);
   await waitFor(() => expect(document.querySelectorAll(".overview-sections .inbox-row")).toHaveLength(2));
 
   daemon.emit(event({ name: "agent.status", data: { id: "worker", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40, finished: "0" } } }));
   await waitFor(() => expect(document.querySelectorAll(".overview-sections .inbox-row")).toHaveLength(1));
   fireEvent.click(document.querySelector<HTMLElement>('.rail-row[data-id="worker"]')!);
-  await waitFor(() => expect(band.getAttribute("aria-description")).toMatch(/\b1\b/));
+  await waitFor(() => expect(band.getAttribute("aria-label")).toMatch(/\b1\b/));
 });
