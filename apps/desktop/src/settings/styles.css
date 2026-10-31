@@ -349,3 +349,19 @@
   color: var(--grey);
   overflow-wrap: anywhere;
 }
+
+/* One row per state: three inline switches in aligned columns. */
+.settings-content .settings-alert-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: var(--space-4);
+  align-items: center;
+  width: 100%;
+}
+
+.settings-alert-row label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
