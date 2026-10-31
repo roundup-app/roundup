@@ -667,7 +667,10 @@ fn u5244d_copy_version_info_writes_the_app_version() {
     let app = mock_app();
     let text = info_text(app.handle(), "copy-version-info", false).unwrap();
     let version = app.handle().package_info().version.to_string();
-    assert_eq!(text, format!("roundup {version} ({})", env!("ROUNDUP_BUILD")));
+    assert_eq!(
+        text,
+        format!("roundup {version} ({})", env!("ROUNDUP_BUILD"))
+    );
     assert_eq!(info_text(app.handle(), "app-settings", true), None);
 }
 
