@@ -229,6 +229,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const fontSizeControl = () => numericControl("fontSize", copy.fontSize, copy.fontSizeHint);
   const lineHeightControl = () => numericControl("lineHeight", copy.lineHeight, copy.lineHeightHint);
   const letterSpacingControl = () => numericControl("letterSpacing", copy.letterSpacing, copy.letterSpacingHint);
+
   const controls = {
     permission: () => (
         <Select description={copy.permissionHint} label={copy.permissionMode} value={appSettings().permissionMode} choices={[
