@@ -218,6 +218,8 @@ pub const NO_TOOL: [&str; 81] = [
     "select_project_menu",
     // R24: the measurement-only producer has no Agent tool or execution authority.
     "record_idle_evidence",
+    // U5232f: the user's macOS banner and sound, which an Agent cannot raise.
+    "state_alert",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",

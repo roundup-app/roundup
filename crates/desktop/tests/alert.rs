@@ -104,6 +104,8 @@ fn u5232e_a_click_emits_the_agent_to_the_webview() {
         sender.send(event.payload().to_owned()).unwrap()
     });
     desktop::alert::clicked(app.handle(), "a1");
-    let payload = seen.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
+    let payload = seen
+        .recv_timeout(std::time::Duration::from_secs(1))
+        .unwrap();
     assert_eq!(payload, r#"{"agent":"a1"}"#);
 }
