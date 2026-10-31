@@ -7,6 +7,7 @@ import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
+import { StatusTip } from "../ink/StatusTip";
 import { FailureLine, shownKind } from "../ink/FailureLine";
 import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
@@ -263,12 +264,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
             if (!entry) return null;
 
-            return <>
+            return <StatusTip status={entry.node?.status} dismissed={entry.node ? rail.dismissed(entry.node) : false}>{reveal => <span class="switcher-row" {...reveal()}>
               <Show when={entry.node?.status} fallback={<span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), rail.dismissed(entry.node!))} decorative />}</Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
               <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
-            </>;
+            </span>}</StatusTip>;
           }} />
         <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null}>
           <Show when={text() !== "" && !copyFailure()}>
