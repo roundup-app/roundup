@@ -1,14 +1,11 @@
 //! `state_alert`: the macOS banner and sound the webview asks for when an Agent's Kind becomes a state the owner turned on
 //! (`scenarios/ui-state-alerts.md` U5232e to U5232g). The App raises nothing of its own.
 
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Mutex};
 
 use rpc::{RpcError, code};
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
-use tauri_plugin_notification::{NotificationExt, PermissionState};
 
 /// The event the webview hears when the owner clicks a banner.
 pub const CLICKED: &str = "state-alert-clicked";
@@ -72,63 +69,42 @@ impl Alerts {
     }
 }
 
-/// The system banner, through `tauri-plugin-notification`; the sound is the system player's, since the plugin has no sound-only call.
-pub struct Plugin<R: Runtime> {
-    app: AppHandle<R>,
-    /// Which Agent each shown banner names, by the id the plugin reports back on a click.
-    shown: Arc<Mutex<HashMap<i32, String>>>,
-    next: AtomicI32,
-}
-
-impl<R: Runtime> Plugin<R> {
-    /// Listens for banner clicks; the plugin must already be installed on the App.
-    pub fn new(app: AppHandle<R>) -> Result<Self, tauri_plugin_notification::Error> {
-        let shown = Arc::new(Mutex::new(HashMap::<i32, String>::new()));
-        let (handle, lookup) = (app.clone(), shown.clone());
-        app.notification().on_action(move |performed| {
-            let Some(notification) = performed.notification() else {
-                return;
-            };
-            let agent = lookup
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .get(&notification.id())
-                .cloned();
-            if let Some(agent) = agent {
-                clicked(&handle, &agent);
-            }
-        })?;
-        Ok(Self {
-            app,
-            shown,
-            next: AtomicI32::new(1),
-        })
-    }
-}
+/// The system banner. macOS sends it through `mac-notification-sys` and plays the sound with its system sound player; the App ships on macOS only.
+pub struct Plugin<R: Runtime>(pub AppHandle<R>);
 
 impl<R: Runtime> Notifier for Plugin<R> {
+    /// macOS asks the owner on the first banner and has no call to ask earlier.
     fn permission(&self) -> Result<(), String> {
-        match self.app.notification().request_permission() {
-            Ok(PermissionState::Granted) => Ok(()),
-            Ok(state) => Err(format!("permission is {state}")),
-            Err(error) => Err(error.to_string()),
-        }
+        Ok(())
     }
 
+    #[cfg(target_os = "macos")]
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String> {
-        let id = self.next.fetch_add(1, Ordering::Relaxed);
-        self.shown
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(id, agent.to_owned());
-        self.app
-            .notification()
-            .builder()
-            .id(id)
-            .title(title)
-            .body(body)
-            .show()
+        let handle = self.0.clone();
+        let (agent, title, body) = (agent.to_owned(), title.to_owned(), body.to_owned());
+        std::thread::Builder::new()
+            .name("state-alert".into())
+            .spawn(move || {
+                let sent = mac_notification_sys::Notification::new()
+                    .title(&title)
+                    .message(&body)
+                    .wait_for_click(true)
+                    .send();
+                match sent {
+                    Ok(mac_notification_sys::NotificationResponse::Click) => {
+                        clicked(&handle, &agent)
+                    }
+                    Ok(_) => {}
+                    Err(error) => log::warn!(target: "roundup::shell", "show state alert: {error}"),
+                }
+            })
+            .map(drop)
             .map_err(|error| error.to_string())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn banner(&self, _agent: &str, _title: &str, _body: &str) -> Result<(), String> {
+        Err("banners need macOS".into())
     }
 
     fn sound(&self) {

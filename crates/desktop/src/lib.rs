@@ -45,7 +45,6 @@ pub fn build<R: Runtime>(
     builder
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
@@ -66,8 +65,7 @@ pub fn build<R: Runtime>(
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(invoke_handler())
         .setup(move |app| {
-            let banners = alert::Plugin::new(app.handle().clone())?;
-            app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(banners))));
+            app.manage(std::sync::Arc::new(alert::Alerts::new(Box::new(alert::Plugin(app.handle().clone())))));
             #[cfg(target_vendor = "apple")]
             native::project_menu_hints(app.handle(), Vec::new())?;
             let state = app.state::<AppState>();
