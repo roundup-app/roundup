@@ -318,15 +318,15 @@
 .settings-mode-preview { font-size: var(--text-body); background: var(--gray-1); color: var(--gray-12); }
 .settings-mode-preview[data-mode="light"] { color-scheme: light; }
 .settings-mode-preview[data-mode="dark"] { color-scheme: dark; }
-.settings-mode-preview[data-scale="small"] { font-size: calc(var(--text-body) * var(--scale-small)); }
-.settings-mode-preview[data-scale="large"] { font-size: calc(var(--text-body) * var(--scale-large)); }
+.settings-mode-preview[data-scale="small"] { font-size: var(--text-sample-small); }
+.settings-mode-preview[data-scale="large"] { font-size: var(--text-sample-large); }
 .settings-history .settings-forward-disabled { color: var(--disabled); }
 .settings-content .app-segment[data-state="checked"] { color: var(--accent); }
 .settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .settings-preview-terminal { height: auto; overflow: hidden; background: var(--terminal-background); }
-.settings-scale-small { font-size: calc(var(--text-body) * var(--scale-small)); }
+.settings-scale-small { font-size: var(--text-sample-small); }
 .settings-scale-default { font-size: var(--text-body); }
-.settings-scale-large { font-size: calc(var(--text-body) * var(--scale-large)); }
+.settings-scale-large { font-size: var(--text-sample-large); }
 
 .settings-naming button {
   grid-column: 2;

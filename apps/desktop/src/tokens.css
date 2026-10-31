@@ -178,6 +178,8 @@
   --text-caption: calc(11px * var(--interface-scale));
   --text-small: calc(12px * var(--interface-scale));
   --text-body: calc(13px * var(--interface-scale));
+  --text-sample-small: calc(13px * var(--scale-small));
+  --text-sample-large: calc(13px * var(--scale-large));
   --text-row: calc(14px * var(--interface-scale));
   --text-terminal-min: 9px;
   --text-terminal-max: 21px;
