@@ -10,6 +10,7 @@ pub mod inbox;
 mod launch;
 mod launch_files;
 mod models;
+mod overview_cache;
 mod placement;
 mod profiles;
 pub mod toolcall;
@@ -434,7 +435,7 @@ fn hook_status(payload: &Value) -> Option<(Kind, String)> {
             Some((Kind::Working, "working".into()))
         }
         "PermissionRequest" => Some((Kind::NeedsYou, permission_label(payload))),
-        "StopFailure" => Some((Kind::Error, text("error").unwrap_or_else(|| "error".into()))),
+        "StopFailure" => Some((Kind::Error, failure_label(payload["error"].as_str()))),
         "SessionEnd" => Some((Kind::Done, text("reason").unwrap_or_else(|| "done".into()))),
         "Notification" | "SubagentStop" | "MessageDisplay" | "PostToolBatch" => None,
         other => {
@@ -442,6 +443,69 @@ fn hook_status(payload: &Value) -> Option<(Kind, String)> {
             None
         }
     }
+}
+
+/// U5151b: the cause and next step for a `StopFailure` code. An unrecognised code is kept
+/// verbatim; a missing or empty one says Claude gave no reason. The next turn's status replaces
+/// the failure mark (U5151c).
+fn failure_label(code: Option<&str>) -> String {
+    let (cause, next) = match code.map(str::trim).unwrap_or_default() {
+        "rate_limit" => (
+            "Claude's request limit was reached",
+            "wait, then send a message to retry",
+        ),
+        "overloaded" => ("Claude is overloaded", "wait, then send a message to retry"),
+        "authentication_failed" => (
+            "Claude could not sign in",
+            "open its Terminal, sign in, then retry",
+        ),
+        "oauth_org_not_allowed" => (
+            "This login cannot use the organization",
+            "check Claude's organization and login, then retry",
+        ),
+        "account_on_hold" => (
+            "The account is on hold",
+            "resolve its account restriction, then retry",
+        ),
+        "billing_error" => (
+            "Claude refused the account's billing",
+            "resolve billing in the provider account, then retry",
+        ),
+        "invalid_request" => (
+            "Claude rejected the request",
+            "check the Terminal details and revise the request before retrying",
+        ),
+        "model_not_found" => (
+            "The chosen Model is unavailable",
+            "choose an available Model, then retry",
+        ),
+        "server_error" => (
+            "Claude's servers failed",
+            "send the Agent a message to retry",
+        ),
+        "max_output_tokens" => (
+            "Claude reached its response limit",
+            "send a message asking it to continue in smaller steps",
+        ),
+        "cloud_credential_error" => (
+            "Cloud credentials could not load",
+            "repair the configured credentials, then retry",
+        ),
+        "unknown" => (
+            "Claude failed without a classified cause",
+            "inspect its Terminal, then retry",
+        ),
+        "" => (
+            "Claude ended the turn without a reason",
+            "inspect its Terminal, then retry",
+        ),
+        other => {
+            return format!(
+                "Claude failed with {other}; inspect its Terminal, then retry. The next turn replaces this mark."
+            );
+        }
+    };
+    format!("{cause}; {next}. The next turn replaces this mark.")
 }
 
 /// The question being asked; else the tool name, with its command when it has one.

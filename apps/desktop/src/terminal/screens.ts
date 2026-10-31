@@ -54,7 +54,7 @@ export type Screens = {
 const MAX_BUFFERED_BYTES = 1_048_576;
 
 /** A parse cannot be interrupted, so a chunk is sized to take about this long: a typed echo waits behind at most one. */
-const TARGET_PARSE_MS = 3;
+const TARGET_PARSE_MS = 2;
 
 const MIN_CHUNK_BYTES = 512;
 

@@ -15,3 +15,4 @@ artifacts/ux/**/*.mov
 # Lint self-test fixtures a killed run can leave behind; a run saving its work must not commit them.
 .timeout-fixture-*/
 apps/desktop/src/.u3791c-*/
+site/.vitepress/cache

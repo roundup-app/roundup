@@ -19,6 +19,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
+import { FailureLine } from "../ink/FailureLine";
 import { agentKindsBelow, isWorkstream } from "./layout";
 import { Trunks } from "../ui/TreeView";
 import type { NodeRow } from "./layout";
@@ -182,7 +183,7 @@ export const RailRowView = (props: {
       <Show when={workstream()}><IconButton class="rail-chevron row-control" aria-label={copy.collapse} {...ownKeys} onClick={event => { event.stopPropagation(); props.onToggle(); }}><Icon name={props.row.collapsed ? "right" : "down"} /></IconButton></Show>
       <span class="row-state"><KindGlyph kind={kind() ?? "idle"} /></span>
       {name()}
-      <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
+      <Show when={unread()}><span class="unread-dot row-secondary" data-state="" role="img" aria-label={copy.unreadResult} /></Show>
       <Show when={queuedBadge()}>{badge => <span class="light queue-badge row-secondary">{badge()}</span>}</Show>
       <Show when={!workstream() && props.row.node.worktree}><span class="worktree-chips row-secondary">
         <Show when={(facts()?.ahead ?? 0) > 0}><span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span></Show>
@@ -196,6 +197,7 @@ export const RailRowView = (props: {
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
       </span>
     </p>
+    <Show when={!workstream()}><FailureLine status={props.row.node.status} /></Show>
   </div>;
 
   return <>

@@ -47,5 +47,21 @@
     "anti-slop/no-widen-then-assert": "error",
     "anti-slop/require-readable-spacing": "error",
     "anti-slop/require-safety-comment-for-type-assertion": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "apps/desktop/vite.config.ts",
+        "apps/desktop/budgets/**/*.ts",
+        "apps/desktop/src/testing/realDaemonPlugin.ts",
+        "apps/desktop/src/testing/captures.ts",
+        "apps/desktop/src/testing/shardSequencer.ts",
+        "apps/desktop/src/app/seam.ts",
+        "apps/desktop/src/perf/idle.ts"
+      ],
+      "rules": {
+        "anti-slop/require-import-extension": "error"
+      }
+    }
+  ]
 }

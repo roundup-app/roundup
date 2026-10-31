@@ -85,7 +85,7 @@ export function createTodoUndo() {
 
   const clearRedoes = (region: string) => setRedoes(all => all.map(action => ({ ...action, regions: action.regions.filter(owner => owner !== region) })).filter(action => action.regions.length > 0));
   const [pending, setPending] = createSignal(false);
-  const [failure, setFailure] = createSignal<{ kind: "delete" | "restore"; message: string } | null>(null);
+  const [failure, setFailure] = createSignal<{ kind: "delete" | "restore" | "blocked"; message: string } | null>(null);
   let connection: AppSeam | undefined;
   let forwarding: AppSeam | undefined;
   const [uncertain, setUncertain] = createSignal<number[]>();
@@ -97,10 +97,44 @@ export function createTodoUndo() {
   let padReceipts: PadDeletion[] = [];
   const [railPending, setRailPending] = createSignal<{ id: string; name: string; project: string; operation: string; region: string }>();
 
-  const removeRail = async (id: string, name: string, region = "") => {
-    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length) return false;
+  const unconfirmedName = () => {
+    const redo = redoes().find(action => action.state === "unknown");
 
-    if (railPending() && railPending()!.id !== id) return false;
+    if (redo) return actionName(redo);
+    const rail = railPending();
+
+    if (rail) return `${copy.remove} ${rail.name}`;
+
+    if (padPending().length) return padPending().map(pad => pad.name).join(", ");
+    const ids = uncertain();
+
+    return ids ? copy.deleting(ids.map(id => `#${id}`).join(", ")) : "";
+  };
+
+  /** U5170a: what blocks a delete, undo or redo, and what to do; set on the failure line so no gate returns silently. */
+  const block = () => {
+    const name = unconfirmedName();
+    const message = pending() ? copy.deleteBusy : name ? copy.deleteBlockedBy(name) : !connection || !forwarding ? copy.deleteNotConnected : copy.deleteBusy;
+    setFailure({ kind: "blocked", message });
+
+    return message;
+  };
+
+  const unconfirmed = () => redoUnknown() || !!uncertain() || padPending().length > 0 || !!railPending();
+
+  const removeRail = async (id: string, name: string, region = "") => {
+    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length) {
+      block();
+
+      return false;
+    }
+
+    if (railPending() && railPending()!.id !== id) {
+      block();
+
+      return false;
+    }
+
     const app = connection;
     setPending(true);
     setFailure(null);
@@ -146,10 +180,19 @@ export function createTodoUndo() {
   };
 
   const remove = async (ids: number[], region = ""): Promise<boolean> => {
-    if (pending() || redoUnknown() || !forwarding || padPending().length || railPending()) return false;
+    if (pending() || redoUnknown() || !forwarding || padPending().length || railPending()) {
+      block();
+
+      return false;
+    }
+
     deleted = [];
 
-    if (uncertain() && JSON.stringify(uncertain()) !== JSON.stringify(ids)) return false;
+    if (uncertain() && JSON.stringify(uncertain()) !== JSON.stringify(ids)) {
+      block();
+
+      return false;
+    }
 
     if (!uncertain()) todoRegion = region;
     const chosen = uncertain() ?? [...ids];
@@ -184,9 +227,18 @@ export function createTodoUndo() {
   };
 
   const removePads = async (pads: readonly Pick<Pad, "name" | "incarnation">[], region = "") => {
-    if (pending() || redoUnknown() || !connection || uncertain() || railPending()) return pads.map(pad => ({ id: pad.incarnation, message: failure()?.message ?? copy.deletePending }));
+    if (pending() || redoUnknown() || !connection || uncertain() || railPending()) {
+      const message = block();
 
-    if (padPending().length && JSON.stringify(padPending().map(pad => pad.incarnation)) !== JSON.stringify(pads.map(pad => pad.incarnation))) return pads.map(pad => ({ id: pad.incarnation, message: copy.deleteUnconfirmed }));
+      return pads.map(pad => ({ id: pad.incarnation, message }));
+    }
+
+    if (padPending().length && JSON.stringify(padPending().map(pad => pad.incarnation)) !== JSON.stringify(pads.map(pad => pad.incarnation))) {
+      const message = block();
+
+      return pads.map(pad => ({ id: pad.incarnation, message }));
+    }
+
     const app = connection;
     const retry = padPending().length > 0;
 
@@ -244,7 +296,14 @@ export function createTodoUndo() {
   const undo = async (region?: string) => {
     const operation = stack().findLast(action => region === undefined || action.regions.includes(region));
 
-    if (!operation || pending() || redoUnknown() || !connection || uncertain() || padPending().length || railPending()) return;
+    if (!operation) return;
+
+    if (pending() || redoUnknown() || !connection || uncertain() || padPending().length || railPending()) {
+      block();
+
+      return;
+    }
+
     const app = connection;
     setPending(true);
     setFailure(null);
@@ -341,7 +400,14 @@ export function createTodoUndo() {
   const redo = async (region?: string) => {
     const action = redoes().findLast(item => region === undefined || item.regions.includes(region));
 
-    if (!action || pending() || !connection || uncertain() || padPending().length || railPending()) return;
+    if (!action) return;
+
+    if (pending() || !connection || uncertain() || padPending().length || railPending()) {
+      block();
+
+      return;
+    }
+
     const app = connection;
     setPending(true);
     setFailure(null);
@@ -472,11 +538,29 @@ export function createTodoUndo() {
       setStack(all => [...all]);
     },
     failure: () => failure()?.message ?? null,
-    dismiss: () => setFailure(null),
+    blocked: () => failure()?.kind === "blocked",
+    // U5170b: Dismiss drops an unconfirmed state from the blocking set and says the Daemon may still hold it.
+    dismiss: () => {
+      if (!unconfirmed()) {
+        setFailure(null);
+
+        return;
+      }
+
+      const name = unconfirmedName();
+
+      if (uncertain()) calls.get(forwarding!)?.delete(JSON.stringify([...new Set(uncertain())].toSorted((a, b) => a - b)));
+      setUncertain(undefined);
+      setPadPending([]);
+      padReceipts = [];
+      setRailPending(undefined);
+      setRedoes(all => all.filter(action => action.state !== "unknown"));
+      setFailure({ kind: "blocked", message: copy.deleteStaysUnconfirmed(name) });
+    },
     feedbackFailure: () => {
       const problem = failure();
 
-      return problem && (problem.kind === "restore" || uncertain() || padPending().length || railPending()) ? problem.message : null;
+      return problem && (problem.kind !== "delete" || uncertain() || padPending().length || railPending()) ? problem.message : null;
     },
     undoLabel: (region?: string) => {
       const action = !pending() && available(region) ? stack().findLast(item => region === undefined || item.regions.includes(region)) : undefined;

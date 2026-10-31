@@ -78,22 +78,79 @@ fn a1_permission_request_quotes_the_question_it_asks() {
     assert_eq!(status.label, "Do you prefer A or B?");
 }
 
-#[test]
-fn a1_stop_failure_gives_error_labelled_with_the_error_field() {
+fn failure_label(error: Option<&str>) -> String {
     let (mut adapter, _) = adapter();
-    let status = signal(&mut adapter, event(FAILURE, "StopFailure")).unwrap();
+    let mut payload = event(FAILURE, "StopFailure");
+    let fields = payload.as_object_mut().unwrap();
+    fields.remove("error_details");
+    fields.remove("last_assistant_message");
+    match error {
+        Some(code) => fields.insert("error".into(), code.into()),
+        None => fields.remove("error"),
+    };
+    let status = signal(&mut adapter, payload).unwrap();
     assert_eq!(status.kind, Kind::Error);
-    assert_eq!(status.label, "model_not_found");
+    status.label
 }
 
 #[test]
-fn a1_stop_failure_without_an_error_field_is_still_an_error() {
+fn u5151b_failure_codes_have_actionable_labels() {
+    let cases = [
+        ("rate_limit", "request limit", "wait"),
+        ("overloaded", "overloaded", "wait"),
+        ("authentication_failed", "could not sign in", "sign in"),
+        ("oauth_org_not_allowed", "organization", "check"),
+        ("account_on_hold", "on hold", "restriction"),
+        ("billing_error", "billing", "provider account"),
+        ("invalid_request", "rejected the request", "revise"),
+        ("model_not_found", "Model is unavailable", "choose"),
+        (
+            "server_error",
+            "servers failed",
+            "send the Agent a message to retry",
+        ),
+        ("max_output_tokens", "response limit", "smaller steps"),
+        ("cloud_credential_error", "credentials", "repair"),
+        (
+            "unknown",
+            "without a classified cause",
+            "inspect its Terminal",
+        ),
+    ];
+    for (code, cause, next) in cases {
+        let label = failure_label(Some(code));
+        assert!(
+            label.contains(cause) && label.contains(next),
+            "{code}: {label}"
+        );
+        assert!(label.contains("next turn replaces"), "{code}: {label}");
+        assert!(!label.contains('_'), "{code} leaked raw: {label}");
+    }
+}
+
+#[test]
+fn u5151b_unrecognized_and_missing_errors_remain_actionable() {
+    let label = failure_label(Some("future_failure_5151"));
+    assert!(
+        label.contains("future_failure_5151")
+            && label.contains("Terminal")
+            && label.contains("retry")
+    );
+    for missing in [None, Some(""), Some("  ")] {
+        let label = failure_label(missing);
+        assert!(
+            label.contains("without a reason") && label.contains("Terminal"),
+            "{label}"
+        );
+        assert_ne!(label, "error");
+    }
+    // Vendor details are never part of the label.
     let (mut adapter, _) = adapter();
-    signal(&mut adapter, event(RUN1, "UserPromptSubmit"));
-    let mut failure = event(FAILURE, "StopFailure");
-    failure.as_object_mut().unwrap().remove("error");
-    let status = signal(&mut adapter, failure).unwrap();
-    assert_eq!((status.kind, status.label.as_str()), (Kind::Error, "error"));
+    let mut payload = event(FAILURE, "StopFailure");
+    payload["error"] = "server_error".into();
+    payload["error_details"] = "<img src=x onerror=alert(1)>".into();
+    let status = signal(&mut adapter, payload).unwrap();
+    assert!(!status.label.contains('<') && status.label.contains("servers failed"));
 }
 
 #[test]
