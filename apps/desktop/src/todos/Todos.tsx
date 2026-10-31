@@ -1,8 +1,7 @@
-import { applied } from "../app/pending";
+import { createTodoCreation } from "./creation";
 import { todoDropTargets } from "./todoDropTargets";
 import { rowTypeahead } from "../ui/RowCollection";
 import type { createCopyFeedback } from "../ui/CopyButton";
-import { outcomeOf } from "../app/seam";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
 import { createOwnerAssignment, createOwnerKeys, createOwnerPicker, ownersToOffer } from "./ownerAssignment";
@@ -12,7 +11,7 @@ import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { registerKeys, type ActivationSource } from "../keys/registry";
 import { copy } from "./copy";
-import { shelfRowKeys, todoCreationKeys } from "../shelf/keys";
+import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
 import { createSelection } from "../shelf/selection";
 import { Progress } from "../ui/Progress";
@@ -20,17 +19,16 @@ import { createDependencyGroups } from "./dependencyGroups";
 import { createCountMotion, createFinishMotion } from "./finishMotion";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
-import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
-import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack, useContext, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
 import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
-import { useConnectedProject, useCreation } from "../state/connectedProject";
+import { useConnectedProject } from "../state/connectedProject";
 import { changeFailureOf } from "./failureOf";
 import { OpenRow } from "./OpenRow";
 import { RowButton } from "./RowButton";
@@ -42,7 +40,6 @@ import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { NewWorkstream } from "./NewWorkstream";
 import { OwnerCommand, OwnerPicker } from "./OwnerPicker";
-import type { Actor } from "@contracts/Actor";
 import { CHORDS, chordsFor, chordsOf } from "../keys/chords";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
@@ -413,145 +410,11 @@ export const Todos = (props: {
     );
   });
 
-  const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
-  const [creationOwner, setCreationOwner] = createSignal<string | null>(form.success ? form.output.owner : null);
-  const creationRecipient = creationHome;
-  const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationRecipient() });
-
-  createEffect(() => {
-    if (typing()) onCleanup(connected.drafts.editor(creationTarget()));
+  const { creationHome, creation, openField, field } = createTodoCreation({
+    recovery: props.recovery !== undefined, form, homeExists, creationRevision, setCreationRevision, typing, setTyping, createFailure, setCreateFailure,
+    setFiled, active, scope, selectedWorkstream, plusButton: () => plusButton, section: () => section,
   });
 
-  const creation = () => connected.drafts.list().findLast(draft => draft.destination.surface === "todos"
-    && draft.destination.object === "new" && draft.destination.recipient === creationRecipient()
-    && (creationRevision() !== null ? draft.revision === creationRevision() : (draft.status === "draft" || draft.status === "failed" || draft.status === "unknown" || draft.status === "pending")));
-
-  createEffect(() => {
-    const revision = creationRevision();
-
-    if (typing() && revision !== null && !creation()) setTyping(false);
-  });
-
-  let creationRow: HTMLDivElement | undefined;
-
-  registerKeys({ kind: "region", element: () => creationRow }, [{
-    chords: ["Enter"],
-    when: () => creation()?.status === "unknown" || creation()?.status === "pending",
-    run: () => setCreateFailure(copy.draftStatus[creation()?.status ?? "unknown"]),
-  }]);
-
-  const retainCreation = (field: HTMLInputElement) => {
-    const previous = creation();
-    const caret = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
-
-    if (creationRevision() !== null && !previous) return;
-
-    if (previous?.value.title === field.value) {
-      if ((!props.recovery || document.activeElement === field) && JSON.stringify(previous.selection) !== JSON.stringify(caret)) connected.drafts.setSelection(previous.revision, caret);
-
-      return;
-    }
-
-    if (field.value === "" && !previous) return;
-
-    batch(() => setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome(), owner: creationOwner() }, caret, "ordinary", creationRevision()).draft.revision));
-  };
-
-  // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
-  const create = async (title: string) => {
-    setCreateFailure(null);
-    // Keep the owner captured when the scope-line field opened, even if selection changed.
-    const owner: Actor | null = creationOwner() === null ? null : { kind: "agent", id: creationOwner()!, parent: null };
-
-    const draft = creation();
-
-    const home = creationHome();
-    const recipient = creationRecipient();
-
-    if (!homeExists(home) || !draft || !(await connected.drafts.submit(draft.revision))) return;
-
-    if (creationRevision() === draft.revision) setCreationRevision(null);
-    const field = document.querySelector<HTMLInputElement>(".todos-tab .entry-field");
-
-    try {
-      const made = await applied(() => connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner }));
-      setFiled(count => count + 1);
-      // Creation is acknowledged before placement: a failed move must never invite duplicate creation.
-      connected.drafts.settle(draft.revision, "acknowledged");
-
-      if (home !== null) await applied(() => connected.app.rpc("todo.move", { id: made.id, home }));
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      connected.drafts.settle(draft.revision, outcomeOf(error));
-      setCreateFailure(error.message);
-      const retained = v.safeParse(v.string(), draft.value.title);
-
-      // EntryRow clears on submit; restore only this field's unchanged failed revision.
-      if (field?.isConnected && field.value === "" && creationRecipient() === recipient && (!creation() || creation()?.revision === draft.revision) && retained.success) { field.value = retained.output; setCreationRevision(draft.revision); }
-    }
-  };
-
-  const openField = (home = selectedWorkstream(), owner = scope.agent()?.id ?? null) => {
-    setCreateFailure(null);
-
-    if (typing()) {
-      document.querySelector<HTMLInputElement>(".todos-tab .entry-field")?.focus();
-
-      return;
-    }
-
-    setCreationHome(home);
-    setCreationOwner(owner);
-    const draft = creation();
-    const saved = v.safeParse(creationSchema, draft?.value);
-
-    if (saved.success) setCreationOwner(saved.output.owner);
-
-    if (draft && !v.safeParse(v.string(), draft.value.title).success) {
-      setCreateFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
-
-      return;
-    }
-
-    setCreationRevision(draft?.revision ?? null);
-    setTyping(true);
-  };
-
-  useCreation("todo", home => {
-    setTyping(false);
-    setCreationRevision(null);
-    openField(home, null);
-  });
-  todoCreationKeys({ section: () => section, active, editing: typing, home: selectedWorkstream, owner: () => scope.agent()?.id ?? null, open: openField });
-
-  const field = () => (
-    <div class="shelf-list todo-create" ref={element => { creationRow = element; }}>
-
-      <EntryRow
-        glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
-        class="todo-inset"
-        label={copy.newTodoTitle}
-        placeholder={copy.newTodoPlaceholder}
-        initial={untrack(() => {
-          const draft = creation();
-          const title = v.safeParse(v.string(), draft?.value.title);
-
-          return { text: title.success ? title.output : "", selection: draft?.selection ?? null };
-        })}
-        onEdit={retainCreation}
-        onSubmit={(title) => void create(title)}
-        onClose={(reason) => {
-
-          setTyping(false);
-
-          if (reason === "escape") setCreateFailure(null);
-
-          if (reason !== "blur") plusButton?.focus();
-        }}
-      />
-      <ReservedLine message={createFailure()} content={createFailure() ? <>{copy.failed(copy.addTodo, "")}<span>{createFailure()}</span></> : undefined} />
-    </div>
-  );
 
   // U153: a row is selected while the Drawer it opened is the one open.
   const [shown, setShown] = createSignal<{ id: number; content: () => JSX.Element } | null>(null);
@@ -795,7 +658,7 @@ export const Todos = (props: {
           <Icon name="plus" />
           <span>{copy.todo}</span>
         </button>
-        <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+        <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} action="todo.triage-enter" onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
         <TodoAuto home={selectedWorkstream} />
       </ScopeAction>
       <ReservedLine overlay message={todos.failure() || (!typing() ? createFailure() : null)} />
