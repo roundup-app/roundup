@@ -34,6 +34,13 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
+/** A5214a: only a root Agent with a saved conversation, or a live one that is saving it, converts. */
+export const canMakeWorkstream = (node: RailNode, exit: ExitState | null) =>
+  node.kind === "agent" && node.parent === null && (node.can_resume || isRunning(node, exit));
+
+/** A5214b: the Daemon refuses an Agent roundup did not start, which only it can tell. */
+export const canSaveAsMode = (node: RailNode) => node.kind === "agent";
+
 export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
@@ -206,6 +213,13 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }
   };
 
+  /** A5214a: `agent.makeWorkstream`; the row then shows as a Workstream, or the Daemon's message shows. */
+  const makeWorkstream = (node: RailNode) =>
+    attempt(async () => {
+      await app.rpc("agent.makeWorkstream", { id: node.id });
+      await rail.refresh({ terminals: true });
+    }, node.id);
+
   /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Remove only. */
   const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
     const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => requestRemove(node, exit, removed) };
@@ -272,6 +286,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseRemove,
     requestRemove,
     restartSession,
+    makeWorkstream,
     restartPending: (id: string) => restarts[id]?.pending ?? false,
     requestStop,
     isRunning,
