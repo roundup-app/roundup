@@ -10,7 +10,7 @@ use std::time::Duration;
 use clap::Parser;
 use perf::gate::read_budgets;
 use perf::webview::failure;
-use perf::webview::{judge_runs, marked_line};
+use perf::webview::{judged, marked_line};
 use rpc::Client;
 use serde_json::Value;
 use sysinfo::System;
@@ -368,7 +368,7 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
         diagnostics.push(evidence);
         println!("run {turn}: {report}");
         reports.push(report);
-        let (exit, failures) = judge_runs(&reports, limit);
+        let (exit, failures) = judged(&reports, limit, &budgets, &loads, args.flood);
         // Save after every run, including invalid or failed observations, so a later
         // launch failure cannot discard the earlier evidence.
         if let Some(parent) = args.out.parent() {
@@ -390,7 +390,7 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
             }))?,
         )?;
     }
-    let (exit, failures) = judge_runs(&reports, limit);
+    let (exit, failures) = judged(&reports, limit, &budgets, &loads, args.flood);
     for message in failures {
         eprintln!("{message}");
     }

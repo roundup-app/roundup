@@ -5,6 +5,12 @@ type Watch = { kind: "open" | "switch"; at: number; done: () => boolean; timer: 
 /** Names the string `scenarios/perf.md` K1/SP1 look for in a normal bundle. */
 export const SWITCH_PROBE = "roundup-switch-probe";
 
+declare global {
+  interface Window {
+    [SWITCH_PROBE]?: ReturnType<typeof createSwitchProbe>;
+  }
+}
+
 /**
  * SP2, SP3: times the Switcher's opening chord to the first DOM in which its field is focused over a non-empty list, and `⏎` on an
  * Agent or Terminal entry to the first DOM holding the target's own content. It only reads the DOM, so a Door or Group entry,

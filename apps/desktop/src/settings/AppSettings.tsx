@@ -16,7 +16,7 @@ import { createSettingsView } from "../state/settingsView";
 import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
-import { ShortcutSetting } from "./ShortcutSetting";
+import { ShortcutSettings } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
@@ -220,7 +220,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         </Field.Root>}</For>
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSettings capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
         <SegmentGroup description={copy.modeHint} label={copy.settingsAppearance} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => save({ mode })} />
