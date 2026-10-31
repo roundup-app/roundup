@@ -43,7 +43,7 @@ export const copy = {
   reactions: sharedCopy.reactions,
   reactionsEmpty: sharedCopy.reactionsEmpty,
   reactionWhen: sharedCopy.reactionWhen,
-  projectAttention: (count: number) => count === 0 ? "Nothing needs you" : `${count} ${count === 1 ? "needs" : "need"} you`,
+  projectAttention: (count: number) => count === 0 ? sharedCopy.inboxEmpty : `${count} ${count === 1 ? "needs" : "need"} you`,
   askBarLabel: sharedCopy.askBarLabel,
   askBarPlaceholder: "Ask anything. @ names a Workstream",
   askEmpty: "No Asks yet",

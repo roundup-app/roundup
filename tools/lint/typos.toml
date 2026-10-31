@@ -6,3 +6,5 @@ extend-exclude = ["tools/lint/debt.json", "docs/perf-*.json"]
 [default.extend-words]
 # C9d inventories the installed Highlights alias for Extensible Data Notation.
 edn = "edn"
+# NA12 quotes a misspelt action name the Daemon must answer with a suggestion.
+nwe = "nwe"
