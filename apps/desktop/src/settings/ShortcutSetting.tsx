@@ -9,9 +9,11 @@ import { appSettings, saveAppSettings } from "./preferences";
 
 /** Ark's existing key registry owns recording as a modal layer, ahead of App shortcuts. */
 const ROWS = {
-  quickAdd: { label: copy.quickAddTodo, hint: copy.quickAddHint, fallback: "meta+shift+KeyT" },
-  quickAddAnywhere: { label: copy.quickAddAnywhere, hint: copy.quickAddAnywhereHint, fallback: "" },
+  quickAdd: { label: copy.quickAddTodo, hint: copy.quickAddHint },
+  quickAddAnywhere: { label: copy.quickAddAnywhere, hint: copy.quickAddAnywhereHint },
 } as const;
+
+const fallbackOf = (field: keyof typeof ROWS) => field === "quickAdd" ? "meta+shift+KeyT" : "";
 
 export const ShortcutSettings = (props: { capture?: CapturePort | undefined; onFailure: (message: string | null) => void }) => <>
   <ShortcutSetting field="quickAdd" {...props} />
@@ -21,7 +23,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; onF
 /** One recordable chord: the in-App quick add, or its opt-in Mac-wide twin. */
 export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: CapturePort | undefined; onFailure: (message: string | null) => void }) => {
   const row = ROWS[props.field];
-  const key = () => `${props.field}Key` as "quickAddKey" | "quickAddAnywhereKey";
+  const key = () => props.field === "quickAdd" ? "quickAddKey" : "quickAddAnywhereKey";
   const press = () => appSettings()[props.field];
   const [recording, setRecording] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -58,7 +60,7 @@ export const ShortcutSetting = (props: { field: keyof typeof ROWS; capture?: Cap
       <button ref={button} aria-describedby={hint} aria-pressed={recording()} aria-invalid={!!failure()} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
         <span id={value}><Show when={recording()} fallback={press() ? <KeyChip keys={shortcutLabel(press(), appSettings()[key()])} /> : <span>{copy.none}</span>}><span class="settings-recording-mark" aria-hidden="true">{copy.recordingMark}</span> {copy.recordShortcut}</Show></span>
       </button>
-      <Show when={press() !== row.fallback}><button data-button="quiet" type="button" onClick={() => save(row.fallback)}>{copy.reset}</button></Show>
+      <Show when={press() !== fallbackOf(props.field)}><button data-button="quiet" type="button" onClick={() => save(fallbackOf(props.field))}>{copy.reset}</button></Show>
       </div>
     </div>
     <ReservedLine message={failure()} />

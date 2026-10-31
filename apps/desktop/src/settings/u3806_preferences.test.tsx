@@ -365,7 +365,7 @@ it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => 
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("region", { name: "Settings" });
   await section("Shortcuts");
-  const row = screen.getByRole("button", { name: /^Quick add from any app / });
+  const row = screen.getByRole("button", { name: /^Quick add anywhere / });
   expect(row.textContent).toContain("None");
   expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
   fireEvent.click(row);
