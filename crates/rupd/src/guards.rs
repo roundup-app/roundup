@@ -210,21 +210,6 @@ impl Daemon {
         Ok(created)
     }
 
-    /// M10: only a Door writes a Checkpoint; a Door is the Agent whose id is a Workstream's.
-    pub(crate) async fn require_door(&self, actor: &Actor) -> Result<(), RpcError> {
-        let is_door = actor.kind == ActorKind::Agent
-            && self.rail().await?.iter().any(|node| {
-                node.id == actor.id && node.kind == contracts::agent::NodeKind::Workstream
-            });
-        if is_door {
-            return Ok(());
-        }
-        Err(RpcError::forbidden(format!(
-            "{} is not a Door, so it may not write a Checkpoint",
-            actor.id
-        )))
-    }
-
     /// T13, P12: a `todo.move` or `pad.move` names a Workstream on the Rail, or the Project root.
     pub(crate) async fn require_workstream(&self, params: &Value) -> Result<(), RpcError> {
         let home: Option<String> = rpc::params::<HomeOnly>(params.clone())?.home;
