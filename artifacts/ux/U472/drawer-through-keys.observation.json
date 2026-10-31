@@ -1,0 +1,36 @@
+{
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "observer": "isolated headless agent-browser builder-41111850872",
+  "base": "89e63e96a6f57bbe88c7ef2a1ba6da3d7a5d7148",
+  "checks": "All exposed Checks pass on tree-40, Help, Importer, Header recovery and Todo 5 Drawer. D15 is also checked by the copy guard.",
+  "header": {
+    "fields": [],
+    "text": "Unfinished workharnessCompletion unknown  Original name 雪  Copy nameDiscardClose"
+  },
+  "import": {
+    "calls": [
+      {
+        "method": "project.importCommit",
+        "params": {
+          "selections": [
+            {
+              "revision": "revision-0",
+              "source": "conversation-0"
+            },
+            {
+              "revision": "revision-1",
+              "source": "conversation-1"
+            }
+          ]
+        }
+      }
+    ],
+    "text": "調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 0destination-010 d agoCopy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 1destination-110 d agoThe saved conversation changed or no longer matches this preview. Refresh to check available conversations.Copy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 2destination-210 d agoCopy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 3destination-310 d agoCopy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 4destination-410 d agoCopy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 5destination-510 d agoCopy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 6destination-610 d agoCopy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 7destination-710 d agoCopy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 8destination-810 d agoCopy調査と実装 — résumé — Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title Long conversation title 9destination-910 d agoCopy1 not importable"
+  },
+  "limit": "Webview and fake App seam only. Parents #5125 and #4065 remain open; this does not claim the full U472 journey.",
+  "captureCommand": "just capture U471,U472 rejects unsupported U471. Direct harness captures provide the same requested dark observer."
+}
