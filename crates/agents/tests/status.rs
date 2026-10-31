@@ -301,3 +301,29 @@ fn a7_a_stopped_agent_stays_done_when_its_program_dies_by_signal() {
     );
     assert_eq!(adapter.observe(Observation::Exit { code: None }), None);
 }
+
+#[test]
+fn u5151d_session_end_reasons_read_as_user_actions() {
+    let end = |reason: Option<&str>| {
+        let (mut adapter, _) = adapter();
+        let mut payload = event(RUN1, "SessionEnd");
+        match reason {
+            Some(reason) => payload["reason"] = reason.into(),
+            None => {
+                payload.as_object_mut().expect("object").remove("reason");
+            }
+        }
+        signal(&mut adapter, payload).expect("status").label
+    };
+    assert_eq!(end(None), "done");
+    assert_eq!(end(Some("other")), "done");
+    assert!(end(Some("logout")).contains("sign in"));
+    assert!(end(Some("clear")).contains("send a message"));
+    assert_eq!(
+        end(Some("future_end_5151")),
+        "Session ended: future_end_5151"
+    );
+    for raw in ["prompt_input_exit", "bypass_permissions_disabled"] {
+        assert!(!end(Some(raw)).contains(raw), "{raw} must not show raw");
+    }
+}
