@@ -1,6 +1,7 @@
 //! U5232e to U5232g (`scenarios/ui-state-alerts.md`): what `stateAlert` asks of the system, against a fake notifier.
 
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use desktop::alert::{Alerts, Notifier};
 use rpc::code;
@@ -13,6 +14,8 @@ struct Fake {
     refuse: Option<String>,
     /// The permission request ends unanswered, as at the 60 s timeout.
     unanswered: bool,
+    /// Answers a held request once set; before that the request stays open.
+    held: Option<Mutex<Option<Result<(), String>>>>,
     denied: bool,
     calls: Mutex<Vec<String>>,
 }
@@ -22,6 +25,9 @@ struct Shared(Arc<Fake>);
 impl Notifier for Shared {
     fn permission(&self) -> Option<Result<(), String>> {
         self.0.calls.lock().unwrap().push("permission".into());
+        if let Some(held) = &self.0.held {
+            return held.lock().unwrap().clone();
+        }
         if self.0.unanswered {
             return None;
         }
@@ -175,9 +181,73 @@ fn u5232k_no_alert_returns_ok_without_a_banner() {
         unanswered: true,
         ..Fake::default()
     });
-    let error = raise(&fake, true, false).unwrap_err();
+    let error = Alerts::with_wait(Box::new(Shared(fake.clone())), Duration::from_millis(200))
+        .raise(&serde_json::from_value(request(true, false)).unwrap())
+        .unwrap_err();
     assert_eq!(error.code, code::FORBIDDEN);
     assert!(error.message.contains("unanswered"), "{}", error.message);
+    assert!(
+        !fake
+            .calls
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|c| c.starts_with("banner"))
+    );
+}
+
+fn held_fake() -> Arc<Fake> {
+    Arc::new(Fake {
+        held: Some(Mutex::new(None)),
+        ..Fake::default()
+    })
+}
+
+fn answer(fake: &Fake, result: Result<(), String>) {
+    *fake.held.as_ref().unwrap().lock().unwrap() = Some(result);
+}
+
+fn raise_two_during_the_prompt(
+    fake: &Arc<Fake>,
+    result: Result<(), String>,
+) -> Vec<Result<(), rpc::RpcError>> {
+    let alerts = Arc::new(Alerts::new(Box::new(Shared(fake.clone()))));
+    let calls: Vec<_> = (0..2)
+        .map(|_| {
+            let alerts = alerts.clone();
+            std::thread::spawn(move || {
+                alerts.raise(&serde_json::from_value(request(true, false)).unwrap())
+            })
+        })
+        .collect();
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(calls.iter().all(|call| !call.is_finished()));
+    answer(fake, result);
+    calls.into_iter().map(|call| call.join().unwrap()).collect()
+}
+
+#[test]
+fn u5232k_an_alert_during_the_prompt_is_raised_on_allow() {
+    let fake = held_fake();
+    for result in raise_two_during_the_prompt(&fake, Ok(())) {
+        result.unwrap();
+    }
+    let banners = fake
+        .calls
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|call| call.starts_with("banner"))
+        .count();
+    assert_eq!(banners, 2);
+}
+
+#[test]
+fn u5232k_an_alert_during_the_prompt_returns_the_refusal() {
+    let fake = held_fake();
+    for result in raise_two_during_the_prompt(&fake, Err("blocked".into())) {
+        assert!(result.unwrap_err().message.contains("blocked"));
+    }
     assert!(
         !fake
             .calls
