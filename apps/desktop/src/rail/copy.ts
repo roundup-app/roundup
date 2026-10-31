@@ -88,6 +88,8 @@ export const copy = {
   importUnnamed: sharedCopy.importUnnamed,
   name: sharedCopy.name,
   collapse: "Collapse",
+  expand: "Expand",
+  hiddenAgents: (n: number) => `${n} hidden Agents`,
   retryDoor: sharedCopy.retryDoor,
   startDoor: sharedCopy.startDoor,
   rowActions: "Row actions",
