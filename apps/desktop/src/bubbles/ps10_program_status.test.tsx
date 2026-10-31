@@ -23,7 +23,6 @@ it("ps10_a_terminal_row_shows_its_status_glyph_and_label_on_focus", async () => 
   await mount(status("needs-you", "Proceed? <b>y</b>"));
 
   await waitFor(() => expect(tab("1").querySelector("[data-program-status=needs-you] .glyph")).not.toBeNull());
-  expect(tab("1").querySelector(".terminal-tab-label")).not.toBeNull();
   expect(tab("1").querySelector("b")).toBeNull();
   expect(tab("1").getAttribute("aria-label")).toBe("cargo test, Proceed? <b>y</b>");
 });
@@ -31,9 +30,9 @@ it("ps10_a_terminal_row_shows_its_status_glyph_and_label_on_focus", async () => 
 it("ps10_an_empty_label_shows_the_kinds_word_and_null_shows_the_plain_tab", async () => {
   const m = await mount(status("error", ""));
 
-  await waitFor(() => expect(tab("1").querySelector(".terminal-tab-label")).not.toBeNull());
+  await waitFor(() => expect(tab("1").querySelector("[data-program-status=error]")).not.toBeNull());
   m.app.emit(event({ name: "terminal.status", data: { id: "1", status: null } }));
-  await waitFor(() => expect(tab("1").querySelector(".terminal-tab-label")).toBeNull());
+  await waitFor(() => expect(tab("1").querySelector("[data-program-status]")).toBeNull());
   expect(tab("1").getAttribute("aria-label")).toBe("cargo test");
 });
 

@@ -1,5 +1,5 @@
 // fallow-ignore-file duplicate-export -- RowActions belongs to InboxRow; rail/RowIcons has a different directly imported action contract.
-import { createUniqueId } from "solid-js";
+import { createUniqueId, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { nameOf } from "../bubbles/places";
@@ -51,7 +51,7 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
       <FailureLine status={node()?.status} class="inbox-failure" />
       <Collapsible.Content>
         <div class="inbox-body">
-          <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {step()}</p>
+          <p class="inbox-step"><Show when={node()}><span class="light">{copy.inboxLastStep}</span> </Show>{step()}</p>
           <ReservedLine message={failure()}>
             <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
           </ReservedLine>

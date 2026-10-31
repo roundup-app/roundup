@@ -1,4 +1,3 @@
-import { Show } from "solid-js";
 import type { Status } from "@contracts/Status";
 import { KindGlyph } from "../ink/KindGlyph";
 import { copy } from "./copy";
@@ -13,5 +12,5 @@ export const statusText = (status: Status): string => status.label.replace(DIREC
 /** The tab's accessible name: its name, then the program status. */
 export const tabLabel = (name: string, status: Status | undefined): string => status ? copy.tabWithStatus(name, statusText(status)) : name;
 
-/** The glyph and label a Terminal tab shows while its program reports a status. */
-export const ProgramStatusMark = (props: { status: Status | undefined }) => <Show when={props.status}>{status => <><span class="terminal-tab-slot" data-program-status={status().kind}><KindGlyph kind={status().kind} /></span><span class="terminal-tab-label">{statusText(status())}</span></>}</Show>;
+/** The glyph a Terminal tab shows in its trailing slot while its program reports a status; the label is the tab's tooltip and accessible name. */
+export const ProgramStatusMark = (props: { status: Status }) => <span class="terminal-tab-program" data-program-status={props.status.kind}><KindGlyph kind={props.status.kind} /></span>;
