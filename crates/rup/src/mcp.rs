@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use contracts::bubble_rule;
-use contracts::{Actor, ActorKind, IdentifyParams, agent, checkpoint, terminal, workstream};
+use contracts::{Actor, ActorKind, IdentifyParams, agent, terminal, workstream};
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
     Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities,
@@ -27,7 +27,7 @@ pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 mod agent_tools;
 use agent_tools::{
     agent_context, agent_digest, agent_extras, agent_extras_add, agent_set_order, agent_spawn,
-    agent_wake, checkpoint_write, workstream_rewind, workstream_rewind_plan,
+    agent_wake, workstream_rewind,
 };
 
 const TOOLS_TTL_MS: u64 = 3_600_000;

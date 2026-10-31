@@ -4,6 +4,7 @@ import { mountApp } from "../testing/appFixture";
 import { agent, info, event } from "../testing/nodes";
 import { todoHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
+import { copy } from "./copy";
 import { leaderKey } from "../keys/leaderFixture";
 
 // Mounted inventory: Inbox is one mixed content collection, in section order.
@@ -136,7 +137,7 @@ it("u3787c_selection_can_be_copied_without_opening_or_mutating", async () => {
   fireEvent.click(row("a:a"), { metaKey: true });
   fireEvent.click(row("c:11"), { metaKey: true });
   fireEvent.click(document.querySelector(".inbox .inbox-copy")!);
-  await waitFor(() => expect(app.clipboardWrites).toEqual(["alpha\nasks\n\nalpha commented on Ship 11\nReply 11"]));
+  await waitFor(() => expect(app.clipboardWrites).toEqual([`alpha\nasks\n\n${copy.inboxRow("alpha", "Ship 11")}\nReply 11`]));
   expect(app.calls.slice(before)).toEqual([]);
   expect(document.querySelector('.inbox [aria-expanded="true"]')).toBeNull();
   expect(document.querySelector(".todo-drawer")).toBeNull();
