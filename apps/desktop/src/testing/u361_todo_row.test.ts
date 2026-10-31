@@ -54,7 +54,7 @@ run("u361 the rendered Todo row", () => {
     }
 
     expect(await page.call<string>(`() => document.activeElement.type`)).toBe("checkbox");
-    await page.call(`() => window.__fake.failNext(-32000, 'cannot complete this Todo')`);
+    await page.call(`() => window.__fake.failNext(-32003, 'cannot complete this Todo')`);
     await page.press(" ", "Space");
     await page.until(`() => document.querySelector('.shelf .error')?.textContent.includes('cannot complete') || document.querySelector('.shelf').textContent.includes('cannot complete this Todo')`);
     expect(await page.call<boolean>(`() => document.activeElement.checked`)).toBe(false);

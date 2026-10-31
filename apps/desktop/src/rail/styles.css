@@ -697,7 +697,7 @@
 .rail-row .row-state { width: var(--space-4); flex: none; }
 .rail-row .row-controls { flex: none; }
 .rail-row .rail-chevron { opacity: 0; pointer-events: none; }
-.rail-row:has(.row-state:hover, .rail-chevron:is(:hover, :focus-visible)) .rail-chevron { opacity: 1; pointer-events: auto; }
+.rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .rail-chevron { opacity: 1; pointer-events: auto; }
 
 .rail-row[data-worktree="true"] { --elbow-y: calc((var(--space-6) + var(--space-2) - var(--space-3)) / 2); min-height: calc(var(--space-6) + var(--space-2)); }
 .rail-row[data-worktree="true"] .line { position: relative; box-sizing: border-box; padding-block-end: var(--space-3); }
@@ -725,7 +725,7 @@
 .rail-row .row-state { position: static; margin-inline-start: 0; }
 /* U4707: the 32px Token leaves no column left of the glyph, so the chevron takes the glyph's place only while the pointer or keyboard is on it; selection and focus keep the glyph. */
 .rail-row .rail-chevron { left: calc(var(--rail-inset) + var(--tree-depth) * var(--tree-step)); transform: none; z-index: 1; }
-.rail-row:has(.row-state:hover, .rail-chevron:is(:hover, :focus-visible)) .row-state { opacity: 0; }
+.rail-row:has(.rail-chevron):is(:hover, :has(.rail-chevron:focus-visible)) .row-state { opacity: 0; }
 .rail-row .row-icons {
   display: inline-flex;
   align-items: center;
@@ -843,6 +843,16 @@
   margin-inline-start: auto;
 }
 .rail:has(.empty-state) .rail-scroll { flex: none; }
+
+/* U5171: a collapsed Workstream shows how many Agents it hides, as a dim count beside the name. */
+.rail-row .hidden-agents {
+  flex: none;
+  margin-inline-end: auto;
+  padding-inline-start: var(--space-2);
+  color: var(--grey);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
 
 /* U5151a: the failure line sits in the name column under the name, two lines at most; the row tooltip holds the full text. */
 .rail-row .failure-line {
