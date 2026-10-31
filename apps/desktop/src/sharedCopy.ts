@@ -197,7 +197,6 @@ export const copy = {
   resume: "Resume",
   copy: "Copy",
   comma: ", ",
-  unseenMark: "●",
   unreadResult: "Unread result",
   moveTo: "Move to…",
   inlineCodeAction: "Inline code",

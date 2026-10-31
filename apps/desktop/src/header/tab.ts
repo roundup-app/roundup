@@ -10,8 +10,6 @@ export type StripTab = {
   exitText: string | null;
   needsYou: number;
   error: number;
-  /** U3566b: an Agent of the Project finished a turn the user has not viewed. */
-  unseen?: boolean;
   /** U181: the Project's Rail is not yet current, so neither is its Tab mark. */
   busy: boolean;
   /** The names of the Agents running (Kind `working`, `needs-you` or `blocked`), in Rail order (U184). */

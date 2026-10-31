@@ -153,6 +153,9 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Ink | same | — |
 | Chip | same | — |
 | Live line | same | — |
+| Program status (`ProgramStatus`, `terminal.status`) | status | — |
+
+**Program status.** What a program in a Terminal reports about itself with OSC 7501 (`scenarios/terminal-program-status.md`): records of a state, a message and a title that the Daemon folds into the Terminal's Status. `blocked` in a report is Kind `needs-you`; Kind `blocked` stays the Daemon's.
 
 **Glyph.** The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ⊖ ◔ ○ ✓`.
 
@@ -166,6 +169,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | First Steer completion (`FirstSteerCompletion`, `Agents::first_steer_completion`) | same | — |
 | Interrupt | same | cancel, abort |
 | Toast | same | — |
+| State alert (`StateAlert`, `stateAlert`) | same | notification |
 | Work order | same | — |
 | Instruction (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`) | same | — |
 | Instruction delivery (`InstructionDelivery`, `InstructionState`) | same | — |
@@ -298,6 +302,16 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | registerKeys | none | — |
 | chordsFor | none | — |
 | Leader | same | — |
+
+### Named actions
+
+| Code term | User label | Avoid |
+|---|---|---|
+| Named action (`NamedAction`, `ActionName`, `ActionArg`, `runAction`) | action | — |
+| Action list (`action.list`, `rup actions`) | actions | — |
+| Action run (`action.run`, `rup do`) | do | — |
+| Action answerer (`action.serve`) | none | — |
+| App closed (`APP_CLOSED`) | none | — |
 
 ### Ask placement
 
