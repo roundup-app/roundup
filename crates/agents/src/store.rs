@@ -115,6 +115,7 @@ impl Agents {
                     #[cfg(feature = "test-support")]
                     statuses: Default::default(),
                     opened: now_ms(),
+                    data_dir: dir.to_owned(),
                     launcher: launcher.clone(),
                 },
                 me: me.clone(),
@@ -568,6 +569,7 @@ pub(super) mod tests {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
                 opened: 0,
+                data_dir: dir.path().to_owned(),
                 launcher: crate::Launcher::new(
                     "claude",
                     dir.path().join("claude.json"),
@@ -628,6 +630,7 @@ pub(super) mod tests {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
                 opened: 0,
+                data_dir: dir.path().to_owned(),
                 launcher: crate::Launcher::new(
                     "claude",
                     dir.path().join("claude.json"),
@@ -724,6 +727,7 @@ pub(super) mod tests {
                 #[cfg(feature = "test-support")]
                 statuses: Default::default(),
                 opened: 0,
+                data_dir: dir.path().to_owned(),
                 launcher: crate::Launcher::new(
                     "claude",
                     dir.path().join("claude.json"),

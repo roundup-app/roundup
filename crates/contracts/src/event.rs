@@ -15,6 +15,8 @@ pub enum EventData {
     AskChanged { ask: Box<crate::ask::Ask> },
     #[serde(rename = "terminal.title")]
     TerminalTitle(terminal::TitleEvent),
+    #[serde(rename = "terminal.status")]
+    TerminalStatus(terminal::TerminalStatusEvent),
     #[serde(rename = "terminal.exited")]
     TerminalExited(terminal::ExitedEvent),
     /// A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`.

@@ -35,13 +35,6 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-/** A5214a: only a root Agent with a saved conversation, or a live one that is saving it, converts. */
-export const canMakeWorkstream = (node: RailNode, exit: ExitState | null) =>
-  node.kind === "agent" && node.parent === null && (node.can_resume || isRunning(node, exit));
-
-/** A5214b: the Daemon refuses an Agent roundup did not start, which only it can tell. */
-export const canSaveAsMode = (node: RailNode) => node.kind === "agent";
-
 export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string, item?: string) => void, acknowledge: (item: string) => void, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView, extra: (node: RailNode) => MenuEntry[] = () => [], feedback: (id: string) => ReturnType<typeof createCopyFeedback> | undefined = () => undefined) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();

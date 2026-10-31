@@ -39,6 +39,8 @@ pub(super) struct State {
     pub(super) statuses: Mutex<HashMap<String, Status>>,
     /// Since when an Agent without a Terminal has been `done`.
     pub(super) opened: i64,
+    /// The Project's data folder (N1), where an Agent's launch record lives.
+    pub(super) data_dir: PathBuf,
     pub(super) launcher: Launcher,
 }
 
@@ -165,6 +167,12 @@ impl Shared {
             None => true,
         };
         node.can_resume &= exited;
+        // A5287: the guards of `agent.makeWorkstream` and `agent.saveAsMode`.
+        let agent = node.kind == NodeKind::Agent;
+        node.can_make_workstream =
+            agent && node.parent.is_none() && rail.has_conversation(&node.id)?;
+        node.can_save_as_mode =
+            agent && Launcher::load_lean(&self.rail_view.data_dir, &node.id).is_some();
         node.yolo = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.yolo,
             Some(

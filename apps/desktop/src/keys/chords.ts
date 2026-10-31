@@ -74,6 +74,8 @@ export const CHORDS: readonly Chord[] = [
   { name: "edit.undo", keys: "⌘Z", what: copy.undoFocused, presses: ["meta+KeyZ"] },
   { name: "edit.redo", keys: "⇧⌘Z", what: copy.redoFocused, presses: ["meta+shift+KeyZ"] },
   { name: "settings.open", keys: "⌘,", what: copy.settings, presses: ["meta+Comma"] },
+  // U5242c: ⌘[ goes Back while Settings is open; ⌘] reopens what Back closed.
+  { name: "settings.forward", keys: "⌘]", what: copy.settingsForward, presses: ["meta+BracketRight"], inRail: true },
   // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
   { name: "todo.triage-enter", keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 7 } } },
   { name: "todo.triage-move", keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], args: [{ key: "direction", type: "choice", options: ["up", "down"], required: true, press: direction => direction === "down" ? "KeyJ" : "KeyK" }], inShelf: true, inTriage: true },

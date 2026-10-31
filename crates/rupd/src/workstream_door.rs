@@ -61,6 +61,8 @@ for line in sys.stdin:
             crate::data::open_naming(&crate::data::naming_path(&dir)).unwrap(),
         )),
         terminals: terminals.clone(),
+        program_changes: Default::default(),
+        program_statuses: Default::default(),
         modules: Default::default(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
