@@ -51,7 +51,7 @@ describe("u31 rail keyboard", () => {
   });
 
   it("u31_enter_on_the_collapse_button_does_not_select_the_row", async () => {
-    const { rail } = await mountRail([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
+    const { rail } = await mountRail([workstream("g")]);
     const button = screen.getByRole("button", { name: "Collapse" });
     button.focus();
 
