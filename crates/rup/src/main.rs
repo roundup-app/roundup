@@ -17,6 +17,7 @@ const MAYBE_ARRIVED: &str = "the Signal may or may not have arrived";
 
 mod cli;
 mod mcp;
+mod skill;
 
 /// What comes before the command.
 #[derive(Default)]
@@ -90,6 +91,12 @@ async fn main() -> ExitCode {
         return ExitCode::from(2);
     }
     let outcome = match command[..] {
+        // SK9: no Daemon and no Agent id; `skill report` is the hook's and never exits 2.
+        ["skill", ..] => return skill::run(&args[args.len() - command.len() + 1..]),
+        ["help", "skill"] => {
+            print!("{}", skill::help_text());
+            return ExitCode::SUCCESS;
+        }
         ["ping"] => ping(&options).await,
         ["signal", agent_id] if !agent_id.starts_with('-') => match signal(agent_id).await {
             // B39: the one reason to exit 2, which blocks a prompt that repeats delivered Messages.

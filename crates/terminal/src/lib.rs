@@ -474,6 +474,7 @@ impl Terminals {
         let pair = native_pty_system()
             .openpty(window(params.cols, params.rows)?)
             .map_err(RpcError::internal)?;
+        let number = self.next.fetch_add(1, Ordering::Relaxed);
         let mut command = match &params.command {
             Some(argv) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
             None => CommandBuilder::new_default_prog(),
@@ -486,6 +487,8 @@ impl Terminals {
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
         }
+        // SK7.2: `rup skill report` writes only where this is set; a caller's value never stands.
+        command.env("ROUNDUP_TERMINAL", number.to_string());
         // All three threads start before the program, so a thread-creation failure leaves no
         // program behind. The reaper observes completion independently of PTY EOF.
         let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;
@@ -494,7 +497,6 @@ impl Terminals {
             Some(adapt) => adapt(writer),
             None => writer,
         };
-        let number = self.next.fetch_add(1, Ordering::Relaxed);
         let snapshot_available = screen::snapshot_size_supported(params.cols, params.rows);
         let scrollback = if snapshot_available {
             SNAPSHOT_SCROLLBACK.min(SNAPSHOT_MAX_HISTORY_CELLS / usize::from(params.cols))

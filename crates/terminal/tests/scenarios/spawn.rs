@@ -153,3 +153,16 @@ async fn x10_an_id_that_is_not_canonical_is_invalid_params() {
     }
     terminals.kill(&spawned.id).await.unwrap();
 }
+
+#[tokio::test]
+async fn sk7_a_roundup_terminal_sets_its_marker() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let mut params = sh(dir.path(), "printf 'm=%s' \"$ROUNDUP_TERMINAL\"");
+    params
+        .env
+        .insert("ROUNDUP_TERMINAL".into(), "forged".into());
+    let mut spawned = terminals.spawn(params).await.unwrap();
+    let (output, _) = until_exit(&mut spawned).await;
+    assert!(output.contains(&format!("m={}", spawned.id)), "{output}");
+}

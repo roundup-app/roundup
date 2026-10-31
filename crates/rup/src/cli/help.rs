@@ -89,6 +89,10 @@ const OTHER: &[(&str, &str)] = &[
         "Hook: hand the Daemon a Signal from stdin",
     ),
     ("rup context <agent-id>", "Hook: print the Agent's Context"),
+    (
+        "rup skill <setup|status|remove>",
+        "Teach other Claude Code sessions about roundup",
+    ),
 ];
 
 /// I2: what roundup and `rup` are, examples, the commands by noun, the exit codes.

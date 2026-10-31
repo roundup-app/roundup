@@ -26,7 +26,7 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
   const act = (label: string, click: () => void, primary = false) =>
     <button type="button" data-button={primary ? "primary" : "quiet"} class="word" aria-describedby={name} disabled={props.actions.busy(props.row)} onClick={click}>{label}</button>;
 
-  const actions = () => node().status?.kind === "error"
+  const actions = () => node().status?.kind === "error" && node().can_resume
     ? act(copy.retry, () => props.actions.retry(props.row))
     : act(copy.inboxOpen, () => props.actions.open(props.row));
 
