@@ -2,6 +2,7 @@
 //! (`scenarios/ui-state-alerts.md` U5232e to U5232g). The App raises nothing of its own.
 
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use rpc::{RpcError, code};
 use serde::Deserialize;
@@ -21,7 +22,7 @@ pub struct Request {
 
 /// What the system is asked to do; the plugin answers it in the App and a fake answers it in tests.
 pub trait Notifier: Send + Sync {
-    /// `Err` carries the cause of a refusal; `None` is a request the owner has not answered yet.
+    /// Never waits: `Err` carries the cause of a refusal; `None` is a request the owner has not answered yet, which `Alerts` waits out.
     fn permission(&self) -> Option<Result<(), String>>;
     /// The native authorization state read: `true` when the owner denied roundup's notifications in System Settings, whatever `permission` answered.
     fn denied(&self) -> bool;
@@ -33,13 +34,51 @@ pub struct Alerts {
     notifier: Box<dyn Notifier>,
     /// The answer of the permission request; a grant or refusal is kept, an unanswered request is asked again on the next alert.
     permission: Mutex<Option<Result<(), String>>>,
+    /// How long an alert waits for the owner's answer, and how often it looks.
+    wait: (Duration, Duration),
 }
+
+/// An unanswered permission prompt ends as a refusal after this long (U5232j).
+const PROMPT_TIMEOUT: Duration = Duration::from_secs(60);
+const PROMPT_POLL: Duration = Duration::from_millis(100);
 
 impl Alerts {
     pub fn new(notifier: Box<dyn Notifier>) -> Self {
         Self {
             notifier,
             permission: Mutex::new(None),
+            wait: (PROMPT_TIMEOUT, PROMPT_POLL),
+        }
+    }
+
+    /// An `Alerts` that waits `timeout` for the prompt, looking every `poll`.
+    pub fn with_wait(notifier: Box<dyn Notifier>, timeout: Duration, poll: Duration) -> Self {
+        Self {
+            wait: (timeout, poll),
+            ..Self::new(notifier)
+        }
+    }
+
+    /// The owner's answer, waiting for an open prompt on this (command pool) thread, never the main one; a second alert polls the same pending answer.
+    fn answer(&self) -> Result<(), String> {
+        let start = Instant::now();
+        loop {
+            {
+                let mut cached = self
+                    .permission
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if cached.is_none() {
+                    *cached = self.notifier.permission();
+                }
+                if let Some(answer) = cached.clone() {
+                    return answer;
+                }
+            }
+            if start.elapsed() >= self.wait.0 {
+                return Err("the permission prompt timed out unanswered".into());
+            }
+            std::thread::sleep(self.wait.1);
         }
     }
 
@@ -62,17 +101,7 @@ impl Alerts {
                 "State alerts refused: notifications denied in System Settings",
             ));
         }
-        let mut cached = self
-            .permission
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if cached.is_none() {
-            *cached = self.notifier.permission();
-        }
-        let Some(permission) = cached.clone() else {
-            return Ok(());
-        };
-        drop(cached);
+        let permission = self.answer();
         permission.map_err(|cause| {
             RpcError::new(code::FORBIDDEN, format!("State alerts refused: {cause}"))
         })?;
