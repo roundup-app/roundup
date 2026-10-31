@@ -23,7 +23,7 @@ pub struct Request {
 pub trait Notifier: Send + Sync {
     /// `Err` carries the cause of a refusal; `None` is a request the owner has not answered yet.
     fn permission(&self) -> Option<Result<(), String>>;
-    /// Whether the owner has denied notifications in the system, read from the native state; the answer of `permission` is never consent when this is true.
+    /// The native authorization state read: `true` when the owner denied roundup's notifications in System Settings, whatever `permission` answered.
     fn denied(&self) -> bool;
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String>;
     fn sound(&self);
@@ -86,7 +86,7 @@ impl Alerts {
 pub struct Plugin<R: Runtime>(pub AppHandle<R>);
 
 impl<R: Runtime> Notifier for Plugin<R> {
-    /// Asks macOS once (it prompts the owner the first time) without waiting for the answer and returns the refusal as the cause. A dev build has no bundle, so there is no center to ask.
+    /// Asks macOS once (it prompts the owner the first time) and returns the refusal as the cause. A dev build has no bundle, so there is no center to ask.
     fn permission(&self) -> Option<Result<(), String>> {
         #[cfg(target_os = "macos")]
         if is_bundled() {
