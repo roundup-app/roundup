@@ -16,6 +16,7 @@ import { createSettingsView } from "../state/settingsView";
 import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
+import { SkillSetting } from "./SkillSetting";
 import { ShortcutSettings } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
@@ -244,6 +245,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /><Field.HelperText>{copy.modelHint}</Field.HelperText></Field.Root>
         </Show>
         <NamingSettings app={props.app} />
+        <SkillSetting app={props.app} />
         <ReservedLine message={offered()?.failure} />
       </SettingsGroup></Tabs.Content>
       <Tabs.Content value="Terminal"><SettingsGroup hideHeading name={copy.settingsTerminal}>

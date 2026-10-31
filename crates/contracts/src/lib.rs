@@ -20,6 +20,7 @@ pub mod methods;
 pub mod pad;
 pub mod project;
 pub mod reaction;
+pub mod skill;
 pub mod terminal;
 pub mod todo;
 pub mod workstream;

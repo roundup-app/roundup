@@ -38,6 +38,7 @@ mod restart;
 mod resume;
 mod route;
 mod selectors;
+pub mod skill;
 mod specialist;
 mod storage;
 
