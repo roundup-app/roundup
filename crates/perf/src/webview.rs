@@ -183,6 +183,9 @@ pub const SWITCH_METRICS: [(&str, &str); 2] = [
     ("switch_p95_ms", "switch"),
 ];
 
+/// SP4: the samples of each kind a run takes after the warm-up; fewer, dropped or kept, is a run that skipped steps.
+const SWITCH_STEPS: u64 = 100;
+
 /// SP6: more than this share of either kind of sample dropped leaves no verdict.
 const DROPPED_SHARE: f64 = 0.05;
 
@@ -211,7 +214,7 @@ pub fn checked_switch(report: &Value) -> io::Result<()> {
             return Err(failure(format!("the report has no {kind} sample counts")));
         };
         let total = n.saturating_add(dropped);
-        if n == 0 || dropped as f64 > DROPPED_SHARE * total as f64 {
+        if total < SWITCH_STEPS || dropped as f64 > DROPPED_SHARE * total as f64 {
             return Err(failure(format!(
                 "{dropped} of {total} {kind} samples dropped, above {}%",
                 DROPPED_SHARE * 100.0
