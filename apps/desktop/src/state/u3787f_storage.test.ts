@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { storageCopy } from "./copy";
 import * as v from "valibot";
 import { initializeStorage, storedValue, draftStorage, storageProblems, useBrowserStorage } from "./storage";
 // The production composition tree registers each existing family parser.
@@ -141,7 +142,7 @@ it("u3787f_failed_migration_keeps_recovery_retry_never_rebases_an_older_write", 
   disk.set(key, { version: 1, value: "/newer/committed" });
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    expect(await storageProblems()[0]!.retry()).toBe("Saved work changed before saving. Review the current work before retrying.");
+    expect(await storageProblems()[0]!.retry()).toBe(storageCopy.changed);
     expect(disk.get(key)).toEqual({ version: 1, value: "/newer/committed" });
   }
 });

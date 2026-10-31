@@ -9,7 +9,7 @@ export const copy = {
   close: sharedCopy.close,
   cancel: sharedCopy.cancel,
   newAgent: sharedCopy.newAgent,
-  nativeRemovalAlertUnavailable: "Native removal alert unavailable; retry",
+  nativeRemovalAlertUnavailable: "The removal alert is unavailable. Retry.",
   copied: sharedCopy.copied,
   surfaceLoadFailed: (label: string) => `${label} could not load; retry.`,
   surfaceLoading: (label: string) => `Loading ${label}…`,
