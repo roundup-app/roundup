@@ -164,7 +164,7 @@ describe("u5232 each choice follows the state", () => {
 
     for (const state of ["working", "blocked", "needs-you", "error", "done"]) await turnOn(state, { alert: true, sound: true, badge: true });
     app.handlers["rail.tree"] = () => [agent("b", "idle", "x", { name: "mason" })];
-    app.emit(by({ kind: "user" }, { name: "rail.changed" }));
+    app.emit(by({ kind: "user", id: "you", parent: null }, { name: "rail.changed" }));
     await settle();
 
     expect(app.stateAlerts).toEqual([]);
