@@ -1,4 +1,4 @@
-import { createResource, createSignal, createMemo, For, onCleanup, Show } from "solid-js";
+import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show } from "solid-js";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -19,7 +19,7 @@ import { NamingSettings } from "./NamingSettings";
 import { ShortcutSetting } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
+export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; navigation?: () => unknown }) => {
   const view = createSettingsView();
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -75,6 +75,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const close = () => { props.onOpenChange?.(false); view.close(); };
 
   const back = () => { setForward(true); close(); };
+
+  createEffect(on(() => props.navigation?.(), () => setForward(false), { defer: true }));
 
   const show = () => {
     setForward(false);

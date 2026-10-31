@@ -697,7 +697,7 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} navigation={() => [projects.active(), activeConnection()?.rail.selected()]} />
           </div>
           </div>
           </div>
