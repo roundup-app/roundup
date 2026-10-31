@@ -438,7 +438,7 @@ async fn b5168f_a_quiet_digest_starts_no_turn() {
 }
 
 #[tokio::test]
-async fn b5168f_a_held_quiet_digest_rides_the_next_delivery_once() {
+async fn b5168f_a_kept_quiet_digest_rides_the_next_delivery_once() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
     let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
@@ -452,4 +452,27 @@ async fn b5168f_a_held_quiet_digest_rides_the_next_delivery_once() {
     assert_eq!(typed.len(), 2, "{typed:?}");
     assert_eq!(h.inbox.written().len(), 2);
     assert!(typed.iter().any(|(_, body)| body == "hello"));
+}
+
+#[tokio::test]
+async fn b5168f_a_restart_keeps_a_pending_quiet_digest() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = idle_receiver(dir.path()).await;
+    let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
+    h.call_as(contracts::Actor::daemon(), "message.send", digest)
+        .await
+        .unwrap();
+    settle().await;
+    assert!(h.inbox.typed().is_empty());
+    drop(h);
+    let h = idle_receiver(dir.path()).await;
+    settle().await;
+    assert!(
+        h.inbox.typed().is_empty(),
+        "still pending after the restart"
+    );
+    let note = json!({"to":"b", "kind":"note", "body":"hello"});
+    h.call_as(agent("a"), "message.send", note).await.unwrap();
+    settle().await;
+    assert_eq!(h.inbox.written().len(), 2);
 }
