@@ -10,7 +10,7 @@ use std::time::Duration;
 use clap::Parser;
 use perf::gate::read_budgets;
 use perf::webview::failure;
-use perf::webview::{judge_runs, judge_switch, marked_line};
+use perf::webview::{judge_idle, judge_runs, marked_line};
 use rpc::Client;
 use serde_json::Value;
 use sysinfo::System;
@@ -390,23 +390,7 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
             }))?,
         )?;
     }
-    let (mut exit, mut failures) = judge_runs(&reports, limit);
-    if !args.flood {
-        // SP6: the Switcher-open and switch metrics are budgeted, so a run that did not measure them is an error.
-        let (switch_exit, switch_failures) = judge_switch(
-            &reports,
-            &budgets,
-            std::env::consts::OS,
-            &loads,
-            std::thread::available_parallelism()?.get(),
-        );
-        exit = if exit == 2 || switch_exit == 2 {
-            2
-        } else {
-            exit.max(switch_exit)
-        };
-        failures.extend(switch_failures);
-    }
+    let (exit, failures) = judge_idle(&reports, limit, &budgets, &loads, args.flood);
     for message in failures {
         eprintln!("{message}");
     }
