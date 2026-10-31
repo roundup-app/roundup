@@ -136,7 +136,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [closedSections, setClosedSections] = createSignal<ReadonlySet<RailSection>>(new Set());
   const [restored, setRestored] = createSignal(false);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
-  const [unsaved, setUnsaved] = createSignal<string | null>(null);
+  // U5151g: one entry per failure whose dismissal write was refused; the Rail shows the oldest.
+  const [unsaved, setUnsaved] = createSignal<{ key: string; name: string }[]>([]);
   let firstTree = true;
 
   const save = async () => {
@@ -457,13 +458,13 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const next = new Set(dismissedKeys()).add(key);
 
       setDismissedKeys(next);
-      void dismissals?.write([...next]).then(problem => { if (problem !== null) setUnsaved(node.name); });
+      void dismissals?.write([...next]).then(problem => { if (problem !== null) setUnsaved(lines => [...lines.filter(line => line.key !== key), { key, name: node.name }]); else setUnsaved([]); });
     },
-    unsavedDismissal: unsaved,
+    unsavedDismissal: () => unsaved()[0]?.name ?? null,
     retryDismissal: () => {
-      void dismissals?.write([...dismissedKeys()]).then(problem => { if (problem === null) setUnsaved(null); });
+      void dismissals?.write([...dismissedKeys()]).then(problem => { if (problem === null) setUnsaved([]); });
     },
-    clearUnsavedDismissal: () => setUnsaved(null),
+    clearUnsavedDismissal: () => setUnsaved(lines => lines.slice(1)),
     refresh: async (options) => {
       if (options?.terminals) fetching(async () => { await Promise.all([fetchTree(), fetchTerminals()]); });
       else fetching(fetchTree);
