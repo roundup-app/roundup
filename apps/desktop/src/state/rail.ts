@@ -17,7 +17,20 @@ import { outcomeOf, type AppSeam } from "../app/seam";
 /** How an exited node's program ended: with a code, by a signal, or unknown because the node has no Terminal. */
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
+/** U5151c: one failure, bound to its Attempt and Status revision. */
+export const failureKey = (node: RailNode): string | null =>
+  node.status?.kind === "error" && node.attempt !== null && node.status_revision !== null ? `${node.id}:${node.attempt}:${node.status_revision}` : null;
+
+export type DismissalStorage = {
+  read(): string[] | null;
+  write(keys: string[]): Promise<string | null>;
+};
+
 export type RailState = {
+  /** U5151c: whether the owner dismissed this node's current failure. */
+  dismissed(node: RailNode): boolean;
+  /** U5151c: acknowledge this node's current failure; sends nothing to the Agent. */
+  dismiss(node: RailNode): void;
   prepareTerminal?: (() => Promise<TerminalPreparation | undefined>) | undefined;
   commandFailure: ReturnType<typeof createItemFailure>;
   /** Rows in the Daemon's order; only a `rail.tree` call adds or removes one. */
@@ -59,7 +72,7 @@ export type RailState = {
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
 const DOOR_START_BOUND_MS = 10_000;
 
-export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage): RailState => {
+export const createRailState = (app: AppSeam, events: Events, storage?: RailStorage, dismissals?: DismissalStorage): RailState => {
   const [model, setModel] = createStore<{ tree: RailNode[]; exited: Record<string, number | null> }>({
     tree: [],
     exited: {},
@@ -68,6 +81,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const [doors, setDoors] = createStore<Record<string, { pending: boolean; observedLive: boolean; failure: { message: string; attempt: string | null } | null }>>({});
   const [terminals, setTerminals] = createSignal<readonly TerminalInfo[]>([]);
   const commandFailure = createItemFailure(id => model.tree.some(node => node.id === id), terminals);
+  const [dismissedKeys, setDismissedKeys] = createSignal<ReadonlySet<string>>(new Set(dismissals?.read() ?? []));
   const [selected, setSelected] = createSignal<string | null>(null);
   const [terminalFocus, setTerminalFocus] = createSignal(captureFocus());
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -331,6 +345,20 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       return code === null ? { kind: "signal" } : { kind: "code", code };
     },
     failure,
+    dismissed: (node) => {
+      const key = failureKey(node);
+
+      return key !== null && dismissedKeys().has(key);
+    },
+    dismiss: (node) => {
+      const key = failureKey(node);
+
+      if (key === null) return;
+      const next = new Set(dismissedKeys()).add(key);
+
+      setDismissedKeys(next);
+      void dismissals?.write([...next]);
+    },
     refresh: async (options) => {
       if (options?.terminals) fetching(async () => { await Promise.all([fetchTree(), fetchTerminals()]); });
       else fetching(fetchTree);

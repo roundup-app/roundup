@@ -2,6 +2,7 @@ import { Show } from "solid-js";
 import type { Status } from "@contracts/Status";
 import { createCut } from "./Tip";
 import { Tip } from "../ui/Tip";
+import { copy as sharedCopy } from "../sharedCopy";
 import "./failureLine.css";
 
 const Line = (props: { label: string; class?: string | undefined }) => {
@@ -15,6 +16,6 @@ const Line = (props: { label: string; class?: string | undefined }) => {
 };
 
 /** U5151a: the Adapter's cause and next action for an Agent whose last turn failed, shown as text on every surface that presents the error. */
-export const FailureLine = (props: { status: Status | null | undefined; class?: string }) => (
-  <Show when={props.status?.kind === "error" ? props.status.label : null}>{label => <Line label={label()} class={props.class} />}</Show>
+export const FailureLine = (props: { status: Status | null | undefined; dismissed?: boolean; class?: string }) => (
+  <Show when={props.status?.kind === "error" ? (props.dismissed ? sharedCopy.dismissedFailure(props.status.label) : props.status.label) : null}>{label => <Line label={label()} class={props.class} />}</Show>
 );

@@ -3,6 +3,7 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 
 const dismiss = "Dismiss";
+const dismissError = "Dismiss error";
 
 const running = "Running";
 
@@ -57,6 +58,8 @@ export const copy = {
     "materialization-failed": "Unavailable: could not prepare the retained revision for opening.",
   },
   dismissFailure: dismiss,
+  dismissError,
+  dismissedFailure: (label: string) => `Dismissed: ${label}`,
   dismiss,
   retryStorage: "Try again",
   draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? "Unfinished work",

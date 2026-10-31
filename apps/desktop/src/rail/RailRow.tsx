@@ -132,7 +132,7 @@ export const RailRowView = (props: {
   const cutName = createCutTitle(() => props.row.node.name);
 
   const kind = (): Kind | null => {
-    const kinds = [props.row.node.status?.kind, ...(workstream() && props.row.collapsed !== null ? agentKindsBelow(connected.rail.nodes, props.row.node.id) : [])];
+    const kinds = [connected.rail.dismissed(props.row.node) ? "idle" as const : props.row.node.status?.kind, ...(workstream() && props.row.collapsed !== null ? agentKindsBelow(connected.rail.nodes, props.row.node.id) : [])];
 
     return (["error", "needs-you", "blocked", "working", "done", "idle"] as const).find(kind => kinds.includes(kind)) ?? null;
   };
@@ -197,7 +197,7 @@ export const RailRowView = (props: {
         <Show when={props.draggable}><Sortable.Handle label={copy.moveItem(props.row.node.name)} ref={props.handleRef} /></Show>
       </span>
     </p>
-    <Show when={!workstream()}><FailureLine status={props.row.node.status} /></Show>
+    <Show when={!workstream()}><FailureLine status={props.row.node.status} dismissed={connected.rail.dismissed(props.row.node)} /></Show>
   </div>;
 
   return <>
