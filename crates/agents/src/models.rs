@@ -127,6 +127,16 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn lc18_codex_and_pi_do_not_offer_computer_use() {
+        // Only Claude Code is an Adapter engine, so a start naming another engine fails before
+        // any extras resolve.
+        for engine in ["codex", "pi"] {
+            let err = check_engine(Some(engine)).unwrap_err();
+            assert_eq!(err.code, code::INVALID_PARAMS);
+        }
+    }
+
     fn project() -> ProjectModels {
         ProjectModels {
             roles: vec![RoleModels {

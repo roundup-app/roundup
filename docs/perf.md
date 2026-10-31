@@ -8,6 +8,7 @@ Rule 7's budgets and what measures each. Linux VM numbers are Linux numbers. The
 | Cold plugin materialization < 300 ms | `just perf` (`cold_plugin_materialization_ms`: pinned Q11 plugins into fresh empty storage) | any machine; 10% regression against its recorded Linux baseline |
 | 10 idle Agents < 150 MB extra RSS | `just perf` (`rss_extra_mb`: the Daemon's growth with ten login-shell Terminals) | any machine; the Agents' own processes are manual |
 | Keystroke-to-render < 16 ms p95 | `just perf-keystroke`, only when the user asks ([native keystroke runbook](perf-keystroke.md)) | the macOS App only |
+| Switcher open < 80 ms and switch < 32 ms p95 | `just perf-keystroke` idle run (SP4): after the typing, on the `tree-40` Project with a second shell Terminal, 110 opens and 110 switches, the first 10 of each discarded | the macOS App only |
 | Regression above 10% fails | `just perf`: stored class baseline, or R16 same-job merge-base/head pair on an uncalibrated supported Builder | same class; paired builds share one host/job |
 | 100-tool-use loop's hook-process cost stays within a fixed limit | `just perf` (`hook_loop_ms`: 200 `rup signal` calls against a fresh Daemon, H15) | any machine; limit-only on the stored path, paired regression on uncalibrated Builders |
 
@@ -69,7 +70,14 @@ method without a measured mapping or non-empty reason fails live coverage.
   "deliverable.move": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.", "deliverable.remove": "Published-output management is user-requested and absent from the Terminal echo and Rail-read workload.",
   "ask.send": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.", "ask.list": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
   "ask.pick": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
+  "github.issueGet": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
+  "github.prAutoMerge": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
+  "github.prGet": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
+  "github.prReady": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
+  "github.prSetBody": "Explicit user-requested GitHub reads and writes through the gh CLI are outside the measured echo and Rail-read workload.",
   "daemon.methods": "Connection setup or contract discovery is not a repeated call in the measured workload.",
+  "api.describe": "Connection setup or contract discovery is not a repeated call in the measured workload.",
+  "api.list": "Connection setup or contract discovery is not a repeated call in the measured workload.",
   "daemon.getNaming": "Global naming preferences are read when opening Settings, outside the Terminal echo and Rail-read workload.",
   "daemon.setNaming": "Saving global naming preferences is an explicit user action outside the Terminal echo and Rail-read workload.",
   "link.read": "External link reading depends on external content and is absent from the isolated perf workload.",
@@ -141,13 +149,11 @@ method without a measured mapping or non-empty reason fails live coverage.
   "message.get": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.", "message.list": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
   "message.drop": "Durable instruction and result coordination are absent from the Terminal echo and Rail-read workload.",
   "route.set": "Routing configuration is absent from the isolated Terminal and Rail-read workload.", "route.list": "Routing configuration is absent from the isolated Terminal and Rail-read workload.",
-  "checkpoint.write": "Checkpoint persistence and inspection are absent from the fixed perf workload.", "checkpoint.list": "Checkpoint persistence and inspection are absent from the fixed perf workload.",
   "rail.redo": "Retained Rail mutation is a user action, outside the repeated rail.tree latency sample.",
   "rail.remove": "Rail mutation or listing is setup or a user action, outside the repeated rail.tree latency sample.",
   "rail.deletion": "Deletion reconciliation is outside the Terminal echo and repeated rail.tree latency workload.",
   "rail.restore": "User-requested Rail restoration is outside the Terminal echo and repeated rail.tree latency workload.",
-  "agent.resume": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setModel": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
-  "workstream.rewindPlan": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
+  "agent.resume": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.setModel": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.makeWorkstream": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.", "agent.saveAsMode": "Agent lifecycle, configuration and work coordination are outside the timed hook calls; the hook Agent is setup only.",
   "workstream.rewind": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
   "todo.startWorkstream": "Todo management is outside the fixed ten-shell and Rail-read workload; no Todo latency is measured.",
   "workstream.queue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.", "workstream.dequeue": "Workstream scheduling and lifecycle actions are absent from the steady Rail-read workload.",
@@ -800,3 +806,11 @@ verdicts. The recorder now permits repeated observations with growth across
 the window. Output delivery yields in Rust, and live xterm parsing takes one
 8 KiB chunk at a time. No after-repair Mac distribution or <16 ms claim exists
 yet; #3550 remains open for the same three-run flood observation and full acceptance.
+
+## Switcher-open and switch budgets (SP1 to SP8, #5248)
+
+Two budgets on macOS, key press to DOM, measured in the real App's webview by `just perf-keystroke` (SP4) and held in `crates/perf/keystroke-budgets.json` (SP5), not in `budgets.json` (R7): the Switcher opens in under 80 ms p95 (`switcher_open_p95_ms`) and switching to another Agent or Terminal takes under 32 ms p95 (`switch_p95_ms`). AGENTS.md rule 7 is unchanged. Outside evidence, not a baseline: the owner measured Rex on the Mac, a palette open in 66 ms and a tab switch in 17 to 23 ms.
+
+The runner (`judge_switch`, `crates/perf/src/webview.rs`) takes `switcher_open_p95_ms` and `switch_p95_ms` from the report's PERF line, each with `{n, dropped}` under `switcher_open` and `switch`. A report with the webview's error, a mean frame time above 25 ms, a missing metric or more than 5% of either kind dropped exits 2; each metric is the median over `--runs`; one over its limit exits 1 naming it, its value and its limit, and one more than 10% over a macOS baseline exits 1 naming the baseline. Neither metric has a baseline until a recorded Mac run adds one (SP5).
+
+What CI checks (SP8): the probe is absent from a normal build, the marks record the specified intervals under a fake clock, and the budget file and runner refusals hold. What only a Mac gives (SP7): the 80 ms and 32 ms readings. `just perf-keystroke` drives the open and switch workloads (SP4) in the idle run and judges both metrics with `judge_switch`. Implementation order was #5249 (App marks), #5315 (the SP4 driver), then #5250 (limits); a baseline is added after the first recorded Mac run, and the 10% regression test then applies.

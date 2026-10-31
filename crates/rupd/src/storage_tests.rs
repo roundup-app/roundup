@@ -1,14 +1,13 @@
 use super::*;
 use rusqlite::params;
 
-const STORES: [&str; 7] = [
+const STORES: [&str; 6] = [
     "agents",
     "todos",
     "pads",
     "provenance",
     "messages",
     "digest",
-    "checkpoints",
 ];
 
 fn dump(db: &Connection) -> Vec<String> {
@@ -436,7 +435,6 @@ async fn n16_all_stores_share_one_project_database() {
             "provenance" => provenance::schema::open,
             "messages" => messages::schema::open,
             "digest" => messages::digest_schema::open,
-            "checkpoints" => checkpoints::schema::open,
             _ => unreachable!(),
         };
         initialize(&mut current, Path::new(name)).unwrap();
@@ -533,6 +531,9 @@ async fn n16_all_stores_share_one_project_database() {
         standalone::schema(&db).into_iter().collect();
     // The Project-only publication trigger is proved through the Daemon's U3787a RPC test.
     actual.remove("pad_publications_revoked");
+    // M5159c: no migration drops the retired Checkpoint tables; no store creates or reads them.
+    actual.remove("checkpoints");
+    actual.remove("marks");
     assert_eq!(actual, expected);
     assert_eq!(
         Migrations::new(migrations()).current_version(&db).unwrap(),
@@ -577,14 +578,6 @@ async fn n16_all_stores_share_one_project_database() {
             &ctx,
             "message.send",
             json!({"to":"you","kind":"note","body":"kept Message"}),
-        )
-        .await
-        .unwrap();
-    daemon.modules["checkpoint"]
-        .call(
-            &ctx,
-            "checkpoint.write",
-            json!({"title":"kept Checkpoint","blocks":[{"kind":"text","text":"facts"}]}),
         )
         .await
         .unwrap();
@@ -657,10 +650,6 @@ async fn n16_all_stores_share_one_project_database() {
     assert_eq!(
         call(&daemon, "message.list", json!({})).await[0]["body"],
         "kept Message"
-    );
-    assert_eq!(
-        call(&daemon, "checkpoint.list", json!({"workstream":ws})).await[0]["title"],
-        "kept Checkpoint"
     );
     assert_eq!(daemon.touches.sequence().unwrap(), touch_sequence);
     let db = Connection::open(dir.path().join("project.db")).unwrap();
@@ -869,8 +858,6 @@ fn r3696c_idle_project_stores_do_not_read_the_schema_on_open() {
     let _todos =
         todos::Todos::open(dir.path(), bus.clone()).expect("Todos must not read the schema yet");
     let _pads = pads::Pads::open(dir.path(), bus).expect("Pads must not read the schema yet");
-    let _checkpoints = checkpoints::Checkpoints::open(dir.path())
-        .expect("Checkpoints must not read the schema yet");
 }
 
 #[path = "../tests/support/b4522.rs"]

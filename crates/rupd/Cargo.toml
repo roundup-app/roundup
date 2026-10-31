@@ -11,7 +11,6 @@ test-support = ["agents/test-support", "dep:async-trait"]
 async-trait = { workspace = true, optional = true }
 agents = { path = "../agents" }
 base64.workspace = true
-checkpoints = { path = "../checkpoints" }
 contracts = { path = "../contracts" }
 getrandom = "0.3"
 memchr = "2"
@@ -42,6 +41,7 @@ rusqlite_migration.workspace = true
 [dev-dependencies]
 agents = { path = "../agents", features = ["test-support"] }
 async-trait.workspace = true
+jsonschema = { version = "0.60.2", default-features = false }
 tempfile.workspace = true
 
 [lints]

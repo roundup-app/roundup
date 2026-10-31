@@ -19,7 +19,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Combobox } from "../ui/Combobox";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { FailureLine } from "../ink/FailureLine";
+import { FailureLine, shownKind } from "../ink/FailureLine";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
@@ -342,7 +342,9 @@ export const AskBar = (props: {
               onCleanup(() => observer.disconnect());
             });
 
-            return <><KindGlyph decorative kind={node()?.status?.kind ?? "idle"} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show></>;
+            const dismissed = () => node() !== undefined && rail.dismissed(node()!);
+
+            return <><KindGlyph decorative kind={shownKind(node()?.status, dismissed())} /><Tip text={item.label} cut={cut}>{trigger => <span {...trigger()} ref={name} class="app-mention-name">{item.label.slice(0, start())}<mark>{item.label.slice(start(), end())}</mark>{item.label.slice(end())}</span>}</Tip><Show when={parent()}>{name => <span class="app-mention-parent">{name()}</span>}</Show><Show when={!dismissed()}><FailureLine status={node()?.status} /></Show></>;
           }} /></Show>
         </Mentions.Root>
         <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
@@ -382,7 +384,7 @@ export const AskBar = (props: {
 
 const ProjectOverview = () => {
   const { rail, hasView, hideView } = useConnectedProject();
-  const attention = createMemo(() => attentionOrder(rail.nodes));
+  const attention = createMemo(() => attentionOrder(rail.nodes, rail.dismissed));
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => node.id !== id && resolvedWorkstream(rail.nodes, node.id) === id);
 

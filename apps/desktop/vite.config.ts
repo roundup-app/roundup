@@ -226,7 +226,7 @@ export default defineConfig({
     css: { include: [/styles\.css/, /tokens\.css/, /buttons\.css/, /xterm\.css/, /src\/ui\/\w+\.css/] },
     // L89: `--shard` balances by measured time, not path hash.
     sequence: { sequencer: TimedSequencer },
-    setupFiles: ["src/testing/domStubs.ts"],
+    setupFiles: ["src/testing/domStubs.ts", "src/testing/ownTempDirs.ts"],
     // Inline projects inherit jsdom, stubs, transforms and resolution. Only queued App tests start their global setup.
     projects: [
       { test: { name: "webkit-guards", include: webkitGuards, exclude: captureExcludes } },

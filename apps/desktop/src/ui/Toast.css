@@ -108,9 +108,7 @@
   flex: 1 1 0;
   min-width: 12ch;
   color: var(--grey);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 @media (prefers-color-scheme: dark) {

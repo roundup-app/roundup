@@ -21,6 +21,7 @@ import type { RemoveParams as agent_RemoveParams } from "./agent/RemoveParams";
 import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { ResumeParams as agent_ResumeParams } from "./agent/ResumeParams";
 import type { RunParams as agent_RunParams } from "./agent/RunParams";
+import type { SaveAsModeParams as agent_SaveAsModeParams } from "./agent/SaveAsModeParams";
 import type { SetModelParams as agent_SetModelParams } from "./agent/SetModelParams";
 import type { SetOrderParams as agent_SetOrderParams } from "./agent/SetOrderParams";
 import type { SignalOutcome as agent_SignalOutcome } from "./agent/SignalOutcome";
@@ -37,9 +38,6 @@ import type { PickParams as ask_PickParams } from "./ask/PickParams";
 import type { SendParams as ask_SendParams } from "./ask/SendParams";
 import type { SaveParams as attachment_SaveParams } from "./attachment/SaveParams";
 import type { Saved as attachment_Saved } from "./attachment/Saved";
-import type { Checkpoint as checkpoint_Checkpoint } from "./checkpoint/Checkpoint";
-import type { ListParams as checkpoint_ListParams } from "./checkpoint/ListParams";
-import type { WriteParams as checkpoint_WriteParams } from "./checkpoint/WriteParams";
 import type { HistoryParams as common_HistoryParams } from "./HistoryParams";
 import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
 import type { Ping as common_Ping } from "./Ping";
@@ -53,6 +51,13 @@ import type { ListParams as deliverable_ListParams } from "./deliverable/ListPar
 import type { MoveParams as deliverable_MoveParams } from "./deliverable/MoveParams";
 import type { PublishParams as deliverable_PublishParams } from "./deliverable/PublishParams";
 import type { Resolution as deliverable_Resolution } from "./deliverable/Resolution";
+import type { DescribeParams as describe_DescribeParams } from "./describe/DescribeParams";
+import type { MethodDescription as describe_MethodDescription } from "./describe/MethodDescription";
+import type { MethodList as describe_MethodList } from "./describe/MethodList";
+import type { Issue as github_Issue } from "./github/Issue";
+import type { Number as github_Number } from "./github/Number";
+import type { Pr as github_Pr } from "./github/Pr";
+import type { SetBodyParams as github_SetBodyParams } from "./github/SetBodyParams";
 import type { LinkContent as link_LinkContent } from "./link/LinkContent";
 import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { AcceptResultParams as message_AcceptResultParams } from "./message/AcceptResultParams";
@@ -161,8 +166,6 @@ import type { QueuedWorkstream as workstream_QueuedWorkstream } from "./workstre
 import type { RestartParams as workstream_RestartParams } from "./workstream/RestartParams";
 import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
 import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
-import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPlan";
-import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
 import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "./workstream/StartWorkstreamParams";
 
 export type RpcMethods = {
@@ -207,6 +210,8 @@ export type RpcMethods = {
   "project.rename": { params: project_RenameParams; result: null };
   "rail.remove": { params: agent_RemoveParams; result: agent_Removal | null };
   "agent.resume": { params: agent_ResumeParams; result: agent_RailNode };
+  "agent.makeWorkstream": { params: agent_NodeId; result: agent_RailNode };
+  "agent.saveAsMode": { params: agent_SaveAsModeParams; result: agent_RailNode };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
   "todo.create": { params: todo_CreateParams; result: todo_Todo };
   "todo.get": { params: todo_TodoId; result: todo_Todo };
@@ -267,8 +272,6 @@ export type RpcMethods = {
   "terminal.screen": { params: terminal_TerminalId; result: terminal_Screen };
   "terminal.read": { params: terminal_ReadParams; result: terminal_Read };
   "terminal.search": { params: terminal_SearchParams; result: terminal_Search };
-  "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
-  "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
@@ -283,8 +286,15 @@ export type RpcMethods = {
   "deliverable.resolve": { params: deliverable_DeliverableId; result: deliverable_Resolution };
   "deliverable.move": { params: deliverable_MoveParams; result: deliverable_Deliverable };
   "deliverable.remove": { params: deliverable_DeliverableId; result: null };
+  "github.prGet": { params: github_Number; result: github_Pr };
+  "github.issueGet": { params: github_Number; result: github_Issue };
+  "github.prSetBody": { params: github_SetBodyParams; result: github_Pr };
+  "github.prReady": { params: github_Number; result: github_Pr };
+  "github.prAutoMerge": { params: github_Number; result: github_Pr };
   "daemon.ping": { params: null; result: common_Ping };
   "daemon.methods": { params: null; result: string[] };
+  "api.list": { params: null; result: describe_MethodList };
+  "api.describe": { params: describe_DescribeParams; result: describe_MethodDescription };
   "link.read": { params: link_LinkUrl; result: link_LinkContent };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: common_SubscribeParams | null; result: common_SubscribeResult };
@@ -313,9 +323,8 @@ export type RpcMethods = {
   "message.resolveResult": { params: message_ResolveResultParams; result: message_ResultObservation };
   "message.reconcileWork": { params: message_ProgressParams; result: message_Reconciliation };
   "message.resumeWork": { params: message_ResumeWorkParams; result: message_ResumeWork };
-  "workstream.restart": { params: workstream_RestartParams; result: agent_RailNode };
-  "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
+  "workstream.restart": { params: workstream_RestartParams; result: agent_RailNode };
   "todo.startWorkstream": { params: workstream_StartWorkstreamParams; result: agent_RailNode };
   "workstream.queue": { params: null; result: workstream_QueueState };
   "workstream.dequeue": { params: workstream_QueuedWorkstream; result: null };

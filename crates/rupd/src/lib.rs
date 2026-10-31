@@ -13,9 +13,12 @@ mod contract_handlers;
 mod contract_tests;
 pub mod data;
 mod deliverables;
+#[cfg(test)]
+mod describe_tests;
 mod digest;
 mod event_log;
 mod evidence;
+mod github;
 mod guards;
 mod link;
 #[cfg(test)]
@@ -32,12 +35,12 @@ mod removal;
 mod resources;
 mod restart;
 mod resume;
-mod rewind;
 mod route;
 mod selectors;
 mod specialist;
 mod storage;
 
+mod rewind;
 mod todo_refs;
 mod waits;
 mod wake;
@@ -45,8 +48,8 @@ mod wake;
 pub use connection::serve;
 use connection::{Frame, failure};
 use observers::{
-    messages_env, resume_effect_observer, steer_effect_observer, terminal_exit_observer,
-    terminal_input_observer,
+    messages_env, overview_read_observer, resume_effect_observer, steer_effect_observer,
+    terminal_exit_observer, terminal_input_observer,
 };
 use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
@@ -85,9 +88,6 @@ pub struct Daemon {
     digests: Arc<messages::digest::Seen>,
     /// B21, B22: where a push is sent from, once `open` has made it.
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
-    /// A35: the Marks a rewind reads, and the rewinds under way.
-    checkpoints: Arc<checkpoints::Checkpoints>,
-    rewinding: rewind::Rewinding,
     restarting: tokio::sync::Mutex<()>,
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,

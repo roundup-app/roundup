@@ -2,7 +2,9 @@
 //! TypeScript SDK sidecar and a fake CLI.
 
 use super::*;
-use crate::import_tests::{import_daemon, import_fixture, import_rpc, import_source};
+use crate::import_tests::{
+    import_daemon, import_fixture, import_rpc, import_source, import_tree_with_overviews,
+};
 use crate::tests::ask;
 
 use std::os::unix::fs::PermissionsExt;
@@ -793,7 +795,7 @@ async fn u3523e_live_resume_failure_keeps_import_recoverable() {
         import_rpc(&daemon, "terminal.list", Value::Null).await["result"],
         json!([])
     );
-    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    let tree = import_tree_with_overviews(&daemon, &[json!(id)]).await;
     let recovered = tree["result"]
         .as_array()
         .unwrap()

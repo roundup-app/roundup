@@ -17,7 +17,7 @@ pub struct LinkUrl {
 }
 
 /// LK4: a Pad heading as the Pad writes it and the text under it.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Section {
     pub heading: String,
     pub text: String,
@@ -26,7 +26,7 @@ pub struct Section {
 /// LK2: the object's content now, composed from the method that reads that kind. A Door's
 /// `digest` is `null` for an Agent that is no Door. DV6 publication links resolve the recorded
 /// revision or explicit current external target, rather than the mutable authoring source.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum LinkContent {
     Deliverable {

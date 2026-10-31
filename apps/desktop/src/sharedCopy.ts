@@ -20,7 +20,7 @@ const rpcFailures = new Map<number, string>([
 
 export const draftSurfaceLabels = new Map(Object.entries({ "mode-create": "New Mode", "opening-prompt": "First prompt", "row-name": "Name", rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
-export const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
+export const draftProblem = (cause: string) => `${cause === "write" ? "Storage could not save unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Another window has changed stored unfinished work." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
 
 export type CopyValue = string | number | undefined;
 
@@ -31,6 +31,9 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  you: "You",
+  move: "Move",
+  comment: "Comment",
   bold: "Bold",
   italic: "Italic",
   quote: "Quote",
@@ -57,6 +60,7 @@ export const copy = {
     "materialization-failed": "Unavailable: could not prepare the retained revision for opening.",
   },
   dismissFailure: dismiss,
+  dismissedFailure: (label: string) => `Dismissed: ${label}`,
   dismiss,
   retryStorage: "Try again",
   draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? "Unfinished work",
@@ -112,6 +116,7 @@ export const copy = {
   maximise: "Maximise",
   restore: "Restore",
   newAgent: "New Agent",
+  newMode: "New Mode",
   newAgentWithAPrompt: "New Agent with a prompt",
   newTerminal: "New Terminal",
   remove: "Remove",
@@ -119,7 +124,7 @@ export const copy = {
   leaderShortShelf: "Bench",
   leaderShortCapture: "Capture",
   captureATodo: "Capture a Todo",
-  inboxEmpty: "Nothing waits for you",
+  inboxEmpty: "Nothing needs you",
   save: "Save",
   copied: "Copied",
   exportMd: "Export .md",
@@ -194,7 +199,6 @@ export const copy = {
   resume: "Resume",
   copy: "Copy",
   comma: ", ",
-  unseenMark: "●",
   unreadResult: "Unread result",
   moveTo: "Move to…",
   inlineCodeAction: "Inline code",

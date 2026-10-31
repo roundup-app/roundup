@@ -87,7 +87,6 @@ fn f8_the_door_brief_delegates_and_uses_its_terminal() {
         "You cannot execute commands or open or write to a Terminal",
         "Report the outcome directly in your Terminal",
         "ask with `AskUserQuestion`",
-        "`checkpoint_write`",
         "`order`",
         "`prompt`",
         "You write orders only for the Agents you spawn",
@@ -149,20 +148,6 @@ fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
     assert!(door.contains("You cannot execute commands or open or write to a Terminal"));
     assert!(agent.contains("- `agent_spawn`:"));
     assert!(!agent.contains("You cannot execute commands or open or write to a Terminal"));
-}
-
-#[test]
-fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
-    let s = setup();
-
-    let door = brief(&s, "7", Role::Door);
-    let agent = brief(&s, "8", Role::Agent);
-
-    assert!(door.contains("- `checkpoint_write`:"));
-    assert!(door.contains("`reduce`") && door.contains("`show-me`"));
-    assert!(door.contains("facts needed to understand that point in the work"));
-    assert!(!agent.contains("checkpoint_write"));
-    assert!(agent.contains("- `checkpoint_list`:"));
 }
 
 #[test]
@@ -263,6 +248,39 @@ fn e3_workstream_guidance_precedes_tools() {
             } else {
                 assert!(text.contains("rup help"));
             }
+        }
+    }
+}
+
+#[test]
+fn b5168e_the_door_brief_names_the_tools_and_the_ask_once_rule() {
+    let text = brief(&setup(), "7", Role::Door);
+    for tool in [
+        "github_pr_get",
+        "github_issue_get",
+        "github_pr_set_body",
+        "github_pr_ready",
+        "github_pr_auto_merge",
+    ] {
+        assert!(text.contains(&format!("- `{tool}`: ")), "{tool}");
+    }
+    assert!(text.contains("never ask the user to run `gh` for it"));
+    assert!(text.contains("you do not restate it unless something changed since you made it"));
+}
+
+#[test]
+fn b5168g_no_coordinator_brief_asks_the_user_to_run_a_covered_gh_command() {
+    let s = setup();
+    for role in [Role::Door, Role::Agent] {
+        let text = brief(&s, "7", role);
+        for command in [
+            "gh pr view",
+            "gh pr edit",
+            "gh pr ready",
+            "gh pr merge --auto",
+            "gh issue view",
+        ] {
+            assert!(!text.contains(command), "{command}");
         }
     }
 }

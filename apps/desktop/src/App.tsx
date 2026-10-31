@@ -285,7 +285,7 @@ export const App = (props: {
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
   const capture = props.app.capture;
   onMount(() => {
-    void capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
+    void capture?.configure(appSettings().quickAddAnywhere || null).catch(error => setWindowFailure(String(error)));
   });
   onCleanup(() => { void capture?.configure(null); });
 
@@ -360,8 +360,7 @@ export const App = (props: {
         base: projects.base(tab.project.path),
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: !connections().has(tab.project.path),
-        ...attentionCounts(nodes),
-        unseen: connectionOf(tab.project.path)?.unseen.any() ?? false,
+        ...attentionCounts(nodes, railOf(tab.project.path)?.dismissed),
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
     }),
@@ -475,7 +474,7 @@ export const App = (props: {
     ["reactions", copy.reactions], ["made", copy.deliverables], ["notes", copy.recoverNotes],
   ] as const;
 
-  const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
+  const taskKeys = new Set(["M", "R", "⌘O", "⌘F", "⌘N", "⇧⌘N", "⌥⌘N", "⇧⌘M", "⌘T", "⌘/", "⌃⌘J", "J", "I", "A", "P", "C", "T"]);
 
   const menuItems = createMemo(() => {
     menuFocus();
@@ -548,7 +547,7 @@ export const App = (props: {
     projects.select(path);
 
     const rail = railOf(path);
-    const next = rail && nextAttention(rail.nodes, rail.selected());
+    const next = rail && nextAttention(rail.nodes, rail.selected(), rail.dismissed);
 
     if (next) rail?.select(next.id);
   };
@@ -580,7 +579,7 @@ export const App = (props: {
       <For each={keys()}>
         {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
-      <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
+      <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes.filter((node) => !connection.rail.dismissed(node))]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
         ids={{
           trigger: (path) => `tabs:${tabsId}:trigger-${encodeURIComponent(path)}`,

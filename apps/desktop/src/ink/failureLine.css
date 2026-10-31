@@ -10,6 +10,10 @@
   display: block;
 }
 
+.failure-line.dismissed {
+  color: var(--grey);
+}
+
 .overview-entry {
   flex-wrap: wrap;
 }
@@ -18,4 +22,17 @@
   flex-basis: 100%;
   padding-inline-start: var(--space-4);
   text-align: start;
+}
+
+.app-combobox-item:has(.failure-line) {
+  flex-wrap: wrap;
+}
+
+.app-combobox-item .failure-line {
+  flex-basis: 100%;
+  padding-inline-start: var(--space-4);
+}
+
+.app-mentions [data-part="item-text"]:has(.failure-line) {
+  flex-wrap: wrap;
 }

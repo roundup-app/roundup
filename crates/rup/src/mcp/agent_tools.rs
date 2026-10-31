@@ -23,16 +23,6 @@ pub(super) fn agent_digest() -> Offered {
     }
 }
 
-/// M10: only a Door writes a Checkpoint.
-pub(super) fn checkpoint_write() -> Offered {
-    Offered {
-        ..offered::<checkpoint::WriteParams>(
-            "checkpoint.write",
-            "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
-        )
-    }
-}
-
 /// B41: ask to be woken when named Agents finish. The caller is the Agent itself, so `id` is not a parameter.
 pub(super) fn agent_wake() -> Offered {
     offered::<agent::WakeParams>(
@@ -51,30 +41,14 @@ pub(super) fn agent_set_order() -> Offered {
     )
 }
 
-/// A35: a Door's rewind of its children, in two steps: read the plan, then rewind. The shim fills
-/// `id` with the Door's own id.
-pub(super) fn workstream_rewind_plan() -> Offered {
-    with_own_id::<workstream::RewindPlanParams>(
-        "workstream.rewindPlan",
-        "workstream_rewindPlan",
-        "Read what rewinding your Workstream to one of your Checkpoints would do, changing nothing: for each child (one named by `agent`, or all), whether it started after the Checkpoint and so would leave the Rail, and the files changed since.",
-    )
-}
-
-/// A35: the Door's rewind. `files` is required, and nothing but the conversations changes on `keep`.
+/// M5159b: a Door's rewind of its children through each provider's own rewind. The shim fills `id`
+/// with the Door's own id.
 pub(super) fn workstream_rewind() -> Offered {
     with_own_id::<workstream::RewindParams>(
         "workstream.rewind",
         "workstream_rewind",
-        "Rewind one child (`agent`) or every child of your Workstream to a Checkpoint you wrote. The turns after it leave each rewound Agent's context. `files` is `keep` to leave every file as it is, or `restore` to return each Worktree to its state at the Checkpoint; commits, pushes and Issues are never undone. A child that started after the Checkpoint leaves the Rail and keeps its Worktree.",
+        "Ask each named child's provider to rewind it through the provider's own feature: Claude Code restores the child's files to the state at the user message `turn` of its conversation. Name each child (direct or nested, never yourself) with its `turn`; the result says for each `rewound`, `unavailable` (the provider has no rewind) or `failed` and why. Commits, pushes and Issues are never undone, and nothing is typed into the child's Terminal.",
     )
-}
-
-/// F8, M16: the Bubble rule every Terminal-starting tool's description states, as the Brief does.
-macro_rules! bubble_rule {
-    () => {
-        " Use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools."
-    };
 }
 
 /// F3, A26: the tool every Agent is offered; its child sits under it.

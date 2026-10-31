@@ -16,13 +16,15 @@ use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
-
+#[path = "mcp/reconnect.rs"]
+mod reconnect;
 #[path = "mcp/removed_questions.rs"]
 mod removed_questions;
+#[path = "mcp/rewind.rs"]
+mod rewind;
 #[path = "mcp/tool_lists.rs"]
 mod tool_lists;
 use tool_lists::{DOOR_METHODS, NO_TOOL, TOOL_METHODS, expected_tools, seam_commands};
-
 const BOUND: Duration = Duration::from_secs(20);
 
 struct Shim {
@@ -437,6 +439,7 @@ async fn m5159a_a_slow_call_fails_alone_and_the_shim_stays_up() {
     assert!(message.contains("todo_create"), "{message}");
     assert!(message.contains("10 s"), "{message}");
     assert!(message.contains("may still finish"), "{message}");
+    assert!(message.contains("may have been applied"), "{message}");
     assert_eq!(shim.child.try_wait().unwrap(), None, "the shim exited");
     let after = shim.call("todo_list", json!({})).await;
     assert_eq!(after.is_error, Some(false), "the shim stays up");
@@ -461,7 +464,7 @@ async fn m5159a_a_mute_rail_read_fails_one_call() {
 }
 
 #[tokio::test]
-async fn m3_stdout_carries_only_protocol_messages_up_to_the_exit() {
+async fn m3_stdout_carries_only_protocol_messages_after_the_daemon_goes() {
     let project = start_daemon();
     let mut child = start_rup_mcp(&project.socket, "a1");
     let mut stdin = child.stdin.take().unwrap();
@@ -499,19 +502,16 @@ async fn m3_stdout_carries_only_protocol_messages_up_to_the_exit() {
         &json!({ "jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": { "name": "todo_list" } }),
     )
     .await;
-
-    while let Some(line) = tokio::time::timeout(BOUND, stdout.next_line())
-        .await
-        .expect("the shim closed stdout")
-        .unwrap()
-    {
+    loop {
+        let next = tokio::time::timeout(BOUND, stdout.next_line()).await;
+        let line = next.expect("no answer").unwrap().expect("stdout closed");
+        let answers_list = serde_json::from_str::<Value>(&line).is_ok_and(|m| m["id"] == 3);
         lines.push(line);
+        if answers_list {
+            break;
+        }
     }
-    let status = tokio::time::timeout(BOUND, child.wait())
-        .await
-        .expect("the shim exited")
-        .unwrap();
-    assert_eq!(status.code(), Some(1));
+    assert!(child.try_wait().unwrap().is_none());
     for line in &lines {
         let message: Value = serde_json::from_str(line).unwrap_or_else(|_| panic!("{line}"));
         assert_eq!(message["jsonrpc"], "2.0", "{line}");
@@ -736,7 +736,7 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
     let shim = spawn_shim(&socket, "a1").await;
     let tools = shim.client.list_all_tools().await.unwrap();
     assert!(
-        tools.iter().any(|tool| tool.name == "checkpoint_write"),
+        tools.iter().any(|tool| tool.name == "agent_digest"),
         "the fixture must be a Door to cover its unit methods"
     );
     for method in contracts::methods::METHODS
