@@ -1,6 +1,6 @@
 # Build diagnostics
 
-Module: workspace and desktop dependency configuration. Ids: Z2, Z4280a.
+Module: workspace and desktop dependency configuration. Ids: Z2, Z4280a, Z5211a.
 
 **Z2 ts-rs emits no serde-attribute warnings.** Given the workspace uses ts-rs 12 and Rust contract types retain `#[serde(deny_unknown_fields)]`, when the Rust targets used by `just app` and CI are compiled from a fresh Cargo target directory, then:
 
@@ -29,3 +29,16 @@ Checks already on main for Z4280a:
 6. `apps/desktop/src/settings/u3806_preferences.test.tsx`, `u3804_a_clashing_chord_is_refused_naming_the_holder` and `u3804_reset_restores_the_default`, assert shortcut-setting refusal and default restoration.
 
 This dependency replacement adds no product behavior or editable surface; no Principles gate changes. The existing shortcut observers above cover the regression boundary.
+
+**Z5211a the desktop Vite config loads without a native-loader warning.** Given `apps/desktop/vite.config.ts` and the modules it loads, directly or through imports (`budgets/build.ts`, `src/testing/realDaemonPlugin.ts`, `captures.ts`, `shardSequencer.ts` and what they reach, including `src/app/seam.ts`), when `vite` or `vitest` starts in `apps/desktop`, then:
+
+- **Quiet start (policy).** Output contains neither `configLoader: 'native'` nor `without a file extension`. Observe with `pnpm --filter desktop exec vitest run <any test file>` (Check 1); it exits 0 with zero occurrences of either text. The Linux observer covers it; no native window observation is required.
+- **Explicit extensions (policy).** Every relative import in that graph, `import type` included, ends in `.ts` or `.tsx`, the first fix being `src/app/seam.ts`'s `../perf/idle`. Observe the diff and the guard below.
+- **Guard (policy).** The `lint-web` job fails on a relative import without an extension in the config graph: the oxlint `import/extensions` rule (`always`, `ignorePackages`), applied through an `.oxlintrc.json` override scoped to the graph's files, so no new script exists. It fails on `origin/main` before the fix, naming `src/app/seam.ts`, and passes after.
+- **No behaviour change (policy).** The diff changes import specifiers and lint configuration only. Observe the diff against `origin/main`.
+
+Checks already on main for Z5211a:
+
+1. `apps/desktop/vite.config.ts`: the config every `vite` and `vitest` start loads; its start prints the warning today.
+
+This is build tooling; it changes no product path governed by a Principles gate.
