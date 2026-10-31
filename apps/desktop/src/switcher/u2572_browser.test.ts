@@ -136,7 +136,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
           await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
           await read("(() => { Storage.prototype.setItem=()=>{throw new Error('full')}; Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(new Error('denied'))}}); const f=document.querySelector('.switcher input'); f.value='  é 🧭 東京  '; f.dispatchEvent(new Event('input',{bubbles:true})); f.setSelectionRange(2,9,'backward'); f.dispatchEvent(new Event('keyup',{bubbles:true})); })()");
           await browser("find", "role", "button", "click", "--name", "Copy query", "--exact");
-          await browser("wait", "--fn", "[...document.querySelectorAll('.switcher [role=alert]')].some(e=>e.textContent.includes('Could not copy query'))");
+          await browser("wait", "--fn", "[...document.querySelectorAll('.switcher [role=alert]')].some(e=>e.textContent.includes('Copy failed'))");
 
           for (const step of ["before", "after"]) {
             if (step === "after") await browser("find", "role", "button", "click", "--name", "Close", "--exact");

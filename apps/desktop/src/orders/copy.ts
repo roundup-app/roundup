@@ -22,7 +22,7 @@ export const copy = {
   resuming: "Resuming…",
   resumed: "Resumed: the Agent has the unfinished work.",
   resumeNothing: "No unfinished work to resume.",
-  resumeUnknown: "Resume may have started. It checks before retrying.",
+  resumeUnknown: "Resume might have started. Retry checks first.",
   error: sharedCopy.error,
   clearName: (value1: CopyValue) => `Clear ${value1}`,
 } as const;
