@@ -6,6 +6,7 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
+import type { ActionValue } from "../keys/chords";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
@@ -158,11 +159,12 @@ export const Rail = () => {
     return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.doorPending(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
   };
 
-  const openCompose = (prompt?: unknown) => {
+  const openCompose = (prompt?: ActionValue) => {
     captureFocus(true);
 
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
+
     if (prompt !== undefined) keepDraft(String(prompt));
   };
 
