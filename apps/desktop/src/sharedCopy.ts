@@ -3,6 +3,7 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 
 const dismiss = "Dismiss";
+
 const dismissError = "Dismiss error";
 
 const running = "Running";
