@@ -564,6 +564,8 @@ export const Rail = () => {
 
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
+  /** U5151e: the dismissal line is the footer's message only when no higher failure shows; its Retry and Dismiss act on it alone. */
+  const dismissalLine = () => (failure.surface() === "rail" && failure.message() ? false : rail.storageFailure() ? false : rail.unsavedDismissal() !== null);
 
   const submitPrompt = async (prompt: string | null, snapshot = task() ?? keepDraft(draft())) => {
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
@@ -979,13 +981,13 @@ export const Rail = () => {
       }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <div class="rail-footer">
-        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (rail.unsavedDismissal() !== null ? copy.dismissalUnsaved(rail.unsavedDismissal()!) : null) ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry() && !dismissalLine()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (rail.unsavedDismissal() !== null ? copy.dismissalUnsaved(rail.unsavedDismissal()!) : null) ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
           status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
           <Show when={failure.retry()}>{retry => <>
             <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
             <button type="button" data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>
           </>}</Show>
-          <Show when={rail.unsavedDismissal() !== null}><button type="button" data-button="quiet" onClick={() => rail.retryDismissal()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => rail.clearUnsavedDismissal()}>{copy.dismiss}</button></Show>
+          <Show when={dismissalLine()}><button type="button" data-button="quiet" onClick={() => rail.retryDismissal()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => rail.clearUnsavedDismissal()}>{copy.dismiss}</button></Show>
           <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
         </ReservedLine>
         <div class="rail-actions">
