@@ -53,6 +53,8 @@ export const copy = {
   newAgent: sharedCopy.newAgent,
   newAgentWithAPrompt: sharedCopy.newAgentWithAPrompt,
   newTerminal: sharedCopy.newTerminal,
+  newWorkstreamTitle: sharedCopy.newWorkstreamTitle,
+  newMode: sharedCopy.newMode,
   switchAgentTerminal: "Switch Agent / Terminal",
   minimiseOrRestoreTheBubble: "Minimise or restore the Bubble",
   closeTheBubble: "Close the Bubble",
