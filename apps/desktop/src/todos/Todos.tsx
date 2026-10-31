@@ -1,3 +1,4 @@
+import { applied } from "../app/pending";
 import { todoDropTargets } from "./todoDropTargets";
 import { rowTypeahead } from "../ui/RowCollection";
 import type { createCopyFeedback } from "../ui/CopyButton";
@@ -30,7 +31,7 @@ import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject, useCreation } from "../state/connectedProject";
-import { failureOf } from "./failureOf";
+import { changeFailureOf } from "./failureOf";
 import { OpenRow } from "./OpenRow";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
@@ -45,6 +46,7 @@ import type { Actor } from "@contracts/Actor";
 import { CHORDS, chordsFor, chordsOf } from "../keys/chords";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
+import { reorderChange } from "./state";
 import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
@@ -245,17 +247,19 @@ export const Todos = (props: {
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
     reload: todos.reload,
-    call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
+    call: (params) => todos.ask(params.id, reorderChange(todos.all(), params.id, params.before), () => connected.app.rpc("todo.reorder", params)),
     reducedMotion: connected.reducedMotion,
     home: {
       target: targets.home,
-      move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
+      move: (id, home) => todos.ask(id, { kind: "home", asked: home, base: todos.byId().get(id)?.home ?? null }, () => connected.app.rpc("todo.move", { id, home })),
     },
     owner: {
       target: targets.owner,
-      assign: (id, owner) => failureOf(() => connected.app.rpc("todo.assign", { id, owner })),
+      assign: (id, owner) => todos.ask(id, { kind: "owner", asked: owner, base: todos.byId().get(id)?.owner ?? null }, () => connected.app.rpc("todo.assign", { id, owner })),
     },
   });
+
+  onCleanup(todos.onContradicted((id, message) => sorted.show(id, message)));
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
@@ -285,7 +289,7 @@ export const Todos = (props: {
       nestFocus = advance ? null : todo.id;
       nestGrip = false;
 
-      const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
+      const message = await changeFailureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
 
       if (message !== null) nestFocus = null;
       else await advance?.();
@@ -308,7 +312,7 @@ export const Todos = (props: {
       nestPermission = captureFocus();
       nestFocus = id;
       nestGrip = true;
-      const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
+      const message = await changeFailureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
 
       if (message !== null) {
         nestFocus = null;
@@ -470,12 +474,12 @@ export const Todos = (props: {
     const field = document.querySelector<HTMLInputElement>(".todos-tab .entry-field");
 
     try {
-      const made = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
+      const made = await applied(() => connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner }));
       setFiled(count => count + 1);
       // Creation is acknowledged before placement: a failed move must never invite duplicate creation.
       connected.drafts.settle(draft.revision, "acknowledged");
 
-      if (home !== null) await connected.app.rpc("todo.move", { id: made.id, home });
+      if (home !== null) await applied(() => connected.app.rpc("todo.move", { id: made.id, home }));
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       connected.drafts.settle(draft.revision, outcomeOf(error));
@@ -572,7 +576,7 @@ export const Todos = (props: {
     const advance = !reopening ? captureAdvance(todo.id) : undefined;
     const target = rowAfter(todo.id, ids);
 
-    const message = await failureOf(() => reopening
+    const message = await changeFailureOf(() => reopening
       ? connected.app.rpc("todo.reopen", { id: todo.id })
       : connected.app.rpc("todo.complete", { id: todo.id }));
 
@@ -686,7 +690,7 @@ export const Todos = (props: {
     const focus = captureFocus();
     const advance = moveAdvance;
     clearFailures();
-    const message = await failureOf(() => connected.app.rpc("todo.move", { id, home }));
+    const message = await todos.ask(id, { kind: "home", asked: home, base: todos.byId().get(id)?.home ?? null }, () => connected.app.rpc("todo.move", { id, home }));
 
     pickFails.get(id)?.show(message);
 
