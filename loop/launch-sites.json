@@ -342,6 +342,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/perf/tests/large_project.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/perf/tests/n7.rs": {
     "cleanup": "Asserts probe data removed and PIDs exited on success/failure; indirect App and orphaned Daemon coverage.",
     "data": "Invokes perf probes under nested temporary seeded HOME/XDG and caller redirection; probes replace data override.",

@@ -1,3 +1,4 @@
+import { RpcError } from "../app/seam";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
@@ -115,7 +116,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
   it("u358_a_failed_remove_shows_the_error_line_and_keeps_the_row", async () => {
     const { app, rail } = await mount([agent("a", "idle", "x"), agent("b", "idle", "x")]);
     app.handlers["rail.remove"] = () => {
-      throw new Error("daemon said no");
+      throw new RpcError(-32003, "daemon said no");
     };
 
     rail.select("a");

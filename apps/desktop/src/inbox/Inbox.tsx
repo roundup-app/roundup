@@ -36,7 +36,7 @@ export const createInbox = () => {
 
   onCleanup(events.subscribe(event => { if (STALE.has(event.name)) refresh(); }));
 
-  const groups = createMemo(() => sectionsOf(rail.nodes, rows()));
+  const groups = createMemo(() => sectionsOf(rail.nodes, rows(), rail.dismissed));
 
   const records = () => groups().flatMap(group => [
     ...group.node ? [{ id: group.node.id + ":" + group.node.attempt + ":" + group.node.status_revision, at: group.node.status?.since ?? 0 }] : [],
