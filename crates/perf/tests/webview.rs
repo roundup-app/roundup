@@ -209,3 +209,59 @@ fn r20_invalid_calibration_cannot_authorize_a_latency_verdict() {
         assert_eq!(judge_runs(&[invalid], 16.0).0, 2);
     }
 }
+
+fn switch_report(open: f64, switch: f64, dropped: u64) -> serde_json::Value {
+    json!({ "switcher_open_p95_ms": open, "switch_p95_ms": switch,
+        "switcher_open": {"n": 100, "dropped": dropped}, "switch": {"n": 100, "dropped": 0} })
+}
+
+fn switch_budgets() -> perf::budget::Budgets {
+    serde_json::from_value(json!({
+        "switcher_open_p95_ms": {"limit": 80},
+        "switch_p95_ms": {"limit": 32, "baseline": {std::env::consts::OS: 24.0}}
+    }))
+    .unwrap()
+}
+
+#[test]
+fn sp6_report_validation() {
+    use perf::webview::judge_switch;
+
+    let judge = |reports: &[serde_json::Value]| judge_switch(reports, &switch_budgets(), &[0.1]);
+
+    // A value exactly at its limit passes; the median over runs decides.
+    assert_eq!(judge(&[switch_report(80.0, 25.0, 0)]).0, 0);
+    assert_eq!(
+        judge(&[
+            switch_report(10.0, 25.0, 0),
+            switch_report(99.0, 25.0, 0),
+            switch_report(10.0, 25.0, 0)
+        ])
+        .0,
+        0
+    );
+
+    // Over the limit exits 1 naming the metric, its value and its limit.
+    let (exit, failures) = judge(&[switch_report(80.1, 25.0, 0)]);
+    assert_eq!(exit, 1);
+    assert!(
+        failures[0].contains("switcher_open_p95_ms")
+            && failures[0].contains("80.1")
+            && failures[0].contains("80")
+    );
+
+    // More than 10% over its baseline exits 1 naming the baseline.
+    let (exit, failures) = judge(&[switch_report(10.0, 26.5, 0)]);
+    assert_eq!(exit, 1);
+    assert!(failures[0].contains("baseline 24"));
+
+    // Over 5% dropped, or a missing metric, is invalid: exit 2.
+    assert_eq!(judge(&[switch_report(10.0, 25.0, 6)]).0, 2);
+    assert_eq!(judge(&[switch_report(10.0, 25.0, 5)]).0, 0);
+    let mut missing = switch_report(10.0, 25.0, 0);
+    missing.as_object_mut().unwrap().remove("switch_p95_ms");
+    assert_eq!(judge(&[missing]).0, 2);
+
+    // R7: no report measured a budgeted metric.
+    assert_eq!(judge(&[]).0, 2);
+}
