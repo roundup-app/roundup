@@ -108,7 +108,8 @@ impl Daemon {
                 }
             })
             .with_steer_effect(steer_effect_observer())
-            .with_resume_effect(resume_effect_observer()),
+            .with_resume_effect(resume_effect_observer())
+            .with_overview_hold(overview_read_observer()),
         );
         let agents_at = begun.elapsed();
         let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
