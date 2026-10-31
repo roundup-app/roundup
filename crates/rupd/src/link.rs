@@ -2,7 +2,7 @@
 //! through the method of that kind as the caller, so a link gives no caller more than that method.
 
 use contracts::link::{LinkContent, LinkUrl};
-use contracts::{agent, deliverable, pad, terminal, todo};
+use contracts::{ActorKind, agent, deliverable, pad, terminal, todo};
 use rpc::{RpcError, code, params};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
@@ -167,6 +167,13 @@ impl Daemon {
                 {
                     Ok(digest) => Some(digest),
                     Err(err) if err.code == code::CONFLICT => None,
+                    // LK5: a digest is a Door's own, so an Agent in the caller's Reach has none to give.
+                    Err(err)
+                        if err.code == code::FORBIDDEN && conn.actor.kind == ActorKind::Agent =>
+                    {
+                        self.agents.guard_reach(&conn.actor, &id, true)?;
+                        None
+                    }
                     Err(err) => return Err(err),
                 };
                 LinkContent::Agent { id, node, digest }
