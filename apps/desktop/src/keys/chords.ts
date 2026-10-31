@@ -10,7 +10,7 @@ export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switch
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
 export type Hint = { label: string; at: Partial<Record<HintPlace, number>> };
 
-/** Commands bound in the webview, including focused Terminal actions, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⇧⌘T`, `⌘K`, `⌘/` and `⌃⌘J` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
+/** Commands bound in the webview, including focused Terminal actions, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌥⌘N`, `⇧⌘M`, `⌘T`, `⇧⌘T`, `⌘K`, `⌘/` and `⌃⌘J` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 /** The label and the binding are derived from the same saved physical press. */
 export const shortcutLabel = (press: string, keyName = ""): string => {
   const parts = press.split("+");
@@ -26,6 +26,8 @@ export const shortcutLabel = (press: string, keyName = ""): string => {
 export const CHORDS: readonly Chord[] = [
   { keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"] },
   { keys: "⇧⌘N", what: copy.newAgentWithAPrompt, presses: ["meta+shift+KeyN"] },
+  { keys: "⌥⌘N", what: copy.newWorkstreamTitle, presses: ["alt+meta+KeyN"] },
+  { keys: "⇧⌘M", what: copy.newMode, presses: ["meta+shift+KeyM"] },
   { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
   { keys: "⌘K", what: copy.leaderWaitsForAKey, presses: ["meta+KeyK"], hint: { label: copy.leaderWaitsForAKey, at: { rail: 3, agent: 2, bubble: 1, pad: 1, drawer: 1 } } },
   { keys: "⌃⌘J", what: copy.jumpToWhatNeedsYou, presses: ["ctrl+meta+KeyJ"], hint: { label: copy.jumpToWhatNeedsYou, at: { rail: -1, agent: -1, bubble: -1, shelf: -1, pad: -1, drawer: -1 } } },
@@ -136,3 +138,11 @@ export const ASK_CLOSE = "Escape".split(" ");
 
 /** Fields that take typing (a modal layer's own text field, U529). */
 export const TEXT_FIELDS = "input,textarea";
+
+/** U5217: a chord as `aria-keyshortcuts` writes it (`Alt+Meta+N`), read from the same press `CHORDS` binds. */
+export const ariaShortcut = (keys: string): string => {
+  const parts = (CHORDS.find((chord) => chord.keys === keys)?.presses[0] ?? "").split("+");
+  const names = { ctrl: "Control", alt: "Alt", shift: "Shift", meta: "Meta" };
+
+  return [...Object.entries(names).filter(([part]) => parts.includes(part)).map(([, name]) => name), parts.at(-1)!.replace(/^Key/, "")].join("+");
+};

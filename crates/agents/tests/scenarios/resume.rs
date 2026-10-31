@@ -834,3 +834,108 @@ mod history;
 
 #[path = "resume/conversion.rs"]
 mod conversion;
+
+#[tokio::test]
+async fn a5213_an_exited_workstream_resumes_in_its_last_mode() {
+    let f = Arc::new(Fixture::running(
+        "echo \"$@\" >> \"$(dirname \"$0\")/argv.txt\"; sleep 30",
+    ));
+    let door = exited_door(&f).await;
+    let id = door.id.clone();
+
+    // Normal: plain `agent.resume {id}` resumes the Door's conversation.
+    let normal = {
+        let old = door.attempt.clone().unwrap();
+        let task = {
+            let (f, id) = (Arc::clone(&f), id.clone());
+            tokio::spawn(async move { f.resume(&id).await })
+        };
+        f.until_attempt_changed(&id, &old).await;
+        task
+    };
+    f.session_start(&id, CONVERSATION, "resume").await.unwrap();
+    let resumed = normal.await.unwrap().unwrap();
+    assert_eq!(resumed.kind, door.kind);
+    assert!(resumed.terminal_id.is_some());
+    let argv = until_resumed(&f).await;
+    assert!(!argv.contains("--dangerously-skip-permissions"), "{argv}");
+
+    // YOLO: the mode the Attempt last ran in carries over to the next plain resume.
+    f.call("agent.stop", json!({"id": id})).await.unwrap();
+    let old = f.attempt(&id).await;
+    let yolo = {
+        let (f, id) = (Arc::clone(&f), id.clone());
+        tokio::spawn(async move {
+            f.call("agent.resume", json!({"id": id, "mode": "yolo"}))
+                .await
+        })
+    };
+    f.until_attempt_changed(&id, &old).await;
+    f.session_start(&id, CONVERSATION, "resume").await.unwrap();
+    yolo.await.unwrap().unwrap();
+    f.call("agent.stop", json!({"id": id})).await.unwrap();
+    std::fs::remove_file(f.dir.path().join("argv.txt")).unwrap();
+    let old = f.attempt(&id).await;
+    let plain = {
+        let (f, id) = (Arc::clone(&f), id.clone());
+        tokio::spawn(async move { f.resume(&id).await })
+    };
+    f.until_attempt_changed(&id, &old).await;
+    f.session_start(&id, CONVERSATION, "resume").await.unwrap();
+    plain.await.unwrap().unwrap();
+    let argv = until_resumed(&f).await;
+    assert!(argv.contains("--dangerously-skip-permissions"), "{argv}");
+}
+
+#[tokio::test]
+async fn a5213_a_workstream_without_data_or_running_is_refused_by_kind() {
+    let f = Fixture::running("sleep 30");
+    let bare = f.workstream("bare", None).await;
+    let err = f.resume(&bare).await.unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    assert!(!err.message.contains("is not an Agent"), "{}", err.message);
+
+    let missing = f.resume("nope").await.unwrap_err();
+    assert_eq!(missing.code, code::NOT_FOUND);
+
+    let ws = f.workstream("live", None).await;
+    f.call("rail.startDoor", json!({"id": ws})).await.unwrap();
+    f.session_start(&ws, CONVERSATION, "startup").await.unwrap();
+    let err = f.resume(&ws).await.unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    assert!(!err.message.contains("is not an Agent"), "{}", err.message);
+}
+
+#[tokio::test]
+async fn a5213_can_resume_matches_the_guard() {
+    let f = Fixture::running("sleep 30");
+    let exited_agent = exited_with_conversation(&f, CONVERSATION).await;
+    let running = f.spawn(None, None).await.unwrap();
+    f.session_start(&running.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    let door = exited_door(&f).await;
+    let bare = f.workstream("bare", None).await;
+    let tree = f.tree().await;
+    let f = Arc::new(f);
+    for id in [&exited_agent.id, &running.id, &door.id, &bare] {
+        if f.can_resume(&tree, id) {
+            let old = f.attempt(id).await;
+            let call = {
+                let (f, id) = (Arc::clone(&f), id.clone());
+                tokio::spawn(async move { f.resume(&id).await })
+            };
+            f.until_attempt_changed(id, &old).await;
+            f.session_start(id, CONVERSATION, "resume").await.unwrap();
+            call.await.unwrap().expect("an offered resume is accepted");
+        } else {
+            let err = f
+                .resume(id)
+                .await
+                .expect_err("an unoffered resume is refused");
+            assert_eq!(err.code, code::CONFLICT, "{id}");
+        }
+    }
+    assert!(f.can_resume(&tree, &exited_agent.id) && f.can_resume(&tree, &door.id));
+    assert!(!f.can_resume(&tree, &running.id) && !f.can_resume(&tree, &bare));
+}

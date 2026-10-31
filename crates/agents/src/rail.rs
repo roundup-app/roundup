@@ -549,6 +549,30 @@ impl Rail {
         Ok(())
     }
 
+    /// A5213: the permission mode the saved conversation's Attempt last ran in, beside A21's data.
+    pub fn save_conversation_yolo(&mut self, id: &str, yolo: bool) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET conversation_yolo = ? WHERE id = ?",
+                params![yolo, id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// A5213: whether the saved conversation last ran in YOLO.
+    pub fn conversation_yolo(&self, id: &str) -> Result<bool, RpcError> {
+        self.db
+            .query_row(
+                "SELECT conversation_yolo FROM nodes WHERE id = ?",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sql)?
+            .ok_or_else(|| RpcError::not_found(GONE_AGENT))
+    }
+
     /// The saved conversation id and cwd (A21), if any.
     pub fn conversation(&self, id: &str) -> Result<Option<(String, String)>, RpcError> {
         let found: (Option<String>, Option<String>) = self
