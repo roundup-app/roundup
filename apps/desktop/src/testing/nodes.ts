@@ -30,7 +30,7 @@ export const node = (id: string, over: Partial<RailNode> = {}): RailNode => ({
   status_revision: "1",
   terminal_id: `t-${id}`,
   worktree: null,
-  can_resume: false, yolo: false,
+  can_resume: false, can_make_workstream: false, can_save_as_mode: false, yolo: false,
   channel: null,
   stray: [],
   model: null,

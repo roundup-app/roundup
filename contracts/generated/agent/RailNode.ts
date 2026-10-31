@@ -35,6 +35,16 @@ export type RailNode = {
 	 *  start in flight. `false` for a Terminal.
 	 */
 	can_resume: boolean,
+	/**
+	 *  A5287: true exactly when `agent.makeWorkstream` would not refuse the node: an Agent with a
+	 *  saved conversation that is no child of a Workstream, running or exited.
+	 */
+	can_make_workstream: boolean,
+	/**
+	 *  A5287: true exactly when `agent.saveAsMode` would not refuse the node: an Agent roundup
+	 *  started.
+	 */
+	can_save_as_mode: boolean,
 	/**  Permission prompts are off for the last acknowledged Attempt; cleared on reopen. */
 	yolo: boolean,
 	/**
