@@ -62,6 +62,9 @@ pub enum Observation {
     Stopped,
     /// The Agent's program ended. `None` when it was killed by a signal.
     Exit { code: Option<i32> },
+    /// PS9.2: the Status its Terminal's program reports (PS7); read only by an adapter with no
+    /// hook Signal.
+    Program(Status),
 }
 
 /// Turns one vendor's program into an Agent's Status. It emits `error`, `needs-you`, `working`,
@@ -69,6 +72,8 @@ pub enum Observation {
 pub trait AgentAdapter {
     /// Fold one Observation into the Status. `None` means no change.
     fn observe(&mut self, observation: Observation) -> Option<Status>;
+    /// PS9.1: whether the Agent's tooling pushes Signals; if so they alone give its Kind.
+    fn has_hook_signal(&self) -> bool;
 }
 
 type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync>;
@@ -426,8 +431,24 @@ struct SteerSettings {
 #[cfg(test)]
 use store::tests;
 
+impl Agents {
+    /// PS9.2: Terminal `terminal` now reports `status`; the Agent running in it takes it as an
+    /// Observation when its adapter has no hook Signal, and no other Agent changes.
+    pub fn observe_program_status(&self, terminal: &str, status: Status) {
+        self.shared.observe_program(terminal, status);
+    }
+}
+
 #[cfg(feature = "test-support")]
 impl Agents {
+    /// PS9.2: make Agent `id`'s adapter one with no hook Signal, as a vendor without hooks has.
+    pub fn drop_hooks_for_test(&self, id: &str) {
+        if let Some(Slot::Running(run)) = self.shared.runs().get_mut(id) {
+            let clock = Arc::clone(&self.shared.clock);
+            run.adapter = ClaudeCode::starting(move || clock()).without_hooks();
+        }
+    }
+
     /// U4593 controls observed Status without a vendor, Terminal or wall clock.
     pub fn set_status_for_test(&self, id: &str, status: Status) {
         self.shared

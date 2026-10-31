@@ -165,6 +165,7 @@ impl Statuses {
         mut changes: tokio::sync::broadcast::Receiver<Arc<terminal::Change>>,
         bus: rpc::Bus,
         terminals: Arc<terminal::Terminals>,
+        agents: Arc<agents::Agents>,
     ) {
         use tokio::sync::broadcast::error::RecvError;
         let send = |events: Vec<EventData>| {
@@ -180,7 +181,11 @@ impl Statuses {
                 change = changes.recv() => match change {
                     Ok(change) => {
                         let events = self.changed(&change.terminal, &change.records, wall_ms());
-                        terminals.set_program_status(&change.terminal, self.current(&change.terminal));
+                        let status = self.current(&change.terminal);
+                        terminals.set_program_status(&change.terminal, status.clone());
+                        if let Some(status) = status {
+                            agents.observe_program_status(&change.terminal, status);
+                        }
                         send(events);
                     }
                     Err(RecvError::Lagged(_)) => {}

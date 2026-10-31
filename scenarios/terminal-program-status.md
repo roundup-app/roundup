@@ -50,7 +50,7 @@ Tests: `ps8_terminal_list_carries_a_terminals_program_status` in `crates/rupd/te
 2. an Agent whose Adapter has no hook Signal takes the Terminal's Status as an Observation: the Kind of PS7 becomes the Agent's Kind and the label its label, `blocked` from Todos and Routes (A33) still applying over it;
 3. an Agent Terminal's exit ends it as before (a stopped Agent is `done`, not `error`).
 
-Tests: `ps9_a_report_in_a_hooked_agents_terminal_never_changes_its_kind` and `ps9_an_agent_without_signals_takes_its_terminals_status` in `crates/rupd/tests/`, the second with a fake Adapter that has no Signal and so names no vendor (P4: no vendor string outside `crates/agents/<vendor>/`; `loop/rules.sh vocab` passes). Regression checks on main: `scenarios/agents.md`, A1 and A33, whose tests stay green.
+Tests: `ps9_a_report_in_a_hooked_agents_terminal_never_changes_its_kind` and `ps9_an_agent_without_signals_takes_its_terminals_status` in `crates/agents/tests/scenarios/ps9.rs`, the second with a fake Adapter that has no Signal and so names no vendor (P4: no vendor string outside `crates/agents/<vendor>/`; `loop/rules.sh vocab` passes). Regression checks on main: `scenarios/agents.md`, A1 and A33, whose tests stay green.
 
 **PS10 the Rail and the Terminal tab show it.** Given a Terminal with a program status, when `rail.tree` or `terminal.status` delivers it, then in `apps/desktop`:
 
