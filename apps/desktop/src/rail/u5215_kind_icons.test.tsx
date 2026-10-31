@@ -14,14 +14,10 @@ const footer = (label: string) => screen.getByRole("button", { name: label });
 describe("u5215 one map names each kind's icon", () => {
   it("u5215_each_footer_button_shows_its_sections_icon", async () => {
     await mountRail([workstream("g")]);
-    
     const kinds = { "Add Workstream": KIND_ICON.workstream, "New Mode": KIND_ICON.mode, "New Agent": KIND_ICON.agent };
 
-
     for (const [label, name] of Object.entries(kinds)) {
-
       const expected = render(() => <Icon name={name} />).container.querySelector("svg")?.getAttribute("class");
-
 
       expect(footer(label).querySelector("svg")?.getAttribute("class")).toBe(expected);
     }
