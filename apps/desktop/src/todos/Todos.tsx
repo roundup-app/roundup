@@ -675,16 +675,8 @@ export const Todos = (props: {
 
   const canTriage = (event: KeyboardEvent, nesting = false) => triage.canKey(event, section, !tabs || tabs().value === "todos", nesting);
 
-  const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement, event?: KeyboardEvent) => void) => keys === "J K" ? {
-    chords: chordsOf(CHORDS.find(row => row.inTriage && row.keys === keys)),
-    when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
-    run: (event: KeyboardEvent) => {
-      const found = triageTarget(event);
-
-      if (found && event.target instanceof HTMLButtonElement) run(found, event.target, event);
-    },
-  } : {
-    action: CHORDS.find(row => row.inTriage && row.keys === keys)!, searchable: false as const,
+  const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement) => void, press?: string) => ({
+    action: CHORDS.find(row => row.inTriage && row.keys === keys)!, press, searchable: false as const,
     when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
     capture: (focus: Element | null) => {
       const id = idOfRow(focus);
@@ -692,7 +684,7 @@ export const Todos = (props: {
 
       return { available: () => triage.on() && active() && focus instanceof HTMLButtonElement && focus.isConnected && !focus.closest("[hidden], [inert]") && document.activeElement === focus && todo !== undefined && todos.byId().get(todo.id)?.done === false && (keys !== "W" || homesToOffer(connected.rail.nodes, todo.home).length > 0), invoke: () => { if (todo && focus instanceof HTMLButtonElement) run(todo, focus); } };
     },
-  };
+  });
 
   const moveHome = async (id: number, home: string | null) => {
     const focus = captureFocus();
@@ -724,12 +716,12 @@ export const Todos = (props: {
       when: event => triage.on() && canTriage(event),
       capture: focus => ({ available: () => triage.on() && focus?.isConnected === true && (focus === document.body || !!focus.closest(".shelf, .shelf-tabs")) && !focus.closest("input,textarea,select,[contenteditable]"), invoke: leaveTriage }),
     },
-    triageKey("J K", (_todo, button, event) => {
+    ...["KeyJ", "KeyK"].map(press => triageKey("J K", (_todo, button) => {
       const buttons = triageButtons();
       const at = buttons.indexOf(button);
 
-      if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (event?.code === "KeyJ" ? 1 : -1)))]?.focus();
-    }),
+      if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (press === "KeyJ" ? 1 : -1)))]?.focus();
+    }, press)),
     triageKey("A", (todo, button) => {
       clearFailures();
       setPicking({ id: todo.id, anchor: button });
