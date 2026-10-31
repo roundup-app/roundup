@@ -137,6 +137,8 @@ export const RailRowView = (props: {
     return (["error", "needs-you", "blocked", "working", "done", "idle"] as const).find(kind => kinds.includes(kind)) ?? null;
   };
 
+  const statusLabel = () => { const status = props.row.node.status; return status?.kind === "error" && connected.rail.dismissed(props.row.node) ? copy.dismissedFailure(status.label) : status?.label ?? ""; };
+
   const unread = () => connected.unseen.of(props.row.node.id) || (workstream() && props.row.collapsed !== null && connected.unseen.below(props.row.node.id));
 
   const queuedBadge = () => {
@@ -201,8 +203,8 @@ export const RailRowView = (props: {
   </div>;
 
   return <>
-    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
-      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [props.row.node.status.label] : [])].join(copy.comma)}>
+    <Show when={props.branch} fallback={<TreeView.Item data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)} asChild={item => row(extra => item(extra))} />}>
+      <TreeView.Branch class="rail-root-branch" data-id={props.row.node.id} aria-label={[props.row.node.name, ...(workstream() && props.row.node.opening_prompt?.trim() ? [copy.modeWord] : []), ...(!workstream() && props.row.node.status ? [statusLabel()] : [])].join(copy.comma)}>
         <TreeView.BranchControl asChild={control => row(extra => control(extra))} />
       </TreeView.Branch>
     </Show>

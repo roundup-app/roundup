@@ -10,6 +10,10 @@
   display: block;
 }
 
+.failure-line.dismissed {
+  color: var(--grey);
+}
+
 .overview-entry {
   flex-wrap: wrap;
 }
