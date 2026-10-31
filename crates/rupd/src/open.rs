@@ -113,7 +113,6 @@ impl Daemon {
         );
         let agents_at = begun.elapsed();
         let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
-        let checkpoints = Arc::new(checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()));
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             naming,
@@ -137,8 +136,6 @@ impl Daemon {
             renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             owner_events: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             wake_gate: Default::default(),
-            checkpoints: Arc::clone(&checkpoints),
-            rewinding: Default::default(),
             restarting: Default::default(),
             queue: Default::default(),
             auto: auto::Auto::new(&bus),
@@ -160,7 +157,6 @@ impl Daemon {
         let services_at = begun.elapsed();
         daemon.register(todos);
         daemon.register(pads);
-        daemon.register(checkpoints);
         let opened = Arc::new(messages::Messages::open_with(
             dir,
             bus,
