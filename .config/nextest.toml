@@ -22,6 +22,7 @@ filter = '''
 | (package(agents) & test(/::(kill_or_already_gone_returns_a_failed_kills_error_without_waiting|a24_start_after_close_in_this_run_settles_within_the_bound|a24_start_after_reopen_settles_within_the_bound|a24_a_start_never_acknowledged_fails_within_the_bound|a24_an_unresumable_conversation_fails_with_a22s_code|a16_a_descendant_holding_the_pty_open_does_not_hang_remove|d9_worktree_state_returns_a_daemon_error_before_the_app_bound)$/))
 | (package(rup) & test(/^(d4_wait_returns_once_every_watched_agent_is_idle_not_at_the_deadline|e3_a_daemon_that_never_answers_is_given_up_on_within_five_seconds|d8_ten_idle_agents_with_sampling_stay_under_the_budget|a4_signal_to_a_daemon_that_never_answers_exits_1_in_time|d9_workstream_removal_keeps_finite_shutdown_waits_within_the_app_bound)$/))
 | (package(desktop) & test(/^d9_the_app_worktree_(state|provision)_wait_stays_within_the_call_bound$/))
+| (package(perf) & binary(large_project) & test(/^r5220_every_read_is_under_budget_/))
 '''
 threads-required = 'num-test-threads'
 priority = 100
