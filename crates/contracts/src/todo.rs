@@ -16,7 +16,7 @@ pub enum Priority {
     Urgent,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Todo {
     pub id: u32,
     pub title: String,
@@ -47,7 +47,7 @@ pub struct Todo {
 
 /// One qualifying Hand-off for a Todo's current owner after its last owner change.
 /// Project-scoped, at most one per Todo, ordered by Change.seq; no History Values.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Handed {
     pub todo: u32,
     pub owner: Actor,
@@ -141,7 +141,7 @@ pub struct ReorderParams {
 }
 
 /// The values a Todo's history follows; list and Rail replies never carry these changes.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Values {
     pub title: String,
     pub body: String,
@@ -155,7 +155,7 @@ pub struct Values {
     pub priority: Option<Priority>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Change {
     pub seq: u32,
     /// Authenticated writer; history recorded before T19 has no known Actor.
@@ -174,7 +174,7 @@ pub struct Change {
     pub after: Values,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct History {
     pub changes: Vec<Change>,
     /// The first change after the calling Actor's last read Touch.
@@ -189,7 +189,7 @@ pub struct ReadHistoryParams {
 }
 
 /// A line on a Todo from the user or an Agent (T20). Not a Message and not History.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Comment {
     pub id: u32,
     /// The authenticated Actor that called `todo.comment`.
@@ -216,7 +216,7 @@ pub struct RefParams {
 }
 
 /// Whether the Pad or heading a ref names exists now; computed at read, never stored.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RefState {
     Ok,
@@ -224,14 +224,14 @@ pub enum RefState {
 }
 
 /// One ref of a Todo with its state (T27).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Ref {
     pub url: String,
     pub state: RefState,
 }
 
 /// An unread Agent comment with the Todo it sits on (T23).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct UnreadComment {
     pub todo: u32,
     pub title: String,
@@ -266,7 +266,7 @@ pub struct DeletionParams {
     pub operation: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum DeletionState {
     Deleted,
@@ -276,7 +276,7 @@ pub enum DeletionState {
 /// Acknowledged successful subset and absent chosen ids. RPC refusal acknowledges no
 /// deletion; a lost reply is unknown until todo.deletion or equal-key replay responds.
 /// A null reconciliation has no retained operation: retry the SAME key, never a new one.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type, JsonSchema)]
 pub struct Deletion {
     pub operation: String,
     pub deleted: Vec<u32>,

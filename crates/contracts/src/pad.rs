@@ -4,7 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Pad {
     /// Opaque never-reused creation identity within this Project; retain the Project too.
     pub incarnation: String,
@@ -141,7 +141,7 @@ pub struct RedoDeleteParams {
 
 /// Immutable pre-deletion state plus the durable consumption fact. A replay returns
 /// this receipt without repeating effects, even if the restored Pad was edited/deleted.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Deletion {
     pub project: String,
     pub operation: String,

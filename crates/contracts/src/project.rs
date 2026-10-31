@@ -39,7 +39,7 @@ pub struct Mcp {
     pub on: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ProjectSettings {
     pub worktrees: Worktrees,
     /// A36: the Model and Effort the user set per Role, and the Models a Door may start a child on.
@@ -59,7 +59,7 @@ pub struct Choice {
 }
 
 /// A36: `models.list`, the Models and Efforts the Adapter offers.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ModelList {
     pub engines: Vec<Choice>,
     pub models: Vec<Choice>,
@@ -94,7 +94,7 @@ pub struct RenameParams {
 }
 
 /// M8: what the Daemon asks of the App, which no Daemon can reach but by an Event.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Requested {
     Open { path: String },
@@ -102,7 +102,7 @@ pub enum Requested {
 }
 
 /// D8: one Agent's Resource use, sampled by `project.resources`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct AgentResources {
     pub id: String,
     /// Resident memory of the Agent's program and every program it started.
@@ -117,7 +117,7 @@ pub struct AgentResources {
 }
 
 /// D8: the Project's Resource use in total.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ResourceTotal {
     #[specta(type = specta_typescript::Number)]
     pub memory_bytes: u64,
@@ -129,7 +129,7 @@ pub struct ResourceTotal {
 }
 
 /// D8: what `project.resources` returns.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Resources {
     pub agents: Vec<AgentResources>,
     pub total: ResourceTotal,
@@ -154,7 +154,7 @@ pub struct ImportDiscoverParams {
 }
 
 /// One recent conversation the user may import. `revision` binds a confirmation to what was shown.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportCandidate {
     pub source: String,
     pub title: String,
@@ -166,7 +166,7 @@ pub struct ImportCandidate {
 }
 
 /// Why a saved conversation cannot be selected. Diagnostics never determine this cause.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ImportExclusionCause {
     AlreadyImported,
@@ -196,7 +196,7 @@ pub enum ImportExclusionCause {
 }
 
 /// A conversation that is not selectable, with diagnostic details.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportExclusion {
     pub source: String,
     pub cause: ImportExclusionCause,
@@ -209,7 +209,7 @@ pub struct ImportExclusion {
 }
 
 /// Newest first; equal times by source identity.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportDiscovery {
     pub candidates: Vec<ImportCandidate>,
     pub excluded: Vec<ImportExclusion>,
@@ -223,7 +223,7 @@ pub struct ImportListParams {
 
 /// U3523a: a live Claude Code session as `claude agents --json` reported it; each field only
 /// when the program supplied it. roundup never signals or writes `pid`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportLive {
     pub pid: Option<u32>,
     pub cwd: Option<String>,
@@ -234,7 +234,7 @@ pub struct ImportLive {
 }
 
 /// U3523a: one session `import.list` offers, once. `revision` binds an approval to what was listed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportListed {
     pub source: String,
     pub title: String,
@@ -248,7 +248,7 @@ pub struct ImportListed {
 
 /// U3523a, U3523f: read-only; newest first, equal times by source identity. `notices` are what the
 /// SDK sidecar printed; `sdk` is its pinned version.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportList {
     pub candidates: Vec<ImportListed>,
     pub excluded: Vec<ImportExclusion>,
@@ -273,7 +273,7 @@ pub struct ImportCommitParams {
 }
 
 /// Whether a per-source import failure proves refusal or leaves completion unconfirmed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum ImportDisposition {
     Failed,
@@ -281,7 +281,7 @@ pub enum ImportDisposition {
 }
 
 /// The original RPC identity and diagnostic, plus its per-source certainty.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportFailure {
     #[specta(type = specta_typescript::Number)]
     pub code: i64,
@@ -290,7 +290,7 @@ pub struct ImportFailure {
 }
 
 /// One source's result: the created (or earlier created) nodes, or the cause it was refused.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportOutcome {
     pub source: String,
     pub workstream: Option<String>,
@@ -298,7 +298,7 @@ pub struct ImportOutcome {
     pub error: Option<ImportFailure>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct ImportResult {
     pub outcomes: Vec<ImportOutcome>,
 }
