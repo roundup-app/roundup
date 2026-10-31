@@ -29,7 +29,7 @@ import { CreateMode } from "./CreateMode";
 import { OpeningPrompt } from "./OpeningPrompt";
 import { SaveAsMode } from "./SaveAsMode";
 import { RailConfirm } from "./menu/RailConfirm";
-import { canMakeWorkstream, canSaveAsMode, createRailMenu } from "./menu/model";
+import { createRailMenu } from "./menu/model";
 import { ancestorsOf, isWorkstream, layoutRail, siblingsOf, type NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
@@ -76,8 +76,8 @@ export const Rail = () => {
     return [
       ...(node.kind === "agent" && node.status?.kind === "error" && !rail.dismissed(node) ? [{ id: "dismiss", label: copy.dismissError, run: () => { rail.dismiss(node); } }] : []),
       ...(moveAgent.available(node.id) ? [{ id: "move", label: copy.moveTo, shortcut: "M", run: () => moveAgent.open(node.id) }] : []),
-      ...(canMakeWorkstream(node, rail.exitOf(node)) ? [{ id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } }] : []),
-      ...(canSaveAsMode(node) ? [{ id: "save-as-mode", label: copy.saveAsMode, run: () => { setSavingMode(node.id); } }] : []),
+      ...(node.can_make_workstream ? [{ id: "make-workstream", label: copy.makeWorkstream, run: () => { void menu.makeWorkstream(node); } }] : []),
+      ...(node.can_save_as_mode ? [{ id: "save-as-mode", label: copy.saveAsMode, run: () => { setSavingMode(node.id); } }] : []),
       ...(node.kind === "workstream" && node.opening_prompt?.trim() ? [{ id: "restart", label: copy.restart, shortcut: "R", run: () => { void menu.restartSession(node.id); } }] : []),
       ...(node.kind === "agent" && node.status !== null || node.kind === "workstream" && node.attempt !== null ? [{
         id: "progress", label: copy.workProgress, run: () => {
@@ -564,6 +564,7 @@ export const Rail = () => {
 
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
+  const dismissalLine = () => !(failure.surface() === "rail" && failure.message()) && !rail.storageFailure() && rail.unsavedDismissal() !== null;
 
   const submitPrompt = async (prompt: string | null, snapshot = task() ?? keepDraft(draft())) => {
     if (snapshot.status === "pending" || snapshot.status === "unknown") return;
@@ -979,12 +980,13 @@ export const Rail = () => {
       }} /></Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <div class="rail-footer">
-        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+        <ReservedLine content={failure.message()?.startsWith(`${copy.newAgent}: `) ? <span>{failure.message()!.slice(0, copy.newAgent.length + 2)}<span>{failure.message()!.slice(copy.newAgent.length + 2)}</span></span> : undefined} class="rail-command-notice" overlay={!failure.retry() && !dismissalLine()} message={(failure.surface() === "rail" ? failure.message() : null) ?? rail.storageFailure() ?? (rail.unsavedDismissal() !== null ? copy.dismissalUnsaved(rail.unsavedDismissal()!) : null) ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
           status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
           <Show when={failure.retry()}>{retry => <>
             <button type="button" data-button="quiet" onClick={() => retry()()}>{copy.retry}</button>
             <button type="button" data-button="quiet" onClick={failure.clear}>{copy.dismiss}</button>
           </>}</Show>
+          <Show when={dismissalLine()}><button type="button" data-button="quiet" onClick={() => rail.retryDismissal()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => rail.clearUnsavedDismissal()}>{copy.dismiss}</button></Show>
           <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
         </ReservedLine>
         <div class="rail-actions">

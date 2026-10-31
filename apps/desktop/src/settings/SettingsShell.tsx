@@ -23,8 +23,8 @@ export const SettingsShell = (props: { heading: string; hideHeading?: boolean; o
 };
 
 export const SettingsGroup = (props: { name: string; hideHeading?: boolean; children: JSX.Element }) => (
-  <section class="settings-group" aria-label={props.name}>
+  <section class="settings-group">
     {!props.hideHeading && <h3 class="settings-group-name">{props.name}</h3>}
-    {props.children}
+    <div class="settings-rows" role="group" aria-label={props.name}>{props.children}</div>
   </section>
 );

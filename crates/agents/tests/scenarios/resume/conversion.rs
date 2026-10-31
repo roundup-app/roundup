@@ -158,3 +158,86 @@ async fn a5214b_a_bad_name_or_a_foreign_agent_creates_nothing() {
     assert_eq!(err.code, code::CONFLICT);
     assert_eq!(f.tree().await.len(), count + 1, "only the foreign Agent");
 }
+
+fn flags(tree: &[RailNode], id: &str) -> (bool, bool) {
+    let node = tree.iter().find(|n| n.id == id).expect("node");
+    (node.can_make_workstream, node.can_save_as_mode)
+}
+
+#[tokio::test]
+async fn a5287_the_flags_follow_the_method_guards() {
+    let f = Fixture::running("sleep 30");
+    let lead = f.spawn(None, None).await.unwrap();
+    let lean = lean_child(&f, &lead.id, json!({})).await;
+    let hand = f.spawn(None, None).await.unwrap();
+    assert_eq!(flags(&f.tree().await, &hand.id), (false, false));
+    assert_eq!(flags(&f.tree().await, &lean.id), (false, true));
+    f.session_start(&hand.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    assert_eq!(
+        flags(&f.tree().await, &hand.id),
+        (true, false),
+        "the saved conversation turns it on in the next update"
+    );
+    let ws = f.workstream("work", None).await;
+    let child = f.spawn(Some(&ws), None).await.unwrap();
+    f.session_start(&child.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    let tree = f.tree().await;
+    assert_eq!(flags(&tree, &ws), (false, false));
+    assert_eq!(flags(&tree, &child.id), (false, false));
+}
+
+#[tokio::test]
+async fn a5287_a_flag_is_true_exactly_when_the_method_is_accepted() {
+    let f = Arc::new(Fixture::running("sleep 30"));
+    let lead = f.spawn(None, None).await.unwrap();
+    let lean = lean_child(&f, &lead.id, json!({})).await;
+    let bare = f.spawn(None, None).await.unwrap();
+    let exited = exited_with_conversation(&f, CONVERSATION).await;
+    let running = f.spawn(None, None).await.unwrap();
+    f.session_start(&running.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    let ws = f.workstream("work", None).await;
+    let child = f.spawn(Some(&ws), None).await.unwrap();
+    f.session_start(&child.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    let tree = f.tree().await;
+    let ids = [
+        &lead.id,
+        &lean.id,
+        &bare.id,
+        &exited.id,
+        &running.id,
+        &ws,
+        &child.id,
+    ];
+    for id in ids {
+        let (can_make, can_save) = flags(&tree, id);
+        let saved = save(&f, id, "Mode").await;
+        assert_eq!(saved.is_ok(), can_save, "saveAsMode {id}");
+        if let Err(err) = saved {
+            assert_eq!(err.code, code::CONFLICT, "{id}");
+        }
+        let made = if can_make && id == &running.id {
+            let pending = {
+                let (f, id) = (Arc::clone(&f), id.clone());
+                tokio::spawn(async move { make(&f, &id).await })
+            };
+            f.until_attempt_changed(id, running.attempt.as_deref().unwrap())
+                .await;
+            f.session_start(id, CONVERSATION, "resume").await.unwrap();
+            pending.await.unwrap()
+        } else {
+            make(&f, id).await
+        };
+        assert_eq!(made.is_ok(), can_make, "makeWorkstream {id}");
+        if let Err(err) = made {
+            assert_eq!(err.code, code::CONFLICT, "{id}");
+        }
+    }
+}

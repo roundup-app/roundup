@@ -110,6 +110,7 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
                 running: true,
                 exit_code: None,
                 owner: None,
+                status: None,
             },
             pid: None,
             events,

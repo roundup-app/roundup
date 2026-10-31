@@ -1,4 +1,4 @@
-import { createResource, createSignal, createMemo, For, onCleanup, Show } from "solid-js";
+import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show } from "solid-js";
 import type { App } from "../app/seam";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -19,7 +19,7 @@ import { NamingSettings } from "./NamingSettings";
 import { ShortcutSettings } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
-export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
+export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; navigation?: () => string }) => {
   const view = createSettingsView();
   const [section, setSection] = createSignal<string>(copy.settingsAgents);
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -69,7 +69,23 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       drafts.edit(destination(name), { ...newer.value, saved: String(value) }, newer.selection, "ordinary", newer.revision);
   };
 
-  const show = () => { if (!view.open()) { view.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body); props.onOpenChange?.(true); } };
+  // U5242c: what Back closed, until another view opens; Forward reopens it as `⌘,` does.
+  const [forward, setForward] = createSignal(false);
+
+  const close = () => { props.onOpenChange?.(false); view.close(); };
+
+  const back = () => { setForward(true); close(); };
+
+  createEffect(on(() => props.navigation?.(), () => setForward(false), { defer: true }));
+
+  const show = () => {
+    setForward(false);
+
+    if (view.open()) return;
+
+    view.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body);
+    props.onOpenChange?.(true);
+  };
 
   let disposed = false;
   let stop: (() => void) | undefined;
@@ -77,12 +93,18 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   void props.app.onAppSettings(show).then(unsubscribe => { if (disposed) unsubscribe(); else stop = unsubscribe; });
   void props.app.onProjectPage(({ path }) => {
+    setForward(false);
+
     if (path !== props.project() || !view.open()) return;
     props.onOpenChange?.(false);
     view.close();
   }).then(unsubscribe => { if (disposed) unsubscribe(); else stopProject = unsubscribe; });
   onCleanup(() => { disposed = true; stop?.(); stopProject?.(); });
-  registerKeys({ kind: "app" }, [{ chords: ["Meta+Comma"], run: show }]);
+  registerKeys({ kind: "app" }, [
+    { chords: ["Meta+Comma"], run: show },
+    { chords: ["Meta+BracketLeft"], when: () => view.open(), run: event => { event.preventDefault(); back(); } },
+    { chords: ["Meta+BracketRight"], when: () => forward() && !view.open(), run: event => { event.preventDefault(); show(); } },
+  ]);
 
   const [offered] = createResource(() => view.open() && props.project(), async path => {
     try {
@@ -156,15 +178,46 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     save(patch);
   };
 
-  const close = () => { props.onOpenChange?.(false); view.close(); };
 
   const defaults = [{ value: "", label: copy.modelDefault }];
 
-  return <Show when={view.open()}>
-    <SettingsShell heading={copy.settings} hideHeading onClose={close}>
+  // U5242d: the draft value is the one clicked until its save settles; the real App changes only when it commits.
+  const [pendingAppearance, setPendingAppearance] = createSignal<{ mode?: ReturnType<typeof appSettings>["mode"]; interfaceScale?: ReturnType<typeof appSettings>["interfaceScale"] }>({});
+
+  const chooseAppearance = async (patch: ReturnType<typeof pendingAppearance>) => {
+    setPendingAppearance(previous => ({ ...previous, ...patch }));
+    await save(patch);
+    setPendingAppearance(previous => {
+      const remaining = { ...previous };
+
+      if (patch.mode === remaining.mode) delete remaining.mode;
+
+      if (patch.interfaceScale === remaining.interfaceScale) delete remaining.interfaceScale;
+
+      return remaining;
+    });
+  };
+
+  const previewMode = () => {
+    const mode = pendingAppearance().mode ?? appSettings().mode;
+
+    return mode === "system" ? (globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light") : mode;
+  };
+
+  const previewScale = () => pendingAppearance().interfaceScale ?? appSettings().interfaceScale;
+
+  return <>
+    <Show when={!view.open() && forward()}>
+      <button data-button="quiet" class="settings-forward word" type="button" onClick={show}>{copy.settingsForward}</button>
+    </Show>
+    <Show when={view.open()}>
+    <SettingsShell heading={copy.settings} hideHeading onClose={back}>
       <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
         <aside class="settings-navigation">
-        <button data-button="quiet" class="settings-back word" type="button" onClick={close}>{copy.settingsBack}</button>
+        <div class="settings-history">
+          <button data-button="quiet" class="settings-back word" type="button" onClick={back}>{copy.settingsBack}</button>
+          <button data-button="quiet" class="settings-forward-disabled word" type="button" disabled>{copy.settingsForward}</button>
+        </div>
         <h2 class="settings-title">{copy.settings}</h2>
         <Tabs.List aria-label={copy.settings}>
           <h3 class="settings-category">{copy.settingsAgents}</h3>
@@ -183,12 +236,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
         ]} onValueChange={permissionMode => { if (permissionMode === "" || permissionMode === "default" || permissionMode === "acceptEdits" || permissionMode === "plan" || permissionMode === "auto") save({ permissionMode }); }} />
         <Show when={props.project()}>
-          <Field.Root class="settings-field"><div class="settings-caption"><Field.Label>{copy.engine}</Field.Label><Field.HelperText>{copy.engineHint}</Field.HelperText></div><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
+          <Field.Root class="settings-field"><Field.Label>{copy.engine}</Field.Label><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
             items={[...defaults, ...(offered()?.list?.engines ?? []).map(item => ({ value: item.id, label: item.label }))]}
-            onSelect={chooseEngine} /></Field.Root>
-          <Field.Root class="settings-field"><div class="settings-caption"><Field.Label>{copy.model}</Field.Label><Field.HelperText>{copy.modelHint}</Field.HelperText></div><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
+            onSelect={chooseEngine} /><Field.HelperText>{copy.engineHint}</Field.HelperText></Field.Root>
+          <Field.Root class="settings-field"><Field.Label>{copy.model}</Field.Label><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
             items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
-            onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></Field.Root>
+            onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /><Field.HelperText>{copy.modelHint}</Field.HelperText></Field.Root>
         </Show>
         <NamingSettings app={props.app} />
         <ReservedLine message={offered()?.failure} />
@@ -205,7 +258,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
  if (weight === 300 || weight === 400 || weight === 500 || weight === 600) void chooseType({ fontWeight: weight }); }} />
         <For each={numericFields}>{({ name, label, hint }) => <Field.Root class="settings-field" invalid={!!numericFailure()[name]}>
-          <div class="settings-caption"><Field.Label>{label}</Field.Label><Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show></div>
+          <Field.Label>{label}</Field.Label>
           <Deferred load={() => import("../ui/NumberInput")} label={label}>{module => <module.NumberInput.Root value={field(name)} {...terminalRanges[name]} clampValueOnBlur={false} allowOverflow pattern=".*" onValueChange={({ value, valueAsNumber }) => {
             const range = terminalRanges[name];
 
@@ -216,6 +269,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
               onInput={event => edit(name, event.currentTarget)} onBlur={() => commitNumber(name, label)}
               onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitNumber(name, label); } }} />
           </module.NumberInput.Root>}</Deferred>
+          <Show when={hint}><Field.HelperText>{hint}</Field.HelperText></Show>
           <ReservedLine message={numericFailure()[name]} />
         </Field.Root>}</For>
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
@@ -223,12 +277,15 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSettings capture={props.app.capture} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
         <SegmentGroup description={copy.modeHint} label={copy.settingsAppearance} segments={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
-          onValueChange={mode => save({ mode })} />
+          onValueChange={mode => void chooseAppearance({ mode })} />
         <SegmentGroup label={copy.interfaceScale} value={appSettings().interfaceScale} segments={[
           { value: "small", label: copy.interfaceSmall, content: <span class="settings-scale-small">{copy.interfaceSample}</span> },
           { value: "default", label: copy.settingsDefault, content: <span class="settings-scale-default">{copy.interfaceSample}</span> },
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
-        ]} onValueChange={interfaceScale => save({ interfaceScale })} />
+        ]} onValueChange={interfaceScale => void chooseAppearance({ interfaceScale })} />
+        <section class={`settings-appearance-preview ${previewMode()}-theme`} aria-label={copy.appearancePreview} data-mode={previewMode()} data-scale={previewScale()}>
+          <div class="settings-mode-preview">{copy.appearancePreviewSample}</div>
+        </section>
         <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
       </SettingsGroup></Tabs.Content>
       <ReservedLine message={failure()} />
@@ -240,5 +297,6 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
       <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
       </div></Tabs.Root>
     </SettingsShell>
-  </Show>;
+    </Show>
+  </>;
 };

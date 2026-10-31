@@ -51,11 +51,12 @@ export const NamingSettings = (props: { app: App }) => {
       <Switch checked={value().automaticRenaming} disabled={saving()} description={copy.automaticRenamingHint}
         onCheckedChange={checked => void save(checked, value().namingGuide)}>{copy.automaticRenaming}</Switch>
       <Field.Root class="settings-field settings-naming" invalid={!!failure()}>
-        <div class="settings-caption"><Field.Label>{copy.namingGuide}</Field.Label><Field.HelperText>{copy.namingGuideHint}</Field.HelperText></div>
+        <Field.Label>{copy.namingGuide}</Field.Label>
         <Field.Textarea rows={4} spellcheck={false} autocorrect="off" autocapitalize="off" value={text()} onInput={event => {
           const input = event.currentTarget;
           drafts.edit(destination, { text: input.value }, { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection }, "ordinary");
         }} />
+        <Field.HelperText>{copy.namingGuideHint}</Field.HelperText>
         <button class="word" data-button="quiet" type="button" disabled={saving()} onClick={() => void save(value().automaticRenaming, text(), draft()?.revision)}>{copy.save}</button>
         <Field.ErrorText asChild={error => <div {...error()}><ReservedLine message={failure()} /></div>} />
       </Field.Root>

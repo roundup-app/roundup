@@ -75,6 +75,8 @@ fn load_with<T>(
                 // availability on the live Attempt (R16).
                 can_resume: !matches!(row.get_ref(13)?, rusqlite::types::ValueRef::Null)
                     && !matches!(row.get_ref(14)?, rusqlite::types::ValueRef::Null),
+                can_make_workstream: false,
+                can_save_as_mode: false,
                 yolo: false,
                 channel: None,
                 stray: Vec::new(),

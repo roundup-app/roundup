@@ -19,6 +19,7 @@ export const copy = {
   shortcutKeys: { Space: "Space", Tab: "Tab" },
   shortcutSymbols: { Enter: "⏎", Backspace: "⌫", Delete: "⌦", Comma: ",", Period: ".", Slash: "/", Semicolon: ";", Quote: "'", Minus: "-", Equal: "=", Backquote: "`", BracketLeft: "[", BracketRight: "]", Backslash: "\\", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→" },
   settings: sharedCopy.settings,
+  settingsForward: sharedCopy.settingsForward,
   openDraft: sharedCopy.openDraft,
   todoUndo: sharedCopy.todoUndo,
   redo: sharedCopy.redo,

@@ -223,6 +223,7 @@ type After = {
   "terminal/SpawnParams": import("./generated/terminal/SpawnParams").SpawnParams;
   "terminal/TerminalId": import("./generated/terminal/TerminalId").TerminalId;
   "terminal/TerminalInfo": import("./generated/terminal/TerminalInfo").TerminalInfo;
+  "terminal/TerminalStatusEvent": import("./generated/terminal/TerminalStatusEvent").TerminalStatusEvent;
   "terminal/TitleEvent": import("./generated/terminal/TitleEvent").TitleEvent;
   "terminal/WriteParams": import("./generated/terminal/WriteParams").WriteParams;
   "todo/AssignParams": import("./generated/todo/AssignParams").AssignParams;
