@@ -159,7 +159,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: R
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: attention %s", async (byAction) => {
   const { connected } = await mountSwitcher("ops");
 
-  if (byAction) { await show(); await chooseAction("Reach attention", "enter"); }
+  if (byAction) { await show(); await chooseAction("Next needs you", "enter"); }
   else leaderKey("KeyJ");
   expect(connected.rail.selected()).toBe("cy");
 });
@@ -173,7 +173,7 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
     emulators.made.get("7")!.focus();
     await waitFor(() => expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("7"));
 
-    if (byAction) { await show(); await chooseAction(key === "M" ? "Toggle Bubble" : "Close the Bubble", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "M" ? "Minimise Bubble" : "Close the Bubble", "enter"); }
     else leaderKey(`Key${key}`, {}, document.activeElement!);
 
     if (key === "W") {
@@ -195,7 +195,7 @@ it.each(["B", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
 
     const beforeShelf = document.querySelector<HTMLElement>(".window")?.dataset.shelf;
 
-    if (byAction) { await show(); await chooseAction(key === "B" ? "Open the Bench" : "Reach attention elsewhere", "enter"); }
+    if (byAction) { await show(); await chooseAction(key === "B" ? "Open the Bench" : "Needs you elsewhere", "enter"); }
     else leaderKey("Key" + (key === "B" ? "B" : "J"), { shiftKey: key === "⇧J" });
 
     if (key === "B") await waitFor(() => expect(document.querySelector<HTMLElement>(".window")?.dataset.shelf).toBe(beforeShelf === "open" ? "closed" : "open"));
@@ -224,8 +224,8 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
   await show();
 
   const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
-    "Reach attention", ...(context === "rail" ? ["Rename", "Remove"] : []),
-    "Focus the Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset Terminal text"] : []), "Assign / Ask", ...(["bubble", "editor"].includes(context) ? ["Toggle Bubble", "Close the Bubble"] : [])];
+    "Next needs you", ...(context === "rail" ? ["Rename", "Remove"] : []),
+    "Focus the Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset text size"] : []), "Assign / Ask", ...(["bubble", "editor"].includes(context) ? ["Minimise Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
   press("Escape", {}, field()!);
