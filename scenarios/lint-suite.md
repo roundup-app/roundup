@@ -67,3 +67,18 @@ Policy: install pinned tools reproducibly through existing setup/recipe boundari
 7. `AGENTS.md`, Rules 7, 9 and 10: preserve performance budgets, research reuse before adding machinery and retain only tests that detect a distinct required break.
 
 Principles: this changes engineering checks only. No product Gate gains a new path; no product Observer or Mac observation is needed. Observe the new boundaries through the real lint commands and isolated fixtures above, plus independent review of CI wiring and initial inventories.
+
+## Repo-wide scans on every PR
+
+**L5398 repo-wide scans run on every PR.** Given a PR whose diff reaches no web file (`loop/affected.py web` prints nothing), when `pre` runs on its head, then the size, typos and ruff scans of `tools/lint/scan.py web` run in the `lint` job, which `pre.yml` runs on every PR through `just lint-rust`, and fail `pre` on a new match, as follows.
+
+| Diff | Result |
+| --- | --- |
+| Only a scenario file, adding a typos match | `pre` fails, naming the file and misspelling |
+| Only a `loop/` Python file, adding a ruff diagnostic | `pre` fails, naming the rule and file |
+| Neither | `pre` passes |
+
+- The scans run once per `pre`: `lint-rust` runs them, `lint-web` does not, and a push to `main` runs them through `lint` as a PR does. The web tests still run only for web changes (L89).
+- `pre.yml` is frozen (L118), so the lane is a `justfile` change: a `lint-repo` recipe running `python3 tools/lint/setup.py web` and `python3 tools/lint/scan.py web`, called by `lint-rust` and removed from `lint-web`'s `pnpm lint:boundaries`. The scans add under one minute to a PR with no web change.
+- No scan is dropped, no `tools/lint/debt.json` exception is added and the web lane does not run for a scenario-only change.
+- Test `l5398_repo_wide_scans_run_in_the_lane_every_pr_runs` runs `just --dry-run lint-rust` and `just --dry-run lint-web` and asserts that only the first prints the `scan.py web` command (policy: it pins a gate boundary, which of the two lanes runs the scans). The first observer is `pre` on the implementing PR's head (policy).
