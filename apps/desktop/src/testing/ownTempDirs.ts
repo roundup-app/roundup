@@ -8,18 +8,21 @@ const made = new Set<string>();
 const inTmp = (path: string) => path.startsWith(tmpdir());
 
 const realSync = fs.mkdtempSync;
+
 const realAsync = fs.promises.mkdtemp;
 
+// SAFETY: the wrapper forwards every argument and returns the original's result.
 fs.mkdtempSync = ((...args: Parameters<typeof realSync>) => {
-  const path = realSync(...args) as string;
+  const path = String(realSync(...args));
 
   if (inTmp(path)) made.add(path);
 
   return path;
 }) as typeof realSync;
 
+// SAFETY: the wrapper forwards every argument and resolves the original's result.
 fs.promises.mkdtemp = (async (...args: Parameters<typeof realAsync>) => {
-  const path = (await realAsync(...args)) as string;
+  const path = String(await realAsync(...args));
 
   if (inTmp(path)) made.add(path);
 
