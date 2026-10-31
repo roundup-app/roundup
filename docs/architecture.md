@@ -34,6 +34,7 @@ The App is a Rust crate under `crates/`, not under `apps/`. A Cargo workspace me
 | `crates/rup` | core | the `rup` CLI and the MCP server (`src/mcp.rs`) |
 | `crates/desktop` | ui | The App: the Tauri 2 shell that starts `rupd` for one Project and passes calls and events to the webview (`scenarios/app.md`) |
 | `apps/desktop` | ui | The webview: Solid + xterm.js, a client of `rupd` through the App |
+| `site` | docs | The published user docs: VitePress, built to static files with `.md` twins, `llms.txt`, `llms-full.txt` and `search.json`; `docs/` stays unpublished |
 
 ## Agent adapter contract
 
