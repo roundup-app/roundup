@@ -16,9 +16,11 @@ export const shortcutLabel = (press: string, keyName = ""): string => {
   const parts = press.split("+");
   const code = parts.at(-1) ?? "";
   const key = code.replace(/^Key|^Digit/, "");
+  const known = /^(Key[A-Z]|Digit[0-9]|F([1-9]|1[0-2]))$/.test(code);
+  const label = [...Object.entries(copy.shortcutKeys), ...Object.entries(copy.shortcutSymbols)].find(([name]) => name === code)?.[1];
 
 
-  return `${parts.includes("ctrl") ? "⌃" : ""}${parts.includes("alt") ? "⌥" : ""}${parts.includes("shift") ? "⇧" : ""}${parts.includes("meta") ? "⌘" : ""}${copy.shortcutKeys.get(code) ?? (keyName || key)}`;
+  return `${parts.includes("ctrl") ? "⌃" : ""}${parts.includes("alt") ? "⌥" : ""}${parts.includes("shift") ? "⇧" : ""}${parts.includes("meta") ? "⌘" : ""}${label ?? (known ? key : keyName || key)}`;
 };
 
 export const CHORDS: readonly Chord[] = [
