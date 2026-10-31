@@ -176,6 +176,15 @@ impl Agents {
         self.configure(|shared| shared.resume_effect = Some(Arc::new(observer)))
     }
 
+    /// RO3: run `hold` before each background read of a transcript overview, so an isolated
+    /// observer can keep the reader pending while Daemon calls are made.
+    #[must_use]
+    pub fn with_overview_hold(self, hold: impl Fn() + Send + Sync + 'static) -> Self {
+        self.configure(|shared| {
+            shared.rail_view.launcher = shared.rail_view.launcher.clone().with_overview_hold(hold);
+        })
+    }
+
     /// Change a setting before any call has shared the Agents: the only holder of `shared` is
     /// `self`, plus its own `me`.
     pub(super) fn configure(mut self, set: impl FnOnce(&mut Shared)) -> Self {

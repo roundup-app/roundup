@@ -139,6 +139,18 @@ pub(crate) fn resume_effect_observer() -> impl Fn(&str, &str) -> Result<(), RpcE
     }
 }
 
+/// RO3's isolated observer keeps the overview reader pending while its gate file exists.
+pub(crate) fn overview_read_observer() -> impl Fn() + Send + Sync {
+    let gate = std::env::var_os("RUPD_OVERVIEW_READ_GATE").map(std::path::PathBuf::from);
+    move || {
+        let Some(gate) = &gate else { return };
+        let _ = std::fs::write(gate.with_extension("arrived"), "");
+        let _ = wait_for_gate(gate_dir(gate), std::time::Duration::from_secs(30), || {
+            !gate.is_file()
+        });
+    }
+}
+
 /// B6's isolated exit observer keeps a Terminal's exit unconfirmed while its gate file exists.
 pub(crate) fn terminal_exit_observer() -> impl Fn() + Send + Sync {
     let gate = std::env::var_os("RUPD_TERMINAL_EXIT_GATE").map(std::path::PathBuf::from);

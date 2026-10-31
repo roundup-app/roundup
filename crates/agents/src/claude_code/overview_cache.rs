@@ -4,8 +4,8 @@
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
 use contracts::agent::{ContextPart, ConversationCard, ConversationOverview};
@@ -137,6 +137,8 @@ pub(super) struct OverviewCache {
     wanted: Mutex<HashMap<String, (PathBuf, Instant)>>,
     working: AtomicBool,
     parsed: AtomicU64,
+    /// An isolated observer's hold, run before each background read (RO3).
+    hold: OnceLock<Box<dyn Fn() + Send + Sync>>,
 }
 
 impl OverviewCache {
@@ -207,6 +209,9 @@ impl Launcher {
     /// RO1: bring `id`'s overview up to its transcript, parsing only what was appended. Holds
     /// no lock another call waits on. Whether the overview changed.
     pub fn refresh_overview(&self, cwd: &Path, id: &str) -> bool {
+        if let Some(hold) = self.overviews.hold.get() {
+            hold();
+        }
         let entry = self.overviews.entry(id);
         let mut entry = entry.lock().unwrap_or_else(|e| e.into_inner());
         let before = entry.overview.clone();
@@ -279,6 +284,13 @@ impl Launcher {
                 tick.tick().await;
             }
         });
+    }
+
+    /// RO3: run `hold` before each read, for an isolated observer that keeps the reader pending.
+    #[must_use]
+    pub fn with_overview_hold(self, hold: impl Fn() + Send + Sync + 'static) -> Self {
+        let _ = self.overviews.hold.set(Box::new(hold));
+        self
     }
 
     /// RO1's call count: transcript bytes parsed so far, by every read of this Launcher.
