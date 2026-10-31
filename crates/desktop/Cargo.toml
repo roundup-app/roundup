@@ -29,6 +29,7 @@ serde_json.workspace = true
 tauri = { version = "2", features = ["protocol-asset", "macos-private-api"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2.8"
 tauri-plugin-window-state = { version = "=2.5.0", path = "vendor/tauri-plugin-window-state-2.5.0" }
 tauri-plugin-store = { version = "=2.5.0", path = "vendor/tauri-plugin-store-2.5.0" }
 time = "0.3.55"
@@ -56,4 +57,3 @@ workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-deep-link = "=2.6.2"
 tauri-plugin-single-instance = { version = "=2.5.4", features = ["deep-link"] }
-mac-notification-sys = "0.6.15"
