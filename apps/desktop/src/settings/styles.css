@@ -296,7 +296,7 @@
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-drawer);
-  background: light-dark(var(--root-sunken), var(--surface));
+  background: color-mix(in srgb, var(--text) 5%, var(--ground));
   overflow: hidden;
 }
 .settings-rows > .app-select,
@@ -323,7 +323,7 @@
 .settings-mode-preview[data-scale="small"] { font-size: calc(13px * var(--scale-small)); }
 .settings-mode-preview[data-scale="default"] { font-size: 13px; }
 .settings-mode-preview[data-scale="large"] { font-size: calc(13px * var(--scale-large)); }
-.settings-forward-disabled { color: var(--disabled); }
+.settings-history .settings-forward-disabled { color: var(--disabled); }
 .settings-content .app-segment[data-state="checked"] { color: var(--accent); }
 .settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .settings-preview-terminal { height: auto; overflow: hidden; background: var(--terminal-background); }
