@@ -174,6 +174,7 @@
   --terminal-type-step: 0.1;
   --letter-terminal: 0px;
   --weight-terminal: 300;
+  --inset-box: color-mix(in srgb, var(--text) 5%, var(--ground));
   --text-caption: calc(11px * var(--interface-scale));
   --text-small: calc(12px * var(--interface-scale));
   --text-body: calc(13px * var(--interface-scale));
