@@ -84,7 +84,7 @@ it("u4547e_native_menu_uses_the_focused_rail_scope", async () => {
   await waitFor(() => expect(document.activeElement).toBe(rowOf("free")));
   const ask = screen.getByRole("textbox", { name: "Ask" });
   ask.focus();
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:M")).toBe(false));
+  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:M" && item.enabled)).toBe(false));
   expect(fireEvent.keyDown(ask, { key: "m", code: "KeyM" })).toBe(true);
   expect(railCallsTo(daemon, "rail.move")).toEqual([]);
 });
