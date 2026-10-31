@@ -165,8 +165,6 @@
   flex-direction: column;
 }
 
-
-
 .pane .terminal-find {
   position: absolute;
   top: var(--space-2);
