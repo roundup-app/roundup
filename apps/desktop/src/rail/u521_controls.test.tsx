@@ -87,8 +87,8 @@ it("u521_shortcuts_leave_no_stale_callback", async () => {
 it("u521_copy_preserves_content", async () => {
   // Names and returned errors stay verbatim; the labels come from the catalogue.
   const odd = "«ünï/cødé» a b";
-  await mountRail([workstream("w", { name: odd })]);
   await mountRail([workstream("w", { name: odd }), agent("a", "idle", "ready", { parent: "w" })]);
-  expect(screen.getAllByText(odd)[0].textContent).toBe(odd);
+
+  expect(screen.getByText(odd).textContent).toBe(odd);
   expect(screen.getByRole("button", { name: copy.collapse })).toBeTruthy();
 });

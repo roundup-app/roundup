@@ -29,7 +29,7 @@ const click = async (id: string) => {
 };
 
 const collapse = async (id: string) => {
-  fireEvent.click(within(row(id)!).getByRole("button", { name: "Collapse" }));
+  fireEvent.click(within(row(id)!).getByRole("button", { name: /^(Collapse|Expand)$/ }));
   await settled();
 };
 
