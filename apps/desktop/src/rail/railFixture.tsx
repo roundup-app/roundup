@@ -1,3 +1,4 @@
+import { DisplayClockContext } from "../state/clock";
 // fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
@@ -51,7 +52,7 @@ export const mountRail = async (
     connected.worktrees.watch(() => true);
 
     return (
-      <ConnectedProjectContext.Provider value={connected}>
+      <DisplayClockContext.Provider value={() => () => Date.now()}><ConnectedProjectContext.Provider value={connected}>
         <AttentionKey />
         <DockBadge app={app} rails={() => [connected.rail.nodes]} onFailure={() => {}} />
         <Rail />
@@ -62,7 +63,7 @@ export const mountRail = async (
         <Show when={neighbors.drawer}>
           <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
         </Show>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
     );
   });
 
