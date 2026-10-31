@@ -65,6 +65,28 @@ fn u5232f_both_false_is_invalid() {
 }
 
 #[test]
+fn u5232f_nothing_fires_without_a_call() {
+    let fake = Arc::new(Fake::default());
+    let _alerts = Alerts::new(Box::new(Shared(fake.clone())));
+    assert!(fake.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn u5232f_set_dock_badge_is_unchanged() {
+    // The badge stays the webview's window call; a `stateAlert` never reaches it.
+    let fake = Arc::new(Fake::default());
+    raise(&fake, true, true).unwrap();
+    assert!(
+        fake.calls
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|call| !call.contains("badge") || call.starts_with("banner"))
+    );
+    assert!(!include_str!("../src/lib.rs").contains("set_dock_badge"));
+}
+
+#[test]
 fn u5232g_the_first_alert_asks_permission_once() {
     let fake = Arc::new(Fake::default());
     let alerts = Alerts::new(Box::new(Shared(fake.clone())));
