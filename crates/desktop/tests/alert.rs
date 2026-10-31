@@ -99,17 +99,11 @@ fn u5232g_a_refusal_returns_its_cause_and_sound_still_plays() {
 #[test]
 fn u5232e_a_click_emits_the_agent_to_the_webview() {
     let app = mock_builder().build(mock_context(noop_assets())).unwrap();
-    let seen = Arc::new(Mutex::new(Vec::new()));
-    let record = seen.clone();
+    let (sender, seen) = std::sync::mpsc::channel();
     app.handle().listen(desktop::alert::CLICKED, move |event| {
-        record.lock().unwrap().push(event.payload().to_owned())
+        sender.send(event.payload().to_owned()).unwrap()
     });
     desktop::alert::clicked(app.handle(), "a1");
-    for _ in 0..100 {
-        if !seen.lock().unwrap().is_empty() {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(10));
-    }
-    assert_eq!(*seen.lock().unwrap(), [r#"{"agent":"a1"}"#]);
+    let payload = seen.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
+    assert_eq!(payload, r#"{"agent":"a1"}"#);
 }
