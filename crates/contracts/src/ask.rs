@@ -1,8 +1,9 @@
 //! The user's Ask, its verbatim parts, and their durable delivery state (A40–A42).
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Ask {
     pub id: String,
     pub text: String,
@@ -14,7 +15,7 @@ pub struct Ask {
     pub submission: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct AskPart {
     pub text: String,
     pub placement: Placement,
@@ -24,7 +25,7 @@ pub struct AskPart {
     pub reason: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Placement {
     Routed {
@@ -42,7 +43,7 @@ pub enum Placement {
     },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum State {
     Placing,
@@ -53,7 +54,7 @@ pub enum State {
     Dropped,
 }
 
-#[derive(Deserialize, Type)]
+#[derive(Deserialize, Type, JsonSchema)]
 pub struct SendParams {
     pub text: String,
     // A caller-captured revision identity. Equal replay returns its original Ask.
@@ -64,7 +65,7 @@ pub struct SendParams {
     pub workstream: Option<String>,
 }
 
-#[derive(Deserialize, Type)]
+#[derive(Deserialize, Type, JsonSchema)]
 pub struct PickParams {
     pub id: String,
     #[specta(type = specta_typescript::Number)]
@@ -72,7 +73,7 @@ pub struct PickParams {
     pub target: Target,
 }
 
-#[derive(Deserialize, Type)]
+#[derive(Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum Target {
     Workstream {
