@@ -285,7 +285,7 @@ export const App = (props: {
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
   const capture = props.app.capture;
   onMount(() => {
-    void capture?.configure(appSettings().quickAdd).catch(error => setWindowFailure(String(error)));
+    void capture?.configure(appSettings().quickAddAnywhere || null).catch(error => setWindowFailure(String(error)));
   });
   onCleanup(() => { void capture?.configure(null); });
 

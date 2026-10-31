@@ -245,3 +245,8 @@ it("u471_copy_allowlist_rejects_a_changed_unused_value", () => {
 it("u471_copy_guard_accepts_the_recovery_name", () => {
   expect(rules(fixture('message: "Unfinished work"'))).toEqual([]);
 });
+
+it("u5205_copy_guard_exempts_only_the_named_long_label", () => {
+  expect(rules(fixture('message: "Quick add from any app"'))).not.toContain("label-length");
+  expect(rules(fixture('message: "Quick add from every app"'))).toContain("label-length");
+});
