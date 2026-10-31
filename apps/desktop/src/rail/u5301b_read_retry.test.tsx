@@ -12,6 +12,7 @@ it("u5301b_a_read_failure_retries_by_calling_the_read_again", async () => {
   const app = createFakeApp();
   app.handlers["terminal.list"] = () => [];
   app.handlers["rail.tree"] = () => { throw new RpcError(-32603, "no reply to rail.tree within 5s"); };
+
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
 
   render(() => <ConnectedProjectContext.Provider value={connected}>
