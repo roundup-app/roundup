@@ -13,6 +13,7 @@ mod models;
 mod overview_cache;
 mod placement;
 mod profiles;
+mod rewind;
 pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;

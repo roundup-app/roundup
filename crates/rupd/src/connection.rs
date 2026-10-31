@@ -151,8 +151,6 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                     | "agent.setOrder"
                     | "agent.resume"
                     | "agent.instructions"
-                    | "workstream.rewind"
-                    | "workstream.rewindPlan"
             )
         ) {
             daemon.action_actor(&conn)
