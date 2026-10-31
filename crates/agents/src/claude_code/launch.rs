@@ -89,6 +89,8 @@ pub struct Launcher {
     sockets: Arc<std::sync::OnceLock<tempfile::TempDir>>,
     /// B2706: the permission mode each Agent's latest normal Attempt runs in, for its notes.
     pub(super) modes: Arc<Mutex<std::collections::HashMap<String, super::models::LaunchMode>>>,
+    /// RO1: what each saved conversation's overview was read to, shared by every clone.
+    pub(super) overviews: Arc<super::overview_cache::OverviewCache>,
 }
 
 struct Delivery {
@@ -179,6 +181,7 @@ impl Launcher {
             plugins: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
             modes: Arc::default(),
+            overviews: Arc::default(),
         }
     }
 

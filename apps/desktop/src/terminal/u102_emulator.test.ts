@@ -251,3 +251,29 @@ it("z3788a_images_keep_output_and_input_usable", async () => {
     }
   }
 }, 60_000);
+
+it("z3788a_search_navigates_scrollback_without_input", async () => {
+  const spy = vi.spyOn(xtermModule, "Terminal");
+  const emulator = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }))("t-find");
+  const terminal = spy.mock.instances[0]!;
+  spy.mockRestore();
+  const host = document.body.appendChild(document.createElement("div"));
+  vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+  emulator.show(host);
+  const lines = Array.from({ length: 100 }, (_, index) => index === 3 || index === 60 ? `needle ${index}` : `line ${index}`).join("\r\n");
+  await new Promise<void>((resolve) => emulator.write(new TextEncoder().encode(lines), resolve));
+  const written = vi.spyOn(terminal, "write");
+  const at = () => terminal.buffer.active.getLine(terminal.getSelectionPosition()!.start.y)!.translateToString(true);
+
+  expect(emulator.find!("needle")).toBe(true);
+  expect(at()).toBe("needle 3");
+  expect(emulator.find!("needle")).toBe(true);
+  expect(at()).toBe("needle 60");
+  expect(emulator.find!("needle", true)).toBe(true);
+  expect(at()).toBe("needle 3");
+  expect(emulator.find!("absent")).toBe(false);
+  expect(emulator.find!("")).toBe(false);
+  expect(written).not.toHaveBeenCalled();
+  emulator.dispose();
+  host.remove();
+});
