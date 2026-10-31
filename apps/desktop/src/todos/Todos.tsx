@@ -672,7 +672,7 @@ export const Todos = (props: {
   const canTriage = (event: KeyboardEvent, nesting = false) => triage.canKey(event, section, !tabs || tabs().value === "todos", nesting);
 
   const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement) => void, press?: string) => ({
-    action: CHORDS.find(row => row.inTriage && row.keys === keys)!, ...(press ? { press } : {}), searchable: false as const,
+    action: CHORDS.find(row => row.inTriage && row.keys === keys)!, press, searchable: false as const,
     when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
     capture: (focus: Element | null) => {
       const id = idOfRow(focus);
