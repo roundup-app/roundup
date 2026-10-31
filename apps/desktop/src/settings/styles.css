@@ -299,29 +299,25 @@
   background: var(--inset-box);
   overflow: hidden;
 }
-.settings-rows .app-select,
-.settings-rows .settings-field,
-.settings-rows .app-segments,
-.settings-rows .app-switch,
-.settings-rows .settings-appearance-preview {
+.settings-rows > :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview) {
   box-sizing: border-box;
   padding: var(--space-3) var(--space-4);
 }
-.settings-rows .app-select:not(:first-child),
-.settings-rows .settings-field:not(:first-child),
-.settings-rows .app-segments:not(:first-child),
-.settings-rows .app-switch:not(:first-child),
-.settings-rows .settings-appearance-preview:not(:first-child) {
+.settings-rows > :is(.app-select, .settings-field, .app-segments, .app-switch, .settings-appearance-preview, .settings-preview):not(:first-child) {
   border-top: var(--hairline-width) solid var(--hairline);
 }
 .settings-history { display: flex; gap: var(--space-3); align-items: center; }
-.settings-forward { position: absolute; top: var(--space-2); right: var(--space-4); z-index: 1; }
+/* Forward sits in a header row of the centre, above the view it restores, never over it. */
+.settings-center { display: flex; flex-direction: column; }
+.settings-center > .settings-center-content { flex: 1; height: auto; min-height: 0; }
+.settings-forward { order: -1; align-self: flex-end; margin: var(--space-2) var(--space-4) 0; }
 .settings-appearance-preview { display: flex; }
-.settings-mode-preview { padding: var(--space-3); border-radius: var(--radius-control); background: var(--terminal-background); color: var(--terminal-foreground); font-size: var(--text-body); }
+.settings-mode-preview { padding: var(--space-3); border-radius: var(--radius-control); background: var(--terminal-background); color: var(--terminal-foreground); }
 .settings-mode-preview[data-mode="light"] { color-scheme: light; }
 .settings-mode-preview[data-mode="dark"] { color-scheme: dark; }
-.settings-mode-preview[data-scale="small"] { font-size: var(--text-caption); }
-.settings-mode-preview[data-scale="large"] { font-size: var(--text-title); }
+.settings-mode-preview { font-size: calc(var(--text-body) / var(--interface-scale)); }
+.settings-mode-preview[data-scale="small"] { font-size: calc(var(--text-body) / var(--interface-scale) * var(--scale-small)); }
+.settings-mode-preview[data-scale="large"] { font-size: calc(var(--text-body) / var(--interface-scale) * var(--scale-large)); }
 .settings-history .settings-forward-disabled { color: var(--disabled); }
 .settings-content .app-segment[data-state="checked"] { color: var(--accent); }
 .settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
