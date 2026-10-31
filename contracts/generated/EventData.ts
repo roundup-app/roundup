@@ -2,12 +2,10 @@
 import type { Ask } from "./ask/Ask";
 import type { AutoParams } from "./workstream/AutoParams";
 import type { ChannelEvent } from "./agent/ChannelEvent";
-import type { Checkpoint } from "./checkpoint/Checkpoint";
 import type { ExitedEvent } from "./terminal/ExitedEvent";
 import type { Message } from "./message/Message";
 import type { PadName } from "./pad/PadName";
 import type { Requested } from "./project/Requested";
-import type { Rewound } from "./workstream/Rewound";
 import type { Route } from "./message/Route";
 import type { StatusEvent } from "./agent/StatusEvent";
 import type { StrayEvent } from "./agent/StrayEvent";
@@ -45,7 +43,7 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 { "name": "rail.renamed", "data": {
 	id: string,
 	name: string,
-} } | { "name": "checkpoint.written", "data": Checkpoint } | { "name": "workstream.rewound", "data": Rewound } | { "name": "project.requested", "data": Requested } | 
+} } | { "name": "project.requested", "data": Requested } | 
 /**  A3195: the Queue or the Project's cap changed; read `workstream.queue`. */
 { "name": "workstream.queueChanged" };
 
