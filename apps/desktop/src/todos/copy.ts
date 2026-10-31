@@ -17,7 +17,7 @@ export const copy = {
   deleteBusy: "Another delete is still finishing. Try again in a moment.",
   deleting: (ids: string) => `Deleting ${ids}`,
   deleteNotConnected: "The project is not connected yet. Try again in a moment.",
-  deleteBlockedBy: (name: string) => `${name} is unconfirmed. Press Retry to check it, or Dismiss to leave it.`,
+  deleteBlockedBy: (name: string) => `${name} is unconfirmed. Press Check deletion to check it, or Dismiss to leave it.`,
   deleteStaysUnconfirmed: (name: string) => `${name} is still unconfirmed.`,
   deleteUnconfirmed: "An earlier deletion is unconfirmed. Check deletion first.",
   todoUndo: sharedCopy.todoUndo,
