@@ -60,3 +60,10 @@ pub enum LinkContent {
         screen: Screen,
     },
 }
+
+/// U5239e: the user's shortcut overrides, one press per action name, written to the file at an absolute `path`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ShortcutsExportParams {
+    pub path: String,
+    pub overrides: std::collections::BTreeMap<String, String>,
+}
