@@ -6,6 +6,7 @@ import type { Target } from "@contracts/ask/Target";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
+import { FailureLine, shownKind } from "../ink/FailureLine";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
 import { registerKeys, type KeyScope } from "../keys/registry";
@@ -125,6 +126,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
 
   /** U505: once typed, the Door's own live Status; never text a model wrote. */
   const status = () => (props.live && props.part.state === "typed" ? node()?.status ?? null : null);
+  const dismissed = () => node() !== undefined && rail.dismissed(node()!);
   const asking = () => !props.entry.pending && (props.part.state === "waiting" || props.part.state === "failed");
   const busy = () => asks.picking(props.entry.key, props.index);
   const failure = () => asks.partFailure(props.entry.key, props.index);
@@ -138,7 +140,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
     <>
       <span {...trigger} ref={text} class="ask-text">{props.part.text}</span>
       <span class="ask-where">
-        <Show when={status()}>{(live) => <Tip text={LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={live().kind} /></span>}</Tip>}</Show>
+        <Show when={status()}>{(live) => <Tip text={live().kind === "error" ? live().label : LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={shownKind(live(), dismissed())} /></span>}</Tip>}</Show>
         <Tip text={props.where} disabled={!cut()}>{(trigger) => <span {...trigger()} ref={name} class="ask-name">{props.where}</span>}</Tip>
       </span>
       <span class="ask-state" data-state={props.part.state}>{STATE_WORDS[props.part.state]}</span>
@@ -154,6 +156,7 @@ const AskRow = (props: { live: boolean; keys: KeyScope; entry: AskEntry; part: A
           ref={(element: HTMLButtonElement | HTMLDivElement) => { button = element instanceof HTMLButtonElement ? element : undefined; }}
           type={node() ? "button" : undefined} class={`ask-line ${node() ? "row-wash" : ""}`} data-feedback="ink" onPointerEnter={measure}>{line(tip)}</Dynamic>;
       }}</Tip>
+      <Show when={!dismissed()}><FailureLine status={status()} /></Show>
       <Show when={asking()}>
         <div class="ask-back">
           <p class="ask-reason">{props.part.reason ?? (props.part.placement.kind === "unclear" ? props.part.placement.question : "")}</p>

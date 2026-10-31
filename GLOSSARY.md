@@ -43,6 +43,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Snapshot | same | — |
 | Workstream | same | room, folder |
 | Mode | same | — |
+| Make a Workstream (`agent.makeWorkstream`, `Agents::make_workstream`) | Make a Workstream | — |
+| Save as Mode (`agent.saveAsMode`, `SaveAsModeParams`, `Agents::save_as_mode`) | Save as Mode… | — |
 | Auto (`auto`, `AutoParams`, `workstream.setAuto`) | same | — |
 | Start choice | same | — |
 | Queue | same | — |
@@ -58,6 +60,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Subagent | same | child agent, sub-agent, meta-agent, parent agent |
 | Digest | same | — |
 | Wake request (`agent.wake`) | same | — |
+| GitHub tool (`github.prGet`, `github.issueGet`, `github.prSetBody`, `github.prReady`, `github.prAutoMerge`; the Door's tools `github_pr_get`, `github_issue_get`, `github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) | same | — |
+| Quiet Digest (`is_quiet_digest`) | same | — |
 | Reaction (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; authenticated maker in `actor`, one-line `reason`, absent for legacy definitions) | Reaction | — |
 | Reaction observation identity (`ObservationCause`, `ObservationGap`, `ObservationRecovery`, `ObservationHealth`) | same | — |
 | Preview (`reaction.preview`) | Time preview | — |

@@ -95,6 +95,8 @@ fn extra_text(method: &str) -> Option<&'static str> {
         "project.setModels" => "Set the Project's models.",
         "models.list" => "List the models an Agent can use.",
         "agent.setModel" => "Change the model of an Agent.",
+        "agent.makeWorkstream" => "Turn an Agent's node into a Workstream that holds it.",
+        "agent.saveAsMode" => "Save an Agent's setup as a named Mode.",
         "todo.listHanded" => "List the Todos handed to Agents.",
         "todo.getHistory" => "Read the history of a Todo.",
         "todo.readHistory" => "Mark a Todo's history read.",

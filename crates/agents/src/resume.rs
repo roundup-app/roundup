@@ -16,6 +16,17 @@ impl Agents {
         permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
         models::check_permissions(&ctx.actor, permission_mode)?;
+        // A5335b: a child with no run in this Daemon finished before it opened (a restart ends
+        // every Attempt), so only the user starts it again; an Agent's resume would spend tokens.
+        if ctx.actor.kind == contracts::ActorKind::Agent
+            && mode.is_none()
+            && self.shared.rail().node(id)?.kind == NodeKind::Agent
+            && !self.shared.runs().contains_key(id)
+        {
+            return Err(RpcError::conflict(format!(
+                "{id} finished before the Daemon restarted: only the user resumes it"
+            )));
+        }
         // A5213: a Workstream resumes its Door's conversation in the mode it last ran in.
         let mode = {
             let rail = self.shared.rail();
