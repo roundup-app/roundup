@@ -6,7 +6,6 @@ import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
 import { CopyButton, type createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
-import type { ActionValue } from "../keys/chords";
 import { attentionCount } from "./attention";
 import { copy } from "./copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
@@ -17,7 +16,7 @@ import { IconButton } from "../ui/IconButton";
 import { Icon } from "../ink/Icon";
 import { KIND_ICON } from "../ink/kindIcon";
 import { KeyChip } from "../keys/KeyChip";
-import { CHORDS, LEADER, ariaShortcut } from "../keys/chords";
+import { CHORDS, LEADER, ariaShortcut, type ActionValue } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import type { RailSection } from "./persist/storage";
@@ -163,7 +162,6 @@ export const Rail = () => {
 
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
-
     if (prompt !== undefined) keepDraft(String(prompt));
   };
 
