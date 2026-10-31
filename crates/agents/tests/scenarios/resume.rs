@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use contracts::Kind;
 use contracts::agent::RailNode;
+use rpc::Module;
 use rpc::code;
 use serde_json::{Value, json};
 
@@ -935,4 +936,62 @@ async fn a5213_can_resume_matches_the_guard() {
     }
     assert!(f.can_resume(&tree, &exited_agent.id) && f.can_resume(&tree, &door.id));
     assert!(!f.can_resume(&tree, &running.id) && !f.can_resume(&tree, &bare));
+}
+
+/// A5335b: after a reopen an Agent's resume of a child that finished starts nothing; the user's
+/// own `agent.resume` still does.
+#[tokio::test]
+async fn a5335b_an_agent_cannot_resume_a_child_finished_before_a_restart() {
+    let f = Fixture::running("sleep 30");
+    let door = f.workstream("Door", None).await;
+    let node = f.spawn(Some(&door), None).await.unwrap();
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    f.call("agent.stop", json!({"id": node.id})).await.unwrap();
+    let f = f.reopen();
+    let mut ctx = f.ctx();
+    ctx.actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: door,
+        parent: None,
+    };
+    let err = f
+        .agents
+        .call(&ctx, "agent.resume", json!({"id": node.id}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    let after = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
+        .unwrap();
+    assert_eq!(after.attempt, node.attempt);
+    assert_eq!(after.terminal_id, None);
+}
+
+/// A5335c: with no saved conversation a resume is `CONFLICT` and starts no Terminal.
+#[tokio::test]
+async fn a5335c_resume_without_a_saved_conversation_starts_nothing() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    f.call("agent.stop", json!({"id": node.id})).await.unwrap();
+    let before = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
+        .unwrap();
+    let err = f.resume(&node.id).await.unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    let after = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|n| n.id == node.id)
+        .unwrap();
+    assert_eq!(after.attempt, before.attempt);
+    assert_eq!(after.terminal_id, None);
 }
