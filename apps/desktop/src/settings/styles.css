@@ -339,6 +339,17 @@
   overflow-wrap: anywhere;
 }
 
+.settings-search { margin-block-end: var(--space-3); }
+.settings-search-label { position: absolute; inline-size: 0; block-size: 0; overflow: hidden; clip-path: inset(50%); }
+.settings-results { list-style: none; margin: 0; padding: 0; }
+.settings-result { padding: var(--space-3) var(--space-4); }
+.settings-result:not(:first-child) { border-top: var(--hairline-width) solid var(--hairline); }
+.settings-result :is(.app-select, .settings-field, .app-segments, .app-switch):not(:first-child) { padding: 0; border-top: 0; }
+.settings-result :is(.app-select, .settings-field, .app-segments, .app-switch) { padding: 0; }
+.settings-place { margin: 0 0 var(--space-1); color: var(--grey); font-size: var(--text-caption); }
+.settings-search input::placeholder { color: var(--grey); }
+.settings-no-results { color: var(--grey); }
+
 /* One row per state: three inline switches in aligned columns. */
 .settings-content .settings-alert-row {
   display: grid;

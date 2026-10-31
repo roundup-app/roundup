@@ -120,6 +120,7 @@ const observerTable = {
   "src/ui/u3310_browser.test.ts": ["U3310"],
   "src/ui/u3512_rendered.test.ts": ["U3512d"],
   "src/ui/u474_browser.test.ts": ["U477"],
+  "src/ui/u5247_browser.test.ts": ["U5247b"],
   "src/ui/u484_browser.test.ts": ["U3800a", "U3800b", "U3800c"],
 } satisfies Record<string, readonly string[] | { ids: readonly string[]; aliases: Readonly<Record<string, string>> }>;
 
