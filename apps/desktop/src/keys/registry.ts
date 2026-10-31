@@ -21,7 +21,7 @@ export const activationSource = (event: Pick<MouseEvent, "detail">): ActivationS
 
 type Binding = { chords: readonly string[]; when?: (event: KeyboardEvent) => boolean; run: (event: KeyboardEvent) => void };
 
-type ActionBinding = { action: Chord | LeaderKey; chords?: readonly string[]; repeat?: true; match?: "key"; press?: string; searchable?: false; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: (args?: ActionValues) => void; label?: string } };
+type ActionBinding = { action: Chord | LeaderKey; chords?: readonly string[]; repeat?: true; match?: "key"; press?: string | undefined; searchable?: false; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: (args?: ActionValues) => void; label?: string } };
 
 type Registration = { scope: KeyScope; actions: ActionBinding[]; bindings: { matches: ReturnType<typeof parseKeybinding>[number][]; when: Binding["when"]; run: Binding["run"] }[] };
 
