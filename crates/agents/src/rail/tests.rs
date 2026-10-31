@@ -200,7 +200,7 @@ fn a6_removing_a_node_closes_the_gap_among_its_siblings() {
 }
 
 /// A16: moving a Workstream's children and deleting the Workstream are one transaction. A trigger
-/// that only rejects the DELETE (the UPDATEs `place` runs are untouched) tells this apart
+/// that only rejects the delete (the updates `place` runs are untouched) tells this apart
 /// from a mutant that commits the move before deleting in a second transaction: there, the
 /// move would survive even though the delete failed.
 #[test]
