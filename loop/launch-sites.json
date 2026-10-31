@@ -459,6 +459,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rup/tests/i11.rs": {
+    "cleanup": "The test aborts the serving task on stop and drops it; the temp directory is removed with the test.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process"
+  },
   "crates/rup/tests/i9.rs": {
     "cleanup": "The test aborts the serving task on stop and drops it; the temp directory is removed with the test.",
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",

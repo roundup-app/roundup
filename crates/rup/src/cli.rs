@@ -14,6 +14,7 @@ use serde_json::{Map, Value};
 
 use crate::mcp::{self, CALL_TIMEOUT, Offered};
 
+mod describe;
 mod help;
 
 pub use help::help_text;
@@ -847,38 +848,6 @@ fn line(item: &Value) -> String {
     }
 }
 
-/// I11: summary, description, arguments, result, then an example call and its result.
-fn print_description(described: &Value) {
-    let text = |key: &str| described[key].as_str().unwrap_or_default();
-    println!("{}\n\n{}\n", text("summary"), text("description"));
-    println!("arguments:");
-    let params = described["params"].as_object().cloned().unwrap_or_default();
-    let fields = fields_of(&params);
-    for field in &fields {
-        let need = if field.required {
-            "required"
-        } else {
-            "optional"
-        };
-        println!("  {}  {}  {need}", field.name, type_name(&field.kind));
-    }
-    if fields.is_empty() {
-        println!("  none");
-    }
-    let result = &described["result"];
-    let shape = result["title"]
-        .as_str()
-        .or_else(|| result["type"].as_str())
-        .unwrap_or("JSON");
-    println!("\nresult: {shape}\n");
-    println!(
-        "example call: {} {}",
-        text("name"),
-        described["example"]["params"]
-    );
-    println!("example result: {}", described["example"]["result"]);
-}
-
 /// I3, I7: the text the MCP tool returns, or the plain forms of reading a Terminal.
 fn print_result(method: &str, params: &Value, result: &Value, json: bool) {
     if json {
@@ -922,7 +891,7 @@ fn print_result(method: &str, params: &Value, result: &Value, json: bool) {
                 }
             }
         }
-        "api.describe" => print_description(result),
+        "api.describe" => describe::print(result),
         "agent.wake" => {
             println!("woken: {}", result["id"]);
             if let Some(why) = result["why"].as_str() {
