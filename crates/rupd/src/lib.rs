@@ -32,12 +32,12 @@ mod removal;
 mod resources;
 mod restart;
 mod resume;
-mod rewind;
 mod route;
 mod selectors;
 mod specialist;
 mod storage;
 
+mod rewind;
 mod todo_refs;
 mod waits;
 mod wake;
@@ -85,9 +85,6 @@ pub struct Daemon {
     digests: Arc<messages::digest::Seen>,
     /// B21, B22: where a push is sent from, once `open` has made it.
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
-    /// A35: the Marks a rewind reads, and the rewinds under way.
-    checkpoints: Arc<checkpoints::Checkpoints>,
-    rewinding: rewind::Rewinding,
     restarting: tokio::sync::Mutex<()>,
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,
