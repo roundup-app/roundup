@@ -23,7 +23,7 @@ const slot = index => `⟦${index}⟧`;
 const product = (left, right, merge) => left.flatMap(a => right.map(b => merge(a, b)));
 
 // Ordered row titles longer than three words, each named exactly (U5205).
-const LONG_LABELS = new Set(['Quick add from any app']);
+const LONG_LABELS = new Set(['Quick add from any app', '⟦0⟧ belongs to the Terminal']);
 
 // Babel owns syntax and lexical binding resolution. This layer describes only copy policy.
 
