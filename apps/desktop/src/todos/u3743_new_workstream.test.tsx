@@ -49,7 +49,7 @@ it("u3743_create_calls_start_workstream_once_with_the_chosen_start", async () =>
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "Login" } });
   fireEvent.click(dialog.getByRole("button", { name: "Create" }));
 
-  await waitFor(() => expect(screen.queryByRole("dialog", { name: "New Workstream" })).toBeNull());
+  await waitFor(() => expect(screen.queryAllByRole("dialog")).toHaveLength(0));
   expect(callsTo(app, "todo.startWorkstream")).toHaveLength(1);
   expect(callsTo(app, "todo.startWorkstream")[0]?.params).toEqual({ id: 1, name: "Login", start: { kind: "now" } });
   expect(callsTo(app, "todo.assign")).toHaveLength(0);
@@ -75,8 +75,7 @@ it("u3743_after_todo_needs_a_picked_todo_and_a_name_is_required", async () => {
   const options = within(await screen.findByRole("listbox")).getAllByRole("option");
 
   expect(options.map(option => option.textContent)).toEqual(expect.arrayContaining(["Write docs#2"]));
-  expect(options.map(option => option.textContent).join()).not.toContain("Ship the login fix");
-  expect(options.map(option => option.textContent).join()).not.toContain("Done thing");
+  expect(options).toHaveLength(1);
   fireEvent.click(options.find(option => option.textContent?.includes("#2"))!);
   await waitFor(() => expect(create().getAttribute("aria-disabled")).toBe("false"));
   fireEvent.click(create());

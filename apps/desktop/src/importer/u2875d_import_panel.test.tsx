@@ -117,7 +117,7 @@ it.each([false, true])("u3815_cancel_keeps_the_exact_current_choices (empty: %s)
   await open();
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-  await waitFor(() => expect(screen.getByText("daemon said no")).toBeTruthy());
+  await screen.findByText("daemon said no");
   fireEvent.click(screen.getByText("second"));
   await screen.findByRole("button", { name: "Import 2" });
 

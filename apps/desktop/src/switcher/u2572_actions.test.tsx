@@ -326,8 +326,7 @@ it("u2572c_New_Agent_can_return_to_the_existing_prompt_while_creation_is_pending
   app.handlers["rail.createWorkstream"] = () => new Promise(() => {});
   fireEvent.click(document.querySelector<HTMLButtonElement>('.rail-actions [data-button="add"]')!);
   await show();
-  expect(actionNames()).toContain("New Agent");
-  expect(actionNames()).not.toContain("Agent with prompt");
+  expect(actionNames().filter(name => /prompt/i.test(name ?? ""))).toEqual([]);
   await chooseAction("New Agent", "enter");
   expect(document.activeElement).toBe(prompt);
   expect(prompt.value).toBe("keep my draft");

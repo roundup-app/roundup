@@ -330,9 +330,10 @@ it("u2773a_todos_live_creation_enters_recovery_only_after_hiding", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add Todo: Overview" }));
   const field = screen.getByRole("textbox", { name: "New Todo title" });
   fireEvent.input(field, { target: { value: "unfinished" } });
-  expect(screen.queryByRole("button", { name: "Copy Todo" })).toBeNull();
+  const copyButtons = screen.queryAllByRole("button", { name: "Copy Todo" }).length;
+  expect(copyButtons).toBe(0);
   fireEvent.keyDown(field, { key: "Escape" });
-  expect(screen.getByRole("button", { name: "Copy Todo", description: /Title.*unfinished/ })).toBeTruthy();
+  await screen.findByRole("button", { name: "Copy Todo", description: /Title.*unfinished/ });
 });
 
 it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () => {

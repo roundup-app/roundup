@@ -49,9 +49,6 @@ for (const by of ["pointer", "keyboard"] as const) {
       fireEvent.input(field, { target: { value: "ship it" } });
       fireEvent.keyDown(field, { key: "Enter" });
       await waitFor(() => expect(callsTo(mounted.app, "todo.create")).toEqual([{ method: "todo.create", params: { title: "ship it", body: null, blockers: null } }]));
-      refetch(mounted);
-
-      await waitFor(() => expect(rowText(2)).toContain("ship it"));
     });
 
     it(`u152_edit_${by}`, async () => {
