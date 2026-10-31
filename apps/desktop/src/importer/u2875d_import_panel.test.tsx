@@ -103,7 +103,7 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   fireEvent.click(await screen.findByRole("button", { name: "1 not importable" }));
-  await waitFor(() => expect(screen.getByText(/No working directory was recorded/)).toBeTruthy());
+  await waitFor(() => expect(screen.getByText(/No working folder was recorded/)).toBeTruthy());
   expect(screen.getByText(/The saved conversation changed/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() => expect(calls(app, "project.importDiscover")).toHaveLength(3));

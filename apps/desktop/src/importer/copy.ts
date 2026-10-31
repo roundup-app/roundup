@@ -2,13 +2,13 @@ import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 const importExcludedReasons = new Map<string, string>([
   ["alreadyImported", "This conversation was already imported"],
-  ["ambiguousProject", "This conversation has used multiple directories in this Project"],
-  ["missingDirectory", "Its directory is no longer there"],
+  ["ambiguousProject", "This conversation has used multiple folders in this Project"],
+  ["missingDirectory", "Its folder is no longer there"],
   ["insideWorktree", "This conversation is in a Worktree"],
   ["duplicateSource", "This conversation is already listed"],
   ["unknownActivity", "This conversation has no usable time"],
-  ["noDirectory", "No working directory was recorded"],
-  ["tooManyDirectories", "Too many working directories were recorded"],
+  ["noDirectory", "No working folder was recorded"],
+  ["tooManyDirectories", "Too many working folders were recorded"],
   ["noCompleteRecords", "This conversation has no complete records"],
   ["unsupportedSource", "Saved conversation filename is not a UUID"],
   ["previewLimit", "Conversation exceeds the preview size limit"],
@@ -21,7 +21,7 @@ const importExcludedReasons = new Map<string, string>([
   ["incompleteMetadata", "Conversation details could not be fully read"],
   ["sdkUnreadable", "The reader failed to open this conversation"],
   ["recordsMissing", "Saved conversation records are missing"],
-  ["insideRoundup", "This conversation is in roundup's own directory"],
+  ["insideRoundup", "This conversation is in roundup's own folder"],
   ["liveWithoutRecords", "Running conversation has no saved records yet"],
 ]);
 
