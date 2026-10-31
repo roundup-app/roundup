@@ -709,10 +709,23 @@ fn u5244e_debug_info_holds_exactly_the_four_facts() {
     );
 }
 
+#[tokio::test]
+async fn u5244e_debug_info_reachability_follows_the_daemon_answer() {
+    let paths = || vec!["/a".to_owned(), "/b".to_owned()];
+    // A running Project whose Daemon answers is reachable, even when the first one is silent.
+    assert!(any_answers(paths(), |path| async move { path == "/b" }).await);
+    // No Project, or none answering, is unreachable.
+    assert!(!any_answers(paths(), |_| async { false }).await);
+    assert!(!any_answers(Vec::new(), |_| async { true }).await);
+}
+
 #[test]
 fn u5244e_debug_info_holds_no_secret_or_usage_value() {
-    // SAFETY-free: the text takes four facts as arguments, so a token in the environment cannot reach it.
-    let text = debug_info("1.2.3", "abc", "15.1", true);
+    // The text takes only version, build, macOS and reachability, so none of the fixture's values can reach it.
+    let project = "/Users/me/secret-project";
+    let text = debug_info("1.2.3", "abc", &macos_version(), true);
     assert_eq!(text.lines().count(), 4);
-    assert!(!text.contains('$') && !text.contains('/') && !text.contains("sk-"));
+    for private in ["sk-ant-fixture-token", project, "$0.42", "/Users"] {
+        assert!(!text.contains(private));
+    }
 }
