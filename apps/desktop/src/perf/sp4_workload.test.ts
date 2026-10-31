@@ -62,6 +62,7 @@ it("sp4_the_loops_press_the_chord_then_escape_and_enter_onto_alternating_kinds",
 
   const count = (event: KeyboardEvent) => {
     if (event.key === "Escape") counts.bump("open");
+
     if (event.key === "Enter") counts.bump("switch");
   };
 
