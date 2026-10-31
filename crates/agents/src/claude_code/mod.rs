@@ -97,6 +97,8 @@ pub struct ClaudeCode {
     clock: Box<dyn Fn() -> i64 + Send>,
     /// U3566c: the Agent's published finishes, carried across Attempts by its caller.
     finished: u64,
+    /// PS9.1: false only for an Agent whose Kind comes from its Terminal's program status.
+    hooked: bool,
 }
 
 impl ClaudeCode {
@@ -109,7 +111,14 @@ impl ClaudeCode {
             star_parked_since: None,
             clock: Box::new(clock),
             finished: 0,
+            hooked: true,
         }
+    }
+
+    /// PS9.2: an Agent whose tooling pushes no Signal; its Terminal's program status gives its Kind.
+    pub fn without_hooks(mut self) -> Self {
+        self.hooked = false;
+        self
     }
 
     /// Continue the Agent's finish count from an earlier Attempt.
@@ -263,7 +272,11 @@ impl AgentAdapter for ClaudeCode {
                 self.star_parked_since = None;
                 self.settle_counting(Kind::Done, "stopped".into(), false)
             }
-            Observation::Signal(_) | Observation::Title(_) | Observation::Tick
+            Observation::Program(_) if self.hooked => None,
+            Observation::Signal(_)
+            | Observation::Title(_)
+            | Observation::Tick
+            | Observation::Program(_)
                 if self.ending != Ending::Running =>
             {
                 None
@@ -271,7 +284,12 @@ impl AgentAdapter for ClaudeCode {
             Observation::Tick => self.tick(),
             Observation::Signal(payload) => self.signal(&payload),
             Observation::Title(title) => self.retitle(&title),
+            Observation::Program(status) => self.settle(status.kind, status.label),
         }
+    }
+
+    fn has_hook_signal(&self) -> bool {
+        self.hooked
     }
 }
 
