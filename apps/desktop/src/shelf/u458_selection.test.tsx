@@ -43,7 +43,7 @@ it("u460_multi_selection_cancel_clears_without_calls", async () => {
   const { app } = await mountTodos([todo(1), todo(2)]);
   fireEvent.click(await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: /^(?:Idle|Blocked|Done) #2 / }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.queryAllByRole("button", { pressed: true })).toEqual([]);
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });

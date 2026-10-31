@@ -51,7 +51,7 @@ export const copy = {
   captureIn: (name: string) => `In ${name}`,
   capturePlaceholder: "A thought, then ⏎",
   recoveredCaptureDraft: sharedCopy.unfinishedWork,
-  title: sharedCopy.title,
+  title: "Title",
   save: sharedCopy.save,
   copied: sharedCopy.copied,
   delete: sharedCopy.delete,
