@@ -186,7 +186,8 @@ export const TodoComments = (props: { id: number; onSent?: ((focus: ReturnType<t
 
   const renderComment = (comment: Comment) => <div class="todo-comment" data-comment={comment.id}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={shownKind(node().status, rail.dismissed(node()))} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at, now())}</time>
-        <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show><Show when={glyphOf(comment)}>{(node) => <Show when={!rail.dismissed(node())}><FailureLine status={node().status} /></Show>}</Show></p>
+        <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
+      <Show when={glyphOf(comment)}>{(node) => <Show when={!rail.dismissed(node())}><FailureLine status={node().status} /></Show>}</Show>
       <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => isStatus(part)
         ? <Collapsible.Root class="todo-status" lazyMount unmountOnExit>
           <Collapsible.Trigger data-button="quiet" class="word todo-status-summary">{part.summary}</Collapsible.Trigger>
