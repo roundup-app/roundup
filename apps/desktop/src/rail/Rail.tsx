@@ -738,7 +738,7 @@ export const Rail = () => {
       data-todo-root
       data-history-region="rail"
       aria-pressed={rail.selected() === null}
-      aria-label={copy.overviewLabel} aria-description={rail.selected() === null || attention() === 0 ? undefined : copy.overviewAttention(attention())}
+      aria-label={copy.overviewLabel(rail.selected() === null ? 0 : attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
       onClick={backToAsk}
