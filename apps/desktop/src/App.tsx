@@ -713,7 +713,11 @@ export const App = (props: {
             </InProject>
           </Show>
           </div>
-          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} navigation={() => {
+            const open = activeConnection();
+
+            return `${projects.active()}\n${open instanceof Error ? "" : open?.rail.selected()}`;
+          }} />
           </div>
           </div>
           </div>
