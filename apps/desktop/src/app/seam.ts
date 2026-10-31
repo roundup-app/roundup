@@ -1,7 +1,7 @@
 import pRetry from "p-retry";
 import * as v from "valibot";
 import type { RpcErrorData } from "@contracts/RpcErrorData";
-import type { IdleEvidence } from "../perf/idle";
+import type { IdleEvidence } from "../perf/idle.ts";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 

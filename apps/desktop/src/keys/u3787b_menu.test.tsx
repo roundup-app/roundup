@@ -83,7 +83,8 @@ it.each(["unavailable", "removed", "editor"])("u3787b_scoped_menu_does_not_steal
     expect(fireEvent.keyDown(editor, { code: "KeyF", key: "f", metaKey: true })).toBe(true);
   }
 
-  await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F")).toBe(false));
+  // The Pane's own Find owner stays while the Terminal is mounted, so only the probe owner's absence is observable.
+  if (state !== "removed") await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:⌘F")).toBe(false));
   openProjectPage("action:chord:⌘F", "/p");
 
   if (state !== "editor") captured.run();

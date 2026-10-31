@@ -382,7 +382,7 @@ Each region is labelled in place with what will live there; there is no tutorial
 1. A collapsed Group shows its most urgent child's glyph and ink plus a light child count; expanded, only ▾.
 2. Done Agents fold into one `✓ n done` line per tree level after 10 minutes; a click unfolds them.
 3. Off-screen exceptions get one pinned inked line (`● 1 below`) that scrolls to the row on click. The rail never reorders.
-4. Background attention = Dock badge (needs-you + error count) only; no macOS banners.
+4. Background attention = Dock badge (needs-you + error count) only by default; a macOS State alert appears only for a state the owner turned on (`scenarios/ui-state-alerts.md`).
 5. Each Agent gets a unique fixed initial at spawn (first letter of its name not yet taken in the Project). `Y` is reserved for the user; hovering a letter shows the full name.
 6. The Inbox excludes auto-delivered agent↔agent traffic. It holds Messages to the user, unblocked Todos and changed Pads. Pending Messages show in the Rail's inbox state, never as a hold.
 7. `agent.status` and `agent.classify` may return labels and Chips only, never `kind`. The built-in classifier owns it.
