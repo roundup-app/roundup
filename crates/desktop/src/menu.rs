@@ -160,7 +160,7 @@ where
 /// The text a Copy item writes, or `None` for any other id.
 fn info_text<R: Runtime>(app: &AppHandle<R>, id: &str, daemon_reachable: bool) -> Option<String> {
     let version = app.package_info().version.to_string();
-    let build = option_env!("ROUNDUP_BUILD").unwrap_or("dev");
+    let build = env!("ROUNDUP_BUILD");
     match id {
         "copy-version-info" => Some(version_info(&version, build)),
         "copy-debug-info" => Some(debug_info(
