@@ -148,7 +148,7 @@ for (const surface of ["fold", "drawer", "agent"] as const) {
 for (const { remaining, reopened, target } of [
   { remaining: [1, 2, 3], reopened: 1, target: /Done #2 / },
   { remaining: [1, 2, 3], reopened: 3, target: /Done #2 / },
-  { remaining: [1], reopened: 1, target: "add todo to Overview" },
+  { remaining: [1], reopened: 1, target: "Add Todo: Overview" },
 ]) {
   it(`u461a_success_refetches_surfaces_and_keeps_focus in the done fold ${reopened} ${remaining}`, async () => {
     const mounted = await mountTodos(remaining.map(id => todo(id, { done: true })));

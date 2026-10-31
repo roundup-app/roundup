@@ -51,7 +51,7 @@ it("u3814_close_restores_the_previous_center_and_focus", async () => {
   opener.focus();
 
   await open();
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import Claude Code work" })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import Claude Code" })));
   fireEvent.keyDown(document.activeElement ?? document.body, { code: "Escape", key: "Escape", keyCode: 27 });
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(opener));
@@ -128,7 +128,7 @@ it.each([false, true])("u3815_cancel_keeps_the_exact_current_choices (empty: %s)
     await screen.findByRole("button", { name: "Import" });
   }
 
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   cleanup();
   render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
@@ -185,11 +185,11 @@ it("u3037d_discovery_deadline_and_retry", async () => {
   vi.useFakeTimers();
   openProjectPage("import-work");
   await vi.advanceTimersByTimeAsync(0);
-  expect(within(screen.getByRole("region", { name: "Import Claude Code work" })).getByRole("status")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty("disabled", false);
+  expect(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("status")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Back" })).toHaveProperty("disabled", false);
   await vi.advanceTimersByTimeAsync(20_000);
   expect(screen.getByRole("alert")).toBeTruthy();
-  expect(within(screen.getByRole("region", { name: "Import Claude Code work" })).queryByRole("status")).toBeNull();
+  expect(within(screen.getByRole("region", { name: "Import Claude Code" })).queryByRole("status")).toBeNull();
   expect(calls(app, "project.importCommit")).toHaveLength(0);
   app.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
@@ -213,7 +213,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
   else if (action === "period") {
     fireEvent.click(screen.getByRole("button", { name: "Last day" }));
     await vi.advanceTimersByTimeAsync(0);
-  } else if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  } else if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Back" }));
   else {
     cleanup();
     const other = createFakeApp();
@@ -231,7 +231,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
   await vi.advanceTimersByTimeAsync(0);
   expect(screen.queryByRole("checkbox", { name: /first/ })).toBeNull();
 
-  if (action !== "dismiss") expect(within(screen.getByRole("region", { name: "Import Claude Code work" })).getByRole("alert")).toBeTruthy();
+  if (action !== "dismiss") expect(within(screen.getByRole("region", { name: "Import Claude Code" })).getByRole("alert")).toBeTruthy();
   expect(calls(app, "project.importCommit")).toHaveLength(0);
 });
 
@@ -248,7 +248,7 @@ const mixed = () => {
 it("u3083b_excluded_rows_absent_until_the_disclosure_opens", async () => {
   await mixed();
   await open();
-  const dialog = screen.getByRole("region", { name: "Import Claude Code work" });
+  const dialog = screen.getByRole("region", { name: "Import Claude Code" });
 
   expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
   fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));

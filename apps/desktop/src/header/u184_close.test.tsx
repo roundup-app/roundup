@@ -250,7 +250,7 @@ describe("u184 overflow", () => {
 
   it("u184_the_plus_stays_outside_the_scrolling_strip_at_its_right_end", async () => {
     await withLayout(async () => {
-      const add = screen.getByRole("button", { name: "Open a folder" });
+      const add = screen.getByRole("button", { name: "Open Project" });
       const scroll = document.querySelector(".strip-scroll")!;
 
       expect(screen.getByRole("tablist", { name: "Projects" }).contains(add)).toBe(false);

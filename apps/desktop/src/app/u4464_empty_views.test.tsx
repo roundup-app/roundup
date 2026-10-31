@@ -11,7 +11,7 @@ it("u4464_choose_folder_opens_the_chooser", async () => {
   const app = createFakeApp();
   const choose = vi.spyOn(app, "chooseProjectPath");
   render(() => <App app={app} clock={() => 0} reducedMotion={() => true} createEmulator={fakeEmulators().factory} />);
-  const button = await screen.findByRole("button", { name: "Choose folder…" });
+  const button = await screen.findByRole("button", { name: "Choose Project…" });
   fireEvent.click(button);
   await waitFor(() => expect(choose).toHaveBeenCalledOnce());
 });
@@ -21,7 +21,7 @@ it("u4464_cmd_o_opens_the_chooser_on_first_run_only", async () => {
   app.chooser.path = "/chosen";
   const choose = vi.spyOn(app, "chooseProjectPath");
   render(() => <App app={app} clock={() => 0} reducedMotion={() => true} createEmulator={fakeEmulators().factory} />);
-  await screen.findByRole("button", { name: "Choose folder…" });
+  await screen.findByRole("button", { name: "Choose Project…" });
   fireEvent.keyDown(window, { key: "o", code: "KeyO", metaKey: true });
   await screen.findByRole("textbox", { name: "Ask" });
   expect(choose).toHaveBeenCalledOnce();

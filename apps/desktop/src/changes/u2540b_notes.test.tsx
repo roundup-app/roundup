@@ -30,7 +30,7 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  keep exact\ntext  ");
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "cancel me" } });
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("cancel me");
 });
 
@@ -60,7 +60,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished a 🐝\n  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("b", "working", "building", { worktree: { ...WORKTREE, branch: "roundup/b", path: "/p/b" } })];
   app.emit(event({ name: "rail.changed" }));
   await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "b")).toBe(true));
@@ -81,7 +81,7 @@ it("u2773a_changes_agent_switch_restores_form", async () => {
   await openFile();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished a 🐝\n  ");
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
   app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
   fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
@@ -103,7 +103,7 @@ it("u2540b_refresh_keeps_original_context", async () => {
   await within(screen.getByRole("list", { name: "Notes" })).findByRole("status");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "original");
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   app.handlers["message.send"] = params => message(1, { body: params.body, to: params.to });
   fireEvent.click(screen.getByRole("button", { name: /Send notes:/ }));
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
@@ -216,7 +216,7 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
   read?.mockRestore();
 
   if (original) expect(localStorage.getItem("roundup:drafts:/p")).toBe(original);
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "retain exact newer");
 });
@@ -441,7 +441,7 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
   await within(recovery).findByRole("alert");
   fireEvent.click(within(form).getByRole("button", { name: "Resume note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", exact);
-  fireEvent.click(within(recovery).getByRole("button", { name: action === "save" ? "Save" : "Cancel" }));
+  fireEvent.click(within(recovery).getByRole("button", { name: action === "save" ? "Save" : "Back" }));
   await waitFor(() => expect(within(recovery).queryByRole("alert") !== null).toBe(action === "cancel"));
   expect(recovery.textContent).toContain(exact);
   expect(recovery.textContent).toContain(saved);

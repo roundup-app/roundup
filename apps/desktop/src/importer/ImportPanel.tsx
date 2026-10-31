@@ -13,7 +13,7 @@ import { Disclosure } from "../ui/Disclosure";
 
 const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 
-/** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
+/** U2875d: the Project's `Import Claude Code` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
 export const ImportPanel = (props: { onClose: () => void }) => {
   const { app, importing: state, drafts, project, rail, daemonExit, now, events } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);

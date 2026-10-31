@@ -29,7 +29,7 @@ export const copy = {
   rename: sharedCopy.rename,
   projects: sharedCopy.projects,
   help: "Help",
-  helpScope: { app: "App", leader: "Leader", terminals: "Terminals and Bubbles", rail: "Rail row", shelf: sharedCopy.shelfLabel, todos: "Todos view", triage: "Triage", editor: "Pad editor focus" },
+  helpScope: { app: "App", leader: "Leader", terminals: "Terminals and Bubbles", rail: "Rail row", shelf: sharedCopy.shelfLabel, todos: "Todos view", triage: sharedCopy.triage, editor: "Pad editor focus" },
   helpBubbleScope: { M: minimiseBubble, W: "Close focused Bubble" },
   helpRowScope: { O: sharedCopy.assign, D: "Delete focused item", E: "Export focused Pad" },
   closeShelf: sharedCopy.closeShelf,

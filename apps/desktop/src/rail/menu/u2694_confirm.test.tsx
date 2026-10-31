@@ -211,7 +211,7 @@ it("u4368_nested_agents_keep_a34_classification", async () => {
   expect(railCallsTo(app, "agent.worktreeState")).toEqual([{ id: "finished" }]);
   expect([goesLine(result, "chosen"), staysLine(result)]).toEqual([
     "Goes: chosen, finished, 1 done Todo, 2 Pads",
-    "Stays (Remove this): running, 1 open Todo",
+    "Stays: running, 1 open Todo",
   ]);
 });
 
