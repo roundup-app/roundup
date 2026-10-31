@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
+import { RpcError } from "../app/seam";
 
 afterEach(cleanup);
 
@@ -34,7 +35,7 @@ it("u3789f_f2_and_menu_rename_any_owners_item", async () => {
 
 it("u3789f_a_failure_line_names_its_action", async () => {
   const { app } = await openShelf([padOf("notes", AGENT, "a")]);
-  app.handlers["pad.rename"] = () => { throw new Error("name taken"); };
+  app.handlers["pad.rename"] = () => { throw new RpcError(-32003, "name taken"); };
 
   const row = await screen.findByRole("button", { name: "notes" });
   row.focus();
