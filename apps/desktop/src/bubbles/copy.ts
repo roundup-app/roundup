@@ -35,5 +35,4 @@ export const copy = {
   retry: sharedCopy.retry,
   closeChord: "⌘K W",
   unseenOutput: "New output",
-  unseenMark: sharedCopy.unseenMark,
 } as const;

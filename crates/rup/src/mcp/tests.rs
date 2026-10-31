@@ -19,6 +19,7 @@ use serde_json::json;
 use std::path::Path;
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
+use tokio::sync::mpsc;
 
 const BOUND: Duration = Duration::from_secs(20);
 
@@ -30,7 +31,6 @@ fn transport(socket: &Path) -> tokio::io::DuplexStream {
 
 fn transport_as(socket: &Path, id: &str, door: bool) -> tokio::io::DuplexStream {
     let (client, server) = tokio::io::duplex(65536);
-    let (gone, _errors) = mpsc::channel(1);
     let shim = Shim {
         socket: socket.to_owned(),
         actor: Actor {
@@ -39,7 +39,6 @@ fn transport_as(socket: &Path, id: &str, door: bool) -> tokio::io::DuplexStream 
             parent: None,
         },
         tools: if door { door_tools() } else { tools(false) },
-        gone,
     };
     tokio::spawn(async move { shim.serve(server).await.unwrap().waiting().await });
     client
@@ -490,7 +489,6 @@ async fn reply_fixture(
 ) {
     let (dir, socket, user, state) = crate::reply_project(door).await;
     let (client, server) = tokio::io::duplex(65536);
-    let (gone, _) = mpsc::channel(1);
     let shim = Shim {
         socket: socket.clone(),
         actor: Actor {
@@ -499,7 +497,6 @@ async fn reply_fixture(
             parent: None,
         },
         tools: if door { door_tools() } else { tools(false) },
-        gone,
     };
     tokio::spawn(async move { shim.serve(server).await.unwrap().waiting().await });
     let shim = TestShim {

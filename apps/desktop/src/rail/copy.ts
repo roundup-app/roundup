@@ -146,7 +146,6 @@ export const copy = {
   goes: (value1: CopyValue) => `Goes: ${value1}`,
   todoCount: (value1: CopyValue) => `${value1} todos`,
   comma: sharedCopy.comma,
-  unseenMark: sharedCopy.unseenMark,
   unreadResult: sharedCopy.unreadResult,
   stopQuestion: (name: string) => `Stop ${name}?`,
   stopAndRemoveQuestion: (name: string) => `Stop and remove ${name}?`,
