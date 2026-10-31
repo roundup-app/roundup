@@ -160,7 +160,7 @@ it.each(["pad.list", "todo.list"] as const)("u5301a_a_failed_pad_or_todo_read_op
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.removalQuestions).toHaveLength(1));
 
-  const unread = method === "pad.list" ? "Pads could not be read. Try again." : "Todos could not be read. Try again.";
+  const unread = method === "pad.list" ? "Pads could not be read." : "Todos could not be read.";
   expect(app.removalQuestions[0]!.message.split("\n")).toContain(unread);
   expect(app.removalQuestions[0]!.message).not.toMatch(/\b0 /);
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
