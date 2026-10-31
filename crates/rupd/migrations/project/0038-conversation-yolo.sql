@@ -1,0 +1,1 @@
+ALTER TABLE nodes ADD COLUMN conversation_yolo INTEGER NOT NULL DEFAULT 0;
