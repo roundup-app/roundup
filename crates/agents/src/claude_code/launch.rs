@@ -506,6 +506,9 @@ impl Launcher {
             for plugin in &delivery.plugins {
                 argv.extend(["--plugin-dir".into(), plugin.to_string_lossy().into_owned()]);
             }
+            if delivery.computer_use {
+                argv.push(extras::COMPUTER_USE_SWITCH.into());
+            }
             if lean.fresh_brief && resume.is_some() {
                 argv.extend(["--system-prompt-snapshot", "off"].map(String::from));
             }
