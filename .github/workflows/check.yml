@@ -350,6 +350,8 @@ jobs:
         with:
           rust: 'build'
           browser: 'true'
+      - name: CI5330a disk before tests
+        run: bash .github/actions/setup/disk.sh report before
       - name: C9c production desktop size
         if: matrix.partition == 1
         run: |
@@ -380,6 +382,9 @@ jobs:
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
           python3 tools/e14/observe.py run --lane web${{ matrix.partition }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+      - name: CI5330a disk after tests
+        if: always()
+        run: bash .github/actions/setup/disk.sh report after
       - name: E14 web measurement evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -414,6 +419,8 @@ jobs:
         with:
           rust: 'false'
           browser: 'true'
+      - name: CI5330a disk before tests
+        run: bash .github/actions/setup/disk.sh report before
       - name: R3800 startup artifact checker observers
         run: node --test apps/desktop/budgets/*.test.mjs
       # A failed build or checker fails this job, and `check` needs it to succeed.
@@ -432,6 +439,9 @@ jobs:
       - name: U26 held file-backed fault
         if: ${{ !cancelled() }}
         run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
+      - name: CI5330a disk after tests
+        if: always()
+        run: bash .github/actions/setup/disk.sh report after
 
   # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
   # itself succeed) skipped it (L89). L82: when a newer push cancels
