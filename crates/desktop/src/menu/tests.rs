@@ -661,3 +661,50 @@ fn u2539b_native_menu_projects_the_task_chords() {
         ]
     );
 }
+
+#[test]
+fn u5244d_copy_version_info_writes_the_app_version() {
+    let app = mock_app();
+    let text = info_text(app.handle(), "copy-version-info", false).unwrap();
+    let version = app.handle().package_info().version.to_string();
+    assert_eq!(text, format!("roundup {version} (dev)"));
+    assert_eq!(info_text(app.handle(), "app-settings", true), None);
+}
+
+#[test]
+fn u5244d_app_menu_keeps_settings_and_standard_items() {
+    let app = mock_app();
+    let menu = app_menu(app.handle()).unwrap();
+    let Some(MenuItemKind::Submenu(application)) = menu.items().unwrap().into_iter().next() else {
+        panic!("the application submenu leads");
+    };
+    let ids: Vec<_> = application
+        .items()
+        .unwrap()
+        .iter()
+        .map(|item| item.id().0.clone())
+        .collect();
+    let position = |id: &str| ids.iter().position(|found| found == id).unwrap();
+    assert_eq!(
+        position("copy-version-info"),
+        position("copy-debug-info") - 1
+    );
+    assert_eq!(position("copy-debug-info"), position("app-settings") - 1);
+    assert!(ids.len() > 3, "the standard items stay");
+    let Some(MenuItemKind::MenuItem(copy)) = application.get("copy-version-info") else {
+        panic!("Copy Version Info is a plain item");
+    };
+    assert!(copy.is_enabled().unwrap());
+}
+
+#[test]
+fn u5244e_debug_info_holds_exactly_the_four_facts() {
+    assert_eq!(
+        debug_info("1.2.3", "abc", "15.1", true),
+        "roundup 1.2.3 (abc)\nDaemon 1.2.3\nmacOS 15.1\nDaemon reachable"
+    );
+    assert_eq!(
+        debug_info("1.2.3", "abc", "15.1", false),
+        "roundup 1.2.3 (abc)\nDaemon unknown\nmacOS 15.1\nDaemon unreachable"
+    );
+}
