@@ -168,7 +168,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
       if (state()?.node.id !== current.node.id) return;
 
-      if (losses.length) {
+      if (losses.length || removal?.unread.length) {
         setState({ ...current, confirming: true, removal, losses });
 
         return;
