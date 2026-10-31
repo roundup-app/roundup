@@ -54,6 +54,9 @@ it("u5242b_each_control_is_described_by_the_text_under_it", async () => {
   await section("Agents");
   const permission = screen.getByRole("combobox", { name: "Permission mode" });
   expect(permission.parentElement?.nextElementSibling?.id).toBe(permission.getAttribute("aria-describedby"));
+  await section("Shortcuts");
+  const shortcut = document.querySelector(".settings-shortcut")!;
+  expect(shortcut.nextElementSibling?.id).toBe(shortcut.querySelector("button")!.getAttribute("aria-describedby"));
 });
 
 it("u5242c_forward_reopens_settings_after_back_and_clears_on_other_navigation", async () => {
