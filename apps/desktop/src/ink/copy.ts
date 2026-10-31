@@ -10,7 +10,7 @@ export const copy = {
   done: sharedCopy.done,
   exitedBySignal: sharedCopy.exitedBySignal,
   inboxEmpty: sharedCopy.inboxEmpty,
-  openItem: (name: string) => `Open ${name}`,
+  openItem: sharedCopy.openEvidence,
   exited: "exited",
   exitedCode: (code: number) => `exited ${code}`,
 } as const;
