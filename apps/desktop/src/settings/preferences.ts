@@ -29,6 +29,9 @@ const schema = storageSchema("roundup:app-settings", v.object({
   focusMarkers: v.fallback(v.boolean(), true),
   quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
   quickAddKey: v.fallback(v.string(), ""),
+  // Mac-wide quick add: "" is none, and none registers no global shortcut.
+  quickAddAnywhere: v.fallback(v.pipe(v.string(), v.regex(/^(?:(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*)?$/)), ""),
+  quickAddAnywhereKey: v.fallback(v.string(), ""),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
 }));
 
@@ -62,13 +65,13 @@ export const saveAppSettings = (patch: Partial<Preferences>, capture?: CapturePo
 
   const pending = saving.then(async () => {
     const before = appSettings();
-    const replacement = captured.quickAdd !== undefined && captured.quickAdd !== before.quickAdd;
+    const replacement = captured.quickAddAnywhere !== undefined && captured.quickAddAnywhere !== before.quickAddAnywhere;
 
     try {
-      if (replacement && capture) await capture.configure(captured.quickAdd!);
+      if (replacement && capture) await capture.configure(captured.quickAddAnywhere! || null);
       const failure = await storage().write({ ...before, ...captured });
 
-      if (failure && replacement && capture) await capture.configure(before.quickAdd);
+      if (failure && replacement && capture) await capture.configure(before.quickAddAnywhere || null);
 
       return failure;
     } catch (error) {

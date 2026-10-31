@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import * as xterm from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { App } from "../App";
 import { AppSettings } from "./AppSettings";
 import { appSettings, saveAppSettings } from "./preferences";
 import { createFakeApp } from "../testing/fakeApp";
@@ -335,4 +336,49 @@ it("u4687c_saved_changes_reach_other_project_tabs", async () => {
   await mount();
   await section("Terminal");
   expect(screen.getByRole<HTMLInputElement>("radio", { name: "500" }).checked).toBe(true);
+});
+
+const portWith = (configure: (press: string | null) => Promise<void>): import("../app/seam").CapturePort => ({
+  configure, show: async () => {}, dismiss: async () => {}, publish: async () => {}, act: async () => {},
+  onRequested: async () => () => {}, onAction: async () => () => {}, onState: async () => () => {},
+});
+
+it("u5205_default_settings_call_configure_with_no_chord_and_cmd_shift_t_opens_quick_add", async () => {
+  const app = createFakeApp();
+  app.add("/p");
+  const configure = vi.fn(async (_press: string | null) => {});
+  const port = portWith(configure);
+  const show = vi.spyOn(port, "show");
+  app.capture = port;
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} />);
+  await waitFor(() => expect(configure).toHaveBeenCalledWith(null));
+  expect(configure.mock.calls.filter(([chord]) => chord !== null)).toEqual([]);
+  fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
+  await waitFor(() => expect(show).toHaveBeenCalled());
+});
+
+it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => {
+  const app = await mount();
+  const configure = vi.fn(async (_press: string | null) => {});
+  cleanup();
+  render(() => <AppSettings app={Object.assign(app, { capture: portWith(configure) })} project={() => "/p"} />);
+  window.dispatchEvent(new Event("open-app-settings"));
+  await screen.findByRole("region", { name: "Settings" });
+  await section("Shortcuts");
+  const row = screen.getByRole("button", { name: /^Quick add from any app / });
+  expect(row.textContent).toContain("None");
+  expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
+  fireEvent.click(row);
+  fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
+  await waitFor(() => expect(appSettings().quickAddAnywhere).toBe("ctrl+shift+KeyY"));
+  expect(configure).toHaveBeenLastCalledWith("ctrl+shift+KeyY");
+  expect(appSettings().quickAdd).toBe("meta+shift+KeyT");
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  await waitFor(() => expect(appSettings().quickAddAnywhere).toBe(""));
+  expect(configure).toHaveBeenLastCalledWith(null);
+  expect(appSettings().quickAdd).toBe("meta+shift+KeyT");
+});
+
+it("u5205_no_default_setting_registers_a_global_shortcut", () => {
+  expect(appSettings().quickAddAnywhere || null).toBeNull();
 });
