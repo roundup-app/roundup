@@ -1,6 +1,7 @@
 //! U5232e to U5232g (`scenarios/ui-state-alerts.md`): what `stateAlert` asks of the system, against a fake notifier.
 
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use desktop::alert::{Alerts, Notifier};
 use rpc::code;
@@ -12,6 +13,8 @@ use tauri::test::{mock_builder, mock_context, noop_assets};
 struct Fake {
     refuse: Option<String>,
     denied: bool,
+    /// `permission` answers `None` until the test sets this.
+    held: Mutex<bool>,
     calls: Mutex<Vec<String>>,
 }
 
@@ -20,6 +23,9 @@ struct Shared(Arc<Fake>);
 impl Notifier for Shared {
     fn permission(&self) -> Option<Result<(), String>> {
         self.0.calls.lock().unwrap().push("permission".into());
+        if *self.0.held.lock().unwrap() {
+            return None;
+        }
         Some(self.0.refuse.clone().map_or(Ok(()), Err))
     }
     fn denied(&self) -> bool {
@@ -162,4 +168,94 @@ fn u5232i_an_allowed_or_undetermined_state_sends() {
             .iter()
             .any(|c| c.starts_with("banner"))
     );
+}
+
+fn held_fake(refuse: Option<&str>) -> Arc<Fake> {
+    Arc::new(Fake {
+        held: Mutex::new(true),
+        refuse: refuse.map(Into::into),
+        ..Fake::default()
+    })
+}
+
+fn banners(fake: &Fake) -> usize {
+    let calls = fake.calls.lock().unwrap();
+    calls.iter().filter(|c| c.starts_with("banner")).count()
+}
+
+/// Two alerts wait on one held prompt; the test answers it after both are waiting.
+fn two_alerts_over_a_prompt(fake: &Arc<Fake>) -> Vec<Result<(), rpc::RpcError>> {
+    let alerts = Arc::new(Alerts::with_wait(
+        Box::new(Shared(fake.clone())),
+        Duration::from_secs(5),
+        Duration::from_millis(5),
+    ));
+    let waiting: Vec<_> = (0..2)
+        .map(|_| {
+            let alerts = alerts.clone();
+            std::thread::spawn(move || {
+                alerts.raise(&serde_json::from_value(request(true, false)).unwrap())
+            })
+        })
+        .collect();
+    std::thread::sleep(Duration::from_millis(100));
+    assert_eq!(banners(fake), 0);
+    *fake.held.lock().unwrap() = false;
+    waiting.into_iter().map(|t| t.join().unwrap()).collect()
+}
+
+#[test]
+fn u5232k_an_alert_during_the_prompt_is_raised_on_allow() {
+    let fake = held_fake(None);
+    for result in two_alerts_over_a_prompt(&fake) {
+        result.unwrap();
+    }
+    assert_eq!(banners(&fake), 2);
+}
+
+#[test]
+fn u5232k_an_alert_during_the_prompt_returns_the_refusal() {
+    let fake = held_fake(Some("denied"));
+    for result in two_alerts_over_a_prompt(&fake) {
+        assert!(result.unwrap_err().message.contains("denied"));
+    }
+    assert_eq!(banners(&fake), 0);
+}
+
+#[test]
+fn u5232k_no_alert_returns_ok_without_a_banner() {
+    let fake = held_fake(None);
+    let alerts = Alerts::with_wait(
+        Box::new(Shared(fake.clone())),
+        Duration::from_millis(50),
+        Duration::from_millis(5),
+    );
+    assert!(
+        alerts
+            .raise(&serde_json::from_value(request(true, false)).unwrap())
+            .is_err()
+    );
+    assert_eq!(banners(&fake), 0);
+}
+
+#[test]
+fn u5232j_an_unanswered_prompt_ends_as_a_timeout_refusal() {
+    let fake = held_fake(None);
+    let alerts = Alerts::with_wait(
+        Box::new(Shared(fake.clone())),
+        Duration::from_millis(50),
+        Duration::from_millis(5),
+    );
+    let error = alerts
+        .raise(&serde_json::from_value(request(true, false)).unwrap())
+        .unwrap_err();
+    assert_eq!(error.code, code::FORBIDDEN);
+    assert!(error.message.contains("timed out"), "{}", error.message);
+}
+
+#[test]
+fn u5232j_sound_alone_plays_at_once_during_the_prompt() {
+    let fake = held_fake(None);
+    raise(&fake, false, true).unwrap();
+    assert_eq!(*fake.calls.lock().unwrap(), ["sound"]);
 }
