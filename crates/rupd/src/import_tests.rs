@@ -4,7 +4,9 @@ use std::time::Duration;
 
 mod fixtures;
 use fixtures::import_git;
-pub(super) use fixtures::{import_daemon, import_fixture, import_rpc, import_source};
+pub(super) use fixtures::{
+    import_daemon, import_fixture, import_rpc, import_source, import_tree_with_overviews,
+};
 
 fn import_daemon_with_clock(project: &Path, launcher: agents::claude_code::Launcher) -> Daemon {
     let data = project.join(".roundup");
@@ -900,7 +902,12 @@ while IFS= read -r line; do printf 'prompt %s\n' "$line" >> '{}'; done
         let imported = outcomes.iter().find(|p| p["source"] == live).unwrap()["agent"]
             .as_str()
             .unwrap();
-        let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+        let resumable: Vec<Value> = outcomes
+            .iter()
+            .filter(|p| p["source"] != live)
+            .map(|p| p["agent"].clone())
+            .collect();
+        let tree = fixtures::import_tree_with_overviews(&daemon, &resumable).await;
         for outcome in outcomes.iter().filter(|p| p["source"] != live) {
             let node = tree["result"]
                 .as_array()

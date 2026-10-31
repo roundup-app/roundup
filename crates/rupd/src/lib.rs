@@ -46,8 +46,8 @@ mod wake;
 pub use connection::serve;
 use connection::{Frame, failure};
 use observers::{
-    messages_env, resume_effect_observer, steer_effect_observer, terminal_exit_observer,
-    terminal_input_observer,
+    messages_env, overview_read_observer, resume_effect_observer, steer_effect_observer,
+    terminal_exit_observer, terminal_input_observer,
 };
 use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
