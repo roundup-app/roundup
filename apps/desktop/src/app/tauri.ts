@@ -9,7 +9,7 @@ import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
-import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
+import { stateAlertClickedSchema, daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, rpcFailureSchema, RpcError } from "./seam";
 import type { App, CaptureAction, CaptureState, OutputMessage } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
@@ -123,6 +123,10 @@ export const createTauriApp = (): App => {
     chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
     chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
     setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
+    stateAlert: async (alert) => {
+      await command("state_alert", { request: alert });
+    },
+    onStateAlertClicked: (listener) => guarded(() => listen("state-alert-clicked", event => listener(v.parse(stateAlertClickedSchema, event.payload).agent))),
     setWindowTitle: (title) => command<void>("plugin:window-bar|set_window_title", { title }),
     dragWindow: () => command<void>("plugin:window-bar|drag_window", {}),
     zoomWindow: () => command<void>("plugin:window-bar|zoom_window", {}),
