@@ -73,9 +73,17 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const [forward, setForward] = createSignal(false);
 
   const close = () => { props.onOpenChange?.(false); view.close(); };
+
   const back = () => { setForward(true); close(); };
 
-  const show = () => { setForward(false); if (!view.open()) { view.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body); props.onOpenChange?.(true); } };
+  const show = () => {
+    setForward(false);
+
+    if (view.open()) return;
+
+    view.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body);
+    props.onOpenChange?.(true);
+  };
 
   let disposed = false;
   let stop: (() => void) | undefined;
