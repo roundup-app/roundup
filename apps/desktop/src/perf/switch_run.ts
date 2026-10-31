@@ -80,7 +80,8 @@ export const runSwitchWorkload = async ({ probe, sleep, random, until }: Deps) =
       last[wanted] = target.dataset.value ?? "";
       key(input, { key: "Enter", code: "Enter" });
     } else {
-      key(input ?? document.body, { key: "Escape", code: "Escape" });
+      // A Project without both kinds is not the SP4 seed: a skipped step would shorten the sample unseen.
+      throw new Error(`the Switcher has no ${wanted} to switch to at step ${step + 1}`);
     }
 
     await until(() => field() === null, 600);
