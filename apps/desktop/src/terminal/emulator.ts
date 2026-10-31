@@ -224,6 +224,9 @@ export const createXtermEmulators = (
     terminal.unicode.activeVersion = "11";
     const fitter = new FitAddon();
     const element = document.createElement("div");
+
+    element.dataset.terminal = id;
+
     let resized: (size: Size) => void = () => {};
 
     let opened = false;

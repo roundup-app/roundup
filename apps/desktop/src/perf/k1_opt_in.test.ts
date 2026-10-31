@@ -40,6 +40,14 @@ describe("k1 and u3010e the probes are opt-in at build time", () => {
     expect(await normal()).not.toContain("roundup-keystroke-probe");
   }, 60_000);
 
+  it("sp1_a_normal_build_carries_no_trace_of_the_switch_probe", async () => {
+    expect(await normal()).not.toContain("roundup-switch-probe");
+  }, 60_000);
+
+  it("sp1_a_build_made_with_VITE_ROUNDUP_PERF_carries_the_switch_probe", async () => {
+    expect(await measurement()).toContain("roundup-switch-probe");
+  }, 60_000);
+
   it("u3010e_a_normal_build_carries_no_trace_of_the_recorder", async () => {
     expect(await normal()).not.toContain("roundup-frame-recorder");
   }, 60_000);

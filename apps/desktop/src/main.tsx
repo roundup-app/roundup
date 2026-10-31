@@ -45,6 +45,15 @@ const keystrokes = !import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VI
     })
   : null;
 
+// Opt-in at build time (SP1): the Switcher and switch marks exist only in a perf build and are read from `window`.
+if (!import.meta.env.VITE_ROUNDUP_IDLE_PERF && import.meta.env.VITE_ROUNDUP_PERF) {
+  const { createSwitchProbe, SWITCH_PROBE } = await import("./perf/switch");
+  const probe = createSwitchProbe(() => performance.now());
+
+  probe.start();
+  Object.assign(window, { [SWITCH_PROBE]: probe });
+}
+
 const app = keystrokes?.traced(tauri) ?? tauri;
 
 // The panel never initializes storage, opens Projects or mounts another App.
