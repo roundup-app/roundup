@@ -1,10 +1,14 @@
 //! The owner's answer to the system's banner permission, asked through UserNotifications.
-use std::sync::{Mutex, OnceLock};
+use std::ptr::NonNull;
+use std::sync::{Mutex, OnceLock, mpsc};
+use std::time::Duration;
 
 use block2::RcBlock;
 use objc2::runtime::Bool;
 use objc2_foundation::NSError;
-use objc2_user_notifications::{UNAuthorizationOptions, UNUserNotificationCenter};
+use objc2_user_notifications::{
+    UNAuthorizationOptions, UNAuthorizationStatus, UNNotificationSettings, UNUserNotificationCenter,
+};
 
 static ANSWER: OnceLock<Mutex<Option<Result<(), String>>>> = OnceLock::new();
 
@@ -33,4 +37,17 @@ pub fn banner_permission() -> Option<Result<(), String>> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone()
+}
+
+/// Whether the owner has denied roundup's notifications in macOS, read from the system's settings; a state the system does not answer within two seconds reads as not denied.
+pub fn banner_denied() -> bool {
+    let (tx, rx) = mpsc::channel();
+    let handler = RcBlock::new(move |settings: NonNull<UNNotificationSettings>| {
+        // SAFETY: the system passes a live settings object for the duration of the callback.
+        let status = unsafe { settings.as_ref() }.authorizationStatus();
+        let _ = tx.send(status == UNAuthorizationStatus::Denied);
+    });
+    UNUserNotificationCenter::currentNotificationCenter()
+        .getNotificationSettingsWithCompletionHandler(&handler);
+    rx.recv_timeout(Duration::from_secs(2)).unwrap_or(false)
 }

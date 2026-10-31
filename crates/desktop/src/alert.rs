@@ -23,6 +23,8 @@ pub struct Request {
 pub trait Notifier: Send + Sync {
     /// `Err` carries the cause of a refusal; `None` is a request the owner has not answered yet.
     fn permission(&self) -> Option<Result<(), String>>;
+    /// Whether the owner has denied notifications in the system, read from the native state; the answer of `permission` is never consent when this is true.
+    fn denied(&self) -> bool;
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String>;
     fn sound(&self);
 }
@@ -53,6 +55,12 @@ impl Alerts {
         }
         if !request.alert {
             return Ok(());
+        }
+        if self.notifier.denied() {
+            return Err(RpcError::new(
+                code::FORBIDDEN,
+                "State alerts refused: notifications denied in System Settings",
+            ));
         }
         let mut cached = self
             .permission
@@ -85,6 +93,14 @@ impl<R: Runtime> Notifier for Plugin<R> {
             return native::banner_permission();
         }
         Some(Ok(()))
+    }
+
+    fn denied(&self) -> bool {
+        #[cfg(target_os = "macos")]
+        if is_bundled() {
+            return native::banner_denied();
+        }
+        false
     }
 
     #[cfg(target_os = "macos")]
