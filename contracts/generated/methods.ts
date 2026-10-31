@@ -117,6 +117,7 @@ import type { PreviewParams as reaction_PreviewParams } from "./reaction/Preview
 import type { Reaction as reaction_Reaction } from "./reaction/Reaction";
 import type { ReactionId as reaction_ReactionId } from "./reaction/ReactionId";
 import type { RunParams as reaction_RunParams } from "./reaction/RunParams";
+import type { SkillSetup as skill_SkillSetup } from "./skill/SkillSetup";
 import type { CatchUp as terminal_CatchUp } from "./terminal/CatchUp";
 import type { CatchUpParams as terminal_CatchUpParams } from "./terminal/CatchUpParams";
 import type { MeasureParams as terminal_MeasureParams } from "./terminal/MeasureParams";
@@ -277,6 +278,9 @@ export type RpcMethods = {
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
   "daemon.getNaming": { params: null; result: project_NamingSettings };
   "daemon.setNaming": { params: project_NamingSettings; result: null };
+  "skill.status": { params: null; result: skill_SkillSetup };
+  "skill.setup": { params: null; result: skill_SkillSetup };
+  "skill.remove": { params: null; result: skill_SkillSetup };
   "rail.deletion": { params: agent_DeletionParams; result: agent_Removal | null };
   "rail.redo": { params: agent_RedoParams; result: agent_Removal };
   "rail.restore": { params: agent_DeletionParams; result: agent_Removal };
