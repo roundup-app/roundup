@@ -22,7 +22,7 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   const view = await screen.findByRole("region", { name: "Settings" });
   expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
-  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
+  expect(within(view).getAllByRole("tab").map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
   expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
@@ -255,12 +255,12 @@ it.each([false, true])("u4277a_sections_work_by_pointer_and_keyboard_project_%s"
   window.dispatchEvent(new Event("open-app-settings"));
   const view = await screen.findByRole("region", { name: "Settings" });
 
-  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance"]) {
+  for (const name of ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"]) {
     fireEvent.click(within(view).getByRole("tab", { name }));
     await waitFor(() => expect(within(view).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(within(view).getByRole("tab", { name }).id));
   }
 
-  const pages = ["Agents", "Terminal", "Shortcuts", "Appearance"];
+  const pages = ["Agents", "Terminal", "Shortcuts", "Appearance", "Alerts"];
   within(view).getByRole("tab", { name: "Agents" }).focus();
   await Promise.resolve();
 
