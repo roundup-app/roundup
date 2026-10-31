@@ -183,6 +183,7 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
       await call();
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
+
       if (outcomeOf(thrown) === "failed") return thrown.message;
       setAsked(id, change);
     }
