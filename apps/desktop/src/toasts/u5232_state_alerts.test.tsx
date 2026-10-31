@@ -1,4 +1,4 @@
-import { cleanup } from "@solidjs/testing-library";
+import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { appSettings, saveAppSettings } from "../settings/preferences";
@@ -156,6 +156,29 @@ describe("u5232 each choice follows the state", () => {
     app.emit(by({ kind: "agent", id: "a", parent: null }, { name: "pad.deleted", data: { name: "n" } }));
     await settle();
 
+    expect(app.stateAlerts).toEqual([]);
+  });
+
+  it("u5232h_deletion_raises_no_alert", async () => {
+    const { app } = await mountToasts(tree(), { front: false });
+
+    for (const state of ["working", "blocked", "needs-you", "error", "done"]) await turnOn(state, { alert: true, sound: true, badge: true });
+    app.handlers["rail.tree"] = () => [agent("b", "idle", "x", { name: "mason" })];
+    app.emit(by({ kind: "user" }, { name: "rail.changed" }));
+    await settle();
+
+    expect(app.stateAlerts).toEqual([]);
+  });
+
+  it("u5232h_native_attention_still_opens_the_requesting_terminal", async () => {
+    const { app, connected, toasts } = await mountToasts(tree(), { front: true, selected: "b" });
+
+    app.emit(status("a", "needs-you"));
+    await settle();
+    fireEvent.click(toasts()[0]!);
+    await settle();
+
+    expect(connected.rail.selected()).toBe("a");
     expect(app.stateAlerts).toEqual([]);
   });
 });
