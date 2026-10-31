@@ -64,6 +64,8 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘Z", what: copy.undoFocused, presses: ["meta+KeyZ"] },
   { keys: "⇧⌘Z", what: copy.redoFocused, presses: ["meta+shift+KeyZ"] },
   { keys: "⌘,", what: copy.settings, presses: ["meta+Comma"] },
+  // U5242c: ⌘[ goes Back while Settings is open; ⌘] reopens what Back closed.
+  { keys: "⌘]", what: copy.settingsForward, presses: ["meta+BracketRight"], inRail: true },
   // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
   { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 7 } } },
   { keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], inShelf: true, inTriage: true },

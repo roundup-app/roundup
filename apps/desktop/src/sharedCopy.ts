@@ -51,6 +51,7 @@ export const copy = {
   railDraftMissingTarget: "Unavailable target",
   rpcFailure: (code: number) => rpcFailures.get(code) ?? "Completion is unconfirmed. Keep your work and check before trying again.",
   settings: "Settings",
+  settingsForward: "Forward →",
   deliverables: "Made",
   deliverableUnavailable: {
     "missing-revision": "Unavailable: retained revision is missing.",
