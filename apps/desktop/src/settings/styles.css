@@ -364,6 +364,7 @@
 .settings-result:not(:first-child) { border-top: var(--hairline-width) solid var(--hairline); }
 .settings-result :is(.app-select, .settings-field, .app-segments, .app-switch):not(:first-child) { padding: 0; border-top: 0; }
 .settings-result :is(.app-select, .settings-field, .app-segments, .app-switch) { padding: 0; }
+.settings-result .settings-skill-state { padding-inline: 0; }
 .settings-place { margin: 0 0 var(--space-1); color: var(--grey); font-size: var(--text-caption); }
 .settings-search input::placeholder { color: var(--grey); }
 .settings-no-results { color: var(--grey); }
