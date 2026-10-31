@@ -27,7 +27,7 @@ describe("u35 Todo triage without the Drawer", () => {
     await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 session store/ });
     const place = rowOf(5).querySelector(".reserved-line")!;
     const siblings = [...place.parentElement!.children];
-    const failure = new RpcError(-32000, "cannot complete");
+    const failure = new RpcError(-32003, "cannot complete");
     app.handlers["todo.complete"] = () => Promise.reject(failure);
 
     rowOf(5).querySelector<HTMLButtonElement>(".todo-row-button")!.focus();
@@ -45,7 +45,7 @@ describe("u35 Todo triage without the Drawer", () => {
   it("u35_a_failed_complete_still_calls_todo_complete_with_the_rows_id", async () => {
     const { app } = await mountTodos(shelf());
     await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 session store/ });
-    const failure = new RpcError(-32000, "cannot complete");
+    const failure = new RpcError(-32003, "cannot complete");
     app.handlers["todo.complete"] = () => Promise.reject(failure);
 
     rowOf(5).querySelector<HTMLButtonElement>(".todo-row-button")!.focus();
@@ -86,7 +86,7 @@ describe("u35 Todo triage without the Drawer", () => {
   it("p3557c_an_unrelated_shelf_click_keeps_the_row_failure", async () => {
     const { app } = await mountTodos(shelf());
     await screen.findByRole("button", { name: /^(?:Idle|Blocked|Done) #5 session store/ });
-    const failure = new RpcError(-32000, "cannot complete");
+    const failure = new RpcError(-32003, "cannot complete");
     app.handlers["todo.complete"] = () => Promise.reject(failure);
     rowOf(5).querySelector<HTMLButtonElement>(".todo-row-button")!.focus();
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));

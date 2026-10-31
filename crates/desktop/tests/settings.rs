@@ -25,8 +25,8 @@ fn s_u3799_the_app_menu_holds_settings_with_cmd_comma_and_emits_open_app_setting
     let MenuItemKind::Submenu(application) = app.menu().unwrap().items().unwrap().remove(0) else {
         panic!("no application menu")
     };
-    let MenuItemKind::MenuItem(settings) = application.items().unwrap().remove(1) else {
-        panic!("no settings item under About")
+    let Some(MenuItemKind::MenuItem(settings)) = application.get("app-settings") else {
+        panic!("no settings item in the application menu")
     };
     assert_eq!(settings.text().unwrap(), "Settings…");
     assert_eq!(settings.id().0, "app-settings");
