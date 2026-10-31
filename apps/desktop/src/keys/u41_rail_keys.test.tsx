@@ -375,7 +375,7 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("F2");
 
-    expect(screen.queryByLabelText("Name")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("u41_enter_on_the_row_right_moved_to_shows_its_terminal_exactly_as_a_click_does", async () => {

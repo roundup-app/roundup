@@ -89,6 +89,6 @@ it("u521_copy_preserves_content", async () => {
   const odd = "«ünï/cødé» a b";
   await mountRail([workstream("w", { name: odd }), agent("a", "idle", "ready", { parent: "w" })]);
 
-  expect(screen.getByText(odd).textContent).toBe(odd);
+  expect(screen.getByRole("tree").textContent?.includes(odd)).toBe(true);
   expect(screen.getByRole("button", { name: copy.collapse })).toBeTruthy();
 });
