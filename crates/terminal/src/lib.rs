@@ -375,6 +375,7 @@ impl Terminals {
         if self.shared.table().remove(&number).is_none() {
             return Err(RpcError::not_found(format!("terminal {id}")));
         }
+        self.shared.changed(number, Vec::new());
         self.shared
             .bus
             .emit(Actor::daemon(), EventData::TerminalChanged);
@@ -399,6 +400,7 @@ impl Terminals {
                 Err(err) => return Err(err),
             }
             self.shared.table().remove(number);
+            self.shared.changed(*number, Vec::new());
         }
         if !ids.is_empty() || remote_closed {
             self.shared
@@ -429,6 +431,7 @@ impl Terminals {
         match oldest_exited {
             Some(number) => {
                 table.remove(&number);
+                self.shared.changed(number, Vec::new());
                 Ok(true)
             }
             None => Err(RpcError::conflict(format!(
@@ -591,6 +594,7 @@ impl Terminals {
                     running: true,
                     exit_code: None,
                     owner,
+                    status: None,
                 },
                 events: sender,
                 output: Some(output.clone()),
@@ -836,6 +840,14 @@ impl Terminals {
     }
 
     /// PS5: answer, or stop answering, a program's feature-detection query.
+    /// PS8.1: the program status `terminal.list` shows for a Terminal; `None` clears it.
+    pub fn set_program_status(&self, id: &str, status: Option<contracts::Status>) {
+        let Ok(number) = id.parse() else { return };
+        if let Some(entry) = self.shared.table().get_mut(&number) {
+            entry.info.status = status;
+        }
+    }
+
     pub fn answer_status_query(&self, on: bool) {
         self.shared.answer_status_query.store(on, Ordering::Relaxed);
     }

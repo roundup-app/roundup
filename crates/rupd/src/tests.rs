@@ -362,6 +362,7 @@ impl Module for SelfEnded {
                 running: true,
                 exit_code: None,
                 owner: None,
+                status: None,
             }])),
             _ => Err(RpcError::not_found("running terminal 1")),
         }

@@ -9,6 +9,7 @@ impl Observation {
             Self::Tick => "tick",
             Self::Stopped => "stop",
             Self::Exit { .. } => "exit",
+            Self::Program(_) => "program status",
         }
     }
 }
@@ -151,6 +152,22 @@ impl InboxState {
 }
 
 impl Shared {
+    /// PS9.2: Terminal `terminal`'s program status reaches the Agent that runs in it, if its
+    /// adapter has no hook Signal; any other Agent keeps the Kind its Signals give (PS9.1).
+    pub(super) fn observe_program(&self, terminal: &str, status: Status) {
+        let found = self.runs().iter().find_map(|(id, slot)| match slot {
+            Slot::Running(run)
+                if run.terminal_id == terminal && !run.ended && !run.adapter.has_hook_signal() =>
+            {
+                Some((id.clone(), run.attempt.clone()))
+            }
+            _ => None,
+        });
+        if let Some((id, attempt)) = found {
+            let _ = self.observe(Actor::daemon(), &id, &attempt, Observation::Program(status));
+        }
+    }
+
     /// E6: `agent.channelUp` from Agent `id`. Nothing to report when no program of the Agent
     /// runs, and a second call while the Channel is `up` emits nothing.
     pub(super) fn channel_up(&self, actor: &Actor, id: &str) -> Result<(), RpcError> {

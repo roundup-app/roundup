@@ -16,6 +16,8 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
         terminal_id: None,
         worktree: None,
         can_resume: false,
+        can_make_workstream: false,
+        can_save_as_mode: false,
         yolo: false,
         channel: None,
         stray: Vec::new(),

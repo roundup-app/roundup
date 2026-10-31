@@ -23,6 +23,8 @@ pub struct Request {
 pub trait Notifier: Send + Sync {
     /// `Err` carries the cause of a refusal; `None` is a request the owner has not answered yet.
     fn permission(&self) -> Option<Result<(), String>>;
+    /// The native authorization state read: `true` when the owner denied roundup's notifications in System Settings, whatever `permission` answered.
+    fn denied(&self) -> bool;
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String>;
     fn sound(&self);
 }
@@ -54,6 +56,12 @@ impl Alerts {
         if !request.alert {
             return Ok(());
         }
+        if self.notifier.denied() {
+            return Err(RpcError::new(
+                code::FORBIDDEN,
+                "State alerts refused: notifications denied in System Settings",
+            ));
+        }
         let mut cached = self
             .permission
             .lock()
@@ -61,9 +69,10 @@ impl Alerts {
         if cached.is_none() {
             *cached = self.notifier.permission();
         }
-        let Some(permission) = cached.clone() else {
-            return Ok(());
-        };
+        // An unanswered prompt ends as a refusal naming the timeout; it is not kept, so the next alert asks again.
+        let permission = cached
+            .clone()
+            .unwrap_or_else(|| Err("the permission prompt went unanswered for 60 s".into()));
         drop(cached);
         permission.map_err(|cause| {
             RpcError::new(code::FORBIDDEN, format!("State alerts refused: {cause}"))
@@ -85,6 +94,14 @@ impl<R: Runtime> Notifier for Plugin<R> {
             return native::banner_permission();
         }
         Some(Ok(()))
+    }
+
+    fn denied(&self) -> bool {
+        #[cfg(target_os = "macos")]
+        if is_bundled() {
+            return native::banner_denied();
+        }
+        false
     }
 
     #[cfg(target_os = "macos")]
