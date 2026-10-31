@@ -50,7 +50,7 @@ export const copy = {
   todoDeleteRetry: sharedCopy.todoDeleteRetry,
   openAFolderToStart: "Choose a Project",
   chooseFolder: sharedCopy.chooseFolder,
-  emptyFolderLine: "Choose a Project to bring your work together.",
+  emptyFolderLine: "Bring your work together in one place.",
   emptyRailTitle: "No Agents yet",
   emptyRailLine: "Start a Workstream or an Agent.",
   emptyTodosLine: sharedCopy.emptyTodosLine,

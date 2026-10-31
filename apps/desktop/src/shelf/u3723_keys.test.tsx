@@ -81,7 +81,7 @@ it("u3723_keys_are_inert_in_text_fields_dialogs_modifiers_and_repeats", async ()
     expect(questionProbe.shown).toBeNull();
   }
 
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   const field = screen.getByLabelText("New Todo title");
 
   for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);
@@ -155,7 +155,7 @@ it("u3787b_shelf_row_commands_are_menu_hints_that_act_once_on_the_focused_row", 
   expect(document.activeElement).toBe(rows[0]);
   openProjectPage("action:chord:D");
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.delete")).toHaveLength(1));
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   screen.getByLabelText("New Todo title").focus();
   await waitFor(() => expect(projectMenu.items.some(item => item.id === "action:chord:D" && item.enabled)).toBe(false));
 });
@@ -218,7 +218,7 @@ it.each([false, true].flatMap(out => ["key", "menu"].map(source => ({ out, sourc
   else openProjectPage(`action:chord:${chord}`);
 
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.setBlockers").map(call => call.params)).toEqual([{ id: 2, blockers: out ? [] : [1] }]));
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   screen.getByLabelText("New Todo title").focus();
   await waitFor(() => expect(projectMenu.items.some(item => item.id === `action:chord:${chord}` && item.enabled)).toBe(false));
   captured.run();

@@ -45,7 +45,7 @@ describe("u138 completing a Todo by keyboard keeps focus", () => {
     await completeByKeyboard(mounted, 1);
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /^(?:Idle|Blocked|Done) #1 / })).toBeNull());
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo to Overview" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Todo: Overview" }));
   });
 
   it("u138_a_failed_complete_keeps_focus_on_complete", async () => {

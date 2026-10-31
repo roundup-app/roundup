@@ -83,7 +83,7 @@ describe("u2773 Rail task destinations", () => {
     await screen.findByRole("region", { name: "Rail" });
   };
 
-  const task = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+  const task = () => screen.getByLabelText<HTMLTextAreaElement>("Work");
 
   const openTask = async () => {
     await screen.findByRole("button", { name: "Add Workstream" });

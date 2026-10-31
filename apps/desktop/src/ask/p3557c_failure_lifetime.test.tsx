@@ -53,12 +53,12 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
   type(input(), "unfinished");
   await waitFor(() => expect(rows()).toHaveLength(2));
   open(0);
-  await waitFor(() => expect(lines()[0]).toContain("retained revision is missing"));
+  await waitFor(() => expect(lines()[0]).toContain("the saved version is missing"));
 
   // A successful action on another record leaves the first failure alone.
   open(1);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
-  expect(lines()[0]).toContain("retained revision is missing");
+  expect(lines()[0]).toContain("the saved version is missing");
   expect(lines()[1]).toBeNull();
 
   // Dismissal clears it, without touching the typed input.

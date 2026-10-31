@@ -75,7 +75,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     await wait("!!document.querySelector('[role=menu]')");
     await read("[...document.querySelectorAll('[role=menuitem]')].find(b => b.textContent.includes('New Workstream')).click()");
     await wait("!!document.querySelector('.new-workstream')");
-    await read("[...document.querySelectorAll('.new-workstream label')].find(l => l.textContent.includes('Start after another Todo')).click()");
+    await read("[...document.querySelectorAll('.new-workstream label')].find(l => l.textContent.includes('Start after Todo')).click()");
     await wait("!!document.querySelector('.app-dialog-pick')");
     await read("document.querySelector('.app-dialog-pick').click()");
     await wait("!!document.querySelector('.todo-blocker-menu [role=combobox]')");
