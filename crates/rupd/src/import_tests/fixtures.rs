@@ -31,6 +31,23 @@ pub(crate) async fn import_rpc(daemon: &Daemon, method: &str, params: Value) -> 
     .await
 }
 
+/// RO2: `rail.tree` answers from the cache, so read it until every id's background overview lands.
+pub(crate) async fn import_tree_with_overviews(daemon: &Daemon, ids: &[Value]) -> Value {
+    let mut tick = tokio::time::interval(std::time::Duration::from_millis(50));
+    loop {
+        tick.tick().await;
+        let tree = import_rpc(daemon, "rail.tree", Value::Null).await;
+        let nodes = tree["result"].as_array().unwrap();
+        if ids.iter().all(|id| {
+            nodes
+                .iter()
+                .any(|node| node["id"] == *id && node["overview"]["id"].is_string())
+        }) {
+            return tree;
+        }
+    }
+}
+
 pub(super) fn import_git(project: &Path, args: &[&str]) -> String {
     let output = std::process::Command::new("git")
         .arg("-C")
@@ -223,7 +240,13 @@ async fn u4251b_sdk_membership_survives_snapshot_validation() {
         .collect();
     let params = json!({"selections":selections});
     let committed = import_rpc(&daemon, "project.importCommit", params.clone()).await;
-    let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+    let ids: Vec<Value> = committed["result"]["outcomes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|outcome| outcome["agent"].clone())
+        .collect();
+    let tree = import_tree_with_overviews(&daemon, &ids).await;
     for outcome in committed["result"]["outcomes"].as_array().unwrap() {
         assert!(outcome["error"].is_null(), "{committed}");
         let node = tree["result"]
