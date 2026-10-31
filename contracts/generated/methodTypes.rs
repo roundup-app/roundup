@@ -130,7 +130,7 @@
     Method { name: "api.list", params: "null", result: "describe_MethodList" },
     Method { name: "api.describe", params: "describe_DescribeParams", result: "describe_MethodDescription" },
     Method { name: "link.read", params: "link_LinkUrl", result: "link_LinkContent" },
-    Method { name: "shortcuts.export", params: "link_ShortcutsExportParams", result: "null" },
+    Method { name: "shortcuts.export", params: "link_ShortcutFileExport", result: "null" },
     Method { name: "daemon.identify", params: "common_IdentifyParams", result: "null" },
     Method { name: "events.subscribe", params: "common_SubscribeParams | null", result: "common_SubscribeResult" },
     Method { name: "provenance.history", params: "common_HistoryParams", result: "common_Touch[]" },

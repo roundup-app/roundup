@@ -106,7 +106,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     try {
       const path = await props.app.chooseSavePath("shortcuts.json");
 
-      if (path !== null) await props.app.forProject("").rpc("shortcuts.export", { path, overrides: overrides() });
+      if (path !== null) await props.app.forProject("").rpc("shortcuts.export", { path, keys: overrides() });
     } catch (error) {
       props.onFailure(error instanceof Error ? error.message : String(error));
     }
