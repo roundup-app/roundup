@@ -83,14 +83,14 @@ impl Daemon {
         if conn.actor.kind != contracts::ActorKind::User {
             return Err(RpcError::forbidden("only the user exports shortcuts"));
         }
-        let p: contracts::link::ShortcutsExportParams = rpc::params(params)?;
+        let p: contracts::link::ShortcutFileExport = rpc::params(params)?;
         if !std::path::Path::new(&p.path).is_absolute() {
             return Err(RpcError::new(
                 rpc::code::INVALID_PARAMS,
                 format!("export path must be absolute: {}", p.path),
             ));
         }
-        let text = serde_json::to_string_pretty(&p.overrides).map_err(RpcError::internal)?;
+        let text = serde_json::to_string_pretty(&p.keys).map_err(RpcError::internal)?;
         std::fs::write(&p.path, text + "\n").map_err(|err| {
             RpcError::new(
                 rpc::code::INTERNAL,

@@ -161,7 +161,7 @@ it("u5239e_the_file_holds_exactly_the_overrides", async () => {
   app.chooser.savePath = "/tmp/shortcuts.json";
   app.handlers["shortcuts.export"] = () => null;
   fireEvent.click(view.getByRole("button", { name: copy.saveToFile }));
-  await waitFor(() => expect(app.calls.filter(call => call.method === "shortcuts.export")).toEqual([{ method: "shortcuts.export", params: { path: "/tmp/shortcuts.json", overrides: { "terminal.new": "meta+shift+KeyT" } } }]));
+  await waitFor(() => expect(app.calls.filter(call => call.method === "shortcuts.export")).toEqual([{ method: "shortcuts.export", params: { path: "/tmp/shortcuts.json", keys: { "terminal.new": "meta+shift+KeyT" } } }]));
   expect(app.chooser.suggestedNames).toEqual(["shortcuts.json"]);
 });
 
