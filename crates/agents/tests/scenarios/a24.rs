@@ -190,7 +190,6 @@ async fn f8_the_door_keeps_f2_on_start_and_resume() {
     acknowledge_f8_start(&f, &id, "startup").await;
     restarting.await.unwrap().unwrap();
     f.call("agent.stop", json!({"id": id})).await.unwrap();
-    crate::a35::resumes_copy(true).await;
 }
 
 async fn assert_f8_argv(f: &Fixture, resume: bool) {
