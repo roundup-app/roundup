@@ -223,7 +223,7 @@ it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_ope
   focus.focus();
   await show();
 
-  const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
+  const expected = ["New Agent", "New Agent with a prompt", "New Workstream", "New Mode", ...(context === "editor" ? [] : ["New Terminal"]),
     "Next needs you", ...(context === "rail" ? ["Rename", "Remove"] : []),
     "Focus the Ask bar", ...(context === "pane" ? ["Larger Terminal text", "Smaller Terminal text", "Reset text size", "Find…"] : []), "Assign / Ask", ...(["bubble", "editor"].includes(context) ? ["Minimise Bubble", "Close the Bubble"] : [])];
 
@@ -268,7 +268,7 @@ it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_op
 it("u2572c_no_selection_no_attention_and_a_removed_Bubble_never_fall_back", async () => {
   const { app, connected } = await mountSwitcher(null, [workstream("ws", { name: "only" })], [info("7", { owner: "ws" })]);
   await show();
-  expect(actionRows().map(row => row.dataset.value)).toEqual(["action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌘T", "action:chord:⌘/"]);
+  expect(actionRows().map(row => row.dataset.value)).toEqual(["action:chord:⌘N", "action:chord:⇧⌘N", "action:chord:⌥⌘N", "action:chord:⇧⌘M", "action:chord:⌘T", "action:chord:⌘/"]);
   press("Escape", {}, field()!);
   connected.rail.select("ws");
   document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
@@ -290,7 +290,7 @@ it.each(["rail", "bubble", "App"])("u2572d_action_keys_come_from_the_tables: %s"
 
   for (const option of actionRows()) {
     const row = [...CHORDS, ...LEADER].find(row => `action:${"press" in row ? "leader" : "chord"}:${row.keys}` === option.dataset.value)!;
-    const keys = "press" in row ? `${CHORDS[3]!.keys} ${row.keys}` : row.keys;
+    const keys = "press" in row ? `${CHORDS.find(chord => chord.keys === "⌘K")!.keys} ${row.keys}` : row.keys;
     expect([...option.querySelectorAll("kbd.key-chip")].map((chip) => chip.textContent).join("")).toBe(keys.replaceAll(" ", ""));
   }
 });

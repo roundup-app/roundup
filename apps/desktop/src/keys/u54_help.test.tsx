@@ -114,6 +114,15 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
         // U3799's App view must close before the next scope probe, preserving its original focus.
         document.querySelector('.settings-view[aria-label="Settings"]')?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
+        // `⇧⌘M` opens the Mode dialog, a modal layer that would take every later probe.
+        if (press.defaultPrevented && code === "KeyM" && mods.metaKey && mods.shiftKey) {
+          // No spawn capacity (an earlier probe's create in flight) binds the key and opens nothing.
+          await waitFor(() => expect(document.querySelector(".opening-prompt-dialog")).not.toBeNull(), { timeout: 300 }).then(async () => {
+            document.querySelector(".opening-prompt-dialog")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+            await waitFor(() => expect(document.querySelector(".opening-prompt-dialog")).toBeNull());
+          }, () => undefined);
+        }
+
         // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
         document.querySelector(".spawn-prompt-field:not([readonly])")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
       }
@@ -193,7 +202,7 @@ describe("u54 keyboard help", () => {
     const listed = CHORDS.filter((chord) => !chord.inFirstRun && !chord.inRail && !chord.inTerminals && !chord.inShelf && !chord.inEditor).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
     const outsideTerminal = document.querySelector('.rail-actions [aria-label="New Agent"]')!;
-    const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
+    const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"])), ...(await boundPresses(outsideTerminal, [{ altKey: true, metaKey: true }], ["KeyN"]))])].sort();
 
     expect(bound).toEqual(listed);
 
