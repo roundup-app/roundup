@@ -17,6 +17,6 @@ pub struct SkillItem {
 
 /// The items after a `skill.*` call, in the order `skill`, `hook`.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
-pub struct SkillSetup {
+pub struct SkillFiles {
     pub items: Vec<SkillItem>,
 }

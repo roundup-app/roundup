@@ -3,7 +3,7 @@
 
 use agents::claude_code::skill_setup::Install;
 use contracts::ActorKind;
-use contracts::skill::{SkillItem, SkillSetup};
+use contracts::skill::{SkillItem, SkillFiles};
 use rpc::RpcError;
 use serde_json::Value;
 
@@ -31,7 +31,7 @@ pub fn skill_call(install: &Install, method: &str) -> Result<Value, RpcError> {
                 .collect()
         }
     };
-    rpc::reply(&SkillSetup {
+    rpc::reply(&SkillFiles {
         items: items
             .into_iter()
             .map(|(item, state, path)| SkillItem {

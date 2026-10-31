@@ -2,6 +2,6 @@
 
 import type * as skill$SkillItem from "./SkillItem";
 /**  The items after a `skill.*` call, in the order `skill`, `hook`. */
-export type SkillSetup = {
+export type SkillFiles = {
 	items: skill$SkillItem.SkillItem[],
 };
