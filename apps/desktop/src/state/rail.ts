@@ -125,7 +125,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       if (change.kind !== "rename" || node.name === change.base) continue;
       setAsked(id, undefined!);
 
-      if (node.name !== change.asked) commandFailure.show(copy.changeDidNotApply(change.asked), id, "rail");
+      if (node.name !== change.asked) commandFailure.show(copy.renameDidNotApply(change.asked, node.name), id, "rail");
     }
   };
 
