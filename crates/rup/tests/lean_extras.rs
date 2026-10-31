@@ -213,7 +213,7 @@ async fn lc7_a_known_extra_joins_the_start() {
     let names = door.request("agent.extras", Value::Null).await.unwrap();
     assert_eq!(
         names,
-        json!({"skills": ["zzskill"], "plugins": ["zzplug@market"], "mcp": ["zzserver"]})
+        json!({"skills": ["zzskill"], "plugins": ["zzplug@market"], "mcp": ["computer-use", "zzserver"]})
     );
     run.spawn(
         &door,

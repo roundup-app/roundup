@@ -333,3 +333,7 @@ not native latency. R20/R21 remain open. Before review, run
 the PR head and retain all three reports. Every run must have p95 < 16 ms and
 zero dropped keys; another exit 1 keeps the measured render hop open, and exit
 2 means the recorder needs repair. No after-repair native timing is claimed.
+
+### Flood chunk target 2 ms (#3550)
+
+At `81b5820d8` flood p95 is 14–16 ms; run 3 lands on 16.0, which fails `< 16`. The typed echo waits behind at most one uninterruptible parse, so the adaptive chunk target drops from 3 ms to 2 ms (512 to 8192 bytes), taking about 1 ms off the worst wait before the echo's frame. Ordering, lossless output and the recorder are unchanged; `r21_flood_chunks_shrink_to_a_parse_the_echo_can_wait_behind` pins the new size. No native timing is claimed: run `ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --flood` once on the owner's Mac at the PR head; all three runs must read p95 < 16 ms with zero dropped keys.
