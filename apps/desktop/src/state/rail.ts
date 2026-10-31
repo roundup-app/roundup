@@ -2,6 +2,7 @@ import type { Size, TerminalPreparation } from "../terminal/emulator";
 import { captureFocus } from "../keys/focus";
 import { createItemFailure } from "../rail/itemFailure";
 import { copy } from "./copy";
+import { applying } from "../app/pending";
 import { batch, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Actor } from "@contracts/Actor";
@@ -61,12 +62,46 @@ export type RailState = {
   clearStorageFailure(): void;
   select(id: string | null): void;
   nameOf(actor: Actor): string;
+  /** U5172a: the change asked of Row `id` that the Daemon has not yet confirmed, or `null`. */
+  pendingOf(id: string): PendingChange | null;
+  /** U5172a: keeps the asked change on Row `id`, marked, until an Event or a re-read settles it. */
+  keepAsked(id: string, change: PendingChange): void;
+  /** U5172a: where Row `id` sits now. */
+  placeOf(id: string): RailPlace | null;
+  /** U5172a: renames Row `id`; a refusal throws, an unanswered call keeps `name` marked as unconfirmed. */
+  rename(id: string, name: string): Promise<void>;
   /** The message of the last failed fetch, until a later fetch succeeds. */
   failure(): string | null;
   /** Fetches the current tree after a write found that its row had already gone; `terminals` also refetches `terminal.list`, so a missed exit shows. */
   refresh(options?: { terminals?: boolean }): Promise<void>;
   /** Resolves when no fetch is in flight and no queued Event is left to apply. */
   settled(): Promise<void>;
+};
+
+/** U5172a: a change the App asked and the Daemon has not answered. A rename shows `asked` over the `base` name. */
+export type PendingChange = { kind: "rename"; asked: string; base: string } | { kind: "remove" } | { kind: "move"; asked: RailPlace; base: RailPlace };
+
+/** U5172a: where a Row sits: its parent and its index among that parent's children. */
+export type RailPlace = { parent: string | null; index: number };
+
+const placeOf = (tree: readonly RailNode[], id: string): RailPlace | null => {
+  const node = tree.find(each => each.id === id);
+
+  return node === undefined ? null : { parent: node.parent, index: tree.filter(each => each.parent === node.parent).findIndex(each => each.id === id) };
+};
+
+/** U5172a: `tree` with Row `id` put at `place`: before the child of `place.parent` now at that index, else after the parent's last child (or its parent Row). */
+const movedTo = (tree: readonly RailNode[], id: string, place: RailPlace): RailNode[] => {
+  const node = tree.find(each => each.id === id);
+
+  if (node === undefined) return [...tree];
+  const rest = tree.filter(each => each.id !== id);
+  const siblings = rest.filter(each => each.parent === place.parent);
+  const before = siblings[place.index];
+  const last = siblings.at(-1);
+  const at = before !== undefined ? rest.indexOf(before) : last !== undefined ? rest.indexOf(last) + 1 : place.parent === null ? rest.length : rest.findIndex(each => each.id === place.parent) + 1;
+
+  return [...rest.slice(0, at), { ...node, parent: place.parent }, ...rest.slice(at)];
 };
 
 /** A24: how long the App waits for `rail.startDoor`, the Daemon's own bound of 10 000 ms. */
@@ -114,6 +149,35 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     setCollapsed((closed) => new Set([...closed].filter((workstream) => !above.has(workstream))));
   };
 
+  const [unconfirmed, setAsked] = createStore<Record<string, PendingChange>>({});
+
+  /** U5172a: a read or Event settles an unconfirmed change: confirmed clears the mark, a contradicting name shows the Daemon's with one failure, an unchanged row stays marked. */
+  const reconcileAsked = (tree: readonly RailNode[]) => {
+    for (const [id, change] of Object.entries(unconfirmed)) {
+      const node = tree.find(each => each.id === id);
+
+      if (node === undefined) {
+        setAsked(id, undefined!);
+        continue;
+      }
+
+      if (change.kind === "move") {
+        const place = placeOf(tree, id)!;
+
+        if (place.parent === change.base.parent && place.index === change.base.index) continue;
+        setAsked(id, undefined!);
+
+        if (place.parent !== change.asked.parent || place.index !== change.asked.index) commandFailure.show(copy.moveDidNotApply, id, "rail");
+        continue;
+      }
+
+      if (change.kind !== "rename" || node.name === change.base) continue;
+      setAsked(id, undefined!);
+
+      if (node.name !== change.asked) commandFailure.show(copy.renameDidNotApply(change.asked, node.name), id, "rail");
+    }
+  };
+
   let pending = 0;
   let queued: DaemonEvent[] = [];
   let latest: Promise<void> = Promise.resolve();
@@ -135,7 +199,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     const tree = await app.rpc("rail.tree", null);
 
     batch(() => {
-      setModel("tree", reconcile(tree, { key: "id" }));
+      reconcileAsked(tree);
+
+      let shown = tree.map((node) => {
+        const change = unconfirmed[node.id];
+
+        return change?.kind === "rename" ? { ...node, name: change.asked } : node;
+      });
+
+      for (const [id, change] of Object.entries(unconfirmed)) if (change.kind === "move") shown = movedTo(shown, id, change.asked);
+
+      setModel("tree", reconcile(shown, { key: "id" }));
 
       for (const node of tree) {
         if (doors[node.id]?.pending && hasLiveTerminal(node)) setDoors(node.id, "observedLive", true);
@@ -224,6 +298,11 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         queued.push(event);
       } else if (event.name === "rail.changed") {
         fetching(fetchTree);
+      } else if (event.name === "rail.renamed") {
+        const row = model.tree.find(node => node.id === event.data.id);
+
+        if (row !== undefined) reconcileAsked([{ ...row, name: event.data.name }]);
+        setModel("tree", node => node.id === event.data.id, "name", event.data.name);
       } else if (event.name === "agent.status") {
         setModel("tree", (node) => node.id === event.data.id && node.attempt === event.data.attempt && node.status_revision !== null && BigInt(event.data.status_revision) > BigInt(node.status_revision), { status: event.data.status, status_revision: event.data.status_revision });
       } else if (event.name === "agent.toolCall") {
@@ -343,6 +422,22 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
       const code = model.exited[node.terminal_id] ?? null;
 
       return code === null ? { kind: "signal" } : { kind: "code", code };
+    },
+    pendingOf: (id) => unconfirmed[id] ?? null,
+    placeOf: (id) => placeOf(model.tree, id),
+    rename: async (id, name) => {
+      const base = model.tree.find(node => node.id === id)?.name ?? "";
+      const result = await applying(() => app.rpc("rail.rename", { id, name }));
+
+      if (result.kind === "refused") throw result.error;
+
+      if (result.kind === "pending") state.keepAsked(id, { kind: "rename", asked: name, base });
+    },
+    keepAsked: (id, change) => {
+      setAsked(id, change);
+
+      if (change.kind === "rename") setModel("tree", node => node.id === id, "name", change.asked);
+      else if (change.kind === "move") setModel("tree", reconcile(movedTo(model.tree, id, change.asked), { key: "id" }));
     },
     failure,
     dismissed: (node) => {

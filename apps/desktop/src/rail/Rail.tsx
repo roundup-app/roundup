@@ -882,7 +882,7 @@ export const Rail = () => {
                           }}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
-                            await app.rpc("rail.rename", { id: view().node.id, name });
+                            await rail.rename(view().node.id, name);
                             failure.acknowledge(view().node.id);
                           }}
                           lifted={parts.isDragging()}
