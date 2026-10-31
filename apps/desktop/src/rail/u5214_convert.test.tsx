@@ -25,12 +25,15 @@ it("u5214_offered_entries_match_the_daemon_guard", async () => {
     agent("child", "working", "", { parent: "ws" }),
     door("lead", "working", ""),
   ];
+
   const m = await mountRail(tree, [exitedTerminal("exited", 0), exitedTerminal("nothing", 0)]);
+
   const offered = async (id: string) => {
     const labels = await labelsOf(m, id);
 
     return [labels.includes(copy.makeWorkstream), labels.includes(copy.saveAsMode)];
   };
+
   expect(await offered("running")).toEqual([true, true]);
   expect(await offered("exited")).toEqual([true, true]);
   expect(await offered("nothing")).toEqual([false, true]);
@@ -47,6 +50,7 @@ it("u5214_make_a_workstream_calls_the_method", async () => {
 
     return tree[0]!;
   };
+
   fireEvent.contextMenu(rowOf("a"), { clientX: 1, clientY: 1 });
   await m.app.pickMenu(copy.makeWorkstream);
   await waitFor(() => expect(m.rail.nodes[0]?.kind).toBe("workstream"));
