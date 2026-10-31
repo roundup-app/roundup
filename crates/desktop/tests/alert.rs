@@ -23,7 +23,7 @@ impl Notifier for Shared {
         Some(self.0.refuse.clone().map_or(Ok(()), Err))
     }
     fn denied(&self) -> bool {
-        self.0.calls.lock().unwrap().push("denied".into());
+        self.0.calls.lock().unwrap().push("denied?".into());
         self.0.denied
     }
     fn banner(&self, agent: &str, title: &str, body: &str) -> Result<(), String> {
@@ -55,7 +55,7 @@ fn u5232f_alert_and_sound_reach_the_notifier_once_each() {
     raise(&fake, true, true).unwrap();
     assert_eq!(
         *fake.calls.lock().unwrap(),
-        ["sound", "denied", "permission", "banner a1|Ada|Done"]
+        ["sound", "denied?", "permission", "banner a1|Ada|Done"]
     );
 }
 
@@ -105,7 +105,7 @@ fn u5232g_a_refusal_returns_its_cause_and_sound_still_plays() {
         .raise(&serde_json::from_value(request(false, true)).unwrap())
         .unwrap();
     let calls = fake.calls.lock().unwrap();
-    assert_eq!(*calls, ["sound", "denied", "permission", "sound"]);
+    assert_eq!(*calls, ["sound", "denied?", "permission", "sound"]);
 }
 
 #[test]
@@ -122,27 +122,31 @@ fn u5232e_a_click_emits_the_agent_to_the_webview() {
     assert_eq!(payload, r#"{"agent":"a1"}"#);
 }
 
-#[test]
-fn u5232i_a_denied_state_returns_its_cause_without_sending() {
-    let fake = Arc::new(Fake {
+fn denied_fake() -> Arc<Fake> {
+    Arc::new(Fake {
         denied: true,
         ..Fake::default()
-    });
+    })
+}
+
+#[test]
+fn u5232i_a_denied_state_returns_its_cause_without_sending() {
+    let fake = denied_fake();
     let error = raise(&fake, true, false).unwrap_err();
+    assert_eq!(error.code, code::FORBIDDEN);
     assert!(
         error
             .message
-            .contains("notifications denied in System Settings")
+            .contains("notifications denied in System Settings"),
+        "{}",
+        error.message
     );
-    assert_eq!(*fake.calls.lock().unwrap(), ["denied"]);
+    assert_eq!(*fake.calls.lock().unwrap(), ["denied?"]);
 }
 
 #[test]
 fn u5232i_denied_does_not_stop_the_sound() {
-    let fake = Arc::new(Fake {
-        denied: true,
-        ..Fake::default()
-    });
+    let fake = denied_fake();
     raise(&fake, false, true).unwrap();
     assert_eq!(*fake.calls.lock().unwrap(), ["sound"]);
 }
