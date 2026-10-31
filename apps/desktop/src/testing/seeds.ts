@@ -162,7 +162,9 @@ const exitCodeOf = (target: RailNode): number | null => {
 
 /** Installs a Daemon that keeps the Rail, Todos and Pads in memory and sends the Events a real one sends after the same write. */
 const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: boolean, withBubbles = false, withImports = false): Controls => {
-  const nodes = structuredClone(tree);
+  const nodes = structuredClone(tree).map((other) =>
+    other.kind === "agent" ? { ...other, can_save_as_mode: true, can_make_workstream: other.parent === null && other.can_resume } : other,
+  );
   const exits = new Map<string, number | null>();
   const outputOffsets = new Map<string, number>();
   const outputBytes = new Map<string, Uint8Array[]>();
