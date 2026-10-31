@@ -588,14 +588,12 @@ impl Agents {
 
     async fn rpc_models_list(
         &self,
-        ctx: &Ctx,
+        _ctx: &Ctx,
         _method: &str,
         _value: Value,
     ) -> Result<Value, RpcError> {
-        {
-            ctx.touch(contracts::Verb::Read, "project:models")?;
-            reply(&models::list())
-        }
+        // The Adapter's static table: no Project item is read, so no Touch is written to `project.db`.
+        reply(&models::list())
     }
 
     async fn rpc_project_get(

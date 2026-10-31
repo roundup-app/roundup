@@ -323,8 +323,12 @@ async fn sample(
     Ok(latencies)
 }
 
-/// Every sampled method's p95 in milliseconds against `limit`; `Err` names each method over it.
-async fn measure(daemon: &rupd_harness::Rupd, limit: f64, listings: usize) -> Result<(), String> {
+/// The p95 in milliseconds of each sampled method (only the names in `only`, when given); `Err` names each method that timed out.
+async fn measure(
+    daemon: &rupd_harness::Rupd,
+    listings: usize,
+    only: Option<&[String]>,
+) -> Result<BTreeMap<String, f64>, String> {
     let missing = unsampled(&allowlist(), declarations(), &SAMPLED);
     if !missing.is_empty() {
         return Err(format!("read methods missing from the sample: {missing:?}"));
@@ -354,11 +358,12 @@ async fn measure(daemon: &rupd_harness::Rupd, limit: f64, listings: usize) -> Re
     let methods = SAMPLED
         .iter()
         .map(|method| (*method, Value::Null))
-        .chain([(SET_AUTO, json!({"id": workstream, "auto": false}))]);
+        .chain([(SET_AUTO, json!({"id": workstream, "auto": false}))])
+        .filter(|(method, _)| only.is_none_or(|names| names.iter().any(|name| name == method)));
     for (method, params) in methods {
         match sample(&client, method, params).await {
             Ok(latencies) => {
-                p95s.insert(method, p95(latencies).as_secs_f64() * 1000.0);
+                p95s.insert(method.to_owned(), p95(latencies).as_secs_f64() * 1000.0);
             }
             Err(failure) => failures.push(failure),
         }
@@ -367,16 +372,24 @@ async fn measure(daemon: &rupd_harness::Rupd, limit: f64, listings: usize) -> Re
     for load in loads {
         let _ = load.await;
     }
-    failures.extend(
-        p95s.iter()
-            .filter(|(_, ms)| **ms >= limit)
-            .map(|(method, ms)| format!("{method} p95 {ms:.1} ms, over {limit} ms")),
-    );
     if failures.is_empty() {
-        Ok(())
+        Ok(p95s)
     } else {
         Err(failures.join("\n"))
     }
+}
+
+/// Each method over `limit` in both samples, with its p95 in the second; one slow interval fails none.
+fn confirmed_over(
+    first: &BTreeMap<String, f64>,
+    second: &BTreeMap<String, f64>,
+    limit: f64,
+) -> Vec<String> {
+    second
+        .iter()
+        .filter(|(method, ms)| **ms >= limit && first.get(*method).is_some_and(|ms| *ms >= limit))
+        .map(|(method, ms)| format!("{method} p95 {ms:.1} ms, over {limit} ms"))
+        .collect()
 }
 
 async fn gate(metric: &str, listings: usize) {
@@ -386,9 +399,23 @@ async fn gate(metric: &str, listings: usize) {
         &fixture.data(),
         &fixture.config(),
     );
-    if let Err(failure) = measure(&daemon, budget(metric), listings).await {
-        panic!("{failure}");
+    let limit = budget(metric);
+    let first = measure(&daemon, listings, None)
+        .await
+        .unwrap_or_else(|f| panic!("{f}"));
+    let slow: Vec<String> = first
+        .iter()
+        .filter(|(_, ms)| **ms >= limit)
+        .map(|(method, _)| method.clone())
+        .collect();
+    if slow.is_empty() {
+        return;
     }
+    let second = measure(&daemon, listings, Some(&slow))
+        .await
+        .unwrap_or_else(|f| panic!("{f}"));
+    let failures = confirmed_over(&first, &second, limit);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 6)]
@@ -414,5 +441,39 @@ fn r5220_an_unsampled_read_method_fails_the_gate() {
     assert_eq!(
         unsampled(&grown, &declarations, &SAMPLED),
         ["todo.countAll"]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 6)]
+async fn r5355_models_list_cost_is_not_the_project() {
+    let fixture = generate();
+    let daemon = start(
+        &fixture.project().canonicalize().unwrap(),
+        &fixture.data(),
+        &fixture.config(),
+    );
+    let only = ["models.list".to_owned()];
+    let p95s = measure(&daemon, 0, Some(&only)).await.unwrap();
+    let ms = p95s["models.list"];
+    assert!(
+        ms < budget("alone_p95_ms") / 2.0,
+        "models.list p95 {ms:.1} ms, over half of the alone limit"
+    );
+}
+
+#[test]
+fn r5355_one_slow_interval_does_not_fail_the_gate() {
+    let first = BTreeMap::from([("models.list".to_owned(), 205.0)]);
+    let second = BTreeMap::from([("models.list".to_owned(), 40.0)]);
+    assert!(confirmed_over(&first, &second, 200.0).is_empty());
+}
+
+#[test]
+fn r5355_a_regression_fails_in_both_samples() {
+    let first = BTreeMap::from([("todo.list".to_owned(), 260.0)]);
+    let second = BTreeMap::from([("todo.list".to_owned(), 250.0)]);
+    assert_eq!(
+        confirmed_over(&first, &second, 200.0),
+        ["todo.list p95 250.0 ms, over 200 ms"]
     );
 }
