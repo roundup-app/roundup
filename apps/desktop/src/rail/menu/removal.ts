@@ -84,7 +84,7 @@ export const removalQuestion = (removal: Removal, name: string) => {
   const summary = {
     title: copy.removeWorkstreamQuestion(name),
     message: [goesLine(removal, name), stays, ...removal.unread.map(list => copy.listUnread(list))].filter(Boolean).join("\n"),
-    cancelLabel: copy.cancel,
+    cancelLabel: copy.keep,
   };
 
   return stays

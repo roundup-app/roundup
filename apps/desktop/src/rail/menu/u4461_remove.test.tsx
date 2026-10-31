@@ -15,7 +15,7 @@ it("u4601_buttons_follow_what_stays_nonempty", async () => {
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.removalQuestions).toHaveLength(1));
-  expect(app.removalQuestions[0]).toMatchObject({ thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Cancel" });
+  expect(app.removalQuestions[0]).toMatchObject({ thisLabel: "Remove this", allLabel: "Remove all", cancelLabel: "Keep" });
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
 });
 
@@ -73,7 +73,7 @@ it.each([false, true])("u4601_buttons_follow_what_stays_empty_answer_%s", async 
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");
   await waitFor(() => expect(app.questions).toHaveLength(1));
-  expect(app.questions[0]).toMatchObject({ okLabel: "Remove", cancelLabel: "Cancel" });
+  expect(app.questions[0]).toMatchObject({ okLabel: "Remove", cancelLabel: "Keep" });
   expect(app.removalQuestions).toEqual([]);
   expect(railCallsTo(app, "rail.remove")).toEqual([]);
   app.answerQuestion!(answer);
@@ -110,8 +110,8 @@ it("u4461_a_failed_native_question_authorizes_nothing_and_retries", async () => 
 
 it.each([
   { agents: [], done: 0, open: 0, expected: ["Goes: workstream", null] },
-  { agents: [agent("new-agent", "working", "busy", { parent: "workstream" })], done: 1, open: 1, expected: ["Goes: workstream, 1 done Todo", "Stays (Remove this): new-agent, 1 open Todo"] },
-  { agents: [agent("finished", "done", "finished", { parent: "workstream" }), agent("alpha", "working", "busy", { parent: "workstream" }), agent("beta", "working", "busy", { parent: "workstream" })], done: 2, open: 3, expected: ["Goes: workstream, finished, 2 done Todos", "Stays (Remove this): alpha, beta, 3 open Todos"] },
+  { agents: [agent("new-agent", "working", "busy", { parent: "workstream" })], done: 1, open: 1, expected: ["Goes: workstream, 1 done Todo", "Stays: new-agent, 1 open Todo"] },
+  { agents: [agent("finished", "done", "finished", { parent: "workstream" }), agent("alpha", "working", "busy", { parent: "workstream" }), agent("beta", "working", "busy", { parent: "workstream" })], done: 2, open: 3, expected: ["Goes: workstream, finished, 2 done Todos", "Stays: alpha, beta, 3 open Todos"] },
 ])("u4601_three_plans_have_two_list_copy_%#", async fixture => {
   const app = createFakeApp();
   app.handlers["todo.list"] = () => Array.from({ length: fixture.done + fixture.open }, (_, index) => todo(index + 1, { home: "workstream", done: index < fixture.done }));
@@ -119,7 +119,7 @@ it.each([
   expect(removalQuestion(plan, "workstream")).toEqual({
     title: "Remove “workstream”?",
     message: fixture.expected.filter(Boolean).join("\n"),
-    cancelLabel: "Cancel",
+    cancelLabel: "Keep",
     ...(fixture.open ? { thisLabel: "Remove this", allLabel: "Remove all" } : { okLabel: "Remove" }),
   });
 });
@@ -147,7 +147,7 @@ it("u4601_the_lists_follow_the_removal_plan", async () => {
 
   expect([goesLine(plan, "chosen"), staysLine(plan)]).toEqual([
     "Goes: chosen, finished, 1 done Todo, 3 Pads",
-    "Stays (Remove this): running, dirty, ahead, 1 open Todo",
+    "Stays: running, dirty, ahead, 1 open Todo",
   ]);
 });
 
