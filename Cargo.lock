@@ -20,7 +20,6 @@ version = "0.0.0"
 dependencies = [
  "agents",
  "async-trait",
- "checkpoints",
  "contracts",
  "flate2",
  "fs-more",
@@ -617,24 +616,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
  "rand_core",
-]
-
-[[package]]
-name = "checkpoints"
-version = "0.0.0"
-dependencies = [
- "agents",
- "async-trait",
- "contracts",
- "rpc",
- "rusqlite",
- "rusqlite_migration",
- "serde",
- "serde_json",
- "tempfile",
- "time",
- "tokio",
- "wait-timeout",
 ]
 
 [[package]]
@@ -4105,7 +4086,6 @@ version = "0.0.0"
 dependencies = [
  "agents",
  "base64 0.23.1",
- "checkpoints",
  "clap",
  "contracts",
  "pads",
@@ -4128,7 +4108,6 @@ dependencies = [
  "async-trait",
  "base64 0.23.1",
  "cap-std",
- "checkpoints",
  "contracts",
  "getrandom 0.3.4",
  "jsonschema",
