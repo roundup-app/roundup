@@ -2,6 +2,7 @@ import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
   error: sharedCopy.error,
+  dismissedFailure: sharedCopy.dismissedFailure,
   needsYouGlyph: sharedCopy.needsYouGlyph,
   blocked: sharedCopy.blocked,
   working: sharedCopy.working,

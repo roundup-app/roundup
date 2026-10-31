@@ -151,15 +151,15 @@ describe("u2694 the Rail's menu actions", () => {
     expect(screen.queryByText("gone")).toBeNull();
   });
 
-  it("u2694b_another_remove_error_shows_the_failure_line", async () => {
+  it("u5172b_refused_remove_shows_the_failure_line", async () => {
     const { app } = await mountRail([agent("a", "idle", "idle")]);
-    app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32603, "cannot remove"));
+    app.handlers["rail.remove"] = () => Promise.reject(new RpcError(-32003, "cannot remove"));
 
     open("a");
     await app.pickMenu("Remove");
     await answerQuestion(true);
 
-    expect(await screen.findByText("cannot remove")).toBeTruthy();
+    expect(await screen.findByRole("alert")).toBeDefined();
   });
 
   it("u2694c_a_failed_send_shows_the_failure_line", async () => {

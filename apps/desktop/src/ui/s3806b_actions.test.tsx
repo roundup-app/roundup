@@ -490,7 +490,7 @@ it.each(cases)("s3806b_action_survives_surface_close: $row.owner $row.label by $
       expect(connected.drafts.list()).toContainEqual(newer);
     }
   } else {
-    reply.reject(outcome === "unknown" ? new Error(`${row.label} rejected by the Daemon`) : new RpcError(row.label === "Agent with prompt" ? -32003 : -32000, `${row.label} rejected by the Daemon`));
+    reply.reject(outcome === "unknown" ? new Error(`${row.label} rejected by the Daemon`) : new RpcError(row.label === "Agent with prompt" || row.label === "Remove" ? -32003 : -32000, `${row.label} rejected by the Daemon`));
     await waitFor(() => expect(document.body.textContent).toContain(`${row.label} rejected by the Daemon`));
 
     if (row.method === "agent.spawn") {

@@ -1,3 +1,4 @@
+import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
@@ -13,7 +14,7 @@ afterEach(cleanup);
 
 const REFUSED = "daemon said no";
 
-const refuse = () => { throw new Error(REFUSED); };
+const refuse = () => { throw new RpcError(-32003, REFUSED); };
 
 const owned = (name: string, by: string): Pad => ({ incarnation: `fixture-${name}`, name, text: "old", updated_at: 0, revision: 1, home: null });
 

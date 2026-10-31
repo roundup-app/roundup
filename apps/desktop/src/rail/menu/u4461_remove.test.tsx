@@ -83,7 +83,7 @@ it.each([false, true])("u4601_buttons_follow_what_stays_empty_answer_%s", async 
 
 it("u4461_a_failed_removal_shows_the_message", async () => {
   const { app } = await mountRail([workstream("chosen"), agent("running", "working", "busy", { parent: "chosen" })], [info("live-shell", { owner: "chosen" })]);
-  app.handlers["rail.remove"] = () => { throw new RpcError(-32603, "Cannot remove: stop the process and retry"); };
+  app.handlers["rail.remove"] = () => { throw new RpcError(-32003, "Cannot remove: stop the process and retry"); };
 
   fireEvent.contextMenu(rowOf("chosen"));
   await app.pickMenu("Remove");

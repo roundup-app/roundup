@@ -1,6 +1,7 @@
 import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
+  changeDidNotApply: "The change did not apply; the earlier value was kept. Try again.",
   dismissFailure: sharedCopy.dismissFailure,
   draftSurface: sharedCopy.draftSurface,
   draftField: sharedCopy.draftField,
