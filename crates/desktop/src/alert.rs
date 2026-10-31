@@ -78,7 +78,7 @@ impl Alerts {
 pub struct Plugin<R: Runtime>(pub AppHandle<R>);
 
 impl<R: Runtime> Notifier for Plugin<R> {
-    /// Asks macOS once (it prompts the owner the first time) and returns the refusal as the cause. A dev build has no bundle, so there is no center to ask.
+    /// Asks macOS once (it prompts the owner the first time) without waiting for the answer and returns the refusal as the cause. A dev build has no bundle, so there is no center to ask.
     fn permission(&self) -> Option<Result<(), String>> {
         #[cfg(target_os = "macos")]
         if is_bundled() {
