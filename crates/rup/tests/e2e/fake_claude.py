@@ -10,6 +10,8 @@ file. What it does comes from the environment, so one script serves every scenar
                            the Brief and the real MCP list stand together
   FAKE_CLAUDE_PROMPT_LOG   a file path (A32): each typed prompt is appended as
                            one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
+  FAKE_CLAUDE_REWIND_LOG   a file path (M5159b): each `--rewind-files` run appends one JSON line {"argv", "cwd", "checkpointing"} and exits 0,
+                           or exits 1 with a reason when FAKE_CLAUDE_REWIND_FAILS is set
   FAKE_CLAUDE_HOLD_PROMPT  a file path (B40): a Message taken from the inbox is logged, then its turn waits until the file
                            exists, as a Daemon that is killed meanwhile never gets the transcript receipt
   FAKE_CLAUDE_CHILD_PROCESS / FAKE_CLAUDE_DOOR_PROCESS
@@ -48,6 +50,17 @@ if sys.argv[1:2] == ["--version"]:
 # The fake models the vendor capability probe; real loading has its own Q11 observer.
 if sys.argv[1:3] == ["plugin", "test"]:
     print("Q11 runtime hook closure: 1 pass")
+    sys.exit(0)
+
+
+# M5159b: Claude Code's own file rewind, run as a program of its own: it is logged and ends at once.
+if "--rewind-files" in sys.argv:
+    if "FAKE_CLAUDE_REWIND_LOG" in os.environ:
+        with open(os.environ["FAKE_CLAUDE_REWIND_LOG"], "a") as log:
+            log.write(json.dumps({"argv": sys.argv[1:], "cwd": os.getcwd(), "checkpointing": os.environ.get("CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING")}) + "\n")
+    if "FAKE_CLAUDE_REWIND_FAILS" in os.environ:
+        print("No file checkpoint found for that message", file=sys.stderr)
+        sys.exit(1)
     sys.exit(0)
 
 
