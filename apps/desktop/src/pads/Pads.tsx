@@ -1,3 +1,4 @@
+import { applied, applying } from "../app/pending";
 import { Age } from "../shelf/Age";
 import { outcomeOf } from "../app/seam";
 import { queueFocus } from "../keys/focus";
@@ -12,12 +13,12 @@ import { copy } from "./copy";
 import { createSelection } from "../shelf/selection";
 import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
-import { failureOf } from "../todos/failureOf";
+import { changeFailureOf, failureOf } from "../todos/failureOf";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
-import { createEffect, createMemo, createSignal, For, onCleanup, Show, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -115,11 +116,11 @@ export const Pads = (props: {
       let action: string = copy.addPad;
 
       try {
-        await connected.app.rpc("pad.create", { name: target, text: null });
+        await applied(() => connected.app.rpc("pad.create", { name: target, text: null }));
 
         if (targetHome !== null) {
           action = copy.movePad(target);
-          await connected.app.rpc("pad.move", { name: target, home: targetHome });
+          await applied(() => connected.app.rpc("pad.move", { name: target, home: targetHome }));
         }
 
         connected.drafts.settle(submitted.draft.revision, "acknowledged");
@@ -189,7 +190,7 @@ export const Pads = (props: {
 
     if (!source || !pads().some(pad => pad.incarnation === source.incarnation && pad.name === source.name)) return;
     const before = ids[ids.indexOf(source.name) + 1] ?? null;
-    const message = await failureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
+    const message = await changeFailureOf(() => connected.app.rpc("pad.reorder", { name: source.name, before, expectedIncarnation: source.incarnation }));
 
     reportItemFailure(source, message, copy.movePad(source.name));
     await list.reload();
@@ -323,6 +324,11 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
   const copied = createCopyFeedback();
   const useList = usePadList();
   const [editing, setEditing] = createSignal(false);
+  // U5172a: a rename that got no reply shows the asked name, marked busy, until the Daemon's Event or a re-read changes the name.
+  const [asked, setAsked] = createSignal<string | null>(null);
+
+  createEffect(on(() => pad.name, () => setAsked(null), { defer: true }));
+
   let row: HTMLButtonElement | undefined;
 
   const closeName = (restore = true) => { setEditing(false);
@@ -380,12 +386,18 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             <div class="pad-row-head">
             <Show when={!editing()} fallback={<NameField object={`pad:${pad.incarnation}`} name={pad.name}
               version={async () => pad.incarnation} commit={async (text, base, version) => {
-                await connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! });
+                const result = await applying(() => connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! }));
+
+                if (result.kind === "refused") throw result.error;
+
+                if (result.kind === "pending") setAsked(text);
+
                 await useList.reload();
               }} close={closeName} fail={message => props.onItemFailure(pad, message, copy.rename)} />}>
             <button
               type="button"
               class="pad-name"
+              aria-busy={asked() !== null ? true : undefined}
               aria-pressed={props.selection.selected().includes(pad.incarnation)}
               ref={(element) => {
                 row = element;
@@ -403,7 +415,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               onClick={(event) => { if (!props.bulk.pending()) props.selection.click(pad.incarnation, event); row?.focus(); }}
 
             >
-              <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : pad.name}</span>
+              <span {...nameCut.attrs()} class="shelf-title">{copied.copied() ? copy.copied : asked() ?? pad.name}</span>
             </button>
             </Show>
             <Show when={!editing()}>

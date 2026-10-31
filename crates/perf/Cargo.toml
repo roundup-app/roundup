@@ -32,3 +32,7 @@ path = "src/presentation.rs"
 [[bin]]
 name = "perf-idle"
 path = "src/idle_run.rs"
+
+[dev-dependencies]
+rusqlite.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

@@ -93,6 +93,7 @@ async fn r20_hop_report_accounts_for_the_echo_round_trip() {
         cols: 80,
         rows: 24,
         scheme_notices: false,
+        status: Default::default(),
     }));
     let (output, _) = broadcast::channel(256);
     let (events, _) = broadcast::channel(16);

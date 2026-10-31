@@ -15,6 +15,7 @@ import { Tip } from "../ui/Tip";
 import { Popover } from "../ui/Popover";
 import { Icon } from "../ink/Icon";
 import { failureOf } from "./failureOf";
+import { applied } from "../app/pending";
 import { useTodoList } from "./todoList";
 import "./blockerMenu.styles.css";
 
@@ -93,7 +94,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
       setFailure(null);
 
       let made!: RailNode;
-      const message = await failureOf(async () => { made = await connected.app.rpc("todo.startWorkstream", { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) }); });
+      const message = await failureOf(async () => { made = await applied(() => connected.app.rpc("todo.startWorkstream", { id: id(), name: name().trim(), start: startChoiceOf(start(), chosen()) })); });
 
       setPending(false);
 

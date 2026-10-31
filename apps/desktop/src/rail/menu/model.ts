@@ -4,6 +4,7 @@ import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { applying } from "../../app/pending";
 import { outcomeOf, RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
 import type { ExitState, RailState } from "../../state/rail";
@@ -145,8 +146,12 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   const remove = (current: MenuState, scope: "this" | "all") =>
     attempt(async () => {
-      await app.rpc("rail.remove", scope === "all" ? { id: current.node.id, scope } : { id: current.node.id });
-      current.removed?.();
+      const result = await applying(() => app.rpc("rail.remove", scope === "all" ? { id: current.node.id, scope } : { id: current.node.id }));
+
+      if (result.kind === "refused") throw result.error;
+
+      if (result.kind === "pending") rail.keepAsked(current.node.id, { kind: "remove" });
+      else current.removed?.();
     }, current.node.id);
 
   const judge = async (current: MenuState) => {

@@ -266,7 +266,7 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
         .filter(|line| line.starts_with("    rup "))
         .map(|line| line.split_whitespace().nth(1).unwrap())
         .collect();
-    assert_eq!(other, ["help", "ping", "mcp", "signal", "context"]);
+    assert_eq!(other, ["help", "ping", "mcp", "signal", "context", "skill"]);
 }
 
 #[tokio::test]
