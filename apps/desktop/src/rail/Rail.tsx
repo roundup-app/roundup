@@ -21,7 +21,7 @@ import { CHORDS, LEADER, ariaShortcut } from "../keys/chords";
 import { captureActions, registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import type { RailSection } from "./persist/storage";
-import { TreeView } from "../ui/TreeView";
+import { TreeView, Trunks } from "../ui/TreeView";
 import { railCollection } from "./collection";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { useConnectedProject } from "../state/connectedProject";
@@ -34,7 +34,6 @@ import { canMakeWorkstream, canSaveAsMode, createRailMenu } from "./menu/model";
 import { ancestorsOf, isWorkstream, layoutRail, siblingsOf, type NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
-import { Trunks } from "../ui/TreeView";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
@@ -164,6 +163,7 @@ export const Rail = () => {
 
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
+
     if (prompt !== undefined) keepDraft(String(prompt));
   };
 
