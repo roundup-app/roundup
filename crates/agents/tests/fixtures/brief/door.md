@@ -45,6 +45,8 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `pad_restore`: restore your deletion operation in its original Project once, keeping its original Pad creation.
 - `pad_redoDelete`: delete a restored Pad using its acknowledged revision and Home.
 - `agent_context`: refresh your parent, peers and open Todos after a move.
+- `api_list`: list every method the Daemon serves with a one-line summary.
+- `api_describe`: describe one method: its summary, params and result schemas and an example.
 - `agent_wake`: await Agents; end your turn instead of polling `terminal_read` or `rail_tree`; trouble tells you without asking.
 - `reaction_create`: save a bounded Agent, pinned PR-check or time wait inside Reach with a reason, then end your turn.
 - `reaction_preview`: resolve an explicit time and offset before creating a time Reaction.
