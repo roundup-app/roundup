@@ -238,6 +238,24 @@ describe("u1 calls and events", () => {
     expect(await createTauriApp().chooseSavePath("x.md")).toBeNull();
   });
 
+  it("u5232f_the_adapter_sends_the_alert_request_and_hears_the_click", async () => {
+    const heard: string[] = [];
+    mockWindows("main");
+    mockIPC((command, args) => {
+      if (command === "state_alert") calls.push(args);
+
+      return null;
+    }, { shouldMockEvents: true });
+    const app = createTauriApp();
+    await app.onStateAlertClicked(agent => heard.push(agent));
+
+    await app.stateAlert({ agent: "a1", title: "Ada", body: "Done", alert: true, sound: false });
+    await emit("state-alert-clicked", { agent: "a1" });
+
+    expect(calls).toEqual([{ request: { agent: "a1", title: "Ada", body: "Done", alert: true, sound: false } }]);
+    expect(heard).toEqual(["a1"]);
+  });
+
   it("u1_the_adapter_sets_the_dock_badge_count", async () => {
     mockWindows("main");
     mockIPC((command, args) => {
