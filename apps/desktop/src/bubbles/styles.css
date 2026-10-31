@@ -328,3 +328,19 @@
     backdrop-filter: none;
   }
 }
+
+/* PS10.2: a Terminal tab rests as its name and one state glyph; the label shows on hover, focus or selection and is cut with an ellipsis. */
+.terminal-tab-label {
+  display: none;
+  max-width: calc(3 * var(--space-6));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  unicode-bidi: plaintext;
+}
+
+.terminal-tab:hover .terminal-tab-label,
+.terminal-tab:focus-visible .terminal-tab-label,
+.terminal-tab[aria-pressed="true"] .terminal-tab-label {
+  display: inline;
+}

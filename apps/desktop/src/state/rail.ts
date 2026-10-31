@@ -316,6 +316,16 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         fetching(fetchTerminals);
       } else if (event.name === "terminal.shown") {
         showTerminal(event.data.id);
+      } else if (event.name === "terminal.status") {
+        const { id, status } = event.data;
+
+        setTerminals((listed) => listed.map((terminal) => {
+          if (terminal.id !== id) return terminal;
+
+          const { status: _previous, ...rest } = terminal;
+
+          return status ? { ...rest, status } : rest;
+        }));
       } else if (event.name === "terminal.exited") {
         setModel("exited", event.data.id, event.data.code);
       }

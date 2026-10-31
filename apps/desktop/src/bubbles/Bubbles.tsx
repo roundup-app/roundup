@@ -1,3 +1,5 @@
+import { KindGlyph } from "../ink/KindGlyph";
+import { statusText } from "../terminal/programStatus";
 import { closeFocused as closeBubble, bubbleElement, focusedId, focusItem as focusBubble, onBubbleFocus as trackBubbleFocus, hasTerminalFocus } from "./focus";
 import { outcomeOf } from "../app/seam";
 import { captureFocus } from "../keys/focus";
@@ -855,6 +857,7 @@ export const Bubbles = (props: {
     });
 
     const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
+    const programStatus = () => terminal().status;
 
     /** U2694b: the tab and Bubble share actions and the same rename editor. */
     const copied = createCopyFeedback();
@@ -881,10 +884,11 @@ export const Bubbles = (props: {
           <Tip content={name()} cut={nameCut}>
             {(trigger) => (
               <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
-                aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
+                aria-label={programStatus() ? `${name()}, ${statusText(programStatus()!)}` : name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
                 onClick={() => toggleMinimised(id)}
                 onDblClick={() => start()}>
                 <span class="terminal-tab-name" ref={nameRef}>{copied.copied() ? copy.copied : name()}</span>
+                <Show when={programStatus()}>{status => <><span class="terminal-tab-slot" data-program-status={status().kind}><KindGlyph kind={status().kind} /></span><span class="terminal-tab-label">{statusText(status())}</span></>}</Show>
                 <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput} /></Show></span>
               </button>
             )}
