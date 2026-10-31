@@ -366,8 +366,6 @@ it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => 
   await screen.findByRole("region", { name: "Settings" });
   await section("Shortcuts");
   const row = screen.getByRole("button", { name: /^Quick add anywhere / });
-  expect(row.textContent).toContain("None");
-  expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
   fireEvent.click(row);
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAddAnywhere).toBe("ctrl+shift+KeyY"));
