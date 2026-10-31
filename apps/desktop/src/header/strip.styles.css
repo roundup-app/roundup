@@ -87,6 +87,10 @@
   width: var(--space-1);
 }
 
+.tab-mark-slot:empty {
+  display: none;
+}
+
 .tab-mark-slot .tab-mark {
   cursor: pointer;
 }
