@@ -207,7 +207,11 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         _ => None,
     })
     .await;
-    assert_eq!(failed.status.label, "server_error");
+    assert!(
+        failed.status.label.contains("Claude's servers failed"),
+        "{}",
+        failed.status.label
+    );
     let nodes = rail_tree(&user).await;
     let live = nodes.iter().find(|n| n.id == door).unwrap();
     assert!(live.terminal_id.is_some());

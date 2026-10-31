@@ -4,6 +4,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
+import { FailureLine } from "../ink/FailureLine";
 import { Collapsible } from "../ui/Collapsible";
 
 export type AgentRow = { key: string; node: RailNode; arrived: boolean };
@@ -38,6 +39,7 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
         </Collapsible.Trigger>
         <div class="inbox-actions">{actions()}</div>
       </div>
+      <FailureLine status={node().status} class="inbox-failure" />
       <Collapsible.Content>
         <div class="inbox-body">
           <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
