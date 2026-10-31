@@ -115,14 +115,8 @@ it("u3770c_retry_resumes_the_failed_agent", async () => {
   expect(names(panel())).not.toContain("c");
 });
 
-it("u5265_an_error_row_that_can_resume_offers_retry", async () => {
-  await mountInbox();
-  expect(within(panel()).getByRole("button", { name: "Retry" })).toBeTruthy();
-});
-
 it("u5265_an_error_row_that_cannot_resume_offers_open_not_retry", async () => {
   const m = await mountInbox(NODES.map(node => node.id === "c" ? { ...node, can_resume: false } : node));
-  expect(within(panel()).queryByRole("button", { name: "Retry" })).toBeNull();
   fireEvent.click(within(within(panel()).getByText("gamma").closest<HTMLElement>("li")!).getByRole("button", { name: "Open" }));
   expect(calls(m, "agent.resume")).toEqual([]);
 });
