@@ -52,7 +52,7 @@ describe("u428 an Agent row's icons", () => {
 
     fireEvent.contextMenu(rowOf("a"));
     expect(app.menuLabels()).not.toContain("Stop");
-    expect(app.menuLabels()).toContain("Open directory");
+    expect(app.menuLabels()).toContain("Open folder");
   });
 
   it("u428_resume_replaces_stop_on_a_resumable_stopped_agent", async () => {
@@ -69,7 +69,7 @@ describe("u428 an Agent row's icons", () => {
   it("u428_open_folder_prefers_the_worktree", async () => {
     const mounted = await mountRail([agent("a", "idle", "i", { worktree })]);
 
-    await chooseAction(mounted.app, "a", "Open directory");
+    await chooseAction(mounted.app, "a", "Open folder");
 
     await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p/.wt/a", line: null }]));
   });
@@ -77,7 +77,7 @@ describe("u428 an Agent row's icons", () => {
   it("u428_open_folder_falls_back_to_the_project_folder", async () => {
     const mounted = await mountRail([agent("a", "idle", "i")]);
 
-    await chooseAction(mounted.app, "a", "Open directory");
+    await chooseAction(mounted.app, "a", "Open folder");
 
     await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p", line: null }]));
   });

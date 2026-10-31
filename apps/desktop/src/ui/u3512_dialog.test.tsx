@@ -46,7 +46,7 @@ it("u3512d_reopen_owns_exit_completion", async () => {
   await Promise.resolve();
 
   finished = exit.promise;
-  const cancel = within(original).getByRole("button", { name: "Back" });
+  const cancel = within(original).getByRole("button", { name: "Cancel" });
   fireEvent.pointerDown(cancel, { pointerType: "mouse", button: 0 });
   fireEvent.mouseDown(cancel, { button: 0 });
   fireEvent.click(cancel, { detail: 1 });

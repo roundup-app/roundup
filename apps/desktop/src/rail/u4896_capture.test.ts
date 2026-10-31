@@ -228,7 +228,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
 
                   if (action.row!==id) break;
 
-                  if (action.label==='Open directory'||action.label==='Open in editor') {
+                  if (action.label==='Open folder'||action.label==='Open in editor') {
                     const before=await read("window.__fake.app.openedTargets.length+window.__fake.app.editorOpened.length");
                     await browser("press", index%2 ? "Space" : "Enter");
                     await wait(`window.__fake.app.openedTargets.length+window.__fake.app.editorOpened.length>${before}`);
@@ -268,7 +268,7 @@ it.skipIf(!captureDir(id))(`${id.toLowerCase()}_rendered_policy_capture`, async 
 
           await load(width);
           await read("window.__fake.app.openFailure=new Error('Folder unavailable; try again')");
-          const folder = '.rail-row .row-icons [aria-label="Open directory"]';
+          const folder = '.rail-row .row-icons [aria-label="Open folder"]';
           await browser("focus", folder);
           await browser("press", "Enter");
           await wait("document.body.textContent.includes('Folder unavailable; try again')");

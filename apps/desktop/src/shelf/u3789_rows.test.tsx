@@ -491,7 +491,7 @@ it.each(["payments", "tokens", "auth"].flatMap(id => [false, true].map(withWorkt
   const node = (await app.rpc("rail.tree", null)).find(node => node.id === id)!;
   const directory = node.worktree?.path ?? "/Users/you/harness";
   const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute("data-id");
-  fireEvent.click(row.querySelector('[aria-label="Open directory"]')!);
+  fireEvent.click(row.querySelector('[aria-label="Open folder"]')!);
   await waitFor(() => expect(app.openedTargets).toEqual([{ kind: "path", path: directory, line: null }]));
   fireEvent.click(row.querySelector('[aria-label="Open in editor"]')!);
   await waitFor(() => expect(app.editorOpened).toEqual([directory]));

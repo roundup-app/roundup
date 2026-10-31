@@ -31,8 +31,8 @@ describe("u427 a Workstream row's icons", () => {
   it("u427_open_folder_opens_the_doors_directory", async () => {
     const mounted = await mountRail([workstream("g"), door("d", "idle", "i", { worktree: { path: "/p/.wt/d", branch: "d", base: "main" } })]);
 
-    await chooseAction(mounted.app, "g", "Open directory");
-    await chooseAction(mounted.app, "d", "Open directory");
+    await chooseAction(mounted.app, "g", "Open folder");
+    await chooseAction(mounted.app, "d", "Open folder");
 
     await waitFor(() => expect(mounted.app.openedTargets).toEqual([{ kind: "path", path: "/p", line: null }, { kind: "path", path: "/p/.wt/d", line: null }]));
   });
@@ -41,7 +41,7 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.openFailure = new RpcError(-32001, "gone");
 
-    await chooseAction(mounted.app, "g", "Open directory");
+    await chooseAction(mounted.app, "g", "Open folder");
 
     expect((await screen.findByText("gone")).className).toBe("ink");
   });

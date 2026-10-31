@@ -183,7 +183,7 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   await screen.findByText("original Project refused");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" }).value).toBe(newer);
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   fireEvent.click(tab("web"));
 
   await screen.findByText("b", { selector: "[role=treeitem][aria-selected=true] .name" });
@@ -273,10 +273,10 @@ it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action.endsWith("remove")) fireEvent.click(screen.getByRole("button", { name: action === "remove" ? "Remove note 1" : "Remove note 2" }));
   else {
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: action === "other save" ? "Edit note 2" : "Edit note 1" }));
 
-    if (action === "cancel edit") fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    if (action === "cancel edit") fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     else {
       fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  acknowledged replacement 🐝  " } });
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -324,7 +324,7 @@ it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_reten
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action === "remove") fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
   else {
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
     fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  cannot retain save 🐝  " } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

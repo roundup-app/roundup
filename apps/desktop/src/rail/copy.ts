@@ -2,7 +2,7 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 import { copy as sharedCopy, staleSuffix, type CopyValue } from "../sharedCopy";
 
-const railDraftLabels = new Map([["rail-task", "Work"], ["rail-name", sharedCopy.name]]);
+const railDraftLabels = new Map([["rail-task", "Prompt"], ["rail-name", sharedCopy.name]]);
 
 const railDraftStatuses = new Map([["draft", sharedCopy.draftStatus.draft], ["pending", "Submitting…"], ["unknown", "Unconfirmed"], ["failed", "Unsent"]]);
 
@@ -70,7 +70,7 @@ export const copy = {
   startNow: sharedCopy.startNow,
   queuedBadge: (place: number) => `queued · ${place}`,
   afterBadge: (id: number) => `after #${id}`,
-  takeOutOfQueue: "Leave queue",
+  takeOutOfQueue: "Remove from queue",
   projectSettings: "Project settings",
   workstreams: sharedCopy.workstreams,
   runAtMost: "Run at most",
@@ -79,7 +79,7 @@ export const copy = {
   capRefusal: "Enter a whole number, 1 or more.",
   assign: sharedCopy.assign,
   overview: sharedCopy.overview,
-  overviewLabel: (count: number) => count > 0 ? `${sharedCopy.overview}, ${count} waiting` : sharedCopy.overview,
+  overviewLabel: (count: number) => count > 0 ? `${sharedCopy.overview}, ${count} need you` : sharedCopy.overview,
   modesHead: "MODES",
   agentsHead: "AGENTS",
   workstreamsHead: "WORKSTREAMS",
@@ -134,8 +134,8 @@ export const copy = {
   openingPromptFor: (name: string) => `First prompt · ${name}`,
   openingPromptPlaceholder: "Your first prompt",
   openingPromptConflict: "The saved first prompt changed. Your unfinished work remains; saving replaces the saved prompt.",
-  modePromptHint: "Sent once when this Mode starts an Agent.",
-  openingPromptHint: "Sent once when this Workstream starts an Agent.",
+  modePromptHint: "Sent when this Mode starts a new Agent.",
+  openingPromptHint: "Sent when this Workstream starts a new Agent.",
   changeReopened: sharedCopy.changeReopened,
   todo: sharedCopy.todo,
   newTodoTitle: sharedCopy.newTodoTitle,
