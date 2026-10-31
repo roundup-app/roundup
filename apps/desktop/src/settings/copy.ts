@@ -8,7 +8,7 @@ export const copy = {
   namingGuideRefusal: "Enter a naming guide before saving.",
   settings: sharedCopy.settings,
   settingsBack: "← Back",
-  settingsForward: "Forward →",
+  settingsForward: sharedCopy.settingsForward,
   appearancePreview: "Appearance preview",
   appearancePreviewSample: "roundup — Agents, Terminals and Todos look like this.",
   settingsGeneral: "General",
