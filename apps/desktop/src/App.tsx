@@ -35,6 +35,8 @@ import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
+import { createStateAlerts } from "./rail/stateAlerts";
+import type { StateAlerts } from "./rail/stateAlerts";
 import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
 import { ProjectSettingsView } from "./rail/ProjectSettings";
@@ -55,6 +57,7 @@ import type { EmulatorFactory } from "./terminal/emulator";
 import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
 import { createToastQueue } from "./toasts/queue";
+import { copy as toastCopy } from "./toasts/copy";
 import type { ToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
@@ -91,6 +94,7 @@ const Connection = (props: {
   onRecovered: (path: string, generation: number) => void;
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
+  alerts: StateAlerts;
   active: () => boolean;
   /** U3566: this Project is on screen in a visible, focused window. */
   viewing: () => boolean;
@@ -160,7 +164,7 @@ const Connection = (props: {
     if (!open || open instanceof Error) return;
 
     // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
-    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle)));
+    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle, props.alerts)));
   });
 
   createEffect(() => {
@@ -283,6 +287,9 @@ export const App = (props: {
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
+  // U5232g: one line for a refused State alert, whichever Agent raised it.
+  const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
+  const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
   const capture = props.app.capture;
   onMount(() => {
     void capture?.configure(appSettings().quickAddAnywhere || null).catch(error => setWindowFailure(String(error)));
@@ -568,6 +575,19 @@ export const App = (props: {
     if (next) rail?.select(next.id);
   };
 
+  // U5232e: a click on a State alert opens that Agent in its Project, as a click on its Rail row does.
+  let alertClicksEnded = false;
+  let stopAlertClicks: (() => void) | undefined;
+  void props.app.onStateAlertClicked(agent => {
+    const path = [...connections().keys()].find(each => railOf(each)?.nodes.some(node => node.id === agent));
+
+    if (path === undefined) return setAlertFailure(toastCopy.thatIsGone);
+
+    projects.select(path);
+    railOf(path)?.select(agent);
+  }).then(stop => { if (alertClicksEnded) stop(); else stopAlertClicks = stop; });
+  onCleanup(() => { alertClicksEnded = true; stopAlertClicks?.(); });
+
   onCleanup(shelfFocus.stop);
   registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "B")!, capture: () => {
     const wasOpen = frame.open();
@@ -593,7 +613,7 @@ export const App = (props: {
   return (
     <ReducedMotionContext.Provider value={props.reducedMotion}><DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRecovered={projects.connected} onRequested={answer} toasts={toasts} alerts={alerts} active={() => projects.active() === key} viewing={() => projects.active() === key && visible() && focused()} show={() => projects.select(key)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes.filter((node) => !connection.rail.dismissed(node))]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -629,7 +649,7 @@ export const App = (props: {
         }
         rail={
           <>
-            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() ?? alertFailure() : badgeFailure() ?? alertFailure())}>
               <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>

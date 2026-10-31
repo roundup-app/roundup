@@ -13,7 +13,7 @@ import { Select } from "../ui/Select";
 import * as v from "valibot";
 import { draftStorage } from "../state/storage";
 import { createSettingsView } from "../state/settingsView";
-import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
+import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
 import { ShortcutSettings } from "./ShortcutSetting";
@@ -174,6 +174,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <h3 class="settings-category">{copy.settingsGeneral}</h3>
           <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
+          <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
         </Tabs.List>
         </aside>
       <div class="settings-content">
@@ -230,6 +231,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "large", label: copy.interfaceLarge, content: <span class="settings-scale-large">{copy.interfaceSample}</span> },
         ]} onValueChange={interfaceScale => save({ interfaceScale })} />
         <Switch checked={appSettings().focusMarkers} onCheckedChange={focusMarkers => save({ focusMarkers })}>{copy.focusMarkers}</Switch>
+      </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
+        <For each={alertStates}>{state => <div class="settings-field" role="group" aria-label={copy.stateLabels[state]}>
+          <For each={alertChoices}>{choice => <Switch checked={appSettings().stateAlerts[state][choice]}
+            onCheckedChange={checked => save({ stateAlerts: { ...appSettings().stateAlerts, [state]: { ...appSettings().stateAlerts[state], [choice]: checked } } })}>{`${copy.stateLabels[state]} ${copy.choiceLabels[choice]}`}</Switch>}</For>
+        </div>}</For>
       </SettingsGroup></Tabs.Content>
       <ReservedLine message={failure()} />
       <ReservedLine message={numericFields.some(({ name }) => conflicted(name)) ? copy.settingsConflict : null}>
