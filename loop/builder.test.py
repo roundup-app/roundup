@@ -581,13 +581,13 @@ class Built(unittest.TestCase):
             builder.built(1, 'U1', False, '', 'https://run/1')
         self.assertEqual(github.writes, [])
 
-    def test_l81_a_draft_without_a_stopped_line_gets_a_fix_run_and_a_ready_pr_gets_auto_merge(self):
+    def test_l81_a_draft_without_a_stopped_line_gets_a_fix_run_and_a_ready_pr_records_nothing(self):
         with GitHub(prs=[pr(isDraft=True)]) as github:
             builder.built(1, 'U1', True, '', 'https://run/1')
         self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')])
         with GitHub(prs=[pr()]) as github:
             builder.built(1, 'U1', True, '', 'https://run/1')
-        self.assertEqual(github.writes, [('pr', 'merge', '9', '--auto', '--merge')])
+        self.assertEqual(github.writes, [])
 
     def test_l81_a_stopped_drafts_question_goes_where_its_screen_verdict_says(self):
         stop = 'Stopped: `bend` is not installed on the runner.\nRecommended: queue a run that has it.'
@@ -1101,7 +1101,7 @@ class Plumbing(unittest.TestCase):
     def test_l82_a_plumbing_run_posts_no_attempt_and_any_other_run_posts_one(self):
         with GitHub(view=pr()) as github:
             builder.fixed(9, 'conflict', True, 'https://run/2', plumbing=True)
-        self.assertEqual(github.writes, [('pr', 'merge', '9', '--auto', '--merge')])
+        self.assertEqual(github.writes, [])
         with GitHub(view=pr()) as github:
             builder.fixed(9, 'conflict', True, 'https://run/2')
         self.assertEqual(len(github.bodies()), 1)
