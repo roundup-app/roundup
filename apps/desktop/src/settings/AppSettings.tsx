@@ -1,7 +1,7 @@
 import fuzzysort from "fuzzysort";
 import { createEffect, createResource, createSignal, createMemo, For, on, onCleanup, Show, type JSX } from "solid-js";
 import type { App } from "../app/seam";
-import { copy } from "./copy";
+import { copy, stateLabel } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
@@ -14,7 +14,7 @@ import { Select } from "../ui/Select";
 import * as v from "valibot";
 import { draftStorage } from "../state/storage";
 import { createSettingsView } from "../state/settingsView";
-import { appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
+import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges, terminalType } from "./preferences";
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
 import { ShortcutSetting } from "./ShortcutSetting";
@@ -346,6 +346,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <h3 class="settings-category">{copy.settingsGeneral}</h3>
           <Tabs.Trigger value="Shortcuts">{copy.settingsShortcuts}</Tabs.Trigger>
           <Tabs.Trigger value="Appearance">{copy.settingsAppearance}</Tabs.Trigger>
+          <Tabs.Trigger value="Alerts">{copy.settingsAlerts}</Tabs.Trigger>
         </Tabs.List>
         </Show>
         </aside>
@@ -374,6 +375,12 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           <div class="settings-mode-preview">{copy.appearancePreviewSample}</div>
         </section>
         {controls.focusMarkers()}
+      </SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Alerts"><SettingsGroup name={copy.settingsAlerts}>
+        <For each={alertStates}>{state => <div class="settings-alert-row" role="group" aria-label={stateLabel(state)}>
+          <For each={alertChoices}>{choice => <Switch checked={appSettings().stateAlerts[state][choice]}
+            onCheckedChange={checked => save({ stateAlerts: { ...appSettings().stateAlerts, [state]: { ...appSettings().stateAlerts[state], [choice]: checked } } })}>{`${stateLabel(state)} ${copy.choiceLabels[choice]}`}</Switch>}</For>
+        </div>}</For>
       </SettingsGroup></Tabs.Content>
       </Show>
       <ReservedLine message={failure()} />
