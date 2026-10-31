@@ -47,6 +47,14 @@ pub(super) struct State {
 /// U5151d: the Status label of an Agent whose Terminal is not running, as an action.
 pub(super) const TERMINAL_GONE: &str = "Terminal closed; resume or start it again";
 
+/// U5151d: the failed Resume's Status says what to do; the RPC error keeps the evidence.
+fn resume_cleanup_label(pending: bool) -> &'static str {
+    match pending {
+        true => "Resume failed; wait while its Terminal closes, then resume again",
+        false => "Resume failed; stop its Terminal, then resume again",
+    }
+}
+
 impl Shared {
     pub(super) fn rail(&self) -> MutexGuard<'_, rail::Rail> {
         agent_lock(&self.rail).expect("rail lock")
@@ -135,12 +143,14 @@ impl Shared {
                 finished: finished.to_string(),
             }),
             Some(Slot::ResumeCleanup {
-                terminal_id, error, ..
+                terminal_id,
+                pending,
+                ..
             }) => {
                 node.terminal_id = Some(terminal_id.clone());
                 Some(Status {
                     kind: Kind::Error,
-                    label: error.message.clone(),
+                    label: resume_cleanup_label(*pending).into(),
                     since: self.rail_view.opened,
                     finished: finished.to_string(),
                 })
@@ -975,5 +985,14 @@ mod tests {
             run.closing = true;
         }
         assert!(shared.node(&id).unwrap().overview.is_none());
+    }
+
+    #[test]
+    fn u5151d_a_failed_resume_reads_as_a_user_action() {
+        let [wait, stop] = [true, false].map(super::resume_cleanup_label);
+        assert!(wait.contains("wait") && stop.contains("stop"));
+        for label in [wait, stop] {
+            assert!(label.ends_with("resume again") && !label.contains("cleanup"));
+        }
     }
 }
