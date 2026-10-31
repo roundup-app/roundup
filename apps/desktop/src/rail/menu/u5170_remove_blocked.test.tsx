@@ -1,4 +1,8 @@
-import { expect, it } from "vitest";
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it } from "vitest";
+import { copy } from "../../todos/copy";
+import { agent, workstream } from "../../testing/nodes";
+import { mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 import { createRoot } from "solid-js";
 import type { AppSeam } from "../../app/seam";
 import { createFakeApp } from "../../testing/fakeApp";
@@ -85,4 +89,63 @@ it.each(["todos", "pads", "undo"] as const)("u5170c_gated_actions_never_return_s
 
   expect(calls.length).toBe(before);
   expect(undo.feedbackFailure()).toContain("First");
+});
+
+const states = ["unconfirmed_todo", "unconfirmed_redo", "pad_pending", "todo_in_flight", "pad_in_flight"] as const;
+
+describe("u5170d", () => {
+  afterEach(cleanup);
+
+  it.each(states.flatMap(state => (["menu", "shortcut"] as const).map(entry => [state, entry] as const)))("u5170d_menu_and_shortcut_remove_blocked_%s_%s", async (state, entry) => {
+    const title = "Design feedback and doodles";
+    const { app, connected } = await mountRail([workstream("w", { name: title }), agent("a", "done", "finished", { parent: "w", terminal_id: null })]);
+    const history = connected.drafts.todoUndo;
+    const lost = () => { throw new Error("link lost"); };
+
+    const pending = () => new Promise<never>(() => undefined);
+
+    const receipt = (params: { operation: string; ids: number[] }) => ({ operation: params.operation, deleted: params.ids, missing: [], state: "deleted" as const });
+
+    app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
+
+    if (state === "unconfirmed_todo" || state === "todo_in_flight") {
+      app.handlers["todo.deletion"] = lost;
+      app.handlers["todo.delete"] = state === "todo_in_flight" ? pending : lost;
+      const seeded = history.removeTodos([1], "todos");
+
+      if (state === "unconfirmed_todo") await seeded;
+    } else if (state === "unconfirmed_redo") {
+      app.handlers["todo.delete"] = receipt;
+      app.handlers["todo.deletion"] = () => null;
+      app.handlers["todo.restore"] = ({ operation }) => ({ operation, deleted: [1], missing: [], state: "restored", restoration: "r" });
+      app.handlers["todo.redo"] = lost;
+      await history.removeTodos([1], "todos");
+      await history.undo();
+      app.handlers["todo.deletion"] = lost;
+      await history.redo();
+    } else {
+      app.handlers["pad.getDeletion"] = lost;
+      app.handlers["pad.delete"] = state === "pad_in_flight" ? pending : lost;
+      const seeded = history.removePads([{ name: "notes", incarnation: "i" }], "pads");
+
+      if (state === "pad_pending") await seeded;
+    }
+
+    await settled();
+
+    fireEvent.click(rowOf(title));
+    await settled();
+
+    if (entry === "menu") {
+      fireEvent.contextMenu(rowOf(title));
+      await app.pickMenu("Remove");
+    } else {
+      rowOf(title).focus();
+      fireEvent.keyDown(rowOf(title), { key: "Backspace", code: "Backspace", metaKey: true });
+    }
+
+    const inFlight = state.endsWith("in_flight");
+    await waitFor(() => expect(history.feedbackFailure()).toEqual(inFlight ? copy.deleteBusy : expect.stringContaining("Check deletion")));
+    expect(railCallsTo(app, "rail.remove")).toEqual([]);
+  });
 });
