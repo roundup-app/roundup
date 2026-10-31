@@ -118,12 +118,18 @@ pub struct NamedRail {
 #[allow(dead_code)]
 impl NamedRail {
     pub async fn start() -> Self {
+        Self::start_with(&[]).await
+    }
+
+    /// `extra_env` is set on the Daemon, after the fixture's own variables.
+    pub async fn start_with(extra_env: &[(&str, &str)]) -> Self {
         use serde_json::json;
         let fake = format!(
             "#!/bin/sh\nexec python3 '{}/tests/e2e/fake_claude.py' \"$@\"\n",
             env!("CARGO_MANIFEST_DIR")
         );
-        let served = Served::start(&fake, &[("FAKE_CLAUDE_PROMPT_LOG", "/dev/null")]).await;
+        let env = [&[("FAKE_CLAUDE_PROMPT_LOG", "/dev/null")], extra_env].concat();
+        let served = Served::start(&fake, &env).await;
         for args in [
             vec!["init", "-b", "main"],
             vec![

@@ -63,9 +63,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Preview (`reaction.preview`) | Time preview | — |
 | Firing (a Reaction's `firings`) | same | — |
 | Observation (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010) | same | — |
-| Mark | same | — |
-| Rewind (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`) | same | roll back |
-| Checkpoint | same | — |
+| Rewind (`workstream.rewind`, `RewindTurn`; the provider's own rewind, M5159b) | same | roll back |
 | Block | same | — |
 | Rollup | same | — |
 | Attempt | same | — |
@@ -240,6 +238,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | open_in_editor | none | — |
 | Extension | same | — |
 | Hook | same | — |
+| User action (`UserAction`, `action.userList`, `action.userChanged`) | action | — |
+| Extension host (`crates/rupd` `src/extensions/`, `extension.problem`) | none | — |
 
 ### Design system
 
