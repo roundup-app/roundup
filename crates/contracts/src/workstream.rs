@@ -48,7 +48,7 @@ pub struct StartWorkstreamParams {
 }
 
 /// A3195: a Workstream in the Queue, with the failure of its last start when that failed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct QueueEntry {
     pub workstream: String,
     pub start: StartChoice,
@@ -57,7 +57,7 @@ pub struct QueueEntry {
     pub failure: Option<QueueFailure>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct QueueFailure {
     #[specta(type = specta_typescript::BigInt)]
     pub code: i64,
@@ -65,7 +65,7 @@ pub struct QueueFailure {
 }
 
 /// `workstream.queue`: the running count, the Project's cap and the entries in Queue order.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct QueueState {
     pub running: u32,
     pub cap: Option<u32>,
@@ -104,7 +104,7 @@ pub struct RewindPlanParams {
 }
 
 /// One selected child.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct PlanAgent {
     pub agent: String,
     pub name: String,
@@ -114,7 +114,7 @@ pub struct PlanAgent {
     pub files_changed: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RewindPlan {
     pub agents: Vec<PlanAgent>,
     /// True when any child's `files_changed` is not empty.
@@ -141,7 +141,7 @@ pub struct RewindParams {
 }
 
 /// How one selected child ended up: `rewound`, `removed` from the Rail, or `dropped` with its `reason`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum RewindState {
     Rewound,
@@ -149,7 +149,7 @@ pub enum RewindState {
     Dropped,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RewindAgent {
     pub agent: String,
     pub name: String,
@@ -160,7 +160,7 @@ pub struct RewindAgent {
 }
 
 /// What `workstream.rewind` returns to the Door.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Rewind {
     /// The Checkpoint's title.
     pub checkpoint: String,
@@ -170,7 +170,7 @@ pub struct Rewind {
 
 /// `workstream.rewound {id, checkpoint}`: pushed once, after every selected child ended, rewound,
 /// removed or dropped.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Rewound {
     pub id: String,
     pub checkpoint: u32,
