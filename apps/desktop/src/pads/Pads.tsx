@@ -389,6 +389,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
                 const result = await applying(() => connected.app.rpc("pad.rename", { name: base, newName: text, expectedIncarnation: version! }));
 
                 if (result.kind === "refused") throw result.error;
+
                 if (result.kind === "pending") setAsked(text);
 
                 await useList.reload();
