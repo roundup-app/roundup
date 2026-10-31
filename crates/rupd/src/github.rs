@@ -513,6 +513,62 @@ mod tests {
         assert!(line.len() <= LINE_MAX);
     }
 
+    #[tokio::test]
+    async fn a5168a_a_second_call_runs_gh_again_and_shows_the_new_body() {
+        let (bin, _project, daemon) = daemon_with_gh(PR_JSON);
+        call(&daemon, "github.prGet", json!({"number": 7}))
+            .await
+            .unwrap();
+        let fake = fake_gh(
+            bin.path(),
+            &format!(
+                "echo '{}'",
+                PR_JSON.replace("\"body\":\"B\"", "\"body\":\"edited\"")
+            ),
+        );
+        FAKE.with(|f| *f.borrow_mut() = Some(fake));
+        let pr = call(&daemon, "github.prGet", json!({"number": 7}))
+            .await
+            .unwrap();
+        assert_eq!(pr["body"], "edited");
+        assert_eq!(argv(&bin).lines().count(), 2);
+    }
+
+    #[tokio::test]
+    async fn a5168a_a_missing_number_is_not_found() {
+        let bin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        let fake = fake_gh(
+            bin.path(),
+            "echo 'Could not resolve to a PullRequest with the number of 9.' >&2; exit 1",
+        );
+        FAKE.with(|f| *f.borrow_mut() = Some(fake));
+        let daemon = crate::tests::daemon_in(project.path());
+        let err = call(&daemon, "github.prGet", json!({"number": 9}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn a5168d_no_token_variable_is_set_or_read() {
+        let (bin, _project, daemon) = daemon_with_gh(PR_JSON);
+        let fake = fake_gh(bin.path(), &format!("env > \"$0.env\"; echo '{PR_JSON}'"));
+        FAKE.with(|f| *f.borrow_mut() = Some(fake));
+        let before: std::collections::BTreeSet<String> =
+            std::env::vars().map(|(k, v)| format!("{k}={v}")).collect();
+        call(&daemon, "github.prGet", json!({"number": 7}))
+            .await
+            .unwrap();
+        let seen = std::fs::read_to_string(bin.path().join("gh.env")).unwrap();
+        for line in seen.lines().filter(|l| l.contains('=')) {
+            let key = line.split('=').next().unwrap();
+            if key == "GH_TOKEN" || key == "GITHUB_TOKEN" {
+                assert!(before.contains(line), "daemon added {key}");
+            }
+        }
+    }
+
     #[test]
     fn a5168a_a_bad_number_runs_no_gh() {
         for bad in [0, -3] {

@@ -401,3 +401,55 @@ async fn b3563d_routes_are_auto_or_drop_and_keep_authority() {
         .unwrap_err();
     assert_eq!(after_user.code, code::FORBIDDEN);
 }
+
+fn quiet_digest_body() -> String {
+    crate::digest::push_body(&contracts::agent::DigestEntry {
+        name: "c".into(),
+        kind: Kind::Working,
+        last: String::new(),
+        todos: 0,
+        pads: vec![],
+    })
+}
+
+async fn idle_receiver(dir: &Path) -> Harness {
+    let mut receiver = agent_node("b", Kind::Idle);
+    receiver.terminal_id = Some("terminal-b".into());
+    let h = Harness::with_inbox(dir, vec![agent_node("a", Kind::Working), receiver]);
+    let mut completed = h.messages.inner.completed.subscribe();
+    while completed.recv().await.unwrap() != "initial" {}
+    h
+}
+
+async fn settle() {
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+}
+
+#[tokio::test]
+async fn b5168f_a_quiet_digest_starts_no_turn() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = idle_receiver(dir.path()).await;
+    let sent = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
+    h.call_as(contracts::Actor::daemon(), "message.send", sent)
+        .await
+        .unwrap();
+    settle().await;
+    assert!(h.inbox.typed().is_empty());
+}
+
+#[tokio::test]
+async fn b5168f_a_held_quiet_digest_rides_the_next_delivery_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = idle_receiver(dir.path()).await;
+    let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
+    h.call_as(contracts::Actor::daemon(), "message.send", digest)
+        .await
+        .unwrap();
+    let note = json!({"to":"b", "kind":"note", "body":"hello"});
+    h.call_as(agent("a"), "message.send", note).await.unwrap();
+    settle().await;
+    let typed = h.inbox.typed();
+    assert_eq!(typed.len(), 2, "{typed:?}");
+    assert_eq!(h.inbox.written().len(), 2);
+    assert!(typed.iter().any(|(_, body)| body == "hello"));
+}
