@@ -282,7 +282,7 @@ pub fn select_project_menu<R: Runtime>(
         } else {
             for (index, item) in history.into_iter().enumerate() {
                 let (entry, _) =
-                    project_kind(&app, item, |app, id, label, enabled, accelerator| {
+                    project_kind(&app, item, true, |app, id, label, enabled, accelerator| {
                         MenuItem::with_id(app, id, label, enabled, accelerator)
                     })
                     .map_err(internal)?;
@@ -297,9 +297,7 @@ pub fn select_project_menu<R: Runtime>(
         for group in ["create", "navigate", "views"] {
             let entries: Vec<_> = items
                 .iter()
-                .filter(|item| {
-                    applicable(item) && item.group.as_deref().unwrap_or("navigate") == group
-                })
+                .filter(|item| item.group.as_deref().unwrap_or("navigate") == group)
                 .collect();
             if entries.is_empty() {
                 continue;
@@ -311,7 +309,7 @@ pub fn select_project_menu<R: Runtime>(
             }
             for item in entries {
                 let (entry, item_hints) =
-                    project_kind(&app, item, |app, id, label, enabled, accelerator| {
+                    project_kind(&app, item, true, |app, id, label, enabled, accelerator| {
                         MenuItem::with_id(app, id, label, enabled, accelerator)
                     })
                     .map_err(internal)?;
@@ -400,7 +398,7 @@ fn kind<R: Runtime>(
     item: &Item,
     build: impl Fn(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>> + Copy,
 ) -> tauri::Result<MenuItemKind<R>> {
-    project_kind(app, item, build).map(|(entry, _)| entry)
+    project_kind(app, item, false, build).map(|(entry, _)| entry)
 }
 
 type MenuHints = Vec<(Vec<usize>, String)>;
@@ -409,6 +407,7 @@ type MenuHints = Vec<(Vec<usize>, String)>;
 fn project_kind<R: Runtime>(
     app: &AppHandle<R>,
     item: &Item,
+    keep_disabled: bool,
     build: impl Fn(&AppHandle<R>, &str, &str, bool, Option<&str>) -> tauri::Result<MenuItem<R>> + Copy,
 ) -> tauri::Result<(MenuItemKind<R>, MenuHints)> {
     if let Some(children) = &item.children {
@@ -416,10 +415,10 @@ fn project_kind<R: Runtime>(
         let mut hints = Vec::new();
         for (index, child) in children
             .iter()
-            .filter(|child| applicable(child))
+            .filter(|child| keep_disabled || applicable(child))
             .enumerate()
         {
-            let (entry, child_hints) = project_kind(app, child, build)?;
+            let (entry, child_hints) = project_kind(app, child, keep_disabled, build)?;
             sub.append(&entry)?;
             hints.extend(child_hints.into_iter().map(|(mut path, hint)| {
                 path.insert(0, index);
