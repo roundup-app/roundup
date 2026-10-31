@@ -60,7 +60,7 @@ describe("U5151e", () => {
     await settled();
 
     expect(rowOf("one").getAttribute("data-kind")).toBe("idle");
-    expect(screen.getByText(/one: dismissal not saved/)).toBeTruthy();
+    expect(screen.getByText(/dismissal for one did not save/)).toBeTruthy();
     expect(turns(app)).toEqual([]);
     writes.mockRestore();
   });
@@ -73,13 +73,13 @@ describe("U5151e", () => {
     await settled();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await settled();
-    expect(screen.getByText(/one: dismissal not saved/)).toBeTruthy();
+    expect(screen.getByText(/dismissal for one did not save/)).toBeTruthy();
 
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await settled();
 
-    expect(screen.queryByText(/dismissal not saved/)).toBeNull();
+    expect(screen.queryByText(/did not save/)).toBeNull();
     expect(Object.entries(localStorage).some(([key, value]) => key.startsWith("roundup:dismissed:") && value.includes("one:"))).toBe(true);
     expect(turns(app)).toEqual([]);
   });
