@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { createSignal } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -13,10 +14,10 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
-const mount = async () => {
+const mount = async (navigation: () => unknown = () => 0) => {
   const app = createFakeApp();
   app.handlers["models.list"] = () => ({ engines: [{ id: "engine-one", label: "Engine One" }], models: [{ id: "model-one", label: "Model One" }], efforts: [] });
-  render(() => <AppSettings app={app} project={() => "/p"} />);
+  render(() => <AppSettings app={app} project={() => "/p"} navigation={navigation} />);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
   await screen.findByRole("region", { name: "Settings" });
@@ -75,6 +76,17 @@ it("u5242c_forward_reopens_settings_after_back_and_clears_on_other_navigation", 
   await screen.findByRole("button", { name: "Forward →" });
   window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path: "/other", command: "project-settings" } }));
   await waitFor(() => expect(() => screen.getByRole("button", { name: "Forward →" })).toThrow());
+});
+
+it("u5242c_forward_clears_when_the_user_selects_another_view", async () => {
+  const [selected, select] = createSignal("a");
+  await mount(selected);
+  fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+  await screen.findByRole("button", { name: "Forward →" });
+  select("b");
+  await waitFor(() => expect(() => screen.getByRole("button", { name: "Forward →" })).toThrow());
+  fireEvent.keyDown(window, { key: "]", code: "BracketRight", metaKey: true });
+  expect(screen.queryByRole("region", { name: "Settings" })).toBeNull();
 });
 
 it("u5242d_mode_and_scale_previews_follow_the_draft_without_committing", async () => {
