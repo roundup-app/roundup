@@ -161,6 +161,7 @@ pub fn types() -> specta::Types {
         .register::<crate::terminal::CatchUp>()
         .register::<crate::terminal::Snapshot>()
         .register::<crate::terminal::TitleEvent>()
+        .register::<crate::terminal::TerminalStatusEvent>()
         .register::<crate::terminal::ExitedEvent>()
         .register::<crate::terminal::ReadParams>()
         .register::<crate::terminal::Read>()

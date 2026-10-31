@@ -2,7 +2,7 @@
 
 import type * as Status from "../Status";
 /**  PS8: a Terminal's program status changed; `None` when its last record was removed. */
-export type StatusEvent = {
+export type TerminalStatusEvent = {
 	id: string,
 	status: Status.Status | null,
 };

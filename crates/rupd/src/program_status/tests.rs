@@ -117,7 +117,7 @@ fn ps8_status_events_are_coalesced_per_terminal_and_the_last_is_delivered() {
     assert_eq!(statuses.next_due(), None);
     // A report that leaves the Status as it was emits nothing.
     assert!(statuses.changed("1", &working("c", 5.0), 600).is_empty());
-    // A held change that returns to what was sent emits nothing.
+    // A deferred change that returns to what was sent emits nothing.
     assert_eq!(statuses.changed("1", &working("d", 6.0), 700).len(), 1);
     assert!(statuses.changed("1", &working("e", 7.0), 710).is_empty());
     assert!(statuses.changed("1", &working("d", 8.0), 720).is_empty());

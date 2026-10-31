@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use contracts::terminal::StatusEvent;
+use contracts::terminal::TerminalStatusEvent;
 use contracts::{EventData, Kind, Status};
 use terminal::{ProgramState, Record};
 
@@ -128,7 +128,7 @@ impl Statuses {
         out
     }
 
-    /// When the next held event may leave, if one is held.
+    /// When the next deferred event may leave, if one is deferred.
     pub(crate) fn next_due(&self) -> Option<i64> {
         self.slots()
             .values()
@@ -146,7 +146,7 @@ impl Statuses {
         }
         slot.sent = slot.status.clone();
         slot.sent_at = Some(now);
-        Some(EventData::TerminalStatus(StatusEvent {
+        Some(EventData::TerminalStatus(TerminalStatusEvent {
             id: terminal.to_owned(),
             status: slot.status.clone(),
         }))
@@ -154,9 +154,8 @@ impl Statuses {
 }
 
 fn wall_ms() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 impl Statuses {
