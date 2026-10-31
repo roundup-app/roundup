@@ -156,8 +156,6 @@ export const copy = {
   addWorkstreamWord: " Workstream",
   importUnnamed: "Unavailable conversation title",
   unavailableHome: "Unavailable Workstream",
-  title: word.title,
-  text: word.text,
   name: word.name,
   retryDoor: word.retry,
   startDoor: word.start,
