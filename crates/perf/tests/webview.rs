@@ -210,58 +210,102 @@ fn r20_invalid_calibration_cannot_authorize_a_latency_verdict() {
     }
 }
 
-fn switch_report(open: f64, switch: f64, dropped: u64) -> serde_json::Value {
-    json!({ "switcher_open_p95_ms": open, "switch_p95_ms": switch,
-        "switcher_open": {"n": 100, "dropped": dropped}, "switch": {"n": 100, "dropped": 0} })
-}
-
-fn switch_budgets() -> perf::budget::Budgets {
-    serde_json::from_value(json!({
-        "switcher_open_p95_ms": {"limit": 80},
-        "switch_p95_ms": {"limit": 32, "baseline": {std::env::consts::OS: 24.0}}
-    }))
-    .unwrap()
-}
-
-#[test]
-fn sp6_report_validation() {
+mod switch {
+    use perf::gate::read_budgets;
     use perf::webview::judge_switch;
+    use serde_json::{Value, json};
+    use std::path::Path;
 
-    let judge = |reports: &[serde_json::Value]| judge_switch(reports, &switch_budgets(), &[0.1]);
+    fn budgets() -> perf::budget::Budgets {
+        read_budgets(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("keystroke-budgets.json")
+                .as_path(),
+        )
+        .unwrap()
+    }
 
-    // A value exactly at its limit passes; the median over runs decides.
-    assert_eq!(judge(&[switch_report(80.0, 25.0, 0)]).0, 0);
-    assert_eq!(
-        judge(&[
-            switch_report(10.0, 25.0, 0),
-            switch_report(99.0, 25.0, 0),
-            switch_report(10.0, 25.0, 0)
-        ])
-        .0,
-        0
-    );
+    fn run(open: f64, switch: f64) -> Value {
+        json!({
+            "frame_ms": 16.7, "switcher_open_p95_ms": open, "switch_p95_ms": switch,
+            "switcher_open": {"n": 100, "dropped": 0}, "switch": {"n": 100, "dropped": 0},
+        })
+    }
 
-    // Over the limit exits 1 naming the metric, its value and its limit.
-    let (exit, failures) = judge(&[switch_report(80.1, 25.0, 0)]);
-    assert_eq!(exit, 1);
-    assert!(
-        failures[0].contains("switcher_open_p95_ms")
-            && failures[0].contains("80.1")
-            && failures[0].contains("80")
-    );
+    fn judge(reports: &[Value]) -> (u8, Vec<String>) {
+        judge_switch(reports, &budgets(), "macos", &[0.1], 8)
+    }
 
-    // More than 10% over its baseline exits 1 naming the baseline.
-    let (exit, failures) = judge(&[switch_report(10.0, 26.5, 0)]);
-    assert_eq!(exit, 1);
-    assert!(failures[0].contains("baseline 24"));
+    #[test]
+    fn sp5_budgets() {
+        let budgets = budgets();
+        assert_eq!(budgets["switcher_open_p95_ms"].limit, Some(80.0));
+        assert_eq!(budgets["switch_p95_ms"].limit, Some(32.0));
+        assert_eq!(budgets["keystroke_p95_ms"].limit, Some(16.0));
+        assert!(budgets["switcher_open_p95_ms"].baseline.is_empty());
+        assert!(budgets["switch_p95_ms"].baseline.is_empty());
+        assert_eq!(judge(&[run(80.0, 32.0)]).0, 0);
+        let (exit, failures) = judge(&[run(80.1, 32.0)]);
+        assert_eq!(exit, 1);
+        assert!(
+            failures[0].contains("switcher_open_p95_ms")
+                && failures[0].contains("80.1")
+                && failures[0].contains("80")
+        );
+        let (exit, failures) = judge(&[run(10.0, 32.1)]);
+        assert_eq!((exit, failures.len()), (1, 1));
+        assert!(failures[0].contains("switch_p95_ms"));
+    }
 
-    // Over 5% dropped, or a missing metric, is invalid: exit 2.
-    assert_eq!(judge(&[switch_report(10.0, 25.0, 6)]).0, 2);
-    assert_eq!(judge(&[switch_report(10.0, 25.0, 5)]).0, 0);
-    let mut missing = switch_report(10.0, 25.0, 0);
-    missing.as_object_mut().unwrap().remove("switch_p95_ms");
-    assert_eq!(judge(&[missing]).0, 2);
+    #[test]
+    fn sp5_a_baseline_makes_ten_percent_over_it_fail() {
+        let mut budgets = budgets();
+        budgets
+            .get_mut("switch_p95_ms")
+            .unwrap()
+            .baseline
+            .insert("macos".into(), 20.0);
+        let judge = |value| judge_switch(&[run(10.0, value)], &budgets, "macos", &[0.1], 8);
+        assert_eq!(judge(22.0).0, 0);
+        let (exit, failures) = judge(22.1);
+        assert_eq!(exit, 1);
+        assert!(failures[0].contains("baseline 20"));
+    }
 
-    // R7: no report measured a budgeted metric.
-    assert_eq!(judge(&[]).0, 2);
+    #[test]
+    fn sp6_report_validation() {
+        let mut errored = run(10.0, 10.0);
+        errored["error"] = json!("boom");
+        let mut slow = run(10.0, 10.0);
+        slow["frame_ms"] = json!(25.1);
+        let mut no_open = run(10.0, 10.0);
+        no_open
+            .as_object_mut()
+            .unwrap()
+            .remove("switcher_open_p95_ms");
+        let mut no_switch = run(10.0, 10.0);
+        no_switch.as_object_mut().unwrap().remove("switch_p95_ms");
+        let mut dropped = run(10.0, 10.0);
+        dropped["switch"] = json!({"n": 94, "dropped": 6});
+        for bad in [errored, slow, no_open, no_switch, dropped] {
+            // An over-limit run beside it never turns exit 2 into exit 1.
+            assert_eq!(judge(&[run(90.0, 10.0), bad]).0, 2);
+        }
+        let mut edge = run(10.0, 10.0);
+        edge["switcher_open"] = json!({"n": 95, "dropped": 5});
+        assert_eq!(judge(&[edge]).0, 0);
+        // The median over runs decides, not the worst run.
+        assert_eq!(
+            judge(&[run(70.0, 10.0), run(90.0, 10.0), run(75.0, 10.0)]).0,
+            0
+        );
+        assert_eq!(judge(&[]).0, 2);
+        // R7: a budgeted metric the runs did not measure is an error.
+        let mut budgets = budgets();
+        budgets.remove("switch_p95_ms");
+        assert_eq!(
+            judge_switch(&[run(1.0, 1.0)], &budgets, "macos", &[0.1], 8).0,
+            2
+        );
+    }
 }

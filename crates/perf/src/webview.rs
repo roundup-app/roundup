@@ -177,105 +177,133 @@ fn calibration(report: &Value) -> io::Result<f64> {
     Ok(uncertainty)
 }
 
-/// SP6: the two Switcher metrics and the sample series behind each, with the share of drops the run may carry.
-const SWITCH_METRICS: [(&str, &str); 2] = [
+/// The two metrics SP4 adds beside K3's fields, each with the sample counts of its own kind.
+pub const SWITCH_METRICS: [(&str, &str); 2] = [
     ("switcher_open_p95_ms", "switcher_open"),
     ("switch_p95_ms", "switch"),
 ];
 
-/// More than this share of either kind of sample dropped makes the run invalid.
-const DROP_SHARE: f64 = 0.05;
+/// SP6: more than this share of either kind of sample dropped leaves no verdict.
+const DROPPED_SHARE: f64 = 0.05;
 
-fn switch_value(report: &Value, metric: &str, series: &str) -> io::Result<f64> {
-    let value = report[metric]
-        .as_f64()
-        .filter(|value| value.is_finite() && *value >= 0.0)
-        .ok_or_else(|| failure(format!("the report has no {metric}")))?;
-    let (Some(n), Some(dropped)) = (
-        report[series]["n"].as_u64(),
-        report[series]["dropped"].as_u64(),
-    ) else {
-        return Err(failure(format!("the report has no {series} sample counts")));
-    };
-
-    if n == 0 || dropped as f64 > DROP_SHARE * (n + dropped) as f64 {
-        return Err(failure(format!(
-            "{series}: {dropped} of {} samples dropped, above {:.0}%",
-            n + dropped,
-            DROP_SHARE * 100.0
-        )));
+/// SP6: a report without a usable Switcher-open and switch reading is invalid (exit 2), never a pass.
+pub fn checked_switch(report: &Value) -> io::Result<()> {
+    if let Some(error) = report["error"].as_str() {
+        return Err(failure(format!("the webview failed: {error}")));
     }
-
-    Ok(value)
+    match report["frame_ms"].as_f64() {
+        Some(frame) if frame.is_finite() && frame <= FRAME_LIMIT_MS => {}
+        Some(frame) => {
+            return Err(failure(format!(
+                "frames took {frame:.1} ms on average: the window was not drawn at full rate; bring it to the front and rerun"
+            )));
+        }
+        None => return Err(failure("the report has no frame_ms")),
+    }
+    for (metric, kind) in SWITCH_METRICS {
+        match report[metric].as_f64() {
+            Some(value) if value.is_finite() && value >= 0.0 => {}
+            _ => return Err(failure(format!("the report has no valid {metric}"))),
+        }
+        let (Some(n), Some(dropped)) =
+            (report[kind]["n"].as_u64(), report[kind]["dropped"].as_u64())
+        else {
+            return Err(failure(format!("the report has no {kind} sample counts")));
+        };
+        let total = n.saturating_add(dropped);
+        if n == 0 || dropped as f64 > DROPPED_SHARE * total as f64 {
+            return Err(failure(format!(
+                "{dropped} of {total} {kind} samples dropped, above {}%",
+                DROPPED_SHARE * 100.0
+            )));
+        }
+    }
+    Ok(())
 }
 
-/// SP6: each metric is the median over the runs of the run p95, judged against its limit and baseline in `budgets`. An unmeasured or mostly dropped metric is exit 2, never a pass (R7); an error report is `judge_runs`' to refuse.
-pub fn judge_switch(reports: &[Value], budgets: &Budgets, loads: &[f64]) -> (u8, Vec<String>) {
-    let mut invalid = Vec::new();
-    let mut per_run = std::collections::BTreeMap::<String, Vec<f64>>::new();
-
-    for (index, report) in reports.iter().enumerate() {
-        if report.get("error").is_some() {
-            continue;
-        }
-
-        for (metric, series) in SWITCH_METRICS {
-            match switch_value(report, metric, series) {
-                Ok(value) => per_run.entry(metric.into()).or_default().push(value),
-                Err(error) => {
-                    invalid.push(format!("run {}: invalid observation: {error}", index + 1))
-                }
-            }
-        }
+/// SP6: each metric is the median over the runs of the run's p95, judged against its limit and its baseline for `baseline_key`.
+/// Exit 2 for an invalid run or a budgeted metric the runs did not measure, exit 1 naming the metric, its value and its limit or baseline.
+pub fn judge_switch(
+    reports: &[Value],
+    budgets: &Budgets,
+    os: &str,
+    loads: &[f64],
+    cpus: usize,
+) -> (u8, Vec<String>) {
+    if reports.is_empty() {
+        return (2, vec!["no runs".into()]);
     }
-
+    let invalid: Vec<String> = reports
+        .iter()
+        .enumerate()
+        .filter_map(|(index, report)| {
+            checked_switch(report)
+                .err()
+                .map(|error| format!("run {}: invalid observation: {error}", index + 1))
+        })
+        .collect();
     if !invalid.is_empty() {
         return (2, invalid);
     }
 
-    let mut kept = Budgets::new();
-
+    let mut per_run = std::collections::BTreeMap::new();
     for (metric, _) in SWITCH_METRICS {
-        if let Some(budget) = budgets.get(metric) {
-            kept.insert(metric.into(), budget.clone());
-        }
+        per_run.insert(
+            metric.to_string(),
+            reports
+                .iter()
+                .map(|report| report[metric].as_f64().expect("checked metric"))
+                .collect::<Vec<f64>>(),
+        );
     }
-
-    let cpus = std::thread::available_parallelism().map_or(1, usize::from);
+    let metrics = per_run
+        .iter()
+        .map(|(name, values)| (name.clone(), median(values)))
+        .collect();
     let result = Report {
-        os: std::env::consts::OS.into(),
+        os: os.to_string(),
         class: None,
         cpus,
         runs: reports.len(),
         loads: loads.to_vec(),
-        metrics: per_run
-            .iter()
-            .map(|(name, values)| (name.clone(), median(values)))
-            .collect(),
+        metrics,
         per_run,
-        skipped: Vec::new(),
+        skipped: vec![],
     };
-
-    // R7: a budgeted metric no run measured is an error.
-    match judge_all(&result, &kept) {
-        Err(error) => (2, vec![error]),
-        Ok(outcome) => {
-            let failures: Vec<String> = outcome
-                .misses
-                .iter()
-                .map(|(name, miss)| {
-                    let value = result.metrics[name];
-
-                    match miss {
-                        Miss::OverLimit { limit } => format!("{name}: {value} ms, budget {limit} ms"),
-                        Miss::Regressed { baseline, ceiling } => format!("{name}: {value} ms, regressed from baseline {baseline} ms (ceiling {ceiling:.3} ms)"),
-                    }
-                })
-                .collect();
-
-            (u8::from(!failures.is_empty()), failures)
+    // Keystroke latency has its own judgement (`judge_runs`); it is not a switch metric.
+    let budgets: Budgets = budgets
+        .iter()
+        .filter(|(name, _)| SWITCH_METRICS.iter().any(|(metric, _)| metric == name))
+        .map(|(name, budget)| (name.clone(), budget.clone()))
+        .collect();
+    for (metric, _) in SWITCH_METRICS {
+        if !budgets.contains_key(metric) {
+            return (
+                2,
+                vec![format!(
+                    "budget {metric:?} is missing from the budgets file"
+                )],
+            );
         }
     }
+    let outcome = match judge_all(&result, &budgets) {
+        Ok(outcome) => outcome,
+        Err(error) => return (2, vec![error]),
+    };
+    let failures: Vec<String> = outcome
+        .misses
+        .iter()
+        .map(|(name, miss)| {
+            let value = result.metrics[name];
+            match miss {
+                Miss::OverLimit { limit } => format!("{name} {value} ms, over its limit {limit} ms"),
+                Miss::Regressed { baseline, ceiling } => format!(
+                    "{name} {value} ms, over {ceiling:.3} ms: more than 10% over its baseline {baseline} ms"
+                ),
+            }
+        })
+        .collect();
+    (u8::from(!failures.is_empty()), failures)
 }
 
 /// K3's verdict, and in the idle workload SP6's on the Switcher metrics; the worse exit wins.
@@ -287,14 +315,11 @@ pub fn judged(
     flood: bool,
 ) -> (u8, Vec<String>) {
     let (exit, mut failures) = judge_runs(reports, limit);
-
     if flood {
         return (exit, failures);
     }
-
-    let (switch_exit, more) = judge_switch(reports, budgets, loads);
-
+    let cpus = std::thread::available_parallelism().map_or(1, usize::from);
+    let (switch_exit, more) = judge_switch(reports, budgets, std::env::consts::OS, loads, cpus);
     failures.extend(more);
-
     (exit.max(switch_exit), failures)
 }
