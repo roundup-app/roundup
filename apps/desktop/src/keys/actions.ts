@@ -25,6 +25,7 @@ const schemaOf = (arg: ActionArg) => {
 
       return v.picklist(options);
     }
+
     case "integer": return v.pipe(v.string(), v.regex(/^-?\d+$/), v.transform(Number), v.minValue(arg.min), v.maxValue(arg.max));
   }
 };
