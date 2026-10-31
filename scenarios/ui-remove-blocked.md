@@ -1,6 +1,6 @@
 # UI: Remove never does nothing
 
-Module: `apps/desktop` (the webview). Ids: U5170a to U5170c.
+Module: `apps/desktop` (the webview). Ids: U5170a to U5170d.
 
 Acceptance for [#5170](https://github.com/roundup-app/roundup/issues/5170). Owner report: after renaming a Workstream, Remove did nothing and the Daemon received no `rail.remove`. Policy: no new RPC, App seam command, Token or domain term. The existing deletion-failure line (`todo-undo` in `apps/desktop/src/App.tsx`) and its Retry and Dismiss buttons carry the message. Observer: Vitest against the fake App, in `apps/desktop/src/rail/menu/u5170_remove_blocked.test.tsx`.
 
@@ -12,3 +12,5 @@ Acceptance for [#5170](https://github.com/roundup-app/roundup/issues/5170). Owne
 **U5170b a stuck deletion state recovers.** Given an unconfirmed Todo, Pad, Rail or redo deletion left by a lost acknowledgement, when the user presses Retry and the Daemon now answers, then the state clears and a later Remove on a Workstream sends `rail.remove`; when the user presses Dismiss instead, the unconfirmed state is dropped from the blocking set after the message names that the earlier deletion stays unconfirmed in the Daemon, and a later Remove sends `rail.remove`. Test: planned `u5170b_retry_or_dismiss_unblocks_remove`.
 
 **U5170c every gated delete, undo and redo answers.** Given each blocked state of U5170a, when the user starts Todo delete, bulk Todo delete, Pad delete, Undo or Redo, then each either sends its RPC or shows the failure line naming the blocker; none returns without a call and without a message. Test: planned `u5170c_gated_actions_never_return_silently`, one case per action and state.
+
+**U5170d each blocked state is proven through both Remove entries.** Given a Workstream renamed by `rail.rename`, with all its Agents `done`, when the user chooses Remove from its Rail menu, and again when the user presses ⌘⌫ on its row, while the deletion history is in each of these states: an unconfirmed Todo, an unconfirmed redo, a Pad delete pending, a Todo delete in flight, or a Pad delete in flight, then in every case no `rail.remove` is sent, the failure line names the blocker and what to do (wait and try again, or Retry naming the unconfirmed item), and the menu closes only after the line is set. Test: planned `u5170d_menu_and_shortcut_remove_blocked_<state>` in `apps/desktop/src/rail/menu/u5170_remove_blocked.test.tsx`, one case per state and entry, each asserting zero `rail.remove` calls and the failure line text.
