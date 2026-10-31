@@ -26,6 +26,7 @@ describe("U5151c", () => {
 
     expect(rowOf("one").getAttribute("data-kind")).toBe("idle");
     expect(rowOf("one").textContent).toContain(`Dismissed: ${LABEL}`);
+    expect(rowOf("one").closest("[role=treeitem]")?.getAttribute("aria-label") ?? rowOf("one").getAttribute("aria-label")).toContain(`Dismissed: ${LABEL}`);
     expect(rowOf("two").getAttribute("data-kind")).toBe("error");
     expect(rail.dismissed(rail.nodes.find((node) => node.id === "one")!)).toBe(true);
     expect(rail.dismissed(rail.nodes.find((node) => node.id === "two")!)).toBe(false);
