@@ -322,9 +322,9 @@
 .settings-content .app-segment[data-state="checked"] { color: var(--accent); }
 .settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .settings-preview-terminal { height: auto; overflow: hidden; background: var(--terminal-background); }
-.settings-scale-small { font-size: var(--text-caption); }
-.settings-scale-default { font-size: var(--text-body); }
-.settings-scale-large { font-size: var(--text-title); }
+.settings-scale-small { font-size: calc(var(--text-body) / var(--interface-scale) * var(--scale-small)); }
+.settings-scale-default { font-size: calc(var(--text-body) / var(--interface-scale)); }
+.settings-scale-large { font-size: calc(var(--text-body) / var(--interface-scale) * var(--scale-large)); }
 
 .settings-naming button {
   grid-column: 2;

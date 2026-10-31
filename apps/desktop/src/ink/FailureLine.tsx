@@ -19,3 +19,7 @@ const Line = (props: { label: string; class?: string | undefined }) => {
 export const FailureLine = (props: { status: Status | null | undefined; dismissed?: boolean; class?: string }) => (
   <Show when={props.status?.kind === "error" ? (props.dismissed ? copy.dismissedFailure(props.status.label) : props.status.label) : null}>{label => <Line label={label()} class={`${props.class ?? ""} ${props.dismissed ? "dismissed" : ""}`} />}</Show>
 );
+
+/** U5151c: the Kind an individual Agent presents; a dismissed failure no longer reads as an error. */
+export const shownKind = (status: Status | null | undefined, dismissed: boolean): Status["kind"] =>
+  status?.kind === "error" && dismissed ? "idle" : status?.kind ?? "idle";

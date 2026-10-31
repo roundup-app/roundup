@@ -832,6 +832,9 @@ mod modes;
 #[path = "resume/history.rs"]
 mod history;
 
+#[path = "resume/conversion.rs"]
+mod conversion;
+
 #[tokio::test]
 async fn a5213_an_exited_workstream_resumes_in_its_last_mode() {
     let f = Arc::new(Fixture::running(

@@ -14,6 +14,7 @@ use serde_json::{Map, Value};
 
 use crate::mcp::{self, CALL_TIMEOUT, Offered};
 
+mod describe;
 mod help;
 
 pub use help::help_text;
@@ -264,6 +265,15 @@ fn specs(door: bool) -> Vec<Spec> {
             if offer.method == "terminal.write" {
                 fields = terminal_write_fields(fields);
             }
+            if offer.method == "api.list" {
+                fields.push(Field {
+                    name: "quiet".into(),
+                    kind: Kind::Bool,
+                    required: false,
+                    positional: false,
+                    doc: "Print only the names.".into(),
+                });
+            }
             if offer.method == "agent.wake" {
                 // B45: `rup agent wake <id>... [--any]` names the Agents without a flag.
                 for field in fields.iter_mut().filter(|field| field.name == "ids") {
@@ -349,7 +359,14 @@ fn arg_for(field: &Field) -> Arg {
             .num_args(1..)
             .value_name(flag.trim_end_matches('s').to_owned()),
         (_, true) => arg,
-        (Kind::Bool, false) => arg.long(flag).action(ArgAction::SetTrue).required(false),
+        (Kind::Bool, false) => {
+            let arg = arg.long(flag).action(ArgAction::SetTrue).required(false);
+            if field.name == "quiet" {
+                arg.short('q')
+            } else {
+                arg
+            }
+        }
         // A repeated text flag is often an argv (`--command sh --command -c`), so its values may start with `-`.
         (Kind::Array(item), false) => arg
             .long(flag)
@@ -622,6 +639,9 @@ fn arguments(spec: &Spec, leaf: &ArgMatches) -> Result<JsonObject, Usage> {
         {
             continue;
         }
+        if spec.method == "api.list" && field.name == "quiet" {
+            continue;
+        }
         if let Some(value) = value_of(&field.kind, &field.name, leaf, &mut input)? {
             out.insert(field.name.clone(), value);
         }
@@ -669,6 +689,9 @@ fn fail(spec: &Spec, failure: &Failure) -> ExitCode {
                     rpc::code::FORBIDDEN => "this Agent may not act on that node".to_owned(),
                     rpc::code::EVENTS_EXPIRED => return ExitCode::from(FAILED),
                     rpc::code::NOT_FOUND => format!("list them with `rup {} list`", spec.noun),
+                    rpc::code::METHOD_NOT_FOUND if spec.method == "api.describe" => {
+                        "list them with \"rup api list\"".to_owned()
+                    }
                     rpc::code::UNKNOWN_OUTCOME => format!(
                         "the call may or may not have been applied; read before you retry: `rup help {} list`",
                         spec.noun
@@ -792,6 +815,8 @@ async fn call(spec: &Spec, leaf: &ArgMatches, matches: &ArgMatches) -> ExitCode 
             id,
             parent: None,
         },
+        // I11: reading what the Daemon serves touches nothing, so it needs no Agent.
+        ("api.list" | "api.describe", None) => Actor::user(),
         (_, None) => {
             return bad_usage("no Agent id: run it in an Agent's shell, or pass --agent <id>");
         }
@@ -803,6 +828,12 @@ async fn call(spec: &Spec, leaf: &ArgMatches, matches: &ArgMatches) -> ExitCode 
         .expect("the tree is built from the tool list");
     match invoke(spec, &offer, &actor, arguments, json).await {
         Ok((params, result)) => {
+            // I11: `-q` shapes the printing, so it is not a param.
+            let params = if spec.method == "api.list" && leaf.get_flag("quiet") {
+                serde_json::json!({ "quiet": true })
+            } else {
+                params
+            };
             print_result(spec.method, &params, &result, json);
             ExitCode::from(DONE)
         }
@@ -849,6 +880,18 @@ fn print_result(method: &str, params: &Value, result: &Value, json: bool) {
                 eprintln!("truncated");
             }
         }
+        "api.list" => {
+            let quiet = params["quiet"] == true;
+            for found in result["methods"].as_array().into_iter().flatten() {
+                let (name, summary) = (found["name"].as_str(), found["summary"].as_str());
+                match (quiet, name, summary) {
+                    (true, Some(name), _) => println!("{name}"),
+                    (false, Some(name), Some(summary)) => println!("{name}  {summary}"),
+                    _ => {}
+                }
+            }
+        }
+        "api.describe" => describe::print(result),
         "agent.wake" => {
             println!("woken: {}", result["id"]);
             if let Some(why) = result["why"].as_str() {

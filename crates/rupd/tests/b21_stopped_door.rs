@@ -499,6 +499,20 @@ async fn delivered(events: &mut Client, id: u64) {
     .expect("Digest prompt acknowledged before the next change");
 }
 
+/// B5168f: these changes are only new open Todos, so their Digests are held until a Message is
+/// delivered; a note to the Door delivers them with it.
+async fn release(run: &Run, events: &mut Client) {
+    let note = run
+        .user
+        .request(
+            "message.send",
+            json!({"to":run.door,"kind":"note","body":"release held digests"}),
+        )
+        .await
+        .unwrap();
+    delivered(events, note["id"].as_u64().unwrap()).await;
+}
+
 async fn changed_children_under_caps() {
     let run = Run::start().await;
     let mut events = Client::connect(&run.daemon.socket).await.unwrap();
@@ -560,7 +574,8 @@ async fn changed_children_under_caps() {
     })
     .await
     .expect("setup rollup sent at the fake-clock window's end");
-    delivered(&mut events, setup).await;
+    let _ = setup;
+    release(&run, &mut events).await;
     let base = run
         .digests()
         .await
@@ -587,12 +602,9 @@ async fn changed_children_under_caps() {
             })
         })
         .await;
-        let messages = accounted(&run, base, i + 1).await;
-        let id = messages.last().unwrap()["id"].as_u64().unwrap();
-        // Stored delivery is provisional until H11 accepts the prompt. B30 emits the event
-        // after acceptance; waiting for it keeps B34 from folding the next input into this one.
-        delivered(&mut events, id).await;
+        accounted(&run, base, i + 1).await;
     }
+    release(&run, &mut events).await;
     eprintln!("B21/B22: eight live pushes delivered");
     run.stop_door().await;
     for i in 0..10 {

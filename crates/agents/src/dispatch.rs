@@ -55,6 +55,25 @@ impl Agents {
         }
     }
 
+    async fn rpc_agent_make_workstream(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        let NodeId { id } = params(value)?;
+        reply(&self.make_workstream(ctx, &id).await?)
+    }
+
+    async fn rpc_agent_save_as_mode(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        reply(&self.save_as_mode(ctx, params(value)?)?)
+    }
+
     async fn rpc_agent_prompt(
         &self,
         ctx: &Ctx,

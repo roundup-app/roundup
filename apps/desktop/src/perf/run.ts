@@ -5,6 +5,10 @@ import { createRecorder } from "./recorder";
 import type { Emulator } from "../terminal/emulator";
 import { PATIENCE_MS, WARMUP_KEYS, typeKeys } from "./keystrokes";
 import type { HopSummary, Summary } from "./keystrokes";
+import type { Series } from "./switch_run";
+import { prepareFixture } from "./fixture";
+import { SWITCH_PROBE } from "./switch";
+import { runSwitchWorkload } from "./switch_run";
 
 const KEYS = 1000;
 
@@ -103,7 +107,7 @@ type PerfReport =
       timer_resolution_ms: number;
       device_pixel_ratio: number;
       user_agent: string;
-    });
+    } & Partial<{ switcher_open_p95_ms: number; switch_p95_ms: number; switcher_open: Series; switch: Series }>);
 
 /** Follow the browser's cancellation rule: xterm can send the key on keydown, so forcing keypress would write the same identity twice. */
 export const press = (textarea: HTMLTextAreaElement) => {
@@ -323,7 +327,7 @@ export const startFlood = async (app: Pick<AppSeam, "rpc">, input: HTMLTextAreaE
  * The keystroke run of `scenarios/perf.md` (K1 to K3): in a build made with `VITE_ROUNDUP_PERF`, `start` opens a Terminal, types
  * into it and writes one `PERF <json>` line through that Terminal, where `crates/perf` reads it from `terminal.output`.
  */
-export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "idle") => {
+export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "idle", cwd = "") => {
   const run = crypto.randomUUID();
   const recorder = createRecorder(() => performance.now(), run, () => terminal.target());
   const { probe } = recorder;
@@ -336,6 +340,49 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
     const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", workload, terminal_id: id, flood: floodEvidence, ...body })}\n`;
 
     await writeInChunks(new TextEncoder().encode(line), async (data) => void (await bounded(app.rpc("terminal.write", { id, data: toBase64(data) }), SETUP_BOUND_MS, "the keystroke report write")));
+  };
+
+  /** SP4's seed: the `tree-40` Project, and a second shell Terminal so a Terminal step always has one other than the last picked. */
+  const seedSwitcher = async (shell: string) => {
+    await bounded(prepareFixture(app, cwd, shell), SETUP_BOUND_MS * 3, "the tree-40 fixture setup");
+
+    const before = (await app.rpc("terminal.list", null)).filter((row) => row.running).length;
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
+
+    await bounded((async () => {
+      while ((await app.rpc("terminal.list", null)).filter((row) => row.running).length <= before) await sleep(50);
+    })(), SETUP_BOUND_MS, "the second shell Terminal");
+  };
+
+  const switchReport = async (shell: string) => {
+    const probe = window[SWITCH_PROBE];
+
+    if (!probe) throw new Error("the build has no Switcher probe");
+
+    await seedSwitcher(shell);
+
+    const { switcher_open, switch: switched } = await runSwitchWorkload({
+      probe,
+      sleep,
+      random: Math.random,
+      until: (find, ms) => new Promise<void>((resolve) => {
+        const watch = new MutationObserver(() => find() && settle());
+        const timer = setTimeout(() => settle(), ms);
+
+        const settle = () => {
+          watch.disconnect();
+          clearTimeout(timer);
+          resolve();
+        };
+
+        watch.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+        if (find()) settle();
+      }),
+    });
+
+    return { switcher_open_p95_ms: switcher_open.p95, switch_p95_ms: switched.p95, switcher_open, switch: switched };
   };
 
   const measure = async () => {
@@ -373,8 +420,13 @@ export const createKeystrokeRun = (app: AppSeam, workload: "idle" | "flood" = "i
     await typeKeys(probe, { press: () => press(textarea), sleep: async (ms) => { await sleep(ms); await flood?.poll(); }, random: Math.random, expired: () => performance.now() > end }, KEYS + WARMUP_KEYS);
     await flood?.sample();
     const measured = await exchange();
+    const keystroke = recorder.report(measured.samples, exchanges, timerResolution, WARMUP_KEYS);
+    // SP4: the Switcher loops follow the typing, in the idle build only; a flood build keeps its one question.
+    const switcher = workload === "idle" ? await switchReport(id) : {};
+
     await report({
-      ...recorder.report(measured.samples, exchanges, timerResolution, WARMUP_KEYS),
+      ...keystroke,
+      ...switcher,
       keys: KEYS,
       patience_ms: PATIENCE_MS,
       renderer: recorder.webgl() ? "webgl" : "dom",
