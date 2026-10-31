@@ -19,8 +19,9 @@ import { Portal } from "solid-js/web";
 import { HintLine } from "../keys/HintLine";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Icon } from "../ink/Icon";
-import { KindGlyph, LABELS } from "../ink/KindGlyph";
-import { age } from "../shelf/Age";
+import { KindGlyph } from "../ink/KindGlyph";
+import { bubbleDraftSchema, registerBubbleDrafts } from "./draftRecovery";
+import { statusTip } from "./statusTip";
 import { useDisplayNow } from "../state/clock";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
@@ -49,12 +50,7 @@ export const Bubbles = (props: {
   const path = connected.project.path;
   const store = placesStorage(path);
   const drafts = connected.drafts;
-  const schema = v.strictObject({ name: v.string(), base: v.string(), recovery: v.optional(v.literal(true)) });
-  drafts.validate("bubbles", schema);
-  drafts.registerRecovery("bubbles", (draft, facts) => {
-    return facts.daemonExit() !== null ? "unavailable" : facts.rail.failure() ? "unverified"
-      : facts.rail.terminals().some(terminal => terminal.incarnation === draft.destination.object && terminal.id === draft.destination.recipient && terminal.running) ? "available" : "unavailable";
-  });
+  registerBubbleDrafts(drafts);
   const records = createMemo(() => drafts.list().filter(draft => draft.destination.surface === "bubbles"));
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
@@ -797,14 +793,6 @@ export const Bubbles = (props: {
     const name = () => nameFor(terminal());
     const [nameRef, nameCut] = createCut();
     const now = useDisplayNow(() => terminal().status !== undefined);
-
-    /** PS12.3: the program's label (the Kind's word when empty) and its age, beside the name. */
-    const tip = () => {
-      const status = terminal().status;
-
-      return status ? `${name()} · ${status.label || LABELS[status.kind]} · ${age(status.since, now())}` : name();
-    };
-
     let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
     createEffect(() => { if (editing()?.id === id) onCleanup(drafts.editor(destination)); });
     const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft" && !draft.value.recovery).at(-1);
@@ -822,7 +810,7 @@ export const Bubbles = (props: {
       const retained = selected ? records().find(draft => draft.revision === selected.revision)
         : current() ?? records().filter(draft => draft.destination.object === target.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
 
-      const parsed = retained && v.safeParse(schema, retained.value);
+      const parsed = retained && v.safeParse(bubbleDraftSchema, retained.value);
 
       if (selected && (selected.project !== path || !retained || retained.status === "pending" || !parsed?.success
         || retained.destination.object !== target.object || retained.destination.recipient !== id
@@ -890,7 +878,7 @@ export const Bubbles = (props: {
     return <>
       <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
         <Show when={editing()?.id === id ? editing() : null} keyed fallback={
-          <Tip content={tip()} cut={() => terminal().status !== undefined || nameCut()}>
+          <Tip content={statusTip(name(), terminal().status, now())} cut={() => terminal().status !== undefined || nameCut()}>
             {(trigger) => (
               <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                 aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
