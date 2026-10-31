@@ -10,7 +10,7 @@ use std::time::Duration;
 use clap::Parser;
 use perf::gate::read_budgets;
 use perf::webview::failure;
-use perf::webview::{judge_idle, judge_runs, marked_line};
+use perf::webview::{judge_runs, marked_line};
 use rpc::Client;
 use serde_json::Value;
 use sysinfo::System;
@@ -390,7 +390,7 @@ async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
             }))?,
         )?;
     }
-    let (exit, failures) = judge_idle(&reports, limit, &budgets, &loads, args.flood);
+    let (exit, failures) = judge_runs(&reports, limit);
     for message in failures {
         eprintln!("{message}");
     }
