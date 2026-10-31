@@ -4090,6 +4090,7 @@ dependencies = [
  "clap",
  "contracts",
  "pads",
+ "portable-pty",
  "rmcp",
  "rpc",
  "rupd",
