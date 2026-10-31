@@ -69,9 +69,10 @@ impl Alerts {
         if cached.is_none() {
             *cached = self.notifier.permission();
         }
-        let Some(permission) = cached.clone() else {
-            return Ok(());
-        };
+        // An unanswered prompt ends as a refusal naming the timeout; it is not kept, so the next alert asks again.
+        let permission = cached
+            .clone()
+            .unwrap_or_else(|| Err("the permission prompt went unanswered for 60 s".into()));
         drop(cached);
         permission.map_err(|cause| {
             RpcError::new(code::FORBIDDEN, format!("State alerts refused: {cause}"))
