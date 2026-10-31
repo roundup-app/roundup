@@ -182,7 +182,7 @@ run('u362 rendered move failure', () => {
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
-      await page.call(`() => window.__fake.failNext(-32000, 'Cannot move this Todo')`);
+      await page.call(`() => window.__fake.failNext(-32003, 'Cannot move this Todo')`);
       await page.pointer('up', to.x, to.y);
       await page.until(`() => document.querySelector('.shelf [role="alert"]')?.textContent.includes('Cannot move this Todo')`);
       await page.call(`async () => {
