@@ -311,7 +311,7 @@ impl Terminals {
     /// forgets the owner's oldest exited Terminal, and is `CONFLICT` when all eight run. Emits
     /// `terminal.changed`.
     pub async fn spawn_owned(&self, params: SpawnParams, owner: &str) -> Result<Spawned, RpcError> {
-        let forgot = self.make_room(owner)?;
+        let forgot = self.evict_for_cap(owner)?;
         let spawned = self.start(params, Some(owner.to_owned())).await;
         if forgot || spawned.is_ok() {
             self.shared
