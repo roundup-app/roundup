@@ -1,6 +1,16 @@
 use super::*;
 use contracts::agent::{Order, ResumeMode, SaveAsModeParams};
 
+/// A5214a's node guard: a root Agent.
+pub(super) fn makes_workstream(node: &RailNode) -> bool {
+    node.kind == NodeKind::Agent && node.parent.is_none()
+}
+
+/// A5214b's guard: an Agent roundup started, which is the one that kept a lean setup.
+pub(super) fn saves_as_mode(dir: &Path, node: &RailNode) -> bool {
+    node.kind == NodeKind::Agent && Launcher::load_lean(dir, &node.id).is_some()
+}
+
 impl Agents {
     /// A5214a: the root Agent `id` becomes a Workstream in place, its conversation the Door's. A
     /// live Agent restarts once on that conversation so it launches with the Door's Brief and
@@ -13,8 +23,7 @@ impl Agents {
         let live = {
             let mut rail = self.shared.rail();
             let node = rail.node(id)?;
-            if node.kind != NodeKind::Agent
-                || node.parent.is_some()
+            if !makes_workstream(&node)
                 || !rail.has_conversation(id)?
                 || !rail.convert_kind(id, true)?
             {

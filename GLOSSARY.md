@@ -76,6 +76,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Unseen (`unseen`, `UnseenState`) | Unread result | — |
 | Resume (`ResumeParams`, `ResumeMode`) | same | — |
 | YOLO (`yolo`) | same | — |
+| Conversion flags (`RailNode.can_make_workstream`, `RailNode.can_save_as_mode`) | same | — |
 | Conversation overview (`ConversationOverview`, `RailNode.overview`) | same | — |
 | Import (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`) | same | — |
 | Vendor listing sidecar (`import.list`, `ImportList`, `ImportListed`, `ImportLive`) | same | — |

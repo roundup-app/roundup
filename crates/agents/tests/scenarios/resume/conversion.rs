@@ -158,3 +158,54 @@ async fn a5214b_a_bad_name_or_a_foreign_agent_creates_nothing() {
     assert_eq!(err.code, code::CONFLICT);
     assert_eq!(f.tree().await.len(), count + 1, "only the foreign Agent");
 }
+
+async fn flags(f: &Fixture, id: &str) -> (bool, bool) {
+    let node = f.tree().await.into_iter().find(|n| n.id == id).unwrap();
+    (node.can_make_workstream, node.can_save_as_mode)
+}
+
+#[tokio::test]
+async fn a5324_flags_match_the_guards() {
+    let f = Fixture::running("sleep 30");
+    let lead = f.spawn(None, None).await.unwrap();
+    let ws = f.workstream("work", None).await;
+    let child = f.spawn(Some(&ws), None).await.unwrap();
+    f.session_start(&child.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    let unsaved = f.spawn(None, None).await.unwrap();
+    let lean_unsaved = lean_child(&f, &lead.id, json!({})).await;
+    let saved = f.spawn(None, None).await.unwrap();
+    f.session_start(&saved.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    let exited = exited_with_conversation(&f, CONVERSATION).await;
+
+    // A refused call leaves the node as it was, so the flag and the call can be compared.
+    for (id, make_ok, save_ok) in [
+        (&ws, false, false),
+        (&child.id, false, false),
+        (&unsaved.id, false, false),
+        (&lean_unsaved.id, false, true),
+    ] {
+        assert_eq!(flags(&f, id).await, (make_ok, save_ok), "{id}");
+        assert_eq!(make(&f, id).await.is_ok(), make_ok, "{id}");
+        assert_eq!(save(&f, id, "Mode").await.is_ok(), save_ok, "{id}");
+    }
+    // A running Agent with a saved conversation passes the guard; calling it restarts the Agent.
+    assert_eq!(flags(&f, &saved.id).await, (true, false));
+    assert_eq!(flags(&f, &exited.id).await, (true, false));
+    assert!(make(&f, &exited.id).await.is_ok());
+    assert_eq!(flags(&f, &exited.id).await, (false, false), "now a Workstream");
+}
+
+#[tokio::test]
+async fn a5324_a_new_agent_gains_the_flag_when_its_conversation_saves() {
+    let f = Fixture::running("sleep 30");
+    let agent = f.spawn(None, None).await.unwrap();
+    assert!(!flags(&f, &agent.id).await.0);
+    f.session_start(&agent.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    assert!(flags(&f, &agent.id).await.0);
+}

@@ -540,7 +540,7 @@ pub mod test_support {
             let node: RailNode = serde_json::from_value(json!({
             "id":id,"kind":if door && id == "1" {"workstream"} else {"agent"},"name":id,"parent":null,"order":0,
             "status":{"kind":"working","label":"","since":0,"finished":"0"},"attempt":"1","status_revision":"1",
-            "terminal_id":format!("t-{id}"),"worktree":null,"can_resume":false,"yolo":false,
+            "terminal_id":format!("t-{id}"),"worktree":null,"can_resume":false,"can_make_workstream":false,"can_save_as_mode":false,"yolo":false,
             "channel":null,"stray":[],"model":null,"effort":null,"work":null,"auto":false
         })).unwrap();
             // Publication authorization reads maker identity from the authoritative Project store.

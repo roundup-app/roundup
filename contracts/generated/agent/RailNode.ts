@@ -35,6 +35,10 @@ export type RailNode = {
 	 *  start in flight. `false` for a Terminal.
 	 */
 	can_resume: boolean,
+	/**  A5324: `agent.makeWorkstream` passes its guard on this node; true on an Agent node only. */
+	can_make_workstream: boolean,
+	/**  A5324: `agent.saveAsMode` passes its guard on this node; true on an Agent node only. */
+	can_save_as_mode: boolean,
 	/**  Permission prompts are off for the last acknowledged Attempt; cleared on reopen. */
 	yolo: boolean,
 	/**

@@ -40,6 +40,8 @@ pub(super) struct State {
     /// Since when an Agent without a Terminal has been `done`.
     pub(super) opened: i64,
     pub(super) launcher: Launcher,
+    /// Where `save_lean` keeps what a Mode is saved from.
+    pub(super) dir: PathBuf,
 }
 
 impl Shared {
@@ -164,6 +166,10 @@ impl Shared {
             ) => false,
             None => true,
         };
+        // A5324: the flags read the guards the conversions run.
+        node.can_make_workstream =
+            convert::makes_workstream(&node) && node.can_resume && rail.has_conversation(&node.id)?;
+        node.can_save_as_mode = convert::saves_as_mode(&self.rail_view.dir, &node);
         node.can_resume &= exited;
         node.yolo = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.yolo,

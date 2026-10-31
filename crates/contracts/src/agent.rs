@@ -423,6 +423,12 @@ pub struct RailNode {
     /// A22: true only for an exited Agent or Door with saved conversation data (A21) and no
     /// start in flight. `false` for a Terminal.
     pub can_resume: bool,
+    /// A5324: `agent.makeWorkstream` passes its guard on this node; true on an Agent node only.
+    #[serde(default)]
+    pub can_make_workstream: bool,
+    /// A5324: `agent.saveAsMode` passes its guard on this node; true on an Agent node only.
+    #[serde(default)]
+    pub can_save_as_mode: bool,
     /// Permission prompts are off for the last acknowledged Attempt; cleared on reopen.
     #[serde(default)]
     pub yolo: bool,

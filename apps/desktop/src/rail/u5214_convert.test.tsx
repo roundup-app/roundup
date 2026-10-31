@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent, door, workstream } from "../testing/nodes";
+import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo, rowOf, exitedTerminal } from "./railFixture";
 import { copy } from "./copy";
 
@@ -16,17 +16,10 @@ const labelsOf = async (m: Awaited<ReturnType<typeof mountRail>>, id: string) =>
   return labels;
 };
 
-it("u5214_offered_entries_match_the_daemon_guard", async () => {
-  const tree = [
-    agent("running", "working", ""),
-    agent("exited", "done", "", { can_resume: true }),
-    agent("nothing", "done", ""),
-    workstream("ws"),
-    agent("child", "working", "", { parent: "ws" }),
-    door("lead", "working", ""),
-  ];
-
-  const m = await mountRail(tree, [exitedTerminal("exited", 0), exitedTerminal("nothing", 0)]);
+it("u5324_entries_follow_the_node_flags", async () => {
+  const flags = (id: string, can_make_workstream: boolean, can_save_as_mode: boolean) =>
+    agent(id, "working", "", { can_make_workstream, can_save_as_mode });
+  const m = await mountRail([flags("both", true, true), flags("none", false, false), flags("mode", false, true), flags("ws", true, false)]);
 
   const offered = async (id: string) => {
     const labels = await labelsOf(m, id);
@@ -34,16 +27,21 @@ it("u5214_offered_entries_match_the_daemon_guard", async () => {
     return [labels.includes(copy.makeWorkstream), labels.includes(copy.saveAsMode)];
   };
 
-  expect(await offered("running")).toEqual([true, true]);
-  expect(await offered("exited")).toEqual([true, true]);
-  expect(await offered("nothing")).toEqual([false, true]);
-  expect(await offered("child")).toEqual([false, true]);
-  expect(await offered("ws")).toEqual([false, false]);
-  expect(await offered("lead")).toEqual([false, false]);
+  expect(await offered("both")).toEqual([true, true]);
+  expect(await offered("none")).toEqual([false, false]);
+  expect(await offered("mode")).toEqual([false, true]);
+  expect(await offered("ws")).toEqual([true, false]);
+});
+
+it("u5324_unsaved_and_foreign_agents_get_no_entry", async () => {
+  const m = await mountRail([agent("fresh", "working", "", { can_save_as_mode: true }), agent("foreign", "done", "", { can_make_workstream: true })], [exitedTerminal("foreign", 0)]);
+
+  expect(await labelsOf(m, "fresh")).not.toContain(copy.makeWorkstream);
+  expect(await labelsOf(m, "foreign")).not.toContain(copy.saveAsMode);
 });
 
 it("u5214_make_a_workstream_calls_the_method", async () => {
-  const tree = [agent("a", "done", "", { can_resume: true })];
+  const tree = [agent("a", "done", "", { can_resume: true, can_make_workstream: true })];
   const m = await mountRail(tree, [exitedTerminal("a", 0)]);
   m.app.handlers["agent.makeWorkstream"] = () => {
     tree[0] = workstream("a", { name: "a", attempt: "1", can_resume: true });
@@ -59,7 +57,7 @@ it("u5214_make_a_workstream_calls_the_method", async () => {
 });
 
 it("u5214_save_as_mode_asks_for_a_name", async () => {
-  const tree = [agent("a", "working", "")];
+  const tree = [agent("a", "working", "", { can_save_as_mode: true })];
   const m = await mountRail(tree);
   m.app.handlers["agent.saveAsMode"] = () => workstream("mode", { opening_prompt: "p" });
   fireEvent.contextMenu(rowOf("a"), { clientX: 1, clientY: 1 });
