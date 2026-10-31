@@ -438,7 +438,7 @@ async fn b5168f_a_quiet_digest_starts_no_turn() {
 }
 
 #[tokio::test]
-async fn b5168f_a_held_quiet_digest_rides_the_next_delivery_once() {
+async fn b5168f_a_parked_quiet_digest_rides_the_next_delivery_once() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
     let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
@@ -455,7 +455,7 @@ async fn b5168f_a_held_quiet_digest_rides_the_next_delivery_once() {
 }
 
 #[tokio::test]
-async fn b5168f_a_restart_keeps_a_held_quiet_digest() {
+async fn b5168f_a_restart_keeps_a_parked_quiet_digest() {
     let dir = tempfile::tempdir().unwrap();
     let h = idle_receiver(dir.path()).await;
     let digest = json!({"to":"b", "kind":"note", "body": quiet_digest_body()});
