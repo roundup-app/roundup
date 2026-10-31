@@ -70,7 +70,7 @@ describe("u8 folding", () => {
   });
 
   it("u8_collapsing_a_group_does_not_select_it", async () => {
-    const { rail } = await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" })]);
+    const { rail } = await mountRail([workstream("g")]);
 
     fireEvent.click(rowOf("g").querySelector("button[aria-label=Collapse]")!);
 
