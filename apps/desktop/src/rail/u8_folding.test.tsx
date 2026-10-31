@@ -64,13 +64,13 @@ describe("u8 folding", () => {
     await mountRail([workstream("migrate"), agent("a", "working", "w", { parent: "migrate" })]);
     fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Collapse]")!);
 
-    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Collapse]")!);
+    fireEvent.click(rowOf("migrate").querySelector("button[aria-label=Expand]")!);
 
     expect(rowNames()).toEqual(["migrate", "a"]);
   });
 
   it("u8_collapsing_a_group_does_not_select_it", async () => {
-    const { rail } = await mountRail([workstream("g")]);
+    const { rail } = await mountRail([workstream("g"), agent("a", "working", "w", { parent: "g" })]);
 
     fireEvent.click(rowOf("g").querySelector("button[aria-label=Collapse]")!);
 
