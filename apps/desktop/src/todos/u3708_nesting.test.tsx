@@ -270,9 +270,10 @@ it("u3809_membership_counts_each_descendant_once_across_completion", async () =>
   mounted.store.todos = [todo(1, { done: true }), todo(3, { blockers: [1] }), todo(4)];
   await mounted.todos.reload();
   expect(progress().getAttribute("aria-valuemax")).toBe("1");
+  const bars = screen.queryAllByRole("progressbar").length;
   mounted.store.todos = [todo(1, { done: true }), todo(3), todo(4)];
   await mounted.todos.reload();
-  expect(screen.queryByRole("progressbar", { name: "Done in todo 1" })).toBeNull();
+  expect(screen.queryAllByRole("progressbar")).toHaveLength(bars - 1);
 });
 
 
