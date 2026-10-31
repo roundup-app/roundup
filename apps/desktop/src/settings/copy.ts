@@ -15,7 +15,7 @@ export const copy = {
   fontFamilyHint: "Choose Default to use the bundled font.",
   fontSizeHint: "Default text size for Terminals.",
   quickAddHint: "Open quick add while roundup is in front.",
-  quickAddAnywhere: "Quick add from any app",
+  quickAddAnywhere: "Quick add anywhere",
   quickAddAnywhereHint: "Open quick add in every app. Off until you pick a shortcut.",
   none: "None",
   modeHint: "Use a light, dark or system appearance.",
