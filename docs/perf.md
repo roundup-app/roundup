@@ -70,6 +70,8 @@ method without a measured mapping or non-empty reason fails live coverage.
   "ask.send": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.", "ask.list": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
   "ask.pick": "Question delivery and selection are event-driven coordination, outside the measured echo and Rail-read loops.",
   "daemon.methods": "Connection setup or contract discovery is not a repeated call in the measured workload.",
+  "api.describe": "Connection setup or contract discovery is not a repeated call in the measured workload.",
+  "api.list": "Connection setup or contract discovery is not a repeated call in the measured workload.",
   "daemon.getNaming": "Global naming preferences are read when opening Settings, outside the Terminal echo and Rail-read workload.",
   "daemon.setNaming": "Saving global naming preferences is an explicit user action outside the Terminal echo and Rail-read workload.",
   "link.read": "External link reading depends on external content and is absent from the isolated perf workload.",

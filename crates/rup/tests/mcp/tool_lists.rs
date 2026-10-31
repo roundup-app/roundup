@@ -175,6 +175,9 @@ pub const NO_TOOL: [&str; 83] = [
     "terminal.scheme",
     "daemon.ping",
     "daemon.methods",
+    // I10: the Daemon's method descriptions; I11 gives them their `rup` commands and offers them.
+    "api.list",
+    "api.describe",
     "daemon.identify",
     "events.subscribe",
     "agent.brief",

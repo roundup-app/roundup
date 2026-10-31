@@ -1,7 +1,16 @@
 //! One declaration supplies the method table, owning module router, TS bindings and MCP exposure.
+use crate::describe::{Declared, role_summary, schema_of};
 #[cfg(feature = "export")]
 use crate::methods::Method;
 use crate::methods::{ExportedMethod, typed};
+
+/// F8, M16: the Bubble rule every Terminal-starting tool's description states, as the Brief does.
+#[macro_export]
+macro_rules! bubble_rule {
+    () => {
+        " Use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools."
+    };
+}
 
 macro_rules! declarations {
     ($d:tt; $($owner:ident [$namespace:literal] { $($wire:literal: $params:ty => $result:ty, $handler:ident, $role:ident($($tool:tt)*);)* })*) => {
@@ -11,6 +20,9 @@ macro_rules! declarations {
             match method { $($($wire => Some($namespace),)*)* _ => None }
         }
         pub(crate) fn exported() -> Vec<ExportedMethod> { vec![$($(typed::<$params, $result>($wire),)*)*] }
+        pub(crate) fn declared() -> Vec<Declared> {
+            vec![$($(Declared { name: $wire, tool_summary: role_summary!($role($($tool)*)), params: schema_of::<$params>, result: schema_of::<$result>, },)*)*]
+        }
         pub(crate) fn types() -> specta::Types { specta::Types::default() $($(.register::<$params>().register::<$result>())*)* }
         $(
             #[macro_export]
@@ -168,6 +180,8 @@ declarations! { $;
         "deliverable.remove": contracts::deliverable::DeliverableId => (), deliverable_call, all(schema(contracts::deliverable::DeliverableId,"Explicitly remove a publication. User only; the identity and key cannot be reused."));
         "daemon.ping": () => contracts::common::Ping, rpc_builtin, none();
         "daemon.methods": () => Vec<String>, rpc_builtin, none();
+        "api.list": () => contracts::describe::MethodList, rpc_builtin, none();
+        "api.describe": contracts::describe::DescribeParams => contracts::describe::MethodDescription, rpc_builtin, none();
         "link.read": contracts::link::LinkUrl => contracts::link::LinkContent, rpc_link_read, all(schema(contracts::link::LinkUrl,"Read a Project roundup:// link: current Pad, Todo, Agent, Workstream or Terminal content, or a Deliverable recorded revision/current external target and its availability."));
         "daemon.identify": contracts::common::IdentifyParams => (), rpc_builtin, none();
         "events.subscribe": Option<contracts::common::SubscribeParams> => contracts::common::SubscribeResult, rpc_builtin, all(custom(events_stream()));

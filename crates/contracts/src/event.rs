@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -5,7 +6,7 @@ use crate::common::Actor;
 use crate::{agent, message, pad, project, terminal, todo, workstream};
 
 /// Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`.
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "name", content = "data")]
 pub enum EventData {
     #[serde(rename = "workstream.updated")]
@@ -84,7 +85,7 @@ pub enum EventData {
     WorkstreamQueueChanged,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Event {
     /// The Event number: set on every saved Event (D10).
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -29,7 +29,7 @@ pub struct PublishParams {
     pub target: PublicationTarget,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum PublishedTarget {
     Pad {
@@ -53,13 +53,13 @@ pub enum PublishedTarget {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExternalAvailability {
     NotChecked,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct Deliverable {
     pub project: String,
     pub id: String,
@@ -94,7 +94,7 @@ pub struct MoveParams {
     pub home: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum UnavailableCause {
     MissingRevision,
@@ -104,7 +104,7 @@ pub enum UnavailableCause {
     MaterializationFailed,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum Resolution {
     Retained {
