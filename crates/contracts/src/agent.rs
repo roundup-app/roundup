@@ -852,6 +852,13 @@ pub struct MoveParams {
     pub index: u32,
 }
 
+/// A5214b: `agent.saveAsMode`, the Mode's name.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
+pub struct SaveAsModeParams {
+    pub id: String,
+    pub name: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RenameParams {
     pub id: String,

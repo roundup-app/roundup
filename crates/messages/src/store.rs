@@ -384,6 +384,13 @@ impl Store {
         Ok(thread)
     }
 
+    /// The Messages already `delivered` to `to`, oldest first.
+    pub(crate) fn delivered_to(&self, to: &str) -> Result<Vec<Message>, RpcError> {
+        let mut all = self.list()?;
+        all.retain(|m| m.to == to && m.status == MessageStatus::Delivered);
+        Ok(all)
+    }
+
     pub(crate) fn get(&self, id: u32) -> Result<Option<Message>, RpcError> {
         self.db
             .query_row(

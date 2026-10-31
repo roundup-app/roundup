@@ -133,6 +133,14 @@ const TOOLS: &[(&str, &str)] = &[
         "ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved",
     ),
     (
+        "api_list",
+        "list every method the Daemon serves with a one-line summary",
+    ),
+    (
+        "api_describe",
+        "describe one method: its summary, params and result schemas and an example",
+    ),
+    (
         "agent_wake",
         "ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking",
     ),
@@ -332,10 +340,30 @@ const TOOLS: &[(&str, &str)] = &[
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 5] = [
+const DOOR_TOOLS_EXTRA: [(&str, &str); 10] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
+    ),
+    (
+        "github_pr_get",
+        "read a PR of the Project's repository as GitHub holds it now: state, draft, auto-merge, head and body",
+    ),
+    (
+        "github_issue_get",
+        "read an Issue of the Project's repository as GitHub holds it now: state, labels and body",
+    ),
+    (
+        "github_pr_set_body",
+        "replace a PR's body; the answer is the PR as it now stands",
+    ),
+    (
+        "github_pr_ready",
+        "mark a draft PR ready for review; a PR already ready is left as it is",
+    ),
+    (
+        "github_pr_auto_merge",
+        "enable auto-merge on an open PR; one already enabled is left as it is",
     ),
     (
         "agent_extras",
@@ -415,6 +443,8 @@ You write orders only for the Agents you spawn; an Agent the user started writes
 Never add a child limit asking the user to approve an action they already authorized, such as asking before each `gh issue create`. Preserve their actual limits and the vendor's permission mechanism.
 
 Include in child orders: report blocks and the decision needed to this Door with `message_send`; ask the user only for decisions that are theirs alone, and leave vendor permission prompts to them.
+
+Read a PR's or an Issue's state with `github_pr_get` or `github_issue_get` before you state it to the user or ask the user to act on it. Do a GitHub errand those tools cover (`github_pr_set_body`, `github_pr_ready`, `github_pr_auto_merge`) yourself; never ask the user to run `gh` for it. An ask to the user names only what the user alone can do, and you do not restate it unless something changed since you made it.
 ";
 
 /// M13: how to read a Terminal without flooding the context.
