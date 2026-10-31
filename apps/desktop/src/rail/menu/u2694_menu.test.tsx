@@ -403,7 +403,7 @@ it.each([
     expected: [["progress", "0"], ["yolo", "2"], ["stop", "2"], ["folder", "4"], ["editor", "4"], ["send", "4"], ["copy-link", "4"], ["rename", "5"], ["make-workstream", "5"], ["save-as-mode", "5"], ["remove", "7"]],
     receivers: ["b"],
     mount: async () => {
-      const { app } = await mountRail([agent("a", "idle", "ready"), agent("b", "idle", "ready", { order: 1 })]);
+      const { app } = await mountRail([agent("a", "idle", "ready", { can_make_workstream: true, can_save_as_mode: true }), agent("b", "idle", "ready", { order: 1 })]);
 
       return { app, target: rowOf("a") };
     },
