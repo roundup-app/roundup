@@ -3,7 +3,7 @@
 
 use agents::claude_code::skill_setup::Install;
 use contracts::ActorKind;
-use contracts::skill::{SkillItem, SkillFiles};
+use contracts::skill::{SkillFiles, SkillItem};
 use rpc::RpcError;
 use serde_json::Value;
 

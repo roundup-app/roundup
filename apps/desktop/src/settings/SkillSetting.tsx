@@ -43,9 +43,12 @@ export const SkillSetting = (props: { app: App }) => {
 
   const [items, { mutate }] = createResource(async () => {
     try { return await read(); }
-    catch (cause) { if (!(cause instanceof Error)) throw cause; setError(cause.message);
+    catch (cause) {
+      if (!(cause instanceof Error)) throw cause;
+      setError(cause.message);
 
- return none; }
+      return none;
+    }
   });
 
   const run = async (method: Exclude<Method, "skill.status">) => {
