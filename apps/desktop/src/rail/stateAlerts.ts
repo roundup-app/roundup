@@ -1,7 +1,7 @@
 import type { Kind } from "@contracts/Kind";
 import type { StateAlert } from "../app/seam";
 import { appSettings } from "../settings/preferences";
-import { stateLabel } from "../settings/copy";
+import { stateLabel } from "./copy";
 
 /** U5232d: per Agent, at most one alert and one sound in this many milliseconds. */
 const WINDOW_MS = 5000;
@@ -47,11 +47,7 @@ export const createStateAlerts = (
       if (alert || (sound && !toast)) {
         send({ agent: id, title: name, body: stateLabel(kind), alert, sound: sound && !toast }).then(
           () => onFailure(null),
-          (failure: unknown) => {
-            if (!(failure instanceof Error)) throw failure;
-
-            onFailure(failure.message);
-          },
+          (failure: Error) => onFailure(failure.message),
         );
       }
 

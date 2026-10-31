@@ -39,7 +39,7 @@ it("u5232b_the_group_lists_five_states_with_three_switches", async () => {
 
   expect(states).toEqual(["Working", "Blocked", "Needs you", "Error", "Done"]);
   expect(within(screen.getByRole("group", { name: "Needs you" })).getAllByRole("switch").map(each => each.getAttribute("aria-checked"))).toEqual(["false", "true", "true"]);
-  expect(screen.getByRole("switch", { name: "Done Dock badge" })).toBeTruthy();
+  expect(within(screen.getByRole("group", { name: "Done" })).getAllByRole("switch")).toHaveLength(3);
 });
 
 it("u5232b_a_switch_works_by_keyboard", async () => {

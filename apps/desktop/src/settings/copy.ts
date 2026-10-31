@@ -1,3 +1,4 @@
+import type { Kind } from "@contracts/Kind";
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const copy = {
@@ -79,5 +80,5 @@ export const copy = {
 } as const;
 
 /** The Rail's word for an Agent's state, as the Alerts group and the banner body show it. */
-export const stateLabel = (state: "working" | "blocked" | "needs-you" | "error" | "done" | string): string =>
-  ({ working: copy.working, blocked: copy.blocked, "needs-you": copy.needsYou, error: copy.error, done: copy.done } as Record<string, string>)[state] ?? state;
+export const stateLabel = (state: Exclude<Kind, "idle">): string =>
+  ({ working: copy.working, blocked: copy.blocked, "needs-you": copy.needsYou, error: copy.error, done: copy.done })[state];

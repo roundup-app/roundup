@@ -57,7 +57,6 @@ import type { EmulatorFactory } from "./terminal/emulator";
 import { webChime } from "./toasts/chime";
 import type { Chime } from "./toasts/chime";
 import { createToastQueue } from "./toasts/queue";
-import { copy as toastCopy } from "./toasts/copy";
 import type { ToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
@@ -581,7 +580,7 @@ export const App = (props: {
   void props.app.onStateAlertClicked(agent => {
     const path = [...connections().keys()].find(each => railOf(each)?.nodes.some(node => node.id === agent));
 
-    if (path === undefined) return setAlertFailure(toastCopy.thatIsGone);
+    if (path === undefined) return setAlertFailure(copy.thatIsGone);
 
     projects.select(path);
     railOf(path)?.select(agent);

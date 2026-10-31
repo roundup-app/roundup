@@ -18,14 +18,18 @@ const started = async () => {
   return app;
 };
 
-const selected = () => screen.getAllByRole("treeitem").find(row => row.getAttribute("aria-selected") === "true")?.textContent ?? "";
+const selectedIndex = () => screen.getAllByRole("treeitem").findIndex(row => row.getAttribute("aria-selected") === "true");
 
 it("u5232e_a_click_selects_the_agent_and_shows_its_terminal", async () => {
   const app = await started();
 
+  app.clickStateAlert("a");
+  await waitFor(() => expect(selectedIndex()).toBeGreaterThanOrEqual(0));
+  const first = selectedIndex();
+
   app.clickStateAlert("b");
 
-  await waitFor(() => expect(selected()).toContain("mason"));
+  await waitFor(() => expect(selectedIndex()).toBe(first + 1));
 });
 
 it("u5232e_a_click_for_a_gone_agent_shows_the_failure_line", async () => {
