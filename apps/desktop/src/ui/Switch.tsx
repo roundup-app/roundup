@@ -12,11 +12,11 @@ export const Switch = (props: { class?: string; checked: boolean; disabled?: boo
   onMount(() => onCleanup(trackFocusVisible({ onChange: details => setKeyboardFocus(details.isFocusVisible) })));
 
   return (
+    <div class="app-switch-row">
     <ArkSwitch.Root data-keyboard-focus={keyboardFocus() ? "" : undefined} class={`app-switch ${props.class ?? ""}`} checked={props.checked} disabled={props.disabled} invalid={props.invalid}
       onCheckedChange={(details) => props.onCheckedChange(details.checked)}>
       <ArkSwitch.Control class="app-switch-track"><ArkSwitch.Thumb class="app-switch-thumb" /></ArkSwitch.Control>
       <ArkSwitch.Label class="app-switch-label">{props.children}</ArkSwitch.Label>
-      <Show when={props.description}><span id={descriptionId} hidden>{props.description}</span></Show>
       <ArkSwitch.HiddenInput onClick={(event) => {
         const input = event.currentTarget;
 
@@ -24,5 +24,7 @@ export const Switch = (props: { class?: string; checked: boolean; disabled?: boo
         queueMicrotask(() => { input.checked = props.checked; });
       }} asChild={(input) => <input {...input()} role="switch" aria-describedby={props.description ? descriptionId : undefined} aria-checked={props.checked} style="" />} />
     </ArkSwitch.Root>
+    <Show when={props.description}><span id={descriptionId} class="settings-hint">{props.description}</span></Show>
+    </div>
   );
 };

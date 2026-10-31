@@ -257,7 +257,6 @@
 .settings-content .app-select-hint {
   font-size: var(--text-caption);
   color: var(--grey);
-  white-space: nowrap;
 }
 
 .settings-content .app-select-label,
@@ -286,7 +285,33 @@
   overflow-wrap: anywhere;
 }
 
-.settings-content .app-segments { flex-wrap: wrap; justify-content: space-between; }
+.settings-content .app-segments {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--space-4);
+  align-items: baseline;
+}
+.settings-content .app-switch-row { display: grid; }
+/* U5242a: each group of rows is one inset box; rows are divided by hairlines, never boxed alone. */
+.settings-content .settings-rows {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-drawer);
+  background: var(--sunken);
+  overflow: hidden;
+}
+.settings-content .settings-rows > * {
+  padding: var(--space-3) var(--space-4);
+}
+.settings-content .settings-rows > * + * {
+  border-top: var(--hairline-width) solid var(--hairline);
+}
+.settings-history { display: flex; gap: var(--space-3); align-items: center; }
+.settings-forward { position: absolute; top: var(--space-2); right: var(--space-4); z-index: 1; }
+.settings-appearance-preview { display: flex; }
+.settings-mode-preview { padding: var(--space-3); border-radius: var(--radius-control); background: var(--ground); color: var(--text); font-size: var(--text-body); }
+.settings-mode-preview[data-scale="small"] { font-size: calc(13px * var(--scale-small)); }
+.settings-mode-preview[data-scale="large"] { font-size: calc(13px * var(--scale-large)); }
 .settings-content .app-segment[data-state="checked"] { color: var(--accent); }
 .settings-preview { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .settings-preview-terminal { height: auto; overflow: hidden; background: var(--terminal-background); }
