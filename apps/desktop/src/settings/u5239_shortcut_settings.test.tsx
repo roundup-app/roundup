@@ -92,11 +92,11 @@ it("u5239b_escape_cancels_and_reset_restores_the_default", async () => {
   fireEvent.click(rowOf(view, "terminal.new"));
   press("Escape", {});
   expect(rowOf(view, "terminal.new").getAttribute("aria-pressed")).toBe("false");
-  expect(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector("button + button")).toBeNull();
+  const resets = view.queryAllByRole("button", { name: copy.reset }).length;
   fireEvent.click(rowOf(view, "terminal.new"));
   press("KeyT", { metaKey: true, shiftKey: true });
-  await waitFor(() => expect(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector("button + button")).not.toBeNull());
-  fireEvent.click(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector("button + button")! as HTMLElement);
+  await waitFor(() => expect(view.queryAllByRole("button", { name: copy.reset })).toHaveLength(resets + 1));
+  fireEvent.click(view.getAllByRole("button", { name: copy.reset })[0]!);
   await waitFor(() => expect(appSettings().shortcuts).toEqual({}));
   expect(chord("terminal.new").presses).toEqual(["meta+KeyT"]);
 });
