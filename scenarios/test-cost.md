@@ -325,7 +325,7 @@ Checks (existing on specification base `983eb53c1`; none is retired):
 
 ## Mixed publication quota
 
-Policy: use the real Daemon/public publication seam in `crates/rup/tests/deliverables.rs` and the historical BLOB fixture from `r3778c_legacy_and_file_reopen`. Charge actual retained bytes in both representations at the unchanged Project quota Q = 1,073,741,824 bytes and per-publication limit 33,554,432 bytes. Do not fabricate allocation lengths or replace `dv2_publish_failures` with a lowered-quota fixture. This acceptance adds test coverage; it changes no storage representation, contract or product limit.
+Policy: use the real Daemon/public publication seam in `crates/rup/tests/deliverables.rs` and the historical BLOB fixture from `r3778c_legacy_and_file_reopen`. For R4160a and R4160b, Q is a small test-fixture quota applied by the real quota-enforcement path; charge actual retained bytes in both representations. The production Project quota remains 1,073,741,824 bytes and the per-publication limit remains 33,554,432 bytes. Do not fabricate allocation lengths or replace `dv2_publish_failures` with a lowered-quota fixture. This acceptance changes no storage representation, contract or product limit; R5457a and R5457b govern the cheaper fixture and its evidence.
 
 **R4160a mixed allocations reach the quota exactly.** Given an upgraded Project retaining nonempty legacy BLOB publications and new file-backed publications, when a public publication brings their combined retained payload length to exactly Q, it succeeds; a subsequent one-byte publication refuses. The refusal leaves the exact public listing and charged total unchanged, and every accepted publication retains its recorded identity and exact bytes after restart (`r4160a_mixed_quota_boundary`, new real-Daemon test in `crates/rup/tests/deliverables.rs`).
 
@@ -339,3 +339,26 @@ Checks (on specification base `f1f59fb1d`; none retired):
 2. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`: real 32 MiB and 1 GiB boundaries, refusal without eviction, and retained payload verification after reopen.
 3. `crates/rup/tests/deliverables.rs`, `r3778c_removed_file_cleanup` and `dv4_removal_replay`: recoverable file cleanup, surviving publication bytes and removal replay refusal.
 4. `scenarios/deliverables.md`, DV2 and DV4; `scenarios/test-cost.md`, R3778c: unchanged quota, mixed allocation charging and publication-specific cleanup contract.
+
+## Quota tests without GiB fixtures
+
+Scope: R4160a/R4160b fixtures in `crates/rup/tests/deliverables.rs`, their existing test support, and the production quota seam needed to exercise the same enforcement with fewer bytes. Shared-failure repairs may reach the existing R3778c/NR3 test support when the evidence identifies it as the cause; preserve those scenarios and assertions. No loop machinery, product contract or storage-format change (policy).
+
+**R5457a small fixtures preserve quota proofs.** Given R4160a and R4160b, when their fixtures use a smaller quota Q, then all their existing then-clauses still hold through the real Daemon/public publication calls: exact equality accepts, one byte beyond refuses without mutation, mixed BLOB/file charges equal actual retained lengths, identities and exact bytes survive restart, and each removal releases only its chosen allocation once before B replacement bytes restore Q. Observers remain `r4160a_mixed_quota_boundary` and `r4160b_cleanup_releases_only_chosen_bytes` in `crates/rup/tests/deliverables.rs`; the latter retains both removal representations, unequal chosen lengths and survivors in both formats.
+
+Policy: the fixture quota applies only to the selected test Project, survives its test restarts and cannot alter another test Project or a production build's limit. Reuse existing test-support facilities; this specification approves no new public RPC or production configuration. Use real payload bytes and the production accounting/comparison/cleanup path, never mock quota results, padded metadata lengths or a separate test implementation. The unchanged `dv2_publish_failures` remains the observer of the real 32 MiB and 1 GiB product boundaries; add no test that only compares a copied quota constant.
+
+**R5457b fast tests and an evidenced shared-failure repair.** Given the implementation head, when its required `check` Rust lanes run, then each R4160 observer passes in strictly less than 5 seconds on its first attempt. Policy observer: the implementation PR records that head SHA, successful run URL, lane and nextest duration for each observer; local timing or a specification-only check run does not satisfy this acceptance. Retries, longer timeouts, ignored tests and weaker assertions are forbidden.
+
+Policy: before claiming the four-test failure cluster repaired, inspect failed runs from the work order's 24-hour window ending 2026-11-01 17:37 UTC. Record the run URLs/heads, full test names for the R4160a, R4160b, R3778c and NR3 failures, and the failure output or resource observations identifying their shared cause. The implementation PR names that cause, the change removing it and the evidence connecting them; simultaneous failure alone does not establish disk exhaustion. Its successful head's required Rust lanes must include passing observations of those identified tests, preserving their assertions. Missing cause evidence is incomplete acceptance; investigate on the Issue rather than weakening the requirement. Progress and engineering questions belong on the work Issue, never in scenario Work tables.
+
+P12 Gate: can smaller fixtures hide lost/substituted publications or ineffective removal? Observer: R4160a/R4160b's unchanged exact-byte, identity, listing, restart and cleanup assertions, plus the unchanged production-boundary observer (policy).
+
+Checks (on main at specification time; none retired):
+
+1. `scenarios/test-cost.md`, R4160a and R4160b: mixed-format equality/excess and publication-specific cleanup outcomes.
+2. `crates/rup/tests/deliverables.rs`, `r4160a_mixed_quota_boundary` and `r4160b_cleanup_releases_only_chosen_bytes`: existing real-Daemon boundary, restart and cleanup observers.
+3. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`: production-size boundary acceptance and retained bytes after reopen.
+4. `crates/rupd/src/deliverables.rs`, `bounded`: combined BLOB/file accounting and production limit enforcement.
+5. `scenarios/test-cost.md`, R3778c, and `scenarios/named-reactions.md`, NR3: publication recovery and durable reaction acceptance remain required.
+6. `AGENTS.md`, Rules, rule 10: quota tests exceeding five seconds have no process/clock exemption.
