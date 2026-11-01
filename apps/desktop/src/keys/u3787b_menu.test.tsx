@@ -287,7 +287,7 @@ it.each(["key", "menu"])("u3787b_numbered_assignment_captures_one_todo_and_owner
   else openProjectPage(command);
 
   await waitFor(() => expect(daemon.calls.filter(call => call.method === "todo.assign").map(call => call.params)).toEqual([{ id: 1, owner: { kind: "agent", id: `a${number - 1}`, parent: null } }]));
-  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo: Overview" }));
   screen.getByLabelText("New Todo title").focus();
   await waitFor(() => expect(menuCommands(projectMenu.items).some(item => item.id.startsWith("action:chord:1–9:"))).toBe(false));
   captured.run();

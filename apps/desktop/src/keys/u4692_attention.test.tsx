@@ -62,7 +62,7 @@ const open = async (first = false, nodes = [
     return emulator;
   }} />);
 
-  if (first) await screen.findByRole("button", { name: "Choose folder…" });
+  if (first) await screen.findByRole("button", { name: "Choose Project…" });
   else await screen.findByRole("textbox", { name: "Ask" });
 
   return { app, daemon, connected: () => connection!, emulators };
@@ -176,7 +176,7 @@ it("u4692_project_switch_uses_only_current_attention", async () => {
 
 it("u4692_without_a_project_the_chord_does_nothing", async () => {
   const { app } = await open(true);
-  const target = screen.getByRole("button", { name: "Choose folder…" }); target.focus();
+  const target = screen.getByRole("button", { name: "Choose Project…" }); target.focus();
   press(); expect(document.activeElement).toBe(target);
   expect(app.calls.filter(call => call.method === "terminal.write")).toEqual([]);
 });
@@ -195,7 +195,7 @@ it.each(["help", "switcher", "capture", "recording"])("u4692_modal_layers_block_
     window.dispatchEvent(new Event("open-app-settings"));
     const settings = within(await screen.findByRole("region", { name: "Settings" }));
     fireEvent.click(settings.getByRole("tab", { name: "Shortcuts" }));
-    fireEvent.click(await settings.findByRole("button", { name: /^Quick add a Todo/ }));
+    fireEvent.click(await settings.findByRole("button", { name: /^Quick add Todo/ }));
   }
 
   if (layer !== "recording") await screen.findByRole("dialog");

@@ -173,7 +173,7 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
     expect((await browser("eval", "typeof window.__firstRun")).result).toBe("undefined");
     expect(await app.chooseProjectPath()).toBeNull();
     expect(await app.chooseSavePath("test.md")).toBeNull();
-    await activate('[aria-label="Open a folder"]');
+    await activate('[aria-label="Open Project"]');
     expect((await browser("eval", "[...document.querySelectorAll('[role=tablist][aria-label=Projects] .project-tab[data-path]')].map(tab => tab.dataset.path)")).result).toEqual([real.dir]);
 
     const firstRun = createServedApp(real.base, () => "choose");

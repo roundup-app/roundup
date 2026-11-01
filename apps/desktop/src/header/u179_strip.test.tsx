@@ -25,10 +25,10 @@ describe("u179 the header is the strip", () => {
     const { app } = await openTabs({ api: [], web: [] });
 
     app.chooser.path = path("docs");
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Project" }));
 
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]));
-    expect(screen.getByRole("button", { name: "Open a folder" }).classList.contains("word")).toBe(true);
+    expect(screen.getByRole("button", { name: "Open Project" }).classList.contains("word")).toBe(true);
   });
 
   it("u179_the_roles_and_the_marks_text_label", async () => {

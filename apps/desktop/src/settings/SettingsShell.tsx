@@ -1,5 +1,6 @@
 import { captureFocus } from "../keys/focus";
-import { onMount, Show, type JSX } from "solid-js";
+import { For, onMount, Show, type JSX } from "solid-js";
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "./copy";
 import "./styles.css";
 
@@ -27,4 +28,19 @@ export const SettingsGroup = (props: { name: string; hideHeading?: boolean; chil
     {!props.hideHeading && <h3 class="settings-group-name">{props.name}</h3>}
     <div class="settings-rows" role="group" aria-label={props.name}>{props.children}</div>
   </section>
+);
+
+type Result = { id: string; page: string; group: string; label: string; description: string; hiddenHint?: boolean };
+
+/** U5243a: one result per matching setting, with its place, its live control and its description. */
+export const SettingsResults = (props: { results: Result[]; controls: Record<string, () => JSX.Element> }) => (
+  <Show when={props.results.length > 0} fallback={<ReservedLine class="settings-no-results" status={copy.settingsNoResults} />}>
+    <ul class="settings-results settings-rows" aria-label={copy.settingsResults}>
+      <For each={props.results}>{result => <li class="settings-result">
+        <p class="settings-place">{copy.settingsPlace(result.page, result.group)}</p>
+        {props.controls[result.id]?.()}
+        <Show when={result.hiddenHint}><p class="settings-hint">{result.description}</p></Show>
+      </li>}</For>
+    </ul>
+  </Show>
 );

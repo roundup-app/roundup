@@ -78,6 +78,7 @@ for line in sys.stdin:
         publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),
         reactions: std::sync::Arc::new(crate::reaction::Reactions::in_memory()),
         prompt_effect_gate: None,
+        actions: Default::default(),
         agents: agents.clone(),
         renames: std::sync::Mutex::new(None),
         owner_events: std::sync::Mutex::new(None),

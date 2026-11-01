@@ -1,6 +1,9 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
 export const CONTRACT = {
   methods: {
+    "action.list": "8c08376ef3282445",
+    "action.run": "da0dc992e6d8031d",
+    "action.serve": "b1884dbf434a796c",
     "agent.brief": "578d4809b6cafc1b",
     "agent.changedFiles": "f80e4251cb77f2cd",
     "agent.channelUp": "f25fe63dfa04b01a",
@@ -112,6 +115,9 @@ export const CONTRACT = {
     "reaction.stop": "7f76744550a78b3b",
     "route.list": "5aac961a9745025c",
     "route.set": "d871b2b8a6257592",
+    "skill.remove": "a4bda6c57c851f3f",
+    "skill.setup": "48d34e6a8d818f68",
+    "skill.status": "a7ea41714ad9cedd",
     "terminal.catchUp": "127e301fef91d04b",
     "terminal.close": "1c27c5a6fa7bae68",
     "terminal.kill": "7980d904f9b34556",

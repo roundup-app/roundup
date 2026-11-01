@@ -106,6 +106,8 @@ fn invoke_handler<R: Runtime>() -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send
         rename_project,
         rpc,
         subscribe,
+        action_serve,
+        action_answer,
         terminal_output,
         terminal_output_stop,
         open_target,
@@ -227,6 +229,25 @@ async fn subscribe(
     after: Option<u64>,
 ) -> Result<u64, RpcError> {
     state.subscribe(&path, channel, after).await
+}
+
+/// NA6: the webview answers the Daemon's relayed `action.list` and `action.run`.
+#[tauri::command]
+async fn action_serve(
+    state: State<'_, AppState>,
+    path: String,
+    channel: Channel<serde_json::Value>,
+) -> Result<(), RpcError> {
+    state.action_serve(&path, channel).await
+}
+
+#[tauri::command]
+async fn action_answer(
+    state: State<'_, AppState>,
+    path: String,
+    line: serde_json::Value,
+) -> Result<(), RpcError> {
+    state.action_answer(&path, line).await
 }
 
 /// X14: raw `ArrayBuffer` bodies of one Terminal's bytes, and JSON gaps, on one ordered channel.

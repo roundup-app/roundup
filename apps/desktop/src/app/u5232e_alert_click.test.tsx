@@ -1,8 +1,9 @@
-import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { createFakeApp } from "./../testing/fakeApp";
 import { agent } from "../testing/nodes";
+import { openTabs, rowSelected, tab } from "../header/stripFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -38,4 +39,16 @@ it("u5232e_a_click_for_a_gone_agent_shows_the_failure_line", async () => {
   app.clickStateAlert("nobody");
 
   await screen.findByText("That is gone");
+});
+
+it("u5232e_a_click_switches_to_the_agents_project_tab", async () => {
+  const { app } = await openTabs({ api: [agent("a1", "needs-you", "x")], web: [agent("w1", "idle", "x")] });
+
+  fireEvent.click(tab("web"));
+  await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
+
+  app.clickStateAlert("a1");
+
+  await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
+  await waitFor(() => expect(rowSelected("a1")).toBe("true"));
 });

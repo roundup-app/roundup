@@ -5,7 +5,6 @@ mod daemon;
 use daemon::aimock;
 
 use contracts::{EventData, Kind};
-use daemon::next;
 use serde_json::json;
 use std::time::Duration;
 #[path = "common/doors.rs"]
@@ -41,6 +40,7 @@ async fn e12_a_complete_turn_has_only_loopback_traffic() {
             .unwrap();
         let model = project.model.as_ref().unwrap();
         turn_done(
+            project.bound(),
             model,
             &client,
             agent["id"].as_str().unwrap(),
@@ -128,6 +128,7 @@ async fn e12_a_fresh_configuration_accepts_the_first_prompt() {
         screen.lines.join("\n")
     };
     until_async(
+        project.bound(),
         "fresh Claude reaches prompt input without answering a dialog",
         || async { screen().await.contains('❯').then_some(()) },
     )
@@ -143,7 +144,7 @@ async fn e12_a_fresh_configuration_accepts_the_first_prompt() {
         .await
         .unwrap();
     let mut last_screen = String::new();
-    let accepted = tokio::time::timeout(Duration::from_secs(30), async {
+    let accepted = tokio::time::timeout(project.bound(), async {
         loop {
             last_screen = screen().await;
             if last_screen.contains(prompt) {
@@ -175,7 +176,7 @@ async fn e12_a_fresh_configuration_accepts_the_first_prompt() {
         .await
         .unwrap();
     let model = project.model.as_ref().unwrap();
-    turn_done(model, &client, id, prompt).await;
+    turn_done(project.bound(), model, &client, id, prompt).await;
     assert!(
         model.journal().iter().any(|entry| {
             !entry["body"]["tools"].is_null()
@@ -219,7 +220,7 @@ async fn e14_roundup_launches_and_resumes_real_claude() {
         } else {
             "E14 remember the cobalt otter"
         };
-        turn_done(model, &client, id, initial).await;
+        turn_done(project.bound(), model, &client, id, initial).await;
         let first = model
             .journal()
             .into_iter()
@@ -258,7 +259,7 @@ async fn e14_roundup_launches_and_resumes_real_claude() {
             )
             .await
             .unwrap();
-        turn_done(model, &client, id, followup).await;
+        turn_done(project.bound(), model, &client, id, followup).await;
         let journal = model.journal();
         let resumed = journal
             .iter()
@@ -421,26 +422,28 @@ async fn e12_default_permissions_raise_needs_you_until_allowed() {
             .unwrap(),
     )
     .unwrap();
-    next(&mut client, |event| match event {
-        EventData::AgentStatus(status)
-            if status.id == agent.id && status.status.kind == Kind::NeedsYou =>
-        {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
+    project
+        .next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == agent.id && status.status.kind == Kind::NeedsYou =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
     assert!(!project.dir.path().join("e12-denied").exists());
     daemon::allow_prompt(&client, &agent.id).await;
-    next(&mut client, |event| match event {
-        EventData::AgentStatus(status)
-            if status.id == agent.id && status.status.kind == Kind::Idle =>
-        {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
+    project
+        .next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == agent.id && status.status.kind == Kind::Idle =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
     let model = project.model.as_ref().unwrap();
     model.tool_result("toolu_e12_denied").await;
     assert!(project.dir.path().join("e12-denied").exists());

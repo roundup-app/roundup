@@ -1,4 +1,7 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
+import type { ActionRow as action_ActionRow } from "./action/ActionRow";
+import type { RunParams as action_RunParams } from "./action/RunParams";
+import type { RunResult as action_RunResult } from "./action/RunResult";
 import type { Brief as agent_Brief } from "./agent/Brief";
 import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
 import type { CompareFileParams as agent_CompareFileParams } from "./agent/CompareFileParams";
@@ -117,6 +120,7 @@ import type { PreviewParams as reaction_PreviewParams } from "./reaction/Preview
 import type { Reaction as reaction_Reaction } from "./reaction/Reaction";
 import type { ReactionId as reaction_ReactionId } from "./reaction/ReactionId";
 import type { RunParams as reaction_RunParams } from "./reaction/RunParams";
+import type { SkillFiles as skill_SkillFiles } from "./skill/SkillFiles";
 import type { CatchUp as terminal_CatchUp } from "./terminal/CatchUp";
 import type { CatchUpParams as terminal_CatchUpParams } from "./terminal/CatchUpParams";
 import type { MeasureParams as terminal_MeasureParams } from "./terminal/MeasureParams";
@@ -277,6 +281,9 @@ export type RpcMethods = {
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
   "daemon.getNaming": { params: null; result: project_NamingSettings };
   "daemon.setNaming": { params: project_NamingSettings; result: null };
+  "skill.status": { params: null; result: skill_SkillFiles };
+  "skill.setup": { params: null; result: skill_SkillFiles };
+  "skill.remove": { params: null; result: skill_SkillFiles };
   "rail.deletion": { params: agent_DeletionParams; result: agent_Removal | null };
   "rail.redo": { params: agent_RedoParams; result: agent_Removal };
   "rail.restore": { params: agent_DeletionParams; result: agent_Removal };
@@ -291,6 +298,9 @@ export type RpcMethods = {
   "github.prSetBody": { params: github_SetBodyParams; result: github_Pr };
   "github.prReady": { params: github_Number; result: github_Pr };
   "github.prAutoMerge": { params: github_Number; result: github_Pr };
+  "action.serve": { params: null; result: null };
+  "action.list": { params: null; result: action_ActionRow[] };
+  "action.run": { params: action_RunParams; result: action_RunResult };
   "daemon.ping": { params: null; result: common_Ping };
   "daemon.methods": { params: null; result: string[] };
   "api.list": { params: null; result: describe_MethodList };

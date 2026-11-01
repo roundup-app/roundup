@@ -7,7 +7,6 @@ import { Bubbles } from "../bubbles/Bubbles";
 import { AskBar } from "../ask/AskBar";
 import { AttentionKey } from "../rail/AttentionKey";
 import { Rail } from "../rail/Rail";
-import { createNow, DisplayClockContext } from "../state/clock";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, info, workstream } from "../testing/nodes";
@@ -54,10 +53,8 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
   render(() => {
     const [screens, setScreens] = createSignal<Screens>();
 
-    const now = createNow(() => Date.now());
-
     return (
-      <DisplayClockContext.Provider value={now.subscribe}><ConnectedProjectContext.Provider value={connected}>
+      <ConnectedProjectContext.Provider value={connected}>
         <AttentionKey />
         <AskBar />
         <Rail />
@@ -67,7 +64,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
           <div class="resource-strip" /><span class="resource-agent" />
           <Switcher onFailure={(message) => failures.push(message)} onOpen={() => {}} />
         </div>
-      </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
+      </ConnectedProjectContext.Provider>
     );
   });
 

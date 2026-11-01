@@ -17,12 +17,13 @@ pub(crate) mod rupd_harness;
 #[path = "../../../rupd/tests/support/store_migrations.rs"]
 pub mod storage;
 
-/// Historical receipt triggers for fixtures that replay the Project migrations.
-pub const INSTRUCTION_MESSAGES: &str =
-    include_str!("../../../rupd/migrations/project/0013-instruction-messages.sql");
-
 /// How long the Daemon, its Agents' hooks and their tools have to answer.
 const BOUND: Duration = Duration::from_secs(30);
+
+/// A Project from `start_real` (it holds a model) waits `REAL_BOUND`, one from `start` waits `BOUND`.
+pub fn bound_for(real: bool) -> Duration {
+    if real { aimock::REAL_BOUND } else { BOUND }
+}
 
 /// How long ten Agents' `SessionStart` hooks have to reach the Daemon (D4's bound), counted from
 /// the first `agent.spawn`. Kept apart from `BOUND`, which `Drop` also uses, so this cannot drift.
@@ -151,6 +152,26 @@ impl Project {
         &self.daemon.socket
     }
 
+    /// How long a wait on this Project's Daemon, probes or model lasts.
+    pub fn bound(&self) -> Duration {
+        bound_for(self.model.is_some())
+    }
+
+    /// `next`, bounded by this Project's `bound`.
+    pub async fn next<T>(&self, client: &mut Client, pick: impl Fn(EventData) -> Option<T>) -> T {
+        next_within(self.bound(), client, pick).await
+    }
+
+    /// `rail_tree`, bounded by this Project's `bound`.
+    pub async fn rail_tree(&self, client: &Client) -> Vec<RailNode> {
+        rail_tree_within(self.bound(), client).await
+    }
+
+    /// `needs_you`, bounded by this Project's `bound`.
+    pub async fn needs_you(&self, client: &Client, agent: &str) {
+        needs_you_within(self.bound(), client, agent).await
+    }
+
     pub fn pid(&self) -> u32 {
         self.daemon.child.id()
     }
@@ -194,7 +215,7 @@ impl Project {
 impl Drop for Project {
     fn drop(&mut self) {
         drop(self.daemon.stdin.take());
-        let deadline = Instant::now() + BOUND;
+        let deadline = Instant::now() + self.bound();
         while Instant::now() < deadline && matches!(self.daemon.child.try_wait(), Ok(None)) {
             std::thread::sleep(Duration::from_millis(50));
         }
@@ -210,7 +231,15 @@ impl Drop for Project {
 
 /// The next event the Daemon pushes that satisfies `pick`.
 pub async fn next<T>(client: &mut Client, pick: impl Fn(EventData) -> Option<T>) -> T {
-    tokio::time::timeout(BOUND, async {
+    next_within(BOUND, client, pick).await
+}
+
+async fn next_within<T>(
+    bound: Duration,
+    client: &mut Client,
+    pick: impl Fn(EventData) -> Option<T>,
+) -> T {
+    tokio::time::timeout(bound, async {
         while let Some(event) = client.next_event().await {
             if let Some(found) = pick(event.data) {
                 return found;
@@ -237,7 +266,11 @@ pub async fn next_kind(client: &mut Client) -> Kind {
 /// Hand Agent `id` a Signal directly over RPC, the way `rup signal` does, bypassing the fake
 /// `claude` process so a test can drive one Agent's Status without the others.
 pub async fn signal(client: &Client, id: &str, payload: Value) {
-    let attempt = rail_tree(client)
+    signal_within(BOUND, client, id, payload).await
+}
+
+async fn signal_within(bound: Duration, client: &Client, id: &str, payload: Value) {
+    let attempt = rail_tree_within(bound, client)
         .await
         .into_iter()
         .find(|n| n.id == id)
@@ -245,7 +278,7 @@ pub async fn signal(client: &Client, id: &str, payload: Value) {
         .attempt
         .unwrap();
     tokio::time::timeout(
-        BOUND,
+        bound,
         client.request(
             "agent.signal",
             SignalParams {
@@ -261,7 +294,11 @@ pub async fn signal(client: &Client, id: &str, payload: Value) {
 }
 
 pub async fn rail_tree(client: &Client) -> Vec<RailNode> {
-    let tree = tokio::time::timeout(BOUND, client.request("rail.tree", Value::Null))
+    rail_tree_within(BOUND, client).await
+}
+
+pub async fn rail_tree_within(bound: Duration, client: &Client) -> Vec<RailNode> {
+    let tree = tokio::time::timeout(bound, client.request("rail.tree", Value::Null))
         .await
         .expect("rail.tree answered within the bound")
         .unwrap();
@@ -354,7 +391,12 @@ pub fn start_real(fixture: &str, env: &[(&str, &str)]) -> Project {
 
 /// Put Agent `agent` in needs-you, the way Claude's `PermissionRequest` hook does.
 pub async fn needs_you(client: &Client, agent: &str) {
-    signal(
+    needs_you_within(BOUND, client, agent).await
+}
+
+async fn needs_you_within(bound: Duration, client: &Client, agent: &str) {
+    signal_within(
+        bound,
         client,
         agent,
         json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
@@ -394,4 +436,11 @@ pub async fn allow_prompt(client: &Client, agent: &str) {
         )
         .await
         .unwrap();
+}
+
+#[test]
+fn e5417_a_real_project_waits_the_real_bound_and_a_fake_one_the_short_bound() {
+    assert_eq!(bound_for(true), aimock::REAL_BOUND);
+    assert_ne!(bound_for(false), aimock::REAL_BOUND);
+    assert!(bound_for(true) > bound_for(false));
 }

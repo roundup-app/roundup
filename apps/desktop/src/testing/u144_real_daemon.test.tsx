@@ -256,7 +256,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(holder.list().map((draft) => draft.revision)).toEqual([saved.revision]);
     expect(holder.list()[0]?.value.source).toBe(exact);
     expect(drafts(second.dir).list().map((draft) => draft.revision)).toEqual([separate.revision]);
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Project" }));
     await screen.findByRole("tab", { name: "second" });
     const otherRecovery = await openRecovery();
     expect([...otherRecovery.querySelectorAll<HTMLElement>("[data-revision]")].map(row => row.dataset.revision)).toEqual([separate.revision]);
@@ -406,7 +406,7 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     const header = headerFactory!(first.dir);
     expect(header).toBe(holder);
     const headerSaved = header.edit({ surface: "header", object: first.dir, recipient: null }, { name: "  original e\u0301 🪁  " }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Project" }));
     await screen.findByRole("tab", { name: "second" });
     // Closing the Project removes its Connection; the App-run draft authority must survive.
     fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
@@ -422,7 +422,7 @@ describe("u2773 closed-Project draft lifetime through the App seam", () => {
     }
 
     writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Project" }));
     await screen.findByRole("tab", { name: "first" });
     await openRecovery();
     expect(drafts(first.dir)).toBe(holder);

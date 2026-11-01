@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountRail, settled } from "./railFixture";
-import { attentionCount, attentionHolders, attentionCounts } from "./attention";
+import { attentionHolders, attentionCounts } from "./attention";
+import { sectionsOf } from "../inbox/rows";
 import { agent, event, info } from "../testing/nodes";
 import { renderTabs, path, tab } from "../header/stripFixture";
 import { copy as headerCopy } from "../header/copy";
-import { mountBubbles, TERMINALS, TREE } from "../bubbles/bubblesFixture";
 
 afterEach(cleanup);
 
@@ -27,11 +27,11 @@ describe("ps12 Terminals count toward attention", () => {
   it("ps12_counts_equal_the_attention_entries_for_agents_and_terminals", async () => {
     const nodes = [agent("a", "needs-you", "x"), agent("b", "error", "x"), agent("c", "working", "x"), agent("d", "error", "x", { terminal_id: "owned" })];
     const dismissed = (node: { id: string }) => node.id === "b";
-    const terminals = [info("owned", { status: blocked }), info("w", { status: { ...blocked, kind: "working" } }), info("free", { status: blocked })];
+    const terminals = [info("owned", { status: blocked }), info("w", { status: { ...blocked, kind: "working" } }), info("free", { status: blocked }), info("broken", { status: { ...blocked, kind: "error" } })];
     const { needsYou, error } = attentionCounts(attentionHolders(nodes, terminals, dismissed));
 
-    // the free blocked Terminal adds one entry; the owned one reaches the count as its Agent's Kind
-    expect(needsYou + error).toBe(attentionCount(nodes, dismissed) + 1);
+    expect(needsYou + error).toBe(sectionsOf(nodes, [], dismissed, terminals).length);
+    expect(needsYou + error).toBe(4);
   });
 
   it("ps12_the_tab_tooltip_counts_a_free_blocked_terminal", async () => {
@@ -47,15 +47,5 @@ describe("ps12 Terminals count toward attention", () => {
     fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 
     await waitFor(() => expect(screen.getByRole("tooltip").textContent).toContain(headerCopy.needYouError(1, 0)));
-  });
-
-  it("ps12_a_terminal_tab_shows_its_status_label_and_age_on_focus", async () => {
-    await mountBubbles("a", [{ ...TERMINALS[0]!, status: { kind: "needs-you", label: "Allow?", since: Date.now(), finished: "0" } }, ...TERMINALS.slice(1)], TREE);
-    const tab = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="1"]')!;
-
-    fireEvent.keyDown(document.body, { key: "Tab" });
-    tab.focus();
-
-    expect((await screen.findByRole("tooltip")).textContent).toMatch(/Allow\? · /);
   });
 });

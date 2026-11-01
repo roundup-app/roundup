@@ -29,10 +29,10 @@ export const nextAttention = (nodes: readonly RailNode[], selected: string | nul
   return order[(at + 1) % order.length] ?? null;
 };
 
-/** PS12: what counts toward attention in one Project: its undismissed nodes, and each Terminal with a program status that no node owns (an Agent's own Terminal reaches it as the Agent's Kind, PS9). */
+/** PS12: what counts toward attention in one Project: its undismissed nodes and the Terminals that need you (PS11.1), so the count and Needs you agree. */
 export const attentionHolders = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[], dismissed: Dismissed = none): Pick<RailNode, "status">[] => [
   ...nodes.filter((node) => !dismissed(node)),
-  ...terminals.flatMap((terminal) => terminal.status && !nodes.some((node) => node.terminal_id === terminal.id) ? [{ status: terminal.status }] : []),
+  ...terminalAttention(nodes, terminals),
 ];
 
 /** How many holders of each attention Kind (U182's tooltip reads both). */
@@ -40,4 +40,11 @@ export const attentionCounts = (holders: readonly Pick<RailNode, "status">[]) =>
   const kinds = holders.map((holder) => holder.status?.kind);
 
   return { needsYou: kinds.filter((kind) => kind === "needs-you").length, error: kinds.filter((kind) => kind === "error").length };
+};
+
+/** PS11.1: the Terminals that need you, a program having reported `needs-you` or `error`; an Agent's own screen counts through the Agent. */
+export const terminalAttention = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[]): TerminalInfo[] => {
+  const panes = new Set(nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
+
+  return terminals.filter((terminal) => !panes.has(terminal.id) && (terminal.status?.kind === "error" || terminal.status?.kind === "needs-you"));
 };
