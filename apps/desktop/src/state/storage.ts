@@ -68,7 +68,7 @@ export const initializeStorage = async (): Promise<string | null> => {
   try {
     for (let index = 0; index < window.localStorage.length; index++) {
       if (window.localStorage.key(index)?.startsWith("roundup:")) {
-        const folder = v.parse(v.string(), await invoke<unknown>("plugin:window-bar|webview_data_folder"));
+        const folder = v.parse(v.string(), await invoke<unknown>("plugin:window-bar|webview_data_path"));
 
         return storageCopy.incompatible(folder);
       }

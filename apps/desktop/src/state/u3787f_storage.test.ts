@@ -17,7 +17,7 @@ const native = { disk, cache, save };
 
 beforeEach(() => {
   vi.stubGlobal("__TAURI_INTERNALS__", { invoke: async (command: string, args: { key: string; value: unknown }) => {
-    if (command === "plugin:window-bar|webview_data_folder") return "/isolated/WebKit/roundup/WebsiteData";
+    if (command === "plugin:window-bar|webview_data_path") return "/isolated/WebKit/roundup/WebsiteData";
 
     if (command === "plugin:resources|close") return;
 
