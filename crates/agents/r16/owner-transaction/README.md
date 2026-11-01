@@ -1,3 +1,5 @@
+> R5460: the Message receiver lookup and B32 tests described here are retired; measurements below are historical.
+
 # Fresh Terminal owner transactions (#1901)
 
 A bounded schema-only companion read lets SQLite share its in-process WAL read lock. Every authoritative owner lookup still starts and ends its own fresh read transaction under Rail → Attempts, using the unchanged cached `SELECT id, attempt FROM nodes WHERE terminal_id = ? LIMIT 2` and covering partial index. The companion never reads owner rows or supplies facts to a callback. Callers, constructor signatures, SQL owner facts and the lifecycle cut stay unchanged.
@@ -85,7 +87,7 @@ These binaries and their instrumented probe output supply attribution only, neve
 
 ## Regression coverage and validation
 
-`b32_owner_reads_see_external_attachment_while_a_peer_pins_an_older_snapshot` warms a negative read, holds an independent older schema snapshot, commits attachment/Attempt from another connection and checks the fresh owner through `Agents::with_terminal_owner`.
+The retired external-attachment test warms a negative read, holds an independent older schema snapshot, commits attachment/Attempt from another connection and checks the fresh owner through the retired Message receiver lookup.
 
 `b32_owner_read_leases_expire_independently_of_input` observes uncopied WAL frames to witness an active reader, then proves another connection can truncate the WAL both after input stops and while input continues. A two-second expiry mutation fails with uncopied frames, exit 101; restored expiry passes. The first observer confused a competing checkpoint's `(1, -1, -1)` with an active reader; that failed run and the corrected observer remain retained. The original red test, full red check, all patches and exits remain retained.
 
