@@ -9,6 +9,9 @@ use crate::{agent, message, pad, project, terminal, todo, workstream};
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]
 #[serde(tag = "name", content = "data")]
 pub enum EventData {
+    /// Committed publication membership changed; read deliverable.list, never infer a result from replay.
+    #[serde(rename = "deliverable.changed")]
+    DeliverableChanged,
     #[serde(rename = "workstream.updated")]
     WorkstreamUpdated(workstream::AutoParams),
     #[serde(rename = "ask.changed")]

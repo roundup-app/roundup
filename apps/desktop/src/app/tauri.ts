@@ -1,5 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { claudeBinarySchema, nativeOpenSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
+import { menuBarActionSchema, claudeBinarySchema, nativeOpenSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -123,6 +123,8 @@ export const createTauriApp = (): App => {
     chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
     chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
     setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
+    setMenuBar: menu => command<void>("set_menu_bar", { menu }),
+    onMenuBarAction: listener => guarded(() => listen("menu-bar-action", event => listener(v.parse(menuBarActionSchema, event.payload)))),
     stateAlert: async (alert) => {
       await command("state_alert", { request: alert });
     },

@@ -1,3 +1,4 @@
+import { watchMenuBar } from "./app/menuBar";
 import { historyRegion } from "./keys/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
@@ -287,6 +288,7 @@ export const App = (props: {
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
   // U5232g: one line for a refused State alert, whichever Agent raised it.
+  const [menuBarFailure, setMenuBarFailure] = createSignal<string | null>(null);
   const [alertFailure, setAlertFailure] = createSignal<string | null>(null);
   const alerts = createStateAlerts(alert => props.app.stateAlert(alert), inFront, setAlertFailure);
   const capture = props.app.capture;
@@ -574,6 +576,17 @@ export const App = (props: {
     if (next) rail?.select(next.id);
   };
 
+  watchMenuBar({
+    app: props.app, tabs: projects.tabs,
+    connection: path => connectionOf(path) ?? undefined,
+    select: (path, agent) => {
+      if (!projects.tabs().some(tab => tab.project.path === path) || !railOf(path)?.nodes.some(node => node.id === agent)) return setAlertFailure(copy.thatIsGone);
+      projects.select(path);
+      railOf(path)?.select(agent);
+    },
+    fail: setMenuBarFailure,
+  });
+
   // U5232e: a click on a State alert opens that Agent in its Project, as a click on its Rail row does.
   let alertClicksEnded = false;
   let stopAlertClicks: (() => void) | undefined;
@@ -648,7 +661,7 @@ export const App = (props: {
         }
         rail={
           <>
-            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() ?? alertFailure() : badgeFailure() ?? alertFailure())}>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() ?? alertFailure() ?? menuBarFailure() : badgeFailure() ?? alertFailure() ?? menuBarFailure())}>
               <Show when={projects.readFailure() && projects.tabs().length > 0 && !windowFailure() && !activeTab()?.exit}><button data-button="quiet" type="button" onClick={() => void projects.reload()}>{copy.retry}</button></Show>
               <Show when={activeTab()?.exit && !activeTab()?.exit?.recovery}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
             </ReservedLine>

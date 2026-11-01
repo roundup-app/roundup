@@ -544,6 +544,10 @@ impl Daemon {
             observe("before_commit")?;
         }
         tx.commit().map_err(RpcError::internal)?;
+        if matches!(method, "deliverable.publish" | "deliverable.remove") {
+            self.bus
+                .emit(conn.actor.clone(), contracts::EventData::DeliverableChanged);
+        }
         if method == "deliverable.publish" {
             observe("after_commit")?;
         }
@@ -935,3 +939,6 @@ fn pad_state(
     }
     pads::source_state(db, id)
 }
+
+#[cfg(test)]
+mod observation;
