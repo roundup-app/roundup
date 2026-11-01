@@ -37,13 +37,29 @@ it("u5483b_click_opens_and_closes_the_branch", async () => {
   expect(rowOf("stream")).toBeDefined();
 });
 
-it.each(["present", "unknown", undefined] as const)("u5483c_unknown_final_text_stays_visible %s", async kind => {
+it("u5483c_unknown_final_text_stays_visible", async () => {
   const child = agent("child", "done", "finished", { parent: "stream" });
 
-  if (kind) child.final_text = { ...empty, finished: "0", kind };
   await mountRail([workstream("stream"), child]);
   await settled();
   expect(rowNames()).toContain("child");
+});
+
+// Rail receives evidence, never assistant text. The companion real-Daemon observer
+// proves these text classes reach that boundary through the Adapter.
+it.each([
+  { reply: "empty", kind: "empty", visible: false },
+  { reply: "ordinary final statement", kind: "present", visible: true },
+  { reply: "Should I publish three pages or five", kind: "present", visible: true },
+  { reply: "multiline question beyond the excerpt", kind: "present", visible: true },
+  { reply: "unavailable", kind: "unknown", visible: true },
+] as const)("u5483c_final_text_without_a_question_mark_stays_visible $reply", async ({ kind, visible }) => {
+  const { setNow } = await mountRail([workstream("stream"), agent("child", "idle", "idle", {
+    parent: "stream", final_text: { ...empty, finished: "0", kind },
+  })]);
+  setNow(NOW + 300_000);
+  await settled();
+  expect(rowNames().includes("child")).toBe(visible);
 });
 
 it("u5483c_clarification_never_folds", async () => {
