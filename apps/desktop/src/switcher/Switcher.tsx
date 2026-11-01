@@ -2,7 +2,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import type { RpcError } from "../app/seam";
@@ -103,11 +103,13 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const byValue = createMemo(() => new Map([...entries(), ...items()].map(entry => [entry.value, entry])));
 
   // UA9: the Daemon's User actions, read when the Project connects and on each `action.userChanged`, so opening calls nothing; a failed read shows none and says nothing (UA12).
-  const [userRows, setUserRows] = createSignal<readonly ActionRow[]>([]);
-  const readUserRows = (): void => { app.rpc("action.userList", null).then(setUserRows, () => setUserRows([])); };
+  const [userRows, { refetch: readUserRows }] = createResource(
+    () => app.rpc("action.userList", null).catch((): ActionRow[] => []),
+    { initialValue: [] },
+  );
 
-  readUserRows();
-  onCleanup(events.subscribe(event => { if (event.name === "action.userChanged") readUserRows(); }));
+  // UA13: the resource ignores superseded replies; false also keeps same-turn events from being coalesced.
+  onCleanup(events.subscribe(event => { if (event.name === "action.userChanged") void readUserRows(false); }));
   const userActions = createMemo(() => userActionsOf(userRows()));
 
   const shown = createMemo(() => [
@@ -242,6 +244,29 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     rail.select(node.id);
   });
 
+  const [making, setMaking] = createSignal(false);
+  const [makeFailure, setMakeFailure] = createSignal<string | null>(null);
+  // An invalidated captured action must never turn its query into a create request.
+  const makeName = () => openingSurvives() && shown().length === 0 && matching(opening().actions, text()).length === 0 ? text().trim() : "";
+
+  createEffect(on(text, () => setMakeFailure(null), { defer: true }));
+
+  /** U5241a: a query nothing matches names a new Workstream; the Switcher closes once the Daemon made it. */
+  const make = async (): Promise<void> => {
+    const name = makeName();
+
+    if (name === "" || making()) return;
+    setMaking(true);
+    setMakeFailure(null);
+
+    try {
+      const failure = await rail.createNamedWorkstream(name);
+
+      if (failure !== null) setMakeFailure(failure);
+      else if (open()) { props.onFailure(null); close(false); }
+    } finally { setMaking(false); }
+  };
+
   /** UA10, UA11: runs the User action once by name, with no argument; a refusal raises one Toast carrying its label and cause. */
   const runUserAction = (entry: Entry): void => {
     const name = entry.value.slice(USER_PREFIX.length);
@@ -363,6 +388,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             } else retain();
           });
           element.addEventListener("focus", () => setNameFocused(true));
+          element.addEventListener("keydown", event => {
+            if (event.key !== "Enter" || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || makeName() === "") return;
+            event.preventDefault();
+            void make();
+          });
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {
@@ -378,7 +408,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           });
         }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
-          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
+          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={makeName() === "" ? copy.noMatch : <>{copy.makeWorkstream} {copy.workstreamName(makeName())} <KeyChip keys={SWITCHER_KEYS.choose} /></>}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);
             const entry = byValue().get(item.value);
@@ -401,6 +431,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
             </span>}</StatusTip>;
           }} />
+        <ReservedLine message={makeFailure()} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null}>
           <Show when={text() !== "" && !copyFailure()}>

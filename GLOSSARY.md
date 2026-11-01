@@ -100,7 +100,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | App seam | same | — |
 | App Settings | same | — |
 | File drop | same | — |
-| Message image | same | — |
 | Window bar | same | — |
 | Project tab | same | — |
 | Tab mark | same | — |
@@ -140,7 +139,6 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Attachment file | same | upload, temp image |
 | Clipboard write (`writeClipboardText`) | same | — |
 | Pasted image | same | — |
-| Paste placeholder | same | — |
 | Quote | same | — |
 | setWindowTitle | none | — |
 | dragWindow | none | — |
@@ -352,6 +350,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Import exclusion cause (`ImportExclusionCause`, `ImportExclusion.cause`) | same | — |
 | Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |
 | Import disposition (`ImportDisposition`, `outcome`) | same | — |
+| Final text (`FinalText`, `FinalTextKind`, `final_text`) | none | — |
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
 | Native integration (`native`, `Preferences`, `Missing`) | same | — |

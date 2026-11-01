@@ -125,6 +125,17 @@ impl Shared {
         rail: &rail::Rail,
         finished: u64,
     ) -> Result<RailNode, RpcError> {
+        node.final_text = match runs.get(&node.id) {
+            Some(Slot::Running(run)) => {
+                run.adapter.turn().map(|turn| contracts::agent::FinalText {
+                    turn: turn.to_owned(),
+                    attempt: run.attempt.clone(),
+                    finished: run.adapter.finished().to_string(),
+                    kind: run.adapter.final_text(),
+                })
+            }
+            _ => None,
+        };
         node.status_revision = match runs.get(&node.id) {
             Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
             // B36: inheriting the ended run's revision closes Messages on the new Attempt.

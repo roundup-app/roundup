@@ -7,7 +7,7 @@ The implementation uses the inventory from its fetched `origin/main` SHA, record
 | Disposition | Stems |
 | --- | --- |
 | Remove completed one-shot work orders and retired stubs | `busiest-file-split`, `rail-file-split`, `test-file-split`, `inventory-proof-references`, `measurement-write-recovery`, `store-migrations`, `ui-scrollbar-nested` |
-| Remove files with every heading retired | `decisions`, `ui-decisions`, `workstream-dashboard` |
+| Remove files with every heading retired | `decisions`, `workstream-dashboard` |
 | Remove only after the live-test scan in T5466b | `rewind-test-cost`, `test-changes-cost`, `test-ownership` |
 
 **T5466a finished specifications leave no dangling reference.** Given the first two inventory rows, when the cleanup lands, then their files are absent and every inbound reference points to the surviving requirement, proof or retirement entry instead (policy). Repair all tracked references, including this specification and historical baseline/retirement tables, rather than leaving broken links labelled historical. In particular:
@@ -19,6 +19,8 @@ The implementation uses the inventory from its fetched `origin/main` SHA, record
 - Scrollbar references point to U3530a–c in `scenarios/ui-scrollbar-overflow.md`; preserve their existing overflow, overlay, containment and no-resize acceptance (policy).
 
 A reference in frozen loop machinery must be cleared by the owner before its target is deleted; this work does not authorize editing that machinery or excluding it from the final grep (policy).
+
+Keep `scenarios/ui-decisions.md` and its retired headings: frozen `loop/plans/` history still cites it. It is outside the removal inventory (policy).
 
 No product behavior, public interface, Message law, test name or test assertion changes. A removed one-shot engineering order does not retire the behavioral scenarios its tests prove. Keep all acceptance outside the named obsolete material, and change mixed documents only to repair those references or remove the obsolete promise explicitly named above (policy).
 
