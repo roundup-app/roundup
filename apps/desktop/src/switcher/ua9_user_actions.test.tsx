@@ -99,3 +99,47 @@ it("ua12_user_actions_move_nothing_built_in", async () => {
 
   expect(options().map(row => row.dataset.value)).toEqual(base);
 });
+
+
+it.each([
+  ["initial/event", false],
+  ["initial/event", true],
+  ["event/event", false],
+  ["event/event", true],
+] as const)("ua13_an_older_reply_cannot_replace_the_later_list (%s, empty=%s)", async (overlap, empty) => {
+  const earlier = Promise.withResolvers<ActionRow[]>();
+  const later = Promise.withResolvers<ActionRow[]>();
+  const read = vi.fn();
+
+  if (overlap === "event/event") read.mockReturnValueOnce([user("user.initial", "Initial action")]);
+  read.mockReturnValueOnce(earlier.promise).mockReturnValueOnce(later.promise);
+  const { app } = await mountSwitcher("ops", undefined, undefined, undefined, { userActions: read });
+  await show();
+
+  if (overlap === "event/event") {
+    await waitFor(() => expect(actionValues()).toContain("action:user:user.initial"));
+    app.emit(event({ name: "action.userChanged" }));
+  }
+
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(overlap === "initial/event" ? 1 : 2));
+  app.emit(event({ name: "action.userChanged" }));
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(overlap === "initial/event" ? 2 : 3));
+
+  const expected = empty ? [] : ["action:user:user.later"];
+  later.resolve(empty ? [] : [user("user.later", "Later action")]);
+  await later.promise;
+  // fakeApp.rpc adopts the handler promise; Switcher.readUserRows then consumes the RPC promise.
+  await Promise.resolve();
+  await waitFor(() => expect(actionValues().filter(value => value.startsWith("action:user:"))).toEqual(expected));
+
+  earlier.resolve([user("user.earlier", "Earlier action")]);
+  await earlier.promise;
+  // Await the RPC adoption and its registered Switcher continuation before checking absence.
+  await Promise.resolve();
+  expect(actionValues().filter(value => value.startsWith("action:user:"))).toEqual(expected);
+
+  press("Escape", {}, field()!);
+  await waitFor(() => expect(field()).toBeNull());
+  await show();
+  expect(actionValues().filter(value => value.startsWith("action:user:"))).toEqual(expected);
+});
