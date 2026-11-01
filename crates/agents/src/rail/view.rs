@@ -29,7 +29,7 @@ fn load_with<T>(
     let rows = query
         .query_map([include_preparation], |row| {
             let kind = match row.get_ref(1)?.as_str()? {
-                "group" | "workstream" => NodeKind::Workstream,
+                "workstream" => NodeKind::Workstream,
                 _ => NodeKind::Agent,
             };
             let worktree = match (
