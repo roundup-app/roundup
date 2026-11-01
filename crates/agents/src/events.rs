@@ -403,8 +403,12 @@ impl Shared {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
             let mut current = calls.remove(id);
-            if claude_code::toolcall::fold(&mut current, payload, &run.cwd, store::now_ms())
-                && let Some(tracked) = &current
+            if claude_code::toolcall::fold(
+                &mut current,
+                payload,
+                &run.cwd,
+                provenance::now_ms().max(0),
+            ) && let Some(tracked) = &current
             {
                 self.bus.emit(
                     actor.clone(),
@@ -426,7 +430,7 @@ impl Shared {
                 return None;
             }
             let mut status = run.adapter.status()?.clone();
-            status.since = store::now_ms();
+            status.since = provenance::now_ms().max(0);
             Some(status)
         });
         if signal

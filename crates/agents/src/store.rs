@@ -1,4 +1,5 @@
 use super::*;
+use provenance::now_ms;
 
 impl Agents {
     /// `project` is the Project folder and `dir` its data folder (N1). `bus` is for events no call
@@ -110,11 +111,11 @@ impl Agents {
                     kill: Arc::clone(&terminals) as Arc<dyn KillsTerminals>,
                 },
                 terminals,
-                clock: Arc::new(now_ms),
+                clock: Arc::new(|| now_ms().max(0)),
                 rail_view: rail_view::State {
                     #[cfg(feature = "test-support")]
                     statuses: Default::default(),
-                    opened: now_ms(),
+                    opened: now_ms().max(0),
                     data_dir: dir.to_owned(),
                     launcher: launcher.clone(),
                 },
@@ -308,12 +309,6 @@ impl Agents {
     ) -> Self {
         self.configure(|shared| shared.steer.before_steer = Some(Arc::new(before)))
     }
-}
-
-/// Milliseconds since the Unix epoch.
-pub(super) fn now_ms() -> i64 {
-    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
-    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]
