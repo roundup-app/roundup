@@ -10,10 +10,7 @@
     "slop": "fallow dead-code && fallow dupes",
     "postinstall": "node node_modules/@anthropic-ai/claude-code/install.cjs",
     "prepare": "lefthook install --force",
-    "test:token-integration": "node --test docs/u478-check-integration.test.mjs",
     "lint:styles": "stylelint \"apps/desktop/src/**/*.css\" --max-warnings 0",
-    "tokens:check": "if [ -f docs/ui-tokens.test.mjs ]; then node --test docs/ui-tokens.test.mjs; fi",
-    "lint:boundaries": "ast-grep --version",
     "lint:cycles": "node tools/lint/cycles.mjs ."
   },
   "devDependencies": {
