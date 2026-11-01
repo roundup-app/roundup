@@ -18,6 +18,9 @@ import { KeyChip } from "../keys/KeyChip";
 import { checkRecorded, isModifier, shortcutsWith } from "../settings/shortcutRules";
 import { saveAppSettings } from "../settings/preferences";
 import { useTodoList } from "../todos/todoList";
+import { Icon } from "../ink/Icon";
+import { PAD_ICON } from "../shelf/frame";
+import { OPEN_ITEM } from "../shelf/openItem";
 import { TodoHost } from "../todos/TodoDrawer";
 import { usePadList } from "../rail/pads/padList";
 import { PadHost } from "../pads/PadDrawer";
@@ -202,7 +205,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (entry.todo !== undefined) {
       const id = entry.todo.id;
 
-      drawer.open(() => <TodoHost id={id} />, "key", { kind: "todo", project: project.path });
+      // The Rail's own row opens it when the Shelf is mounted; otherwise the Drawer opens alone.
+      if (window.dispatchEvent(new CustomEvent(OPEN_ITEM, { detail: { kind: "todo", id }, cancelable: true }))) drawer.open(() => <TodoHost id={id} />, "key", { kind: "todo", project: project.path });
 
       return;
     }
@@ -210,7 +214,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (entry.pad !== undefined) {
       const name = entry.pad.name;
 
-      drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
+      if (window.dispatchEvent(new CustomEvent(OPEN_ITEM, { detail: { kind: "pad", name }, cancelable: true }))) drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
 
       return;
     }
@@ -359,7 +363,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             if (!entry) return null;
 
             return <StatusTip placement="right-start" status={entry.node?.status} dismissed={entry.node ? rail.dismissed(entry.node) : false}>{reveal => <span class="switcher-row" {...reveal()}>
-              <Show when={entry.node?.status} fallback={<span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), rail.dismissed(entry.node!))} decorative />}</Show>
+              <Show when={entry.node?.status} fallback={entry.todo !== undefined ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.pad !== undefined ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), rail.dismissed(entry.node!))} decorative />}</Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
               <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
