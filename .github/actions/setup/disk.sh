@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# CI5330a/d: `disk.sh free` removes the runner image's unused toolchains; `disk.sh report <label>` logs `df -h /` and the sizes of what tests write.
+# CI5330a/d/e: `disk.sh free` removes the runner image's unused toolchains; `disk.sh report <label>` logs `df -h /` and the sizes of what tests write.
 set -u
 
 case "${1:-}" in
   free)
-    # Android, .NET, Haskell and the CodeQL bundle are unused by roundup and hold about 25 GB of the image.
-    sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+    # Android, .NET, Haskell, Swift, Java, Julia, PowerShell, the cloud CLIs and the CodeQL bundle are unused by roundup.
+    # CI5330e: with only Android, .NET, Haskell, CodeQL and Boost gone, the 72 GB image kept 27 GB, too little for `rust 1`.
+    sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \
+      /usr/local/share/boost /usr/share/swift /usr/lib/jvm /usr/local/julia* /usr/local/share/powershell /opt/microsoft \
+      /opt/az /usr/lib/google-cloud-sdk
     df -h / ;;
   report)
     echo "::group::disk $2"

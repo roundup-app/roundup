@@ -17,7 +17,7 @@ pub(super) struct Inner {
     pub(super) store: Mutex<Store>,
     /// Answers `rail.tree`, the only thing `message.send` needs to know about a receiver: whether
     /// it names an Agent (or a Door) at all, and that Agent's Kind.
-    pub(super) agents: Arc<dyn TerminalOwners>,
+    pub(super) agents: Arc<dyn Module>,
     pub(super) bus: Bus,
     /// Starts the listener at most once: immediately when `open` already runs on a Tokio
     /// runtime, lazily on the first call otherwise (a caller that builds a `Messages` before
@@ -48,8 +48,8 @@ pub(super) struct Inner {
 impl Messages {
     /// `dir` is the Project's data folder (N1). `bus` is for events no call caused, and is
     /// how this module learns a Kind changed (it reads `agent.status`). `agents` answers
-    /// the Rail; see `TerminalOwners` for its synchronous lifecycle contract.
-    pub fn open(dir: &Path, bus: Bus, agents: Arc<dyn TerminalOwners>) -> Result<Self, OpenError> {
+    /// `rail.tree` through the existing RPC module interface.
+    pub fn open(dir: &Path, bus: Bus, agents: Arc<dyn Module>) -> Result<Self, OpenError> {
         let env = Env::system(Arc::new(provenance::Touches::in_memory()?));
         Self::open_with(dir, bus, agents, env)
     }
@@ -58,7 +58,7 @@ impl Messages {
     pub fn open_with(
         dir: &Path,
         bus: Bus,
-        agents: Arc<dyn TerminalOwners>,
+        agents: Arc<dyn Module>,
         env: Env,
     ) -> Result<Self, OpenError> {
         let events = bus.subscribe();

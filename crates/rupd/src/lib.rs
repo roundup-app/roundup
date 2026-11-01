@@ -471,25 +471,6 @@ pub mod test_support {
             }
         }
     }
-    impl messages::TerminalOwners for ReplyState {
-        fn with_terminal_owner(
-            &self,
-            terminal: &str,
-            record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-        ) -> Result<(), RpcError> {
-            let nodes = self.nodes.lock().unwrap();
-            let owner = nodes
-                .iter()
-                .find(|n| n.terminal_id.as_deref() == Some(terminal))
-                .map(|n| agents::TerminalOwner {
-                    id: n.id.clone(),
-                    attempt: n.attempt.clone(),
-                    status_revision: n.status_revision.clone(),
-                    ended: false,
-                });
-            record(owner.as_ref())
-        }
-    }
     #[async_trait]
     impl messages::NoteInbox for ReplyState {
         async fn check(&self, _: &str) -> Inbox {

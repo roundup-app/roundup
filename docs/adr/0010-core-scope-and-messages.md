@@ -67,7 +67,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 
 | Crate (`crates/<name>`) | Lines / separate tests | Scenarios on main | Serves | Decision |
 |---|---:|---|---|---|
-| agents | 24,494 / 13,494 | agents.md, control.md, spawn-boundary.md, awareness.md, workstream*.md, worktrees.md, models.md, decisions.md | Door, Usage, Support | Keep lifecycle, Reach, Status and Adapter; #1643 owns internal split. |
+| agents | 24,494 / 13,494 | agents.md, control.md, spawn-boundary.md, awareness.md, workstream*.md, worktrees.md, models.md, native-questions.md (retired permission IDs) | Door, Usage, Support | Keep lifecycle, Reach, Status and Adapter; #1643 owns internal split. |
 | messages | 12,680 / 5,655 | B1–B36 in messages.md; V1–V7 in proofs.md; A35 | Door, Attention, Usage | Simplify internals via #1665; retain delivery contract/laws. |
 | checkpoints | 295 / 0 | M10 in mcp.md; A35 in workstream-rewind.md | Door, Support | Keep owner-selected rewind; #1616 owns storage repair. |
 | provenance | 215 / 0 | D3–D6 in daemon.md; T8; P1–P10; B11 | Attention, Support | Keep small attribution store; no richer event-sourcing project. |
@@ -76,7 +76,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 | terminal | 2,620 / 1,430 | terminal.md; quick-terminal.md | Door, Attention, Support | Keep direct interaction and bounded output; #1619 owns transport reuse. |
 | contracts | 2,463 / 267 | contract-match.md, rpc.md, app.md and each owning method's scenario | Support | Keep shared types/fingerprint; #1620 owns routing research. |
 | rpc | 1,093 / 510 | C1 in rpc.md; S11 in contract-match.md | Support | Keep framing/auth/error isolation; #1620/#1617 own reuse. |
-| rup | 12,140 / 11,309 | mcp.md; door-terminal.md M16; awareness.md; decisions.md | Door, Attention, Usage | Keep thin MCP/hook client and Reach enforcement; no parallel workflow engine. |
+| rup | 12,140 / 11,309 | mcp.md; door-terminal.md M16; awareness.md; native-questions.md (retired permission IDs) | Door, Attention, Usage | Keep thin MCP/hook client and Reach enforcement; no parallel workflow engine. |
 | rupd | 5,844 / 1,679 | D1–D7 in daemon.md; resources.md D8; project-data.md; journey.md | Door, Support | Keep composition; #1636/#1642 own concurrency/store changes. |
 | desktop | 4,137 / 2,362 | app.md; contract-match.md; project-tabs.md; ui-window*.md | Support | Keep native shell/seam, not a second rendering/tool framework. |
 | perf | 2,443 / 1,083 | R16 in perf.md | Usage, Support | Keep budgets and valid class observers; #1251/#1361/#1366 own repairs. |
@@ -85,7 +85,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 |---|---:|---|---|---|
 | app | 3,193 / 2,585 | app.md, ui-reload.md, ui-image-send.md | Support | Keep shell state and paste routing. |
 | bubbles | 1,796 / 864 | ui-bubble-pull.md, quick-terminal.md U164/U165 | Support | Keep user-visible interactive Terminals; do not replicate every vendor shell command here. |
-| decisions | 1,360 / 806 | ui-decisions.md, decisions.md, U468 | Attention | Keep actionable decisions; terminal migration owns obsolete relay displays. |
+| decisions | 1,360 / 806 | ui-decisions.md, native-questions.md (retired permission IDs), U468 | Attention | Keep actionable decisions; terminal migration owns obsolete relay displays. |
 | digest | 248 / 126 | B19–B23, B33, ui-first-journey.md | Door, Usage | Remove view-only Digest Cards under #1497; keep Daemon Digests. |
 | drawer | 1,432 / 1,195 | ui-drawer.md, todo-drawer.md | Support | Keep surviving Todos/Pads inspection. |
 | header | 2,504 / 1,752 | project-tabs.md, ui-project-tab-box.md, ui-window-bar.md | Support | Keep project selection and pending attention marks. |
