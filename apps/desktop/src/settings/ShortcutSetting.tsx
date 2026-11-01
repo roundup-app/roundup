@@ -43,6 +43,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   let active: HTMLElement | undefined;
 
   const stop = () => { setMode(null); setFailed(null); };
+
   const failure = (at: string) => (message: string | null) => setFailed(message === null ? null : { at, message });
 
   const record = async (name: string, event: KeyboardEvent) => {
