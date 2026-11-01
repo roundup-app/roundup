@@ -1,67 +1,79 @@
 # Architecture
 
-roundup is a Claude Code workbench: Terminals, Agents (Claude Code only), Todos, Pads. macOS only for the MVP. No accounts, sync or telemetry. Terms are defined in `/GLOSSARY.md`.
+roundup is a local macOS workbench for Claude Code: Workstreams, Agents, Terminals, Todos and Pads. Terms are defined in `GLOSSARY.md`.
 
-```
- ┌ Tauri UI (Solid) ┐  ┌ rup CLI ┐  ┌ Claude Code agents ┐  ┌ extensions ┐
- └────────┬─────────┘  └───┬────┘  └─────────┬──────────┘  └─────┬──────┘
-          └────── JSON-RPC over unix socket / MCP (stdio) ─────────┘
-                              │
-                        rupd (Rust)
-      ┌────────────┬─────────┴───────┬──────────────┐
-   terminals     agents           todos         pads
-   (PTY mgr)  (adapter+state)  (SQLite+deps)  (md files+index)
-                              │
-                       event bus (typed, replayable)
+```text
+Solid webview ── Tauri App ──┐
+rup CLI ────────────────────┼── JSON-RPC over Unix socket ── rupd
+Claude Code / extensions ── MCP (stdio, rup mcp) ───────────┘
 ```
 
-Principle: every feature is a typed RPC method plus an event. The UI has zero privileged access. Client crates talk to `rupd` only through `contracts/`.
-
-The App is a Rust crate under `crates/`, not under `apps/`. A Cargo workspace member glob that matches nothing is an error, so `apps/*/src-tauri` would force a root `Cargo.toml` edit into the first UI PR. This layout keeps each PR to one module and lets the App and the webview be built in parallel. They meet at the App seam in `scenarios/app.md`.
+The Daemon owns Project state and typed RPC methods and events. Clients use the contracts in `crates/contracts` and their TypeScript exports in `contracts/generated/`. The App also owns native window, dialog and file operations; its webview-facing seam is specified in `scenarios/app.md`.
 
 ## Layout
 
-| Path | Owner module | Contents |
-|---|---|---|
-| `crates/contracts` | Builder run | RPC params, results and events as Rust types; generates `contracts/generated/*.ts` (`cargo test -p contracts`); `contracts/hooks.ts` holds the Hook types |
-| `crates/rpc` | Builder run | `Module` trait, `Ctx`, event `Bus`, error codes, `Client` |
-| `crates/provenance` | Builder run | the Touch log (append-only SQLite) |
-| `crates/terminal` | terminal | `portable-pty`, screen state |
-| `crates/agents` | agents | `AgentAdapter`, Status classifier; `claude_code/` adapter |
-| `crates/todos` | todos | SQLite (WAL), blocker graph |
-| `crates/pads` | pads | Pads as `.md` files, SQLite index |
-| `crates/rupd` | core | Daemon: socket, Provenance log, bus |
-| `crates/rup` | core | the `rup` CLI and the MCP server (`src/mcp.rs`) |
-| `crates/desktop` | ui | The App: the Tauri 2 shell that starts `rupd` for one Project and passes calls and events to the webview (`scenarios/app.md`) |
-| `apps/desktop` | ui | The webview: Solid + xterm.js, a client of `rupd` through the App |
-| `site` | docs | The published user docs: VitePress, built to static files with `.md` twins, `llms.txt`, `llms-full.txt` and `search.json`; `docs/` stays unpublished |
+The Rust workspace's `crates/*` members are:
+
+| Path | Contents |
+|---|---|
+| `crates/contracts` | RPC parameters, results and events; TypeScript export generation |
+| `crates/rpc` | `Module`, `Ctx`, event `Bus`, `RpcError` and `Client` |
+| `crates/provenance` | `Touches`, the append-only SQLite Touch log |
+| `crates/terminal` | `Terminals`, PTYs through portable-pty, screen state and Output streams |
+| `crates/agents` | Rail, Worktrees, Agent lifecycle and `AgentAdapter`; Claude Code integration in `src/claude_code/` |
+| `crates/messages` | `Messages`, Routes, inbox delivery, Digests, reactions and result history |
+| `crates/todos` | `Todos`, SQLite persistence and blocker graph |
+| `crates/pads` | `Pads`, SQLite contents and index, optional Markdown files |
+| `crates/rupd` | `Daemon`, socket server, Project storage, Event log and module wiring |
+| `crates/rup` | `rup` CLI and MCP server (`src/mcp.rs`) |
+| `crates/native` | Safe macOS integration for the App: WebKit preferences, menus, alerts and capture panel |
+| `crates/perf` | Daemon and native App performance observers |
+| `crates/desktop` | Tauri shell, Project Daemon lifecycle, native operations and webview calls/events |
+
+| Path | Non-Rust sources |
+|---|---|
+| `apps/desktop` | Solid webview and xterm.js Terminal rendering |
+| `contracts/generated` | Generated TypeScript contracts; regenerate from `crates/contracts` |
+| `contracts/hooks.ts` | Extension Hook types |
+| `site` | Published VitePress documentation and search index; `docs/` is unpublished |
 
 ## Agent adapter contract
 
-The adapter emits glossary Kinds and takes two kinds of input, because hook payloads arrive on a side channel, not in the PTY stream.
+`crates/agents/src/lib.rs` defines the classifier interface:
 
 ```rust
-trait AgentAdapter {
-    fn spawn(&self, cwd: &Path, prompt: Option<&str>) -> Result<AgentHandle>;
-    /// Fold one Observation into the Agent's Status. None = no change.
-    fn observe(&mut self, o: Observation) -> Option<Status>;
+pub trait AgentAdapter {
+    fn observe(&mut self, observation: Observation) -> Option<Status>;
+    fn has_hook_signal(&self) -> bool;
 }
-enum Observation { Title(String), Signal(Json), Exit { code: Option<i32> }, Stopped, Tick }
-enum AdapterKind { NeedsYou, Error, Working, Idle, Done } // never Blocked
+
+pub enum Observation {
+    Signal(serde_json::Value),
+    Title(String),
+    Tick,
+    Stopped,
+    Exit { code: Option<i32> },
+    Program(Status),
+}
 ```
 
-`blocked` is computed by `rupd` from Todo blockers and Routes. Signal for Claude Code = hook payloads, merged with the terminal title and exit status because some transitions fire no hook (ADR 0006, `spikes/hooks-state/REPORT.md`). Screen scraping is a last fallback behind the same trait.
+`observe` folds one Observation into a Status; `None` means no change. `has_hook_signal` reports whether the Agent's tooling pushes Signals. The Claude Code implementation combines hook payloads, terminal titles and timed holds; it ignores Program observations when hooks are available. Program observations carry the Terminal program's reported Status for an adapter without hook Signals. Exit and Stopped observations settle lifecycle changes. The adapter emits glossary Kinds; the Daemon computes `blocked` from Todo blockers and Routes. See `crates/agents/src/claude_code/mod.rs` and `scenarios/terminal-program-status.md`.
+
+Launching is separate from classification. In `crates/agents/src/spawn.rs`, `Agents::start` calls `Launcher::launch_on` (`crates/agents/src/claude_code/launch.rs`) to prepare the vendor command and environment. `Agents::spawn_behind` then calls `Terminals::spawn` to start the PTY program and attach it to the Rail node.
 
 ## Data
 
-- Todos, Pad index, Touch log, Routes, Agent tree (`parent` + `order`): SQLite in WAL mode, one DB per module in the Project's data folder, `<app data>/projects/<key>/` (N1; `agents.db`, `todos.db`, `pads.db`, `messages.db`, `provenance.db`).
-- Pads: plain `.md` files. App-only by default (stored in the DB); per-Project setting stores them as files in `pads/` of that folder. Nothing but Worktrees (`.roundup/worktrees/`, G2) is written to the Project folder.
-- Touch log is append-only; `readBy` / `touchedBy` are derived, never maintained by hand.
+- The Daemon opens one Project database, `project.db`, in WAL mode. `crates/rupd/src/storage.rs` owns its migration sequence; `crates/rupd/src/open.rs` wires the stores to it. Rail/Agent metadata, Todos, Pads, Messages, Routes, Touches and the Event log share this database. Old per-store databases are not imported (`scenarios/project-store.md`).
+- `crates/rupd/src/data.rs` resolves each Project's data folder beneath the supplied application data directory's `projects/` directory. Project state stays outside the user's source tree; Worktrees are the explicit exception (`scenarios/worktrees.md`).
+- Pads store text in SQLite by default. File-backed storage writes `<name>.md` beneath the data folder's `pads/` directory; `crates/pads/src/operations.rs` and `crates/pads/src/files.rs` own storage changes and file access.
+- `crates/provenance` records append-only Touches; `crates/rupd/src/event_log.rs` persists replayable Events.
 
 ## Message delivery
 
-Typed Messages `{from, to, kind, body, replyTo}`. Delivery to a Claude Code Agent happens at its next safe point (its idle signal, or a prompt-submit injection), tagged with a sender header. Anything addressed to the user pre-fills and never submits. A Route's value comes from `bus.route`; a user's click wins.
+`crates/contracts/src/message.rs` defines `Message` with `id`, `from`, `to`, `kind`, `body`, `reply_to` (serialized as `replyTo`), `status`, `reason` and `at`. `from` is an authenticated `Actor`, never a send parameter. `MessageKind` is Note or Question; `MessageStatus` is Pending, Delivered or Dropped. A `Route` holds `from`, `to` and `delivery`; `Delivery` is Auto or Drop. Routes are persisted by `crates/messages/src/routes.rs`; an Agent cannot override a Route set by the user.
+
+`crates/messages` stores Messages before delivery. At an eligible receiving Attempt (normally `idle`, plus the live-error case in B37), pending Messages with auto delivery enter its Claude inbox in id order. `crates/messages/src/inbox.rs` checks inbox readiness and writes entries with in-flight records; transcript receipts confirm delivery. A failed readiness check leaves Messages pending. No Message calls `Agents::prompt` or writes Terminal input. Messages to the user are marked delivered immediately and emit an event, without an inbox entry or Terminal write. See B2, B10, B30 and B3563c in `scenarios/messages.md` and the delivery account in `docs/messages.md`.
 
 ## Boundaries
 
-Local only. The MVP targets macOS, so the shipped app, perf numbers (`docs/perf.md`) and the macOS gate run locally and on GitHub macOS runners. Unattended Builders, Reviewers and QA sweeps run on GitHub Actions runners (`AGENTS.md`).
+The shipped App targets macOS. Linux and isolated Chromium observers cover Daemon and webview behavior; native observations have their own requirements in `docs/perf.md` and the applicable scenarios. Unattended Builders, Reviewers and QA run on GitHub Actions (`AGENTS.md`).
