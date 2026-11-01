@@ -773,3 +773,5 @@ fn lc18_a_start_without_it_has_no_switch() {
         .unwrap();
     assert!(!has(&argv, "--computer-use-mcp"));
 }
+
+mod memory;
