@@ -57,6 +57,7 @@ it.each([
   const { setNow } = await mountRail([workstream("stream"), agent("child", "idle", "idle", {
     parent: "stream", final_text: { ...empty, finished: "0", kind },
   })]);
+
   setNow(NOW + 300_000);
   await settled();
   expect(rowNames().includes("child")).toBe(visible);
