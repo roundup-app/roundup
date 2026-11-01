@@ -478,7 +478,7 @@ class Pick(unittest.TestCase):
             builder.main(['engine-conflict'])
         self.assertEqual(codex.call_args.args[-1], 'low')
         role = builder.role('conflict')
-        for scope in ('only the files git lists as conflicted', 'only the tests those files reach', 'merge-loss', 'Read no scenario'):
+        for scope in ('only the files git lists as conflicted', 'only the test files among those files', 'merge-loss', 'Read no scenario'):
             self.assertIn(scope, role)
         self.assertIn('Read no scenario', builder.CAUSES['conflict'])
 
