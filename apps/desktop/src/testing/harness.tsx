@@ -56,7 +56,7 @@ if (query.has("storage-recovery")) {
   let cache = new Map<string, unknown>();
   Object.defineProperty(window, "__TAURI_INTERNALS__", { configurable: true, value: {
     invoke: async (command: string, args: { key: string; value: unknown }) => {
-      if (command === "plugin:window-bar|webview_data_folder") return "/Users/you/Library/WebKit/dev.roundup.app/WebsiteData";
+      if (command === "plugin:window-bar|webview_data_path") return "/Users/you/Library/WebKit/dev.roundup.app/WebsiteData";
 
       if (command === "plugin:resources|close") return;
 

@@ -4,7 +4,7 @@ use objc2_foundation::NSURL;
 use std::path::PathBuf;
 
 /// Reads configuration metadata only, on WebKit's main thread. No website records are fetched.
-pub fn webview_data_folder<R: tauri::Runtime>(view: &tauri::Webview<R>) -> Result<PathBuf, String> {
+pub fn webview_data_path<R: tauri::Runtime>(view: &tauri::Webview<R>) -> Result<PathBuf, String> {
     let (send, receive) = std::sync::mpsc::sync_channel(1);
     view.with_webview(move |platform| {
         // SAFETY: Tauri supplies the live WKWebView on its owning thread. Each selector is
