@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { captureDir } from "../testing/captures";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
@@ -95,8 +98,62 @@ run("u520 the Rail is a tree", () => {
 
     const rows = await page.call<string[]>(`() => [...document.querySelectorAll('[role=treeitem][data-id]')].map((row) => row.getAttribute('data-id'))`);
 
-    // The done Agent is folded into a `✓ n done` line the user opens, and a line is no row: the walk never lands on it.
+    // The idle branch is a row; its hidden children are absent from the walk.
     expect(await page.call<number>(`() => document.querySelectorAll('.rail-fold').length`)).toBeGreaterThan(0);
     expect(rows).not.toContain("docs");
+    expect(rows).toContain("fold:auth");
   });
+});
+
+
+run("u5483 folded children", () => {
+  beforeAll(async () => { if (found) page = await openPage(found); }, 90_000);
+  afterAll(async () => { await page?.close(); });
+  it("u5483b_keyboard_walk_enters_only_open_children", async () => {
+    await page.scheme("dark");
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
+    await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
+    await page.call(`() => document.querySelector('[data-id="fold:auth"] [data-part="branch-control"]').focus()`);
+    await press("ArrowRight");
+    await folded("fold:auth", "true");
+    await press("ArrowRight");
+    await at("docs");
+
+    for (const id of ["U5483a", "U5483b", "U5483c"]) {
+      const dir = captureDir(id);
+
+      if (dir) {
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, "open.png"), Buffer.from(await page.shot(), "base64"));
+        writeFileSync(join(dir, "open.checks.json"), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
+      }
+    }
+
+    await press("ArrowLeft");
+    await at("fold:auth");
+    await press("ArrowLeft");
+    await folded("fold:auth", "false");
+    expect(await page.call<boolean>(`() => document.querySelector('[data-id="docs"]') === null`)).toBe(true);
+  });
+  it("u5483b_focus_survives_folding_and_return", async () => {
+    await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
+    await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
+    await page.call(`() => document.querySelector('[data-id="fold:auth"] [data-part="branch-control"]').focus()`);
+    await press("ArrowRight");
+    await folded("fold:auth", "true");
+    await press("ArrowRight");
+    await at("docs");
+    await page.call(`() => window.__fake.setStatus('docs', 'working', 'working')`);
+    await at("docs");
+    await page.call(`() => window.__fake.setStatus('docs', 'done', 'finished')`);
+    await page.until(`() => !!document.querySelector('[data-id="fold:auth"]')`);
+    await at("docs");
+    await press("ArrowLeft");
+    await at("fold:auth");
+    await press("ArrowLeft");
+    await folded("fold:auth", "false");
+    await page.call(`() => window.__fake.setStatus('docs', 'working', 'working')`);
+    await at("auth");
+  });
+
 });
