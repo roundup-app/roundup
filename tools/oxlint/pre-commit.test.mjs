@@ -43,7 +43,7 @@ function fixture(t, config = readFileSync(resolve(repo, "lefthook.yml"), "utf8")
   const cwd = mkdtempSync(resolve(tmpdir(), "roundup-pre-commit-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
 
-  for (const path of [".gitignore", ".oxlintrc.json", ".claude/sound/placement/file-stays-under-a-size-cap.gate", "tools/oxlint/anti-slop"]) {
+  for (const path of ["package.json", ".gitignore", ".oxlintrc.json", ".claude/sound/placement/file-stays-under-a-size-cap.gate", "tools/oxlint/anti-slop"]) {
     const target = resolve(cwd, path);
     mkdirSync(dirname(target), { recursive: true });
     cpSync(resolve(repo, path), target, { recursive: true });
