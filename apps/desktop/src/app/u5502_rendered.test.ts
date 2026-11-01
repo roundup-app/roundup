@@ -27,6 +27,8 @@ it("u5502_menu_originated_selection_reaches_the_real_terminal", async () => {
       await browser("record", "start", join(output, "menu-navigation.webm"));
     }
 
+    await browser("set", "media", "dark");
+    await until("matchMedia('(prefers-color-scheme: dark)').matches");
     await until("typeof window.__checks === 'function' && window.__fake?.app.menuBar?.mark === 'waiting'");
     await capture("U5502", "before");
     await evaluate(`(() => {
