@@ -50,7 +50,7 @@ Policy: these retirements authorize deletion of the tests that prove only the re
 | LC12/LC13, I5, I2706a, M2706a, F2/F8, Q11 | Drop A32 support, Handoff command/result and Clear launch examples only; specialist summaries, caller identity, naming and launch settings stay. |
 | E10–E13, A2961, TC1/T4b | Retire inventories of `a32_*` positive Clear tests, `b55_*`, Clear-only D9 tests and `a35_a_clear_makes_earlier_marks_unusable`; retain process-cost requirements for surviving behavior. |
 
-Policy: `docs/adr/0010-core-scope-and-messages.md`'s Clear/Handoff inventory row is superseded by #4542; the implementation marks that row retired while preserving the historical decision. `docs/perf.md` drops Clear-only RPC coverage entries with the removed methods.
+Policy: The Clear/Handoff retirement requirements are held by A32 and U350 above, following #4542. `docs/perf.md` drops Clear-only RPC coverage entries with the removed methods.
 
 ## Gates and regression observers
 
