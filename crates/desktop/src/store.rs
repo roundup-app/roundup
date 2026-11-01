@@ -159,6 +159,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn n5467b_incompatible_preferences_are_refused_without_rewriting() {
+        for bytes in [
+            br#"{}"#.as_slice(),
+            br#"{"open":[],"names":{}}"#,
+            br#"{"recent":[],"names":{}}"#,
+            br#"{"open":[],"recent":[]}"#,
+            br#"{"open":[],"recent":[],"names":[],"extra":true}"#,
+            b"{broken",
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let file = dir.path().join(FILE);
+            std::fs::write(&file, bytes).unwrap();
+            for _ in 0..2 {
+                let store = Store::new(Some(dir.path().to_owned()));
+                let error = store.set_name("/sentinel", Some("changed".into()), None, "sentinel").unwrap_err();
+                assert!(error.message.contains("incompatible"));
+                assert!(error.message.contains(&dir.path().display().to_string()));
+                assert!(error.message.contains("Close roundup"));
+                assert!(error.message.contains("projects.json"));
+                assert_eq!(std::fs::read(&file).unwrap(), bytes);
+            }
+        }
+    }
+
+    #[test]
     fn s6_recent_paths_are_distinct_bounded_ordered_and_persisted() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(Some(dir.path().join("data")));
