@@ -119,7 +119,7 @@ it("u5240b_enter_on_a_todo_or_pad_opens_it_as_a_click_does", async () => {
 });
 
 it("u5240b_enter_on_a_todo_or_pad_hands_the_open_to_its_mounted_rail_row", async () => {
-  const { connected } = await seed();
+
 
   const asked: unknown[] = [];
   const unregister = [
