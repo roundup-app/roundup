@@ -26,7 +26,7 @@ Required checks (policy; references identify existing acceptance on main):
 
 1. N1–N4, `scenarios/project-data.md`, headings “N1 the data folder” through “N4 a moved Project”; `crates/rup/tests/project_data.rs`, `n1_n2_a_git_project_with_worktrees_off_is_left_as_it_was` and the `n2_`, `n3_`, `n4_` tests. Update filename expectations to the consolidated database without weakening placement, conflict or recovery assertions.
 2. A34, `scenarios/workstream-remove.md`, heading “A34 removing a Workstream removes its finished work and keeps the rest”; `crates/rup/tests/a34.rs`, `a34_done_todos_are_deleted_and_open_ones_move`, `a34_pads_follow_a_kept_agent_and_the_rest_go`, and the remaining A34 tests in `crates/agents` and `crates/rup/tests`.
-3. N20 in this file, heading “N20 current schemas need no pre-release adoption”; N9–N11 in `scenarios/store-migrations.md` are retired, not regression requirements.
+3. N20 in this file, heading “N20 current schemas need no pre-release adoption”; N9–N11, reserved in `scenarios/native-questions.md`, are retired by N20, not regression requirements.
 
 The implementation PR reports before/after counts for active main databases, and companions separately, plus the inventory's removed/retained mechanisms. Run `rg -n storage_calls crates`: exit 1 with no rows is the required result, any match fails; exit 2 is an observer error. Run `loop/rules.sh vocab`, `loop/rules.sh scenario-ids` and `just check origin/main`: exit 0 passes, any other exit fails. For any observer script, report one row per failed command with its exit code. Linux Rust tests provide the observer; no Mac-only observation is required (policy).
 

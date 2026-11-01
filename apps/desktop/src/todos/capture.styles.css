@@ -75,9 +75,3 @@
   overscroll-behavior: contain;
   box-sizing: border-box;
 }
-
-.capture-native p.capture-native-failure {
-  overflow: visible;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}

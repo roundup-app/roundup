@@ -38,7 +38,9 @@ class Addition(unittest.TestCase):
                 integration = checkout / "crates/rup/tests/mcp.rs"
                 integration.write_text(integration.read_text() + '\n#[allow(dead_code)]\n#[path = "../src/mcp/c4_adapter.rs"]\nmod c4_adapter;\n')
                 adapter = checkout / "crates/rup/src/mcp.rs"
-                (adapter.parent / "mcp/c4_adapter.rs").write_text(adapter.read_text() + "\n#[cfg(test)]\nmod c4_addition;\n")
+                # The integration crate supplies its own real Daemon; binary-unit helpers are unavailable here.
+                production = adapter.read_text().replace("#[cfg(test)]\nmod tests;", "")
+                (adapter.parent / "mcp/c4_adapter.rs").write_text(production + "\n#[cfg(test)]\nmod c4_addition;\n")
                 (adapter.parent / "mcp/c4_addition.rs").write_bytes((ROOT / "tools/contracts/fixtures/addition.rs").read_bytes())
                 run("just", "contracts")
                 run("cargo", "test", "-q", "-p", "rup", "--test", "mcp", "c4_one_declaration_reaches_every_surface")
