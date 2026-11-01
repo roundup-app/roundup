@@ -12,8 +12,10 @@ import { createRowCollection, rowKey } from "../ui/RowCollection";
 import { CopyButton } from "../ui/CopyButton";
 import { TodoHost } from "../todos/TodoDrawer";
 import { InboxRow } from "./InboxRow";
-import type { RowActions } from "./InboxRow";
+import type { AgentRow, RowActions } from "./InboxRow";
 import { sectionsOf } from "./rows";
+import { nameOf, REVEAL_BUBBLE } from "../bubbles/places";
+import { statusText } from "../terminal/programStatus";
 import "./inbox.styles.css";
 
 const STALE = new Set(["todo.restored", "todo.commented", "todo.commentsRead", "todo.deleted"]);
@@ -36,10 +38,11 @@ export const createInbox = () => {
 
   onCleanup(events.subscribe(event => { if (STALE.has(event.name)) refresh(); }));
 
-  const groups = createMemo(() => sectionsOf(rail.nodes, rows(), rail.dismissed));
+  const groups = createMemo(() => sectionsOf(rail.nodes, rows(), rail.dismissed, rail.terminals()));
 
   const records = () => groups().flatMap(group => [
     ...group.node ? [{ id: group.node.id + ":" + group.node.attempt + ":" + group.node.status_revision, at: group.node.status?.since ?? 0 }] : [],
+    ...group.terminal ? [{ id: `${group.id}:${group.terminal.status?.since}`, at: group.terminal.status?.since ?? 0 }] : [],
     ...group.comments.map(row => ({ id: `c:${row.comment.id}`, at: row.comment.created_at })),
   ]);
 
@@ -63,12 +66,18 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   onMount(() => { live = true; });
   onCleanup(() => { alive = false; });
 
-  const model = createMemo(() => {
+  const model = createMemo((): AgentRow[] => {
     const before = seen;
     seen = new Set();
 
-    return groups().flatMap(group => {
-      const node = group.node;
+    return groups().flatMap((group): AgentRow[] => {
+      const { node, terminal } = group;
+
+      if (terminal) {
+        seen.add(group.id);
+
+        return [{ key: `a:${group.id}`, terminal, arrived: live && !reducedMotion() && !before.has(group.id) }];
+      }
 
       if (!node) return [];
       seen.add(node.id);
@@ -85,6 +94,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   // One collection follows the mounted section order; actions and disclosure bodies never join it.
   const content = createRowCollection(() => groups().flatMap(group => [
     ...group.node ? [{ value: `a:${group.node.id}`, label: group.node.name }] : [],
+    ...group.terminal ? [{ value: `a:${group.id}`, label: nameOf(group.terminal) }] : [],
     ...group.comments.map(row => ({ value: `c:${row.comment.id}`, label: copy.inboxRow(rail.nameOf(row.comment.author), row.title) })),
   ]).filter(row => {
     const head = heads.get(row.value);
@@ -104,7 +114,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
     const agent = byKey().get(row.value);
     const comment = rows().find(each => `c:${each.comment.id}` === row.value);
 
-    return [row.label, agent?.node.status?.label ?? comment?.comment.body].filter(Boolean).join("\n");
+    return [row.label, agent?.terminal ? statusText(agent.terminal.status!) : agent?.node?.status?.label ?? comment?.comment.body].filter(Boolean).join("\n");
   }).join("\n\n");
 
   const head = (key: string, element: HTMLElement) => {
@@ -123,7 +133,7 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
   });
 
   createEffect(() => {
-    const keys = new Set(rail.nodes.map((node) => `a:${node.id}`));
+    const keys = new Set([...rail.nodes.map((node) => `a:${node.id}`), ...rail.terminals().map((terminal) => `a:terminal:${terminal.id}`)]);
 
     setFailures((current) => [...current.keys()].some((key) => !keys.has(key))
       ? new Map([...current].filter(([key]) => keys.has(key))) : current);
@@ -139,11 +149,15 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
 
   const actions: RowActions = {
     retry: (row) => void (async () => {
+      const { node } = row;
+
+      if (!node) return;
+
       if (busy().has(row.key)) return;
 
       flag(row.key, true);
 
-      const message = await failureOf(() => app.rpc("agent.resume", { id: row.node.id }));
+      const message = await failureOf(() => app.rpc("agent.resume", { id: node.id }));
 
       if (!alive) return;
 
@@ -152,7 +166,15 @@ export const Inbox = (props: { state?: ReturnType<typeof createInbox> }) => {
 
       if (message !== null) setOpenKey(row.key);
     })(),
-    open: (row) => { drawer.close(); rail.select(row.node.id); },
+    open: (row) => {
+      drawer.close();
+
+      if (row.terminal) {
+        // The Switcher's way to a Terminal (U529): select its owner, then reveal its bubble.
+        rail.select(row.terminal.owner === project.path ? null : row.terminal.owner);
+        window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: row.terminal.id }));
+      } else rail.select(row.node.id);
+    },
     busy: (row) => busy().has(row.key),
     failure: (row) => failures().get(row.key) ?? null,
     dismiss: (row) => { fail(row.key, null); heads.get(row.key)?.focus(); },

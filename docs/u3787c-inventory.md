@@ -9,7 +9,7 @@ The production App owns these content collections. Tests below assert behavior i
 | Rail Workstreams and Agents | Project menu → Workstreams; parent disclosure for nested Agents | `testing/u3787c_inventory.test.tsx`: App Rail navigation and selection; `rail/u3787c_lists.test.tsx`: no-anchor range, folded/hidden/disabled exclusion; `rail/u3787c_browser.test.ts`: dense App selection |
 | Switcher content results | ⌘K, K; search results after query | `switcher/u3787c_lists.test.tsx`: both list tests, chosen Terminal activation, filter/reopen lifetime and native query Home/End |
 | Inbox Agents and unread comments | ⌘K, I; rendered groups | `inbox/u3787c_lists.test.tsx`: both list tests, Agent/Comment activation, reopening lifetime and copy |
-| Import candidates | Project menu → Import Claude Code work; retained choices | `importer/u3787c_lists.test.tsx`: both list tests, candidate activation and page lifetime |
+| Import candidates | Project menu → Import Claude Code; retained choices | `importer/u3787c_lists.test.tsx`: both list tests, candidate activation and page lifetime |
 | Changed files | Select Agent with Worktree → counted changed-files control, or Review changes (⌘K, C) | `testing/u3787c_inventory.test.tsx`: both App list tests for both openings; `changes/u2539b_library.test.tsx`: vanilla typeahead/range/input ownership |
 | Overview entries | Open Project → Needs you; Project menu → Workstreams overview | `ask/u3787c_lists.test.tsx`: both list tests, original attention activation and lifetime |
 | Made | Project menu → Made | `ask/u3787c_lists.test.tsx`: both list tests, original publication identity and lifetime |

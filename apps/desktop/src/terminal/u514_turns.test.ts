@@ -92,3 +92,12 @@ it("u514_shift_click_extends_over_the_turns_between", async () => {
   expect(emulator.selection()).toBe("$ one\n1\n$ two\n2");
   emulator.dispose();
 });
+
+it("ps11_a_reporting_terminal_keeps_its_turn_marks_and_cwd", async () => {
+  const { emulator, write } = open();
+  const report = (state: string) => `\x1b]7501;state=${state}:kind=question:msg=Which\x1b\\`;
+
+  await write(OSC("7;file://host/work") + OSC("133;A") + "$ " + OSC("133;B") + "ls\r\n" + report("blocked") + OSC("133;C") + "a\r\n" + report("clear") + OSC("133;D;0"));
+  expect(emulator.turns()).toEqual([{ first: 0, last: 1, exit: 0, cwd: "/work", command: "ls" }]);
+  emulator.dispose();
+});

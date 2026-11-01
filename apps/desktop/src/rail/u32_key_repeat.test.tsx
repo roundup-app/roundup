@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
+import { copy } from "./copy";
 
 afterEach(cleanup);
 
@@ -41,7 +42,7 @@ describe("u32 a repeated chord spawns once", () => {
     press("n", { metaKey: true, shiftKey: true, repeat: true });
     await Promise.resolve();
 
-    expect(screen.queryByLabelText("Task")).toBeNull();
+    expect(screen.queryByLabelText(copy.task)).toBeNull();
   });
 
   it("u32_a_repeat_is_still_handled_by_the_webview_so_the_browser_never_sees_it", async () => {

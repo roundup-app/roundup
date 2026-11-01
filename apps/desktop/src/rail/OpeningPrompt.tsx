@@ -100,7 +100,7 @@ export const OpeningPrompt = (props: { restart: () => ReturnType<RailMenuModel["
       <Show when={draft()?.value.base !== undefined && draft()?.value.base !== (current()?.opening_prompt ?? "")}><ReservedLine status={copy.openingPromptConflict} /></Show>
       <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => void (restartFailed() ? restart() : save())}>{copy.retry}</button></ReservedLine>
       <div class="app-dialog-actions">
-        <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restartSession}</button>
+        <button data-button="quiet" class="word" type="button" disabled={restarting()} onClick={() => void restart()}>{copy.restart}</button>
         <Dialog.CloseTrigger data-button="quiet" class="word">{copy.close}</Dialog.CloseTrigger>
       </div>
   </Dialog.Content></Dialog.Positioner></Dialog.Root>;

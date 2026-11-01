@@ -1,5 +1,4 @@
-//! The whole Daemon as the App runs it. Todo creation runs real Claude against aimock;
-//! the remaining cases retain the stub while E10 is migrated.
+//! The whole Daemon as the App runs it. Todo creation runs real Claude against aimock; the rest keep the stub while E10 migrates.
 
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
@@ -41,11 +40,12 @@ async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
             .unwrap(),
     )
     .unwrap();
-    let todo = next(&mut client, |data| match data {
-        EventData::TodoCreated(todo) => Some(*todo),
-        _ => None,
-    })
-    .await;
+    let todo = project
+        .next(&mut client, |data| match data {
+            EventData::TodoCreated(todo) => Some(*todo),
+            _ => None,
+        })
+        .await;
     let result = project
         .model
         .as_ref()
@@ -631,11 +631,12 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
         .await
         .unwrap();
 
-    let updated = next(&mut client, |data| match data {
-        EventData::TodoUpdated(todo) if !todo.body.is_empty() => Some(todo),
-        _ => None,
-    })
-    .await;
+    let updated = project
+        .next(&mut client, |data| match data {
+            EventData::TodoUpdated(todo) if !todo.body.is_empty() => Some(todo),
+            _ => None,
+        })
+        .await;
     let model = project.model.as_ref().unwrap();
     let result = model.tool_result("toolu_update_todo").await;
     assert!(
@@ -1782,14 +1783,13 @@ async fn a31_a_workstream_id_resolves_to_its_door() {
     assert_eq!(names, ["project-only", "reduce"]);
 }
 
-/// A33: an idle Agent whose own Todo waits on an open blocker reads `blocked`, and idle again
-/// once the blocker completes or the Todo is deleted.
+/// A33: an idle Agent whose Todo waits on an open blocker reads `blocked`; idle again once it clears.
 async fn a33_blocked_agent(fixture: &str) -> (Project, rpc::Client, RailNode) {
     let project = daemon::start_real(fixture, &[]);
     let client = project.client().await;
     let agent: RailNode = serde_json::from_value(
         tokio::time::timeout(
-            Duration::from_secs(30),
+            project.bound(),
             client.request(
                 "agent.spawn",
                 json!({

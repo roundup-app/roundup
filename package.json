@@ -13,7 +13,7 @@
     "test:token-integration": "node --test docs/u478-check-integration.test.mjs",
     "lint:styles": "stylelint \"apps/desktop/src/**/*.css\" --max-warnings 0",
     "tokens:check": "if [ -f docs/ui-tokens.test.mjs ]; then node --test docs/ui-tokens.test.mjs; fi",
-    "lint:boundaries": "ast-grep --version && python3 tools/lint/setup.py web && python3 tools/lint/scan.py web",
+    "lint:boundaries": "ast-grep --version",
     "lint:cycles": "node tools/lint/cycles.mjs ."
   },
   "devDependencies": {

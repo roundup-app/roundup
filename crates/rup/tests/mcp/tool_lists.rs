@@ -123,10 +123,14 @@ pub const DOOR_METHODS: [&str; 10] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 84] = [
+pub const NO_TOOL: [&str; 92] = [
     // A4688a: only the user controls global naming preferences; Agents cannot override them.
     "daemon.getNaming",
     "daemon.setNaming",
+    // SK10: only the user installs or removes the skill and hook outside Claude Code sessions.
+    "skill.status",
+    "skill.setup",
+    "skill.remove",
     // U3800a: a Shelf grip drop changes the user's order; Agents cannot reorder Pads.
     "pad.reorder",
     // U4461: only the user answers native removal consent; Agents use rail.remove within Reach.
@@ -240,6 +244,12 @@ pub const NO_TOOL: [&str; 84] = [
     "native_open",
     "rpc",
     "subscribe",
+    // NA6: the user's App answers the Daemon's relayed action calls; the Daemon's action methods carry no tool.
+    "action.serve",
+    "action.list",
+    "action.run",
+    "action_serve",
+    "action_answer",
     "terminal_output",
     "terminal_output_stop",
 ];

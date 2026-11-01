@@ -184,6 +184,43 @@ pub fn legacy_reaction(path: &std::path::Path, firings: &str) {
             .unwrap();
     }
     db.pragma_update(None, "user_version", 23).unwrap();
+    transfer(path, db);
+}
+
+// A Project database at version 41, the last before 0028-deliverable-files, holding `path`'s rows.
+// The real migrations build it, so the upgrade from it is the one a user's database takes.
+#[allow(dead_code)] // Only the deliverables fixtures need a database older than the Daemon's own.
+pub fn legacy_project_v41(path: &std::path::Path) {
+    let accepted = Connection::open(path).unwrap();
+    accepted
+        .execute_batch("PRAGMA wal_checkpoint(TRUNCATE)")
+        .unwrap();
+    drop(accepted);
+    let mut db = Connection::open(path.with_extension("legacy.db")).unwrap();
+    let later = [
+        include_str!("../../migrations/project/0023-remove-decisions.sql"),
+        include_str!("../../migrations/project/0024-remove-bubbling.sql"),
+        include_str!("../../migrations/project/0025-remove-deferred-actions.sql"),
+        include_str!("../../migrations/project/0026-pad-deletions.sql"),
+        include_str!("../../migrations/project/0026-todo-deletions.sql"),
+        include_str!("../../migrations/project/0027-rail-deletions.sql"),
+    ];
+    rusqlite_migration::Migrations::new(
+        PROJECT_V35
+            .into_iter()
+            .chain(later)
+            .map(rusqlite_migration::M::up)
+            .collect(),
+    )
+    .to_latest(&mut db)
+    .unwrap();
+    transfer(path, db);
+}
+
+// Replace `path` with `db`, after copying into it the rows of every table both have, over the
+// columns `db` has: later columns never enter the fixture.
+fn transfer(path: &std::path::Path, db: Connection) {
+    let legacy = path.with_extension("legacy.db");
     db.execute("ATTACH DATABASE ?1 AS accepted", [path.to_str().unwrap()])
         .unwrap();
     let tables = db
@@ -198,10 +235,11 @@ pub fn legacy_reaction(path: &std::path::Path, firings: &str) {
         .unwrap();
     db.execute_batch("BEGIN").unwrap();
     for table in tables {
-        // Let SQLite select the historical columns; later columns never enter the fixture.
+        // Only columns both schemas have: later ones never enter the fixture, dropped ones stay default.
         let columns: String = db
             .query_row(
-                r#"SELECT group_concat(printf('"%w"', name)) FROM pragma_table_info(?1)"#,
+                r#"SELECT group_concat(printf('"%w"', name)) FROM pragma_table_info(?1, 'main')
+                   WHERE name IN (SELECT name FROM pragma_table_info(?1, 'accepted'))"#,
                 [&table],
                 |row| row.get(0),
             )

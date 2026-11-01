@@ -200,7 +200,7 @@ it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_
   const nodes = [agent("a", "error", "crashed", { name: "alpha", can_resume: true }), agent("b", "error", "crashed", { name: "beta", can_resume: true })];
   const m = await mountInbox(nodes);
 
-  fireEvent.click(screen.getByRole("button", { name: /^add todo to/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Add Todo:/ }));
   const input = await screen.findByRole("textbox", { name: "New Todo title" });
 
   fireEvent.input(input, { target: { value: "  unfinished e\u0301 東京 🧭  " } });
