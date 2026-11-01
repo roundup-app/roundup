@@ -3,12 +3,10 @@
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
 mod closed;
-mod owner_reads;
-mod settings;
-use owner_reads::OwnerReads;
 mod placement;
 mod queue;
 mod removal;
+mod settings;
 mod view;
 use view::load_nodes;
 
@@ -23,7 +21,6 @@ const GONE_AGENT: &str = "an Agent that is gone";
 
 /// Structure only: a node's `status` is the Agents module's to fill in.
 pub struct Rail {
-    owner_reads: OwnerReads,
     db: Connection,
     tree_capacity: std::cell::Cell<usize>,
 }
@@ -50,7 +47,6 @@ impl Rail {
         drop_terminal_nodes(&db)?;
         flatten_workstreams(&mut db)?;
         Ok(Self {
-            owner_reads: OwnerReads::open(path),
             db,
             tree_capacity: Default::default(),
         })

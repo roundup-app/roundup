@@ -14,17 +14,6 @@ struct StaleOnce {
     read: Option<(tokio::sync::Notify, tokio::sync::Semaphore)>,
 }
 
-impl TerminalOwners for StaleOnce {
-    fn with_terminal_owner(
-        &self,
-        _: &str,
-        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-    ) -> Result<(), RpcError> {
-        // This adapter has no Terminal attachments in any state.
-        record(None)
-    }
-}
-
 #[async_trait::async_trait]
 impl Module for StaleOnce {
     fn namespaces(&self) -> &'static [&'static str] {

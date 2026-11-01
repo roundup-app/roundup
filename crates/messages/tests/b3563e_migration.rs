@@ -6,22 +6,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use contracts::Actor;
-use messages::{Messages, TerminalOwners};
+use messages::Messages;
 use rpc::{Bus, Ctx, Module, RpcError};
 use rusqlite::{Connection, params};
 use serde_json::Value;
 
 struct NoRail;
-
-impl TerminalOwners for NoRail {
-    fn with_terminal_owner(
-        &self,
-        _: &str,
-        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-    ) -> Result<(), RpcError> {
-        record(None)
-    }
-}
 
 #[async_trait]
 impl Module for NoRail {

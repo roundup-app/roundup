@@ -67,7 +67,7 @@ impl Hops {
             clock: Arc::new(move || reads.load(Ordering::SeqCst)),
             fault: Arc::new(|_| Ok(())),
         };
-        let agents: Arc<dyn TerminalOwners> = rail.clone();
+        let agents: Arc<dyn Module> = rail.clone();
         let messages = Messages::open_with(dir, bus.clone(), agents, env).unwrap();
         let inbox = attach_inbox(&messages, true);
         let messages = Arc::new(messages);
