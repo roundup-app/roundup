@@ -168,25 +168,6 @@ pub const PROJECT_V35: [&str; 35] = [
     include_str!("../../migrations/project/0023-measurement-no-tokens-or-money.sql"),
 ];
 
-// Copy accepted records into the schema that actually shipped before firing identity scoping.
-// A latest-schema copy would retain additive objects that the upgrade must create itself.
-#[allow(dead_code)] // Only the Daemon E2E fixture transfers accepted reaction records.
-pub fn legacy_reaction(path: &std::path::Path, firings: &str) {
-    let accepted = Connection::open(path).unwrap();
-    accepted
-        .execute_batch("PRAGMA wal_checkpoint(TRUNCATE)")
-        .unwrap();
-    drop(accepted);
-    let legacy = path.with_extension("legacy.db");
-    let db = Connection::open(&legacy).unwrap();
-    for (index, sql) in PROJECT_V35[..23].iter().enumerate() {
-        db.execute_batch(if index == 18 { firings } else { sql })
-            .unwrap();
-    }
-    db.pragma_update(None, "user_version", 23).unwrap();
-    transfer(path, db);
-}
-
 // A Project database at version 41, the last before 0028-deliverable-files, holding `path`'s rows.
 // The real migrations build it, so the upgrade from it is the one a user's database takes.
 #[allow(dead_code)] // Only the deliverables fixtures need a database older than the Daemon's own.
