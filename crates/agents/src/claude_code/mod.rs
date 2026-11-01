@@ -94,6 +94,9 @@ enum Ending {
 }
 
 pub struct ClaudeCode {
+    /// A5482c: completed turn identity, start time and final assistant text.
+    completed: Option<(String, i64, String)>,
+    turn_started: i64,
     status: Option<Status>,
     ending: Ending,
     /// The latest recognised Signal was `PreToolUse`: a dialog may be about to open.
@@ -114,6 +117,8 @@ impl ClaudeCode {
     /// `clock` returns milliseconds since the Unix epoch; it stamps every Status `since`.
     pub fn new(clock: impl Fn() -> i64 + Send + 'static) -> Self {
         Self {
+            completed: None,
+            turn_started: (clock)(),
             status: None,
             ending: Ending::Running,
             after_pre_tool_use: false,
@@ -170,6 +175,9 @@ impl ClaudeCode {
 
     /// `settle`, with the finish count raised first when `finish` holds.
     fn settle_counting(&mut self, kind: Kind, label: String, finish: bool) -> Option<Status> {
+        if kind == Kind::Working && self.status.as_ref().is_some_and(|s| s.kind == Kind::Idle) {
+            self.turn_started = (self.clock)();
+        }
         let since = match &self.status {
             Some(current) if current.kind == kind => current.since,
             _ => (self.clock)(),
@@ -249,11 +257,34 @@ impl ClaudeCode {
     }
 
     fn signal(&mut self, payload: &Value) -> Option<Status> {
+        let event = payload["hook_event_name"].as_str().unwrap_or_default();
+        if event == "UserPromptSubmit" {
+            self.turn_started = (self.clock)();
+        }
         let (kind, label) = hook_status(payload)?;
-        self.after_pre_tool_use = payload["hook_event_name"] == "PreToolUse";
+        self.after_pre_tool_use = event == "PreToolUse";
         self.star_parked_since = None;
         self.spinner_at = None;
-        self.settle(kind, label)
+        let changed = self.settle(kind, label);
+        if event == "Stop"
+            && let Some(text) = payload["last_assistant_message"].as_str()
+            && !text.is_empty()
+        {
+            let next = (
+                self.finished.to_string(),
+                self.turn_started,
+                text.to_owned(),
+            );
+            if self.completed.as_ref() != Some(&next) {
+                self.completed = Some(next);
+                return changed.or_else(|| self.status.clone());
+            }
+        }
+        changed
+    }
+
+    pub(crate) fn completed_text(&self) -> Option<&(String, i64, String)> {
+        self.completed.as_ref()
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {
