@@ -2,6 +2,7 @@ import { leaderKey } from "../keys/leaderFixture";
 import { render, waitFor } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { ActionRow } from "@contracts/action/ActionRow";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Pad } from "@contracts/pad/Pad";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -16,6 +17,7 @@ import { agent, door, info, workstream } from "../testing/nodes";
 import { Pane } from "../terminal/Pane";
 import { fakeEmulators } from "../terminal/paneHarness";
 import type { Screens } from "../terminal/screens";
+import type { ToastQueue } from "../toasts/queue";
 import { Switcher } from "./Switcher";
 
 const TREE: RailNode[] = [
@@ -30,13 +32,16 @@ const TREE: RailNode[] = [
 const TERMINALS: TerminalInfo[] = [info("7", { owner: "ops", title: "build shell" })];
 
 /** The Rail, a Pane, its bubbles and the Switcher in one open Project; `failures` collects what the Switcher reports. */
-export const mountSwitcher = async (selected: string | null = null, tree: RailNode[] = TREE, terminals: TerminalInfo[] = TERMINALS, daemonExit: () => { code: number | null } | null = () => null, lists: { todos?: Todo[]; pads?: Pad[] } = {}) => {
+export const mountSwitcher = async (selected: string | null = null, tree: RailNode[] = TREE, terminals: TerminalInfo[] = TERMINALS, daemonExit: () => { code: number | null } | null = () => null, lists: { todos?: Todo[]; pads?: Pad[]; userActions?: () => ActionRow[] } = {}, notify?: ToastQueue["notify"]) => {
   const app = createFakeApp();
   let listed = [...terminals, ...tree.flatMap((node) => node.terminal_id ? [info(node.terminal_id)] : [])];
 
   app.handlers["rail.tree"] = () => tree;
   app.handlers["todo.list"] = () => lists.todos ?? [];
   app.handlers["pad.list"] = () => lists.pads ?? [];
+
+  if (lists.userActions) app.handlers["action.userList"] = lists.userActions;
+
   app.handlers["terminal.list"] = () => listed;
   app.handlers["terminal.close"] = ({ id }) => {
     listed = listed.filter((terminal) => terminal.id !== id);
@@ -67,7 +72,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
           <Pane createEmulator={emulators.factory} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
           <div class="resource-strip" /><span class="resource-agent" />
-          <Switcher onFailure={(message) => failures.push(message)} onOpen={() => {}} />
+          <Switcher notify={notify} onFailure={(message) => failures.push(message)} onOpen={() => {}} />
         </div>
       </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
     );

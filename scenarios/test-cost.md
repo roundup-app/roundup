@@ -300,7 +300,7 @@ Migration is additive and preserves historical bytes in place: existing `deliver
 | Retained original revisions after edits, maker/Worktree cleanup and restart; replay/conflict and pre/post-commit crashes | Existing `dv4_home_lifecycle`, `dv2_publish_replay` and their exact-byte assertions, plus R3778c's file cuts. |
 | Revocation, corruption/missing revision, current external identity, user Home and removal | All existing DV3/DV4 observers in `deliverables.rs`, with physical corruption/allocation probes adapted, not removed. |
 | Metadata-only proof | Existing `crates/rupd/src/deliverables.rs::tests::dv2_metadata_only`, extended to deny/count both legacy BLOB and file payload reads through list/get; keep its positive resolve control. |
-| Public concurrency, owner reads, Event durability and standalone leases | Retained Pad snapshot observer; existing `crates/agents/src/rail_view.rs` B32 snapshot/lease tests; existing D10/D11 in `crates/rupd/src/event_log.rs`. Add `r3778d_publication_with_public_reads_and_writes` through public Daemon calls while an old snapshot is retained; compare exact old/new Pad facts, publication list/resolve, fresh owner facts and ordered durable Events across reopen. No ordinary-path busy refusal or longer bound. |
+| Public concurrency, owner reads, Event durability and standalone leases | Retained Pad snapshot observer; B32 snapshot/lease observers are retired by R5460; existing D10/D11 in `crates/rupd/src/event_log.rs`. Add `r3778d_publication_with_public_reads_and_writes` through public Daemon calls while an old snapshot is retained; compare exact old/new Pad facts, publication list/resolve, fresh owner facts and ordered durable Events across reopen. No ordinary-path busy refusal or longer bound. |
 
 Run the entire retained DV1–DV4 suite, `pad_sources`, reached storage/image/migration/owner tests and both required lints. Report each first attempt and any configured retry separately. Existing rule 10 and scenario observers cannot be weakened to accommodate the repair. P6's Gate forbids losing the user's Home; P12's Gate forbids substituted revisions, lost publication identity or ineffective removal/revocation. The DV1–DV4 and Pad observers above answer those Gates (policy).
 
@@ -319,13 +319,13 @@ Checks (existing on specification base `983eb53c1`; none is retired):
 3. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`, `dv2_publish_replay`, `dv2_changed_capture`, `dv3_no_substitution` and `dv4_removal_replay`: actual quota transactions, crash/replay, capture, integrity and removal.
 4. `crates/rupd/src/deliverables.rs`, `tests::dv2_metadata_only`: public metadata calls do not load BLOBs, with resolve as positive control.
 5. `crates/rupd/src/storage.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: fresh/migrated equivalence and distinct identities.
-6. `crates/agents/src/rail_view.rs`, `b32_owner_reads_see_external_attachment_while_a_peer_pins_an_older_snapshot` and `b32_owner_read_leases_expire_and_rearm_independently_of_input`: fresh owner facts and bounded WAL leases.
+6. Retired by R5460: B32 fresh owner facts and bounded owner-read WAL leases; the Message-to-Terminal guard they supported was retired by B3563c. The other R3778d concurrency and durability observers remain required.
 7. `crates/rupd/src/event_log.rs`, `d10_every_event_but_terminal_output_is_saved_and_numbered`, `d10_numbers_never_repeat_across_a_reopen`, `d11_an_after_older_than_the_window_names_the_oldest_kept`: Event durability and replay bounds.
 8. `scenarios/perf-macos-write.md`, R3696c; `docs/perf.md`, What is enforced, and what is not; `AGENTS.md`, Rules, rule 7: unchanged runtime/performance acceptance.
 
 ## Mixed publication quota
 
-Policy: use the real Daemon/public publication seam in `crates/rup/tests/deliverables.rs` and the historical BLOB fixture from `r3778c_legacy_and_file_reopen`. Charge actual retained bytes in both representations at the unchanged Project quota Q = 1,073,741,824 bytes and per-publication limit 33,554,432 bytes. Do not fabricate allocation lengths or replace `dv2_publish_failures` with a lowered-quota fixture. This acceptance adds test coverage; it changes no storage representation, contract or product limit.
+Policy: use the real Daemon/public publication seam in `crates/rup/tests/deliverables.rs` and the historical BLOB fixture from `r3778c_legacy_and_file_reopen`. For R4160a and R4160b, Q is a small test-fixture quota applied by the real quota-enforcement path; charge actual retained bytes in both representations. The production Project quota remains 1,073,741,824 bytes and the per-publication limit remains 33,554,432 bytes. Do not fabricate allocation lengths or replace `dv2_publish_failures` with a lowered-quota fixture. This acceptance changes no storage representation, contract or product limit; R5457a and R5457b govern the cheaper fixture and its evidence.
 
 **R4160a mixed allocations reach the quota exactly.** Given an upgraded Project retaining nonempty legacy BLOB publications and new file-backed publications, when a public publication brings their combined retained payload length to exactly Q, it succeeds; a subsequent one-byte publication refuses. The refusal leaves the exact public listing and charged total unchanged, and every accepted publication retains its recorded identity and exact bytes after restart (`r4160a_mixed_quota_boundary`, new real-Daemon test in `crates/rup/tests/deliverables.rs`).
 
@@ -339,3 +339,58 @@ Checks (on specification base `f1f59fb1d`; none retired):
 2. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`: real 32 MiB and 1 GiB boundaries, refusal without eviction, and retained payload verification after reopen.
 3. `crates/rup/tests/deliverables.rs`, `r3778c_removed_file_cleanup` and `dv4_removal_replay`: recoverable file cleanup, surviving publication bytes and removal replay refusal.
 4. `scenarios/deliverables.md`, DV2 and DV4; `scenarios/test-cost.md`, R3778c: unchanged quota, mixed allocation charging and publication-specific cleanup contract.
+
+
+# Retired Message receiver lookup
+
+Source: #5460. Acceptance is policy, checked by grep, independent review and the implementation head's checks; add no test that rereads code or inventories tests.
+
+**R5460 remove the unused Terminal-owner seam and preserve live behavior.** Given B32's retirement and B3563c's inbox-only Message delivery, when the unused receiver lookup is removed, then:
+
+1. Policy: `git grep -n with_terminal_owner -- crates` has matches only for `terminal::Terminals::with_terminal_owner` and calls to that live Terminal API. There is no `Agents::with_terminal_owner`, `messages::TerminalOwners`, implementation, mock or obsolete benchmark reference to the retired method. Preserve the live Terminal API, its callers and its durable-owner tests; it is a different capability.
+2. Policy: before deleting dependent machinery, grep its definitions and callers. Remove `agents::TerminalOwner`, `Rail::terminal_owner` in `crates/agents/src/rail/view.rs`, and machinery whose last caller disappears with them, including `OwnerReads` and its Rail field/module/initialization in `crates/agents/src/rail/owner_reads.rs` and `crates/agents/src/rail.rs`. Replace Messages' `Arc<dyn TerminalOwners>` dependency with its existing `rpc::Module` seam and update every constructor, caller and fake in the same PR. No new abstraction, RPC method or replacement owner query is required. Keep shared helpers and Terminal-owner machinery with other live callers. No dead-code allowance or feature flag may retain the retired seam.
+3. Policy: cut the 18 `b32_*` tests and `r16_owner_read_recovers_after_row_conversion_error` in `crates/agents/src/rail_view/tests.rs`, plus helpers used only by them (including `owner_transition` in `crates/agents/src/store.rs`). These prove only the retired receiver lookup, not a remaining B32 obligation. Preserve the other tests in that file. In `crates/agents/tests/scenarios/steer.rs`, remove the retired owner-read assertions while preserving the live B37 assertions: a live-error Agent can receive a Steer and an exited Attempt refuses it. Apply AGENTS rule 10 throughout each edited test file, mapping every additional cut to its surviving proof or explicit retirement in the implementation PR.
+4. Policy: remove the retired receiver lookup's entries from `GLOSSARY.md` and its definition in `scenarios/messages.md`, preserving the live Terminal owner terms. Retire only the B32 snapshot/lease retention requirement in R3778d above; its Pad snapshot, public publication/concurrency, Event durability and other acceptance remain required. Obsolete benchmark scripts or notes under `crates/agents/r16/` must not keep references that fail clause 1; retain unrelated evidence.
+5. Policy: every surviving test that proves a live scenario passes. In particular preserve B3563c's zero Terminal writes, inbox identity, receipt/restart behavior and unavailable-inbox recovery; B37 live-error Steer and ended-Attempt refusal; and live Terminal ownership/reopen behavior. The implementation head passes `just check origin/main` (CI may supply this observer), plus the grep observations below. This specification alone demonstrates no implementation acceptance and never closes #5460.
+
+Observer results (one row per failure; report the actual command exit and offending matches on the implementation Issue/PR):
+
+| Observation | Pass | Failure |
+| --- | --- | --- |
+| `git grep -n with_terminal_owner -- crates` | Exit 0; every match resolves to the live `terminal::Terminals` API or its callers | Exit 1 (live API missing), exit >1 (grep failed), or exit 0 with any retired-seam match |
+| `git grep -n -E 'TerminalOwners|OwnerReads|owner_reads' -- crates` | Exit 1, no matches | Exit 0 with remaining retired plumbing, or exit >1 |
+| `git grep -n TerminalOwner -- crates/agents/src` | Only the live `terminal::TerminalOwner` alias/use in `owners.rs` | Any retired Agents receiver-facts type/reference, or grep error |
+| `git grep -n terminal_owner -- crates/agents/src/rail/view.rs` | Exit 1, no matches | Exit 0 with the retired query, or exit >1 |
+| `just check origin/main` on the implementation head | Exit 0 | Any nonzero exit; name each failed check/test |
+
+Principles: P1 and P11's Gates ask whether a Message can write to live Terminal input; their observer remains B3563c's real-Daemon inbox/Terminal test. P4's Adapter boundary and P9's authorized prompt paths remain unchanged. Removing receiver lookup must introduce no alternate Terminal delivery path.
+
+Checks (on main when specified):
+
+1. `scenarios/messages.md`, B32 retired by #3563 and B3563c transport: inbox delivery replaces the unsent-input guard; B37 an error with a live Terminal still receives input remains live.
+2. `crates/rupd/tests/b50_note_inbox.rs`, `b3563c_all_senders_use_the_inbox_while_terminal_input_is_unsent`, `b3563c_receipt_and_restart_preserve_each_message_once` and `b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause`: Message isolation, identity, receipt/restart and recovery observers.
+3. `crates/agents/tests/scenarios/steer.rs`, `b37_live_error_refuses_concurrent_input` and `b37_live_error_owner_is_open_until_terminal_exit`: preserve live-error Steer behavior and exited-Attempt refusal through the remaining public behavior assertions.
+4. `crates/terminal/src/remote.rs`, `Terminals::with_terminal_owner`; `crates/agents/src/owners.rs`, `Agents::save_owner` and `Agents::reattach_owners`: distinct capability retained.
+5. `justfile`, `check`; `AGENTS.md`, Rules, rule 10: implementation checks and each removed test's proof/retirement mapping.
+## Quota tests without GiB fixtures
+
+Scope: R4160a/R4160b fixtures in `crates/rup/tests/deliverables.rs`, their existing test support, and the production quota seam needed to exercise the same enforcement with fewer bytes. Shared-failure repairs may reach the existing R3778c/NR3 test support when the evidence identifies it as the cause; preserve those scenarios and assertions. No loop machinery, product contract or storage-format change (policy).
+
+**R5457a small fixtures preserve quota proofs.** Given R4160a and R4160b, when their fixtures use a smaller quota Q, then all their existing then-clauses still hold through the real Daemon/public publication calls: exact equality accepts, one byte beyond refuses without mutation, mixed BLOB/file charges equal actual retained lengths, identities and exact bytes survive restart, and each removal releases only its chosen allocation once before B replacement bytes restore Q. Observers remain `r4160a_mixed_quota_boundary` and `r4160b_cleanup_releases_only_chosen_bytes` in `crates/rup/tests/deliverables.rs`; the latter retains both removal representations, unequal chosen lengths and survivors in both formats.
+
+Policy: the fixture quota applies only to the selected test Project, survives its test restarts and cannot alter another test Project or a production build's limit. Reuse existing test-support facilities; this specification approves no new public RPC or production configuration. Use real payload bytes and the production accounting/comparison/cleanup path, never mock quota results, padded metadata lengths or a separate test implementation. The unchanged `dv2_publish_failures` remains the observer of the real 32 MiB and 1 GiB product boundaries; add no test that only compares a copied quota constant.
+
+**R5457b fast tests and an evidenced shared-failure repair.** Given the implementation head, when its required `check` Rust lanes run, then each R4160 observer passes in strictly less than 5 seconds on its first attempt. Policy observer: the implementation PR records that head SHA, successful run URL, lane and nextest duration for each observer; local timing or a specification-only check run does not satisfy this acceptance. Retries, longer timeouts, ignored tests and weaker assertions are forbidden.
+
+Policy: before claiming the four-test failure cluster repaired, inspect failed runs from the work order's 24-hour window ending 2026-11-01 17:37 UTC. Record the run URLs/heads, full test names for the R4160a, R4160b, R3778c and NR3 failures, and the failure output or resource observations identifying their shared cause. The implementation PR names that cause, the change removing it and the evidence connecting them; simultaneous failure alone does not establish disk exhaustion. Its successful head's required Rust lanes must include passing observations of those identified tests, preserving their assertions. Missing cause evidence is incomplete acceptance; investigate on the Issue rather than weakening the requirement. Progress and engineering questions belong on the work Issue, never in scenario Work tables.
+
+P12 Gate: can smaller fixtures hide lost/substituted publications or ineffective removal? Observer: R4160a/R4160b's unchanged exact-byte, identity, listing, restart and cleanup assertions, plus the unchanged production-boundary observer (policy).
+
+Checks (on main at specification time; none retired):
+
+1. `scenarios/test-cost.md`, R4160a and R4160b: mixed-format equality/excess and publication-specific cleanup outcomes.
+2. `crates/rup/tests/deliverables.rs`, `r4160a_mixed_quota_boundary` and `r4160b_cleanup_releases_only_chosen_bytes`: existing real-Daemon boundary, restart and cleanup observers.
+3. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`: production-size boundary acceptance and retained bytes after reopen.
+4. `crates/rupd/src/deliverables.rs`, `bounded`: combined BLOB/file accounting and production limit enforcement.
+5. `scenarios/test-cost.md`, R3778c, and `scenarios/named-reactions.md`, NR3: publication recovery and durable reaction acceptance remain required.
+6. `AGENTS.md`, Rules, rule 10: quota tests exceeding five seconds have no process/clock exemption.
