@@ -15,10 +15,6 @@
   pointer-events: none;
 }
 
-.app-listbox-item:not([data-disabled]):hover {
-  --row-wash: var(--hover);
-}
-
 .row-wash[data-selected="true"],
 .row-wash[data-selected=""],
 .row-wash[data-row-selected="true"],
