@@ -105,3 +105,38 @@ mod tests {
         assert_eq!(schema(&db), before);
     }
 }
+
+#[cfg(test)]
+mod retirement_tests {
+    use super::*;
+    use rusqlite_migration::Migrations;
+
+    #[test]
+    fn n5467a_older_store_is_refused_without_changes() {
+        for prefix in 0..migrations().len() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("provenance.db");
+            let mut db = Connection::open(&path).unwrap();
+            if prefix > 0 {
+                Migrations::new(migrations()[..prefix].to_vec()).to_latest(&mut db).unwrap();
+            }
+            db.execute_batch("CREATE TABLE retirement_sentinel(value TEXT); INSERT INTO retirement_sentinel VALUES ('keep me');").unwrap();
+            let schema = |db: &Connection| -> Vec<(String, String)> {
+                db.prepare("SELECT name, coalesce(sql, '') FROM sqlite_schema ORDER BY name").unwrap()
+                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+            };
+            let before = schema(&db);
+            drop(db);
+            for _ in 0..2 {
+                let mut db = Connection::open(&path).unwrap();
+                let message = open(&mut db, &path).unwrap_err().to_string();
+                assert!(message.contains("incompatible with this build"), "{message}");
+                assert!(message.contains(&dir.path().display().to_string()), "{message}");
+                assert!(message.contains("close roundup") && message.contains("delete"), "{message}");
+                assert_eq!(schema(&db), before);
+                assert_eq!(db.pragma_query_value(None, "user_version", |r| r.get::<_, usize>(0)).unwrap(), prefix);
+                assert_eq!(db.query_row("SELECT value FROM retirement_sentinel", [], |r| r.get::<_, String>(0)).unwrap(), "keep me");
+            }
+        }
+    }
+}
