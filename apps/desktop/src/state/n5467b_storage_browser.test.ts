@@ -23,12 +23,13 @@ it("n5467b_old_browser_storage_is_refused_before_editors_mount", async () => {
     await lane.until("document.querySelector('[role=alert]')?.textContent.includes('incompatible')");
     expect(await lane.evaluate("!!document.querySelector('.ask-input, [role=tree]')")).toBe(false);
     expect(await lane.calls("agent.spawn")).toEqual([]);
+    expect(await lane.evaluate("document.querySelector('.storage-gate button') === null")).toBe(true);
     await lane.capture("N5467b", "head-refused");
-    await lane.browser("click", ".storage-gate button");
+    await lane.browser("reload");
     await lane.until("document.querySelector('[role=alert]')?.textContent.includes('incompatible')");
     expect(await lane.evaluate("localStorage.getItem('roundup:obsolete')")).toBe("{unreadable");
     await lane.evaluate("localStorage.removeItem('roundup:obsolete')");
-    await lane.browser("click", ".storage-gate button");
+    await lane.browser("reload");
     await lane.until("!!document.querySelector('[role=tree]')");
     await lane.capture("N5467b", "head-fresh");
   } finally {

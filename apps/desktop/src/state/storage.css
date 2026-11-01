@@ -45,6 +45,7 @@
 .storage-gate-content .ink[role="alert"] {
   overflow: visible;
   white-space: normal;
+  user-select: text;
 }
 
 .storage-gate-actions {
@@ -59,4 +60,10 @@
   bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
   padding-inline: var(--space-3);
   z-index: var(--layer-toast);
+}
+
+.storage-gate-folder {
+  display: block;
+  margin-block-start: var(--space-3);
+  font-family: var(--font-mono);
 }

@@ -1,7 +1,7 @@
 import { storageCopy } from "./copy";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
-import { invoke } from "@tauri-apps/api/core";
+import { webviewDataPath } from "../app/tauri";
 import { load } from "@tauri-apps/plugin-store";
 
 const schemas = new Map<string, v.GenericSchema>();
@@ -61,16 +61,16 @@ export const useBrowserStorage = (adapter: Storage) => {
 };
 
 /** Refuse obsolete browser metadata before opening native storage or constructing editors. */
-export const initializeStorage = async (): Promise<string | null> => {
+export const initializeStorage = async (): Promise<null | { status: "incompatible"; folder: string; message: string } | { status: "failed"; message: string }> => {
   browser = undefined;
   initialized = false;
 
   try {
     for (let index = 0; index < window.localStorage.length; index++) {
       if (window.localStorage.key(index)?.startsWith("roundup:")) {
-        const folder = v.parse(v.string(), await invoke<unknown>("plugin:window-bar|webview_data_path"));
+        const folder = await webviewDataPath();
 
-        return storageCopy.incompatible(folder);
+        return { status: "incompatible", folder, message: storageCopy.incompatible(folder) };
       }
     }
 
@@ -89,7 +89,7 @@ export const initializeStorage = async (): Promise<string | null> => {
 
     return null;
   } catch (error) {
-    return storageCopy.restoreFailure(error instanceof Error ? error.message : String(error));
+    return { status: "failed", message: storageCopy.restoreFailure(error instanceof Error ? error.message : String(error)) };
   }
 };
 
