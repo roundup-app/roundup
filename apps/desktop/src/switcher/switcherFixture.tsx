@@ -2,6 +2,8 @@ import { leaderKey } from "../keys/leaderFixture";
 import { render, waitFor } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
+import type { Todo } from "@contracts/todo/Todo";
+import type { Pad } from "@contracts/pad/Pad";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { createNow, DisplayClockContext } from "../state/clock";
 import { Bubbles } from "../bubbles/Bubbles";
@@ -28,11 +30,13 @@ const TREE: RailNode[] = [
 const TERMINALS: TerminalInfo[] = [info("7", { owner: "ops", title: "build shell" })];
 
 /** The Rail, a Pane, its bubbles and the Switcher in one open Project; `failures` collects what the Switcher reports. */
-export const mountSwitcher = async (selected: string | null = null, tree: RailNode[] = TREE, terminals: TerminalInfo[] = TERMINALS, daemonExit: () => { code: number | null } | null = () => null) => {
+export const mountSwitcher = async (selected: string | null = null, tree: RailNode[] = TREE, terminals: TerminalInfo[] = TERMINALS, daemonExit: () => { code: number | null } | null = () => null, lists: { todos?: Todo[]; pads?: Pad[] } = {}) => {
   const app = createFakeApp();
   let listed = [...terminals, ...tree.flatMap((node) => node.terminal_id ? [info(node.terminal_id)] : [])];
 
   app.handlers["rail.tree"] = () => tree;
+  app.handlers["todo.list"] = () => lists.todos ?? [];
+  app.handlers["pad.list"] = () => lists.pads ?? [];
   app.handlers["terminal.list"] = () => listed;
   app.handlers["terminal.close"] = ({ id }) => {
     listed = listed.filter((terminal) => terminal.id !== id);

@@ -4,6 +4,7 @@ import { copy } from "./copy";
 import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
 import { ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel } from "../keys/chords";
+import { checkRecorded, holderOf, isModifier, ownerOf, shortcutsWith } from "./shortcutRules";
 import { registerKeys } from "../keys/registry";
 import { appSettings, saveAppSettings } from "./preferences";
 
@@ -14,19 +15,6 @@ const ROWS = {
 } as const;
 
 const fallbackOf = (field: keyof typeof ROWS) => field === "quickAdd" ? "meta+shift+KeyT" : "";
-
-/** U5239d: the only chords a focused Terminal leaves to the App (U2241); every other `⌃`, `⌥` or `⌘` chord is the Terminal's. */
-const appScope = () => new Set(["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+Slash", "meta+Comma", "ctrl+meta+KeyJ", "meta+KeyB", fallbackOf("quickAdd"), appSettings().quickAdd]);
-
-const RESERVED = () => new Map([["meta+KeyQ", copy.quitApp], ["meta+KeyH", copy.hideApp], ["meta+Space", copy.spotlight], ["meta+Tab", copy.switchApps]]);
-
-/** The action that holds `press` now, a macOS-reserved chord included. */
-const holderOf = (press: string, except = ""): string | undefined =>
-  RESERVED().get(press)
-  ?? CHORDS.find(row => row.name !== except && row.presses.includes(press))?.what
-  ?? LEADER.find(row => row.press.toLowerCase() === press.toLowerCase())?.what;
-
-const isModifier = (event: KeyboardEvent) => ["Control", "Alt", "Meta", "Shift", "CapsLock"].includes(event.key) || event.isComposing;
 
 type Mode = { kind: "record"; name: string } | { kind: "find" };
 
@@ -47,38 +35,27 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   const failure = (at: string) => (message: string | null) => setFailed(message === null ? null : { at, message });
 
   const record = async (name: string, event: KeyboardEvent) => {
-    const fail = failure(name);
+    const checked = checkRecorded(name, event);
 
-    if (!event.metaKey && !event.ctrlKey) return fail(copy.shortcutModifier);
+    if ("refusal" in checked) return failure(name)(checked.refusal);
 
-    const press = pressOf(event);
-    const label = shortcutLabel(press, event.key);
-    const holder = holderOf(press, name);
-
-    if (holder) return fail(copy.shortcutRefusal(label, holder));
-
-    if (!appScope().has(press)) return fail(copy.shortcutTerminal(label));
-
-    await change(name, press);
+    await change(name, checked.press);
   };
 
   const change = async (name: string, press: string | null) => {
-    const { [name]: _gone, ...rest } = overrides();
     const restored = press === null ? defaultPress(name) : undefined;
     const taken = restored ? holderOf(restored, name) : undefined;
 
     if (taken) return failure(name)(copy.shortcutRefusal(shortcutLabel(restored!), taken));
 
-    const next = press === null || press === defaultPress(name) ? rest : { ...rest, [name]: press };
-
     setFailed(null);
-    props.onFailure(await saveAppSettings({ shortcuts: next }, props.capture));
+    props.onFailure(await saveAppSettings({ shortcuts: shortcutsWith(name, press) }, props.capture));
     setMode(null);
   };
 
   const look = (event: KeyboardEvent) => {
     const press = pressOf(event);
-    const owner = RESERVED().get(press) ?? CHORDS.find(row => row.presses.includes(press))?.what;
+    const owner = ownerOf(press);
     const label = shortcutLabel(press, event.key);
 
     setFound(owner ? copy.chordIs(label, owner) : copy.chordFree(label));

@@ -115,3 +115,19 @@
   block-size: 0;
   min-block-size: 0;
 }
+
+/* U5240c: one quiet line of the keys that act now. */
+.switcher-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding-inline: var(--space-2);
+  color: var(--grey);
+}
+
+.switcher-recording,
+.switcher-refusal {
+  flex: none;
+  color: var(--grey);
+}
