@@ -43,6 +43,7 @@
     Method { name: "agent.resume", params: "agent_ResumeParams", result: "agent_RailNode" },
     Method { name: "agent.makeWorkstream", params: "agent_NodeId", result: "agent_RailNode" },
     Method { name: "agent.saveAsMode", params: "agent_SaveAsModeParams", result: "agent_RailNode" },
+    Method { name: "rail.setAlertLevel", params: "agent_SetAlertLevelParams", result: "null" },
     Method { name: "agent.setModel", params: "agent_SetModelParams", result: "agent_RailNode" },
     Method { name: "todo.create", params: "todo_CreateParams", result: "todo_Todo" },
     Method { name: "todo.get", params: "todo_TodoId", result: "todo_Todo" },
