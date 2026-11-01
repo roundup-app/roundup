@@ -7,7 +7,9 @@ import { createContext, createEffect, createRoot, createSignal, getOwner, onClea
 import type { Accessor } from "solid-js";
 import { createImport } from "../rail/importState";
 import { draftStorage } from "./storage";
+import { copy } from "./copy";
 import { checkContract } from "../app/contractMatch";
+import { serveActions } from "../keys/actions";
 import { connectEvents } from "../app/events";
 import type { Events } from "../app/events";
 import type { AppSeam, DaemonExit, Project } from "../app/seam";
@@ -226,6 +228,9 @@ export const connectProject = async (
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
   const [terminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
   let stopRail = () => {};
+
+  // NA6: from here the Daemon can relay `action.list` and `action.run` to this window.
+  serveActions(app).catch(error => console.error(copy.actionsUnregistered, error));
 
   const rail = createRoot(dispose => {
     stopRail = dispose;

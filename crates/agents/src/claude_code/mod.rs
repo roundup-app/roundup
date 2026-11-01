@@ -63,6 +63,12 @@ pub const MARKERS: [&str; 8] = [
 /// `idle` of an Esc during an auto-allowed tool.
 pub const STAR_HOLD: i64 = 200;
 
+/// How long a lone ◐/◑ title keeps an Agent `working` when no Signal backs it, in milliseconds,
+/// measured from the latest spinner title. A working Claude Code alternates ◐/◑ about every
+/// 0.96 s (largest gap 0.99 s across `spikes/hooks-state/screen*.jsonl`, outside a dialog); 3000 ms
+/// is about 3 times that. Claude Code can draw one spinner after `Stop` with no star after it.
+pub const SPINNER_HOLD: i64 = 3000;
+
 /// What Claude Code takes as its own exit: three Ctrl+C presses. A fullscreen session that ends
 /// any other way within 10 s of its first frame counts as a failed start, and two failed starts
 /// turn fullscreen off for every Claude Code on the machine
@@ -94,6 +100,9 @@ pub struct ClaudeCode {
     after_pre_tool_use: bool,
     /// When a star after `PreToolUse` was first seen and not yet resolved.
     star_parked_since: Option<i64>,
+    /// The latest ◐/◑ title of a title-working Agent: a spinner gave `working` and no Signal
+    /// has come since.
+    spinner_at: Option<i64>,
     clock: Box<dyn Fn() -> i64 + Send>,
     /// U3566c: the Agent's published finishes, carried across Attempts by its caller.
     finished: u64,
@@ -109,6 +118,7 @@ impl ClaudeCode {
             ending: Ending::Running,
             after_pre_tool_use: false,
             star_parked_since: None,
+            spinner_at: None,
             clock: Box::new(clock),
             finished: 0,
             hooked: true,
@@ -179,9 +189,12 @@ impl ClaudeCode {
         Some(next)
     }
 
-    /// When the adapter wants an `Observation::Tick`: `STAR_HOLD` after the star it is holding.
+    /// When the adapter wants an `Observation::Tick`: `STAR_HOLD` after the star it is holding,
+    /// or `SPINNER_HOLD` after the latest spinner title of a title-working Agent.
     pub fn tick_at(&self) -> Option<i64> {
-        self.star_parked_since.map(|since| since + STAR_HOLD)
+        let star = self.star_parked_since.map(|since| since + STAR_HOLD);
+        let spinner = self.spinner_at.map(|at| at + SPINNER_HOLD);
+        star.into_iter().chain(spinner).min()
     }
 
     /// Claude Code spins ◐/◑ while it works and shows ✳ whenever it is not, a permission dialog
@@ -190,14 +203,22 @@ impl ClaudeCode {
     /// `needs-you`, `error` or `done`. The one star not read at once follows `PreToolUse`: it may
     /// be the dialog's, which precedes its `PermissionRequest`, so it is parked for `STAR_HOLD`;
     /// reading it as idle would flicker `idle` before `needs-you`. A spinner after that star shows
-    /// the tool still running and drops the hold.
+    /// the tool still running and drops the hold. A spinner that turns an Agent `working` is its
+    /// only evidence, so it holds for `SPINNER_HOLD` (A2b); a star or a Signal drops that hold.
     fn retitle(&mut self, title: &str) -> Option<Status> {
         let kind = self.status.as_ref().map(|status| status.kind);
-        match title.chars().next()? {
+        let first = title.chars().next()?;
+        if first == '✳' {
+            self.spinner_at = None;
+        }
+        match first {
             '◐' | '◑' => {
                 self.star_parked_since = None;
                 if kind == Some(Kind::NeedsYou) {
                     return None;
+                }
+                if kind != Some(Kind::Working) || self.spinner_at.is_some() {
+                    self.spinner_at = Some((self.clock)());
                 }
                 self.settle(Kind::Working, "working".into())
             }
@@ -211,8 +232,16 @@ impl ClaudeCode {
         }
     }
 
-    /// A parked star that no `PermissionRequest` followed was a plain idle.
+    /// A parked star that no `PermissionRequest` followed was a plain idle, and so is a spinner
+    /// title that nothing followed for `SPINNER_HOLD`.
     fn tick(&mut self) -> Option<Status> {
+        if self
+            .spinner_at
+            .is_some_and(|at| (self.clock)() - at >= SPINNER_HOLD)
+        {
+            self.spinner_at = None;
+            return self.settle(Kind::Idle, "idle".into());
+        }
         self.star_parked_since
             .filter(|since| (self.clock)() - since >= STAR_HOLD)?;
         self.star_parked_since = None;
@@ -223,11 +252,13 @@ impl ClaudeCode {
         let (kind, label) = hook_status(payload)?;
         self.after_pre_tool_use = payload["hook_event_name"] == "PreToolUse";
         self.star_parked_since = None;
+        self.spinner_at = None;
         self.settle(kind, label)
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {
         self.star_parked_since = None;
+        self.spinner_at = None;
         if matches!(self.ending, Ending::Stopped | Ending::Failed) {
             return None;
         }
@@ -247,6 +278,7 @@ impl ClaudeCode {
             return None;
         }
         self.star_parked_since = None;
+        self.spinner_at = None;
         self.settle(Kind::Error, "prompt not accepted".into())
     }
 
@@ -258,6 +290,7 @@ impl ClaudeCode {
         }
         self.ending = Ending::Failed;
         self.star_parked_since = None;
+        self.spinner_at = None;
         self.settle(Kind::Error, label)
     }
 }
@@ -270,6 +303,7 @@ impl AgentAdapter for ClaudeCode {
             Observation::Stopped => {
                 self.ending = Ending::Stopped;
                 self.star_parked_since = None;
+                self.spinner_at = None;
                 self.settle_counting(Kind::Done, "stopped".into(), false)
             }
             Observation::Program(_) if self.hooked => None,
@@ -593,4 +627,90 @@ pub fn context_tokens(payload: &Value) -> Result<Option<u64>, rpc::RpcError> {
         }
     }
     Ok(last)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicI64, Ordering},
+    };
+
+    struct Clocked {
+        now: Arc<AtomicI64>,
+        adapter: ClaudeCode,
+    }
+
+    impl Clocked {
+        fn new() -> Self {
+            let now = Arc::new(AtomicI64::new(0));
+            let clock = now.clone();
+            let adapter = ClaudeCode::new(move || clock.load(Ordering::SeqCst));
+            Self { now, adapter }
+        }
+
+        fn at(&mut self, ms: i64, observation: Observation) -> Option<Kind> {
+            self.now.store(ms, Ordering::SeqCst);
+            self.adapter.observe(observation);
+            self.adapter.status().map(|s| s.kind)
+        }
+
+        fn signal(&mut self, ms: i64, event: &str) -> Option<Kind> {
+            self.at(ms, Observation::Signal(json!({ "hook_event_name": event })))
+        }
+
+        fn title(&mut self, ms: i64, title: &str) -> Option<Kind> {
+            self.at(ms, Observation::Title(title.into()))
+        }
+    }
+
+    #[test]
+    fn a2b_a_lone_spinner_after_stop_reads_idle() {
+        let mut a = Clocked::new();
+        a.signal(0, "UserPromptSubmit");
+        assert_eq!(a.signal(100, "Stop"), Some(Kind::Idle));
+        assert_eq!(a.title(1500, "◐ task"), Some(Kind::Working));
+        assert_eq!(a.adapter.tick_at(), Some(1500 + SPINNER_HOLD));
+        assert_eq!(
+            a.at(1500 + SPINNER_HOLD - 1, Observation::Tick),
+            Some(Kind::Working)
+        );
+        assert_eq!(
+            a.at(1500 + SPINNER_HOLD, Observation::Tick),
+            Some(Kind::Idle)
+        );
+        assert_eq!(a.adapter.tick_at(), None);
+    }
+
+    #[test]
+    fn a2b_alternating_spinners_keep_working() {
+        let mut a = Clocked::new();
+        a.signal(0, "UserPromptSubmit");
+        a.signal(100, "Stop");
+        let mut at = 1000;
+        for glyph in ["◐", "◑", "◐", "◑", "◐"] {
+            assert_eq!(a.title(at, glyph), Some(Kind::Working));
+            assert_eq!(a.at(at + 960, Observation::Tick), Some(Kind::Working));
+            at += 960;
+        }
+        assert_eq!(a.at(at + SPINNER_HOLD, Observation::Tick), Some(Kind::Idle));
+    }
+
+    #[test]
+    fn a2b_a_signal_drops_the_spinner_hold() {
+        let mut a = Clocked::new();
+        a.signal(0, "Stop");
+        a.title(1000, "◐");
+        assert!(a.adapter.tick_at().is_some());
+        assert_eq!(a.signal(1100, "PostToolUse"), Some(Kind::Working));
+        assert_eq!(a.adapter.tick_at(), None);
+        assert_eq!(a.at(60_000, Observation::Tick), Some(Kind::Working));
+
+        a.signal(61_000, "Stop");
+        a.title(62_000, "◑");
+        a.title(62_500, "✳");
+        assert_eq!(a.adapter.tick_at(), None);
+    }
 }

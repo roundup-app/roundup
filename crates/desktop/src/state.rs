@@ -61,6 +61,8 @@ struct Open {
     subscription: Option<JoinHandle<()>>,
     /// X14: one connection and pump per selected Terminal; dropping one releases that selection.
     outputs: HashMap<String, JoinHandle<()>>,
+    /// NA6: the connection the Daemon relays the App's `action.list` and `action.run` to, and its pump.
+    actions: Option<(Arc<Client>, JoinHandle<()>)>,
     connected: Option<oneshot::Sender<Result<(), RpcError>>>,
 }
 
@@ -71,6 +73,9 @@ impl Drop for Open {
         }
         for (_, output) in self.outputs.drain() {
             output.abort();
+        }
+        if let Some((_, pump)) = self.actions.take() {
+            pump.abort();
         }
     }
 }
@@ -431,6 +436,53 @@ impl AppState {
         }
     }
 
+    /// NA6: registers the webview as the Project's action answerer (`action.serve`) and sends each
+    /// request line the Daemon relays to `channel`; `action_answer` writes the answer. A second call replaces the first.
+    pub async fn action_serve(&self, path: &str, channel: Channel<Value>) -> Result<(), RpcError> {
+        let socket = self.open_ref(path, |open| open.socket.path().to_path_buf())?;
+        let mut client = Client::connect(&socket).await.map_err(RpcError::internal)?;
+        let mut requests = client
+            .take_requests()
+            .ok_or_else(|| RpcError::internal("the request intake was already taken"))?;
+        self.bounded("action.serve", client.request("action.serve", Value::Null))
+            .await?;
+        let client = Arc::new(client);
+        let pump = tauri::async_runtime::spawn(async move {
+            while let Some(request) = requests.recv().await {
+                if channel.send(request).is_err() {
+                    return;
+                }
+            }
+        });
+        let mut entries = self.entries();
+        match entries.iter_mut().find(|entry| entry.path == path) {
+            Some(Entry {
+                phase: Phase::Open(open),
+                ..
+            }) => {
+                if let Some((_, previous)) = open.actions.replace((client, pump)) {
+                    previous.abort();
+                }
+                Ok(())
+            }
+            _ => {
+                pump.abort();
+                Err(not_open(path))
+            }
+        }
+    }
+
+    /// NA6: the webview's answer to a request `action_serve` delivered.
+    pub async fn action_answer(&self, path: &str, line: Value) -> Result<(), RpcError> {
+        let client = self.open_ref(path, |open| {
+            open.actions.as_ref().map(|(client, _)| Arc::clone(client))
+        })?;
+        client
+            .ok_or_else(|| RpcError::internal("no action answerer is registered"))?
+            .reply(&line)
+            .await
+    }
+
     /// X14: releases the App's selection of one Terminal; the other Terminals' streams go on.
     pub fn terminal_output_stop(&self, path: &str, id: &str) -> Result<(), RpcError> {
         let mut entries = self.entries();
@@ -568,6 +620,7 @@ impl AppState {
             run,
             subscription: None,
             outputs: HashMap::new(),
+            actions: None,
             connected,
         };
         let mut entries = self.entries();
