@@ -1,7 +1,7 @@
 import { copy as sharedCopy } from "../sharedCopy";
 
 export const storageCopy = {
-  incompatible: (folder: string) => `Saved work is incompatible with this app. Close roundup. Delete this folder to start fresh: ${folder}`,
+  incompatible: (folder: string) => `Saved work is incompatible with this app. Close roundup. Delete this browser data to start fresh: ${folder}`,
   restoreFailure: (cause: string) => `Could not restore saved work: ${cause}.`,
   readFailure: (cause: string) => `Could not read saved work: ${cause}.`,
   notRestored: "Saved work is still restoring.",
