@@ -305,8 +305,6 @@ pub fn types() -> specta::Types {
         .register::<crate::common::SubscribeParams>()
         .register::<crate::common::HistoryParams>()
         .register::<crate::common::TouchedParams>()
-        .register::<crate::attachment::SaveParams>()
-        .register::<crate::attachment::Saved>()
         .register::<crate::agent::SpawnParams>()
         .register::<crate::agent::Extras>()
         .register::<crate::agent::ExtrasAddParams>()
