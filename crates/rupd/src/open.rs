@@ -12,7 +12,11 @@ impl Daemon {
     pub fn open_project(project: &Path, data: &Path) -> Result<Self, OpenError> {
         let dir = data::project_data(data, project)?;
         data::migrate(project, &dir).map_err(OpenError::from)?;
-        Self::open_in(project, &dir)
+        let daemon = Self::open_in(project, &dir)?;
+        Ok(match std::env::var_os("HOME") {
+            Some(home) => daemon.with_extensions(&Path::new(&home).join(".roundup/extensions")),
+            None => daemon,
+        })
     }
 
     pub(crate) fn open_in(project: &Path, dir: &Path) -> Result<Self, OpenError> {
@@ -152,6 +156,7 @@ impl Daemon {
             },
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             actions: Default::default(),
+            extensions: extensions::Host::new(dir.join("extensions")),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
                 Arc::clone(&agents),

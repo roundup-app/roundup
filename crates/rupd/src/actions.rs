@@ -137,11 +137,25 @@ impl Daemon {
                 return Err(RpcError::forbidden("only the user's App answers actions"));
             }
             self.actions.register(conn.events.clone());
+            // UA3: the names the App now holds are checked against the User actions.
+            self.extensions.app_registered();
             return Ok(Value::Null);
         }
+        if method == "action.userList" {
+            ctx.touch(Verb::Read, "action:userList")?;
+            return rpc::reply(&self.extensions.rows());
+        }
         if method == "action.list" {
-            let rows = self.app_list().await?;
+            let mut rows = self.app_list().await?;
             ctx.touch(Verb::Read, "action:list")?;
+            // UA1: the User actions follow the App's rows.
+            if let Some(app) = rows.as_array_mut() {
+                let names = app
+                    .iter()
+                    .filter_map(|row| row["name"].as_str().map(str::to_owned));
+                self.extensions.built_in(self, names.collect());
+                app.extend(self.extensions.rows().iter().map(|row| json!(row)));
+            }
             return Ok(rows);
         }
         if conn.actor.kind != ActorKind::User {
@@ -150,6 +164,10 @@ impl Daemon {
             ));
         }
         let run: RunParams = rpc::params(params)?;
+        // UA5: a User action runs in the host and does not need the App.
+        if let Some(result) = self.extensions.run(self, &run).await {
+            return result;
+        }
         let rows: Vec<ActionRow> =
             serde_json::from_value(self.app_list().await?).map_err(RpcError::internal)?;
         let row = rows
@@ -193,7 +211,7 @@ impl Daemon {
     }
 
     /// The App's own list, as it answered.
-    async fn app_list(&self) -> Result<Value, RpcError> {
+    pub(crate) async fn app_list(&self) -> Result<Value, RpcError> {
         match self.actions.relay("action.list", Value::Null).await {
             Relay::NoApp | Relay::Lost => Err(app_closed()),
             Relay::Answer(answer) => answer,
