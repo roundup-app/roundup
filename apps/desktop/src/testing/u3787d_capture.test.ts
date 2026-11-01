@@ -108,7 +108,7 @@ it.skipIf(!captureDir("U5463c"))("u5463c_shared_editor_and_recovery_surfaces", a
   };
 
   const origin = await lane.evaluate<string>("location.origin");
-    await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
+    await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40&menu=1`);
     await lane.until("!!document.querySelector('#shelf-tab-pads')");
     await lane.browser("click", "#shelf-tab-pads");
     await lane.until("!!document.querySelector('.pad-name')");
