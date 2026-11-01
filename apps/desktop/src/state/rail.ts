@@ -19,7 +19,7 @@ import { outcomeOf, type AppSeam } from "../app/seam";
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
 /** U5151c: one failure, bound to its Attempt and Status revision. */
-export const failureKey = (node: RailNode): string | null =>
+const failureKey = (node: RailNode): string | null =>
   node.status?.kind === "error" && node.attempt !== null && node.status_revision !== null ? `${node.id}:${node.attempt}:${node.status_revision}` : null;
 
 export type DismissalStorage = {
@@ -47,6 +47,8 @@ export type RailState = {
   startDoor(id: string): Promise<void>;
   /** U9/U62: creates a root Workstream, then selects it and starts its Door once `rail.tree` returns it. */
   createWorkstream(): Promise<void>;
+  /** U5241: creates a root Workstream named `name`; resolves `null` once the Daemon made it, else the failure message, shown nowhere on the Rail. */
+  createNamedWorkstream(name: string): Promise<string | null>;
   /** True from the click until the new Workstream has appeared and its Door launch has begun. */
   workstreamCreating(): boolean;
   clearWorkstreamFailure(): void;
@@ -376,16 +378,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     }
   };
 
-  const createWorkstream = (): Promise<void> => {
-    const params = { name: defaultWorkstreamName(model.tree), parent: null };
+  /** `named` is a Switcher's create (U5241): its failure goes back to the caller, not to the Rail's line. */
+  const makeWorkstream = (named: string | null): Promise<string | null> => {
+    const params = { name: named ?? defaultWorkstreamName(model.tree), parent: null };
 
     // The connection and these arguments outlive the Rail that offered the action.
-    const create = async (): Promise<void> => {
-      if (workstreamCreating()) return;
+    const create = async (): Promise<string | null> => {
+      if (workstreamCreating()) return null;
       setWorkstreamCreating(true);
 
       try {
-        if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return;
+        if (workstreamUnknown !== null && !await app.ask({ title: copy.newWorkstreamTitle, message: `${copy.terminalOutcomeUnknown}${workstreamUnknown}`, okLabel: copy.newWorkstreamTitle, cancelLabel: copy.keep })) return workstreamUnknown;
 
         workstreamFocus = captureFocus(true);
         workstreamSelection = selectionRevision;
@@ -393,11 +396,17 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         workstreamUnknown = null;
         commandFailure.acknowledge(null);
         fetching(fetchTree);
+
+        return null;
       } catch (error) {
         if (!(error instanceof Error)) throw error;
 
         workstreamUnknown = outcomeOf(error) === "unknown" ? error.message : null;
+
+        if (named !== null) return error.message;
         commandFailure.show(`${copy.newWorkstreamTitle}: ${workstreamUnknown !== null ? copy.terminalOutcomeUnknown : ""}${error.message}`, null, "rail", () => { void create(); });
+
+        return error.message;
       } finally {
         if (wantedWorkstream === null) setWorkstreamCreating(false);
       }
@@ -405,6 +414,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
 
     return create();
   };
+
+  const createWorkstream = async (): Promise<void> => { await makeWorkstream(null); };
 
   events.subscribe((event) => apply([event]));
   fetching(async () => {
@@ -425,6 +436,7 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     doorFailure: (id) => doors[id]?.failure?.message ?? null,
     startDoor,
     createWorkstream,
+    createNamedWorkstream: name => makeWorkstream(name),
     workstreamCreating,
     clearWorkstreamFailure: () => commandFailure.acknowledge(null),
     get nodes() {
