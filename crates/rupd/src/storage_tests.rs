@@ -118,7 +118,7 @@ async fn a3308_an_old_workstream_defaults_to_auto_off() {
     .unwrap();
     drop(db);
     let upgraded = crate::tests::daemon_in(dir.path());
-    let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.list"}"#).await;
+    let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.tree"}"#).await;
     assert_eq!(reply["result"][0]["auto"], false);
 }
 
