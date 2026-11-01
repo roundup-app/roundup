@@ -40,7 +40,6 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   app.handlers["message.list"] = () => options.messages ?? [];
   app.handlers["message.send"] = (params) => message(99, { from: USER, to: params.to, body: params.body });
-  app.handlers["attachment.save"] = (params) => ({ path: `/saved/${params.name}` });
   /** U347: a selected Workstream shows only its own, so the fixture's items sit in the first one. */
   const home = tree.find((node) => node.kind === "workstream")?.id ?? null;
   app.handlers["todo.list"] = () => [{ id: 1, title: "todo 1", body: "", done: false, blockers: [], blocked: false, created_at: 0, updated_at: 0, creator: USER, home, owner: null, refs: [], priority: null }];

@@ -86,7 +86,6 @@ for line in sys.stdin:
         wake_events: Default::default(),
         wake_gate: Default::default(),
         sender: Default::default(),
-        attachments: crate::attachment::Attachments::open(&dir),
         restarting: Default::default(),
         queue: Default::default(),
         auto: crate::auto::Auto::new(&bus),
