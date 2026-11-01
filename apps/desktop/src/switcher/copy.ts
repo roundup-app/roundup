@@ -22,5 +22,5 @@ export const copy = {
   switcherLabel: "Switch to",
   switcherPlaceholder: sharedCopy.switcherPlaceholder,
   noMatch: sharedCopy.noMatch,
-  makeWorkstream: sharedCopy.makeWorkstream,
+  makeWorkstream: (name: string) => `${sharedCopy.makeWorkstream} “${name}”`,
 } as const;
