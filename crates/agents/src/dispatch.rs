@@ -9,7 +9,7 @@ impl Module for Agents {
     async fn call_reply(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Reply, RpcError> {
         match method {
             // R3696c: the Rail is the largest reply a keystroke-paced client asks for.
-            "rail.tree" | "rail.list" => rpc::json(&self.shared.tree()?),
+            "rail.tree" => rpc::json(&self.shared.tree()?),
             _ => self.call(ctx, method, value).await.map(Reply::Value),
         }
     }
