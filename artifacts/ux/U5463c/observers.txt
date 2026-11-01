@@ -46,7 +46,9 @@ loaded config: /tmp/roundup-5463/.fallowrc.json
 
 All remaining fallow findings are outside U5463a. No audited removed file, export or probe dependency is reported.
 
-just capture U5463c — exit 0 (base and head; three rendered seed observers each).
+Rendered observers on main and implementation: three seed cases passed through just capture U5463c. The additional shared-editor/recovery case passed separately after enabling the harness menu observer:
+ROUNDUP_CAPTURES=U5463c pnpm --filter desktop exec vitest run src/testing/u3787d_capture.test.ts -t u5463c_shared --retry 0 — exit 0 (head)
+U5463_PHASE=base ROUNDUP_CAPTURES=U5463c pnpm --filter desktop exec vitest run src/testing/u3787d_capture.test.ts -t u5463c_shared --retry 0 — exit 0 (main)
 loop/rules.sh delta artifacts/ux/U5463c/base artifacts/ux/U5463c/head — exit 0
 agents-10-drawer D1 still-passing
 agents-10-drawer D2 still-failing
@@ -160,6 +162,34 @@ tree-40-failure D11 still-passing
 tree-40-failure D12 still-passing
 tree-40-failure D13 still-passing
 tree-40-failure D14 still-passing
+tree-40-pad-editor D1 still-passing
+tree-40-pad-editor D2 still-passing
+tree-40-pad-editor D3 still-passing
+tree-40-pad-editor D4 still-passing
+tree-40-pad-editor D5 still-passing
+tree-40-pad-editor D6 still-passing
+tree-40-pad-editor D7 still-passing
+tree-40-pad-editor D8 still-passing
+tree-40-pad-editor D9 still-passing
+tree-40-pad-editor D10 still-passing
+tree-40-pad-editor D11 still-passing
+tree-40-pad-editor D12 still-passing
+tree-40-pad-editor D13 still-passing
+tree-40-pad-editor D14 still-passing
+tree-40-project-recovery D1 still-passing
+tree-40-project-recovery D2 still-passing
+tree-40-project-recovery D3 still-passing
+tree-40-project-recovery D4 still-passing
+tree-40-project-recovery D5 still-passing
+tree-40-project-recovery D6 still-passing
+tree-40-project-recovery D7 still-passing
+tree-40-project-recovery D8 still-passing
+tree-40-project-recovery D9 still-passing
+tree-40-project-recovery D10 still-passing
+tree-40-project-recovery D11 still-passing
+tree-40-project-recovery D12 still-passing
+tree-40-project-recovery D13 still-passing
+tree-40-project-recovery D14 still-passing
 tree-40-reactions D1 still-passing
 tree-40-reactions D2 still-passing
 tree-40-reactions D3 still-passing
@@ -188,6 +218,20 @@ tree-40-shelf D11 still-passing
 tree-40-shelf D12 still-passing
 tree-40-shelf D13 still-passing
 tree-40-shelf D14 still-passing
+tree-40-unfinished-work D1 still-passing
+tree-40-unfinished-work D2 still-passing
+tree-40-unfinished-work D3 still-passing
+tree-40-unfinished-work D4 still-passing
+tree-40-unfinished-work D5 still-passing
+tree-40-unfinished-work D6 still-passing
+tree-40-unfinished-work D7 still-passing
+tree-40-unfinished-work D8 still-passing
+tree-40-unfinished-work D9 still-passing
+tree-40-unfinished-work D10 still-passing
+tree-40-unfinished-work D11 still-passing
+tree-40-unfinished-work D12 still-passing
+tree-40-unfinished-work D13 still-passing
+tree-40-unfinished-work D14 still-passing
 
 loop/rules.sh vocab — exit 0
 
@@ -196,7 +240,7 @@ loop/rules.sh scenario-ids — exit 0
 loop/rules.sh merge-loss — exit 0
 
 Baseline failures: Shelf/Drawer D2 reports a 28px left inset on the nested shelf row; D10 reflects D2. Both remain unchanged. D5 and D6 pass in every pair. Reaction details and the dense failure view pass every Check.
-Direct reading comparison: all 15 Check statuses (D1–D14 and D16) preserved in all 10 pairs.
+Direct reading comparison: all 15 Check statuses (D1–D14 and D16) preserved in all 13 pairs.
 
 Test audit: U41 focus classification is retired; no production caller remains. U58 is retired; u4457_pads_open_from_shelf_without_agent_control retains no-control/Shelf access. Only Toggle rows are cut from U133. U449 retains its long-title observer, with local observation types. Existing U3787d observers remain; U5463c adds rendered capture coverage.
 
