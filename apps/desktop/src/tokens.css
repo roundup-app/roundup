@@ -453,6 +453,7 @@ button, file-tree-container, diffs-container {
 .shelf[data-open="true"] {
   box-shadow: var(--elevation)
 }
+.status-reveal,
 .drawer[data-open="true"] {
   box-shadow: var(--elevation)
 }
