@@ -300,7 +300,7 @@ Migration is additive and preserves historical bytes in place: existing `deliver
 | Retained original revisions after edits, maker/Worktree cleanup and restart; replay/conflict and pre/post-commit crashes | Existing `dv4_home_lifecycle`, `dv2_publish_replay` and their exact-byte assertions, plus R3778c's file cuts. |
 | Revocation, corruption/missing revision, current external identity, user Home and removal | All existing DV3/DV4 observers in `deliverables.rs`, with physical corruption/allocation probes adapted, not removed. |
 | Metadata-only proof | Existing `crates/rupd/src/deliverables.rs::tests::dv2_metadata_only`, extended to deny/count both legacy BLOB and file payload reads through list/get; keep its positive resolve control. |
-| Public concurrency, owner reads, Event durability and standalone leases | Retained Pad snapshot observer; existing `crates/agents/src/rail_view.rs` B32 snapshot/lease tests; existing D10/D11 in `crates/rupd/src/event_log.rs`. Add `r3778d_publication_with_public_reads_and_writes` through public Daemon calls while an old snapshot is retained; compare exact old/new Pad facts, publication list/resolve, fresh owner facts and ordered durable Events across reopen. No ordinary-path busy refusal or longer bound. |
+| Public concurrency, owner reads, Event durability and standalone leases | Retained Pad snapshot observer; B32 snapshot/lease observers are retired by R5460; existing D10/D11 in `crates/rupd/src/event_log.rs`. Add `r3778d_publication_with_public_reads_and_writes` through public Daemon calls while an old snapshot is retained; compare exact old/new Pad facts, publication list/resolve, fresh owner facts and ordered durable Events across reopen. No ordinary-path busy refusal or longer bound. |
 
 Run the entire retained DV1–DV4 suite, `pad_sources`, reached storage/image/migration/owner tests and both required lints. Report each first attempt and any configured retry separately. Existing rule 10 and scenario observers cannot be weakened to accommodate the repair. P6's Gate forbids losing the user's Home; P12's Gate forbids substituted revisions, lost publication identity or ineffective removal/revocation. The DV1–DV4 and Pad observers above answer those Gates (policy).
 
@@ -319,7 +319,7 @@ Checks (existing on specification base `983eb53c1`; none is retired):
 3. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`, `dv2_publish_replay`, `dv2_changed_capture`, `dv3_no_substitution` and `dv4_removal_replay`: actual quota transactions, crash/replay, capture, integrity and removal.
 4. `crates/rupd/src/deliverables.rs`, `tests::dv2_metadata_only`: public metadata calls do not load BLOBs, with resolve as positive control.
 5. `crates/rupd/src/storage.rs`, `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity`: fresh/migrated equivalence and distinct identities.
-6. `crates/agents/src/rail_view.rs`, `b32_owner_reads_see_external_attachment_while_a_peer_pins_an_older_snapshot` and `b32_owner_read_leases_expire_and_rearm_independently_of_input`: fresh owner facts and bounded WAL leases.
+6. Retired by R5460: B32 fresh owner facts and bounded owner-read WAL leases; the Message-to-Terminal guard they supported was retired by B3563c. The other R3778d concurrency and durability observers remain required.
 7. `crates/rupd/src/event_log.rs`, `d10_every_event_but_terminal_output_is_saved_and_numbered`, `d10_numbers_never_repeat_across_a_reopen`, `d11_an_after_older_than_the_window_names_the_oldest_kept`: Event durability and replay bounds.
 8. `scenarios/perf-macos-write.md`, R3696c; `docs/perf.md`, What is enforced, and what is not; `AGENTS.md`, Rules, rule 7: unchanged runtime/performance acceptance.
 
@@ -339,3 +339,36 @@ Checks (on specification base `f1f59fb1d`; none retired):
 2. `crates/rup/tests/deliverables.rs`, `dv2_publish_failures`: real 32 MiB and 1 GiB boundaries, refusal without eviction, and retained payload verification after reopen.
 3. `crates/rup/tests/deliverables.rs`, `r3778c_removed_file_cleanup` and `dv4_removal_replay`: recoverable file cleanup, surviving publication bytes and removal replay refusal.
 4. `scenarios/deliverables.md`, DV2 and DV4; `scenarios/test-cost.md`, R3778c: unchanged quota, mixed allocation charging and publication-specific cleanup contract.
+
+
+# Retired Message receiver lookup
+
+Source: #5460. Acceptance is policy, checked by grep, independent review and the implementation head's checks; add no test that rereads code or inventories tests.
+
+**R5460 remove the unused Terminal-owner seam and preserve live behavior.** Given B32's retirement and B3563c's inbox-only Message delivery, when the unused receiver lookup is removed, then:
+
+1. Policy: `git grep -n with_terminal_owner -- crates` has matches only for `terminal::Terminals::with_terminal_owner` and calls to that live Terminal API. There is no `Agents::with_terminal_owner`, `messages::TerminalOwners`, implementation, mock or obsolete benchmark reference to the retired method. Preserve the live Terminal API, its callers and its durable-owner tests; it is a different capability.
+2. Policy: before deleting dependent machinery, grep its definitions and callers. Remove `agents::TerminalOwner`, `Rail::terminal_owner` in `crates/agents/src/rail/view.rs`, and machinery whose last caller disappears with them, including `OwnerReads` and its Rail field/module/initialization in `crates/agents/src/rail/owner_reads.rs` and `crates/agents/src/rail.rs`. Replace Messages' `Arc<dyn TerminalOwners>` dependency with its existing `rpc::Module` seam and update every constructor, caller and fake in the same PR. No new abstraction, RPC method or replacement owner query is required. Keep shared helpers and Terminal-owner machinery with other live callers. No dead-code allowance or feature flag may retain the retired seam.
+3. Policy: cut the 18 `b32_*` tests and `r16_owner_read_recovers_after_row_conversion_error` in `crates/agents/src/rail_view/tests.rs`, plus helpers used only by them (including `owner_transition` in `crates/agents/src/store.rs`). These prove only the retired receiver lookup, not a remaining B32 obligation. Preserve the other tests in that file. In `crates/agents/tests/scenarios/steer.rs`, remove the retired owner-read assertions while preserving the live B37 assertions: a live-error Agent can receive a Steer and an exited Attempt refuses it. Apply AGENTS rule 10 throughout each edited test file, mapping every additional cut to its surviving proof or explicit retirement in the implementation PR.
+4. Policy: remove the retired receiver lookup's entries from `GLOSSARY.md` and its definition in `scenarios/messages.md`, preserving the live Terminal owner terms. Retire only the B32 snapshot/lease retention requirement in R3778d above; its Pad snapshot, public publication/concurrency, Event durability and other acceptance remain required. Obsolete benchmark scripts or notes under `crates/agents/r16/` must not keep references that fail clause 1; retain unrelated evidence.
+5. Policy: every surviving test that proves a live scenario passes. In particular preserve B3563c's zero Terminal writes, inbox identity, receipt/restart behavior and unavailable-inbox recovery; B37 live-error Steer and ended-Attempt refusal; and live Terminal ownership/reopen behavior. The implementation head passes `just check origin/main` (CI may supply this observer), plus the grep observations below. This specification alone demonstrates no implementation acceptance and never closes #5460.
+
+Observer results (one row per failure; report the actual command exit and offending matches on the implementation Issue/PR):
+
+| Observation | Pass | Failure |
+| --- | --- | --- |
+| `git grep -n with_terminal_owner -- crates` | Exit 0; every match resolves to the live `terminal::Terminals` API or its callers | Exit 1 (live API missing), exit >1 (grep failed), or exit 0 with any retired-seam match |
+| `git grep -n -E 'TerminalOwners|OwnerReads|owner_reads' -- crates` | Exit 1, no matches | Exit 0 with remaining retired plumbing, or exit >1 |
+| `git grep -n TerminalOwner -- crates/agents/src` | Only the live `terminal::TerminalOwner` alias/use in `owners.rs` | Any retired Agents receiver-facts type/reference, or grep error |
+| `git grep -n terminal_owner -- crates/agents/src/rail/view.rs` | Exit 1, no matches | Exit 0 with the retired query, or exit >1 |
+| `just check origin/main` on the implementation head | Exit 0 | Any nonzero exit; name each failed check/test |
+
+Principles: P1 and P11's Gates ask whether a Message can write to live Terminal input; their observer remains B3563c's real-Daemon inbox/Terminal test. P4's Adapter boundary and P9's authorized prompt paths remain unchanged. Removing receiver lookup must introduce no alternate Terminal delivery path.
+
+Checks (on main when specified):
+
+1. `scenarios/messages.md`, B32 retired by #3563 and B3563c transport: inbox delivery replaces the unsent-input guard; B37 an error with a live Terminal still receives input remains live.
+2. `crates/rupd/tests/b50_note_inbox.rs`, `b3563c_all_senders_use_the_inbox_while_terminal_input_is_unsent`, `b3563c_receipt_and_restart_preserve_each_message_once` and `b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause`: Message isolation, identity, receipt/restart and recovery observers.
+3. `crates/agents/tests/scenarios/steer.rs`, `b37_live_error_refuses_concurrent_input` and `b37_live_error_owner_is_open_until_terminal_exit`: preserve live-error Steer behavior and exited-Attempt refusal through the remaining public behavior assertions.
+4. `crates/terminal/src/remote.rs`, `Terminals::with_terminal_owner`; `crates/agents/src/owners.rs`, `Agents::save_owner` and `Agents::reattach_owners`: distinct capability retained.
+5. `justfile`, `check`; `AGENTS.md`, Rules, rule 10: implementation checks and each removed test's proof/retirement mapping.
