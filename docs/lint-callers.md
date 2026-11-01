@@ -18,9 +18,9 @@ Each executable edge below reaches CI or the human instructions below; none depe
 | `lint-rust` | `.github/workflows/pre.yml`, `lint` | `python3 loop/app-data.py just lint-rust` |
 | `clippy` | `justfile`, `lint-rust`; `check.yml`, `mac-clippy` | `just clippy <base>`; `just clippy` |
 | `test-rust` | `justfile`, `test-rust-since` | `just test-rust <selection> <args>` |
-| `test-rust-since` | `check.yml`, `mac`; `tools/e14/observe.py`, Rust lane | `python3 loop/app-data.py just test-rust-since "$BASE" --profile mac`; `just test-rust-since <base> --profile ci<N> --test-threads 4` |
+| `test-rust-since` | `check.yml`, `mac`; `tools/e14/observe.py`, Rust lane | `python3 loop/app-data.py just test-rust-since "$BASE" --profile mac`; `python3 loop/app-data.py just test-rust-since <base> --profile ci<N> --test-threads 4 --config-file <generated-config>` |
 | `lint-web` | `.github/workflows/pre.yml`, `lint-web` | `python3 loop/app-data.py just lint-web` |
-| `test-web-since` | `tools/e14/observe.py`, web lane in `check.yml` | `just test-web-since <base> --shard <N>/<total>` |
+| `test-web-since` | `tools/e14/observe.py`, web lane in `check.yml` | `python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log <log> -- just test-web-since <base> --shard=<N>/<total> --config <generated-config>` |
 | `web-durations` | This document, Human commands | `just web-durations <main-check-run-id>` |
 | `contracts` | `tools/contracts/fresh.py`, `main` | `just contracts` |
 | `contracts-test` | `.github/workflows/check.yml`, C4 step in `rust 1` | `just contracts-test` |
