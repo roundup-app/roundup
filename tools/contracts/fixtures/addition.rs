@@ -26,8 +26,7 @@ async fn c4_one_declaration_reaches_every_surface() {
         let offers = if door { door_tools() } else { tools(false) };
         assert_eq!(offers.iter().filter(|offer| offer.method == "project.contractProbe").count(), usize::from(allowed));
         let (client, transport) = tokio::io::duplex(65536);
-        let (gone, _) = mpsc::channel(1);
-        let shim = Shim { socket: socket.clone(), actor: actor.clone(), tools: offers, gone };
+        let shim = Shim { socket: socket.clone(), actor: actor.clone(), tools: offers };
         let service = tokio::spawn(async move { shim.serve(transport).await.unwrap().waiting().await });
         let client = ().serve(client).await.unwrap();
         let outcome = client.call_tool(CallToolRequestParams::new("project_contractProbe").with_arguments(JsonObject::from_iter([("id".into(), id.into())]))).await;

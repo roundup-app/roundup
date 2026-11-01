@@ -167,11 +167,6 @@
   min-width: 0;
 }
 
-.rail-row .door-action {
-  flex: none;
-  white-space: nowrap;
-}
-
 .rail-row input {
   flex: 1;
   min-width: 0;
@@ -182,11 +177,6 @@
   background: var(--transparent);
   color: inherit;
   font: inherit;
-}
-
-.rail-name-error {
-  flex: none;
-  cursor: default;
 }
 
 .spawn-prompt-field {
@@ -385,17 +375,12 @@
   order: -1;
 }
 
-.rail-leaf :is(.item-description, [data-todo-home]) {
+.rail-leaf [data-todo-home] {
   display: none;
 }
 
 .rail-leaf [data-group-toggle] {
   flex: none;
-}
-
-/* The Door keeps a full icon target beside the group; the label stays available to assistive technology. */
-.rail-row .door-action-label {
-  display: none;
 }
 
 /* U397's 163 px stress surface gives the row its whole width; U466's supported resize widths retain the row inset. */
@@ -422,10 +407,6 @@
 }
 
 @container rail (width < env(--query-rail-compact)) {
- .rail-row[data-near="true"] .door-action {
-    display: none;
-  }
-
  .rail-row .line {
     --rail-gap: var(--space-3);
   }
@@ -517,20 +498,6 @@
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
-
-.rail-row .row-name-state {
-  display: flex;
-  flex: 1 1 0;
-  align-items: center;
-  min-width: 0;
-  gap: var(--space-2);
-  container-type: inline-size;
-}
-.row-name-state .name {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
-}
 .worktree-chips {
   display: flex;
   flex: none;
@@ -559,21 +526,6 @@
 }
 .worktree-chip[data-stale="true"] {
   color: var(--grey);
-}
-.rail-row:has(.row-name-state) .row-icons {
-  transform: none;
-}
-.rail-row:has(.row-name-state) .line {
-  gap: var(--space-1);
-}
-.rail-row:has(.row-name-state) :first-child {
-  margin-right: calc(var(--rail-gap) - var(--space-1));
-}
-.rail-row:has(.row-name-state) .fill {
-  display: none;
-}
-.row-name-state+.row-tail {
-  margin-left: var(--space-4);
 }
 
 .rail-recovery {
@@ -617,24 +569,8 @@
   background: var(--ground);
 }
 
-.rail-task-target {
-  margin: var(--space-1) var(--space-3);
-  color: var(--grey);
-  overflow-wrap: anywhere;
-}
-
 .rail-row[data-editing="true"] input {
   width: 100%;
-}
-
-.rail-retention {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-3);
-}
-
-.rail-retention button {
-  justify-self: start;
 }
 
 .rail-recovery summary {

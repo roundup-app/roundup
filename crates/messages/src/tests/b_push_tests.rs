@@ -61,7 +61,7 @@ impl Pushes {
                 Ok(())
             }),
         };
-        let agents: Arc<dyn TerminalOwners> = rail.clone();
+        let agents: Arc<dyn Module> = rail.clone();
         let messages = Arc::new(Messages::open_with(dir, bus.clone(), agents, env).unwrap());
         Self {
             messages,

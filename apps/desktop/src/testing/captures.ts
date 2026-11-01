@@ -100,7 +100,7 @@ const observerTable = {
   "src/terminal/u514_browser.test.ts": ["U3529", "U3529a", "U3529b", "U3529c", "U3529d"],
   "src/terminal/u59_real_daemon.test.ts": ["U4590"],
   "src/testing/u2875d_rendered.test.ts": ["U2875d"],
-  "src/testing/u3787d_capture.test.ts": ["U3787d"],
+  "src/testing/u3787d_capture.test.ts": ["U3787d", "U5463c"],
   "src/testing/u463_real_daemon.test.ts": ["A4899a", "U2875d", "U3037d", "U4590", "U463"],
   "src/toasts/p3557c_capture.test.ts": ["P3557c"],
   "src/todos/u5119_browser.test.ts": ["U5119"],
