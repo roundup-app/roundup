@@ -1,4 +1,10 @@
 pre-commit:
   commands:
+    lint-web:
+      priority: 1
+      glob: "*.{js,jsx,ts,tsx,mjs,mts,cjs,cts}"
+      run: node_modules/.bin/oxlint --fix --no-error-on-unmatched-pattern -- {staged_files}
+      stage_fixed: true
     file-stays-under-a-size-cap:
-      run: .claude/sound/placement/file-stays-under-a-size-cap.gate
+      priority: 2
+      run: .claude/sound/placement/file-stays-under-a-size-cap.gate --worktree
