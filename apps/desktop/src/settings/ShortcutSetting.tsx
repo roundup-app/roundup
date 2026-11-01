@@ -103,6 +103,8 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
 
   const begin = (next: Mode) => (event: MouseEvent & { currentTarget: HTMLElement }) => { active = event.currentTarget; setFound(null); setFailed(null); setMode(next); };
 
+  const beginRecord = (name: string) => begin({ kind: "record", name });
+
   const save = async () => {
     if (!props.app) return;
 
@@ -128,7 +130,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     <For each={ACTION_ROWS}>{row => row.name === "todo.capture"
       ? <><ShortcutSetting field="quickAdd" {...props} /><ShortcutSetting field="quickAddAnywhere" {...props} /></>
       : <ActionShortcut label={row.what} keys={keysOf(row)} recording={recording(row.name)} failure={failed()?.at === row.name ? failed()!.message : null}
-          {...(CHORDS.some(chord => chord.name === row.name && recordable(chord)) ? { onRecord: begin({ kind: "record", name: row.name }) } : {})}
+          {...(CHORDS.some(chord => chord.name === row.name && recordable(chord)) ? { onRecord: beginRecord(row.name) } : {})}
           overridden={row.name in overrides()} onReset={() => change(row.name, null)} />}</For>
   </>;
 };
