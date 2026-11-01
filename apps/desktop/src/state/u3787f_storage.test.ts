@@ -61,6 +61,7 @@ it("n5467b_old_browser_storage_is_refused", async () => {
   expect(remove).not.toHaveBeenCalled();
   expect(write).not.toHaveBeenCalled();
   expect(save).not.toHaveBeenCalled();
+  expect(cache.size).toBe(0);
   expect([...disk]).toEqual(before);
   // Simulate the user's manual removal, then the unchanged fresh/current path.
   localStorage.clear();
