@@ -35,7 +35,7 @@ const mount = async (fail = false) => {
 };
 
 const section = async (name: string) => {
-  const tab = screen.getByRole("tab", { name });
+  const tab = screen.getByText(name, { selector: '[role="tab"]' });
   fireEvent.click(tab);
   await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
 
@@ -107,8 +107,8 @@ it("u3802_a_failed_list_shows_the_message_and_keeps_the_choice", async () => {
   await mount(true);
   expect(await screen.findByText(/Model list unavailable; reopen Settings to retry/)).toBeTruthy();
   expect(appSettings()).toMatchObject({ engine: "engine-one", model: "model-one" });
-  expect(screen.getByLabelText("Engine Engine One", { selector: "button" })).toBeTruthy();
-  expect(screen.getByLabelText("Model Model One", { selector: "button" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Engine Engine One" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Model Model One" })).toBeTruthy();
 });
 
 it.each(["300", "2", "not a number"])("u3803_a_bad_size_is_refused_and_changes_nothing_%s", async invalid => {
@@ -170,7 +170,7 @@ it("u3804_reset_restores_the_default", async () => {
   await saveAppSettings({ quickAdd: "ctrl+KeyY" });
   await mount();
   await section("Shortcuts");
-  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  fireEvent.click(screen.getByText("Reset", { selector: "button" }));
   await waitFor(() => expect(CHORDS.find(row => row.what === copy.captureATodo)?.presses).toEqual(["meta+shift+KeyT"]));
   expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe("⇧⌘T");
 });
@@ -180,7 +180,7 @@ it.each(["Font size", "Line height", "Letter spacing"])("u3806_unsubmitted_field
   await commit("Font size", "17");
   fireEvent.input(screen.getByLabelText(label, { selector: "input" }), { target: { value: "too big" } });
   await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts).toContainEqual(expect.objectContaining({ value: expect.objectContaining({ text: "too big" }) })));
-  fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+  fireEvent.click(screen.getByText("← Back", { selector: "button" }));
   cleanup();
   await mount();
   await section("Terminal");
@@ -375,7 +375,7 @@ it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => 
   await waitFor(() => expect(appSettings().quickAddAnywhere).toBe("ctrl+shift+KeyY"));
   expect(configure).toHaveBeenLastCalledWith("ctrl+shift+KeyY");
   expect(appSettings().quickAdd).toBe("meta+shift+KeyT");
-  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  fireEvent.click(screen.getByText("Reset", { selector: "button" }));
   await waitFor(() => expect(appSettings().quickAddAnywhere).toBe(""));
   expect(configure).toHaveBeenLastCalledWith(null);
   expect(appSettings().quickAdd).toBe("meta+shift+KeyT");
