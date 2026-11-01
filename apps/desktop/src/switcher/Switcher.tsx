@@ -6,6 +6,8 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
+import type { RpcError } from "../app/seam";
+import type { ActionRow } from "@contracts/action/ActionRow";
 import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { StatusTip } from "../ink/StatusTip";
@@ -27,13 +29,14 @@ import { usePadList } from "../rail/pads/padList";
 import { PadHost } from "../pads/PadDrawer";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
-import { entriesOf, itemsMatching, matching } from "./entries";
+import { entriesOf, itemsMatching, matching, userActionsOf, USER_PREFIX } from "./entries";
+import type { ToastQueue } from "../toasts/queue";
 import type { Entry } from "./entries";
 import "./styles.css";
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
-export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { app, rail, project, drafts, drawer } = useConnectedProject();
+export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void; notify?: ToastQueue["notify"] | undefined }) => {
+  const { app, events, rail, project, drafts, drawer } = useConnectedProject();
   const todos = useTodoList();
   const pads = usePadList();
   const [open, setOpen] = createSignal(false);
@@ -100,10 +103,18 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const byValue = createMemo(() => new Map([...entries(), ...items()].map(entry => [entry.value, entry])));
 
+  // UA9: the Daemon's User actions, read when the Project connects and on each `action.userChanged`, so opening calls nothing; a failed read shows none and says nothing (UA12).
+  const [userRows, setUserRows] = createSignal<readonly ActionRow[]>([]);
+  const readUserRows = (): void => { app.rpc("action.userList", null).then(setUserRows, () => setUserRows([])); };
+
+  readUserRows();
+  onCleanup(events.subscribe(event => { if (event.name === "action.userChanged") readUserRows(); }));
+  const userActions = createMemo(() => userActionsOf(userRows()));
+
   const shown = createMemo(() => [
     ...matching(entries(), text()),
     ...items(),
-    ...matching(actions(), text()),
+    ...matching([...actions(), ...userActions()], text()),
   ]);
 
   /** U5240c: the highlighted row when it is a command that can take a new key (U5240d). */
@@ -255,7 +266,26 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     } finally { setMaking(false); }
   };
 
+  /** UA10, UA11: runs the User action once by name, with no argument; a refusal raises one Toast carrying its label and cause. */
+  const runUserAction = (entry: Entry): void => {
+    const name = entry.value.slice(USER_PREFIX.length);
+
+    close(true);
+    props.onFailure(null);
+    app.rpc("action.run", { name, args: [] }).catch((failure: RpcError) => {
+      props.notify?.({ key: `${USER_PREFIX}${name}`, item: `${USER_PREFIX}${name}`, project: project.path, kind: "error", name: entry.label, line: failure.message, selected: false, open: () => null });
+    });
+  };
+
   const chooseValue = (value: string | null): void => {
+    const user = userActions().find(candidate => candidate.value === value);
+
+    if (user) {
+      runUserAction(user);
+
+      return;
+    }
+
     const action = opening().actions.find((candidate) => candidate.value === value);
 
     if (action) {
@@ -387,6 +417,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
                 <span class="switcher-action key-hint"><span class="switcher-name">{action.label}</span> <span class="switcher-recording">{copy.pressAKey}</span></span>
               </Show>
             </>;
+
+            if (!entry && item.value.startsWith(USER_PREFIX)) return <span class="switcher-action key-hint"><span class="switcher-name">{item.label}</span></span>;
 
             if (!entry) return null;
 
