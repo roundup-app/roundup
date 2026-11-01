@@ -20,7 +20,7 @@ export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switch
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
 export type Hint = { label: string; at: Partial<Record<HintPlace, number>> };
 
-/** Commands bound in the webview, including focused Terminal actions, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌥⌘N`, `⇧⌘M`, `⌘T`, `⇧⌘T`, `⌘K`, `⌘/` and `⌃⌘J` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
+/** Commands bound in the webview, including focused Terminal actions, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌥⌘N`, `⇧⌘M`, `⌘T`, `⇧⌘T`, `⌘K`, `⇧⌘P`, `⌘/` and `⌃⌘J` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 /** The label and the binding are derived from the same saved physical press. */
 export const shortcutLabel = (press: string, keyName = ""): string => {
   const parts = press.split("+");
@@ -40,6 +40,7 @@ export const CHORDS: readonly Chord[] = [
   { name: "mode.new", keys: "⇧⌘M", what: copy.newMode, presses: ["meta+shift+KeyM"] },
   { name: "terminal.new", keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
   { name: "leader.open", keys: "⌘K", what: copy.leaderWaitsForAKey, presses: ["meta+KeyK"], hint: { label: copy.leaderWaitsForAKey, at: { rail: 3, agent: 2, bubble: 1, pad: 1, drawer: 1 } } },
+  { name: "switcher.open", keys: "⇧⌘P", what: copy.openTheSwitcher, presses: ["meta+shift+KeyP"] },
   { name: "attention.jump", keys: "⌃⌘J", what: copy.jumpToWhatNeedsYou, presses: ["ctrl+meta+KeyJ"], hint: { label: copy.jumpToWhatNeedsYou, at: { rail: -1, agent: -1, bubble: -1, shelf: -1, pad: -1, drawer: -1 } } },
   { name: "todo.capture", get keys() { return shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey); }, what: copy.captureATodo, get presses() { return [appSettings().quickAdd]; } },
   { name: "terminal.switch", keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.switchAgentTerminal, at: { agent: 0, bubble: 0 } } },
@@ -189,6 +190,12 @@ export const RAIL_KEYS = "ArrowLeft ArrowRight F2".split(" ");
 export const HELP_KEYS = ["[Shift]+?"];
 
 export const SWITCHER_CLOSE = "Escape".split(" ");
+
+/** U5240c, U5240d: `⌘⏎` on a highlighted command records a new key for it. */
+export const SWITCHER_RECORD = [["Meta", "Enter"].join("+")];
+
+/** U5240c: the keys the Switcher's footer lists, read by its bindings above (`⌘⏎` joins while its row can take a key). */
+export const SWITCHER_KEYS = { move: "↑ ↓", choose: "⏎", close: "Esc", record: "⌘⏎" } as const;
 
 export const ASK_CLOSE = "Escape".split(" ");
 

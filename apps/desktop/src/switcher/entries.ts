@@ -1,11 +1,13 @@
 import { single } from "fuzzysort";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
+import type { Todo } from "@contracts/todo/Todo";
+import type { Pad } from "@contracts/pad/Pad";
 import { railOrder } from "../rail/layout";
 import { nameOf } from "../bubbles/places";
 
-/** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it. */
-export type Entry = { value: string; label: string; node?: RailNode; terminal?: TerminalInfo; owner?: string };
+/** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it, or a Todo or Pad (U5240b). */
+export type Entry = { value: string; label: string; node?: RailNode; terminal?: TerminalInfo; owner?: string; todo?: Todo; pad?: Pad };
 
 const urgency = (entry: Entry): number => {
   const kind = (entry.node?.status ?? entry.terminal?.status)?.kind;
@@ -45,4 +47,20 @@ export const matching = (entries: readonly Entry[], text: string): Entry[] => {
     })
     .sort((a, b) => b.score - a.score)
     .map(({ entry }) => entry);
+};
+
+const contains = (text: string, needle: string): boolean => text.toLowerCase().includes(needle.toLowerCase());
+
+/** U5240b: the open Todos, then the Pads, whose title contains the trimmed query, each in the order its list gives, with the name of the Workstream that is its home. Nothing for a blank query. */
+export const itemsMatching = (nodes: readonly RailNode[], todos: readonly Todo[], pads: readonly Pad[], text: string): Entry[] => {
+  const needle = text.trim();
+
+  if (!needle) return [];
+
+  const owner = (home: string | null) => nodes.find((node) => node.id === home)?.name ?? "";
+
+  return [
+    ...todos.flatMap((todo): Entry[] => (!todo.done && contains(todo.title, needle) ? [{ value: `todo:${todo.id}`, label: todo.title, todo, owner: owner(todo.home) }] : [])),
+    ...pads.flatMap((pad): Entry[] => (contains(pad.name, needle) ? [{ value: `pad:${pad.incarnation}`, label: pad.name, pad, owner: owner(pad.home) }] : [])),
+  ];
 };

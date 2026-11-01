@@ -15,6 +15,7 @@ import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete, ShelfActions } from "../shelf/BulkDelete";
 import { changeFailureOf, failureOf } from "../todos/failureOf";
 import { Icon } from "../ink/Icon";
+import { registerOpener } from "../shelf/openItem";
 import { PAD_ICON } from "../shelf/frame";
 import { EmptyState } from "../ink/EmptyState";
 
@@ -339,6 +340,15 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
     const name = pad.name;
     connected.drawer.open(() => <PadDrawer name={name} pads={props.pads} onLateFailure={message => props.onItemFailure(pad, message, copy.openDraft)} onFailureCleared={() => props.onItemFailure(pad, null, copy.openDraft)} />, source, { kind: "pad", project: connected.project.path });
   };
+
+  // U5240b: the Switcher opens a Pad through its Rail row, as a click then Enter on it does.
+  onCleanup(registerOpener("pad", name => {
+    if (name !== pad.name) return false;
+    props.selection.replace([pad.incarnation]);
+    open("key");
+
+    return true;
+  }));
 
   const rename = () => { setEditing(true); };
 
