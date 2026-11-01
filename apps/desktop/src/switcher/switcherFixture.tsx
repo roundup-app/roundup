@@ -32,7 +32,7 @@ const TREE: RailNode[] = [
 const TERMINALS: TerminalInfo[] = [info("7", { owner: "ops", title: "build shell" })];
 
 /** The Rail, a Pane, its bubbles and the Switcher in one open Project; `failures` collects what the Switcher reports. */
-export const mountSwitcher = async (selected: string | null = null, tree: RailNode[] = TREE, terminals: TerminalInfo[] = TERMINALS, daemonExit: () => { code: number | null } | null = () => null, lists: { todos?: Todo[]; pads?: Pad[]; userActions?: () => ActionRow[] } = {}, notify?: ToastQueue["notify"]) => {
+export const mountSwitcher = async (selected: string | null = null, tree: RailNode[] = TREE, terminals: TerminalInfo[] = TERMINALS, daemonExit: () => { code: number | null } | null = () => null, lists: { todos?: Todo[]; pads?: Pad[]; userActions?: () => ActionRow[] | Promise<ActionRow[]> } = {}, notify?: ToastQueue["notify"]) => {
   const app = createFakeApp();
   let listed = [...terminals, ...tree.flatMap((node) => node.terminal_id ? [info(node.terminal_id)] : [])];
 
