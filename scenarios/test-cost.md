@@ -1,5 +1,7 @@
 # Cost of rupd tests
 
+Policy — N5467d (`scenarios/local-data-retirement.md`, #5467) retires R3778b–e's additive-upgrade and legacy-BLOB compatibility requirements, the historical portion of `r3778c_legacy_and_file_reopen`, and the mixed legacy/file representation requirements of R4160a/b. Replace those fixtures with current-format publications; retain exact quota boundary/refusal, chosen-allocation cleanup, identities, bytes, reopen, file durability and current crash recovery. Remove legacy BLOB decoders and their exclusive quota accounting. The historical upgrade measurement pairs and historical-fixture regression anchors below are retired; fresh/current-format measurements and product limits remain. The test named `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity` retains only fresh-from-empty equivalence and distinct identities under N5467c. Remaining historical wording below describes retired acceptance, not a compatibility exception.
+
 Module: `crates/rupd`. Source: #2964. Acceptance below is policy for the implementation and its review; it requires no new test that checks test text or inventory text.
 
 **T2964a remove redundant cost without losing behavioral proof.** Given the 24 tests in the inventory below, when their tests are audited under `AGENTS.md`, Rules, rule 10, then each original test has exactly one disposition in the implementation PR body (policy):
