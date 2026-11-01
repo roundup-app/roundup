@@ -3,6 +3,7 @@ import { render, waitFor } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
+import { createNow, DisplayClockContext } from "../state/clock";
 import { Bubbles } from "../bubbles/Bubbles";
 import { AskBar } from "../ask/AskBar";
 import { AttentionKey } from "../rail/AttentionKey";
@@ -54,7 +55,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
     const [screens, setScreens] = createSignal<Screens>();
 
     return (
-      <ConnectedProjectContext.Provider value={connected}>
+      <DisplayClockContext.Provider value={createNow(() => Date.now()).subscribe}><ConnectedProjectContext.Provider value={connected}>
         <AttentionKey />
         <AskBar />
         <Rail />
@@ -64,7 +65,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
           <div class="resource-strip" /><span class="resource-agent" />
           <Switcher onFailure={(message) => failures.push(message)} onOpen={() => {}} />
         </div>
-      </ConnectedProjectContext.Provider>
+      </ConnectedProjectContext.Provider></DisplayClockContext.Provider>
     );
   });
 
