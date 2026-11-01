@@ -27,7 +27,7 @@ Policy: the design critic compares `origin/main` and head in the same dedicated 
 
 Policy: observe every existing read-only Pad renderer with the same source; where it is the editor's read-only configuration, exercise that configuration through the existing harness/binding rather than inventing a product navigation path. Record the renderer inventory, how each was reached and any observer failure on #5559. The critic judges U5559a/b directly from the paired rendering; automated Check readings alone cannot prove list alignment.
 
-Policy: Moves D2, D5 and D6 (`docs/design-system.md`, heading `The checks`): Token spacing, readable marker/text contrast and operable handles/task checkboxes. Use only existing Tokens; no Check passing on the same main baseline may regress. Run `just capture U5559a U5559b`; leave paired PNGs, interaction videos and Check readings under `artifacts/ux/U5559a/` and `artifacts/ux/U5559b/` following `.agents/data/harness.md`, heading `Captures`. Never commit images or videos. This specification changes no rendered surface and requires no captures; the implementation supplies them.
+Policy: Moves D2, D5 and D6 (`docs/design-system.md`, heading `The checks`): Token spacing, readable marker/text contrast and operable handles/task checkboxes. Use only existing Tokens; no Check passing on the same main baseline may regress. Run `just capture U5559a,U5559b`; leave paired screenshots, interaction videos and Check readings under `artifacts/ux/U5559a/` and `artifacts/ux/U5559b/` following `.agents/data/harness.md`, heading `Captures`. Never commit images or videos. This specification changes no rendered surface and requires no captures; the implementation supplies them.
 
 ## Retained behavior and verification
 
