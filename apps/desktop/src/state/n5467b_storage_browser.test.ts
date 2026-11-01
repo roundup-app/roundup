@@ -14,6 +14,7 @@ it("n5467b_old_browser_storage_is_refused_before_editors_mount", async () => {
       await lane.browser("record", "start", `${capture}/refusal-and-manual-reset.webm`);
     }
 
+    await lane.browser("set", "media", "dark");
     await lane.until("!!window.__fake");
     const origin = await lane.evaluate<string>("location.origin");
     await lane.capture("N5467b", "base-tree-40");
