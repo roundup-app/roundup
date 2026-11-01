@@ -1,10 +1,8 @@
 import { historyRegion } from "./keys/focus";
 import Hourglass from "lucide-solid/icons/hourglass";
 import { ReducedMotionContext } from "./app/reducedMotion";
-import { debounce } from "@solid-primitives/scheduled";
 import { pressFeedback } from "./ui/pressFeedback";
 import { storageCopy } from "./app/copy";
-import { writeText } from "./app/clipboard";
 import { storageProblems } from "./state/storage";
 import "./state/storage.css";
 import { textTarget } from "./ui/contextMenu";

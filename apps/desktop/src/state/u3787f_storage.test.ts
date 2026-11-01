@@ -43,7 +43,7 @@ beforeEach(() => {
 afterEach(() => { localStorage.clear(); disk.clear(); cache.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); useBrowserStorage(window.localStorage); });
 
 it("n5467b_old_browser_storage_is_refused", async () => {
-  localStorage.setItem("roundup:unknown-retired-family", "{unparseable sentinel");
+  localStorage.setItem("roundup:unknown-retired-family", "{invalid sentinel");
   const read = vi.spyOn(Storage.prototype, "getItem");
   const remove = vi.spyOn(Storage.prototype, "removeItem");
   const write = vi.spyOn(Storage.prototype, "setItem");
