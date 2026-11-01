@@ -1,6 +1,8 @@
+> R5460: the Message receiver lookup and B32 tests described here are retired; measurements below are historical.
+
 # Remaining Terminal owner work (#1913)
 
-The existing `Agents::with_terminal_owner` cut still locks Rail → Attempts, executes the identical fresh indexed owner query, records synchronously, then releases the locks. No owner facts are cached. Callers, constructors, SQL facts, callbacks and Message store behavior are unchanged.
+The existing the retired Message receiver lookup cut still locks Rail → Attempts, executes the identical fresh indexed owner query, records synchronously, then releases the locks. No owner facts are cached. Callers, constructors, SQL facts, callbacks and Message store behavior are unchanged.
 
 ```text
 input → first wake → complete-backfill admission → schema-only read → 5 ms → rollback → rearm

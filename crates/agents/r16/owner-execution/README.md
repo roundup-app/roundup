@@ -1,3 +1,5 @@
+> R5460: the Message receiver lookup and B32 tests described here are retired; measurements below are historical.
+
 # Fresh Terminal owner execution (#1917)
 
 The narrow repair removes redundant owner-query VM work. Its measurements do not establish User write p95 improvement or complete #1366, #1361 or #1251.
@@ -14,7 +16,7 @@ The SELECT is `SELECT id, attempt FROM nodes WHERE terminal_id IS ? AND terminal
 
 Before: `8001a5b04bd517af5e25679ca65e26070a44df3c` (main with #1914 and #1916). After: `b5b710937ebca9b53f7fb28b4e22b64de149de1b`. Later evidence commits do not alter production source. `sources.json` records file/lockfile/profile hashes; `binary-hashes.json` records every executed binary. Ubuntu 24.04.5, AMD EPYC 7763, four online/available CPUs with affinity 0–3, Rust 1.99.0, bundled SQLite 3.53.2, default release profile, committed lockfile, no compiler flag overrides. `machine.json` and `machine-extra.json` retain complete machine/toolchain/profile details.
 
-Nine alternating before/after invocations, with three fresh Agents fixtures per owner case and three fresh Daemons per unchanged User/Extension/User probe. Owner timers surround the uninstrumented `Agents::with_terminal_owner` method and an asserting callback: 20,100 values per fixture, only the predefined first 100 treated as warmup. No Agent/Door Message transaction is timed by those fixtures. The separate unchanged `../owner-read/isolate.py` (SHA-256 `7cf9bc902121eeb4e94ddee16ef332d7034bf3da8279bc6938d1690d4bb3d331`) seeds 40 empty Workstreams per Daemon, uses 100 warmups and 1,000 retained writes per Actor, and waits for echoes outside the timed call. No competing build/test/proof ran during the matched observations. Diagnostic binaries never supply acceptance.
+Nine alternating before/after invocations, with three fresh Agents fixtures per owner case and three fresh Daemons per unchanged User/Extension/User probe. Owner timers surround the uninstrumented retired Message receiver lookup method and an asserting callback: 20,100 values per fixture, only the predefined first 100 treated as warmup. No Agent/Door Message transaction is timed by those fixtures. The separate unchanged `../owner-read/isolate.py` (SHA-256 `7cf9bc902121eeb4e94ddee16ef332d7034bf3da8279bc6938d1690d4bb3d331`) seeds 40 empty Workstreams per Daemon, uses 100 warmups and 1,000 retained writes per Actor, and waits for echoes outside the timed call. No competing build/test/proof ran during the matched observations. Diagnostic binaries never supply acceptance.
 
 ## Attribution before selection
 
@@ -76,7 +78,7 @@ All 36 matched commands exit 0 and qualify under the unchanged 2.0 Linux load/CP
 
 `b32_owner_read_stops_at_the_second_receiver` uses the existing owner interface and a SQLite view whose third row raises an error. CONFLICT, without callback, proves that Rust stops at the second receiver even without SQL LIMIT. A deliberate extra third step fails with INTERNAL (exit 101); the restored code passes. The mutation, red/green logs and commands are retained.
 
-Rule 10 removes `b32_an_unowned_terminal_has_no_receiver`: `b32_repeated_owner_reads_bind_each_terminal_afresh` still proves the negative result, and the external-attachment proof retains its freshness. It also removes `b32_ambiguous_ownership_fails_without_recording_input`: `b32_a_warm_owner_read_rejects_ambiguity_then_recovers` still proves CONFLICT and callback exclusion, and the new test adds the distinct bounded-scan proof. No scenario is retired.
+Rule 10 removes `b32_an_unowned_terminal_has_no_receiver`: The retired repeated receiver-read test still proves the negative result, and the external-attachment proof retains its freshness. It also removes `b32_ambiguous_ownership_fails_without_recording_input`: `b32_a_warm_owner_read_rejects_ambiguity_then_recovers` still proves CONFLICT and callback exclusion, and the new test adds the distinct bounded-scan proof. No scenario is retired.
 
 Existing proofs retain fresh positive/negative reads after external commits, ambiguity/recovery, SQL and callback errors, concurrent attachment/detach/reassignment/removal/reopen/Attempt changes, pending Resume, Status/revision fencing, callback effects and lifecycle lock order. The peer expiry/rearm test proves checkpoint progress after input stops and while it continues. No owner fact escaping the cut authorizes a later mutation.
 
