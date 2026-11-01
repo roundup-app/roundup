@@ -48,4 +48,4 @@ The terminal title acknowledges an Interrupt of a working Agent, because Claude 
 
 ## Open
 
-- Whether a Steer sent while the Agent is `working` is queued by Claude Code (not observed; H1b).
+- Whether a Steer sent while the Agent is `working` is queued by Claude Code (not observed; `spikes/hooks-permission/REPORT.md`, “E4 prompt delivery” (idle prompt delivery only)).

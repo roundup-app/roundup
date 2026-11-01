@@ -131,7 +131,7 @@ export const copy = {
   failed: sharedCopy.failed,
   moveItem: sharedCopy.moveItem,
   newMode: sharedCopy.newMode,
-  makeWorkstream: "Make a Workstream",
+  makeWorkstream: sharedCopy.makeWorkstream,
   saveAsMode: "Save as Mode…",
   saveAsModeTitle: "Save as Mode",
   saveMode: sharedCopy.save,
