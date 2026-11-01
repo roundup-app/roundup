@@ -62,9 +62,10 @@ Specification validation (one row per failure; policy):
 
 | Observer | Pass | Failure |
 |---|---|---|
-| `loop/rules.sh vocab` | exit 0 | exit 1: each offending public name/path; other nonzero: observer failure |
-| `loop/rules.sh scenario-ids` | exit 0 | exit 1: each offending scenario id; other nonzero: observer failure |
-| `python3 loop/orders.py check <issue-body-file>` | exit 0 | nonzero: each malformed work-order field reported by the checker; do not publish the body |
+| `loop/rules.sh vocab` | exit 0 | exit 1: each offending public name/path |
+| `loop/rules.sh scenario-ids` | exit 0 | exit 1: each offending scenario id |
+| `python3 loop/orders.py check <issue-body-file>` | exit 0 | exit 2: malformed work-order field; do not publish the body |
+| Same Issue checker, body file unreadable | exit 0 when readable and valid | exit 4: read/observer failure; do not publish the body |
 
 ## Size and order
 
