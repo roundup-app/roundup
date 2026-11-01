@@ -218,14 +218,33 @@ fn a3564c_each_brief_separates_peer_and_user_questions() {
 }
 
 #[test]
-fn a5482a_each_brief_routes_every_child_question_to_its_coordinator() {
+fn a5482a_each_brief_routes_user_questions_by_coordinator() {
     for role in [Role::Agent, Role::Door, Role::Scout] {
         for mcp in [true, false] {
-            let text = agents::claude_code::brief::text(role, mcp);
-            let send = if mcp { "message_send" } else { "rup message send" };
-            assert!(text.contains(&format!("send every question for the user to that Agent with `{send}` as a question")), "{role:?} {mcp}");
+            let s = setup();
+            let pair = agents::claude_code::Pair {
+                mcp_off: !mcp,
+                ..Default::default()
+            };
+            s.launcher()
+                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .unwrap();
+            let text = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+            let send = if mcp {
+                "message_send"
+            } else {
+                "rup message send"
+            };
+            assert!(
+                text.contains(&format!(
+                    "send every question for the user to that Agent with `{send}` as a question"
+                )),
+                "{role:?} {mcp}"
+            );
             assert!(text.contains("including choices reserved to the user"));
-            assert!(text.contains("never use `AskUserQuestion` or send the user to your Terminal for a choice"));
+            assert!(text.contains(
+                "never use `AskUserQuestion` or send the user to your Terminal for a choice"
+            ));
         }
     }
 }
