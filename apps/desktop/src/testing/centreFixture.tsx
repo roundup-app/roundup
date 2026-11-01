@@ -22,7 +22,7 @@ export const message = (id: number, over: Partial<Message> = {}): Message => ({
   body: `body ${id}`,
   replyTo: null,
   status: "delivered",
-  reason: null,
+  reason: "Wait for the prerequisite.",
   at: NOW,
   ...over,
 });

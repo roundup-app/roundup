@@ -571,6 +571,59 @@ async fn n5467b_incomplete_reaction_records_refuse_without_firing() {
             assert!(reply.get("error").is_some(), "{field}: {reply}");
         }
     }
+    db.execute(
+        "UPDATE reactions SET record=?1 WHERE id=?2",
+        rusqlite::params![original, id],
+    )
+    .unwrap();
+    let watch: String = db
+        .query_row(
+            "SELECT state FROM reaction_watch WHERE reaction=?1",
+            [id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let current: contracts::reaction::Reaction = serde_json::from_str(&original).unwrap();
+    for field in [
+        "before_rearm",
+        "health_code",
+        "cause_code",
+        "gap_code",
+        "recovery_code",
+    ] {
+        db.execute(
+            "UPDATE reaction_watch SET state=json_remove(?1, ?2) WHERE reaction=?3",
+            rusqlite::params![watch, format!("$.{field}"), id],
+        )
+        .unwrap();
+        let incomplete: String = db
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        daemon.evaluator().unwrap().observe(&current, None).await;
+        for (method, params) in [
+            ("reaction.get", json!({"id":id})),
+            ("reaction.run", json!({"id":id,"operation":"refused"})),
+        ] {
+            let reply = tests::ask(
+                &daemon,
+                &json!({"id":2,"method":method,"params":params}).to_string(),
+            )
+            .await;
+            assert!(reply.get("error").is_some(), "Watch {field}: {reply}");
+        }
+        let retained: String = db
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(retained, incomplete, "Watch {field} was rewritten");
+    }
     assert_eq!(
         db.query_row("SELECT count(*) FROM reaction_firings", [], |r| r
             .get::<_, i64>(0))
