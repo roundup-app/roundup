@@ -1,6 +1,6 @@
 # User actions
 
-Module: `crates/rupd` (`src/extensions/`, the Extension host), with `crates/rpc` and `crates/contracts`; `apps/desktop` (`switcher/`). Ids: UA1–UA12.
+Module: `crates/rupd` (`src/extensions/`, the Extension host), with `crates/rpc` and `crates/contracts`; `apps/desktop` (`switcher/`). Ids: UA1–UA13.
 
 Specification for #5255. Implementation follows in order: #5256 (UA1–UA8, the Daemon, Contract recipe in `.agents/builder.md`), then #5257 (UA9–UA12, the App). They stand on `scenarios/named-actions.md` (NA1–NA13, #5236–#5238): `action.list`, `action.run`, `action.serve` and `rup actions` / `rup do` exist before either starts. A spec merge claims no behavioural pass; every test named here is planned.
 
@@ -57,3 +57,25 @@ Observer for UA9–UA12: Vitest in `apps/desktop/src/switcher/` on the real Swit
 A throwing Hook is skipped with one Toast and the caller goes on (UA6). Permissions are declared and enforced by `rupd` (UA2, UA4). A User action cannot take a built-in name (UA3, UA12). A bad Extension never stops the Daemon (UA8). Built-in actions keep NA2's one-name rule and NA10's confirm and undo.
 
 Policy: the deliverable's observers are Vitest and Rust tests; the Toast and Switcher rows are existing components with new text and rows only, so the design critic has nothing new to judge here and no Mac observation is needed.
+
+
+## Overlapping App reads (#5480)
+
+**UA13 an older reply cannot replace the later list.** Given one connected Project and two pending `action.userList` reads, A started before B, when B succeeds and its rows appear in the open Switcher, then completing A successfully with a different set leaves exactly B's User actions available; no row unique to A appears. Close and reopen the Switcher: it still offers exactly B's User actions. Test: `ua13_an_older_reply_cannot_replace_the_later_list` (planned, in `apps/desktop/src/switcher/ua9_user_actions.test.tsx`).
+
+Run that test over all four combinations of these cases:
+
+| Earlier read A | Later read B | B's result |
+|---|---|---|
+| Initial read when the Switcher mounts | Read triggered by `action.userChanged` | One argument-free User action absent from A |
+| Initial read when the Switcher mounts | Read triggered by `action.userChanged` | Empty list |
+| Read triggered by `action.userChanged` after an initial read has settled | Read triggered by a second `action.userChanged` | One argument-free User action absent from A |
+| Read triggered by `action.userChanged` after an initial read has settled | Read triggered by a second `action.userChanged` | Empty list |
+
+A's result contains an argument-free User action absent from B. The observer mounts the real Switcher with the connected Project and fake Daemon, as the UA9 test does, and controls the two RPC promises independently. Observe that each read has started before resolving either; resolve B, observe its rows, then resolve A and await its RPC continuation before asserting the final options. A fixed sleep or an assertion that can pass before A's continuation runs does not prove this clause. Assert the rendered option identities, not a request counter or an internal generation value. No real process, browser or wall-clock delay is needed.
+
+Policy: UA9–UA12 remain acceptance, including required-argument exclusion, built-in order, silent failed reads and choosing by name. This extension specifies successful overlapping reads only; failures, Project teardown and multiple windows are outside UA13. No RPC, Event or User action schema changes. Implementation stays in `apps/desktop/src/switcher/Switcher.tsx` and its existing UA9 test file; it adds no shared request-ordering abstraction.
+
+Journey: this keeps the Switcher's actions current during Intervene; it does not change the journey's navigation or press counts. The behavioural observer above proves webview ordering only. For the implementation's rendered regression observation, use the isolated headless App at 1512×950 in dark mode with `tree-40`, the Switcher open, and failure text visible for a failed action. Preserve Checks 2, 5 and 6 (`docs/design-system.md`, heading “The checks”: type and spacing, contrast, control states and targets), and every Check passing on main. Leave `just capture UA13` evidence under `artifacts/ux/UA13/` as `.agents/data/harness.md`, heading “Captures”, requires. Layout and looks belong to that observer, never the Vitest assertions. This specification-only change renders nothing and requires no capture or Mac observation.
+
+Implementation verification: `pnpm --filter desktop exec vitest run src/switcher/ua9_user_actions.test.tsx` proves UA13 and retains the UA9–UA12 regression tests; run `just ready` as the Code recipe requires. The new test is planned acceptance, not evidence that this specification delivers the repair.
