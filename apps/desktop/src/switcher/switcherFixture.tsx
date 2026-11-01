@@ -39,7 +39,9 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
   app.handlers["rail.tree"] = () => tree;
   app.handlers["todo.list"] = () => lists.todos ?? [];
   app.handlers["pad.list"] = () => lists.pads ?? [];
+
   if (lists.userActions) app.handlers["action.userList"] = lists.userActions;
+
   app.handlers["terminal.list"] = () => listed;
   app.handlers["terminal.close"] = ({ id }) => {
     listed = listed.filter((terminal) => terminal.id !== id);
