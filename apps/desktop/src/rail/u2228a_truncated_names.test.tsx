@@ -3,6 +3,7 @@ import { createCutTitle } from "../ui/cutTitle";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { agent, workstream } from "../testing/nodes";
+import { copy } from "../ink/copy";
 import { itemOf, mountRail, rowOf } from "./railFixture";
 
 afterEach(() => {
@@ -117,4 +118,36 @@ it("z3788c_cut_title_releases_changed_targets_and_disposed_owners", async () => 
 
   for (const observer of observers) observer.notify(current);
   expect(measured).not.toHaveBeenCalled();
+});
+
+it("u5231a_rail_row_reveals_reason_and_age_for_each_kind_and_nothing_for_idle_or_done", async () => {
+  const at = (kind: "blocked" | "needs-you" | "working" | "error" | "idle" | "done", label: string) => ({ kind, label, since: Date.now() - 12 * 60_000 - 1000, finished: "0" } as const);
+
+  await mountRail([
+    agent("a", "working", "Editing Thread.tsx", { name: "alpha", order: 0, status: at("working", "Editing Thread.tsx") }),
+    agent("b", "blocked", "Waiting on #4", { name: "beta", order: 1, status: at("blocked", "Waiting on #4") }),
+    agent("c", "needs-you", "Waiting for approval", { name: "gamma", order: 2, status: at("needs-you", "Waiting for approval") }),
+    agent("d", "idle", "Idle", { name: "delta", order: 3, status: at("idle", "Idle") }),
+    agent("e", "done", "finished", { name: "epsilon", order: 4, status: at("done", "finished") }),
+  ]);
+
+  for (const [name, label] of [["alpha", "Editing Thread.tsx"], ["beta", "Waiting on #4"], ["gamma", "Waiting for approval"]]) {
+    fireEvent.pointerMove(rowOf(name!), { pointerType: "mouse" });
+    expect((await screen.findByRole("tooltip")).textContent).toBe(copy.statusReveal(label!, copy.statusAge.minutes(12)));
+    fireEvent.pointerLeave(rowOf(name!), { pointerType: "mouse" });
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+    fireEvent.keyDown(document, { key: "Tab" });
+    rowOf(name!).focus();
+    expect((await screen.findByRole("tooltip")).textContent).toBe(copy.statusReveal(label!, copy.statusAge.minutes(12)));
+    rowOf(name!).blur();
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  }
+
+  for (const name of ["delta", "epsilon"]) {
+    fireEvent.pointerMove(rowOf(name), { pointerType: "mouse" });
+    rowOf(name).focus();
+  }
+
+  await new Promise(done => setTimeout(done, 600));
+  expect(screen.queryByRole("tooltip")).toBeNull();
 });

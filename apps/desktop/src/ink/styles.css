@@ -185,6 +185,11 @@ p.ink[role="alert"] {
   overflow-wrap: anywhere;
 }
 
+/* U5231a: a hairline sets the reveal apart over another surface; D8 grants a tooltip no shadow. */
+.status-reveal {
+  border: var(--hairline-width) solid var(--hairline);
+}
+
 /* U38: the empty list sits centred in the room under the add button, in `--grey` only. */
 .empty-state {
   flex: 1;
