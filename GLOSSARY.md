@@ -349,6 +349,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Import exclusion cause (`ImportExclusionCause`, `ImportExclusion.cause`) | same | — |
 | Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |
 | Import disposition (`ImportDisposition`, `outcome`) | same | — |
+| Final text (`FinalText`, `FinalTextKind`, `final_text`) | none | — |
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
 | Native integration (`native`, `Preferences`, `Missing`) | same | — |
