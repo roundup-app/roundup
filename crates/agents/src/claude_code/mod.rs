@@ -96,7 +96,7 @@ enum Ending {
 
 pub struct ClaudeCode {
     /// A5482c: completed turn identity, start time and final assistant text.
-    completed: Option<(String, i64, String)>,
+    completed: Option<Box<(String, i64, String)>>,
     turn_started: i64,
     status: Option<Status>,
     ending: Ending,
@@ -322,16 +322,13 @@ impl ClaudeCode {
                 self.turn_started,
                 text.to_owned(),
             );
-            if self.completed.as_ref() != Some(&next) {
-                self.completed = Some(next);
-                return changed.or_else(|| self.status.clone());
-            }
+            self.completed = Some(Box::new(next));
         }
         changed
     }
 
     pub(crate) fn completed_text(&self) -> Option<&(String, i64, String)> {
-        self.completed.as_ref()
+        self.completed.as_deref()
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {

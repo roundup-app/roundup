@@ -422,6 +422,7 @@ impl Shared {
         let was_finished = run.adapter.finished();
         let was_final_text = run.adapter.final_text();
         let signal = matches!(observation, Observation::Signal(_));
+        let was_completed = signal.then(|| run.adapter.completed_text().cloned());
         let changed = run.adapter.observe(observation).or_else(|| {
             if !exited || run.ended {
                 return None;
@@ -430,7 +431,9 @@ impl Shared {
             status.since = store::now_ms();
             Some(status)
         });
-        if was_final_text != run.adapter.final_text() {
+        if was_final_text != run.adapter.final_text()
+            || was_completed.is_some_and(|before| before.as_ref() != run.adapter.completed_text())
+        {
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
         if signal
