@@ -29,6 +29,18 @@ const folded = async (id: string, value: "true" | "false"): Promise<void> => {
   expect(await expanded(id)).toBe(value);
 };
 
+
+const capture = async (step: string) => {
+  for (const id of ["U5483a", "U5483b", "U5483c"]) {
+    const dir = captureDir(id);
+
+    if (!dir) continue;
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${step}.png`), Buffer.from(await page.shot(), "base64"));
+    writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
+  }
+};
+
 const CODES = { ArrowDown: "ArrowDown", ArrowUp: "ArrowUp", ArrowLeft: "ArrowLeft", ArrowRight: "ArrowRight", Home: "Home", End: "End", m: "KeyM" } as const;
 
 const press = (key: keyof typeof CODES): Promise<void> => page.press(key, CODES[key]);
@@ -119,21 +131,13 @@ run("u5483 folded children", () => {
     await press("ArrowRight");
     await at("docs");
 
-    for (const id of ["U5483a", "U5483b", "U5483c"]) {
-      const dir = captureDir(id);
-
-      if (dir) {
-        mkdirSync(dir, { recursive: true });
-        writeFileSync(join(dir, "open.png"), Buffer.from(await page.shot(), "base64"));
-        writeFileSync(join(dir, "open.checks.json"), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
-      }
-    }
-
+    await capture("open");
     await press("ArrowLeft");
     await at("fold:auth");
     await press("ArrowLeft");
     await folded("fold:auth", "false");
     expect(await page.call<boolean>(`() => document.querySelector('[data-id="docs"]') === null`)).toBe(true);
+    await capture("closed");
   });
   it("u5483b_focus_survives_folding_and_return", async () => {
     await page.load("/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40", 1512, 950);
@@ -154,6 +158,10 @@ run("u5483 folded children", () => {
     await folded("fold:auth", "false");
     await page.call(`() => window.__fake.setStatus('docs', 'working', 'working')`);
     await at("auth");
+    await page.call(`() => document.querySelector('[data-id="docs"]').focus()`);
+    await at("docs");
+    await page.call(`() => window.__fake.setStatus('docs', 'done', 'finished')`);
+    await at("fold:auth");
   });
 
 });

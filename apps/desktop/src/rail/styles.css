@@ -814,6 +814,7 @@
 
 .rail-tree .rail-fold {
   display: grid;
+  gap: 0;
   padding-inline-start: 0;
 }
 
