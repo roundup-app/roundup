@@ -457,6 +457,9 @@ it.each(["diff", "code", "readonly-pad", "message"] as const)("u5515c_readonly_t
     await browser("open", url(`/src/terminal/u5515.html${kind === "message" ? "?message" : ""}`));
 
     if (kind === "message") {
+      await wait("!!document.querySelector('[data-part=item-trigger]')");
+
+      if (!await read<boolean>("!!document.querySelector('.reaction-head')")) await browser("find", "role", "button", "click", "--name", "Reactions", "--exact");
       await wait("!!document.querySelector('[data-reaction-opener]')");
       await browser("focus", "[data-reaction-opener]");
       await browser("press", "Enter");
