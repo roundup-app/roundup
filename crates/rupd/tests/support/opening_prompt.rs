@@ -1,7 +1,8 @@
 //! A4452c: saved Opening prompts through the existing Door test harness.
 use super::{
     child_run::{BOUND, Run},
-    door_terminals::{idle, recorded_bytes},
+    door_terminals::recorded_bytes,
+    idle::idle,
 };
 use serde_json::{Value, json};
 

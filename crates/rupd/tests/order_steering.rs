@@ -8,6 +8,10 @@ mod door_terminals;
 mod rupd_harness;
 use door_terminals::{order_child, recorded_bytes};
 
+#[path = "support/user_steer.rs"]
+mod user_steer;
+use user_steer::user_steer;
+
 #[tokio::test]
 async fn b6_a_refused_steer_writes_no_byte() {
     let (run, _caller) = order_child().await;
@@ -19,7 +23,3 @@ async fn b6_a_refused_steer_writes_no_byte() {
     assert!(recorded_bytes(&run).await.is_empty());
     run.finish().await;
 }
-
-#[path = "support/user_steer.rs"]
-mod user_steer;
-use user_steer::user_steer;

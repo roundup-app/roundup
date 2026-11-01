@@ -15,6 +15,18 @@ use rpc::Client;
 use serde_json::json;
 use std::time::Duration;
 
+#[path = "support/idle.rs"]
+mod idle;
+use idle::idle;
+
+#[path = "support/user_steer.rs"]
+mod user_steer;
+use user_steer::user_steer;
+
+#[path = "support/door_terminal.rs"]
+mod door_terminal;
+use door_terminal::door_terminal;
+
 #[tokio::test]
 async fn door_write_completes_after_earlier_input_and_its_physical_effect() {
     let (run, caller) = door_terminal().await;
@@ -317,15 +329,3 @@ async fn door_a_full_terminal_refuses_interrupt_before_bytes() {
     let _ = order.await.unwrap();
     run.finish().await;
 }
-
-#[path = "support/idle.rs"]
-mod idle;
-use idle::idle;
-
-#[path = "support/user_steer.rs"]
-mod user_steer;
-use user_steer::user_steer;
-
-#[path = "support/door_terminal.rs"]
-mod door_terminal;
-use door_terminal::door_terminal;
