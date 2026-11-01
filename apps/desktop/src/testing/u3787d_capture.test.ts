@@ -91,11 +91,29 @@ it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u546
     await lane.browser("click", ".reaction-actions button:first-child");
     await lane.until("document.body.textContent.includes('Storage unavailable. Retry.')");
     await capture("failure");
+
+  }
+}, 60_000);
+
+
+it.skipIf(!captureDir("U5463c"))("u5463c_shared_editor_and_recovery_surfaces", async () => {
+  const seed = "tree-40";
+  const phase = process.env.U5463_PHASE === "base" ? "base" : "head";
+  mkdirSync(join(captureDir("U5463c")!, phase), { recursive: true });
+
+  const capture = async (step: string) => {
+    const file = join(captureDir("U5463c")!, phase, `${seed}-${step}`);
+    writeFileSync(`${file}.checks.json`, JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
+    await lane.browser("screenshot", `${file}.png`);
+  };
+
+  const origin = await lane.evaluate<string>("location.origin");
     await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
     await lane.until("!!document.querySelector('#shelf-tab-pads')");
     await lane.browser("click", "#shelf-tab-pads");
     await lane.until("!!document.querySelector('.pad-name')");
-    await lane.browser("find", "text", "pad-3", "focus", "--exact");
+    await lane.evaluate("(() => { [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3')?.focus(); return true; })()");
+    await lane.until("document.activeElement?.matches('.pad-name')");
     await lane.browser("press", "Enter");
     await lane.until("!!document.querySelector('.pad-editor .ProseMirror')");
     await capture("pad-editor");
@@ -116,8 +134,9 @@ it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u546
     await lane.until("!document.querySelector('.header-recovery')");
     await lane.browser("focus", "[data-todo-root]");
     await lane.browser("press", "ContextMenu");
-    await lane.browser("find", "role", "menuitem", "click", "--name", "Unfinished work");
+    await lane.until("!!document.querySelector('[role=menuitem][data-value=recover]')");
+    await lane.browser("click", "[role=menuitem][data-value=recover]");
     await lane.until("!!document.querySelector('.draft-revisions')");
     await capture("unfinished-work");
-  }
+  expect(await lane.evaluate<number>("document.querySelectorAll('.draft-revisions button').length")).toBeGreaterThan(0);
 }, 60_000);
