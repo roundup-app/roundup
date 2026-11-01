@@ -2,7 +2,7 @@ import { copy as sharedCopy, type CopyValue } from "../sharedCopy";
 
 export const copy = {
   age: {
-    now: "now",
+    now: sharedCopy.now,
     minutes: (value: number) => `${value}m`,
     hours: (value: number) => `${value}h`,
     days: (value: number) => `${value}d`,

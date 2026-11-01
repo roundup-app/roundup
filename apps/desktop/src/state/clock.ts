@@ -8,10 +8,11 @@ export const NOW_TICK_MS = 15_000;
 
 type Subscribe = (active: Accessor<boolean>) => Accessor<number>;
 
-export const DisplayClockContext = createContext<Subscribe>();
+/** Outside the App's provider (a row mounted alone) the age is a one-off read of the wall clock that never ticks. */
+export const DisplayClockContext = createContext<Subscribe>(() => () => Date.now());
 
 /** Call inside the App's Solid owner. Demand lasts while active; disposal releases it automatically. */
-export const useDisplayNow = (active: Accessor<boolean>): Accessor<number> => useContext(DisplayClockContext)!(active);
+export const useDisplayNow = (active: Accessor<boolean>): Accessor<number> => useContext(DisplayClockContext)(active);
 
 /** One shared timer for the whole app; the injected `clock` is the only source of time. */
 export const createNow = (clock: Clock, isLive: Accessor<boolean> = () => true, visible: Accessor<boolean> = () => true): Accessor<number> & { subscribe: Subscribe } => {

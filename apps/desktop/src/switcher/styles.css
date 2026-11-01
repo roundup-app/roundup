@@ -12,6 +12,15 @@
   border: var(--hairline-width) solid var(--hairline);
 }
 
+.switcher-row {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .switcher-mark {
   width: var(--space-4);
   height: var(--space-4);

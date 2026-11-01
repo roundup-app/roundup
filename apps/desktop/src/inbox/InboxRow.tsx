@@ -8,6 +8,7 @@ import { copy } from "./copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { FailureLine } from "../ink/FailureLine";
+import { StatusTip } from "../ink/StatusTip";
 import { Collapsible } from "../ui/Collapsible";
 
 /** One entry: an Agent's `node`, or a Terminal whose program reported (PS11.1). */
@@ -42,10 +43,10 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; selected: boolea
   return <li class="inbox-item" data-row={props.row.key} data-arrived={props.row.arrived ? "" : undefined}>
     <Collapsible.Root open={props.open} onOpenChange={props.toggle} lazyMount unmountOnExit>
       <div class="inbox-head">
-        <Collapsible.Trigger data-button="quiet" class="inbox-row" data-selected={props.selected} data-overview-item={item()} ref={props.head}>
+        <StatusTip status={status()}>{reveal => <Collapsible.Trigger {...reveal()} data-button="quiet" class="inbox-row" data-selected={props.selected} data-overview-item={item()} ref={props.head}>
           <KindGlyph kind={status()?.kind ?? "idle"} />
           <span id={name} class="inbox-row-name">{entryName()}</span>
-        </Collapsible.Trigger>
+        </Collapsible.Trigger>}</StatusTip>
         <div class="inbox-actions">{actions()}</div>
       </div>
       <FailureLine status={node()?.status} class="inbox-failure" />

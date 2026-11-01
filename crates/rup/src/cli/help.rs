@@ -133,6 +133,11 @@ pub fn help_text() -> String {
             example(spec)
         ));
     }
+    text.push_str("\n  actions\n");
+    text.push_str(
+        "    rup actions [--json]\n        List the App's named actions.\n        Example: rup actions\n    \
+         rup do <name> [key=value]...\n        Run a named action of the App.\n        Example: rup do agent.new-with-prompt prompt=\"Fix login\"\n",
+    );
     text.push_str("\n  other\n");
     for (usage, what) in OTHER {
         text.push_str(&format!("    {usage}\n        {what}.\n"));
@@ -156,6 +161,17 @@ pub fn help_text() -> String {
 
 /// `rup help`, `rup help <noun>`, `rup help <noun> <verb>`, and the same for `-h` and `--help`.
 pub(super) fn help(root: &mut Command, path: &[String]) -> ExitCode {
+    match path {
+        [one] if one == "actions" => {
+            print!("{}", super::actions::ACTIONS_HELP);
+            return ExitCode::from(DONE);
+        }
+        [one] if one == "do" => {
+            print!("{}", super::actions::DO_HELP);
+            return ExitCode::from(DONE);
+        }
+        _ => {}
+    }
     root.build();
     let mut at: &mut Command = root;
     for step in path {
@@ -225,7 +241,7 @@ pub(super) fn usage_error(root: &Command, args: &[String], err: &clap::Error) ->
 }
 
 /// Edit distance between two short names, to pick the closest of clap's suggestions.
-fn distance(a: &str, b: &str) -> usize {
+pub(super) fn distance(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let mut row: Vec<usize> = (0..=b.len()).collect();
     for (i, x) in a.chars().enumerate() {
