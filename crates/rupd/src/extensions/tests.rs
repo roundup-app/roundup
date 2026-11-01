@@ -121,6 +121,7 @@ impl Fx {
     /// Waits until `action.userList` holds `names`.
     async fn listed(&self, names: &[&str]) -> Vec<Value> {
         let mut user = self.user().await;
+        let (mut changes, _) = self.daemon.subscribe();
         for _ in 0..200 {
             let rows = user.call("action.userList", Value::Null).await["result"]
                 .as_array()
@@ -134,7 +135,8 @@ impl Fx {
             {
                 return rows;
             }
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            // Wake on any event; the timeout covers a change that raises none.
+            let _ = tokio::time::timeout(Duration::from_millis(50), changes.recv()).await;
         }
         panic!("never listed {names:?}");
     }

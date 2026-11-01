@@ -829,5 +829,10 @@
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
     "kind": "in-process",
     "sha256": "0f662e999a1d5b5a332a06c336ea7f86e1c220fa3bb26e70437650affb06069f"
+  },
+  "crates/rupd/src/extensions/tests.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   }
 }

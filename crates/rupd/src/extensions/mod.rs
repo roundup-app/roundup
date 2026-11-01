@@ -102,8 +102,8 @@ impl Host {
             let _watcher = host.watch(changes);
             host.scan(&daemon).await;
             while changed.recv().await.is_some() {
-                tokio::time::sleep(SETTLE).await;
-                while changed.try_recv().is_ok() {}
+                // Debounce: scan once the folder has been quiet for SETTLE.
+                while let Ok(Some(())) = tokio::time::timeout(SETTLE, changed.recv()).await {}
                 host.scan(&daemon).await;
             }
         });
