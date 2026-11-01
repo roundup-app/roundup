@@ -43,6 +43,17 @@ pub struct ActionRow {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = String)]
     pub cause: Option<String>,
+    /// UA1: `user` for an action an Extension declared; absent on the App's own rows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = String)]
+    pub source: Option<String>,
+}
+
+/// UA2, UA6: an Extension that failed to load or run; `cause` names the file, action or rule.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct ExtensionProblem {
+    pub extension: String,
+    pub cause: String,
 }
 
 /// One `key=value` pair, in the order the caller gave it.
