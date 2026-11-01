@@ -74,6 +74,7 @@ fn extra_text(method: &str) -> Option<&'static str> {
         "agent.spawn" => {
             "Start a child Agent in a folder of this Project, with its order and prompt."
         }
+        "shortcuts.export" => "Write the user's shortcut list to a file they chose.",
         "agent.extras" => "Read the names a Door may give a child, by kind.",
         "agent.extras_add" => "Add a name a Door may give a child.",
         "agent.changedFiles" => "List the files a Worktree changed.",

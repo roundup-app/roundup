@@ -23,6 +23,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | Method or command | Reason |
 |---|---|
 | `daemon.getNaming`, `daemon.setNaming` | A4688a's global naming preferences belong to the user; Agents cannot override the user's naming policy. |
+| `shortcuts.export` | the user's shortcut list written to a file the user chose; an Agent has no file picker and the list is the user's own. |
 | `ask_removal` | U4461's native removal consent belongs to the user; Agents cannot open that alert and use `rail_remove` within M7's Reach instead. |
 | `message.drop` | the user's guard on what other Actors' Messages do (B3563b): an Agent that settled it could remove another Actor's Message. `route.set` left this row by M14 (Overturned by M14), with the limits M14 gives |
 | `terminal.spawn`, `terminal.write`, `terminal.resize`, `terminal.kill`, `terminal.list`, `terminal.snapshot`, `terminal.open`, `terminal.close` | a Door has no shell (F2); a tool that starts or types into a Terminal gives it one. Reading is offered by M13 (#814): `terminal.screen`, `terminal.read` and `terminal.search` are tools. An Agent steers another through `agent_prompt` and `message_send`. (Overturned by M14: only `terminal.list` and `terminal.snapshot` keep this row.) X14 adds `terminal.output` and `terminal.outputStop`, a connection's pushed byte stream, and the App commands `terminal_output` and `terminal_output_stop`: an Agent reads text with `terminal_read` |
