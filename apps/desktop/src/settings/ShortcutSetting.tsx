@@ -33,7 +33,7 @@ type Mode = { kind: "record"; name: string } | { kind: "find" };
 /** U5239a to U5239e: one row per named action with its keys, a key to record for each, a lookup by key and the overrides saved to a file. */
 export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app?: App | undefined; onFailure: (message: string | null) => void }) => {
   const [mode, setMode] = createSignal<Mode | null>(null);
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [failed, setFailed] = createSignal<{ at: string; message: string } | null>(null);
   const [found, setFound] = createSignal<string | null>(null);
 
   // Read from the table, not `listActions`: its availability reads the key registry's layers, and registering a row's layer would rerun the list for ever.
@@ -42,18 +42,21 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   const overrides = () => appSettings().shortcuts;
   let active: HTMLElement | undefined;
 
-  const stop = () => { setMode(null); setFailure(null); };
+  const stop = () => { setMode(null); setFailed(null); };
+  const failure = (at: string) => (message: string | null) => setFailed(message === null ? null : { at, message });
 
   const record = async (name: string, event: KeyboardEvent) => {
-    if (!event.metaKey && !event.ctrlKey) return setFailure(copy.shortcutModifier);
+    const fail = failure(name);
+
+    if (!event.metaKey && !event.ctrlKey) return fail(copy.shortcutModifier);
 
     const press = pressOf(event);
     const label = shortcutLabel(press, event.key);
     const holder = holderOf(press, name);
 
-    if (holder) return setFailure(copy.shortcutRefusal(label, holder));
+    if (holder) return fail(copy.shortcutRefusal(label, holder));
 
-    if (!appScope().has(press)) return setFailure(copy.shortcutTerminal(label));
+    if (!appScope().has(press)) return fail(copy.shortcutTerminal(label));
 
     await change(name, press);
   };
@@ -63,11 +66,11 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     const restored = press === null ? defaultPress(name) : undefined;
     const taken = restored ? holderOf(restored, name) : undefined;
 
-    if (taken) return setFailure(copy.shortcutRefusal(shortcutLabel(restored!), taken));
+    if (taken) return failure(name)(copy.shortcutRefusal(shortcutLabel(restored!), taken));
 
     const next = press === null || press === defaultPress(name) ? rest : { ...rest, [name]: press };
 
-    setFailure(null);
+    setFailed(null);
     props.onFailure(await saveAppSettings({ shortcuts: next }, props.capture));
     setMode(null);
   };
@@ -97,7 +100,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     return current?.kind === "record" && current.name === name;
   };
 
-  const begin = (next: Mode) => (event: MouseEvent & { currentTarget: HTMLElement }) => { active = event.currentTarget; setFound(null); setFailure(null); setMode(next); };
+  const begin = (next: Mode) => (event: MouseEvent & { currentTarget: HTMLElement }) => { active = event.currentTarget; setFound(null); setFailed(null); setMode(next); };
 
   const save = async () => {
     if (!props.app) return;
@@ -120,17 +123,17 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
         <button data-button="quiet" type="button" disabled={!Object.keys(overrides()).length} onClick={save}>{copy.saveToFile}</button>
       </div>
     </div>
-    <ReservedLine message={failure()} status={found()} />
+    <ReservedLine status={found()} />
     <For each={ACTION_ROWS}>{row => row.name === "todo.capture"
       ? <><ShortcutSetting field="quickAdd" {...props} /><ShortcutSetting field="quickAddAnywhere" {...props} /></>
-      : <ActionShortcut label={row.what} keys={keysOf(row)} recording={recording(row.name)}
+      : <ActionShortcut label={row.what} keys={keysOf(row)} recording={recording(row.name)} failure={failed()?.at === row.name ? failed()!.message : null}
           {...(CHORDS.some(chord => chord.name === row.name && recordable(chord)) ? { onRecord: begin({ kind: "record", name: row.name }) } : {})}
           overridden={row.name in overrides()} onReset={() => change(row.name, null)} />}</For>
   </>;
 };
 
 /** One action's row: its label and keys, and where recordable the button to press a new key and the Reset. */
-const ActionShortcut = (props: { label: string; keys: string; recording: boolean; overridden: boolean; onRecord?: ((event: MouseEvent & { currentTarget: HTMLElement }) => void) | undefined; onReset: () => void }) => {
+const ActionShortcut = (props: { label: string; keys: string; recording: boolean; failure: string | null; overridden: boolean; onRecord?: ((event: MouseEvent & { currentTarget: HTMLElement }) => void) | undefined; onReset: () => void }) => {
   const caption = createUniqueId();
   const value = createUniqueId();
 
@@ -144,6 +147,7 @@ const ActionShortcut = (props: { label: string; keys: string; recording: boolean
       </Show>
       <Show when={props.overridden}><button data-button="quiet" type="button" onClick={props.onReset}>{copy.reset}</button></Show>
     </div>
+    <Show when={props.failure}>{message => <ReservedLine message={message()} />}</Show>
   </div>;
 };
 
