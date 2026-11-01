@@ -39,7 +39,7 @@ const Root = (props: {
   onSelect: (value: string) => void;
   label: string;
   placeholder: string;
-  empty: string;
+  empty: JSX.Element;
   group?: (item: ComboboxItem) => string | undefined;
   row: (item: ComboboxItem) => JSX.Element;
 }) => {

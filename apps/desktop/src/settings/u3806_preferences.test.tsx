@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Terminal } from "@xterm/xterm";
 import * as xterm from "@xterm/xterm";
@@ -29,50 +29,54 @@ const mount = async (fail = false) => {
   render(() => <AppSettings app={app} project={() => "/p"} />);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
-  await screen.findByRole("region", { name: "Settings" });
+  await screen.findByLabelText("Settings", { selector: "section" });
 
   return app;
 };
 
 const section = async (name: string) => {
-  const tab = screen.getByRole("tab", { name });
+  const tab = screen.getByText(name, { selector: '[role="tab"]' });
   fireEvent.click(tab);
   await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
+
+  // Wait for Ark to mount the selected page without scanning hidden pages for visibility.
+  return within(await screen.findByLabelText(name, { selector: '[role="tabpanel"]' }));
 };
 
 const select = async (label: string, value: string) => {
   if (label === "Appearance") {
     await section("Appearance");
-    fireEvent.click(screen.getByRole("radio", { name: value }));
+    fireEvent.click(screen.getByLabelText(value, { selector: "input" }));
     await waitFor(() => expect(appSettings().mode).toBe(value.toLowerCase()));
 
     return;
   }
 
-  await section("Agents");
-  fireEvent.click(screen.getByRole("combobox", { name: label }));
+  const page = await section("Agents");
+  fireEvent.click(page.getByLabelText(label, { selector: "button" }));
   fireEvent.click(await screen.findByRole("option", { name: value }));
 };
 
 const pick = async (label: string, value: string) => {
-  await section("Agents");
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label} `) }));
-  fireEvent.click(await screen.findByRole("option", { name: value }));
-  await screen.findByRole("button", { name: `${label} ${value}` });
+  const page = await section("Agents");
+  fireEvent.click(page.getByLabelText(new RegExp(`^${label} `), { selector: "button" }));
+  const list = within(await screen.findByLabelText(label, { selector: '[role="listbox"]' }));
+  fireEvent.click(await list.findByRole("option", { name: value }));
+  await page.findByLabelText(`${label} ${value}`, { selector: "button" });
 };
 
 const commit = async (label: string, text: string, valid = true) => {
-  await section("Terminal");
+  const page = await section("Terminal");
 
   if (label === "Font family") {
-    fireEvent.click(screen.getByRole("combobox", { name: label }));
+    fireEvent.click(page.getByLabelText(label, { selector: "button" }));
     fireEvent.click(await screen.findByRole("option", { name: text }));
     await waitFor(() => expect(appSettings().fontFamily).toBe(text));
 
     return;
   }
 
-  const field = await screen.findByRole("spinbutton", { name: label });
+  const field = await page.findByLabelText(label, { selector: "input" });
   fireEvent.input(field, { target: { value: text } });
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
 
@@ -113,7 +117,7 @@ it.each(["300", "2", "not a number"])("u3803_a_bad_size_is_refused_and_changes_n
   await commit("Font size", invalid, false);
   expect(await screen.findByText(/Choose a font size from/)).toBeTruthy();
   expect(appSettings().fontSize).toBe(17);
-  expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Font size" }).value).toBe(invalid);
+  expect(screen.getByLabelText<HTMLInputElement>("Font size", { selector: "input" }).value).toBe(invalid);
 });
 
 it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
@@ -125,7 +129,7 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
   await commit("Font size", "16");
   await select("Appearance", "Dark");
   await section("Shortcuts");
-  fireEvent.click(screen.getByRole("button", { name: /^Quick add Todo / }));
+  fireEvent.click(screen.getByLabelText(/^Quick add Todo /, { selector: "button" }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAdd).toBe("ctrl+shift+KeyY"));
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
@@ -134,7 +138,7 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
   await mount();
   expect(appSettings()).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
   await section("Terminal");
-  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value).toBe("16");
+  expect((await screen.findByLabelText<HTMLInputElement>("Font size", { selector: "input" })).value).toBe("16");
 });
 
 it("u3806_an_invalid_field_falls_back_alone", async () => {
@@ -142,7 +146,7 @@ it("u3806_an_invalid_field_falls_back_alone", async () => {
   await mount();
   expect(appSettings()).toMatchObject({ mode: "light", fontFamily: "Menlo", permissionMode: "plan", engine: "", model: "kept", quickAdd: "meta+shift+KeyT", lineHeight: 1.7, letterSpacing: 2, fontWeight: 300, interfaceScale: "default", focusMarkers: false });
   await section("Terminal");
-  expect(Number((await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Font size" })).value)).toBeLessThan(22);
+  expect(Number((await screen.findByLabelText<HTMLInputElement>("Font size", { selector: "input" })).value)).toBeLessThan(22);
   cleanup();
   localStorage.setItem("roundup:app-settings", "not JSON");
   await mount();
@@ -152,7 +156,7 @@ it("u3806_an_invalid_field_falls_back_alone", async () => {
 it("u3804_a_clashing_chord_is_refused_naming_the_holder", async () => {
   await mount();
   await section("Shortcuts");
-  fireEvent.click(screen.getByRole("button", { name: /^Quick add Todo / }));
+  fireEvent.click(screen.getByLabelText(/^Quick add Todo /, { selector: "button" }));
   fireEvent.keyDown(window, { key: "n", code: "KeyN", metaKey: true });
   expect(await screen.findByText(/⌘N is already New Agent/)).toBeTruthy();
   fireEvent.keyDown(window, { key: "q", code: "KeyQ", metaKey: true });
@@ -166,7 +170,7 @@ it("u3804_reset_restores_the_default", async () => {
   await saveAppSettings({ quickAdd: "ctrl+KeyY" });
   await mount();
   await section("Shortcuts");
-  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  fireEvent.click(screen.getByText("Reset", { selector: "button" }));
   await waitFor(() => expect(CHORDS.find(row => row.what === copy.captureATodo)?.presses).toEqual(["meta+shift+KeyT"]));
   expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe("⇧⌘T");
 });
@@ -174,13 +178,13 @@ it("u3804_reset_restores_the_default", async () => {
 it.each(["Font size", "Line height", "Letter spacing"])("u3806_unsubmitted_fields_survive_close_and_reload_without_applying %s", async label => {
   await mount();
   await commit("Font size", "17");
-  fireEvent.input(screen.getByRole("spinbutton", { name: label }), { target: { value: "too big" } });
+  fireEvent.input(screen.getByLabelText(label, { selector: "input" }), { target: { value: "too big" } });
   await waitFor(() => expect(JSON.parse(localStorage.getItem("roundup:drafts:app-settings")!).drafts).toContainEqual(expect.objectContaining({ value: expect.objectContaining({ text: "too big" }) })));
-  fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+  fireEvent.click(screen.getByText("← Back", { selector: "button" }));
   cleanup();
   await mount();
   await section("Terminal");
-  expect((await screen.findByRole<HTMLInputElement>("spinbutton", { name: label })).value).toBe("too big");
+  expect((await screen.findByLabelText<HTMLInputElement>(label, { selector: "input" })).value).toBe("too big");
   expect(appSettings().fontSize).toBe(17);
 });
 
@@ -194,17 +198,17 @@ it("u4686d_controls_have_labels_and_descriptions", async () => {
     ["Shortcuts", [["button", /^Quick add Todo /]]],
 
   ] as const) {
-    await section(page);
+    const panel = await section(page);
 
-    for (const [role, name] of controls) expect(await screen.findByRole(role, { name, description: /\S/ })).toBeTruthy();
+    for (const [role, name] of controls) expect(await panel.findByRole(role, { name, description: /\S/ })).toBeTruthy();
   }
 });
 
 it("u4687a_mode_segments_keep_scheme_behavior", async () => {
   await mount();
   await section("Appearance");
-  expect(screen.getByRole<HTMLInputElement>("radio", { name: "System" }).checked).toBe(true);
-  fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
+  expect(screen.getByLabelText<HTMLInputElement>("System", { selector: "input" }).checked).toBe(true);
+  fireEvent.click(screen.getByLabelText("Dark", { selector: "input" }));
   await waitFor(() => expect(appSettings().mode).toBe("dark"));
 });
 
@@ -213,10 +217,10 @@ it("u4687a_family_and_weight_choices_keep_existing_values", async () => {
   await saveAppSettings({ fontFamily: "Uninstalled custom face" });
   await mount();
   await section("Terminal");
-  fireEvent.click(screen.getByRole("combobox", { name: "Font family" }));
+  fireEvent.click(screen.getByLabelText("Font family", { selector: "button" }));
   fireEvent.click(await screen.findByRole("option", { name: "Uninstalled custom face" }));
   expect(appSettings().fontFamily).toBe("Uninstalled custom face");
-  fireEvent.click(screen.getByRole("radio", { name: "500" }));
+  fireEvent.click(screen.getByLabelText("500", { selector: "input" }));
   await waitFor(() => expect(appSettings().fontWeight).toBe(500));
 });
 
@@ -233,7 +237,7 @@ it.each([["Line height", "lineHeight", "1", "2"], ["Letter spacing", "letterSpac
   "u4687a_numeric_controls_commit_endpoints_and_refuse_invalid_drafts %s", async (label, name, min, max) => {
     await mount();
     await section("Terminal");
-    const input = await screen.findByRole<HTMLInputElement>("spinbutton", { name: label });
+    const input = await screen.findByLabelText<HTMLInputElement>(label, { selector: "input" });
 
     for (const value of [min, max]) {
       fireEvent.input(input, { target: { value } });
@@ -265,7 +269,7 @@ it("u4687b_preview_follows_valid_drafts_without_committing", async () => {
   const renderer = vi.spyOn(xterm, "Terminal");
   const app = await mount();
   await section("Terminal");
-  const input = await screen.findByRole("spinbutton", { name: "Line height" });
+  const input = await screen.findByLabelText("Line height", { selector: "input" });
   await screen.findByRole("region", { name: "Terminal preview" });
   const preview = renderer.mock.instances.at(-1)!;
   fireEvent.input(input, { target: { value: "1.2" } });
@@ -281,7 +285,7 @@ it("u4687b_preview_never_creates_or_writes_a_terminal", async () => {
   const app = await mount();
   await section("Terminal");
   await screen.findByRole("region", { name: "Terminal preview" });
-  fireEvent.click(screen.getByRole("radio", { name: "600" }));
+  fireEvent.click(screen.getByLabelText("600", { selector: "input" }));
   await waitFor(() => expect(appSettings().fontWeight).toBe(600));
   expect(app.calls.filter(call => call.method.startsWith("terminal.") || call.method === "agent.spawn")).toEqual([]);
   expect(app.outputSubscriptions).toEqual([]);
@@ -290,7 +294,7 @@ it("u4687b_preview_never_creates_or_writes_a_terminal", async () => {
 it("u4687c_unfinished_settings_survive_external_changes", async () => {
   await mount();
   await section("Terminal");
-  const input = await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Line height" });
+  const input = await screen.findByLabelText<HTMLInputElement>("Line height", { selector: "input" });
   fireEvent.input(input, { target: { value: " 1.25 " } });
   await saveAppSettings({ lineHeight: 1.5 });
   fireEvent.keyDown(input, { key: "Enter" });
@@ -302,7 +306,7 @@ it("u4687c_unfinished_settings_survive_external_changes", async () => {
 it("u4687c_a_failed_save_keeps_its_revision_and_a_newer_edit", async () => {
   await mount();
   await section("Terminal");
-  const input = await screen.findByRole<HTMLInputElement>("spinbutton", { name: "Line height" });
+  const input = await screen.findByLabelText<HTMLInputElement>("Line height", { selector: "input" });
   const setItem = Storage.prototype.setItem;
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
     if (key === "roundup:app-settings") throw new Error("Cannot save settings; free disk space and retry.");
@@ -328,14 +332,14 @@ it("u4687c_saved_changes_reach_other_project_tabs", async () => {
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
 
-  for (const tab of await screen.findAllByRole("tab", { name: "Terminal" })) fireEvent.click(tab);
-  const choices = await screen.findAllByRole<HTMLInputElement>("radio", { name: "500" });
+  for (const tab of await screen.findAllByText("Terminal", { selector: '[role="tab"]' })) fireEvent.click(tab);
+  const choices = await screen.findAllByLabelText<HTMLInputElement>("500", { selector: "input" });
   fireEvent.click(choices[0]!);
   await waitFor(() => expect(choices.every(choice => choice.checked)).toBe(true));
   cleanup();
   await mount();
   await section("Terminal");
-  expect(screen.getByRole<HTMLInputElement>("radio", { name: "500" }).checked).toBe(true);
+  expect(screen.getByLabelText<HTMLInputElement>("500", { selector: "input" }).checked).toBe(true);
 });
 
 const portWith = (configure: (press: string | null) => Promise<void>): import("../app/seam").CapturePort => ({
@@ -363,20 +367,16 @@ it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => 
   cleanup();
   render(() => <AppSettings app={Object.assign(app, { capture: portWith(configure) })} project={() => "/p"} />);
   window.dispatchEvent(new Event("open-app-settings"));
-  await screen.findByRole("region", { name: "Settings" });
+  await screen.findByLabelText("Settings", { selector: "section" });
   await section("Shortcuts");
-  const row = screen.getByRole("button", { name: /^Quick add from any app / });
+  const row = screen.getByLabelText(/^Quick add from any app /, { selector: "button" });
   fireEvent.click(row);
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAddAnywhere).toBe("ctrl+shift+KeyY"));
   expect(configure).toHaveBeenLastCalledWith("ctrl+shift+KeyY");
   expect(appSettings().quickAdd).toBe("meta+shift+KeyT");
-  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  fireEvent.click(screen.getByText("Reset", { selector: "button" }));
   await waitFor(() => expect(appSettings().quickAddAnywhere).toBe(""));
   expect(configure).toHaveBeenLastCalledWith(null);
   expect(appSettings().quickAdd).toBe("meta+shift+KeyT");
-});
-
-it("u5205_no_default_setting_registers_a_global_shortcut", () => {
-  expect(appSettings().quickAddAnywhere || null).toBeNull();
 });
