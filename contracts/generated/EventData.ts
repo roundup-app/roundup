@@ -3,6 +3,7 @@ import type { Ask } from "./ask/Ask";
 import type { AutoParams } from "./workstream/AutoParams";
 import type { ChannelEvent } from "./agent/ChannelEvent";
 import type { ExitedEvent } from "./terminal/ExitedEvent";
+import type { ExtensionProblem } from "./action/ExtensionProblem";
 import type { Message } from "./message/Message";
 import type { PadName } from "./pad/PadName";
 import type { Requested } from "./project/Requested";
@@ -46,5 +47,9 @@ export type EventData = { "name": "workstream.updated", "data": AutoParams } | {
 	name: string,
 } } | { "name": "project.requested", "data": Requested } | 
 /**  A3195: the Queue or the Project's cap changed; read `workstream.queue`. */
-{ "name": "workstream.queueChanged" };
+{ "name": "workstream.queueChanged" } | 
+/**  UA7: the User actions changed (a load, reload or removal); read `action.userList`. */
+{ "name": "action.userChanged" } | 
+/**  UA2, UA6, UA8: an Extension failed; the App shows one Toast. */
+{ "name": "extension.problem", "data": ExtensionProblem };
 

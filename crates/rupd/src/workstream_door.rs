@@ -79,6 +79,7 @@ for line in sys.stdin:
         reactions: std::sync::Arc::new(crate::reaction::Reactions::in_memory()),
         prompt_effect_gate: None,
         actions: Default::default(),
+        extensions: crate::extensions::Host::new(std::path::PathBuf::new()),
         agents: agents.clone(),
         renames: std::sync::Mutex::new(None),
         owner_events: std::sync::Mutex::new(None),

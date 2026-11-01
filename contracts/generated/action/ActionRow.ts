@@ -9,4 +9,6 @@ export type ActionRow = {
 	args: action$ActionArg.ActionArg[],
 	available: boolean,
 	cause?: string,
+	/**  UA1: `user` for an action an Extension declared; absent on the App's own rows. */
+	source?: string,
 };
