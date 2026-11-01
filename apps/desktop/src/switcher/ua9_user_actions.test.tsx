@@ -92,8 +92,10 @@ it("ua12_user_actions_move_nothing_built_in", async () => {
   await waitFor(() => expect(field()).toBeNull());
 
   app.handlers["action.userList"] = () => { throw new RpcError(-32000, "boom"); };
+
   app.emit(event({ name: "action.userChanged" }));
 
   await show();
+
   expect(options().map(row => row.dataset.value)).toEqual(base);
 });
