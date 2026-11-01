@@ -717,8 +717,9 @@ async fn c5461b_unsupported_event_fails_load() {
     ];
     let mut fx = with(|root| {
         for (index, event) in events.iter().enumerate() {
+            let suffix = char::from(b'a' + u8::try_from(index).unwrap());
             ext(root, &format!("bad-{index}"), &[], &format!(
-                "export function register(on) {{ on('action', {{ name: 'user.bad{index}', label: 'Bad' }}, () => ({{ done: true }})); on('{event}', () => undefined); }}"
+                "export function register(on) {{ on('action', {{ name: 'user.bad{suffix}', label: 'Bad' }}, () => ({{ done: true }})); on('{event}', () => undefined); }}"
             ));
         }
         ext(root, "good", &[], &action("user.good", "return { done: true };"));
