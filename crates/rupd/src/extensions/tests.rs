@@ -701,3 +701,55 @@ async fn ua8_a_broken_extension_never_stops_the_daemon() {
         true
     );
 }
+
+#[tokio::test]
+async fn c5461b_unsupported_event_fails_load() {
+    let events = [
+        "rail.sort",
+        "agent.status",
+        "rail.group",
+        "agent.classify",
+        "bus.route",
+        "tool.call",
+        "ui.render",
+        "provenance.render",
+        "unknown",
+    ];
+    let mut fx = with(|root| {
+        for (index, event) in events.iter().enumerate() {
+            ext(root, &format!("bad-{index}"), &[], &format!(
+                "export function register(on) {{ on('action', {{ name: 'user.bad{index}', label: 'Bad' }}, () => ({{ done: true }})); on('{event}', () => undefined); }}"
+            ));
+        }
+        ext(root, "good", &[], &action("user.good", "return { done: true };"));
+    }).await;
+    let mut problems = Vec::new();
+    tokio::time::timeout(Duration::from_secs(4), async {
+        while problems.len() < events.len() {
+            if let EventData::ExtensionProblem(problem) = fx.events.recv().await.unwrap().data {
+                problems.push((problem.extension, problem.cause));
+            }
+        }
+    })
+    .await
+    .expect("every unsupported registration must fail by name");
+    fx.listed(&["user.good"]).await;
+    let mut user = fx.user().await;
+    assert_eq!(
+        user.call("daemon.ping", Value::Null).await["result"]["pong"],
+        true
+    );
+    problems.extend(fx.problems());
+    assert_eq!(problems.len(), events.len(), "{problems:?}");
+    for (index, event) in events.iter().enumerate() {
+        let matching: Vec<_> = problems
+            .iter()
+            .filter(|(extension, _)| extension == &format!("bad-{index}"))
+            .collect();
+        assert_eq!(matching.len(), 1, "{problems:?}");
+        assert!(
+            matching[0].1.contains(event) && matching[0].1.contains("unsupported"),
+            "{matching:?}"
+        );
+    }
+}
