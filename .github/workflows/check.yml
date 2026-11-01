@@ -446,7 +446,10 @@ jobs:
   # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
   # itself succeed) skipped it (L89). L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
+  # L46: a draft run's skipped job takes another name. GitHub counts a skipped required check as passed, and the ready run
+  # creates its own `check` only after its lanes end, so a skipped draft `check` on the same head let #5430 merge red.
   check:
+    name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'check (draft)' || 'check' }}
     needs: [plan, rust, mac-clippy, mac, web, chromium]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
