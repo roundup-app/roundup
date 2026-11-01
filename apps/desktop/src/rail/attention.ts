@@ -30,13 +30,13 @@ export const nextAttention = (nodes: readonly RailNode[], selected: string | nul
 };
 
 /** PS12: what counts toward attention in one Project: its undismissed nodes and the Terminals that need you (PS11.1), so the count and Needs you agree. */
-export const attentionHolders = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[], dismissed: Dismissed = none): Pick<RailNode, "status">[] => [
+export const attentionHolders = (nodes: readonly RailNode[], terminals: readonly TerminalInfo[], dismissed: Dismissed = none): Partial<Pick<RailNode, "status">>[] => [
   ...nodes.filter((node) => !dismissed(node)),
   ...terminalAttention(nodes, terminals),
 ];
 
 /** How many holders of each attention Kind (U182's tooltip reads both). */
-export const attentionCounts = (holders: readonly Pick<RailNode, "status">[]) => {
+export const attentionCounts = (holders: readonly Partial<Pick<RailNode, "status">>[]) => {
   const kinds = holders.map((holder) => holder.status?.kind);
 
   return { needsYou: kinds.filter((kind) => kind === "needs-you").length, error: kinds.filter((kind) => kind === "error").length };
