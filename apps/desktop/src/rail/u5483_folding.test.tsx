@@ -126,3 +126,18 @@ it("u5483a_workstreams_keep_separate_folds", async () => {
   await waitFor(() => expect(rowNames()).toContain("first-child"));
   expect(rowNames()).not.toContain("second-child");
 });
+
+it("u5483c_resuming_clears_only_the_previous_turn", async () => {
+  const child = agent("child", "done", "finished", { parent: "stream", final_text: { ...empty, finished: "0", kind: "present" } });
+  const { app, rail, setNow } = await mountRail([workstream("stream"), child]);
+  await settled();
+  expect(rowNames()).toContain("child");
+  app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: NOW, finished: "0" } } }));
+  app.emit(event({ name: "agent.status", data: { id: "child", attempt: "1", status_revision: "3", status: { kind: "idle", label: "idle", since: NOW + 1, finished: "1" } } }));
+  setNow(NOW + 300_001);
+  expect(rowNames()).toContain("child");
+  app.handlers["rail.tree"] = () => [workstream("stream"), { ...child, status: { kind: "idle", label: "idle", since: NOW + 1, finished: "1" }, status_revision: "3", final_text: { ...empty, turn: "2" } }];
+  app.emit(event({ name: "rail.changed" }));
+  await rail.settled();
+  expect(rowNames()).not.toContain("child");
+});
