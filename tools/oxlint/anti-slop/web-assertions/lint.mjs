@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 const root = process.cwd();
 // The ordinary gate runs the fixtures; a targeted lint invocation runs only its requested lint.
 if (!args.length) {
-  const fixtures = spawnSync(process.execPath, ["--test", resolve(repo, "tools/oxlint/pre-commit.test.mjs"), resolve(directory, "assertions.test.mjs"), resolve(directory, "../rules/u3791c-swallowed-catch.test.mjs"), resolve(directory, "../web-timeout/timeout.test.mjs")], { stdio: "inherit" });
+  const fixtures = spawnSync(process.execPath, ["--test", resolve(directory, "assertions.test.mjs"), resolve(directory, "../../pre-commit.test.mjs"), resolve(directory, "../rules/u3791c-swallowed-catch.test.mjs"), resolve(directory, "../web-timeout/timeout.test.mjs")], { stdio: "inherit" });
   if (fixtures.status !== 0) process.exit(fixtures.status ?? 1);
 }
 const json = args.includes("json");
