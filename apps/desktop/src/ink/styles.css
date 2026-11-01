@@ -187,7 +187,6 @@ p.ink[role="alert"] {
 
 /* U5231a: the reason and age sit on their own ground, so over another surface they read as a tip. */
 .status-reveal {
-  box-shadow: var(--elevation);
   border: var(--hairline-width) solid var(--hairline);
 }
 

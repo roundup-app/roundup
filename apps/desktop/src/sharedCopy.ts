@@ -38,6 +38,7 @@ export const labels = new Map([
  ]);
 
 export const copy = {
+  now: "now",
   dotted: (first: string, second: string) => `${first} · ${second}`,
   you: "You",
   move: "Move",
