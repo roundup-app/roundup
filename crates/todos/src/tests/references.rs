@@ -43,23 +43,14 @@ async fn t27_refs_keep_order_and_one_per_target() {
 }
 
 #[tokio::test]
-async fn t27_refs_persist_old_databases_read_none_and_delete_clears_them() {
+async fn t27_refs_persist_and_delete_clears_them() {
     let dir = tempfile::tempdir().unwrap();
-    let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-    rusqlite_migration::Migrations::new(vec![
-        rusqlite_migration::M::up(include_str!("../../migrations/001/up.sql")),
-        rusqlite_migration::M::up(include_str!("../../migrations/002/up.sql")),
-        rusqlite_migration::M::up(include_str!("../../migrations/003/up.sql")),
-        rusqlite_migration::M::up(include_str!("../../migrations/004/up.sql")),
-        rusqlite_migration::M::up(include_str!("../../migrations/005/up.sql")),
-    ])
-    .to_latest(&mut db)
-    .unwrap();
-    db.execute_batch("INSERT INTO todos (title,body,created_at) VALUES ('old','',0);")
-        .unwrap();
-    drop(db);
+
     {
         let h = Harness::new(dir.path());
+        h.call("todo.create", json!({"title":"current"}))
+            .await
+            .unwrap();
         let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
         assert_eq!(todo["refs"], json!([]));
         h.call("todo.addRef", json!({"id": 1, "url": NOTES}))

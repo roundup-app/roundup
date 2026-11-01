@@ -7,11 +7,10 @@ impl Daemon {
         Self::open_in(dir.parent().unwrap_or(dir), dir)
     }
 
-    /// Open `project`, keeping its data in `data` (N1) after moving an older Project's files
-    /// there (N3).
+    /// Open `project`, keeping its data in `data` (N1); obsolete local data is refused.
     pub fn open_project(project: &Path, data: &Path) -> Result<Self, OpenError> {
         let dir = data::project_data(data, project)?;
-        data::migrate(project, &dir).map_err(OpenError::from)?;
+        data::refuse_old_data(project).map_err(OpenError::from)?;
         let daemon = Self::open_in(project, &dir)?;
         Ok(match std::env::var_os("HOME") {
             Some(home) => daemon.with_extensions(&Path::new(&home).join(".roundup/extensions")),

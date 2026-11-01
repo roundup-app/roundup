@@ -62,9 +62,7 @@ impl Store {
         let mut db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
-        let store = Self { db };
-        store.migrate_removed_holds()?;
-        Ok(store)
+        Ok(Self { db })
     }
 
     pub(crate) fn record_sender_name(&self, agent: &str, name: &str) -> Result<(), RpcError> {
@@ -277,37 +275,6 @@ impl Store {
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .map_err(RpcError::internal)
-    }
-
-    /// B3563e: a Project written before holds were removed reopens without them. A Message
-    /// waiting on a user release is `pending` again, in id order behind what already waits, and
-    /// one waiting on the user's answer is available to the user; an approval Route is `auto`;
-    /// a stored Reason on a live Message is cleared. Terminal rows and their ids never change.
-    fn migrate_removed_holds(&self) -> rusqlite::Result<()> {
-        let base: i64 =
-            self.db
-                .query_row("SELECT COALESCE(MAX(rank), 0) FROM messages", [], |r| {
-                    r.get(0)
-                })?;
-        self.db.execute(
-            "UPDATE messages SET status = 'delivered', reason = NULL
-             WHERE status NOT IN ('pending', 'delivered', 'dropped') AND to_id = 'you'",
-            [],
-        )?;
-        self.db.execute(
-            "UPDATE messages SET status = 'pending', reason = NULL, rank = ?1 + id
-             WHERE status NOT IN ('pending', 'delivered', 'dropped')",
-            [base],
-        )?;
-        self.db.execute(
-            "UPDATE messages SET reason = NULL WHERE status IN ('pending', 'delivered') AND reason IS NOT NULL",
-            [],
-        )?;
-        self.db.execute(
-            "UPDATE routes SET delivery = 'auto' WHERE delivery NOT IN ('auto', 'drop')",
-            [],
-        )?;
-        Ok(())
     }
 
     /// Runs `f` as one SQLite transaction: its writes all land or none do, so a kill between two

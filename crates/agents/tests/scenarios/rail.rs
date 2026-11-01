@@ -375,53 +375,6 @@ async fn a25_the_old_method_and_kind_do_not_exist() {
     assert!(!tree.contains("\"room\""));
 }
 
-/// Writes `kind = 'room'` over every Workstream row, as an earlier Daemon stored it.
-fn store_as_room(f: &Fixture) {
-    rusqlite::Connection::open(f.dir.path().join("agents.db"))
-        .unwrap()
-        .execute(
-            "UPDATE nodes SET kind = 'room' WHERE kind = 'workstream'",
-            [],
-        )
-        .unwrap();
-}
-
-#[tokio::test]
-async fn a25_a_stored_rail_with_kind_room_opens_as_workstreams_with_ids_and_children_intact() {
-    let f = Fixture::new();
-    let a = f.workstream("a", None).await;
-    f.spawn(Some(&a), None).await.unwrap();
-    f.workstream("b", None).await;
-    let before = shape(&f.tree().await);
-    store_as_room(&f);
-    let after = f.reopen().tree().await;
-    assert_eq!(shape(&after), before);
-    assert!(
-        after
-            .iter()
-            .filter(|n| n.kind != NodeKind::Agent)
-            .all(|n| n.kind == NodeKind::Workstream)
-    );
-}
-
-#[tokio::test]
-async fn a25_the_next_write_stores_workstream() {
-    let f = Fixture::new();
-    f.workstream("a", None).await;
-    store_as_room(&f);
-    let f = f.reopen();
-    f.workstream("b", None).await;
-    let kinds: Vec<String> = rusqlite::Connection::open(f.dir.path().join("agents.db"))
-        .unwrap()
-        .prepare("SELECT kind FROM nodes")
-        .unwrap()
-        .query_map([], |row| row.get(0))
-        .unwrap()
-        .collect::<Result<_, _>>()
-        .unwrap();
-    assert_eq!(kinds, ["workstream", "workstream"]);
-}
-
 #[tokio::test]
 async fn r16_empty_workstreams_keep_every_presentation_field() {
     let f = Fixture::new();

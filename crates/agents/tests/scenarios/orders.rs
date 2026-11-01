@@ -445,7 +445,7 @@ async fn a25_a_stored_order_keeps_its_text() {
     rusqlite::Connection::open(f.dir.path().join("agents.db"))
         .unwrap()
         .execute(
-            "UPDATE nodes SET kind = 'room', work = ? WHERE id = ?",
+            "UPDATE nodes SET work = ? WHERE id = ?",
             rusqlite::params![serde_json::to_string(&stored).unwrap(), id],
         )
         .unwrap();

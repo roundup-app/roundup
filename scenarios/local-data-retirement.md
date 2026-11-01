@@ -28,7 +28,7 @@ Policy: remove historical acceptance and its exclusive tests; retain the current
 | --- | --- | --- |
 | B3563e, B3692b, A3564d, B29 | Old Message/Route/action/question/Attempt conversion | Current identities, authority, receipts and finality |
 | N3, N20, N2705a, B4522, N5420a | Folder import, added-migration preservation, prefix repair/reference schemas and skipped-Pad exception | Placement, fresh SQL discovery/image, current persistence and divergent/newer refusal |
-| A8, A3308, T8/T10/T12/T15 (including `scenarios/todo-drawer.md`), P12/P14, U433, U4698c, U4454d | Old Group, Todo, Scribe, priority and measurement schema adoption | Current Rail, Todo history, Pad and priority operations |
+| A8, A25, A26, X11, A32, A4452c, A3308, T19, T30, U3787a, T8/T10/T12/T15 (including `scenarios/todo-drawer.md`), P12/P14, U433, U4698c, U4454d | Old Group/Room/nested Workstream/Terminal records, removal boundary conversion, Todo, Scribe, priority and measurement schema adoption | Current Rail, Todo history, Pad and priority operations |
 | U3787f, U4086a–d | Browser-key import, quarantine and continuation after partial import | Validated current plugin storage and draft recovery |
 | NR11 | Missing-reason legacy reads and their exclusive fixture | Authenticated current maker/reason and unknown-authority refusal |
 | R3778b–e, R4160a/b | Legacy BLOB reading/accounting, mixed historical fixtures and upgrade measurement pairs | Current publication bytes, quota boundary, selected cleanup, restart and durability |

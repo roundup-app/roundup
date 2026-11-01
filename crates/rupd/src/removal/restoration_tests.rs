@@ -18,7 +18,7 @@ fn without_updated_at(mut value: Value) -> Value {
 #[tokio::test]
 async fn u3787a_rail_undo_preserves_unrelated_changes() {
     for kind in ["agent", "workstream"] {
-        for change in ["immediate", "reorder", "new-agent", "legacy-reorder"] {
+        for change in ["immediate", "reorder", "new-agent"] {
             let dir = tempfile::tempdir().unwrap();
             let daemon = crate::test_daemon(dir.path()).unwrap();
             let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
@@ -47,9 +47,6 @@ async fn u3787a_rail_undo_preserves_unrelated_changes() {
             call(&daemon, "rail.tree", Value::Null).await.unwrap();
             call(&daemon, "todo.list", Value::Null).await.unwrap();
             call(&daemon, "pad.list", Value::Null).await.unwrap();
-            if change == "legacy-reorder" {
-                db.execute("UPDATE rail_deletions SET boundary=(SELECT json_group_array(json_array(json_extract(value,'$.id'),json_extract(value,'$.parent'),json_extract(value,'$.order'))) FROM json_each(json_extract(boundary,'$.after')))", []).unwrap();
-            }
             if change.ends_with("reorder") {
                 call(
                     &daemon,

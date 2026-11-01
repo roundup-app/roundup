@@ -26,130 +26,7 @@ impl From<RailNode> for Position {
     }
 }
 
-impl Placement {
-    // Old receipts already contain the original row values in their inverse changeset.
-    // Decode them with SQLite's iterator, so their unrelated placements get the same repair.
-    fn read(boundary: &str, graph: &[u8], current: &[RailNode]) -> Result<Self, RpcError> {
-        use rusqlite::{
-            fallible_streaming_iterator::FallibleStreamingIterator, session::ChangesetIter,
-            types::ValueRef,
-        };
-        if let Ok(placement) = serde_json::from_str::<Self>(boundary) {
-            return Ok(placement);
-        }
-        let rows: Vec<(serde_json::Value, Option<serde_json::Value>, u32)> =
-            serde_json::from_str(boundary).map_err(RpcError::internal)?;
-        let id_text = |id: serde_json::Value| {
-            id.as_str()
-                .map(str::to_owned)
-                .unwrap_or_else(|| id.to_string())
-        };
-        let after: Vec<_> = rows
-            .into_iter()
-            .map(|(id, parent, order)| {
-                let id = id_text(id);
-                let name = current
-                    .iter()
-                    .find(|n| n.id == id)
-                    .map(|n| n.name.clone())
-                    .unwrap_or_default();
-                Position {
-                    id,
-                    parent: parent.map(id_text),
-                    order,
-                    name,
-                }
-            })
-            .collect();
-        let mut before = after.clone();
-        let mut input = graph;
-        let input: &mut dyn std::io::Read = &mut input;
-        let mut changes = ChangesetIter::start_strm(&input).map_err(sql)?;
-        while let Some(item) = changes.next().map_err(sql)? {
-            let op = item.op().map_err(sql)?;
-            if op.table_name() != "nodes" {
-                continue;
-            }
-            let insert = op.code() == rusqlite::hooks::Action::SQLITE_INSERT;
-            if !insert && op.code() != rusqlite::hooks::Action::SQLITE_UPDATE {
-                continue;
-            }
-            let id = if insert {
-                item.new_value(0)
-            } else {
-                item.old_value(0)
-            }
-            .map_err(sql)?
-            .as_i64()
-            .map_err(RpcError::internal)?
-            .to_string();
-            if insert {
-                before.push(Position {
-                    id: id.clone(),
-                    name: item
-                        .new_value(2)
-                        .map_err(sql)?
-                        .as_str()
-                        .map_err(RpcError::internal)?
-                        .into(),
-                    parent: None,
-                    order: 0,
-                });
-            }
-            let node = before
-                .iter_mut()
-                .find(|n| n.id == id)
-                .ok_or_else(|| RpcError::internal("retained placement missing"))?;
-            match item.new_value(3) {
-                Ok(ValueRef::Null) => node.parent = None,
-                Ok(value) => {
-                    node.parent = Some(value.as_i64().map_err(RpcError::internal)?.to_string())
-                }
-                Err(rusqlite::Error::InvalidColumnIndex(_)) if !insert => {}
-                Err(error) => return Err(sql(error)),
-            }
-            match item.new_value(4) {
-                Ok(value) => {
-                    node.order = u32::try_from(value.as_i64().map_err(RpcError::internal)?)
-                        .map_err(RpcError::internal)?
-                }
-                Err(rusqlite::Error::InvalidColumnIndex(_)) if !insert => {}
-                Err(error) => return Err(sql(error)),
-            }
-        }
-        Ok(Self { before, after })
-    }
-}
-
 impl Rail {
-    pub(super) fn prepare_placements(db: &Connection) -> Result<(), RpcError> {
-        let mut query = db.prepare("SELECT operation,boundary,graph FROM rail_deletions WHERE restored=0 AND json_type(boundary)='array'").map_err(sql)?;
-        let rows = query
-            .query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, Vec<u8>>(2)?,
-                ))
-            })
-            .map_err(sql)?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(sql)?;
-        let current = load(db)?;
-        for (operation, boundary, graph) in rows {
-            let placement = Placement::read(&boundary, &graph, &current)?;
-            db.execute(
-                "UPDATE rail_deletions SET boundary=? WHERE operation=?",
-                params![
-                    serde_json::to_string(&placement).map_err(RpcError::internal)?,
-                    operation
-                ],
-            )
-            .map_err(sql)?;
-        }
-        Ok(())
-    }
-
     /// Delete `id`. Its children (a Workstream or an Agent may have any) move to its own
     /// parent, at its place, in order, first; one transaction, so a failed delete leaves them
     /// still under `id`.
@@ -355,7 +232,7 @@ impl Rail {
                 |r| r.get(0),
             )
             .map_err(sql)?;
-        let placement = Placement::read(&boundary, &graph, &current)?;
+        let placement: Placement = serde_json::from_str(&boundary).map_err(RpcError::internal)?;
         let restored_ids: Vec<_> = removal
             .removed
             .iter()

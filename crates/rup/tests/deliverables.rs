@@ -623,13 +623,12 @@ async fn r3778c_removed_file_cleanup() {
 }
 
 #[tokio::test]
-async fn r3778c_legacy_and_file_reopen() {
+async fn r3778c_current_revisions_reopen() {
     let mut p = daemon::start(&[]);
     let c = p.client().await;
     pad(&c, "notes", "legacy revision").await;
     let request = json!({"key":"legacy","title":"Result","target":pad_target(&c,"notes",1).await});
     let legacy = call(&c, "deliverable.publish", request).await;
-    legacy_blobs(&mut p, &[(&legacy, b"legacy revision")]);
     let c = p.client().await;
     call(
         &c,
@@ -764,24 +763,6 @@ async fn r3778c_durable_reference_order() {
     );
 }
 
-fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
-    p.crash();
-    // A real version-41 database holding the rows made so far; version 41 precedes
-    // 0028-deliverable-files, the Door columns and Pad order, and still holds Clear-owned state.
-    daemon::storage::legacy_project_v41(&p.data_dir().join("project.db"));
-    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    for (record, bytes) in publications {
-        db.execute(
-            "INSERT INTO deliverable_bytes VALUES (?1,?2)",
-            rusqlite::params![record["id"].as_str().unwrap(), bytes],
-        )
-        .unwrap();
-    }
-    drop(db);
-    std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
-    p.restart(&[]);
-}
-
 async fn publish_bytes(
     p: &daemon::Project,
     c: &rpc::Client,
@@ -798,7 +779,7 @@ async fn publish_bytes(
     .await
 }
 
-async fn mixed_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
+async fn current_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
     // Project-local, read only by test-support builds; retained across fixture restarts.
     std::fs::write(p.data_dir().join("test-publication-quota"), "64").unwrap();
     p.restart(&[]);
@@ -816,10 +797,6 @@ async fn mixed_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
         .await;
         records.push((record, length, byte));
     }
-    legacy_blobs(
-        p,
-        &[(&records[0].0, b"aaaaaaa"), (&records[1].0, b"bbbbbbbbbbb")],
-    );
     let c = p.client().await;
     records.push((
         publish_bytes(p, &c, "chosen-file", 13, b'c').await,
@@ -827,45 +804,27 @@ async fn mixed_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
         b'c',
     ));
     records.push((publish_bytes(p, &c, "fill", 33, b'd').await, 33, b'd'));
-    let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    assert_eq!(
-        db.query_row(
-            "SELECT count(*),sum(length(bytes)) FROM deliverable_bytes",
-            [],
-            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?))
-        )
-        .unwrap(),
-        (2, 18)
-    );
     records
 }
 
 fn allocation_bytes(p: &daemon::Project) -> i64 {
     let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    let blobs: i64 = db
-        .query_row(
-            "SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
     let mut files = db
         .prepare("SELECT id,length FROM deliverable_files")
         .unwrap();
     let files = files
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
         .unwrap();
-    blobs
-        + files
-            .map(|file| {
-                let (id, charged) = file.unwrap();
-                let actual = std::fs::metadata(p.data_dir().join("publication-files").join(id))
-                    .unwrap()
-                    .len();
-                assert_eq!(actual, u64::try_from(charged).unwrap());
-                charged
-            })
-            .sum::<i64>()
+    files
+        .map(|file| {
+            let (id, charged) = file.unwrap();
+            let actual = std::fs::metadata(p.data_dir().join("publication-files").join(id))
+                .unwrap()
+                .len();
+            assert_eq!(actual, u64::try_from(charged).unwrap());
+            charged
+        })
+        .sum::<i64>()
 }
 
 async fn exact_publications(c: &rpc::Client, records: &[(Value, usize, u8)]) {
@@ -895,9 +854,9 @@ async fn refuses_one_byte(p: &daemon::Project, c: &rpc::Client, records: &[(Valu
 }
 
 #[tokio::test]
-async fn r4160a_mixed_quota_boundary() {
+async fn r4160a_current_quota_boundary() {
     let mut p = daemon::start(&[]);
-    let records = mixed_quota(&mut p).await;
+    let records = current_quota(&mut p).await;
     let c = p.client().await;
     assert_eq!(allocation_bytes(&p), 64);
     refuses_one_byte(&p, &c, &records).await;
@@ -911,7 +870,7 @@ async fn r4160a_mixed_quota_boundary() {
 async fn r4160b_cleanup_releases_only_chosen_bytes() {
     for chosen in [0, 2] {
         let mut p = daemon::start(&[]);
-        let mut records = mixed_quota(&mut p).await;
+        let mut records = current_quota(&mut p).await;
         let c = p.client().await;
         assert_eq!(allocation_bytes(&p), 64);
         let (removed, length, _) = records.remove(chosen);
@@ -929,7 +888,15 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
             refused(&c, "deliverable.resolve", id.clone()).await;
             assert_eq!(allocation_bytes(&p), 64 - i64::try_from(length).unwrap());
             let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-            assert_eq!(db.query_row("SELECT (SELECT count(*) FROM deliverable_bytes WHERE id=?1) + (SELECT count(*) FROM deliverable_files WHERE id=?1)", [removed["id"].as_str().unwrap()], |r| r.get::<_, i64>(0)).unwrap(), 0);
+            assert_eq!(
+                db.query_row(
+                    "SELECT count(*) FROM deliverable_files WHERE id=?1",
+                    [removed["id"].as_str().unwrap()],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+                0
+            );
             assert!(
                 !p.data_dir()
                     .join("publication-files")

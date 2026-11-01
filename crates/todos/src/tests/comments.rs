@@ -69,22 +69,14 @@ async fn t20_a_rejected_comment_leaves_no_trace() {
 }
 
 #[tokio::test]
-async fn t20_comments_persist_and_old_databases_read_empty() {
+async fn t20_comments_persist() {
     let dir = tempfile::tempdir().unwrap();
-    let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-    rusqlite_migration::Migrations::new(vec![
-        rusqlite_migration::M::up(include_str!("../../migrations/001/up.sql")),
-        rusqlite_migration::M::up(include_str!("../../migrations/002/up.sql")),
-        rusqlite_migration::M::up(include_str!("../../migrations/003/up.sql")),
-        rusqlite_migration::M::up(include_str!("../../migrations/004/up.sql")),
-    ])
-    .to_latest(&mut db)
-    .unwrap();
-    db.execute_batch("INSERT INTO todos (title,body,created_at) VALUES ('old','',0);")
-        .unwrap();
-    drop(db);
+
     let thread = {
         let h = Harness::new(dir.path());
+        h.call("todo.create", json!({"title":"current"}))
+            .await
+            .unwrap();
         assert_eq!(
             h.call("todo.comments", json!({"id": 1})).await.unwrap(),
             json!([])
