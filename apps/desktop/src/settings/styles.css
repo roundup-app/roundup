@@ -80,13 +80,8 @@
   gap: var(--space-1);
 }
 
-.settings-shortcut button {
+.settings-shortcut button:not([aria-disabled="true"]) {
   color: var(--text);
-}
-
-.settings-shortcut button:disabled {
-  color: var(--grey);
-  cursor: default;
 }
 
 .project-center-content {
