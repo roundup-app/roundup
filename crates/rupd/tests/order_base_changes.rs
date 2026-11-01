@@ -10,6 +10,10 @@ use door_terminals::{order_child, recorded_bytes};
 
 use serde_json::{Value, json};
 
+#[path = "support/idle.rs"]
+mod idle;
+use idle::idle;
+
 #[tokio::test]
 async fn u2773c_orders_external_change_keeps_original() {
     let (run, caller) = order_child().await;
@@ -165,7 +169,3 @@ async fn u2773c_orders_removed_original_never_substitutes_same_named_objects() {
     run.finish().await;
     other.finish().await;
 }
-
-#[path = "support/idle.rs"]
-mod idle;
-use idle::idle;
