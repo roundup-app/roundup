@@ -42,8 +42,7 @@ pub(crate) struct Presentation {
     entries: Vec<Entry>,
 }
 
-/// Menu ids include their generation: a queued event from a replaced menu cannot select a
-/// different Agent now occupying the same index, or reopen a Project that was closed.
+/// Native ids retain original identities while labels change; removed actions disappear.
 pub(crate) struct MenuBar<R: Runtime> {
     dispatch: Mutex<Dispatch>,
     ages: Mutex<Vec<(MenuItem<R>, String, i64)>>,
@@ -85,27 +84,17 @@ fn refresh_ages<R: Runtime>(app: &AppHandle<R>) {
 
 #[derive(Default)]
 struct Dispatch {
-    generation: u64,
     actions: HashMap<String, Action>,
 }
 
 impl Dispatch {
     fn replacement(&self, entries: &[Entry]) -> Self {
-        let generation = self.generation + 1;
         let actions = entries
             .iter()
-            .enumerate()
-            .filter_map(|(index, entry)| {
-                entry
-                    .action
-                    .clone()
-                    .map(|action| (format!("menu-bar:{generation}:{index}"), action))
-            })
+            .filter_map(|entry| entry.action.clone())
+            .map(|action| (action_id(&action), action))
             .collect();
-        Self {
-            generation,
-            actions,
-        }
+        Self { actions }
     }
 
     fn chosen(&self, id: &str, mut effect: impl FnMut(&Action)) {
@@ -113,6 +102,13 @@ impl Dispatch {
             effect(action);
         }
     }
+}
+
+fn action_id(action: &Action) -> String {
+    format!(
+        "menu-bar:{}",
+        serde_json::to_string(action).expect("menu action serializes")
+    )
 }
 
 /// An 18px transparent monochrome template. Alpha alone supplies the three static looks;
@@ -174,7 +170,10 @@ pub(crate) fn set_menu_bar<R: Runtime>(
             .map_or_else(|| entry.label.clone(), |since| aged(&entry.label, since));
         let item = MenuItem::with_id(
             &app,
-            format!("menu-bar:{}:{index}", next.generation),
+            entry
+                .action
+                .as_ref()
+                .map_or_else(|| format!("menu-bar:head:{index}"), action_id),
             label,
             entry.action.is_some(),
             None::<&str>,
@@ -251,8 +250,13 @@ mod tests {
         ];
         let first = Dispatch::default().replacement(&entries);
         let mut effects = Vec::new();
-        for id in ["menu-bar:1:0", "unknown", "menu-bar:1:2", "menu-bar:1:3"] {
-            first.chosen(id, |action| effects.push(action.clone()));
+        for id in [
+            "head".to_owned(),
+            "unknown".to_owned(),
+            action_id(entries[2].action.as_ref().unwrap()),
+            action_id(&Action::Open),
+        ] {
+            first.chosen(&id, |action| effects.push(action.clone()));
         }
         assert_eq!(
             effects,
@@ -265,13 +269,12 @@ mod tests {
             ]
         );
         let closed = first.replacement(&entries[3..]);
-        closed.chosen("menu-bar:1:1", |_| {
+        closed.chosen(&action_id(entries[1].action.as_ref().unwrap()), |_| {
             panic!("stale menu event reopened a closed Project")
         });
-        closed.chosen("menu-bar:1:3", |_| {
-            panic!("old command survived replacement")
+        closed.chosen(&action_id(&Action::Open), |action| {
+            effects.push(action.clone())
         });
-        closed.chosen("menu-bar:2:0", |action| effects.push(action.clone()));
         assert_eq!(effects.last(), Some(&Action::Open));
     }
 }

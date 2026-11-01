@@ -543,12 +543,15 @@ export const seedApp = (name: SeedName, now: number): Controls => {
   if (name === "menu-bar-10") {
     nodes.splice(0, nodes.length, door("menu-door", "needs-you", "Which revision?", { name: "Review the published revision 🌿" }),
       ...cyclingAgents(now, 4, () => null).map(node => ({ ...node, name: `日本語 👩🏽‍💻 ${node.name} ${"long name ".repeat(5)}` })));
-    const background = app.add("/Users/you/background");
-    installDaemon(app.of(background.path), cyclingAgents(now, 5, () => null), now, false);
   }
 
   const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
   app.opened.project = name.startsWith("first-run") ? null : PROJECT;
+
+  if (name === "menu-bar-10") {
+    const background = app.add("/Users/you/background");
+    installDaemon(app.of(background.path), cyclingAgents(now, 5, () => null), now, false);
+  }
 
   if (name === "tree-40") {
     // U3744, U3745: a cap of 3 and the first Workstream whose Door never started waiting for a slot.
