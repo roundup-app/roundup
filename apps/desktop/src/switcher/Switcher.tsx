@@ -2,7 +2,6 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { ErrorLine } from "../ink/ErrorLine";
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -430,7 +429,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
             </span>}</StatusTip>;
           }} />
-        <Show when={makeFailure()}>{message => <ErrorLine message={message()} />}</Show>
+        <ReservedLine message={makeFailure()} />
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null}>
           <Show when={text() !== "" && !copyFailure()}>
