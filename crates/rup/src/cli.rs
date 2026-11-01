@@ -14,6 +14,7 @@ use serde_json::{Map, Value};
 
 use crate::mcp::{self, CALL_TIMEOUT, Offered};
 
+mod actions;
 mod describe;
 mod help;
 
@@ -487,6 +488,9 @@ const FAILED: u8 = 1;
 const BAD_USAGE: u8 = 2;
 
 pub async fn run(args: Vec<String>) -> ExitCode {
+    if let Some((which, rest)) = actions::command(&args) {
+        return actions::run_command(which, &rest).await;
+    }
     let tree_specs = specs(true);
     let mut root = tree(&tree_specs);
     if matches!(args.first().map(String::as_str), Some("help")) {
