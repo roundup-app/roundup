@@ -419,13 +419,26 @@ const rightAt = async (at: { x: number; y: number }) => {
 
 it.each(["agent", "user", "bubble"] as const)("u5515a_terminal_right_click_preserves_the_whole_selection_%s", async where => {
   const selector = await placement(where);
+  await browser("eval", String.raw`(() => {
+    window.__selectionReady = false;
+    window.__emu.write(new TextEncoder().encode('\x1b[2J\x1b[Hcafé alpha bravo charlie\r\n日本語 delta echo foxtrot'), () => { window.__selectionReady = true; });
+  })()`);
+  await wait("window.__selectionReady");
+  await browser("eval", `(() => {
+    window.__menuCalls = window.__fake.app.calls.length;
+    window.__menuClipboard = window.__fake.app.clipboardWrites.length;
+    window.__menuInput = [];
+    window.__emu.onInput(bytes => window.__menuInput.push(...bytes));
+    window.__menuControls = [...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')];
+  })()`);
 
   const from = await read<{ x: number; y: number }>(`(() => {
     const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
     return { x: Math.round(box.left + 2), y: Math.round(box.top + 8) };
   })()`);
 
-  await drag(from, { x: from.x + 150, y: from.y });
+  const rowHeight = await read<number>(`document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().height / window.__emu.fit().rows`);
+  await drag(from, { x: from.x + 150, y: from.y + rowHeight });
   const selected = await read<string>("window.__emu.selection()");
   expect(selected).toContain("café alpha bravo charlie\n日本語");
   await rightAt({ x: from.x + 30, y: from.y });
@@ -433,6 +446,10 @@ it.each(["agent", "user", "bubble"] as const)("u5515a_terminal_right_click_prese
   expect(await read<string>("window.__emu.selection()")).toBe(selected);
   expect(await read<string>("window.__selectionBeforeRelease")).toBe(selected);
   expect(await read<string>("getSelection().getRangeAt(0).toString()")).toBe(selected);
+  expect(await read<number[]>("window.__menuInput")).toEqual([]);
+  expect(await read<number>("window.__fake.app.clipboardWrites.length - window.__menuClipboard")).toBe(0);
+  expect(await read<string[]>("window.__fake.app.calls.slice(window.__menuCalls).filter(c => ['terminal.write', 'message.send', 'agent.spawn'].includes(c.method)).map(c => c.method)")).toEqual([]);
+  expect(await read<number>("[...document.querySelectorAll('[role=menu], [role=dialog], .app-popover')].filter(node => !window.__menuControls.includes(node)).length")).toBe(0);
 }, 90_000);
 
 it.each(["agent", "user", "bubble"] as const)("u5515b_terminal_unselected_word_uses_a_readonly_target_%s", async where => {
@@ -494,9 +511,16 @@ it.each(["diff", "code", "readonly-pad", "message"] as const)("u5515c_readonly_t
 
 it.each(["agent", "user", "bubble"] as const)("u5515d_terminal_input_survives_readonly_context_menu_%s", async where => {
   const selector = await placement(where);
-  await browser("dblclick", selector);
+
+  const at = await read<{ x: number; y: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: Math.round(box.left + 2), y: Math.round(box.top + 8) };
+  })()`);
+
+  await drag(at, { x: at.x + 150, y: at.y });
   const selected = await read<string>("window.__emu.selection()");
-  await rightAt(await point(selector));
+  expect(selected).toContain(" ");
+  await rightAt({ x: at.x + 30, y: at.y });
   // Headless Chromium opens no OS menu: the next key follows the completed gesture.
   await browser("press", "Meta+c");
   await wait("window.__fake.app.clipboardWrites.length === 1");
@@ -514,10 +538,11 @@ it.each(["agent", "user", "bubble"] as const)("u5515d_terminal_input_survives_re
   await browser("eval", `(() => {
     const input = document.activeElement;
     input.value = '';
+    input.dispatchEvent(new KeyboardEvent('keydown', {bubbles:true,composed:true,key:'Process',keyCode:229,isComposing:true}));
     input.dispatchEvent(new CompositionEvent('compositionstart', {bubbles:true,data:''}));
     input.dispatchEvent(new CompositionEvent('compositionupdate', {bubbles:true,data:'n'}));
     input.value = 'n';
-    input.dispatchEvent(new InputEvent('input', {bubbles:true,isComposing:true,inputType:'insertCompositionText',data:'n'}));
+    input.dispatchEvent(new InputEvent('input', {bubbles:true,composed:true,isComposing:true,inputType:'insertCompositionText',data:'n'}));
   })()`);
   expect(await read<number[]>("window.__input")).toEqual([97]);
   await browser("eval", `(() => {
@@ -525,11 +550,13 @@ it.each(["agent", "user", "bubble"] as const)("u5515d_terminal_input_survives_re
     input.dispatchEvent(new CompositionEvent('compositionupdate', {bubbles:true,data:'日本語'}));
     input.value = '日本語';
     input.dispatchEvent(new CompositionEvent('compositionend', {bubbles:true,data:'日本語'}));
-    input.dispatchEvent(new InputEvent('input', {bubbles:true,isComposing:false,inputType:'insertText',data:'日本語'}));
+    input.dispatchEvent(new InputEvent('input', {bubbles:true,composed:true,isComposing:false,inputType:'insertText',data:'日本語'}));
+    input.dispatchEvent(new KeyboardEvent('keyup', {bubbles:true,composed:true,key:'Process',keyCode:229}));
   })()`);
   await wait("new TextDecoder().decode(new Uint8Array(window.__input)) === 'a日本語'");
   await browser("clipboard", "write", "pasted text");
-  await browser("press", "Control+V");
+  // Chromium on Linux reserves Ctrl+V for the program; its native paste chord is Ctrl+Shift+V.
+  await browser("press", "Control+Shift+V");
   await wait("new TextDecoder().decode(new Uint8Array(window.__input)).includes('pasted text')");
   const expected = "a日本語\x1b[200~pasted text\x1b[201~";
   expect(await read<string>("new TextDecoder().decode(new Uint8Array(window.__input))")).toBe(expected);
