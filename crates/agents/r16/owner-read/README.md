@@ -1,9 +1,11 @@
+> R5460: the Message receiver lookup and B32 tests described here are retired; measurements below are historical.
+
 # Terminal owner-read attribution (#1686)
 
 At main `4b75b448378a626ec630fb192e2a10e124675c6b`, measure before selecting the repair. On Ubuntu 24.04, EPYC 7763, four online/available CPUs and affinity 0–3, SQL preparation accounts for 11.0–11.5 µs of the 18.7–19.6 µs authoritative owner-read span. The repair changes only `Rail::terminal_owner`'s `prepare` to `prepare_cached` (`dd980f90`). rusqlite's bounded connection cache retains compiled SQL, not owner results. Every invocation binds its Terminal and executes the indexed SELECT, including the second-row ambiguity check, under the existing Rail → Attempts → callback cut.
 
 ```text
-with_terminal_owner
+retired Message receiver lookup
   lock Rail → lock Attempts
   reuse compiled SQL → bind Terminal → execute fresh SELECT
   resolve current Attempt/Status → record input
@@ -55,19 +57,19 @@ for name, contents in json.loads(gzip.decompress((root/'observations.json.gz').r
 PY
 ```
 
-Builds use Rust 1.99.0, default release profile, committed Cargo.lock and no compiler-flag overrides. `metadata.json` records full references, OS, kernel, CPU, online/available count, affinity, shell, toolchain and SHA-256 hashes. `commands.jsonl` records exact commands, working directory, exit and relevant environment. The before release build includes the tests-only working-tree additions later committed as `348a2a12`; they are entirely under `cfg(test)` and excluded from release binaries. Its production source equals the recorded main reference. The after binary is built from `dd980f90`'s production source. Metadata distinguishes reference hashes from the before build tree; the diagnostic patches apply to `348a2a12` and `dd980f90`, respectively. `repair.patch` is the complete production change. `instrument.py` reproduces the diagnostic patch; it is never used by ordinary builds.
+Builds use Rust 1.99.0, default release profile, committed Cargo.lock and no compiler-flag overrides. `metadata.json` records full references, OS, kernel, CPU, online/available count, affinity, shell, toolchain and SHA-256 hashes. `commands.jsonl` records exact commands, working directory, exit and relevant environment. The before release build includes the tests-only working-tree additions later committed as `348a2a12`; they are entirely under `cfg(test)` and excluded from release binaries. Its production source equals the recorded main reference. The after binary is built from `dd980f90`'s production source. Metadata distinguishes reference hashes from the before build tree; the diagnostic patches apply to `348a2a12` and `dd980f90`, respectively. `repair.patch` is the complete production change. The historical `instrument.py`, recovered by `reproduce.sh` from Git, reproduces the diagnostic patch; it is never used by ordinary builds.
 
 To reproduce the performance observations from this PR's checkout, with a fresh output directory and fresh targets per reference:
 
 ```sh
-crates/agents/r16/owner-read/reproduce.sh /tmp/owner-read-reproduction HEAD
+crates/agents/r16/owner-read/reproduce.sh /tmp/owner-read-reproduction dd980f90
 ```
 
 The reproduction leaves its detached worktrees and binaries for inspection. Retain and repeat any busy/failed observation; never replace a retained file or treat a busy observation as clean. The isolation probe does not decide regression acceptance.
 
-Regression tests use the existing `Agents::with_terminal_owner` seam:
+Regression tests use the retired Message receiver lookup seam:
 
-- `b32_repeated_owner_reads_bind_each_terminal_afresh`: alternating positive/negative Terminal parameters.
+- Repeated receiver-read test: alternating positive/negative Terminal parameters.
 - `b32_a_warm_owner_read_rejects_ambiguity_then_recovers`: a fresh conflict after a successful read; no callback; recovery after detach. A temporary `LIMIT 1` mutation fails this test (exit 101); restoring `LIMIT 2` passes.
 - `b32_a_warm_owner_read_fails_on_sql_error_without_recording_input`: schema loss after a negative read fails without a callback and releases lifecycle locks.
 - Existing `b32_concurrent_*` tests warm the query before concurrent attachment, detach, reassignment, removal, reopen and Attempt changes; `b32_pending_resume_*`, `b32_running_and_failed_*` and `b32_closed_receiver_*` assert fresh Resume/Status facts. Existing callback failure and Message scenarios retain transaction/error, fencing, input tail, submit/clear, handover and receiver-binding coverage.
