@@ -2,3 +2,7 @@ pre-commit:
   commands:
     file-stays-under-a-size-cap:
       run: .claude/sound/placement/file-stays-under-a-size-cap.gate
+    lint-web:
+      glob: '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}'
+      run: node_modules/.bin/oxlint --fix --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
