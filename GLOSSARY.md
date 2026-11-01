@@ -136,7 +136,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Shortcut file (`ShortcutFileExport`, `shortcuts.export`) | Save to file… | — |
 | Editor | same | — |
 | Clipboard write (`writeClipboardText`) | same | — |
-| Pasted image | same | — |
+| Pasted image | same | upload, temp image |
 | Paste placeholder | same | — |
 | Quote | same | — |
 | setWindowTitle | none | — |
