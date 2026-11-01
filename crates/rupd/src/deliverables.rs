@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct Publications {
     db: std::sync::Mutex<Connection>,
     cache: PathBuf,
+    quota: i64,
 }
 
 impl Publications {
@@ -19,6 +20,7 @@ impl Publications {
                 Connection::open_in_memory().expect("test publication database"),
             ),
             cache,
+            quota: QUOTA,
         }
     }
 
@@ -64,9 +66,20 @@ impl Publications {
         db.pragma_update(None, "journal_mode", "WAL")?;
         // SQLite uses the stronger device flush on platforms that support it.
         db.pragma_update(None, "fullfsync", true)?;
+        // R5457: only test-support builds accept a Project-local fixture limit. Keeping it
+        // beside this Project's database preserves it across restart without ambient state.
+        #[cfg(feature = "test-support")]
+        let quota = match std::fs::read_to_string(data.join("test-publication-quota")) {
+            Ok(value) => value.trim().parse::<i64>().map_err(std::io::Error::other)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => QUOTA,
+            Err(error) => return Err(error.into()),
+        };
+        #[cfg(not(feature = "test-support"))]
+        let quota = QUOTA;
         Ok(Self {
             db: std::sync::Mutex::new(db),
             cache,
+            quota,
         })
     }
 }
@@ -359,7 +372,7 @@ impl Daemon {
                             return Err(RpcError::conflict("Pad source or Revision changed"));
                         }
                         let content = source.pad.text.into_bytes();
-                        bounded(&tx, &content)?;
+                        bounded(&tx, &content, self.publications.quota)?;
                         let target = PublishedTarget::Pad {
                             name: source.pad.name,
                             incarnation: source.pad.incarnation,
@@ -382,7 +395,7 @@ impl Daemon {
                         )?;
                         file_source =
                             Some(serde_json::to_string(&source).map_err(RpcError::internal)?);
-                        bounded(&tx, &content)?;
+                        bounded(&tx, &content, self.publications.quota)?;
                         let target = PublishedTarget::File {
                             path,
                             length: content.len() as u64,
@@ -581,7 +594,7 @@ fn external(url: &str) -> Result<(), RpcError> {
 
 const MAX_BYTES: usize = 32 * 1024 * 1024;
 const QUOTA: i64 = 1024 * 1024 * 1024;
-fn bounded(db: &Connection, bytes: &[u8]) -> Result<(), RpcError> {
+fn bounded(db: &Connection, bytes: &[u8], quota: i64) -> Result<(), RpcError> {
     let used: i64 = db
         .query_row(
             "SELECT (SELECT coalesce(sum(length(bytes)),0) FROM deliverable_bytes) + (SELECT coalesce(sum(length),0) FROM deliverable_files)",
@@ -589,7 +602,7 @@ fn bounded(db: &Connection, bytes: &[u8]) -> Result<(), RpcError> {
             |r| r.get(0),
         )
         .map_err(RpcError::internal)?;
-    if bytes.len() > MAX_BYTES || used + bytes.len() as i64 > QUOTA {
+    if bytes.len() > MAX_BYTES || used + bytes.len() as i64 > quota {
         return Err(RpcError::new(
             code::INVALID_PARAMS,
             "publication exceeds 32 MiB or Project's 1 GiB retained quota",

@@ -927,10 +927,7 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
             }
             refused(&c, "deliverable.get", id.clone()).await;
             refused(&c, "deliverable.resolve", id.clone()).await;
-            assert_eq!(
-                allocation_bytes(&p),
-                64 - i64::try_from(length).unwrap()
-            );
+            assert_eq!(allocation_bytes(&p), 64 - i64::try_from(length).unwrap());
             let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
             assert_eq!(db.query_row("SELECT (SELECT count(*) FROM deliverable_bytes WHERE id=?1) + (SELECT count(*) FROM deliverable_files WHERE id=?1)", [removed["id"].as_str().unwrap()], |r| r.get::<_, i64>(0)).unwrap(), 0);
             assert!(
