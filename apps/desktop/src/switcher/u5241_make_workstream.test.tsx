@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { door, workstream } from "../testing/nodes";
@@ -28,7 +28,6 @@ it("u5241a_enter_on_no_match_makes_the_named_workstream_once_and_selects_it", as
   openSwitcher();
   await search("  zzz plan ");
   switcherKey("Enter", { shiftKey: true });
-  switcherKey("Enter");
   await waitFor(() => expect(connected.rail.selected()).toBe("made"));
   await waitFor(() => expect(field()).toBeNull());
   expect(made(app).map(call => call.params)).toEqual([{ name: "zzz plan", parent: null }]);
@@ -72,13 +71,14 @@ it("u5241c_a_failed_create_keeps_the_query_and_shows_the_message", async () => {
 
   openSwitcher();
   await search("zzz");
+  field()!.setSelectionRange(1, 2, "backward");
   switcherKey("Enter");
-  await waitFor(() => expect(made(app)).toHaveLength(1));
+  await screen.findByRole("alert", { name: "disk full" });
+  expect(made(app)).toHaveLength(1);
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([1, 2, "backward"]);
   expect(field()!.value).toBe("zzz");
   expect(document.activeElement).toBe(field());
   expect(connected.rail.selected()).toBeNull();
-  await waitFor(() => {
-    switcherKey("Enter");
-    expect(made(app)).toHaveLength(2);
-  });
+  switcherKey("Enter");
+  await waitFor(() => expect(made(app)).toHaveLength(2));
 });
