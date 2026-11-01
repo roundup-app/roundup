@@ -119,7 +119,7 @@ const nestedTree = (now: number): RailNode[] => [
     can_resume: true,
     status: statusAt(now, "error", "tests failed: 3", 1),
   }),
-  agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30) }),
+  agent("docs", "done", "finished", { parent: "auth", order: 2, status: statusAt(now, "done", "finished", 30), final_text: { attempt: "1", turn: "1", finished: "0", kind: "empty" } }),
   ...cyclingAgents(now, 31, (index) => (index % 3 === 0 ? "payments" : null)),
 ];
 

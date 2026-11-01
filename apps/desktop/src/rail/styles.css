@@ -798,3 +798,25 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+
+/* The idle branch uses the same Token columns as ordinary Rail rows. */
+.rail-fold-content {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.rail-fold [data-part="branch-indicator"] {
+  position: absolute;
+  right: var(--rail-edge);
+}
+
+.rail-tree .rail-fold {
+  display: grid;
+  padding-inline-start: 0;
+}
+
+.rail-fold [data-state="open"] {
+  transform: rotate(90deg);
+}
