@@ -2,11 +2,11 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { openLane, type LaneBrowser } from "../todos/laneBrowser";
 import { captureDir } from "./captures";
 import { join } from "node:path";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 let lane: LaneBrowser;
 
-beforeAll(async () => { if (!captureDir("U3787d")) return; lane = await openLane(1512, "dark", "u3787d"); }, 60_000);
+beforeAll(async () => { if (!captureDir("U3787d") && !captureDir("U5463c")) return; lane = await openLane(1512, "dark", "u3787d"); }, 60_000);
 
 afterAll(async () => { await lane?.close(); }, 60_000);
 
@@ -44,4 +44,30 @@ it.skipIf(!captureDir("U3787d")).each(["tree-40", "tabs-8", "conflict"])("u3787d
 
       await lane.capture("U3787d", `${seed}-cancelled`);
   } finally { await lane.browser("record", "stop"); }
+}, 60_000);
+
+
+it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u5463c_cleanup_rendered_surfaces %s", async seed => {
+  const phase = process.env.U5463_PHASE === "base" ? "base" : "head";
+  mkdirSync(join(captureDir("U5463c")!, phase), { recursive: true });
+  const capture = async (step: string) => {
+    const file = join(captureDir("U5463c")!, phase, `${seed}-${step}`);
+    writeFileSync(`${file}.checks.json`, JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
+    await lane.browser("screenshot", `${file}.png`);
+  };
+  await lane.seedTodos(["Review changes", "Update notes", "Check build", "Read report", "Open result", "Inspect tests", "Verify state", "Finish review"], true, seed);
+  const origin = await lane.evaluate<string>("location.origin");
+  await capture("shelf");
+  await lane.browser("find", "first", ".shelf .todo-row-button", "click");
+  await lane.until("!!document.querySelector('.drawer')");
+  expect(await lane.evaluate<boolean>("!!document.querySelector('.drawer')")).toBe(true);
+  await capture("drawer");
+  await lane.browser("open", `${origin}/harness.html?view=reactions&items=1&tabs=1&seed=${seed}`);
+  await lane.until("!!document.querySelector('.reactions')");
+  await capture("reactions");
+  if (seed === "tree-40") {
+    await lane.evaluate("(() => { window.__fake.failNext(-32003, 'Storage unavailable. Retry.'); window.dispatchEvent(new Event('focus')); return true; })()");
+    await lane.until("document.body.textContent.includes('Storage unavailable. Retry.')");
+    await capture("failure");
+  }
 }, 60_000);
