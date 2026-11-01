@@ -5,6 +5,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
+import type { RpcError } from "../app/seam";
 import type { ActionRow } from "@contracts/action/ActionRow";
 import { copy } from "./copy";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -247,9 +248,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
     close(true);
     props.onFailure(null);
-    app.rpc("action.run", { name, args: [] }).catch((failure: unknown) => {
-      if (!(failure instanceof Error)) throw failure;
-
+    app.rpc("action.run", { name, args: [] }).catch((failure: RpcError) => {
       props.notify?.({ key: `${USER_PREFIX}${name}`, item: `${USER_PREFIX}${name}`, project: project.path, kind: "error", name: entry.label, line: failure.message, selected: false, open: () => null });
     });
   };
@@ -257,7 +256,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const chooseValue = (value: string | null): void => {
     const user = userActions().find(candidate => candidate.value === value);
 
-    if (user) { runUserAction(user); return; }
+    if (user) {
+      runUserAction(user);
+
+      return;
+    }
 
     const action = opening().actions.find((candidate) => candidate.value === value);
 

@@ -71,9 +71,7 @@ export const itemsMatching = (nodes: readonly RailNode[], todos: readonly Todo[]
 export const userActionsOf = (rows: readonly ActionRow[]): Entry[] => {
   const builtIn = new Set(ACTION_ROWS.map(row => row.name));
 
-  return rows
-    .filter(row => !builtIn.has(row.name) && !row.args.some(arg => arg.required))
-    .map(row => ({ value: `${USER_PREFIX}${row.name}`, label: row.label }));
+  return rows.flatMap((row): Entry[] => (builtIn.has(row.name) || row.args.some(arg => arg.required) ? [] : [{ value: `${USER_PREFIX}${row.name}`, label: row.label }]));
 };
 
 export const USER_PREFIX = "action:user:";
