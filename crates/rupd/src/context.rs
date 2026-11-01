@@ -216,6 +216,7 @@ mod tests {
             status: status(Kind::Idle),
             attempt: (kind == NodeKind::Agent || door).then(|| "1".into()),
             status_revision: None,
+            final_text: None,
             terminal_id: None,
             worktree: None,
             can_resume: false,

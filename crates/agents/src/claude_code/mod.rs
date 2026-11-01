@@ -21,6 +21,7 @@ pub mod skill_setup;
 mod skills;
 mod vendor_list;
 
+use contracts::agent::FinalTextKind;
 use contracts::{Kind, Status};
 use serde_json::Value;
 
@@ -111,6 +112,8 @@ pub struct ClaudeCode {
     finished: u64,
     /// PS9.1: false only for an Agent whose Kind comes from its Terminal's program status.
     hooked: bool,
+    final_text: FinalTextKind,
+    prompt_id: Option<String>,
 }
 
 impl ClaudeCode {
@@ -127,6 +130,8 @@ impl ClaudeCode {
             clock: Box::new(clock),
             finished: 0,
             hooked: true,
+            final_text: FinalTextKind::Unknown,
+            prompt_id: None,
         }
     }
 
@@ -142,6 +147,14 @@ impl ClaudeCode {
         if let Some(status) = &mut self.status {
             status.finished = finished.to_string();
         }
+    }
+
+    pub(crate) fn turn(&self) -> Option<&str> {
+        self.prompt_id.as_deref()
+    }
+
+    pub(crate) fn final_text(&self) -> FinalTextKind {
+        self.final_text
     }
 
     pub(crate) fn finished(&self) -> u64 {
@@ -177,6 +190,10 @@ impl ClaudeCode {
     fn settle_counting(&mut self, kind: Kind, label: String, finish: bool) -> Option<Status> {
         if kind == Kind::Working && self.status.as_ref().is_some_and(|s| s.kind == Kind::Idle) {
             self.turn_started = (self.clock)();
+        }
+        if kind == Kind::Working && self.status.as_ref().is_none_or(|s| s.kind != Kind::Working) {
+            self.final_text = FinalTextKind::Unknown;
+            self.prompt_id = None;
         }
         let since = match &self.status {
             Some(current) if current.kind == kind => current.since,
@@ -257,16 +274,46 @@ impl ClaudeCode {
     }
 
     fn signal(&mut self, payload: &Value) -> Option<Status> {
-        let event = payload["hook_event_name"].as_str().unwrap_or_default();
-        if event == "UserPromptSubmit" {
+        let event = payload["hook_event_name"].as_str();
+        if event == Some("UserPromptSubmit") {
             self.turn_started = (self.clock)();
+            self.final_text = FinalTextKind::Unknown;
+        }
+        if event == Some("Stop") {
+            if let (Some(current), Some(incoming)) =
+                (self.prompt_id.as_deref(), payload["prompt_id"].as_str())
+                && current != incoming
+            {
+                return None;
+            }
+            // Without matching turn identity, an empty reply is not evidence of this turn.
+            let next = match (
+                self.prompt_id.as_deref(),
+                payload["prompt_id"].as_str(),
+                payload["last_assistant_message"].as_str(),
+            ) {
+                (Some(current), Some(incoming), Some(text)) if current == incoming => {
+                    if text.is_empty() {
+                        FinalTextKind::Empty
+                    } else {
+                        FinalTextKind::Present
+                    }
+                }
+                _ => FinalTextKind::Unknown,
+            };
+            if self.final_text != FinalTextKind::Present {
+                self.final_text = next;
+            }
         }
         let (kind, label) = hook_status(payload)?;
-        self.after_pre_tool_use = event == "PreToolUse";
+        self.after_pre_tool_use = event == Some("PreToolUse");
         self.star_parked_since = None;
         self.spinner_at = None;
         let changed = self.settle(kind, label);
-        if event == "Stop"
+        if event == Some("UserPromptSubmit") {
+            self.prompt_id = payload["prompt_id"].as_str().map(str::to_owned);
+        }
+        if event == Some("Stop")
             && let Some(text) = payload["last_assistant_message"].as_str()
             && !text.is_empty()
         {

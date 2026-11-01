@@ -2,7 +2,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { batch, createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
 import type { RpcError } from "../app/seam";
@@ -103,11 +103,13 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const byValue = createMemo(() => new Map([...entries(), ...items()].map(entry => [entry.value, entry])));
 
   // UA9: the Daemon's User actions, read when the Project connects and on each `action.userChanged`, so opening calls nothing; a failed read shows none and says nothing (UA12).
-  const [userRows, setUserRows] = createSignal<readonly ActionRow[]>([]);
-  const readUserRows = (): void => { app.rpc("action.userList", null).then(setUserRows, () => setUserRows([])); };
+  const [userRows, { refetch: readUserRows }] = createResource(
+    () => app.rpc("action.userList", null).catch((): ActionRow[] => []),
+    { initialValue: [] },
+  );
 
-  readUserRows();
-  onCleanup(events.subscribe(event => { if (event.name === "action.userChanged") readUserRows(); }));
+  // UA13: the resource ignores superseded replies; false also keeps same-turn events from being coalesced.
+  onCleanup(events.subscribe(event => { if (event.name === "action.userChanged") void readUserRows(false); }));
   const userActions = createMemo(() => userActionsOf(userRows()));
 
   const shown = createMemo(() => [
