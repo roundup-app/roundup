@@ -13,6 +13,7 @@ pub(crate) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>
         status,
         attempt: Some("1".into()),
         status_revision: Some("1".into()),
+        final_text: None,
         terminal_id: None,
         worktree: None,
         can_resume: false,

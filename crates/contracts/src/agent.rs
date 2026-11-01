@@ -416,6 +416,10 @@ pub struct RailNode {
     pub attempt: Option<String>,
     /// Status transition within the current Attempt; absent after reopen.
     pub status_revision: Option<String>,
+    /// U5483c: only authoritative known-empty final text can permit folding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional, type = FinalText)]
+    pub final_text: Option<FinalText>,
     /// The Terminal behind an Agent or Terminal node.
     pub terminal_id: Option<String>,
     /// `None` for a Terminal, or when the Project's `worktrees` setting was off.
@@ -460,6 +464,25 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = ConversationOverview)]
     pub overview: Option<ConversationOverview>,
+}
+
+/// U5483c: completed-turn evidence, never the assistant's text. Missing evidence protects.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+pub struct FinalText {
+    pub attempt: String,
+    /// Opaque completed-turn identity, scoped to the Attempt.
+    pub turn: String,
+    pub finished: String,
+    pub kind: FinalTextKind,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Type, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum FinalTextKind {
+    #[default]
+    Unknown,
+    Empty,
+    Present,
 }
 
 /// A2681a: display data from a closed Agent's saved conversation, never authority.

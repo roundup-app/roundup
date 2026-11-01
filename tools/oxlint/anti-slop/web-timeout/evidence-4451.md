@@ -110,7 +110,7 @@ accounted for below rather than silently removed from the inventory.
 ## Observer replacements and retirements
 
 - `src/terminal/u3517_browser.test.ts`: 6cb0c1977 split u3517f_rendered_terminal_reference into u3517f_rendered_terminal_reference_agent, _door and _shell in this file; all three runtime cases are accounted for.
-- `src/terminal/u3016_browser.test.ts`: Deleted in 49d7d940c; U3016f explicitly retired in scenarios/workstream-dashboard.md by U4454a/b (scenarios/remove-time-timeline.md).
+- `src/terminal/u3016_browser.test.ts`: Deleted in 49d7d940c; U3016f retirement is reserved in scenarios/native-questions.md; U4454a/b (scenarios/remove-time-timeline.md) remove the view.
 - `src/timeline/u3768_rendered.test.ts`: Deleted in 49d7d940c; U3768a–h explicitly retired by scenarios/remove-time-timeline.md U4454b (the old scenario file is deleted).
 - `src/terminal/u3780_browser.test.ts`: Deleted in a6b3f83de; U4453a/b removes NoteQueue (scenarios/ui-navigation-always.md); surviving absence observer src/terminal/u4453a_terminal_only.test.tsx.
 - `src/orders/q2_surfaces.test.tsx`: Order editor observers replaced in fa1dc1582 and 1e71ebcb4 by u4453b_retired_order_drafts_keep_exact_copy_and_identity and u4453b_retired_order_draft_copy_failure_and_selected_discard in this file (scenarios/ui-navigation-always.md, U4453b).

@@ -64,6 +64,7 @@ fn load_with<T>(
                 order: row.get(4)?,
                 status: None,
                 status_revision: None,
+                final_text: None,
                 attempt: match row.get::<_, i64>(5)? {
                     0 => None,
                     n => Some(n.to_string()),
