@@ -482,12 +482,6 @@ code {
   margin: var(--space-3) 0;
 }
 
-.draft-status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 .draft-destination {
   display: flex;
   flex: 1;
@@ -503,16 +497,13 @@ code {
   white-space: nowrap;
 }
 
-.draft-revisions button, .draft-status {
+.draft-revisions button {
   flex-shrink: 0;
 }
 
-.draft-identity, .draft-object { color: var(--grey); }
-.draft-object { font-family: var(--font-mono); }
+.draft-identity { color: var(--grey); }
 li:has([aria-pressed="true"]) .draft-name,
 .draft-revisions button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
-.draft-detail { margin-top: var(--space-6); }
-.draft-detail h3 { overflow-wrap: anywhere; }
 .draft-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
 .draft-destination .icon { flex-shrink: 0; }
 
@@ -530,12 +521,6 @@ li:has([aria-pressed="true"]) .draft-name,
 .window[data-rail="closed"] :is(.rail, .rail-edge) { display: none; }
 
 .choose-project { padding-inline: var(--space-4); }
-
-.project-attention {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
 
 /* U4458: keep the columns and Rail at their normal positions behind the expanded Drawer. */
 .window:has(.drawer[data-open="true"][data-maximised="true"]:not([data-fill="true"])) .shelf,

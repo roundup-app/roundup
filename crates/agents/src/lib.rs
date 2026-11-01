@@ -352,19 +352,6 @@ struct Run {
 
 /// `spawn` registers an Agent before its watcher starts, so the watcher always finds it.
 const REGISTERED: &str = "a watched Agent is registered";
-/// Facts for binding Messages to the receiver of a Terminal at the lifecycle cut.
-/// These are not a Rail presentation or permission to Steer the receiver.
-#[derive(Debug, PartialEq, Eq)]
-pub struct TerminalOwner {
-    pub id: String,
-    /// Persisted Attempt, matching `RailNode.attempt`, including during pending resume.
-    pub attempt: Option<String>,
-    /// Active Status revision; absence permanently ends this attached receiver (B36).
-    pub status_revision: Option<String>,
-    /// B9: no Status, or a done/error Status, ends this receiver.
-    pub ended: bool,
-}
-
 /// The user's exact Ask preserves command position; ordinary instructions keep H20's lead.
 pub enum Steer<'a> {
     Instruction(&'a str),

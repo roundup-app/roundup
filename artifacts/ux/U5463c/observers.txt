@@ -1,0 +1,249 @@
+U5463 implementation observers
+Baseline: origin/main 7e2607e54; dark 1512x950; isolated headless agent-browser profiles.
+
+apps/desktop: pnpm typecheck — exit 0
+
+> desktop@ typecheck /tmp/roundup-5463/apps/desktop
+> tsc && node copy/check.mjs
+
+
+apps/desktop: pnpm exec fallow dead-code — exit 1
+loaded config: /tmp/roundup-5463/.fallowrc.json
+   0.361539539s  WARN Graph cache decoded but not reused: resolver, entry points, or plugins changed
+  584 entry points detected (579 plugin, 4 package.json, 1 default index)
+
+── Unused Code ─────────────────────────────────────
+
+● Unused files (2)
+  observers/U3010c/layout.js
+  observers/U3010c/unchanged-key.js
+  Files not reachable from any entry point
+  https://fallow.tools/docs/explanations/dead-code/#unused-files
+
+── Dependencies ─────────────────────────────────────
+
+● Unused devDependencies (1)
+  agent-browser
+  Listed in devDependencies but never imported or referenced
+  https://fallow.tools/docs/explanations/dead-code/#unused-dependencies
+
+● Unlisted dependencies (22)
+  @contracts/Actor
+  @contracts/Event
+  @contracts/EventData
+  @contracts/Kind
+  @contracts/RpcErrorData
+  @contracts/Status
+  @contracts/Touch
+  @contracts/action
+  @contracts/agent
+  @contracts/ask
+  ... and 12 more (--format json for full list)
+  Packages imported in code but missing from package.json
+  https://fallow.tools/docs/explanations/dead-code/#unlisted-dependencies
+
+✗ 2 files · 1 dev/optional dependency · 22 unlisted dependencies (0.52s)
+
+All remaining fallow findings are outside U5463a. No audited removed file, export or probe dependency is reported.
+
+Rendered observers on main and implementation: three seed cases passed through just capture U5463c. The additional shared-editor/recovery case passed separately after enabling the harness menu observer:
+ROUNDUP_CAPTURES=U5463c pnpm --filter desktop exec vitest run src/testing/u3787d_capture.test.ts -t u5463c_shared --retry 0 — exit 0 (head)
+U5463_PHASE=base ROUNDUP_CAPTURES=U5463c pnpm --filter desktop exec vitest run src/testing/u3787d_capture.test.ts -t u5463c_shared --retry 0 — exit 0 (main)
+loop/rules.sh delta artifacts/ux/U5463c/base artifacts/ux/U5463c/head — exit 0
+agents-10-drawer D1 still-passing
+agents-10-drawer D2 still-failing
+agents-10-drawer D3 still-passing
+agents-10-drawer D4 still-passing
+agents-10-drawer D5 still-passing
+agents-10-drawer D6 still-passing
+agents-10-drawer D7 still-passing
+agents-10-drawer D8 still-passing
+agents-10-drawer D9 still-passing
+agents-10-drawer D10 still-failing
+agents-10-drawer D11 still-passing
+agents-10-drawer D12 still-passing
+agents-10-drawer D13 still-passing
+agents-10-drawer D14 still-passing
+agents-10-reactions D1 still-passing
+agents-10-reactions D2 still-passing
+agents-10-reactions D3 still-passing
+agents-10-reactions D4 still-passing
+agents-10-reactions D5 still-passing
+agents-10-reactions D6 still-passing
+agents-10-reactions D7 still-passing
+agents-10-reactions D8 still-passing
+agents-10-reactions D9 still-passing
+agents-10-reactions D10 still-passing
+agents-10-reactions D11 still-passing
+agents-10-reactions D12 still-passing
+agents-10-reactions D13 still-passing
+agents-10-reactions D14 still-passing
+agents-10-shelf D1 still-passing
+agents-10-shelf D2 still-failing
+agents-10-shelf D3 still-passing
+agents-10-shelf D4 still-passing
+agents-10-shelf D5 still-passing
+agents-10-shelf D6 still-passing
+agents-10-shelf D7 still-passing
+agents-10-shelf D8 still-passing
+agents-10-shelf D9 still-passing
+agents-10-shelf D10 still-failing
+agents-10-shelf D11 still-passing
+agents-10-shelf D12 still-passing
+agents-10-shelf D13 still-passing
+agents-10-shelf D14 still-passing
+bubbles-drawer D1 still-passing
+bubbles-drawer D2 still-failing
+bubbles-drawer D3 still-passing
+bubbles-drawer D4 still-passing
+bubbles-drawer D5 still-passing
+bubbles-drawer D6 still-passing
+bubbles-drawer D7 still-passing
+bubbles-drawer D8 still-passing
+bubbles-drawer D9 still-passing
+bubbles-drawer D10 still-failing
+bubbles-drawer D11 still-passing
+bubbles-drawer D12 still-passing
+bubbles-drawer D13 still-passing
+bubbles-drawer D14 still-passing
+bubbles-reactions D1 still-passing
+bubbles-reactions D2 still-passing
+bubbles-reactions D3 still-passing
+bubbles-reactions D4 still-passing
+bubbles-reactions D5 still-passing
+bubbles-reactions D6 still-passing
+bubbles-reactions D7 still-passing
+bubbles-reactions D8 still-passing
+bubbles-reactions D9 still-passing
+bubbles-reactions D10 still-passing
+bubbles-reactions D11 still-passing
+bubbles-reactions D12 still-passing
+bubbles-reactions D13 still-passing
+bubbles-reactions D14 still-passing
+bubbles-shelf D1 still-passing
+bubbles-shelf D2 still-failing
+bubbles-shelf D3 still-passing
+bubbles-shelf D4 still-passing
+bubbles-shelf D5 still-passing
+bubbles-shelf D6 still-passing
+bubbles-shelf D7 still-passing
+bubbles-shelf D8 still-passing
+bubbles-shelf D9 still-passing
+bubbles-shelf D10 still-failing
+bubbles-shelf D11 still-passing
+bubbles-shelf D12 still-passing
+bubbles-shelf D13 still-passing
+bubbles-shelf D14 still-passing
+tree-40-drawer D1 still-passing
+tree-40-drawer D2 still-failing
+tree-40-drawer D3 still-passing
+tree-40-drawer D4 still-passing
+tree-40-drawer D5 still-passing
+tree-40-drawer D6 still-passing
+tree-40-drawer D7 still-passing
+tree-40-drawer D8 still-passing
+tree-40-drawer D9 still-passing
+tree-40-drawer D10 still-failing
+tree-40-drawer D11 still-passing
+tree-40-drawer D12 still-passing
+tree-40-drawer D13 still-passing
+tree-40-drawer D14 still-passing
+tree-40-failure D1 still-passing
+tree-40-failure D2 still-passing
+tree-40-failure D3 still-passing
+tree-40-failure D4 still-passing
+tree-40-failure D5 still-passing
+tree-40-failure D6 still-passing
+tree-40-failure D7 still-passing
+tree-40-failure D8 still-passing
+tree-40-failure D9 still-passing
+tree-40-failure D10 still-passing
+tree-40-failure D11 still-passing
+tree-40-failure D12 still-passing
+tree-40-failure D13 still-passing
+tree-40-failure D14 still-passing
+tree-40-pad-editor D1 still-passing
+tree-40-pad-editor D2 still-passing
+tree-40-pad-editor D3 still-passing
+tree-40-pad-editor D4 still-passing
+tree-40-pad-editor D5 still-passing
+tree-40-pad-editor D6 still-passing
+tree-40-pad-editor D7 still-passing
+tree-40-pad-editor D8 still-passing
+tree-40-pad-editor D9 still-passing
+tree-40-pad-editor D10 still-passing
+tree-40-pad-editor D11 still-passing
+tree-40-pad-editor D12 still-passing
+tree-40-pad-editor D13 still-passing
+tree-40-pad-editor D14 still-passing
+tree-40-project-recovery D1 still-passing
+tree-40-project-recovery D2 still-passing
+tree-40-project-recovery D3 still-passing
+tree-40-project-recovery D4 still-passing
+tree-40-project-recovery D5 still-passing
+tree-40-project-recovery D6 still-passing
+tree-40-project-recovery D7 still-passing
+tree-40-project-recovery D8 still-passing
+tree-40-project-recovery D9 still-passing
+tree-40-project-recovery D10 still-passing
+tree-40-project-recovery D11 still-passing
+tree-40-project-recovery D12 still-passing
+tree-40-project-recovery D13 still-passing
+tree-40-project-recovery D14 still-passing
+tree-40-reactions D1 still-passing
+tree-40-reactions D2 still-passing
+tree-40-reactions D3 still-passing
+tree-40-reactions D4 still-passing
+tree-40-reactions D5 still-passing
+tree-40-reactions D6 still-passing
+tree-40-reactions D7 still-passing
+tree-40-reactions D8 still-passing
+tree-40-reactions D9 still-passing
+tree-40-reactions D10 still-passing
+tree-40-reactions D11 still-passing
+tree-40-reactions D12 still-passing
+tree-40-reactions D13 still-passing
+tree-40-reactions D14 still-passing
+tree-40-shelf D1 still-passing
+tree-40-shelf D2 still-failing
+tree-40-shelf D3 still-passing
+tree-40-shelf D4 still-passing
+tree-40-shelf D5 still-passing
+tree-40-shelf D6 still-passing
+tree-40-shelf D7 still-passing
+tree-40-shelf D8 still-passing
+tree-40-shelf D9 still-passing
+tree-40-shelf D10 still-failing
+tree-40-shelf D11 still-passing
+tree-40-shelf D12 still-passing
+tree-40-shelf D13 still-passing
+tree-40-shelf D14 still-passing
+tree-40-unfinished-work D1 still-passing
+tree-40-unfinished-work D2 still-passing
+tree-40-unfinished-work D3 still-passing
+tree-40-unfinished-work D4 still-passing
+tree-40-unfinished-work D5 still-passing
+tree-40-unfinished-work D6 still-passing
+tree-40-unfinished-work D7 still-passing
+tree-40-unfinished-work D8 still-passing
+tree-40-unfinished-work D9 still-passing
+tree-40-unfinished-work D10 still-passing
+tree-40-unfinished-work D11 still-passing
+tree-40-unfinished-work D12 still-passing
+tree-40-unfinished-work D13 still-passing
+tree-40-unfinished-work D14 still-passing
+
+loop/rules.sh vocab — exit 0
+
+loop/rules.sh scenario-ids — exit 0
+
+loop/rules.sh merge-loss — exit 0
+
+Baseline failures: Shelf/Drawer D2 reports a 28px left inset on the nested shelf row; D10 reflects D2. Both remain unchanged. D5 and D6 pass in every pair. Reaction details and the dense failure view pass every Check.
+Direct reading comparison: all 15 Check statuses (D1–D14 and D16) preserved in all 13 pairs.
+
+Test audit: U41 focus classification is retired; no production caller remains. U58 is retired; u4457_pads_open_from_shelf_without_agent_control retains no-control/Shelf access. Only Toggle rows are cut from U133. U449 retains its long-title observer, with local observation types. Existing U3787d observers remain; U5463c adds rendered capture coverage.
+
+Targeted behavioral/observer registration run — exit 0
+pnpm --filter desktop exec vitest run src/ui/u133_press.test.ts src/header/u449_rendered.test.ts src/testing/u3787d_capture.test.ts src/testing/captures.test.ts src/ask/u505_ask_rows.test.tsx src/bubbles/u165_keys.test.tsx src/rail/pads/u4457_pads_control.test.tsx
+5 files passed, 2 capture-gated files skipped; 66 passed, 7 skipped. U5463c's three rendered seed cases separately passed through just capture U5463c. U449 remains capture-gated; only its TypeScript types moved into their sole test holder.
