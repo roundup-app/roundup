@@ -125,6 +125,13 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
 
         // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
         document.querySelector(".spawn-prompt-field:not([readonly])")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+        // `⇧⌘P` opens the Switcher, a modal layer that would take every later probe.
+        if (press.defaultPrevented && code === "KeyP" && mods.metaKey && mods.shiftKey) {
+          await screen.findByRole("combobox");
+          document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull());
+        }
       }
 
       if (press.defaultPrevented) bound.push(pressOf(press));
