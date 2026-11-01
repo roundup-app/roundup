@@ -42,7 +42,7 @@
   max-block-size: none;
 }
 
-.storage-gate .ink {
+.storage-gate .reserved-content .ink {
   overflow: visible;
   white-space: normal;
 }
@@ -52,25 +52,6 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--space-5);
-}
-
-.storage-retained {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  color: var(--grey);
-  font-size: var(--text-caption);
-}
-
-.storage-retained button {
-  display: inline-grid;
-}
-
-.storage-copy-label {
-  grid-area: 1 / 1;
 }
 
 /* U3787a: failure feedback clears the Terminal bar and its hints. */

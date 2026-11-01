@@ -49,12 +49,14 @@ if (!root) throw new Error("harness.html has no #root element");
 
 const query = new URLSearchParams(location.search);
 
-// U4086's isolated native boundary fixture uses the official plugin JS adapter and
+// N5467b's isolated native boundary fixture uses the official plugin JS adapter and
 // production gate. This browser-only durable map makes no native filesystem claim.
 if (query.has("storage-recovery")) {
   let cache = new Map<string, unknown>();
   Object.defineProperty(window, "__TAURI_INTERNALS__", { configurable: true, value: {
     invoke: async (command: string, args: { key: string; value: unknown }) => {
+      if (command === "plugin:window-bar|webview_data_folder") return "/Users/you/Library/WebKit/dev.roundup.app/WebsiteData";
+
       if (command === "plugin:resources|close") return;
 
       if (command === "plugin:store|load") {

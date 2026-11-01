@@ -111,3 +111,29 @@ it("u3787f_retry_never_rebases_an_older_write", async () => {
   }
 });
 
+
+it("n5467c_current_native_records_reopen_with_exact_identity", async () => {
+  const draft = { revision: "original-revision", destination: { surface: "ask", object: "question-original", recipient: "agent-original" }, value: { text: " e\u0301\n雪 😀 " }, selection: { start: 1, end: 3, direction: "backward" }, status: "pending", policy: "ordinary" };
+
+  const families = new Map<string, unknown>([
+    ["roundup:open-tab", "/original/雪"],
+    ["roundup:unseen:/original/雪", { "agent-original": "12345678901234567890" }],
+    ["roundup:drafts:/original/雪", { version: 1, drafts: [draft] }],
+    ["roundup:import:/original/雪", { open: true, period: "week", selected: [{ source: "original-source", revision: "original-version", title: " 雪 " }] }],
+    ["roundup:rail:/original/雪", { selected: "agent-original", collapsed: ["home-original"] }],
+    ["roundup:app-settings", { fontFamily: "Original font", mode: "dark" }],
+    ["roundup:widths:/original/雪", { rail: 301, shelf: 411 }],
+    ["roundup:shelf:/original/雪", { open: false, maximised: true, tab: "pads" }],
+    ["roundup:terminal-font:/original/雪", 17],
+  ]);
+
+  for (const [key, value] of families) disk.set(key, { version: 1, value });
+  expect(await initializeStorage()).toBeNull();
+  expect(await initializeStorage()).toBeNull();
+
+  for (const [key, value] of families) {
+    expect(native.disk.get(key)).toEqual({ version: 1, value });
+    expect(storedValue(key, v.unknown()).read()).toEqual(value);
+    expect(localStorage.getItem(key)).toBeNull();
+  }
+});
