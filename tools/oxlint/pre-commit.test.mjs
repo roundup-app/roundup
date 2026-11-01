@@ -157,3 +157,12 @@ test("t5456a_ignored_generated_paths_keep_their_bytes", t => {
 
   for (const path of paths) assert.equal(git(cwd, "show", `HEAD:${path}`), unfixed, path);
 });
+
+test("t5456a_safe_fix_cannot_evade_the_size_guard", t => {
+  const cwd = fixture(t);
+  write(cwd, "source.ts", unfixed + "\n".repeat(996));
+  git(cwd, "add", "source.ts");
+  const committed = run(cwd, "git", ["commit", "-m", "Commit a file at the cap"]);
+  assert.equal(committed.status, 1, committed.stdout + committed.stderr);
+  assert.match(committed.stdout + committed.stderr, /source.ts\s+1001 lines/);
+});
