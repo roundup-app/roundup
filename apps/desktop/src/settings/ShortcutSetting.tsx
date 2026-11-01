@@ -60,6 +60,11 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
 
   const change = async (name: string, press: string | null) => {
     const { [name]: _gone, ...rest } = overrides();
+    const restored = press === null ? defaultPress(name) : undefined;
+    const taken = restored ? holderOf(restored, name) : undefined;
+
+    if (taken) return setFailure(copy.shortcutRefusal(shortcutLabel(restored!), taken));
+
     const next = press === null || press === defaultPress(name) ? rest : { ...rest, [name]: press };
 
     setFailure(null);
