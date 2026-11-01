@@ -19,7 +19,7 @@ export const copy = {
   railDraftTaskAction: (send: boolean) => send ? "Send" : "Start Agent",
   railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Your unfinished work remains; reopening does not retry it. Review the target before creating another request.`,
   railDraftBase: (name: string) => `Original name: ${name}`,
-  railDraftDestination: (project: string, recipient: string) => `${project} · ${recipient}`,
+  railDraftDestination: sharedCopy.dotted,
   railDrafts: sharedCopy.unfinishedWork,
   railDraftConflict: sharedCopy.railDraftConflict,
   railDraftUnavailable: "The original target is unavailable. Copy or discard your unfinished work.",

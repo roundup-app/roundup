@@ -17,9 +17,10 @@ export const Tip = (props: {
   class?: string;
   chord?: Chord | undefined;
   disabled?: boolean;
+  placement?: "bottom" | "right-start" | undefined;
   children: (trigger: (extra?: TriggerProps) => TriggerProps, focus: Pick<TriggerProps, "onFocusIn" | "onFocusOut" | "aria-describedby">) => JSX.Element;
 }) => (
-  <Tooltip.Root ids={props.ids} disabled={props.disabled || (props.cut ? !props.cut() : false)} closeOnEscape={false} positioning={{ strategy: "fixed" }}>
+  <Tooltip.Root ids={props.ids} disabled={props.disabled || (props.cut ? !props.cut() : false)} closeOnEscape={false} positioning={props.placement ? { strategy: "fixed", placement: props.placement } : { strategy: "fixed" }}>
     <Tooltip.Trigger asChild={(trigger) => props.children(trigger, focusProps(trigger()))} />
     <Portal>
       <Tooltip.Positioner style={{ "pointer-events": "none" }}>
