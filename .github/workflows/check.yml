@@ -261,7 +261,9 @@ jobs:
         uses: ./.github/actions/setup
         with:
           save-cache: 'true'
-          node: 'true'
+          # CI5458c: run 41349105933 spent 44 s installing Node packages and 50 s saving their cache.
+          # Only the main-only S1 packaging commands need them.
+          node: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
       - name: C9b native release size
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
