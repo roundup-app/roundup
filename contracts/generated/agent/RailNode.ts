@@ -3,6 +3,7 @@
 import type * as Status from "../Status";
 import type * as agent$Channel from "./Channel";
 import type * as agent$ConversationOverview from "./ConversationOverview";
+import type * as agent$FinalText from "./FinalText";
 import type * as agent$Inbox from "./Inbox";
 import type * as agent$NodeKind from "./NodeKind";
 import type * as agent$Order from "./Order";
@@ -26,6 +27,8 @@ export type RailNode = {
 	attempt: string | null,
 	/**  Status transition within the current Attempt; absent after reopen. */
 	status_revision: string | null,
+	/**  U5483c: only authoritative known-empty final text can permit folding. */
+	final_text?: agent$FinalText.FinalText,
 	/**  The Terminal behind an Agent or Terminal node. */
 	terminal_id: string | null,
 	/**  `None` for a Terminal, or when the Project's `worktrees` setting was off. */
