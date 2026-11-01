@@ -528,3 +528,53 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     let routes = tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"].clone();
     assert_eq!(routes[0]["delivery"], "drop");
 }
+
+#[tokio::test]
+async fn n5467b_incomplete_reaction_records_refuse_without_firing() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+    db.execute_batch(
+        "INSERT INTO nodes(id,kind,name,ord) VALUES(1,'agent','Target',0),(2,'agent','Watched',1);",
+    )
+    .unwrap();
+    let created = tests::ask(&daemon, &json!({"id":1,"method":"reaction.create","params":{"operation":"current","name":"Observe","target":"1","instruction":"Continue","reason":"Wait for the prerequisite.","condition":{"kind":"agents","ids":["2"]},"expires_at":"2099-01-01T00:00:00Z"}}).to_string()).await;
+    assert!(created.get("error").is_none(), "{created}");
+    let id = created["result"]["id"].as_str().unwrap();
+    let original: String = db
+        .query_row("SELECT record FROM reactions WHERE id=?1", [id], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    for field in [
+        "reason",
+        "observation.health_code",
+        "observation.cause_code",
+        "observation.gap_code",
+        "observation.recovery_code",
+    ] {
+        db.execute(
+            "UPDATE reactions SET record=json_remove(?1, ?2) WHERE id=?3",
+            rusqlite::params![original, format!("$.{field}"), id],
+        )
+        .unwrap();
+        for (method, params) in [
+            ("reaction.get", json!({"id":id})),
+            ("reaction.list", Value::Null),
+            ("reaction.run", json!({"id":id,"operation":"refused"})),
+        ] {
+            let reply = tests::ask(
+                &daemon,
+                &json!({"id":2,"method":method,"params":params}).to_string(),
+            )
+            .await;
+            assert!(reply.get("error").is_some(), "{field}: {reply}");
+        }
+    }
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM reaction_firings", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
