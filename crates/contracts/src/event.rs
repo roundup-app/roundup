@@ -85,6 +85,12 @@ pub enum EventData {
     /// A3195: the Queue or the Project's cap changed; read `workstream.queue`.
     #[serde(rename = "workstream.queueChanged")]
     WorkstreamQueueChanged,
+    /// UA7: the User actions changed (a load, reload or removal); read `action.userList`.
+    #[serde(rename = "action.userChanged")]
+    ActionUserChanged,
+    /// UA2, UA6, UA8: an Extension failed; the App shows one Toast.
+    #[serde(rename = "extension.problem")]
+    ExtensionProblem(crate::action::ExtensionProblem),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, JsonSchema)]

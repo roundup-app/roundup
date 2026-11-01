@@ -159,7 +159,17 @@ impl Project {
 
     /// `next`, bounded by this Project's `bound`.
     pub async fn next<T>(&self, client: &mut Client, pick: impl Fn(EventData) -> Option<T>) -> T {
-        next_within(self.bound(), client, pick).await
+        next_within("an event", self.bound(), client, pick).await
+    }
+
+    /// `next`, whose timeout panic names the event `what` it waited for.
+    pub async fn next_named<T>(
+        &self,
+        what: &str,
+        client: &mut Client,
+        pick: impl Fn(EventData) -> Option<T>,
+    ) -> T {
+        next_within(what, self.bound(), client, pick).await
     }
 
     /// `rail_tree`, bounded by this Project's `bound`.
@@ -231,10 +241,11 @@ impl Drop for Project {
 
 /// The next event the Daemon pushes that satisfies `pick`.
 pub async fn next<T>(client: &mut Client, pick: impl Fn(EventData) -> Option<T>) -> T {
-    next_within(BOUND, client, pick).await
+    next_within("an event", BOUND, client, pick).await
 }
 
 async fn next_within<T>(
+    what: &str,
     bound: Duration,
     client: &mut Client,
     pick: impl Fn(EventData) -> Option<T>,
@@ -248,7 +259,7 @@ async fn next_within<T>(
         panic!("the connection closed before the event");
     })
     .await
-    .expect("the event arrived")
+    .unwrap_or_else(|_| panic!("{what} did not arrive within {bound:?}"))
 }
 
 async fn next_status(client: &mut Client) -> StatusEvent {

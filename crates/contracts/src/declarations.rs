@@ -188,6 +188,7 @@ declarations! { $;
         "github.prAutoMerge": contracts::github::Number => contracts::github::Pr, github_call, door(schema(contracts::github::Number,"Enable auto-merge (merge commit) on an open PR; one already enabled is left as it is."));
         "action.serve": () => (), rpc_action, none();
         "action.list": () => Vec<contracts::action::ActionRow>, rpc_action, none();
+        "action.userList": () => Vec<contracts::action::ActionRow>, rpc_action, none();
         "action.run": contracts::action::RunParams => contracts::action::RunResult, rpc_action, none();
         "daemon.ping": () => contracts::common::Ping, rpc_builtin, none();
         "daemon.methods": () => Vec<String>, rpc_builtin, none();
