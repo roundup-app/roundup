@@ -436,7 +436,7 @@ export const Todos = (props: {
 
   // U5240b: the Switcher opens a Todo through its Rail row, so the row reads as selected.
   onCleanup(registerOpener("todo", id => {
-    const todo = typeof id === "number" ? todos.byId().get(id) : undefined;
+    const todo = todos.byId().get(Number(id));
 
     if (!todo || props.recovery !== undefined) return false;
     show(todo, "key");

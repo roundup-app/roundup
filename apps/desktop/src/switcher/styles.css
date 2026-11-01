@@ -134,8 +134,8 @@
 /* U5240b: the Kind a Todo or Pad row names to a screen reader, as its mark shows it to the eye. */
 .switcher-kind {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
