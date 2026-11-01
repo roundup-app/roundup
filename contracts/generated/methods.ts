@@ -63,6 +63,7 @@ import type { Pr as github_Pr } from "./github/Pr";
 import type { SetBodyParams as github_SetBodyParams } from "./github/SetBodyParams";
 import type { LinkContent as link_LinkContent } from "./link/LinkContent";
 import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
+import type { ShortcutFileExport as link_ShortcutFileExport } from "./link/ShortcutFileExport";
 import type { AcceptResultParams as message_AcceptResultParams } from "./message/AcceptResultParams";
 import type { ListParams as message_ListParams } from "./message/ListParams";
 import type { Message as message_Message } from "./message/Message";
@@ -307,6 +308,7 @@ export type RpcMethods = {
   "api.list": { params: null; result: describe_MethodList };
   "api.describe": { params: describe_DescribeParams; result: describe_MethodDescription };
   "link.read": { params: link_LinkUrl; result: link_LinkContent };
+  "shortcuts.export": { params: link_ShortcutFileExport; result: null };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: common_SubscribeParams | null; result: common_SubscribeResult };
   "provenance.history": { params: common_HistoryParams; result: common_Touch[] };

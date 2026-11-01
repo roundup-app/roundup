@@ -90,6 +90,45 @@ export const CHORDS: readonly Chord[] = [
   { name: "project.choose-folder", keys: "⌘O", what: copy.chooseFolder, presses: ["meta+KeyO"], inFirstRun: true },
 ];
 
+/** U5239b: the default label of each action a saved override can move, so a caller naming an action by its default keys still finds it. */
+const DEFAULT_KEYS = new Map<string, string>();
+
+/** The label `chord` shows with no override: a stable id for code that names an action by its keys. */
+export const defaultKeys = (chord: Chord | LeaderKey): string => DEFAULT_KEYS.get(chord.name) ?? chord.keys;
+
+/** U5239b: an action a press can be recorded for: one press of its own, quick add excepted (U3804 keeps its field). */
+export const recordable = (chord: Chord): boolean => chord.name !== "todo.capture" && DEFAULT_PRESSES.get(chord.name)?.length === 1;
+
+const DEFAULT_PRESSES = new Map(CHORDS.map((chord) => [chord.name, chord.presses]));
+
+/** The press `name` runs on with no override. */
+export const defaultPress = (name: string): string | undefined => DEFAULT_PRESSES.get(name)?.[0];
+
+// U5239b: resolution runs default, then the saved override; Help, hints, the key handler and `keys` all read these two properties.
+for (const chord of CHORDS) {
+  if (chord.name === "todo.capture") continue;
+
+  const keys = chord.keys;
+  const presses = chord.presses;
+
+  DEFAULT_KEYS.set(chord.name, keys);
+
+  if (!recordable(chord)) continue;
+
+  Object.defineProperties(chord, {
+    keys: { enumerable: true, get: () => {
+      const press = appSettings().shortcuts[chord.name];
+
+      return press ? shortcutLabel(press) : keys;
+    } },
+    presses: { enumerable: true, get: () => {
+      const press = appSettings().shortcuts[chord.name];
+
+      return press ? [press] : presses;
+    } },
+  });
+}
+
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
 /** `what` is Help's line; `short` is the panel's, which fits the six keys on one line of the header band (U2240). */
 export type LeaderKey = { name: string; args?: readonly ActionArg[]; keys: string; what: string; short: string; press: string };
@@ -142,7 +181,7 @@ export const chordsOf = (chord: Chord | undefined, match: "code" | "key" = "code
     press.split("+").map((part) => MODIFIERS.find(([, name]) => name === part)?.[0] ?? (match === "key" && /^Key[A-Z]$/.test(part) ? part.slice(3).toLowerCase() : part)).join("+"),
   );
 
-export const chordsFor = (keys: string, match: "code" | "key" = "code"): readonly string[] => chordsOf(CHORDS.find((chord) => chord.keys === keys), match);
+export const chordsFor = (keys: string, match: "code" | "key" = "code"): readonly string[] => chordsOf(CHORDS.find((chord) => DEFAULT_KEYS.get(chord.name) === keys) ?? CHORDS.find((chord) => chord.keys === keys), match);
 
 /** Existing Rail navigation, kept local to Keys until its Rail lane adopts Ark. */
 export const RAIL_KEYS = "ArrowLeft ArrowRight F2".split(" ");
@@ -157,7 +196,7 @@ export const ASK_CLOSE = "Escape".split(" ");
 export const TEXT_FIELDS = "input,textarea";
 
 /** U5217: a chord as `aria-keyshortcuts` writes it (`Alt+Meta+N`), read from the same press `CHORDS` binds. */
-export const ariaShortcut = (keys: string): string => ariaChord(CHORDS.find((chord) => chord.keys === keys))!;
+export const ariaShortcut = (keys: string): string => ariaChord(CHORDS.find((chord) => DEFAULT_KEYS.get(chord.name) === keys) ?? CHORDS.find((chord) => chord.keys === keys))!;
 
 /** The row named `name`, read live so a rebound key shows at once (U5247). */
 export const chordNamed = (name: string | undefined): Chord | undefined => CHORDS.find((chord) => chord.name === name);

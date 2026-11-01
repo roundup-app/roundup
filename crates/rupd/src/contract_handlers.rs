@@ -73,6 +73,33 @@ impl Daemon {
         self.link_read(conn, params).await
     }
 
+    /// U5239e: write the overrides as `{ "<action name>": "<press>" }`; only the user exports their shortcuts.
+    pub(super) async fn rpc_shortcuts_export(
+        &self,
+        conn: &mut Conn,
+        _method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        if conn.actor.kind != contracts::ActorKind::User {
+            return Err(RpcError::forbidden("only the user exports shortcuts"));
+        }
+        let p: contracts::link::ShortcutFileExport = rpc::params(params)?;
+        if !std::path::Path::new(&p.path).is_absolute() {
+            return Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                format!("export path must be absolute: {}", p.path),
+            ));
+        }
+        let text = serde_json::to_string_pretty(&p.keys).map_err(RpcError::internal)?;
+        std::fs::write(&p.path, text + "\n").map_err(|err| {
+            RpcError::new(
+                rpc::code::INTERNAL,
+                format!("cannot export to {}: {err}", p.path),
+            )
+        })?;
+        rpc::reply(&())
+    }
+
     pub(super) async fn rpc_todo_refs(
         &self,
         _conn: &mut Conn,
