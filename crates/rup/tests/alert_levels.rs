@@ -47,7 +47,16 @@ async fn u5501_levels_survive_reopen_restart_and_home_move() {
     let a = p.spawn_agent(&c).await;
     assert_eq!(levels(&c).await.last().unwrap().1, "default");
     c.request("agent.stop", json!({"id":a.id})).await.unwrap();
+    let stopped = daemon::rail_tree(&c).await;
+    let stopped = stopped.iter().find(|n| n.id == a.id).unwrap();
     set(&p, &c, &a.id, "quiet").await.unwrap();
+    let changed = daemon::rail_tree(&c).await;
+    let changed = changed.iter().find(|n| n.id == a.id).unwrap();
+    assert_eq!(
+        (&changed.attempt, &changed.terminal_id),
+        (&stopped.attempt, &stopped.terminal_id),
+        "a level write cannot resume a stopped Agent"
+    );
     c.request("rail.move", json!({"id":a.id,"parent":home,"index":0}))
         .await
         .unwrap();
@@ -64,6 +73,14 @@ async fn u5501_levels_survive_reopen_restart_and_home_move() {
         tree.iter().all(|n| n.terminal_id.is_none()),
         "choosing/restoring levels starts no Agent"
     );
+    // An acknowledged choice also survives an abrupt Daemon restart.
+    set(&p, &c, &a.id, "all").await.unwrap();
+    p.restart(&[]);
+    let c = p.client().await;
+    let restarted = daemon::rail_tree(&c).await;
+    let agent = restarted.iter().find(|n| n.id == a.id).unwrap();
+    assert_eq!(serde_json::to_value(agent).unwrap()["alert_level"], "all");
+    assert!(agent.terminal_id.is_none());
 }
 
 async fn spawn(p: &daemon::Project, c: &Client, parent: &str) -> String {
