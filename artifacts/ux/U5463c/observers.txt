@@ -199,3 +199,7 @@ Baseline failures: Shelf/Drawer D2 reports a 28px left inset on the nested shelf
 Direct reading comparison: all 15 Check statuses (D1–D14 and D16) preserved in all 10 pairs.
 
 Test audit: U41 focus classification is retired; no production caller remains. U58 is retired; u4457_pads_open_from_shelf_without_agent_control retains no-control/Shelf access. Only Toggle rows are cut from U133. U449 retains its long-title observer, with local observation types. Existing U3787d observers remain; U5463c adds rendered capture coverage.
+
+Targeted behavioral/observer registration run — exit 0
+pnpm --filter desktop exec vitest run src/ui/u133_press.test.ts src/header/u449_rendered.test.ts src/testing/u3787d_capture.test.ts src/testing/captures.test.ts src/ask/u505_ask_rows.test.tsx src/bubbles/u165_keys.test.tsx src/rail/pads/u4457_pads_control.test.tsx
+5 files passed, 2 capture-gated files skipped; 66 passed, 7 skipped. U5463c's three rendered seed cases separately passed through just capture U5463c. U449 remains capture-gated; only its TypeScript types moved into their sole test holder.

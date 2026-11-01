@@ -50,17 +50,21 @@ it.skipIf(!captureDir("U3787d")).each(["tree-40", "tabs-8", "conflict"])("u3787d
 it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u5463c_cleanup_rendered_surfaces %s", async seed => {
   const phase = process.env.U5463_PHASE === "base" ? "base" : "head";
   mkdirSync(join(captureDir("U5463c")!, phase), { recursive: true });
+
   const capture = async (step: string) => {
     const file = join(captureDir("U5463c")!, phase, `${seed}-${step}`);
     writeFileSync(`${file}.checks.json`, JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
     await lane.browser("screenshot", `${file}.png`);
   };
+
   await lane.seedTodos(["Review changes", "Update notes", "Check build", "Read report", "Open result", "Inspect tests", "Verify state", "Finish review"], true, seed);
   const origin = await lane.evaluate<string>("location.origin");
   await capture("shelf");
   await lane.browser("find", "first", ".shelf .todo-row-button", "click");
-  await lane.until("!!document.querySelector('.drawer')");
-  expect(await lane.evaluate<boolean>("!!document.querySelector('.drawer')")).toBe(true);
+  await lane.until("document.activeElement?.matches('.todo-row-button')");
+  await lane.browser("press", "Enter");
+  await lane.until("!!document.querySelector('.drawer[data-open=true] .todo-detail-title')");
+  expect(await lane.evaluate<boolean>("!!document.querySelector('.drawer[data-open=true] .todo-detail-title')")).toBe(true);
   await capture("drawer");
   await lane.browser("open", `${origin}/harness.html?view=reactions&items=1&tabs=1&seed=${seed}`);
   await lane.until("!!window.__fake && !!document.querySelector('.ask-bar')");
@@ -81,10 +85,39 @@ it.skipIf(!captureDir("U5463c")).each(["tree-40", "agents-10", "bubbles"])("u546
   await lane.browser("click", "[data-reaction-opener=cleanup-reaction]");
   await lane.until("!!document.querySelector('.reaction-detail')");
   await capture("reactions");
+
   if (seed === "tree-40") {
     await lane.evaluate("(() => { window.__fake.app.handlers['reaction.get'] = () => { throw new Error('Storage unavailable. Retry.'); }; return true; })()");
     await lane.browser("click", ".reaction-actions button:first-child");
     await lane.until("document.body.textContent.includes('Storage unavailable. Retry.')");
     await capture("failure");
+    await lane.browser("open", `${origin}/harness.html?view=workstreams&items=1&tabs=1&seed=tree-40`);
+    await lane.until("!!document.querySelector('#shelf-tab-pads')");
+    await lane.browser("click", "#shelf-tab-pads");
+    await lane.until("!!document.querySelector('.pad-name')");
+    await lane.browser("find", "text", "pad-3", "focus", "--exact");
+    await lane.browser("press", "Enter");
+    await lane.until("!!document.querySelector('.pad-editor .ProseMirror')");
+    await capture("pad-editor");
+    await lane.evaluate(`(() => {
+      localStorage.clear();
+      localStorage.setItem('roundup:drafts:/Users/you/harness', JSON.stringify({ version: 1, drafts: [
+        { revision: 'cleanup-header', destination: { surface: 'header', object: '/Users/you/harness', recipient: null }, value: { name: 'Saved project name', base: 'harness' }, selection: null, status: 'failed', policy: 'ordinary' },
+        { revision: 'cleanup-order', destination: { surface: 'orders', object: 'missing-agent', recipient: null }, value: { title: 'Saved order', ask: 'Review the changes', done: '' }, selection: null, status: 'failed', policy: 'ordinary' },
+      ] }));
+      return true;
+    })()`);
+    await lane.browser("reload");
+    await lane.until("!!document.querySelector('.tab-recover')");
+    await lane.browser("click", ".tab-recover");
+    await lane.until("!!document.querySelector('.header-recovery')");
+    await capture("project-recovery");
+    await lane.browser("press", "Escape");
+    await lane.until("!document.querySelector('.header-recovery')");
+    await lane.browser("focus", "[data-todo-root]");
+    await lane.browser("press", "ContextMenu");
+    await lane.browser("find", "role", "menuitem", "click", "--name", "Unfinished work");
+    await lane.until("!!document.querySelector('.draft-revisions')");
+    await capture("unfinished-work");
   }
 }, 60_000);
