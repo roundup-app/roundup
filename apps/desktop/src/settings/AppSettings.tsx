@@ -320,7 +320,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     </Show>
     <Show when={view.open()}>
     <SettingsShell heading={copy.settings} hideHeading onClose={back}>
-      <Tabs.Root value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
+      <Tabs.Root lazyMount value={section()} onValueChange={({ value }) => setSection(value)} onFocusChange={({ focusedValue }) => { if (focusedValue !== null) setSection(focusedValue); }} activationMode="automatic" orientation="vertical" class="settings-sections">
         <aside class="settings-navigation">
         <div class="settings-history">
           <button data-button="quiet" class="settings-back word" type="button" onClick={back}>{copy.settingsBack}</button>
