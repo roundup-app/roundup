@@ -38,8 +38,6 @@
   margin-right: var(--space-2);
 }
 
-.pad-saved,
-
 .pad-editor {
   flex: 1;
   min-height: 0;
@@ -131,11 +129,6 @@
 
 .pad-rich-editor .top-bar-heading-label {
   display: none;
-}
-
-.pad-editor-failure {
-  color: var(--red);
-  padding: var(--space-4);
 }
 
 .pad-name {
@@ -346,40 +339,6 @@ li[aria-selected="true"] svg {
 .menu-group+.menu-group::before {
   margin: 0 var(--space-2);
   background: var(--hairline);
-}
-
-.pad-retained-status {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-top: var(--space-3);
-}
-
-.pad-retention {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-block: var(--space-3);
-}
-
-.pad-retention p {
-  margin: 0;
-  color: var(--text);
-}
-
-.pad-retention .diff-actions {
-  flex-wrap: wrap;
-}
-
-.pad-retention-shelf {
-  margin-inline: var(--space-2);
-}
-
-.pad-retention-shelf .diff-actions {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-1);
 }
 
 /* Reserved controls keep the Pad name width stable on focus and selection. */
