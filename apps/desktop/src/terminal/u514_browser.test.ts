@@ -388,6 +388,7 @@ it.each([...editorKinds, "pad-source", "diff", "ask"] as const)("u3529a_text_kee
 
   await rightAt(at);
   expect(await read<boolean>("window.__context.cancelled")).toBe(false);
+  expect(await read<boolean>("window.__context.editable")).toBe(kind !== "diff");
   expect(await read<string>(`(() => {
     const field = ${field};
     return field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.value.slice(field.selectionStart, field.selectionEnd) : getSelection().toString();
