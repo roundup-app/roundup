@@ -19,7 +19,7 @@ import { outcomeOf, type AppSeam } from "../app/seam";
 export type ExitState = { kind: "code"; code: number } | { kind: "signal" } | { kind: "unknown" };
 
 /** U5151c: one failure, bound to its Attempt and Status revision. */
-export const failureKey = (node: RailNode): string | null =>
+const failureKey = (node: RailNode): string | null =>
   node.status?.kind === "error" && node.attempt !== null && node.status_revision !== null ? `${node.id}:${node.attempt}:${node.status_revision}` : null;
 
 export type DismissalStorage = {

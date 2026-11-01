@@ -134,7 +134,7 @@ const macEditingBytes = (event: KeyboardEvent): string | null => {
 };
 
 /** Rule 7's 150 MB budget for ten idle Agents must hold under a Terminal that prints without end. */
-export const SCROLLBACK_LINES = 10_000;
+const SCROLLBACK_LINES = 10_000;
 
 export const xtermOptions: ITerminalOptions = {
   allowProposedApi: true,

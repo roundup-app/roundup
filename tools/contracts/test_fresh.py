@@ -30,7 +30,8 @@ class Freshness(unittest.TestCase):
                 code, output = run()
                 self.assertEqual(code, 0, output)
                 before = tree()
-                self.assertEqual(run()[0], 0)
+                code, output = run()
+                self.assertEqual(code, 0, output)
                 self.assertEqual(tree(), before, "second generation must be byte-identical")
                 path = checkout / "contracts/generated/Actor.ts"
                 declaration = checkout / "crates/contracts/src/declarations.rs"

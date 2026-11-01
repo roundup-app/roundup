@@ -336,16 +336,6 @@ async fn nr4_acceptance_rechecks_expiry_after_receiver_read() {
         expires: OffsetDateTime,
     }
 
-    impl TerminalOwners for ExpiringRail {
-        fn with_terminal_owner(
-            &self,
-            terminal: &str,
-            record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
-        ) -> Result<(), RpcError> {
-            self.rail.with_terminal_owner(terminal, record)
-        }
-    }
-
     #[async_trait]
     impl Module for ExpiringRail {
         fn namespaces(&self) -> &'static [&'static str] {
