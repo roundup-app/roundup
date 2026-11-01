@@ -182,7 +182,7 @@ it("u5502_membership_uses_finishes_publications_and_current_attention", async ()
 });
 
 
-it("u5502_quiet_held_and_messages_do_not_light_the_mark", async () => {
+it("u5502_quiet_exclusions_and_messages_do_not_light_the_mark", async () => {
   // U5502: no Agent is Quiet until #5501 supplies an authoritative alert level.
   const { app } = await openTabs({ api: [agent("eligible", "needs-you", "question"), agent("excluded", "error", "failure")], web: [] });
   fireEvent.click(tab("api"));
