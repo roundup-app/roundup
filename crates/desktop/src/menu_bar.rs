@@ -57,8 +57,8 @@ impl<R: Runtime> Default for MenuBar<R> {
     }
 }
 
-fn aged(label: &str, since: i64) -> String {
-    let seconds = (time::OffsetDateTime::now_utc().unix_timestamp() - since / 1000).max(0);
+fn aged(label: &str, since: i64, now: i64) -> String {
+    let seconds = now.saturating_sub(since).max(0) / 1000;
     let age = match seconds {
         0..60 => "just now".to_owned(),
         60..3600 => format!("{}m", seconds / 60),
@@ -66,6 +66,12 @@ fn aged(label: &str, since: i64) -> String {
         _ => format!("{}d", seconds / 86400),
     };
     format!("{label} · {age}")
+}
+
+fn now() -> i64 {
+    // Current epoch milliseconds fit i64; time exposes its nanosecond precision as i128.
+    i64::try_from(time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000)
+        .expect("current epoch milliseconds fit i64")
 }
 
 fn refresh_ages<R: Runtime>(app: &AppHandle<R>) {
@@ -76,7 +82,7 @@ fn refresh_ages<R: Runtime>(app: &AppHandle<R>) {
         .expect("menu-bar age lock")
         .iter()
     {
-        if let Err(error) = item.set_text(aged(label, *since)) {
+        if let Err(error) = item.set_text(aged(label, *since, now())) {
             crate::diagnostics::failure("refresh menu-bar ages", &error);
         }
     }
@@ -165,9 +171,10 @@ pub(crate) fn set_menu_bar<R: Runtime>(
     let native = Menu::new(&app).map_err(internal)?;
     let mut ages = Vec::new();
     for (index, entry) in menu.entries.iter().enumerate() {
-        let label = entry
-            .since
-            .map_or_else(|| entry.label.clone(), |since| aged(&entry.label, since));
+        let label = entry.since.map_or_else(
+            || entry.label.clone(),
+            |since| aged(&entry.label, since, now()),
+        );
         let item = MenuItem::with_id(
             &app,
             entry
@@ -217,6 +224,24 @@ pub(crate) fn set_menu_bar<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn u5502_rows_keep_identity_and_event_age() {
+        for (elapsed, expected) in [
+            (-1, "just now"),
+            (59_999, "just now"),
+            (60_000, "1m"),
+            (3_599_999, "59m"),
+            (3_600_000, "1h"),
+            (86_399_999, "23h"),
+            (86_400_000, "1d"),
+        ] {
+            assert_eq!(
+                aged("Agent", 1_001, 1_001 + elapsed),
+                format!("Agent · {expected}")
+            );
+        }
+    }
 
     #[test]
     fn u5502_native_menu_dispatches_only_the_chosen_action() {
