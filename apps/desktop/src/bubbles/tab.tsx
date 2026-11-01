@@ -13,6 +13,8 @@ import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
 import { ProgramStatusMark, tabLabel } from "../terminal/programStatus";
+import { age } from "../shelf/Age";
+import { useDisplayNow } from "../state/clock";
 import { copy } from "./copy";
 
 /** Everything a Terminal tab reads from the Bubbles that owns it. */
@@ -108,6 +110,15 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
     if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(prior => prior?.id === id ? null : prior);
   });
 
+  const now = useDisplayNow(() => terminal().status !== undefined);
+
+  /** PS12.3: the program's label (the Kind's word when empty) and its age, as the Rail row shows them (PS10.2). */
+  const tip = () => {
+    const status = terminal().status;
+
+    return status ? `${tabLabel(name(), status)} · ${age(status.since, now())}` : name();
+  };
+
   const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
 
   /** U2694b: the tab and Bubble share actions and the same rename editor. */
@@ -132,7 +143,7 @@ export const Tab = (tabProps: { id: string; ctx: TabContext }) => {
   return <>
     <FlatTab class="terminal-tab-pair" onContextMenu={menu} selected={!placeOf(id).min} data-bubble={id}>
       <Show when={editing()?.id === id ? editing() : null} keyed fallback={
-        <Tip class="ink-tip terminal-tab-tip" content={<span class="terminal-tab-tip-label">{tabLabel(name(), terminal().status)}</span>} cut={() => nameCut() || !!terminal().status}>
+        <Tip class="ink-tip terminal-tab-tip" content={<span class="terminal-tab-tip-label">{tip()}</span>} cut={() => nameCut() || !!terminal().status}>
           {(trigger) => (
             <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
               aria-label={tabLabel(name(), terminal().status)} aria-describedby={!terminal().status && props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
