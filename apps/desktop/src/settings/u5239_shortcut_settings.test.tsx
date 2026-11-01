@@ -40,7 +40,7 @@ it("u5239a_one_row_per_named_action_with_its_label_and_keys", async () => {
   const labels = [...document.querySelectorAll(".settings-field-caption")].map(node => node.textContent);
 
   expect(labels).toEqual(ACTION_ROWS.flatMap(row => row.name === "todo.capture" ? [copy.quickAddTodo, copy.quickAddAnywhere] : [row.what]));
-  expect(view.getByRole("button", { name: /^Quick add a Todo/ })).toBeTruthy();
+  expect(view.getByRole("button", { name: new RegExp(`^${copy.quickAddTodo}`) })).toBeTruthy();
 });
 
 it("u5239a_a_new_table_entry_gets_a_row", async () => {
