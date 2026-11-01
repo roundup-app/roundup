@@ -118,6 +118,11 @@ export const watchProject = (connected: ConnectedProject, pushCandidate: (candid
         silent: raised !== undefined && !raised.chime,
         open: openAgent(id),
       });
+    } else if (event.name === "extension.problem") {
+      // UA11: one Toast per problem, whatever the Switcher shows.
+      const item = `extension:${event.data.extension}:${event.data.cause}`;
+
+      push({ key: item, item, kind: "error", name: event.data.extension, line: event.data.cause, selected: false, open: () => null });
     } else if (event.name === "todo.deleted") {
       settle(todoItem(event.data.id));
     } else if (event.name === "pad.deleted") {

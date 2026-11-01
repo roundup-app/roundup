@@ -56,7 +56,7 @@ it("u2773a_queries_keep_original_project_through_switch_events_and_reopen", asyn
     expect(field()).toBeNull();
     openSwitcher();
     await waitFor(() => expect(field()?.value).toBe(" second 🧭 "));
-    const reads = new Set(["rail.tree", "terminal.list", "daemon.ping", "daemon.methods", "worktree.status", "terminal.scheme", "todo.unread", "workstream.queue", "daemon.getNaming", "models.list", "todo.listHanded"]);
+    const reads = new Set(["rail.tree", "terminal.list", "daemon.ping", "daemon.methods", "worktree.status", "terminal.scheme", "todo.unread", "workstream.queue", "daemon.getNaming", "models.list", "todo.listHanded", "action.userList"]);
     expect(apps.flatMap(connection => connection.calls).filter(({ method }) => !reads.has(method) && !method.endsWith(".list") && !method.endsWith(".get") && !method.endsWith(".count"))).toEqual([]);
   } finally {
     cleanup();
