@@ -57,7 +57,7 @@ Captures disabled. Exit rows are updated after each command ends; no new browser
 | `env -u ROUNDUP_CAPTURES VITEST_MAX_WORKERS=2 just check` (before main refresh) | 100; unrelated `rupd::b6_prompt_identity::b6_a_checked_effect_completes_before_a_racing_prompt_replacement` failed; 1,577 Rust tests passed |
 | `cargo nextest run -p rupd --test b6_prompt_identity b6_a_checked_effect_completes_before_a_racing_prompt_replacement` (after merging main `eedfce650e37b6de385a7622e75b0639063026c3`) | 100; same Q11 non-TTY fake-runtime failure |
 
-The initial check failure was owned by prerequisite #1708, now completed through main. No B6 assertion or production runtime is changed by this relocation.
+The initial check failure was owned by prerequisite #1708, now completed through main. No B6 assertion or production runtime is changed by this relocation. The surviving relocated Resume-cleanup proof is `cleanup_completion::b6_resume_completion_waits_for_both_promotion_failure_cleanups` in `crates/rupd/tests/b6_cleanup_completion.rs`; its behavioral acceptance is B6’s Resume cleanup amendment in `scenarios/messages.md`. The former Takeover race is retired there by B3563d (`scenarios/remove-control-consent.md`).
 
 | Final refreshed command | Exit |
 | --- | ---: |

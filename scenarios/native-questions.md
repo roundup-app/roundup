@@ -61,7 +61,7 @@ Retire each whole scenario below by id/name, replacing its active text with a re
 
 | File | Scenarios retired completely |
 |---|---|
-| `scenarios/decisions.md` | H1 reply recording; H1b remaining observations; H2 opening; H3 answering; H4 proof/Reach; H5 reload; H6 Agent end; H7 Terminal clearing; H8 hook failure; H9 permission routing; H10 permission chain; H18 App proof; H21 Agent answers; H22 formatted args; H23 scopes and revoke |
+| Permission scenarios (canonical retired headings below) | H1 reply recording; H1b remaining observations; H2 opening; H3 answering; H4 proof/Reach; H5 reload; H6 Agent end; H7 Terminal clearing; H8 hook failure; H9 permission routing; H10 permission chain; H18 App proof; H21 Agent answers; H22 formatted args; H23 scopes and revoke |
 | `scenarios/control.md` | H14 MCP question; H14b Brief question rules |
 | `scenarios/ui-decisions.md` | U113 selected answer; U194 uncovered answers; U383 answer distinction; U434 Allow leads; U400 native-question Card; U406 custom-question Card; U3750 unavailable question; U3794 permission Card; U3795 folded answer/revoke |
 | `scenarios/door-terminal.md` | U468a App question answer |
@@ -89,8 +89,96 @@ All other citations in active scenarios, domain/architecture docs, `docs/permiss
 1. `crates/agents/src/claude_code/profiles.rs`, `DOOR_TOOLS`, `DOOR_TOOLS_NO_MCP`, `SCOUT_TOOLS`, `SCOUT_TOOLS_NO_MCP` and `PROFILES` hold the current lean tool restrictions. `crates/agents/src/claude_code/launch.rs`, `Launcher::settings_json`, builds the permission hook.
 2. `crates/agents/src/claude_code/brief.rs`, `text` and `with_tools`, assemble role/MCP guidance. `crates/agents/tests/launch/guidance.rs`, `h14b_the_brief_carries_the_ask_user_rules`, proves the retired instructions.
 3. `crates/rupd/tests/b50_note_inbox.rs`, `b50_an_inbox_question_preserves_its_message_and_reply_identity`, already proves question envelope/receipt identity; it does not prove the two-Agent reply exchange. `crates/agents/tests/inbox.rs`, `b50_a_question_carries_kind_and_reply_id_in_the_peer_entry`, proves encoding.
-4. `crates/agents/src/decision.rs`, `Decisions::list`, `Shared::permission` and `Shared::ask`, hold the custom store/call lifetimes. `crates/contracts/src/methods.rs`, `METHODS`, declares its methods; `scenarios/decisions.md`, H2–H10/H18/H21–H23, and `scenarios/control.md`, H14/H14b, hold the acceptance being retired.
+4. `crates/agents/src/decision.rs`, `Decisions::list`, `Shared::permission` and `Shared::ask`, hold the custom store/call lifetimes. `crates/contracts/src/methods.rs`, `METHODS`, declares its methods; the canonical retired headings below, H2–H10/H18/H21–H23, and `scenarios/control.md`, H14/H14b, hold the acceptance being retired.
 5. `scenarios/messages.md`, B13–B18 and B50–B52, specify bubbling and inbox transport. `crates/messages/src/hops.rs`, `settle`, handles the chain; `scenarios/proofs.md`, V3 and V4b, and `docs/messages.md` hold its laws/model agreement requirements.
 6. `docs/design-system.md`, **The checks**, defines D2/D5/D6; `scenarios/door-terminal.md`, U467/U468/U468a, and `scenarios/ui-inbox.md`, U3770a–c, hold the current intervention surfaces. `scenarios/agents.md`, A3507a–e, holds preservation of the user's setup.
 
 Applicable gates (policy): P3 — can routine progress interrupt, or can native attention fail to lead to the requesting Terminal and continuation? Observe A3564a/e. P4 — does launch replace the user's setup or expose vendor parsing outside its Adapter? Observe A3564b and the Adapter diff. P9 — is an answer/prompt typed automatically, or does cached launch material change mid-Attempt? Observe zero answer writes and retained launch immutability. P11 — does removing the App form lose work on a surviving editable surface or reconstruct vendor input? Retain its affected navigation/draft observers. P1/P6 — can a stopped Door delete its Workstream or make another Agent inaccessible? Retain existing direct-selection and stopped-Door observers. Message safety/replay is A3564c/d's Contract observer. These gates cover changed paths, not unrelated product gaps.
+
+## Finished-work retirement entries (policy)
+
+**T5402 retired.** Completed engineering order #5402; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**T5381 retired.** Completed engineering order #5381; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**T3209 retired.** Completed engineering order #3209; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**U4983 retired.** Completed engineering order #4983; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**U3119a retired.** Measurement collection and storage were removed by U4454d (`scenarios/remove-time-timeline.md`); their tests retired with the code.
+
+**U3119b retired.** Measurement collection and storage were removed by U4454d (`scenarios/remove-time-timeline.md`); their tests retired with the code.
+
+**N9 retired.** Retired by N20 (`scenarios/project-store.md`): pre-release historical schema adoption and recovery are not required; current-schema persistence and transaction guarantees remain.
+
+**N10 retired.** Retired by N20 (`scenarios/project-store.md`): pre-release historical schema adoption and recovery are not required; current-schema persistence and transaction guarantees remain.
+
+**N11 retired.** Retired by N20 (`scenarios/project-store.md`): pre-release historical schema adoption and recovery are not required; current-schema persistence and transaction guarantees remain.
+
+**U3748 retired.** Replaced by U3530a–c (`scenarios/ui-scrollbar-overflow.md`): scrolling activity replaces hover; overlay, containment and no-resize acceptance remains there.
+
+**U3749 retired.** Replaced by U3530a–c (`scenarios/ui-scrollbar-overflow.md`): scrolling activity replaces hover; overlay, containment and no-resize acceptance remains there.
+
+**H1 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H1b retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H2 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H3 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H4 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H5 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H6 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H7 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H8 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H9 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H10 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H18 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H21 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H22 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**H23 retired.** Retired by A3564a–f in this file: the user answers in the requesting Agent’s Terminal; roundup keeps no custom question/permission store, answer path or view.
+
+**U3016a retired.** Measurement collection and storage were removed by U4454d (`scenarios/remove-time-timeline.md`); their tests retired with the code.
+
+**U3016b retired.** Cost and token accounting were removed by #3574 and P14; U4454d (`scenarios/remove-time-timeline.md`) removes the remaining measurement collection and storage.
+
+**U3016d retired.** Measurement collection and storage were removed by U4454d (`scenarios/remove-time-timeline.md`); their tests retired with the code.
+
+**U3016e retired.** The Time view, including its weekly limit line, was removed by U4454a–b (`scenarios/remove-time-timeline.md`); its tests retired with it.
+
+**U3016f retired.** The Time view, including its weekly limit line, was removed by U4454a–b (`scenarios/remove-time-timeline.md`); its tests retired with it.
+
+**U3016g retired.** The Time view, including its weekly limit line, was removed by U4454a–b (`scenarios/remove-time-timeline.md`); its tests retired with it.
+
+**U3016h retired.** The Time view, including its weekly limit line, was removed by U4454a–b (`scenarios/remove-time-timeline.md`); its tests retired with it.
+
+**U3016k retired.** The Time view, including its weekly limit line, was removed by U4454a–b (`scenarios/remove-time-timeline.md`); its tests retired with it.
+
+**U3016l retired.** Measurement collection and storage were removed by U4454d (`scenarios/remove-time-timeline.md`); their tests retired with the code.
+
+**U3016m retired.** Measurement collection and storage were removed by U4454d (`scenarios/remove-time-timeline.md`); their tests retired with the code.
+
+**A2961 retired.** Completed engineering order #2961; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**A2961b retired.** Completed engineering order #2961; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**T4982a retired.** Completed engineering order #4982; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**T4982b retired.** Completed engineering order #4982; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**T3421a retired.** Completed engineering order #3421; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**T3421b retired.** Completed engineering order #3421; retired after completion. Its behavioral scenarios and surviving test observers remain required.
+
+**T3421c retired.** Completed engineering order #3421; retired after completion. Its behavioral scenarios and surviving test observers remain required.
