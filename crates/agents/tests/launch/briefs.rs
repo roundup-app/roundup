@@ -271,3 +271,18 @@ fn b5168g_no_coordinator_brief_asks_the_user_to_run_a_covered_gh_command() {
         }
     }
 }
+
+#[test]
+fn b4699c_each_brief_routes_child_blocks_to_the_door() {
+    for role in [Role::Door, Role::Agent, Role::Scout] {
+        let text = brief(&setup(), "7", role);
+        assert!(text.contains("If you cannot proceed within your order, report the block and the choice needed to that coordinator."));
+        if role == Role::Door {
+            assert!(
+                text.contains(
+                    "Include in child orders: send every question and block to this Door"
+                )
+            );
+        }
+    }
+}
