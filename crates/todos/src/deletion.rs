@@ -346,7 +346,7 @@ fn retain(
     if remove {
         // Preserve T6's surviving dependent Changes. Values come from the authoritative
         // last Change, whose blocker list is updated in the same deletion transaction.
-        let now = crate::store::now_ms();
+        let now = provenance::now_ms().max(0);
         db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,actor,changed_at)
         SELECT t.id,
         json_object('title',t.title,'body',t.body,'done',json(CASE t.done WHEN 0 THEN 'false' ELSE 'true' END),'owner',json(t.owner),'priority',json(t.priority),'blockers',json((SELECT json_group_array(blocker) FROM (SELECT blocker FROM blockers WHERE todo=t.id ORDER BY blocker)))),
@@ -607,10 +607,10 @@ fn change_owner_in(
     // Values' latest Change is the existing authoritative owner/blocker history (T17).
     db.execute("INSERT INTO changes(todo,before_values,after_values,after_touch,actor,changed_at)
         SELECT todo,after_values,json_set(after_values,'$.owner',json(?2)),(SELECT COALESCE(MAX(seq),0) FROM touches),?3,?4
-        FROM changes WHERE seq=(SELECT MAX(seq) FROM changes WHERE todo=?1)",params![id,owner,serde_json::to_string(actor).map_err(RpcError::internal)?,crate::store::now_ms()]).map_err(RpcError::internal)?;
+        FROM changes WHERE seq=(SELECT MAX(seq) FROM changes WHERE todo=?1)",params![id,owner,serde_json::to_string(actor).map_err(RpcError::internal)?,provenance::now_ms().max(0)]).map_err(RpcError::internal)?;
     db.execute(
         "UPDATE todos SET owner=?, updated_at=? WHERE id=?",
-        params![owner, crate::store::now_ms(), id],
+        params![owner, provenance::now_ms().max(0), id],
     )
     .map_err(RpcError::internal)?;
     Ok(())

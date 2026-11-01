@@ -528,3 +528,38 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     let routes = tests::ask(&daemon, r#"{"id":1,"method":"route.list"}"#).await["result"].clone();
     assert_eq!(routes[0]["delivery"], "drop");
 }
+
+#[tokio::test]
+async fn c5461a_retired_methods_are_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = tests::daemon_in(dir.path());
+    let methods = tests::ask(&daemon, r#"{"id":1,"method":"daemon.methods"}"#).await;
+    let descriptions = tests::ask(&daemon, r#"{"id":2,"method":"api.list"}"#).await;
+    for (namespace, member) in [("attachment", "save"), ("rail", "list")] {
+        let name = format!("{namespace}.{member}");
+        assert!(
+            !methods["result"].as_array().unwrap().contains(&json!(name)),
+            "{methods}"
+        );
+        assert!(
+            descriptions["result"]["methods"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|row| row["name"] != name),
+            "{descriptions}"
+        );
+        let description = tests::ask(
+            &daemon,
+            &json!({"id":3,"method":"api.describe","params":{"method":name}}).to_string(),
+        )
+        .await;
+        assert_eq!(
+            description["error"]["code"],
+            code::METHOD_NOT_FOUND,
+            "{description}"
+        );
+        let reply = tests::ask(&daemon, &json!({"id":4,"method":name}).to_string()).await;
+        assert_eq!(reply["error"]["code"], code::METHOD_NOT_FOUND, "{reply}");
+    }
+}
