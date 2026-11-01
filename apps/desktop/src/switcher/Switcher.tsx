@@ -13,7 +13,7 @@ import { Combobox } from "../ui/Combobox";
 import { trackSurface } from "../ui/openSurfaces";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
-import { CHORDS, LEADER, SWITCHER_CLOSE, SWITCHER_KEYS, SWITCHER_RECORD, chordNamed, chordsOf, pressOf, recordable } from "../keys/chords";
+import { CHORDS, LEADER, SWITCHER_CLOSE, SWITCHER_KEYS, SWITCHER_RECORD, chordNamed, pressOf, recordable } from "../keys/chords";
 import { KeyChip } from "../keys/KeyChip";
 import { checkRecorded, isModifier, shortcutsWith } from "../settings/shortcutRules";
 import { saveAppSettings } from "../settings/preferences";
@@ -300,7 +300,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
       const checked = checkRecorded(action.name, event);
 
-      if ("refusal" in checked) { setRefusal({ value: action.value, cause: checked.refusal }); return; }
+      if ("refusal" in checked) {
+        setRefusal({ value: action.value, cause: checked.refusal });
+
+        return;
+      }
 
       void saveAppSettings({ shortcuts: shortcutsWith(action.name, checked.press) }).then(failure => {
         if (failure) setRefusal({ value: action.value, cause: failure });
@@ -329,6 +333,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {
             setNameFocused(false);
+
             // Zag can retain its trap until the selecting Combobox batch ends.
             // Keep only the focus destination requested by this synchronous action.
             if (dispatching() && event.relatedTarget instanceof HTMLElement && !panel?.contains(event.relatedTarget)) actionFocus = event.relatedTarget;
