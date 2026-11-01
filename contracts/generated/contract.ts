@@ -116,6 +116,7 @@ export const CONTRACT = {
     "reaction.stop": "7f76744550a78b3b",
     "route.list": "5aac961a9745025c",
     "route.set": "d871b2b8a6257592",
+    "shortcuts.export": "63066df385273240",
     "skill.remove": "a4bda6c57c851f3f",
     "skill.setup": "48d34e6a8d818f68",
     "skill.status": "a7ea41714ad9cedd",

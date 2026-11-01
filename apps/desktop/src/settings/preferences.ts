@@ -40,6 +40,8 @@ const schema = storageSchema("roundup:app-settings", v.object({
   // Mac-wide quick add: "" is none, and none registers no global shortcut.
   quickAddAnywhere: v.fallback(v.pipe(v.string(), v.regex(/^(?:(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*)?$/)), ""),
   quickAddAnywhereKey: v.fallback(v.string(), ""),
+  // U5239b: a saved press per action `name`; an entry that is not a press is dropped.
+  shortcuts: v.fallback(v.record(v.string(), v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/))), {}),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
   stateAlerts: v.fallback(
     v.object({ working: stateRow(false), blocked: stateRow(false), "needs-you": stateRow(true), error: stateRow(true), done: stateRow(false) }),

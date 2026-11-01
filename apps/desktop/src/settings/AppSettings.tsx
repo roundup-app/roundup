@@ -18,7 +18,7 @@ import { alertChoices, alertStates, appSettings, saveAppSettings, terminalRanges
 import { SettingsGroup, SettingsResults, SettingsShell } from "./SettingsShell";
 import { NamingSettings } from "./NamingSettings";
 import { SkillSetting } from "./SkillSetting";
-import { ShortcutSetting } from "./ShortcutSetting";
+import { ShortcutSetting, ShortcutSettings } from "./ShortcutSetting";
 
 /** One App-wide center view, available even before a Project is open. */
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void; navigation?: () => string }) => {
@@ -373,7 +373,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         {controls.fontSize()}{controls.lineHeight()}{controls.letterSpacing()}
         <Deferred load={() => import("./TerminalPreview")} label={copy.terminalPreview}>{module => <module.TerminalPreview type={preview()} />}</Deferred>
       </SettingsGroup></Tabs.Content>
-      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}>{controls.quickAdd()}{controls.quickAddAnywhere()}</SettingsGroup></Tabs.Content>
+      <Tabs.Content value="Shortcuts"><SettingsGroup name={copy.settingsShortcuts}><ShortcutSettings capture={props.app.capture} app={props.app} onFailure={setFailure} /></SettingsGroup></Tabs.Content>
       <Tabs.Content value="Appearance"><SettingsGroup name={copy.settingsAppearance}>
         {controls.mode()}
         {controls.interfaceScale()}

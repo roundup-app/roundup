@@ -80,7 +80,7 @@
   gap: var(--space-1);
 }
 
-.settings-shortcut button {
+.settings-shortcut button:not([aria-disabled="true"]) {
   color: var(--text);
 }
 

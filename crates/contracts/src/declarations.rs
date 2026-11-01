@@ -195,6 +195,7 @@ declarations! { $;
         "api.list": () => contracts::describe::MethodList, rpc_builtin, all(empty("List every method the Daemon serves with a one-line summary."));
         "api.describe": contracts::describe::DescribeParams => contracts::describe::MethodDescription, rpc_builtin, all(schema(contracts::describe::DescribeParams,"Describe one method: its summary, params and result schemas and an example."));
         "link.read": contracts::link::LinkUrl => contracts::link::LinkContent, rpc_link_read, all(schema(contracts::link::LinkUrl,"Read a Project roundup:// link: current Pad, Todo, Agent, Workstream or Terminal content, or a Deliverable recorded revision/current external target and its availability."));
+        "shortcuts.export": contracts::link::ShortcutFileExport => (), rpc_shortcuts_export, none();
         "daemon.identify": contracts::common::IdentifyParams => (), rpc_builtin, none();
         "events.subscribe": Option<contracts::common::SubscribeParams> => contracts::common::SubscribeResult, rpc_builtin, all(custom(events_stream()));
         "provenance.history": contracts::common::HistoryParams => Vec<contracts::common::Touch>, rpc_builtin, all(schema(contracts::HistoryParams,"List the Touches on one item, such as `todo:3` or `rail:5`."));
