@@ -115,3 +115,28 @@
   block-size: 0;
   min-block-size: 0;
 }
+
+/* U5240c: one quiet line of the keys that act now. */
+.switcher-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding-inline: var(--space-2);
+  color: var(--grey);
+}
+
+.switcher-recording {
+  flex: none;
+  color: var(--grey);
+}
+
+/* U5240b: the Kind a Todo or Pad row names to a screen reader, as its mark shows it to the eye. */
+.switcher-kind {
+  position: absolute;
+  width: var(--hairline-width);
+  height: var(--hairline-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
