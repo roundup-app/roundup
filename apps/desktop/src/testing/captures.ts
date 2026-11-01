@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = () => resolve(process.cwd(), "../..", "artifacts/ux");
@@ -16,11 +15,6 @@ export function captureDir(id: string): string | null {
   if (id.startsWith("J")) return /^J[0-9]+[a-z]?$/.test(id) ? join(root(), "journey", id) : null;
 
   return join(root(), target);
-}
-
-/** U453: committed observer readings remain readable when capture writes are disabled. */
-export function readCapture(id: string, name: string): string {
-  return readFileSync(join(root(), id, name), "utf8");
 }
 
 // Named observers, including ids passed through capture helpers. Vitest owns discovery
