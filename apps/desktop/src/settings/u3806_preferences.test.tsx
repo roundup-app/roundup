@@ -29,7 +29,7 @@ const mount = async (fail = false) => {
   render(() => <AppSettings app={app} project={() => "/p"} />);
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
-  await screen.findByRole("region", { name: "Settings" });
+  await screen.findByLabelText("Settings", { selector: "section" });
 
   return app;
 };
@@ -39,37 +39,42 @@ const section = async (name: string) => {
   fireEvent.click(tab);
   await waitFor(() => expect(tab.getAttribute("aria-selected")).toBe("true"));
 
-  // Restrict accessible-name scans to this page, not every hidden shortcut button.
-  return within(await screen.findByRole("tabpanel", { name }));
+  // Wait for Ark to mount the selected page without scanning hidden pages for visibility.
+  return within(await screen.findByLabelText(name, { selector: '[role="tabpanel"]' }));
 };
 
 const select = async (label: string, value: string) => {
   if (label === "Appearance") {
-    await section("Appearance");
-    fireEvent.click(screen.getByRole("radio", { name: value }));
+    const panel = await section("Appearance");
+    fireEvent.click(panel.getByLabelText(value, { selector: "input" }));
     await waitFor(() => expect(appSettings().mode).toBe(value.toLowerCase()));
 
     return;
   }
 
   const page = await section("Agents");
-  fireEvent.click(page.getByRole("combobox", { name: label }));
+  fireEvent.click(page.getByLabelText(label, { selector: "button" }));
   fireEvent.click(await screen.findByRole("option", { name: value }));
 };
 
 const pick = async (label: string, value: string) => {
   const page = await section("Agents");
-  fireEvent.click(page.getByLabelText(new RegExp(`^${label} `), { selector: "button" }));
-  const list = within(await screen.findByRole("listbox", { name: label }));
+  const trigger = page.getByLabelText(new RegExp(`^${label} `), { selector: "button" });
+  fireEvent.click(trigger);
+  const list = within(await screen.findByLabelText(label, { selector: '[role="listbox"]' }));
   fireEvent.click(await list.findByRole("option", { name: value }));
   await page.findByLabelText(`${label} ${value}`, { selector: "button" });
+  await waitFor(() => {
+    expect(trigger.textContent).toBe(value);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
 };
 
 const commit = async (label: string, text: string, valid = true) => {
   const page = await section("Terminal");
 
   if (label === "Font family") {
-    fireEvent.click(page.getByRole("combobox", { name: label }));
+    fireEvent.click(page.getByLabelText(label, { selector: "button" }));
     fireEvent.click(await screen.findByRole("option", { name: text }));
     await waitFor(() => expect(appSettings().fontFamily).toBe(text));
 
@@ -128,8 +133,8 @@ it("u4547c_settings_choices_do_not_change_the_workstream_prompt", async () => {
   await commit("Font family", "Menlo");
   await commit("Font size", "16");
   await select("Appearance", "Dark");
-  await section("Shortcuts");
-  fireEvent.click(screen.getByLabelText(/^Quick add Todo /, { selector: "button" }));
+  const shortcuts = await section("Shortcuts");
+  fireEvent.click(shortcuts.getByLabelText(/^Quick add Todo /, { selector: "button" }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   await waitFor(() => expect(appSettings().quickAdd).toBe("ctrl+shift+KeyY"));
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
@@ -207,8 +212,8 @@ it("u4686d_controls_have_labels_and_descriptions", async () => {
 it("u4687a_mode_segments_keep_scheme_behavior", async () => {
   await mount();
   await section("Appearance");
-  expect(screen.getByRole<HTMLInputElement>("radio", { name: "System" }).checked).toBe(true);
-  fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
+  expect(screen.getByLabelText<HTMLInputElement>("System", { selector: "input" }).checked).toBe(true);
+  fireEvent.click(screen.getByLabelText("Dark", { selector: "input" }));
   await waitFor(() => expect(appSettings().mode).toBe("dark"));
 });
 
@@ -217,10 +222,10 @@ it("u4687a_family_and_weight_choices_keep_existing_values", async () => {
   await saveAppSettings({ fontFamily: "Uninstalled custom face" });
   await mount();
   await section("Terminal");
-  fireEvent.click(screen.getByRole("combobox", { name: "Font family" }));
+  fireEvent.click(screen.getByLabelText("Font family", { selector: "button" }));
   fireEvent.click(await screen.findByRole("option", { name: "Uninstalled custom face" }));
   expect(appSettings().fontFamily).toBe("Uninstalled custom face");
-  fireEvent.click(screen.getByRole("radio", { name: "500" }));
+  fireEvent.click(screen.getByLabelText("500", { selector: "input" }));
   await waitFor(() => expect(appSettings().fontWeight).toBe(500));
 });
 
@@ -285,7 +290,7 @@ it("u4687b_preview_never_creates_or_writes_a_terminal", async () => {
   const app = await mount();
   await section("Terminal");
   await screen.findByRole("region", { name: "Terminal preview" });
-  fireEvent.click(screen.getByRole("radio", { name: "600" }));
+  fireEvent.click(screen.getByLabelText("600", { selector: "input" }));
   await waitFor(() => expect(appSettings().fontWeight).toBe(600));
   expect(app.calls.filter(call => call.method.startsWith("terminal.") || call.method === "agent.spawn")).toEqual([]);
   expect(app.outputSubscriptions).toEqual([]);
@@ -332,14 +337,14 @@ it("u4687c_saved_changes_reach_other_project_tabs", async () => {
   await Promise.resolve();
   window.dispatchEvent(new Event("open-app-settings"));
 
-  for (const tab of await screen.findAllByRole("tab", { name: "Terminal" })) fireEvent.click(tab);
-  const choices = await screen.findAllByRole<HTMLInputElement>("radio", { name: "500" });
+  for (const tab of await screen.findAllByText("Terminal", { selector: '[role="tab"]' })) fireEvent.click(tab);
+  const choices = await screen.findAllByLabelText<HTMLInputElement>("500", { selector: "input" });
   fireEvent.click(choices[0]!);
   await waitFor(() => expect(choices.every(choice => choice.checked)).toBe(true));
   cleanup();
   await mount();
   await section("Terminal");
-  expect(screen.getByRole<HTMLInputElement>("radio", { name: "500" }).checked).toBe(true);
+  expect(screen.getByLabelText<HTMLInputElement>("500", { selector: "input" }).checked).toBe(true);
 });
 
 const portWith = (configure: (press: string | null) => Promise<void>): import("../app/seam").CapturePort => ({
@@ -367,7 +372,7 @@ it("u5205_a_mac_wide_chord_calls_configure_and_reset_returns_none", async () => 
   cleanup();
   render(() => <AppSettings app={Object.assign(app, { capture: portWith(configure) })} project={() => "/p"} />);
   window.dispatchEvent(new Event("open-app-settings"));
-  await screen.findByRole("region", { name: "Settings" });
+  await screen.findByLabelText("Settings", { selector: "section" });
   await section("Shortcuts");
   const row = screen.getByLabelText(/^Quick add from any app /, { selector: "button" });
   fireEvent.click(row);

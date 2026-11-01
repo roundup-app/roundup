@@ -1210,28 +1210,27 @@ def clauses(ids):
 
 
 def patch_id(head):
-    """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' for an empty diff."""
-    diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
-                '--allow-escape-sequences')
+    """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' when GitHub gives none."""
+    try:
+        diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff',
+                    '--allow-escape-sequences')
+    except subprocess.CalledProcessError:
+        return ''
     found = subprocess.run(['git', 'patch-id', '--stable'], input=diff, check=True, text=True, capture_output=True).stdout
     return found.split()[0] if found else ''
 
 
 def carried(current, marker, context):
     """L24: whether `context` keeps an earlier approval for the PR's head. When the diff there has the patch-id of the
-    diff at a head whose `marker` comment approved, set the same `success` status naming that head;
-    a head GitHub can no longer diff is skipped, so the run is a full one."""
+    diff at a head whose `marker` comment approved, set the same `success` status naming that head; a head GitHub can no
+    longer diff, or cannot diff at all (HTTP 422 on #5484's 2.5 GB deletion), carries nothing, so the run is a full one."""
     head = current['headRefOid']
     now = patch_id(head)
     for note in reversed(orders.marked(current['number'], marker)):
         if not note['body'].startswith(f'{marker} approve'):
             continue
         earlier = orders.field(note['body'], 'Head')
-        try:
-            same = now and patch_id(earlier) == now
-        except subprocess.CalledProcessError:
-            continue
-        if same:
+        if now and patch_id(earlier) == now:
             status(head, 'success', f'The diff is unchanged since {earlier[:9]}, which the {context} run approved', '', context)
             return True
     return False

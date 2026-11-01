@@ -64,6 +64,7 @@ fn load_with<T>(
                 order: row.get(4)?,
                 status: None,
                 status_revision: None,
+                final_text: None,
                 attempt: match row.get::<_, i64>(5)? {
                     0 => None,
                     n => Some(n.to_string()),
@@ -98,41 +99,6 @@ fn load_with<T>(
 }
 
 impl Rail {
-    /// Receiver identity and persisted Attempt, without loading Rail presentation fields.
-    pub fn terminal_owner(
-        &mut self,
-        terminal: &str,
-    ) -> Result<Option<(String, Option<String>)>, RpcError> {
-        // R16 owner-read attribution: preparation costs 11.0–11.5 µs of 18.7–19.6 µs
-        // on the measured 7763 host (r16/owner-read). Reuse compiled SQL, never owner facts:
-        // each query still binds and reads under Rail then Attempts, including negative reads.
-        self.owner_reads.wake();
-        // R16 attribution (#1917, r16/owner-execution): 10 → 8 unowned VM steps.
-        // Rust stops at the second row, so SQL needs no limit counter. IS avoids
-        // a NULL-parameter branch for bound &str; the explicit predicate keeps
-        // the partial covering index and excludes unattached rows.
-        self.db
-            .with_cached_rows(
-                "SELECT id, attempt FROM nodes WHERE terminal_id IS ? AND terminal_id IS NOT NULL",
-                [terminal],
-                |rows| {
-                    let Some(row) = rows.next().map_err(sql)? else {
-                        return Ok(None);
-                    };
-                    let id = row.get::<_, i64>(0).map_err(sql)?.to_string();
-                    let attempt = match row.get::<_, i64>(1).map_err(sql)? {
-                        0 => None,
-                        n => Some(n.to_string()),
-                    };
-                    if rows.next().map_err(sql)?.is_some() {
-                        return Err(RpcError::conflict("Terminal has more than one receiver"));
-                    }
-                    Ok(Some((id, attempt)))
-                },
-            )
-            .map_err(sql)?
-    }
-
     /// Every node, each parent before its children, siblings by `order`.
     pub fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
         self.tree_with(|node, _| Ok(node))

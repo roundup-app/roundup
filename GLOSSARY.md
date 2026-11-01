@@ -6,6 +6,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 
 | Code term | User label | Avoid |
 |---|---|---|
+| Wall clock (`provenance::now_ms`) | none | — |
 | Code term | same | — |
 | User label | same | — |
 | App copy catalogue (`copy`) | same | — |
@@ -32,7 +33,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Shell mark | same | shell integration (as a name; it is the means) |
 | Turn | command | — |
 | ReservedLine | none | — |
-| Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`, `TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`) | same | — |
+| Terminal owner (`terminal::TerminalOwner`, `Terminals::serve_owner`, `Terminals::attach_owner`, `Terminals::with_terminal_owner`, `Terminals::terminal_owners`) | same | — |
 | Cached rows (`Connection::with_cached_rows`) | same | — |
 | Bubble | same | overlay, popup |
 | Bubble focus (`closeFocused`) | none | — |
@@ -99,11 +100,10 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | App seam | same | — |
 | App Settings | same | — |
 | File drop | same | — |
-| Message image | same | — |
 | Window bar | same | — |
 | Project tab | same | — |
 | Tab mark | same | — |
-| Rail (`Rail::name`, `Rail::last_id`, `Agents::rail_name`, `Agents::rail_last_id`, `rail.tree`, `rail.list`) | same | — |
+| Rail (`Rail::name`, `Rail::last_id`, `Agents::rail_name`, `Agents::rail_last_id`, `rail.tree`) | same | — |
 | Rail deletion redo (`RedoParams`, `rail.redo`, `Deletion.restoration`, `Agents::redo_reversible_with`, `Agents::acknowledge_restoration_in`, `Todos::redo_workstream_in`, `Pads::redo_workstream_in`) | Redo | — |
 | Rail removal operation (`agent::RemoveParams`, `agent::Deletion`, `agent::DeletionParams`, `Removal.deletion`, `rail.remove`, `rail.deletion`, `rail.restore`, `Agents::rail_deletion`, `Agents::remove_reversible_with`, `Agents::restore_reversible_with`, `Agents::restore_reversible_in`) | same | — |
 | Remove this (`agent::RemoveScope::This`) | Remove this | — |
@@ -135,10 +135,8 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Pad | same | scratchpad |
 | Shortcut file (`ShortcutFileExport`, `shortcuts.export`) | Save to file… | — |
 | Editor | same | — |
-| Attachment | same | — |
-| Attachment file | same | upload, temp image |
 | Clipboard write (`writeClipboardText`) | same | — |
-| Pasted image | same | — |
+| Pasted image | same | upload, temp image |
 | Paste placeholder | same | — |
 | Quote | same | — |
 | setWindowTitle | none | — |
@@ -351,6 +349,7 @@ roundup supervises coding Agents in each open Project from a macOS App. Each row
 | Import exclusion cause (`ImportExclusionCause`, `ImportExclusion.cause`) | same | — |
 | Import failure (`ImportFailure`, `ImportOutcome.error`) | same | — |
 | Import disposition (`ImportDisposition`, `outcome`) | same | — |
+| Final text (`FinalText`, `FinalTextKind`, `final_text`) | none | — |
 | Idle evidence (`record_idle_evidence`, `recordIdleEvidence`, `IdleEvidence`) | same | — |
 | Daemon recovery (`DaemonExited.recovery`, `DaemonExit.recovery`) | same | — |
 | Native integration (`native`, `Preferences`, `Missing`) | same | — |

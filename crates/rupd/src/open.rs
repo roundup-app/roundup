@@ -117,7 +117,7 @@ impl Daemon {
             .with_overview_hold(overview_read_observer()),
         );
         let agents_at = begun.elapsed();
-        let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
+        let agents_module: Arc<dyn Module> = agents.clone();
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             naming,
@@ -132,7 +132,6 @@ impl Daemon {
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            attachments: attachment::Attachments::open(dir),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
