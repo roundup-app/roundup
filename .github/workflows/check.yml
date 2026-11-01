@@ -77,6 +77,10 @@ jobs:
           rust_base="$BASE"
           if [ -n "$CI3781_CACHE" ]; then rust_base=''; fi
           rust=$(python3 loop/affected.py rust "$rust_base")
+          # C4 observers/fixtures live outside the crate graph. Select their existing Rust lane too.
+          if [ -n "$rust_base" ] && ! git diff --quiet "$rust_base" -- tools/contracts/; then
+            rust=all
+          fi
           web=$(python3 loop/affected.py web "$BASE")
           # The capture registry is imported by vite.config.ts and browser fixtures. Its 96-file selection
           # timed out in two serial-heavy shards in run 40970125076; use the full configuration lane set.
@@ -174,6 +178,9 @@ jobs:
           retention-days: 30
       - name: A4691 debug runtime preparation
         run: just build-debug
+      - name: C4 addition and freshness observers
+        if: matrix.partition == 1
+        run: just contracts-test
       - name: U4251 raw SDK storage capability
         if: matrix.partition == 1
         timeout-minutes: 1
