@@ -5,13 +5,10 @@
     "rup::d2_agent_status",
     "rup::door_actions",
     "rup::q11_plugins",
-    "rup::h21_door_decisions",
-    "rup::u516_working_agent",
     "rup::x17_scheme",
     "rup::yolo_modes",
     "rup::e2704b_rail_name",
     "rup::u2694c_linked_content",
-    "rup::a35",
     "rup::e2e",
     "rup::o12",
     "rupd::b21_stopped_door"

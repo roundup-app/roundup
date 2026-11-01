@@ -1,13 +1,14 @@
 //! Message store ownership, initialization, clock and failure isolation.
 
 use super::*;
+use provenance::now_ms;
 
 impl Env {
     /// The system clock, logging the Daemon-made Messages' Touches to `touches`.
     pub fn system(touches: Arc<provenance::Touches>) -> Self {
         Self {
             touches,
-            clock: Arc::new(now_ms),
+            clock: Arc::new(|| now_ms().max(0)),
             fault: Arc::new(|_| Ok(())),
         }
     }
@@ -93,10 +94,6 @@ impl Messages {
     pub(super) fn store(&self) -> Result<MutexGuard<'_, Store>, RpcError> {
         Ok(lock(&self.inner.store))
     }
-}
-pub(super) fn now_ms() -> i64 {
-    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
-    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 /// Takes the store lock, whatever panicked while it was taken before: a writer's transaction

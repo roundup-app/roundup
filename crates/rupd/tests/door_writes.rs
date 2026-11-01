@@ -8,7 +8,7 @@ mod opening_prompt;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 use child_run::BOUND;
-use door_terminals::{door_terminal, idle, order_child, recorded_bytes, user_steer};
+use door_terminals::{order_child, recorded_bytes};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rpc::Client;
@@ -317,3 +317,15 @@ async fn door_a_full_terminal_refuses_interrupt_before_bytes() {
     let _ = order.await.unwrap();
     run.finish().await;
 }
+
+#[path = "support/idle.rs"]
+mod idle;
+use idle::idle;
+
+#[path = "support/user_steer.rs"]
+mod user_steer;
+use user_steer::user_steer;
+
+#[path = "support/door_terminal.rs"]
+mod door_terminal;
+use door_terminal::door_terminal;

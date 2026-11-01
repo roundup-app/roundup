@@ -6,7 +6,7 @@ mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 use child_run::Run;
-use door_terminals::{idle, order_child, recorded_bytes};
+use door_terminals::{order_child, recorded_bytes};
 
 use serde_json::{Value, json};
 
@@ -165,3 +165,7 @@ async fn u2773c_orders_removed_original_never_substitutes_same_named_objects() {
     run.finish().await;
     other.finish().await;
 }
+
+#[path = "support/idle.rs"]
+mod idle;
+use idle::idle;
