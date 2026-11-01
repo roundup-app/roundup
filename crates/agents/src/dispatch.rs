@@ -20,6 +20,28 @@ impl Module for Agents {
 }
 
 impl Agents {
+    async fn rpc_rail_set_alert_level(
+        &self,
+        ctx: &Ctx,
+        _method: &str,
+        value: Value,
+    ) -> Result<Value, RpcError> {
+        if ctx.actor.kind != ActorKind::User {
+            return Err(RpcError::forbidden("only the user sets alert levels"));
+        }
+        let choice: contracts::agent::SetAlertLevelParams = params(value)?;
+        if Path::new(&choice.project) != self.project_dir() {
+            return Err(RpcError::forbidden(
+                "alert level target belongs to another Project",
+            ));
+        }
+        self.shared
+            .rail()
+            .set_alert_level(&choice.id, choice.level)?;
+        ctx.emit(EventData::RailChanged);
+        reply(&())
+    }
+
     async fn rpc_agent_spawn(
         &self,
         ctx: &Ctx,

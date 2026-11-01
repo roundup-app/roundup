@@ -7,6 +7,8 @@ use specta::Type;
 
 use crate::common::Status;
 
+mod alert;
+pub use alert::{AlertLevel, SetAlertLevelParams};
 mod launch;
 pub use launch::{Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartDoorParams};
 
@@ -396,6 +398,10 @@ pub const TITLE_CAP: usize = 6;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type, JsonSchema)]
 pub struct RailNode {
+    /// U5501: authoritative per-Agent choice; a Workstream stores its Door choice.
+    #[serde(default)]
+    #[specta(optional)]
+    pub alert_level: AlertLevel,
     /// A3308: the Workstream's Auto choice; absent on an Agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[specta(optional, type = bool)]

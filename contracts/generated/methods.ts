@@ -25,6 +25,7 @@ import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { ResumeParams as agent_ResumeParams } from "./agent/ResumeParams";
 import type { RunParams as agent_RunParams } from "./agent/RunParams";
 import type { SaveAsModeParams as agent_SaveAsModeParams } from "./agent/SaveAsModeParams";
+import type { SetAlertLevelParams as agent_SetAlertLevelParams } from "./agent/SetAlertLevelParams";
 import type { SetModelParams as agent_SetModelParams } from "./agent/SetModelParams";
 import type { SetOrderParams as agent_SetOrderParams } from "./agent/SetOrderParams";
 import type { SignalOutcome as agent_SignalOutcome } from "./agent/SignalOutcome";
@@ -217,6 +218,7 @@ export type RpcMethods = {
   "agent.resume": { params: agent_ResumeParams; result: agent_RailNode };
   "agent.makeWorkstream": { params: agent_NodeId; result: agent_RailNode };
   "agent.saveAsMode": { params: agent_SaveAsModeParams; result: agent_RailNode };
+  "rail.setAlertLevel": { params: agent_SetAlertLevelParams; result: null };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
   "todo.create": { params: todo_CreateParams; result: todo_Todo };
   "todo.get": { params: todo_TodoId; result: todo_Todo };

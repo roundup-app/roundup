@@ -89,6 +89,7 @@ declarations! { $;
         "agent.resume": contracts::agent::ResumeParams => contracts::agent::RailNode, rpc_agent_resume, all(schema(contracts::agent::ResumeParams,"Continue a saved conversation in your Reach. An explicit normal or yolo mode stops a running Agent or Door first; omitted mode requires an exited Agent."));
         "agent.makeWorkstream": contracts::agent::NodeId => contracts::agent::RailNode, rpc_agent_make_workstream, none();
         "agent.saveAsMode": contracts::agent::SaveAsModeParams => contracts::agent::RailNode, rpc_agent_save_as_mode, none();
+        "rail.setAlertLevel": contracts::agent::SetAlertLevelParams => (), rpc_rail_set_alert_level, none();
         "agent.setModel": contracts::agent::SetModelParams => contracts::agent::RailNode, rpc_agent_set_model, none();
     }
     todos_methods["todo"] {
