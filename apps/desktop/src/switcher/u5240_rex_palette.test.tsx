@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import { CHORDS, SWITCHER_KEYS } from "../keys/chords";
-import { OPEN_ITEM } from "../shelf/openItem";
+import { registerOpener } from "../shelf/openItem";
 import { saveAppSettings, appSettings } from "../settings/preferences";
 import { agent, info, USER, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "./switcherFixture";
@@ -121,14 +121,7 @@ it("u5240b_enter_on_a_todo_or_pad_opens_it_as_a_click_does", async () => {
 it("u5240b_enter_on_a_todo_or_pad_hands_the_open_to_its_mounted_rail_row", async () => {
   const { connected } = await seed();
   const asked: unknown[] = [];
-
-  const listen = (event: Event) => {
-    // SAFETY: the Switcher dispatches OPEN_ITEM as a CustomEvent.
-    asked.push((event as CustomEvent).detail);
-    event.preventDefault();
-  };
-
-  window.addEventListener(OPEN_ITEM, listen);
+  const unregister = [registerOpener("todo", key => { asked.push(["todo", key]); return true; }), registerOpener("pad", key => { asked.push(["pad", key]); return key === "new notes"; })];
 
   for (const [query, kind] of [["renew the", "todo"], ["new notes", "pad"]] as const) {
     direct();
@@ -138,12 +131,13 @@ it("u5240b_enter_on_a_todo_or_pad_hands_the_open_to_its_mounted_rail_row", async
     const row = options().find(option => option.dataset.value?.startsWith(`${kind}:`))!;
 
     expect(row.querySelector(".glyph, svg")).not.toBeNull();
+    expect(row.querySelector(".switcher-kind")?.textContent).toBe(kind === "todo" ? "Todo" : "Pad");
     fireEvent.click(row);
     await waitFor(() => expect(field()).toBeNull());
   }
 
-  window.removeEventListener(OPEN_ITEM, listen);
-  expect(asked).toEqual([expect.objectContaining({ kind: "todo" }), { kind: "pad", name: "new notes" }]);
+  unregister.forEach(off => off());
+  expect(asked).toEqual([["todo", expect.any(Number)], ["pad", "new notes"]]);
   expect(connected.drawer.surface()).toBeNull();
 });
 
@@ -183,6 +177,7 @@ it("u5240d_cmd_enter_records_a_key_and_the_row_shows_it", async () => {
 
   switcherKey("Enter", { metaKey: true }, field()!);
   await waitFor(() => expect(row().querySelector(".switcher-recording")).not.toBeNull());
+  expect(footer()).toEqual([SWITCHER_KEYS.close]);
   expect(field()).not.toBeNull();
   switcherKey("T", { metaKey: true, shiftKey: true }, field()!);
   await waitFor(() => expect(appSettings().shortcuts).toEqual({ "agent.new": "meta+shift+KeyT" }));
@@ -197,7 +192,7 @@ it("u5240d_a_refused_key_shows_its_cause_by_the_row_and_esc_cancels", async () =
   switcherKey("Enter", { metaKey: true }, field()!);
   await waitFor(() => expect(recordingMark()).not.toBeNull());
   switcherKey("N", { metaKey: true, altKey: true }, field()!);
-  await waitFor(() => expect(document.querySelector(".switcher-refusal")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(".reserved-line [data-kind=error]")).not.toBeNull());
   expect(recordingMark()).not.toBeNull();
   switcherKey("Escape", {}, field()!);
   await waitFor(() => expect(recordingMark()).toBeNull());

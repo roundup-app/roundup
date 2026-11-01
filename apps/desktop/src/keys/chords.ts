@@ -192,7 +192,7 @@ export const HELP_KEYS = ["[Shift]+?"];
 export const SWITCHER_CLOSE = "Escape".split(" ");
 
 /** U5240c, U5240d: `⌘⏎` on a highlighted command records a new key for it. */
-export const SWITCHER_RECORD = ["Meta+Enter"] as const;
+export const SWITCHER_RECORD = [["Meta", "Enter"].join("+")];
 
 /** U5240c: the keys the Switcher's footer lists, read by its bindings above (`⌘⏎` joins while its row can take a key). */
 export const SWITCHER_KEYS = { move: "↑ ↓", choose: "⏎", close: "Esc", record: "⌘⏎" } as const;

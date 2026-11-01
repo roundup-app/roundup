@@ -20,7 +20,7 @@ import { saveAppSettings } from "../settings/preferences";
 import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { PAD_ICON } from "../shelf/frame";
-import { OPEN_ITEM } from "../shelf/openItem";
+import { openThroughRow } from "../shelf/openItem";
 import { TodoHost } from "../todos/TodoDrawer";
 import { usePadList } from "../rail/pads/padList";
 import { PadHost } from "../pads/PadDrawer";
@@ -118,7 +118,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const [refusal, setRefusal] = createSignal<{ value: string; cause: string } | null>(null);
   const canRecord = () => nameFocused() && recording() === null && highlightedCommand() !== undefined;
 
-  const footer = () => [
+  const footer = () => recording() !== null ? [{ keys: SWITCHER_KEYS.close, label: copy.footerCancel }] : [
     { keys: SWITCHER_KEYS.move, label: copy.footerMove }, { keys: SWITCHER_KEYS.choose, label: copy.footerChoose }, { keys: SWITCHER_KEYS.close, label: copy.footerClose },
     ...(canRecord() ? [{ keys: SWITCHER_KEYS.record, label: copy.footerRecord }] : []),
   ];
@@ -206,7 +206,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       const id = entry.todo.id;
 
       // The Rail's own row opens it when the Shelf is mounted; otherwise the Drawer opens alone.
-      if (window.dispatchEvent(new CustomEvent(OPEN_ITEM, { detail: { kind: "todo", id }, cancelable: true }))) drawer.open(() => <TodoHost id={id} />, "key", { kind: "todo", project: project.path });
+      if (!openThroughRow("todo", id)) drawer.open(() => <TodoHost id={id} />, "key", { kind: "todo", project: project.path });
 
       return;
     }
@@ -214,7 +214,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (entry.pad !== undefined) {
       const name = entry.pad.name;
 
-      if (window.dispatchEvent(new CustomEvent(OPEN_ITEM, { detail: { kind: "pad", name }, cancelable: true }))) drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
+      if (!openThroughRow("pad", name)) drawer.open(() => <PadHost name={name} />, "key", { kind: "pad", project: project.path });
 
       return;
     }
@@ -357,13 +357,13 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={recording() === action.value} fallback={<KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={keysOf(action)}>{action.label}</KeyHint>}>
                 <span class="switcher-action key-hint"><span class="switcher-name">{action.label}</span> <span class="switcher-recording">{copy.pressAKey}</span></span>
               </Show>
-              <Show when={refusal()?.value === action.value}><span class="switcher-refusal" role="alert">{copy.refused(refusal()!.cause)}</span></Show>
             </>;
 
             if (!entry) return null;
 
             return <StatusTip placement="right-start" status={entry.node?.status} dismissed={entry.node ? rail.dismissed(entry.node) : false}>{reveal => <span class="switcher-row" {...reveal()}>
               <Show when={entry.node?.status} fallback={entry.todo !== undefined ? <KindGlyph kind={entry.todo.blocked ? "blocked" : "idle"} decorative /> : entry.pad !== undefined ? <Icon name={PAD_ICON} /> : <span class="switcher-mark" />}>{(status) => <KindGlyph kind={shownKind(status(), rail.dismissed(entry.node!))} decorative />}</Show>
+              <Show when={entry.todo !== undefined || entry.pad !== undefined}><span class="switcher-kind">{entry.todo !== undefined ? copy.kindTodo : copy.kindPad}</span></Show>
               <span class="switcher-name">{entry.label}</span>
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
               <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
@@ -388,6 +388,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { setCopyFailure(null); }}>{copy.close}</button>
         </ReservedLine>
+        <Show when={refusal()}>{shown => <ReservedLine message={shown().cause} />}</Show>
       </section>
     </Show>
   );

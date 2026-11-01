@@ -151,7 +151,7 @@ it("u5239d_the_terminal_sweep_holds_with_overrides", async () => {
 
   expect(appScope).toContain("meta+shift+KeyT");
   expect(appScope).not.toContain("meta+KeyT");
-  expect(appScope.filter(each => /ctrl|alt|meta/.test(each) && !/^(meta\+(shift\+)?Key[NTKMZ]|alt\+meta\+KeyN|ctrl\+meta\+KeyJ|meta\+(Slash|Comma))$/.test(each))).toEqual([]);
+  expect(appScope.filter(each => /ctrl|alt|meta/.test(each) && !/^(meta\+(shift\+)?Key[NTKMZP]|alt\+meta\+KeyN|ctrl\+meta\+KeyJ|meta\+(Slash|Comma))$/.test(each))).toEqual([]);
 });
 
 it("u5239e_the_file_holds_exactly_the_overrides", async () => {
