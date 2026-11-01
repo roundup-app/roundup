@@ -474,11 +474,13 @@ it.each(["diff", "code", "readonly-pad", "message"] as const)("u5515c_readonly_t
     await browser("open", url(`/src/terminal/u5515.html${kind === "message" ? "?message" : ""}`));
 
     if (kind === "message") {
-      await wait("!!document.querySelector('[data-part=item-trigger]')");
-
-      if (!await read<boolean>("[...document.querySelectorAll('button[data-part=item-trigger]')].find(button => button.textContent.trim() === 'Reactions')?.getAttribute('aria-expanded') === 'true'")) await browser("find", "role", "button", "click", "--name", "Reactions", "--exact");
       await wait("!!document.querySelector('[data-reaction-opener]')");
-      await browser("click", "[data-reaction-opener]");
+
+      if (!await read<boolean>("document.querySelector('[data-reaction-opener]').checkVisibility()")) await browser("find", "role", "button", "click", "--name", "Reactions", "--exact");
+      await wait("document.querySelector('[data-reaction-opener]')?.checkVisibility()");
+      await browser("focus", "[data-reaction-opener]");
+      await wait("document.activeElement?.matches('[data-reaction-opener]')");
+      await browser("press", "Enter");
       await wait("!!document.querySelector('[data-firing-message]')");
       await browser("click", "[data-firing-message]");
       field = "document.querySelector('dd.reaction-instruction')";
