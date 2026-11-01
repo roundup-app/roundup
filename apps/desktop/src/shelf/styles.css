@@ -182,13 +182,11 @@
 .shelf-group-head { display: flex; align-items: center; }
 .shelf-group-head[hidden] { display: none; }
 .shelf-group-head .shelf-group-control { flex: 1; min-width: 0; --tree-row-cue: none; }
-.shelf-group-add { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: var(--space-5); min-height: var(--space-5); padding: 0; color: var(--grey); background: var(--transparent); border: 0; cursor: pointer; }
-.shelf-group-add:hover { color: var(--text); }
 [data-shelf-group][data-drop-target] .shelf-group-control { color: var(--text); }
 .shelf-group-count { flex: none; color: var(--grey); }
 .shelf-groups [data-part="branch-text"] { min-width: 0; display: flex; }
 .shelf-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-[data-shelf-group][data-drop-target] :is(.shelf-group-count, .shelf-group-add) { color: var(--text); }
+[data-shelf-group][data-drop-target] .shelf-group-count { color: var(--text); }
 
 .shelf-controls,
 .drawer-controls {
@@ -292,7 +290,7 @@
   min-block-size: var(--line);
 }
 
-.todo-inset :is(.item-description, .todo-row-notice) {
+.todo-inset .todo-row-notice {
   grid-area: 1 / 1;
 }
 

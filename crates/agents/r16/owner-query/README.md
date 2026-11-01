@@ -1,3 +1,5 @@
+> R5460: the Message receiver lookup and B32 tests described here are retired; measurements below are historical.
+
 # Fresh Terminal owner query work (#1754)
 
 This repair replaces `nodes_terminal(terminal_id)` with SQLite's covering partial index `nodes_terminal(terminal_id, attempt) WHERE terminal_id IS NOT NULL`, in Agents migration 2. The query, `LIMIT 2`, prepared-statement reuse, owner facts, callers and Rail → Attempts → callback cut remain unchanged. SQLite maintains the index in the same transaction as each lifecycle write; it is not an application ownership cache. Each call still starts and ends a fresh read transaction. Unattached nodes no longer occupy this index; positive reads obtain the persisted Attempt without seeking into the nodes table.
@@ -25,7 +27,7 @@ Diagnostic live-Daemon medians, µs; all 2,200 User calls per Daemon, warmups in
 
 The first after Daemon is slower; it is retained. The initial index experiment is also retained (whole-owner medians 5.238, 5.438, 5.438 µs). These wall times attribute work and are **not performance acceptance**. Instrumentation writes only after releasing both lifecycle locks and was reversed before production tests/commits. Column medians need not sum: the whole span also includes instrumentation and statement cleanup. Unowned callbacks do no Message store work; these spans say nothing about Agent/Door Message transactions.
 
-A separate temporary release microbenchmark surrounds the uninstrumented `Agents::with_terminal_owner` method at its existing seam. Every fixture runs 20,100 calls, retaining all values and marking the first 100 as warmup. Three fresh fixtures per case, two alternating before/after invocations, all medians in ns:
+A separate temporary release microbenchmark surrounds the uninstrumented retired Message receiver lookup method at its existing seam. Every fixture runs 20,100 calls, retaining all values and marking the first 100 as warmup. Three fresh fixtures per case, two alternating before/after invocations, all medians in ns:
 
 | Case | Before invocation 1 | After invocation 1 | Before invocation 2 | After invocation 2 |
 |---|---|---|---|---|
@@ -56,7 +58,7 @@ This probe does **not demonstrate a write p95 improvement**. Slower observations
 
 #1366 still owns nine alternating eleven-Daemon historical/repaired invocations after this repair: all metrics/per-run values, absolute limits, ten login shells, 1,000 calls, 100 warmups, 10% plus existing noise, the 2.0 load/CPU threshold, RSS at every load, and retained/repeated busy or failed observations. #1361 owns combined latency acceptance; #1251 owns independent class calibration/completion. No baseline, workload, threshold or gate changes here.
 
-The fresh-Attempt regression test uses `Agents::with_terminal_owner` after another connection commits an Attempt change. It fails the retained deliberate `SELECT id, 0` mutation (exit 101) and passes restored reads. The migration test proves version-1 rows/sequence/payloads survive migration 2 and the exact new index is installed; removing migration 2 fails it (exit 101), restoring it passes. Existing B32 tests retain fresh positive/negative reads, ambiguity/recovery, SQL errors without a callback, callback errors/lock release, concurrent attachment/detach/reassignment/removal/reopen/Attempt changes, pending Resume and running/failed/closed receiver Status facts. The SQL/callback/Message semantics are unchanged.
+The fresh-Attempt regression test uses the retired Message receiver lookup after another connection commits an Attempt change. It fails the retained deliberate `SELECT id, 0` mutation (exit 101) and passes restored reads. The migration test proves version-1 rows/sequence/payloads survive migration 2 and the exact new index is installed; removing migration 2 fails it (exit 101), restoring it passes. Existing B32 tests retain fresh positive/negative reads, ambiguity/recovery, SQL errors without a callback, callback errors/lock release, concurrent attachment/detach/reassignment/removal/reopen/Attempt changes, pending Resume and running/failed/closed receiver Status facts. The SQL/callback/Message semantics are unchanged.
 
 ## Retained evidence and reproduction
 
