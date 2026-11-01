@@ -1,10 +1,9 @@
 import type { App, CapturePort } from "../app/seam";
-import { createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
+import { createSignal, createUniqueId, For, Show } from "solid-js";
 import { copy } from "./copy";
 import { KeyChip } from "../keys/KeyChip";
 import { ReservedLine } from "../ink/ReservedLine";
-import { CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel } from "../keys/chords";
-import { listActions } from "../keys/actions";
+import { ACTION_ROWS, CHORDS, LEADER, defaultPress, pressOf, recordable, shortcutLabel } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { appSettings, saveAppSettings } from "./preferences";
 
@@ -17,7 +16,7 @@ const ROWS = {
 const fallbackOf = (field: keyof typeof ROWS) => field === "quickAdd" ? "meta+shift+KeyT" : "";
 
 /** U5239d: the only chords a focused Terminal leaves to the App (U2241); every other `⌃`, `⌥` or `⌘` chord is the Terminal's. */
-const appScope = () => new Set(["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+Slash", "meta+Comma", "ctrl+meta+KeyJ", "meta+KeyB", appSettings().quickAdd]);
+const appScope = () => new Set(["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+Slash", "meta+Comma", "ctrl+meta+KeyJ", "meta+KeyB", fallbackOf("quickAdd"), appSettings().quickAdd]);
 
 const RESERVED = () => new Map([["meta+KeyQ", copy.quitApp], ["meta+KeyH", copy.hideApp], ["meta+Space", copy.spotlight], ["meta+Tab", copy.switchApps]]);
 
@@ -37,11 +36,8 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
   const [failure, setFailure] = createSignal<string | null>(null);
   const [found, setFound] = createSignal<string | null>(null);
 
-  const rows = createMemo(() => {
-    appSettings();
-
-    return listActions();
-  });
+  // Read from the table, not `listActions`: its availability reads the key registry's layers, and registering a row's layer would rerun the list for ever.
+  const keysOf = (row: (typeof ACTION_ROWS)[number]) => "press" in row ? `${ACTION_ROWS.find(chord => chord.name === "leader.open")!.keys} ${row.keys}` : row.keys;
 
   const overrides = () => appSettings().shortcuts;
   let active: HTMLElement | undefined;
@@ -120,9 +116,9 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
       </div>
     </div>
     <ReservedLine message={failure()} status={found()} />
-    <For each={rows()}>{row => row.name === "todo.capture"
+    <For each={ACTION_ROWS}>{row => row.name === "todo.capture"
       ? <><ShortcutSetting field="quickAdd" {...props} /><ShortcutSetting field="quickAddAnywhere" {...props} /></>
-      : <ActionShortcut label={row.label} keys={row.keys} recording={recording(row.name)}
+      : <ActionShortcut label={row.what} keys={keysOf(row)} recording={recording(row.name)}
           {...(CHORDS.some(chord => chord.name === row.name && recordable(chord)) ? { onRecord: begin({ kind: "record", name: row.name }) } : {})}
           overridden={row.name in overrides()} onReset={() => change(row.name, null)} />}</For>
   </>;
