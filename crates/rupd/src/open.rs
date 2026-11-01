@@ -132,7 +132,6 @@ impl Daemon {
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            attachments: attachment::Attachments::open(dir),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),

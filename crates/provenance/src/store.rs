@@ -69,8 +69,7 @@ impl Touches {
         item: &str,
         revision: Option<u32>,
     ) -> rusqlite::Result<()> {
-        let at = i64::try_from(time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000)
-            .unwrap_or(i64::MAX);
+        let at = crate::now_ms();
         self.db()?.execute(
             "INSERT INTO touches (actor_kind, actor_id, actor_parent, verb, item, at, todo_revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![kind_str(actor.kind), actor.id, actor.parent, verb_str(verb), item, at, revision],
