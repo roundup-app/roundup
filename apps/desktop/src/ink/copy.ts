@@ -1,9 +1,8 @@
 import { copy as sharedCopy } from "../sharedCopy";
-import { copy as shelfCopy } from "../shelf/copy";
 
 export const copy = {
   statusAge: {
-    now: shelfCopy.age.now,
+    now: "now",
     minutes: (value: number) => `${value} min`,
     hours: (value: number) => `${value} h`,
     days: (value: number) => `${value} d`,
