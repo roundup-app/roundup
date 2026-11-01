@@ -94,6 +94,14 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             Err(err) => break Err(err),
         };
         let request = serde_json::from_str::<Value>(&line).ok();
+        // The App's answer to a relayed action call (NA6): a reply line, not a request.
+        if let Some(answer) = request.as_ref().filter(|line| {
+            line.get("method").is_none()
+                && (line.get("result").is_some() || line.get("error").is_some())
+        }) {
+            daemon.actions.answer(&frames, answer);
+            continue;
+        }
         let method = request
             .as_ref()
             .and_then(|request| request["method"].as_str().map(str::to_owned));
@@ -119,6 +127,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         } else if method.as_deref().is_some_and(|m| {
             m.starts_with("deliverable.")
                 || m.starts_with("reaction.")
+                || actions::is_action(m)
                 || matches!(
                     m,
                     "todo.delete"
@@ -176,6 +185,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             joined.map_err(io::Error::other)?;
         }
     };
+    daemon.actions.closed(&frames);
     // Accepted calls survive a write-side half-close and can still send their replies.
     while let Some(joined) = ordinary.join_next().await {
         joined.map_err(io::Error::other)?;

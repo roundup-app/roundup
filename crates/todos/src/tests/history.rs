@@ -386,6 +386,8 @@ async fn t15_history_failure_leaves_no_unrecorded_mutation() {
         h.call("todo.list", json!({})).await.unwrap()[0]["priority"],
         Value::Null
     );
+    // A reopen refuses a schema that differs from the migrations' (N5420a).
+    db.execute_batch("DROP TRIGGER fail_history").unwrap();
     assert_eq!(
         Harness::new(dir.path())
             .call("todo.list", json!({}))

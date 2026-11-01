@@ -4,7 +4,6 @@
 mod daemon;
 
 use contracts::{EventData, Kind};
-use daemon::next;
 use serde_json::json;
 use std::time::Duration;
 #[path = "common/doors.rs"]
@@ -30,7 +29,7 @@ async fn a2693a_real_claude_resumes_yolo_and_restarts_normal() {
         .await
         .unwrap();
     let id = node["id"].as_str().unwrap();
-    turn_done(model, &client, id, initial).await;
+    turn_done(project.bound(), model, &client, id, initial).await;
     let mut session = None;
     for (mode, prompt, expected) in [
         (None, initial, "default"),
@@ -51,9 +50,9 @@ async fn a2693a_real_claude_resumes_yolo_and_restarts_normal() {
                 .request("agent.prompt", json!({"id":id,"text":prompt}))
                 .await
                 .unwrap();
-            turn_done(model, &client, id, prompt).await;
+            turn_done(project.bound(), model, &client, id, prompt).await;
         }
-        let entry = tokio::time::timeout(Duration::from_secs(10), async {
+        let entry = tokio::time::timeout(project.bound(), async {
             loop {
                 if let Some(entry) =
                     conversation_entries(&project)
@@ -127,17 +126,18 @@ async fn a2693a_real_claude_skips_only_yolo_tool_permissions() {
         }
         if mode != Some("yolo") {
             // The permission prompt puts the Agent in needs-you; typing its "Yes" choice allows it in the Terminal.
-            next(&mut client, |event| match event {
-                EventData::AgentStatus(s) if s.id == id && s.status.kind == Kind::NeedsYou => {
-                    Some(())
-                }
-                _ => None,
-            })
-            .await;
+            project
+                .next(&mut client, |event| match event {
+                    EventData::AgentStatus(s) if s.id == id && s.status.kind == Kind::NeedsYou => {
+                        Some(())
+                    }
+                    _ => None,
+                })
+                .await;
             assert!(!effect.exists(), "the tool ran before it was allowed");
             daemon::allow_prompt(&client, id).await;
         }
-        turn_done(model, &client, id, prompt).await;
+        turn_done(project.bound(), model, &client, id, prompt).await;
         assert!(effect.exists());
         std::fs::remove_file(&effect).unwrap();
     }
@@ -172,8 +172,9 @@ async fn b2693b_real_yolo_receiver_takes_a_note_without_approval() {
         .await
         .unwrap();
     let id = receiver["id"].as_str().unwrap();
-    turn_done(model, &client, id, initial).await;
+    turn_done(project.bound(), model, &client, id, initial).await;
     turn_done(
+        project.bound(),
         model,
         &client,
         sender["id"].as_str().unwrap(),
@@ -210,12 +211,13 @@ async fn b2693b_real_yolo_receiver_takes_a_note_without_approval() {
             .unwrap();
         let msg_id = message["id"].as_u64().unwrap();
         ids.push(msg_id);
-        next(&mut events, |event| match event {
-            EventData::MessageDelivered(m) if m.id as u64 == msg_id => Some(()),
-            _ => None,
-        })
-        .await;
-        turn_done(model, &client, id, text).await;
+        project
+            .next(&mut events, |event| match event {
+                EventData::MessageDelivered(m) if m.id as u64 == msg_id => Some(()),
+                _ => None,
+            })
+            .await;
+        turn_done(project.bound(), model, &client, id, text).await;
         assert!(
             !gate.with_extension("arrived").exists(),
             "a note wrote to the Terminal"
@@ -247,7 +249,7 @@ async fn b2693b_real_yolo_receiver_takes_a_note_without_approval() {
         .unwrap();
     let head = subscribed["head"].as_u64().unwrap();
     let mut delivered = Vec::new();
-    tokio::time::timeout(Duration::from_secs(10), async {
+    tokio::time::timeout(project.bound(), async {
         while let Some(event) = audit.next_event().await {
             match event.data {
                 EventData::MessageDelivered(m) if ids.contains(&(m.id as u64)) => {

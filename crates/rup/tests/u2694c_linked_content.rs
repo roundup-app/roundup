@@ -99,7 +99,7 @@ async fn u2694c_real_claude_quotes_the_linked_content() {
         .await
         .unwrap();
     let receiver = receiver["id"].as_str().unwrap();
-    turn_done(model, &client, receiver, "U2694 ready").await;
+    turn_done(project.bound(), model, &client, receiver, "U2694 ready").await;
     client
         .request("agent.resume", json!({"id":receiver,"mode":"yolo"}))
         .await
@@ -113,7 +113,7 @@ async fn u2694c_real_claude_quotes_the_linked_content() {
         .await
         .unwrap();
     client.request("terminal.write", json!({"id":terminal,"data":base64::engine::general_purpose::STANDARD.encode(format!("printf '{}\\n'\n", objects[2].2))})).await.unwrap();
-    until_async("Terminal's current output", || async {
+    until_async(project.bound(), "Terminal's current output", || async {
         let screen = client
             .request("terminal.screen", json!({"id":terminal}))
             .await
@@ -138,8 +138,8 @@ async fn u2694c_real_claude_quotes_the_linked_content() {
             .unwrap();
         let result = model.tool_result(&format!("toolu_u2694_{kind}")).await;
         assert!(result["content"].as_str().unwrap().contains(current));
-        turn_done(model, &client, receiver, &body).await;
-        until("Claude quoted current content", || {
+        turn_done(project.bound(), model, &client, receiver, &body).await;
+        until(project.bound(), "Claude quoted current content", || {
             conversation_entries(&project)
                 .iter()
                 .any(|entry| {

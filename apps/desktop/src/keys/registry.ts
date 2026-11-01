@@ -82,6 +82,18 @@ export const armLeader = (event?: Pick<KeyboardEvent, "code">): void => {
 
 export const endLeader = (): void => void setArmed(false);
 
+let questions = 0;
+
+/** NA10: a native question is waiting for the user. Call the returned function when it is answered. */
+export const questionAsked = (): (() => void) => {
+  questions++;
+
+  return () => { questions--; };
+};
+
+/** NA10: whether a native question is waiting for the user. */
+export const questionPending = (): boolean => questions > 0;
+
 /** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
 export const modalOpen = (): boolean => {
   layers();
