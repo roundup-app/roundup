@@ -97,7 +97,7 @@ A named reaction records its authorizer, Project, target identity, instruction, 
 
 ## P14 roundup computes and shows no cost, price or token counts
 
-roundup shows where an Agent's time went (`scenarios/workstream-dashboard.md`, U3016g) and nothing about what its turns cost. It reads, sums, prices, stores, sends and shows no token count, money amount, rate, price estimate or plan-limit percentage; Claude Code's own `/cost` and `/usage` already cover them. This is a non-goal, not a backlog: an Issue that asks for cost, price, tokens or a usage meter is answered with this principle and is not built.
+The Time and Timeline views and measurement machinery are removed (`scenarios/remove-time-timeline.md`, U4454a–d). roundup reads, sums, prices, stores, sends and shows no token count, money amount, rate, price estimate or plan-limit percentage; Claude Code's own `/cost` and `/usage` already cover them. This is a non-goal, not a backlog: an Issue that asks for cost, price, tokens or a usage meter is answered with this principle and is not built.
 
 - Gate: does a path parse a vendor record's usage or money, hold a rate or price, store or send a token or money value, or show one in the App, a Card, the CLI or a tool reply?
 - Observer: `u3016l_no_cost_or_token_names_remain` finds no cost or token name in the App, crates or contracts, and `u3016l_vendor_usage_and_cost_fields_are_dropped_at_the_adapter` reads a fixture that carries usage and gets time only.
