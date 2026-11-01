@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 const FILE: &str = "projects.json";
 
 #[derive(Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Saved {
     open: Vec<String>,
     recent: Vec<String>,
@@ -174,6 +175,7 @@ mod tests {
             br#"{"recent":[],"names":{}}"#,
             br#"{"open":[],"recent":[]}"#,
             br#"{"open":[],"recent":[],"names":[],"extra":true}"#,
+            br#"{"open":[],"recent":[],"names":{},"obsolete":true}"#,
             b"{broken",
         ] {
             let dir = tempfile::tempdir().unwrap();
