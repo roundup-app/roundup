@@ -200,6 +200,7 @@ export const copy = {
   askBarShortcut: "Focus Ask bar",
   switcherPlaceholder: word.name,
   noMatch: "No match",
+  makeWorkstream: "Make a Workstream",
   sendToAgentMenu: "Send to Agent",
   linkUrl: (kind: string, id: string, project: string) => `roundup://${kind}/${id}?project=${project}`,
   linkNote: (link: string) => `${link}\nrup link read ${link}`,
