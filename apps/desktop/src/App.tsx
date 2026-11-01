@@ -581,6 +581,7 @@ export const App = (props: {
     connection: path => connectionOf(path) ?? undefined,
     select: (path, agent) => {
       if (!projects.tabs().some(tab => tab.project.path === path) || !railOf(path)?.nodes.some(node => node.id === agent)) return setAlertFailure(copy.thatIsGone);
+      setAlertFailure(null);
       projects.select(path);
       railOf(path)?.select(agent);
     },
