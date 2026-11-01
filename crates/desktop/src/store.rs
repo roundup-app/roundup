@@ -1,5 +1,5 @@
 //! What the App keeps between runs, in its data folder (S10): the open Projects in order and the
-//! names the user gave. Reached from Rust only; a failed read or write is reported and never fails a call.
+//! names the user gave. Reached from Rust only; incompatible reads refuse startup; failed writes retain recoverable memory.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -12,18 +12,15 @@ const FILE: &str = "projects.json";
 
 #[derive(Default, Serialize, Deserialize)]
 struct Saved {
-    #[serde(default)]
     open: Vec<String>,
-    #[serde(default)]
     recent: Vec<String>,
-    #[serde(default)]
     names: BTreeMap<String, String>,
 }
 
 pub struct Store {
     dir: OnceLock<PathBuf>,
     /// Read from the file on first use; without a folder it only lives as long as the App.
-    saved: Mutex<Option<Saved>>,
+    saved: Mutex<Option<Result<Saved, RpcError>>>,
 }
 
 impl Store {
@@ -45,15 +42,16 @@ impl Store {
     }
 
     pub fn use_dir(&self, dir: PathBuf) {
+        let dir = std::path::absolute(&dir).unwrap_or(dir);
         let _ = self.dir.set(dir);
     }
 
-    pub fn open_paths(&self) -> Vec<String> {
-        self.with(|saved| saved.open.clone())
+    pub fn open_paths(&self) -> Result<Vec<String>, RpcError> {
+        self.with(false, |saved| saved.open.clone())
     }
 
-    pub fn recent_projects(&self) -> Vec<String> {
-        self.with(|saved| {
+    pub fn recent_projects(&self) -> Result<Vec<String>, RpcError> {
+        self.with(false, |saved| {
             saved
                 .recent
                 .iter()
@@ -64,20 +62,20 @@ impl Store {
         })
     }
 
-    pub fn record_recent(&self, path: &str) {
-        self.with(|saved| {
+    pub fn record_recent(&self, path: &str) -> Result<(), RpcError> {
+        self.with(true, |saved| {
             saved.recent.retain(|entry| entry != path);
             saved.recent.insert(0, path.to_owned());
             saved.recent.truncate(5);
-        });
+        })
     }
 
-    pub fn name(&self, path: &str) -> Option<String> {
-        self.with(|saved| saved.names.get(path).cloned())
+    pub fn name(&self, path: &str) -> Result<Option<String>, RpcError> {
+        self.with(false, |saved| saved.names.get(path).cloned())
     }
 
-    pub fn set_open(&self, paths: Vec<String>) {
-        self.with(|saved| saved.open = paths);
+    pub fn set_open(&self, paths: Vec<String>) -> Result<(), RpcError> {
+        self.with(true, |saved| saved.open = paths)
     }
 
     /// `None` removes the stored name. A captured base is compared under the same lock as the
@@ -89,7 +87,7 @@ impl Store {
         base: Option<&str>,
         fallback: &str,
     ) -> Result<String, RpcError> {
-        self.with(|saved| {
+        self.with(true, |saved| {
             let current = saved
                 .names
                 .get(path)
@@ -108,36 +106,46 @@ impl Store {
                 }
             }
             Ok(result)
-        })
+        })?
     }
 
-    fn with<T>(&self, change: impl FnOnce(&mut Saved) -> T) -> T {
+    pub fn load(&self) -> Result<(), RpcError> {
+        self.with(false, |_| ())
+    }
+
+    fn with<T>(&self, persist: bool, change: impl FnOnce(&mut Saved) -> T) -> Result<T, RpcError> {
         let mut guard = self
             .saved
             .lock()
             .expect("the store lock is never kept across a panic");
-        let saved = guard.get_or_insert_with(|| self.read());
+        let saved = guard
+            .get_or_insert_with(|| self.read())
+            .as_mut()
+            .map_err(|error| error.clone())?;
         let result = change(saved);
-        if let Some(dir) = self.dir.get() {
+        if persist && let Some(dir) = self.dir.get() {
             write(dir, saved);
         }
-        result
+        Ok(result)
     }
 
-    fn read(&self) -> Saved {
+    fn read(&self) -> Result<Saved, RpcError> {
         let Some(dir) = self.dir.get() else {
-            return Saved::default();
+            return Ok(Saved::default());
+        };
+        let refuse = |cause| {
+            RpcError::internal(format!(
+                "Local Project preferences are incompatible with this build or unreadable ({cause}). Close roundup and delete only projects.json in {} to start fresh. Preserve all other files, Projects and Worktrees.",
+                dir.display()
+            ))
         };
         match std::fs::read(dir.join(FILE)) {
-            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_else(|err| {
-                log::warn!(target: "roundup::shell", "restore Project store: JSON {:?} at {}:{}; using recoverable memory", err.classify(), err.line(), err.column());
-                Saved::default()
+            Ok(bytes) => serde_json::from_slice(&bytes).map_err(|error| {
+                log::warn!(target: "roundup::shell", "restore Project store: JSON {:?} at {}:{}; original file retained", error.classify(), error.line(), error.column());
+                refuse(error.to_string())
             }),
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Saved::default(),
-            Err(err) => {
-                log::warn!(target: "roundup::shell", "read Project store: IO {:?}; using recoverable memory", err.kind());
-                Saved::default()
-            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Saved::default()),
+            Err(error) => Err(refuse(error.to_string())),
         }
     }
 }
@@ -173,13 +181,64 @@ mod tests {
             std::fs::write(&file, bytes).unwrap();
             for _ in 0..2 {
                 let store = Store::new(Some(dir.path().to_owned()));
-                let error = store.set_name("/sentinel", Some("changed".into()), None, "sentinel").unwrap_err();
+                let error = store
+                    .set_name("/sentinel", Some("changed".into()), None, "sentinel")
+                    .unwrap_err();
                 assert!(error.message.contains("incompatible"));
                 assert!(error.message.contains(&dir.path().display().to_string()));
                 assert!(error.message.contains("Close roundup"));
                 assert!(error.message.contains("projects.json"));
                 assert_eq!(std::fs::read(&file).unwrap(), bytes);
             }
+        }
+    }
+
+    #[test]
+    fn n5467c_fresh_preferences_reopen_with_current_names_and_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path().join("data");
+        let store = Store::new(Some(data.clone()));
+        store.load().unwrap();
+        assert!(!data.exists());
+        let first = dir.path().join("first");
+        let second = dir.path().join("second");
+        std::fs::create_dir(&first).unwrap();
+        std::fs::create_dir(&second).unwrap();
+        let first = first.display().to_string();
+        let second = second.display().to_string();
+        store.set_open(vec![second.clone(), first.clone()]).unwrap();
+        store
+            .set_name(&first, Some("雪".into()), None, "first")
+            .unwrap();
+        store.record_recent(&first).unwrap();
+        store.record_recent(&second).unwrap();
+        let bytes = std::fs::read(data.join(FILE)).unwrap();
+        let reopened = Store::new(Some(data.clone()));
+        assert_eq!(
+            reopened.open_paths().unwrap(),
+            [second.clone(), first.clone()]
+        );
+        assert_eq!(reopened.name(&first).unwrap().as_deref(), Some("雪"));
+        assert_eq!(reopened.recent_projects().unwrap(), [second, first]);
+        assert_eq!(std::fs::read(data.join(FILE)).unwrap(), bytes);
+    }
+
+    #[test]
+    fn n5467b_unreadable_preferences_are_not_replaced() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join(FILE);
+        std::fs::create_dir(&file).unwrap();
+        for _ in 0..2 {
+            let store = Store::new(Some(dir.path().to_owned()));
+            assert!(
+                store
+                    .set_open(vec![])
+                    .unwrap_err()
+                    .message
+                    .contains("unreadable")
+            );
+            assert!(file.is_dir());
+            assert!(!dir.path().join("projects.json.tmp").exists());
         }
     }
 
@@ -195,12 +254,12 @@ mod tests {
             })
             .collect();
         for path in &paths {
-            store.record_recent(path);
+            store.record_recent(path).unwrap();
         }
-        store.record_recent(&paths[3]);
+        store.record_recent(&paths[3]).unwrap();
         let restored = Store::new(Some(dir.path().join("data")));
         assert_eq!(
-            restored.recent_projects(),
+            restored.recent_projects().unwrap(),
             vec![
                 paths[3].clone(),
                 paths[6].clone(),
@@ -217,8 +276,8 @@ mod tests {
         let folder = dir.path().join("project");
         std::fs::create_dir(&folder).unwrap();
         let store = Store::new(Some(dir.path().join("data")));
-        store.record_recent(&folder.display().to_string());
+        store.record_recent(&folder.display().to_string()).unwrap();
         std::fs::remove_dir(folder).unwrap();
-        assert!(store.recent_projects().is_empty());
+        assert!(store.recent_projects().unwrap().is_empty());
     }
 }
