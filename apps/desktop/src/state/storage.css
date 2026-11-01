@@ -42,7 +42,7 @@
   max-block-size: none;
 }
 
-.storage-gate .reserved-content .ink {
+.storage-gate-content .ink[role="alert"] {
   overflow: visible;
   white-space: normal;
 }
