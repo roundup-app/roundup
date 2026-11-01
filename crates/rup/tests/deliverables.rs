@@ -1,6 +1,7 @@
 //! DV1–DV4: deliberately published results through the real Project Daemon.
 #[path = "common/served.rs"]
 mod common;
+use common::QuotaProject;
 use serde_json::{Value, json};
 #[path = "deliverables/publication.rs"]
 mod publication;
@@ -798,43 +799,4 @@ async fn publish_bytes(
         json!({"key":key,"title":key,"target":{"kind":"file","path":"quota.bin"}}),
     )
     .await
-}
-
-// Reuse the in-process RPC harness: unlike the release sidecar, this target enables test-support.
-struct QuotaProject {
-    dir: tempfile::TempDir,
-    server: tokio::task::JoinHandle<std::io::Result<()>>,
-}
-
-impl QuotaProject {
-    async fn start() -> Self {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir(dir.path().join(".roundup")).unwrap();
-        std::fs::write(dir.path().join(".roundup/test-publication-quota"), "64").unwrap();
-        let server = common::serve(dir.path(), &dir.path().join("rupd.sock"));
-        Self { dir, server }
-    }
-
-    fn data_dir(&self) -> std::path::PathBuf {
-        self.dir.path().join(".roundup")
-    }
-
-    async fn client(&self) -> rpc::Client {
-        rpc::Client::connect(&self.dir.path().join("rupd.sock"))
-            .await
-            .unwrap()
-    }
-
-    async fn restart(&mut self) {
-        self.server.abort();
-        assert!((&mut self.server).await.unwrap_err().is_cancelled());
-        std::fs::remove_file(self.dir.path().join("rupd.sock")).unwrap();
-        self.server = common::serve(self.dir.path(), &self.dir.path().join("rupd.sock"));
-    }
-}
-
-impl Drop for QuotaProject {
-    fn drop(&mut self) {
-        self.server.abort();
-    }
 }
