@@ -464,3 +464,25 @@ async fn a21_a_failed_save_after_spawn_returned_errors_settles_error_and_stops_t
     );
     db.execute_batch("DROP TRIGGER fail_write").unwrap();
 }
+
+#[tokio::test]
+async fn u5483c_final_text_protection_follows_attempt_identity() {
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    for text in [json!("Should I publish three pages or five"), json!("All done"), json!(""), Value::Null] {
+        for payload in [
+            json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"current"}),
+            json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":text}),
+        ] {
+            shared.observe(Actor::daemon(), &id, "1", Observation::Signal(payload)).unwrap();
+        }
+        let node = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+        let evidence = &node["final_text"];
+        assert_eq!(evidence["attempt"], "1");
+        assert_eq!(evidence["finished"], node["status"]["finished"]);
+        assert_eq!(evidence["kind"], if text == json!("") { "empty" } else if text.is_string() { "present" } else { "unknown" });
+        shared.observe(Actor::daemon(), &id, "0", Observation::Signal(json!({"hook_event_name":"Stop", "last_assistant_message":""}))).unwrap();
+        assert_eq!(serde_json::to_value(shared.node(&id).unwrap()).unwrap()["final_text"], *evidence);
+    }
+}
