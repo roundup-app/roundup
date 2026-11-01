@@ -69,7 +69,7 @@ The reproduction leaves its detached worktrees and binaries for inspection. Reta
 
 Regression tests use the retired Message receiver lookup seam:
 
-- The retired repeated receiver-read test: alternating positive/negative Terminal parameters.
+- Repeated receiver-read test: alternating positive/negative Terminal parameters.
 - `b32_a_warm_owner_read_rejects_ambiguity_then_recovers`: a fresh conflict after a successful read; no callback; recovery after detach. A temporary `LIMIT 1` mutation fails this test (exit 101); restoring `LIMIT 2` passes.
 - `b32_a_warm_owner_read_fails_on_sql_error_without_recording_input`: schema loss after a negative read fails without a callback and releases lifecycle locks.
 - Existing `b32_concurrent_*` tests warm the query before concurrent attachment, detach, reassignment, removal, reopen and Attempt changes; `b32_pending_resume_*`, `b32_running_and_failed_*` and `b32_closed_receiver_*` assert fresh Resume/Status facts. Existing callback failure and Message scenarios retain transaction/error, fencing, input tail, submit/clear, handover and receiver-binding coverage.
