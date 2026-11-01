@@ -231,6 +231,28 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     rail.select(node.id);
   });
 
+  const [making, setMaking] = createSignal(false);
+  const [makeFailure, setMakeFailure] = createSignal<string | null>(null);
+  const makeName = () => shown().length === 0 ? text().trim() : "";
+
+  createEffect(on(text, () => setMakeFailure(null), { defer: true }));
+
+  /** U5241a: a query nothing matches names a new Workstream; the Switcher closes once the Daemon made it. */
+  const make = async (): Promise<void> => {
+    const name = makeName();
+
+    if (name === "" || making()) return;
+    setMaking(true);
+    setMakeFailure(null);
+
+    try {
+      const failure = await rail.createNamedWorkstream(name);
+
+      if (failure !== null) setMakeFailure(failure);
+      else if (open()) { props.onFailure(null); close(false); }
+    } finally { setMaking(false); }
+  };
+
   const chooseValue = (value: string | null): void => {
     const action = opening().actions.find((candidate) => candidate.value === value);
 
@@ -333,6 +355,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             } else retain();
           });
           element.addEventListener("focus", () => setNameFocused(true));
+          element.addEventListener("keydown", event => {
+            if (event.key !== "Enter" || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || makeName() === "") return;
+            event.preventDefault();
+            void make();
+          });
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {
@@ -348,7 +375,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           });
         }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
-          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
+          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={makeName() === "" ? copy.noMatch : <>{copy.makeWorkstream} “{makeName()}” <KeyChip keys="⏎" /><Show when={makeFailure()}>{message => <> ✕ {message()}</>}</Show></>}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);
             const entry = byValue().get(item.value);
