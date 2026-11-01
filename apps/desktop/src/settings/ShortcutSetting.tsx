@@ -121,7 +121,7 @@ export const ShortcutSettings = (props: { capture?: CapturePort | undefined; app
     <div class="settings-field">
       <div class="settings-shortcut">
         <button data-button="quiet" type="button" aria-pressed={mode()?.kind === "find"} onClick={begin({ kind: "find" })}>{mode()?.kind === "find" ? copy.recordShortcut : copy.findKey}</button>
-        <button data-button="quiet" type="button" disabled={!Object.keys(overrides()).length} onClick={save}>{copy.saveToFile}</button>
+        <button data-button="quiet" type="button" aria-disabled={!Object.keys(overrides()).length} onClick={() => { if (Object.keys(overrides()).length) void save(); }}>{copy.saveToFile}</button>
       </div>
     </div>
     <ReservedLine status={found()} />
