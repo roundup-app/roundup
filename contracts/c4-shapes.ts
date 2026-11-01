@@ -97,8 +97,6 @@ type After = {
   "ask/SendParams": import("./generated/ask/SendParams").SendParams;
   "ask/State": import("./generated/ask/State").State;
   "ask/Target": import("./generated/ask/Target").Target;
-  "attachment/SaveParams": import("./generated/attachment/SaveParams").SaveParams;
-  "attachment/Saved": import("./generated/attachment/Saved").Saved;
   "deliverable/Deliverable": import("./generated/deliverable/Deliverable").Deliverable;
   "deliverable/DeliverableId": import("./generated/deliverable/DeliverableId").DeliverableId;
   "deliverable/ExternalAvailability": import("./generated/deliverable/ExternalAvailability").ExternalAvailability;
