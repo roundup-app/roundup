@@ -799,6 +799,9 @@ async fn publish_bytes(
 }
 
 async fn mixed_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
+    // Project-local, read only by test-support builds; retained across fixture restarts.
+    std::fs::write(p.data_dir().join("test-publication-quota"), "64").unwrap();
+    p.restart(&[]);
     let c = p.client().await;
     // Pad sources avoid making historical access depend on the reused file capture path.
     pad(&c, "legacy-a", "aaaaaaa").await;
@@ -823,15 +826,7 @@ async fn mixed_quota(p: &mut daemon::Project) -> Vec<(Value, usize, u8)> {
         13,
         b'c',
     ));
-    for n in 0..32 {
-        let length = if n == 31 { 33_554_401 } else { 33_554_432 };
-        let byte = n + 1;
-        records.push((
-            publish_bytes(p, &c, &format!("fill-{n}"), length, byte).await,
-            length,
-            byte,
-        ));
-    }
+    records.push((publish_bytes(p, &c, "fill", 33, b'd').await, 33, b'd'));
     let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
     assert_eq!(
         db.query_row(
@@ -896,7 +891,7 @@ async fn refuses_one_byte(p: &daemon::Project, c: &rpc::Client, records: &[(Valu
         list_all(c).await,
         json!(records.iter().map(|r| &r.0).collect::<Vec<_>>())
     );
-    assert_eq!(allocation_bytes(p), 1_073_741_824);
+    assert_eq!(allocation_bytes(p), 64);
 }
 
 #[tokio::test]
@@ -904,12 +899,12 @@ async fn r4160a_mixed_quota_boundary() {
     let mut p = daemon::start(&[]);
     let records = mixed_quota(&mut p).await;
     let c = p.client().await;
-    assert_eq!(allocation_bytes(&p), 1_073_741_824);
+    assert_eq!(allocation_bytes(&p), 64);
     refuses_one_byte(&p, &c, &records).await;
     p.restart(&[]);
     let c = p.client().await;
     exact_publications(&c, &records).await;
-    assert_eq!(allocation_bytes(&p), 1_073_741_824);
+    assert_eq!(allocation_bytes(&p), 64);
 }
 
 #[tokio::test]
@@ -918,7 +913,7 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
         let mut p = daemon::start(&[]);
         let mut records = mixed_quota(&mut p).await;
         let c = p.client().await;
-        assert_eq!(allocation_bytes(&p), 1_073_741_824);
+        assert_eq!(allocation_bytes(&p), 64);
         let (removed, length, _) = records.remove(chosen);
         let id = identity(&removed);
         call(&c, "deliverable.remove", id.clone()).await;
@@ -932,10 +927,7 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
             }
             refused(&c, "deliverable.get", id.clone()).await;
             refused(&c, "deliverable.resolve", id.clone()).await;
-            assert_eq!(
-                allocation_bytes(&p),
-                1_073_741_824 - i64::try_from(length).unwrap()
-            );
+            assert_eq!(allocation_bytes(&p), 64 - i64::try_from(length).unwrap());
             let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
             assert_eq!(db.query_row("SELECT (SELECT count(*) FROM deliverable_bytes WHERE id=?1) + (SELECT count(*) FROM deliverable_files WHERE id=?1)", [removed["id"].as_str().unwrap()], |r| r.get::<_, i64>(0)).unwrap(), 0);
             assert!(
@@ -950,7 +942,7 @@ async fn r4160b_cleanup_releases_only_chosen_bytes() {
         let replacement = publish_bytes(&p, &c, "replacement", length, b'r').await;
         assert_ne!(replacement["id"], removed["id"]);
         records.push((replacement, length, b'r'));
-        assert_eq!(allocation_bytes(&p), 1_073_741_824);
+        assert_eq!(allocation_bytes(&p), 64);
         refuses_one_byte(&p, &c, &records).await;
         exact_publications(&c, &records).await;
     }

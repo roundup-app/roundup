@@ -4,6 +4,7 @@
   },
   "entry": [
     "contracts/**/*.ts",
+    "tools/oxlint/pre-commit.test.mjs",
     "apps/*/harness.html",
     "apps/desktop/observers/U3010c/layout.js",
     "docs/u478-contrast-observer.test.mjs",
