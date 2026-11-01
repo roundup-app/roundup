@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { openTabs, renderTabs, path, tab } from "../header/stripFixture";
 import { agent, door, event, terminal, workstream } from "../testing/nodes";
+import { unseenStorage } from "../state/unseen";
 import { chooseAction, settled } from "../rail/railFixture";
 import type { FakeApp } from "../testing/fakeApp";
 
@@ -104,6 +105,7 @@ it("u5502_reload_reconciles_ready_results", async () => {
   records.push(publication("unread"));
   first.app.of(path("api")).emit(event({ name: "deliverable.changed" }));
   await waitFor(() => expect(actions(first.app)).toHaveLength(1));
+  await unseenStorage(path("api")).refresh();
   cleanup();
   records.push(publication("gap"));
   const next = renderTabs(trees, true);
@@ -112,6 +114,7 @@ it("u5502_reload_reconciles_ready_results", async () => {
   await waitFor(() => expect(actions(next.app)).toHaveLength(1));
   next.app.menuBarAction({ kind: "agent", path: path("api"), agent: "a" });
   await waitFor(() => expect(actions(next.app)).toHaveLength(0));
+  await unseenStorage(path("api")).refresh();
   cleanup();
   const read = renderTabs(trees, true);
   read.app.of(path("api")).handlers["deliverable.list"] = () => [...records];
@@ -136,12 +139,13 @@ it("u5502_menu_groups_and_orders_agents", async () => {
 it("u5502_opening_acknowledges_only_that_agents_results", async () => {
   const { app } = await openTabs({ api: [agent("a", "working", "running"), agent("other", "working", "running")], web: [agent("a", "working", "running")] });
   const daemon = app.of(path("api"));
-  daemon.handlers["deliverable.list"] = () => ["a", "other"].map(id => ({ project: "api-key", id: `published-${id}`, maker: { kind: "agent", id, parent: null }, maker_name: id, home: null, title: "Result", published_at: 9, target: { kind: "external", url: "https://example.com", availability: "not-checked" } }));
+  daemon.handlers["deliverable.list"] = () => ["a", "other"].map(id => ({ project: "api-key", id: `published-${id}`, maker: { kind: "agent", id, parent: null }, maker_name: id, home: null, title: "Result", published_at: 20, target: { kind: "external", url: "https://example.com", availability: "not-checked" } }));
   daemon.emit(event({ name: "deliverable.changed" }));
   finish(app, "api", "a");
   finish(app, "api", "other");
   finish(app, "web", "a");
   await waitFor(() => expect(actions(app)).toHaveLength(3));
+  await waitFor(() => expect(app.menuBar?.entries.filter(entry => entry.since === 20)).toHaveLength(2));
   app.menuBarAction({ kind: "agent", path: path("api"), agent: "a" });
   await waitFor(() => expect(actions(app)).toEqual([
     { kind: "agent", path: path("api"), agent: "other" },
