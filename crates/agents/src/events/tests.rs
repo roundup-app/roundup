@@ -7,7 +7,7 @@ use std::time::Duration;
 use contracts::terminal::ExitedEvent;
 use contracts::{Actor, EventData, Kind};
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use tokio::time::Instant;
 
@@ -470,19 +470,142 @@ async fn u5483c_final_text_protection_follows_attempt_identity() {
     let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = running_agent(&shared, None);
     shared.rail().allocate_attempt(&id).unwrap();
-    for text in [json!("Should I publish three pages or five"), json!("All done"), json!(""), Value::Null] {
+    for (text, expected) in [
+        (json!("Should I publish three pages or five"), "present"),
+        (json!("All done"), "present"),
+        (json!(""), "empty"),
+        (Value::Null, "unknown"),
+    ] {
         for payload in [
             json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"current"}),
             json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":text}),
         ] {
-            shared.observe(Actor::daemon(), &id, "1", Observation::Signal(payload)).unwrap();
+            shared
+                .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
+                .unwrap();
         }
         let node = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
         let evidence = &node["final_text"];
         assert_eq!(evidence["attempt"], "1");
         assert_eq!(evidence["finished"], node["status"]["finished"]);
-        assert_eq!(evidence["kind"], if text == json!("") { "empty" } else if text.is_string() { "present" } else { "unknown" });
-        shared.observe(Actor::daemon(), &id, "0", Observation::Signal(json!({"hook_event_name":"Stop", "last_assistant_message":""}))).unwrap();
-        assert_eq!(serde_json::to_value(shared.node(&id).unwrap()).unwrap()["final_text"], *evidence);
+        assert_eq!(evidence["turn"], "current");
+        assert_eq!(evidence["kind"], expected);
+        shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "0",
+                Observation::Signal(json!({"hook_event_name":"Stop", "last_assistant_message":""})),
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(shared.node(&id).unwrap()).unwrap()["final_text"],
+            *evidence
+        );
     }
+}
+
+#[tokio::test]
+async fn u5483c_resuming_clears_only_the_previous_turn() {
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    for payload in [
+        json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"}),
+        json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":"A long statement\nShould I publish three pages or five"}),
+        json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"second"}),
+        json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":""}),
+    ] {
+        shared
+            .observe(Actor::daemon(), &id, "1", Observation::Signal(payload))
+            .unwrap();
+    }
+    let resumed = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    assert_eq!(resumed["status"]["kind"], "working");
+    assert_eq!(resumed["final_text"]["kind"], "unknown");
+    shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"second", "last_assistant_message":""}))).unwrap();
+    let completed = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    assert_eq!(
+        completed["final_text"],
+        json!({"attempt":"1", "turn":"second", "finished":"2", "kind":"empty"})
+    );
+}
+
+#[tokio::test]
+async fn u5483c_final_text_survives_ticks_and_done() {
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    for observation in [
+        Observation::Signal(json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"first"})),
+        Observation::Signal(
+            json!({"hook_event_name":"Stop", "prompt_id":"first", "last_assistant_message":"Should I publish three pages or five"}),
+        ),
+        Observation::Tick,
+        Observation::Exit { code: Some(0) },
+    ] {
+        shared
+            .observe(Actor::daemon(), &id, "1", observation)
+            .unwrap();
+    }
+    let node = serde_json::to_value(shared.node(&id).unwrap()).unwrap();
+    assert_eq!(node["status"]["kind"], "done");
+    assert_eq!(
+        node["final_text"],
+        json!({"attempt":"1", "turn":"first", "finished":"1", "kind":"present"})
+    );
+}
+
+#[tokio::test]
+async fn u5483c_late_final_text_refreshes_rail_without_a_status_change() {
+    let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Signal(
+                json!({"hook_event_name":"UserPromptSubmit", "prompt_id":"current"}),
+            ),
+        )
+        .unwrap();
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Title("✳ idle".into()),
+        )
+        .unwrap();
+    let before = shared.node(&id).unwrap();
+    let mut events = bus.subscribe();
+    shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({"hook_event_name":"Stop", "prompt_id":"current", "last_assistant_message":"Should I publish three pages or five"}))).unwrap();
+    let after = shared.node(&id).unwrap();
+    assert_eq!(after.status_revision, before.status_revision);
+    assert_eq!(
+        serde_json::to_value(after).unwrap()["final_text"]["kind"],
+        "present"
+    );
+    assert!(matches!(
+        events.try_recv().unwrap().data,
+        EventData::RailChanged
+    ));
+}
+
+#[tokio::test]
+async fn u5483c_empty_text_without_turn_identity_remains_unknown() {
+    let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+    let id = running_agent(&shared, None);
+    shared.rail().allocate_attempt(&id).unwrap();
+    shared
+        .observe(
+            Actor::daemon(),
+            &id,
+            "1",
+            Observation::Signal(json!({"hook_event_name":"Stop", "last_assistant_message":""})),
+        )
+        .unwrap();
+    assert!(shared.node(&id).unwrap().final_text.is_none());
 }
