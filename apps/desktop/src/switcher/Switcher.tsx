@@ -2,6 +2,7 @@ import { useDialog } from "@ark-ui/solid/dialog";
 import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
+import { ErrorLine } from "../ink/ErrorLine";
 import { batch, createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createCopyFeedback } from "../ui/CopyButton";
 import * as v from "valibot";
@@ -233,7 +234,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const [making, setMaking] = createSignal(false);
   const [makeFailure, setMakeFailure] = createSignal<string | null>(null);
-  const makeName = () => shown().length === 0 ? text().trim() : "";
+  // An invalidated captured action must never turn its query into a create request.
+  const makeName = () => openingSurvives() && shown().length === 0 && matching(opening().actions, text()).length === 0 ? text().trim() : "";
 
   createEffect(on(text, () => setMakeFailure(null), { defer: true }));
 
@@ -375,7 +377,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           });
         }} items={shown()} contentRow={item => !item.value.startsWith("action:")} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value)}
-          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={makeName() === "" ? copy.noMatch : <>{copy.makeWorkstream} “{makeName()}” <KeyChip keys="⏎" /><Show when={makeFailure()}>{message => <> ✕ {message()}</>}</Show></>}
+          label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={makeName() === "" ? copy.noMatch : <>{copy.makeWorkstream(makeName())} <KeyChip keys={SWITCHER_KEYS.choose} /></>}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);
             const entry = byValue().get(item.value);
@@ -396,6 +398,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.node && !rail.dismissed(entry.node)}><FailureLine status={entry.node?.status} /></Show>
             </span>}</StatusTip>;
           }} />
+        <Show when={makeFailure()}>{message => <ErrorLine message={message()} />}</Show>
         <p class="switcher-footer"><For each={footer()}>{key => <span class="switcher-footer-key"><KeyChip keys={key.keys} /> {key.label}</span>}</For></p>
         <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null}>
           <Show when={text() !== "" && !copyFailure()}>
