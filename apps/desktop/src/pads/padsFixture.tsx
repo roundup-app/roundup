@@ -1,7 +1,7 @@
 import { createNow, DisplayClockContext } from "../state/clock";
 // fallow-ignore-file duplicate-export -- AGENT is this fixture’s actor; toastFixture owns a different actor with the same local name.
 import { usePadList } from "../rail/pads/padList";
-import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
@@ -177,12 +177,12 @@ export const openPad = async (name: string, recovery?: { connected: Awaited<Retu
       if (group.contains(row) && group.getAttribute("aria-expanded") === "false") fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
     }
 
-    const button = await screen.findByRole("button", { name });
+    const button = within(row.parentElement!).getByRole("button", { name });
     button.focus({ preventScroll: true });
     fireEvent.keyDown(button, { key: "Enter", code: "Enter" });
   }
 
-  const surface = await screen.findByRole<HTMLElement>("textbox", { name: "Pad body" }, { timeout: 5000 });
+  const surface = await screen.findByLabelText<HTMLElement>("Pad body", { selector: '[role="textbox"]' }, { timeout: 5000 });
   const root = surface.closest<HTMLElement>(".pad-editor");
   const editor = editors.at(-1);
 
