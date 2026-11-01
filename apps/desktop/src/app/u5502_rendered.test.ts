@@ -49,4 +49,7 @@ it("u5502_removed_menu_agent_shows_recovery_without_a_replacement", async () => 
   await page.until("document.body.textContent.includes('That is gone')");
   expect(await page.evaluate("document.querySelector('[role=treeitem][aria-selected=true]')?.getAttribute('data-id') ?? null")).toBe(selected);
   await page.capture("U5502", "failure");
+  await page.evaluate("window.__fake.app.menuBarAction({kind:'agent',path:'/Users/you/harness',agent:'agent-2'}); true");
+  await page.until("document.querySelector('[role=treeitem][data-id=agent-2]')?.getAttribute('aria-selected') === 'true' && !document.querySelector('.reserved-line [role=alert]')");
+  await page.capture("U5502", "recovered");
 });
