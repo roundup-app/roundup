@@ -54,7 +54,9 @@ it("ps10_a_status_event_updates_the_row_and_a_burst_ends_in_the_last_state", asy
 });
 
 it("ps12_a_terminal_tab_shows_its_status_label_and_age_on_focus", async () => {
-  await mount({ ...status("needs-you", "Proceed?"), since: Date.now() - 5 * 60_000 });
+  const shown = status("needs-you", "Proceed?");
+
+  await mount({ ...shown, since: Date.now() - 5 * 60_000 });
   await waitFor(() => expect(tab("1")).not.toBeNull());
 
   fireEvent.keyDown(document, { key: "Tab" });
@@ -62,6 +64,6 @@ it("ps12_a_terminal_tab_shows_its_status_label_and_age_on_focus", async () => {
 
   const tip = await screen.findByRole("tooltip");
 
-  expect(tip.textContent).toContain("cargo test, Proceed?");
+  expect(tip.textContent).toContain(shown.label);
   expect(tip.textContent).toContain(age(Date.now() - 5 * 60_000, Date.now()));
 });
