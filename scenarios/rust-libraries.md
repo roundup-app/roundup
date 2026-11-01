@@ -22,7 +22,7 @@ These numbered checks identify current constraints; they are not proof of future
 
 1. `Cargo.toml`, headings `[workspace.dependencies]` and `[patch.crates-io]`: rusqlite is pinned to `=0.40.2` and patched to `vendor/rusqlite-0.40.2`.
 2. `vendor/rusqlite-0.40.2/src/cache.rs`, tests `b32_r16_warm_checkout_retains_sql_key` and `r16_cached_rows_rebind_and_execute_fresh`: retained SQL-key allocation and fresh scoped execution are distinct behaviors to preserve.
-3. `crates/rupd/src/route.rs`, `Daemon::dispatch_parsed`: `rail.tree`/`rail.list` and `daemon.ping` have fast paths alongside the general router. Instrumentation must cover them too.
+3. `crates/rupd/src/route.rs`, `Daemon::dispatch_parsed`: `rail.tree` and `daemon.ping` have fast paths alongside the general router. Instrumentation must cover them too.
 4. `crates/perf/tests/budget.rs`, `r8_the_committed_limits_are_rule_sevens_budgets` and `r9_the_regression_ceiling_is_inclusive_and_exact_at_the_float_edge`: fixed limits and regression comparison semantics.
 5. `docs/perf.md`, headings `Perf` and `Perf work and evidence (R25–R27)`: workloads, same-host paired evidence and unchanged regression qualification. RSS is Daemon growth with ten login-shell Terminals, not the sum of external vendor processes.
 6. `crates/agents/src/worktree.rs`, `Git::reference`: an existing shell-backed read candidate for the git spike; mutation operations remain outside it.
