@@ -96,7 +96,7 @@ it("u5239b_escape_cancels_and_reset_restores_the_default", async () => {
   fireEvent.click(rowOf(view, "terminal.new"));
   press("KeyT", { metaKey: true, shiftKey: true });
   await waitFor(() => expect(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector("button + button")).not.toBeNull());
-  fireEvent.click(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector<HTMLElement>("button + button")!);
+  fireEvent.click(rowOf(view, "terminal.new").closest(".settings-field")!.querySelector("button + button")! as HTMLElement);
   await waitFor(() => expect(appSettings().shortcuts).toEqual({}));
   expect(chord("terminal.new").presses).toEqual(["meta+KeyT"]);
 });
