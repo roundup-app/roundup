@@ -34,7 +34,6 @@ The Rust workspace's `crates/*` members are:
 |---|---|
 | `apps/desktop` | Solid webview and xterm.js Terminal rendering |
 | `contracts/generated` | Generated TypeScript contracts; regenerate from `crates/contracts` |
-| `contracts/hooks.ts` | Extension Hook types |
 | `site` | Published VitePress documentation and search index; `docs/` is unpublished |
 
 ## Agent adapter contract
