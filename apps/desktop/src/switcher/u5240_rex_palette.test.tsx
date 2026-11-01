@@ -187,6 +187,7 @@ it("u5240e_record_mode_leaves_no_listener_behind", async () => {
   await toCommand();
 
   const { textarea, reached } = terminalField();
+
   const probe = () => {
     const press = new KeyboardEvent("keydown", { code: "KeyJ", key: "j", metaKey: true, bubbles: true, cancelable: true });
 
