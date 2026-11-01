@@ -22,13 +22,6 @@
 }
 
 /* U3731: a Todo's body line sits under its title, grey, one line, cut with `…` (the whole line is its title attribute); no key hint is drawn, since no chord addresses one row. */
-.item-description {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-caption);
-  color: var(--grey);
-}
 
 /* U361: a Todo or Pad row's wash is the row's box and its content is inset from the wash by --space-2 sideways and --space-1 above and below (the row's own padding). */
 .shelf-row.todo-inset,
@@ -208,17 +201,6 @@
   flex: none;
   white-space: pre;
 }
-
-.todo-inset .todo-blockers {
-  display: flex;
-  align-items: baseline;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.todo-blockers span { flex: none; white-space: pre; }
 .todo-inset .todo-blocker:last-child:not(:first-child) { flex-shrink: 0; max-width: 50%; }
 
 .todo-inset .todo-blocker {
@@ -232,13 +214,6 @@
 
 .todo-row .row-head { min-width: 0; display: flex; align-items: start; }
 .todo-row .todo-row-button { flex: 1; min-width: 0; }
-
-.todo-tooltip {
-  box-sizing: border-box;
-  max-width: calc(100vw - var(--space-6));
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
 
 /* U3720: the owner list floats over the Shelf: opaque, lifted, and as tall as the window leaves room for. */
 .owner-picker {
@@ -352,13 +327,8 @@
 }
 .todo-row .app-progress { margin-block: var(--space-1); font-size: var(--text-caption); color: var(--grey); }
 .todo-row .app-progress-track { height: calc(var(--space-1) / 2); }
-.todo-now { color: var(--accent); font-size: var(--text-small); }
 
 .todo-list .todo-dependency[data-depth="1"]:not(:first-child) { margin-top: 0; }
-
-.todo-row .todo-row-button:has(.todo-now) { display: flex; align-items: baseline; gap: var(--space-2); }
-.todo-row-button .todo-now { flex: none; }
-.todo-row-button:has(.todo-now) .shelf-title { min-width: 0; }
 
 @media (prefers-reduced-motion: no-preference) {
  .todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
