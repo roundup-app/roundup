@@ -60,7 +60,7 @@ export const itemsMatching = (nodes: readonly RailNode[], todos: readonly Todo[]
   const owner = (home: string | null) => nodes.find((node) => node.id === home)?.name ?? "";
 
   return [
-    ...todos.filter((todo) => !todo.done && contains(todo.title, needle)).map((todo): Entry => ({ value: `todo:${todo.id}`, label: todo.title, todo, owner: owner(todo.home) })),
-    ...pads.filter((pad) => contains(pad.name, needle)).map((pad): Entry => ({ value: `pad:${pad.incarnation}`, label: pad.name, pad, owner: owner(pad.home) })),
+    ...todos.flatMap((todo): Entry[] => (!todo.done && contains(todo.title, needle) ? [{ value: `todo:${todo.id}`, label: todo.title, todo, owner: owner(todo.home) }] : [])),
+    ...pads.flatMap((pad): Entry[] => (contains(pad.name, needle) ? [{ value: `pad:${pad.incarnation}`, label: pad.name, pad, owner: owner(pad.home) }] : [])),
   ];
 };
