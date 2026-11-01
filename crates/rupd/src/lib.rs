@@ -19,6 +19,7 @@ mod describe_tests;
 mod digest;
 mod event_log;
 mod evidence;
+mod extensions;
 mod github;
 mod guards;
 mod link;
@@ -125,6 +126,8 @@ pub struct Daemon {
     prompt_effect_gate: Option<std::path::PathBuf>,
     /// NA6: the App that answers `action.list` and `action.run`.
     actions: actions::Answerer,
+    /// UA1: the owner's Extensions, started once the socket is served.
+    extensions: extensions::Host,
 }
 
 type Waiter = (
@@ -327,6 +330,13 @@ impl Daemon {
             bus: self.bus.clone(),
             touches: Arc::clone(&self.touches),
         }
+    }
+
+    /// Loads Extensions from `dir` instead of the Daemon's own default (UA1).
+    #[must_use]
+    pub fn with_extensions(mut self, dir: &Path) -> Self {
+        self.extensions = extensions::Host::new(dir.to_path_buf());
+        self
     }
 
     /// Observe future events directly on this Daemon's global Bus, with its retained-event

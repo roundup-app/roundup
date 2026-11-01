@@ -127,6 +127,7 @@
     Method { name: "github.prAutoMerge", params: "github_Number", result: "github_Pr" },
     Method { name: "action.serve", params: "null", result: "null" },
     Method { name: "action.list", params: "null", result: "action_ActionRow[]" },
+    Method { name: "action.userList", params: "null", result: "action_ActionRow[]" },
     Method { name: "action.run", params: "action_RunParams", result: "action_RunResult" },
     Method { name: "daemon.ping", params: "null", result: "common_Ping" },
     Method { name: "daemon.methods", params: "null", result: "string[]" },

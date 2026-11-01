@@ -83,6 +83,7 @@ fn extra_text(method: &str) -> Option<&'static str> {
         "agent.channelUp" => "Tell the Daemon an Agent's channel is up.",
         "action.serve" => "Register the open App as the one answerer of named actions.",
         "action.list" => "List the open App's named actions.",
+        "action.userList" => "List the User actions the owner's Extensions declared.",
         "action.run" => "Ask the open App to run a named action with arguments.",
         "agent.signal" => "Deliver a hook signal from an Agent's Claude Code session.",
         "rail.list" => "List every node of the Rail.",

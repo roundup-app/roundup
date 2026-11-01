@@ -300,6 +300,7 @@ export type RpcMethods = {
   "github.prAutoMerge": { params: github_Number; result: github_Pr };
   "action.serve": { params: null; result: null };
   "action.list": { params: null; result: action_ActionRow[] };
+  "action.userList": { params: null; result: action_ActionRow[] };
   "action.run": { params: action_RunParams; result: action_RunResult };
   "daemon.ping": { params: null; result: common_Ping };
   "daemon.methods": { params: null; result: string[] };
