@@ -108,7 +108,7 @@ CAUSES = {
               'finding, or the bar it names, without loosening `docs/design-system.md`, and meet each `NOTE:` line too: '
               'the notes are polish the critic raises once and never blocks on again.',
     'conflict': 'The PR conflicts with `main`. Run `git merge origin/main`, resolve only the files git lists as conflicted, '
-                'and keep the behaviour of both sides. Then run only the tests those files reach and '
+                'and keep the behaviour of both sides. Then run only the test files among those files and '
                 '`loop/rules.sh merge-loss`. Read no scenario and run no full lint: `pre` does that on the push.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
