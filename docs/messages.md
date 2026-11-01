@@ -97,7 +97,7 @@ check the lifecycle projection against those seams.
 
 | Module | Change |
 |---|---|
-| `crates/contracts` | `Message`, `MessageKind`, `MessageStatus` (`pending`, `delivered`, `dropped`), `Route`, `Delivery` (moved out of `contracts/hooks.ts`, which imports it); methods `message.send`, `message.get`, `message.list`, `message.drop`, `route.set`, `route.list`; events `message.sent`, delivered and dropped events, `route.changed`; `generated/` is regenerated, never edited |
+| `crates/contracts` | `Message`, `MessageKind`, `MessageStatus` (`pending`, `delivered`, `dropped`), `Route`, `Delivery`; methods `message.send`, `message.get`, `message.list`, `message.drop`, `route.set`, `route.list`; events `message.sent`, delivered and dropped events, `route.changed`; `generated/` is regenerated, never edited |
 | `crates/messages` (new) | stores Messages and Routes in `messages.db` of the Project data folder (N1, ADR 0004), listens to `agent.status` on the bus, and delivers through the existing Adapter inbox or `Agents::prompt` according to authenticated sender |
 | `crates/agents` | the existing Adapter input seam handles inbox delivery for non-user Messages and `Agents::prompt` for user text; no fourth seam (P4) |
 | `crates/rupd` | registers the module |
