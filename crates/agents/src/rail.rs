@@ -606,8 +606,6 @@ fn sql(err: rusqlite::Error) -> RpcError {
     RpcError::internal(err)
 }
 
-/// X11: a Rail stored by an earlier Daemon may hold nodes of kind `terminal`; their programs are
-/// gone, so they go, and each parent's remaining children close the gap.
 /// O3: the order a Workstream's Door holds when none was given. An Agent holds none (O2).
 fn workstream_order() -> Order {
     Order::clarification("What is this Workstream for?")
