@@ -766,9 +766,10 @@ async fn r3778c_durable_reference_order() {
 
 fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
     p.crash();
+    // A real version-41 database holding the rows made so far; version 41 precedes
+    // 0028-deliverable-files, the Door columns and Pad order, and still holds Clear-owned state.
+    daemon::storage::legacy_project_v41(&p.data_dir().join("project.db"));
     let db = rusqlite::Connection::open(p.data_dir().join("project.db")).unwrap();
-    // Historical schema/real BLOB fixture. Leave its committed changes in WAL across upgrade.
-    db.execute_batch("DROP TRIGGER deliverable_blob_exclusive; DROP TRIGGER deliverable_file_exclusive; DROP TRIGGER deliverable_blob_identity; DROP TRIGGER deliverable_file_identity; DROP TABLE deliverable_files; ALTER TABLE pads DROP COLUMN position;").unwrap();
     for (record, bytes) in publications {
         db.execute(
             "INSERT INTO deliverable_bytes VALUES (?1,?2)",
@@ -776,28 +777,7 @@ fn legacy_blobs(p: &mut daemon::Project, publications: &[(&Value, &[u8])]) {
         )
         .unwrap();
     }
-    // After T4902's removal, version 41 precedes 0028-deliverable-files.sql and Door columns.
-    db.execute_batch("ALTER TABLE message_restarts DROP COLUMN session")
-        .unwrap();
-    db.execute_batch("ALTER TABLE nodes DROP COLUMN opening_prompt; ALTER TABLE nodes DROP COLUMN conversation_yolo")
-        .unwrap();
-    db.execute_batch(
-        "DROP TRIGGER instruction_message; DROP TRIGGER instruction_message_outcome;
-         ALTER TABLE instruction_deliveries DROP COLUMN message;",
-    )
-    .unwrap();
-    db.execute_batch(daemon::INSTRUCTION_MESSAGES).unwrap();
-    // Version 41 also predates the removal of Clear-owned state.
-    db.execute_batch("ALTER TABLE nodes ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
-        ALTER TABLE marks ADD COLUMN iteration INTEGER NOT NULL DEFAULT 1;
-        CREATE TABLE iterations (door TEXT NOT NULL, iteration INTEGER NOT NULL, upto INTEGER NOT NULL, PRIMARY KEY (door, iteration));").unwrap();
-    // ... the Todo columns added by 0036 and 0037, and the conversation column of 0038.
-    db.execute_batch(
-        "ALTER TABLE todos DROP COLUMN updated_at; ALTER TABLE deleted_todos DROP COLUMN updated_at;
-         ALTER TABLE todos DROP COLUMN priority; ALTER TABLE deleted_todos DROP COLUMN priority;",
-    )
-    .unwrap();
-    db.pragma_update(None, "user_version", 41).unwrap();
+    drop(db);
     std::fs::remove_dir_all(p.data_dir().join("publication-files")).unwrap();
     p.restart(&[]);
 }
