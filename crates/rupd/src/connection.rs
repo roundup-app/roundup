@@ -18,7 +18,6 @@ impl From<Value> for Frame {
 
 impl Frame {
     /// The frame as the client reads it.
-    #[cfg(test)]
     pub(crate) fn into_value(self) -> Value {
         match self {
             Self::Value(value) => value,
@@ -38,6 +37,8 @@ impl Frame {
 
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
+    // UA1: the Extension host starts after the socket is bound and never delays it.
+    daemon.extensions.start(&daemon);
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);

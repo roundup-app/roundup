@@ -1,4 +1,5 @@
-import { cleanup, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { age } from "../shelf/Age";
 import { afterEach, expect, it } from "vitest";
 import type { Status } from "@contracts/Status";
 import { event, info, NOW } from "../testing/nodes";
@@ -50,4 +51,19 @@ it("ps10_a_status_event_updates_the_row_and_a_burst_ends_in_the_last_state", asy
   for (const [kind, label] of [["working", "one"], ["error", "two"], ["needs-you", "three"]] as const) m.app.emit(event({ name: "terminal.status", data: { id: "1", status: status(kind, label) } }));
 
   await waitFor(() => expect(tab("1").querySelector("[data-program-status]")!.getAttribute("data-program-status")).toBe("needs-you"));
+});
+
+it("ps12_a_terminal_tab_shows_its_status_label_and_age_on_focus", async () => {
+  const shown = status("needs-you", "Proceed?");
+
+  await mount({ ...shown, since: Date.now() - 5 * 60_000 });
+  await waitFor(() => expect(tab("1")).not.toBeNull());
+
+  fireEvent.keyDown(document, { key: "Tab" });
+  tab("1").focus();
+
+  const tip = await screen.findByRole("tooltip");
+
+  expect(tip.textContent).toContain(shown.label);
+  expect(tip.textContent).toContain(age(Date.now() - 5 * 60_000, Date.now()));
 });

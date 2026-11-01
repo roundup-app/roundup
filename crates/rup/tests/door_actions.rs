@@ -138,10 +138,16 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         .await
         .unwrap();
     project
-        .next(&mut events, |data| match data {
-            EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Idle => Some(()),
-            _ => None,
-        })
+        .next_named(
+            "the Door's first idle status",
+            &mut events,
+            |data| match data {
+                EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Idle => {
+                    Some(())
+                }
+                _ => None,
+            },
+        )
         .await;
     let child = user
         .request(
@@ -160,35 +166,43 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         .tool_result("toolu_b37_child_ready")
         .await;
     project
-        .next(&mut events, |data| match data {
-            EventData::AgentStatus(s)
-                if s.id == child
-                    && s.status.kind == Kind::Working
-                    && s.status.label == "working" =>
-            {
-                Some(())
-            }
-            _ => None,
-        })
+        .next_named(
+            "the child's working status",
+            &mut events,
+            |data| match data {
+                EventData::AgentStatus(s)
+                    if s.id == child
+                        && s.status.kind == Kind::Working
+                        && s.status.label == "working" =>
+                {
+                    Some(())
+                }
+                _ => None,
+            },
+        )
         .await;
     project
-        .next(&mut events, |data| match data {
+        .next_named("the child's idle status", &mut events, |data| match data {
             EventData::AgentStatus(s) if s.id == child && s.status.kind == Kind::Idle => Some(()),
             _ => None,
         })
         .await;
     // The push window closes on the child's final idle Digest, not its earlier Rail status.
     project
-        .next(&mut events, |data| match data {
-            EventData::MessageDelivered(m)
-                if m.to == door
-                    && m.body.contains("[digest] B37 child is idle")
-                    && m.body.contains("open todos: 1") =>
-            {
-                Some(())
-            }
-            _ => None,
-        })
+        .next_named(
+            "the Digest B37 child is idle delivered to the Door",
+            &mut events,
+            |data| match data {
+                EventData::MessageDelivered(m)
+                    if m.to == door
+                        && m.body.contains("[digest] B37 child is idle")
+                        && m.body.contains("open todos: 1") =>
+                {
+                    Some(())
+                }
+                _ => None,
+            },
+        )
         .await;
     // B50(c): the transcript records the Digest after the turn it starts may already be over, so the
     // door's idle edge can precede the Delivered event; the Rail poll below waits for idle instead.
@@ -213,12 +227,18 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         }
     })
     .await
-    .unwrap();
+    .expect("the Door went idle after the Digests and took the scripted server error prompt");
     let failed = project
-        .next(&mut events, |data| match data {
-            EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Error => Some(s),
-            _ => None,
-        })
+        .next_named(
+            "the Door's error status after the scripted server error",
+            &mut events,
+            |data| match data {
+                EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Error => {
+                    Some(s)
+                }
+                _ => None,
+            },
+        )
         .await;
     assert!(
         failed.status.label.contains("Claude's servers failed"),
@@ -231,14 +251,18 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     assert_eq!(live.attempt.as_deref(), Some(failed.attempt.as_str()));
     project.needs_you(&user, &child).await;
     project
-        .next(&mut events, |data| match data {
-            EventData::MessageDelivered(m)
-                if m.to == door && m.body.contains("[digest] B37 child is needs-you") =>
-            {
-                Some(())
-            }
-            _ => None,
-        })
+        .next_named(
+            "the Digest B37 child is needs-you delivered to the Door",
+            &mut events,
+            |data| match data {
+                EventData::MessageDelivered(m)
+                    if m.to == door && m.body.contains("[digest] B37 child is needs-you") =>
+                {
+                    Some(())
+                }
+                _ => None,
+            },
+        )
         .await;
     // Polled, not awaited as an event: the transcript records the note after its turn may be over.
     tokio::time::timeout(project.bound(), async {
@@ -255,7 +279,7 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
         }
     })
     .await
-    .unwrap();
+    .expect("the Door went idle with a new status revision after the needs-you note");
     // This observer expects one failed model request; the shared success-only Drop check does not.
     let model = project.model.take().unwrap();
     let journal = model.journal();
