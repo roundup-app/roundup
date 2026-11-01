@@ -4,6 +4,8 @@ import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Pad } from "@contracts/pad/Pad";
 import { railOrder } from "../rail/layout";
+import type { ActionRow } from "@contracts/action/ActionRow";
+import { ACTION_ROWS } from "../keys/chords";
 import { nameOf } from "../bubbles/places";
 
 /** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it, or a Todo or Pad (U5240b). */
@@ -64,3 +66,14 @@ export const itemsMatching = (nodes: readonly RailNode[], todos: readonly Todo[]
     ...pads.flatMap((pad): Entry[] => (contains(pad.name, needle) ? [{ value: `pad:${pad.incarnation}`, label: pad.name, pad, owner: owner(pad.home) }] : [])),
   ];
 };
+
+/** UA9, UA12: the Daemon's User actions the Switcher shows, in its order: none that needs an argument, none named like a built-in action. */
+export const userActionsOf = (rows: readonly ActionRow[]): Entry[] => {
+  const builtIn = new Set(ACTION_ROWS.map(row => row.name));
+
+  return rows
+    .filter(row => !builtIn.has(row.name) && !row.args.some(arg => arg.required))
+    .map(row => ({ value: `${USER_PREFIX}${row.name}`, label: row.label }));
+};
+
+export const USER_PREFIX = "action:user:";
