@@ -774,4 +774,5 @@ fn lc18_a_start_without_it_has_no_switch() {
     assert!(!has(&argv, "--computer-use-mcp"));
 }
 
+#[path = "lean/memory.rs"]
 mod memory;
