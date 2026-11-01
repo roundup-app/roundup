@@ -21,6 +21,7 @@ import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import * as v from "valibot";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
+import { OPEN_ITEM } from "../shelf/openItem";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext, type JSX } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
@@ -432,6 +433,20 @@ export const Todos = (props: {
     setShown({ id: todo.id, content });
     connected.drawer.open(content, source, { kind: "todo", project: connected.project.path });
   };
+
+  // U5240b: the Switcher opens a Todo through its Rail row, so the row reads as selected.
+  const onOpenItem = (event: Event) => {
+    // SAFETY: only the Switcher dispatches OPEN_ITEM, with this detail.
+    const detail = (event as CustomEvent<{ kind: string; id: number }>).detail;
+    const todo = detail.kind === "todo" ? todos.byId().get(detail.id) : undefined;
+
+    if (!todo || props.recovery !== undefined) return;
+    event.preventDefault();
+    show(todo, "key");
+  };
+
+  window.addEventListener(OPEN_ITEM, onOpenItem);
+  onCleanup(() => window.removeEventListener(OPEN_ITEM, onOpenItem));
 
   const toggle = async (todo: Todo, ids: readonly number[]) => {
     const focus = captureFocus();

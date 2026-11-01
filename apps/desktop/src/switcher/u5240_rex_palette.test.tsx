@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
 import { CHORDS, SWITCHER_KEYS } from "../keys/chords";
+import { OPEN_ITEM } from "../shelf/openItem";
 import { saveAppSettings, appSettings } from "../settings/preferences";
 import { agent, info, USER, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, switcherKey } from "./switcherFixture";
@@ -115,6 +116,35 @@ it("u5240b_enter_on_a_todo_or_pad_opens_it_as_a_click_does", async () => {
     expect(connected.drawer.surface()).toEqual({ kind, project: "/p" });
     connected.drawer.close();
   }
+});
+
+it("u5240b_enter_on_a_todo_or_pad_hands_the_open_to_its_mounted_rail_row", async () => {
+  const { connected } = await seed();
+  const asked: unknown[] = [];
+
+  const listen = (event: Event) => {
+    // SAFETY: the Switcher dispatches OPEN_ITEM as a CustomEvent.
+    asked.push((event as CustomEvent).detail);
+    event.preventDefault();
+  };
+
+  window.addEventListener(OPEN_ITEM, listen);
+
+  for (const [query, kind] of [["renew the", "todo"], ["new notes", "pad"]] as const) {
+    direct();
+    await waitOpen();
+    await search(query);
+    await waitFor(() => expect(options().some(row => row.dataset.value?.startsWith(`${kind}:`))).toBe(true));
+    const row = options().find(option => option.dataset.value?.startsWith(`${kind}:`))!;
+
+    expect(row.querySelector(".glyph, svg")).not.toBeNull();
+    fireEvent.click(row);
+    await waitFor(() => expect(field()).toBeNull());
+  }
+
+  window.removeEventListener(OPEN_ITEM, listen);
+  expect(asked).toEqual([expect.objectContaining({ kind: "todo" }), { kind: "pad", name: "new notes" }]);
+  expect(connected.drawer.surface()).toBeNull();
 });
 
 const command = () => chord("agent.new");
