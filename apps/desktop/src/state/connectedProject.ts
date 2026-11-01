@@ -248,7 +248,7 @@ export const connectProject = async (
   const unseen = createRoot((dispose) => {
     stopUnseen = dispose;
 
-    return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path));
+    return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path), { app, events, path: project.path });
   });
 
   if (ended) stopUnseen();

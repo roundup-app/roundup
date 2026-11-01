@@ -481,7 +481,7 @@ const createDeliverables = () => {
   const refresh = () => { if (daemonExit() === null) void refetch(); };
 
   window.addEventListener("focus", refresh);
-  const unsubscribe = events.subscribe(event => { if (event.name === "rail.changed") refresh(); });
+  const unsubscribe = events.subscribe(event => { if (event.name === "rail.changed" || event.name === "deliverable.changed") refresh(); });
   onCleanup(() => { unsubscribe(); window.removeEventListener("focus", refresh); });
 
   return { records: () => read().records, failure: () => read().failure, loading: () => read.loading, refresh };

@@ -4,7 +4,7 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import { menuProbe, probeQuestion, probeRemovalQuestion, questionProbe } from "./menuProbe";
-import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert } from "../app/seam";
+import type { AppSeam, RemovalQuestion, RemovalAnswer, NativeOpen, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project, StateAlert, MenuBar, MenuBarAction } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -45,6 +45,8 @@ const emptyReads: Handlers = {
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
 export type FakeApp = AppSeam & {
+  menuBar: MenuBar | null;
+  menuBarAction(action: MenuBarAction): void;
   nativeOpen(request: NativeOpen): void;
   questions: NativeQuestion[];
   removalQuestions: RemovalQuestion[];
@@ -125,6 +127,7 @@ export type FakeApp = AppSeam & {
 const folderOf = (path: string): string => path.split("/").pop() ?? path;
 
 export const createFakeApp = (): FakeApp => {
+  const menuBarListeners = new Set<(action: MenuBarAction) => void>();
   const nativeListeners = new Set<(request: NativeOpen) => void>();
   let onEvent: ((event: DaemonEvent) => void) | null = null;
   const live = new Map<string, FakeOutputSubscription>();
@@ -141,6 +144,14 @@ export const createFakeApp = (): FakeApp => {
   let naming = { automaticRenaming: true, namingGuide: "Use three hyphen-separated words: role-verb-object, within 32 characters." };
 
   const app: FakeApp = {
+    menuBar: null,
+    setMenuBar: async menu => { app.menuBar = menu; },
+    onMenuBarAction: async listener => {
+      menuBarListeners.add(listener);
+
+      return () => { menuBarListeners.delete(listener); };
+    },
+    menuBarAction: action => menuBarListeners.forEach(listener => listener(action)),
     recentProjects: async () => [],
     claudeBinary: async () => ({ path: "/fake/claude", version: "1.0.0" }),
     onNativeOpen: async listener => {
@@ -308,6 +319,8 @@ export const createFakeApp = (): FakeApp => {
         ask: app.ask,
         askRemoval: app.askRemoval,
         setDockBadge: app.setDockBadge,
+        setMenuBar: app.setMenuBar,
+        onMenuBarAction: app.onMenuBarAction,
         stateAlert: app.stateAlert,
         onStateAlertClicked: app.onStateAlertClicked,
         setWindowTitle: app.setWindowTitle,

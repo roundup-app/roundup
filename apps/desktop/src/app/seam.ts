@@ -165,6 +165,19 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export const claudeBinarySchema = v.object({ path: v.string(), version: v.string() });
 
+/** U5502: native menu activation retains the original Project and Agent. */
+export const menuBarActionSchema = v.variant("kind", [
+  v.object({ kind: v.literal("agent"), path: v.string(), agent: v.string() }),
+  v.object({ kind: v.literal("open") }),
+]);
+
+export type MenuBarAction = v.InferOutput<typeof menuBarActionSchema>;
+
+export type MenuBar = {
+  mark: "waiting" | "ready" | "empty";
+  entries: { label: string; action: MenuBarAction | null; since?: number }[];
+};
+
 export type StateAlert = { agent: string; title: string; body: string; alert: boolean; sound: boolean };
 
 export const stateAlertClickedSchema = v.object({ agent: v.string() });
@@ -196,6 +209,10 @@ export type App = {
   chooseSavePath(suggestedName: string): Promise<string | null>;
   /** Shows `count` on the Dock icon; zero clears the badge. */
   setDockBadge(count: number): Promise<void>;
+  /** U5502: replaces the passive native template image and flat menu; never activates the window. */
+  setMenuBar(menu: MenuBar): Promise<void>;
+  /** U5502: only an enabled row or command activates the window and emits an action. */
+  onMenuBarAction(listener: (action: MenuBarAction) => void): Promise<Unsubscribe>;
   /** U5232f: shows one macOS banner naming the Agent when `alert`, plays one system sound when `sound`; both false rejects INVALID_PARAMS, a refused permission rejects FORBIDDEN with its cause (and a sound still plays). */
   stateAlert(alert: StateAlert): Promise<void>;
   /** U5232e: a click on a State alert's banner; the window is already in front. */
