@@ -1,6 +1,6 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { claudeBinarySchema, nativeOpenSchema, captureActionSchema, captureStateSchema, projectPageSchema } from "./seam";
-import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -130,7 +130,6 @@ export const createTauriApp = (): App => {
     setWindowTitle: (title) => command<void>("plugin:window-bar|set_window_title", { title }),
     dragWindow: () => command<void>("plugin:window-bar|drag_window", {}),
     zoomWindow: () => command<void>("plugin:window-bar|zoom_window", {}),
-    imageUrl: (path) => convertFileSrc(path),
     openTarget: async (target) => {
       await command("open_target", { target });
     },

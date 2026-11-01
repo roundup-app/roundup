@@ -22,7 +22,7 @@ const CALLS: usize = 25;
 const TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Every allowlisted read whose params are `()`, the App's start and click reads that name no id.
-const SAMPLED: [&str; 18] = [
+const SAMPLED: [&str; 17] = [
     "agent.extras",
     "ask.list",
     "daemon.methods",
@@ -32,7 +32,6 @@ const SAMPLED: [&str; 18] = [
     "project.get",
     "project.getPrepared",
     "project.resources",
-    "rail.list",
     "rail.tree",
     "reaction.list",
     "route.list",

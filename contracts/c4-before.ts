@@ -309,14 +309,6 @@ export type ask_State = "placing" | "waiting" | "queued" | "typed" | "failed" | 
 
 export type ask_Target = { "kind": "workstream", id: string, } | { "kind": "new", title?: string, } | { "kind": "drop" };
 
-export type attachment_SaveParams = { name: string, 
-
-data: string, };
-
-export type attachment_Saved = { 
-
-path: string, };
-
 export type deliverable_Deliverable = { project: string, id: string, maker: Actor, maker_name: string, home: string | null, title: string, published_at: number, target: deliverable_PublishedTarget, };
 
 export type deliverable_DeliverableId = { project: string, id: string, };
@@ -930,8 +922,6 @@ export type Before = {
   "ask/SendParams": ask_SendParams;
   "ask/State": ask_State;
   "ask/Target": ask_Target;
-  "attachment/SaveParams": attachment_SaveParams;
-  "attachment/Saved": attachment_Saved;
   "deliverable/Deliverable": deliverable_Deliverable;
   "deliverable/DeliverableId": deliverable_DeliverableId;
   "deliverable/ExternalAvailability": deliverable_ExternalAvailability;
@@ -1191,7 +1181,6 @@ export type BeforeRpcMethods = {
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "rail.tree": { params: null; result: agent_RailNode[] };
-  "rail.list": { params: null; result: agent_RailNode[] };
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
@@ -1212,7 +1201,6 @@ export type BeforeRpcMethods = {
   "project.resources": { params: null; result: project_Resources };
   "project.open": { params: project_OpenParams; result: null };
   "project.rename": { params: project_RenameParams; result: null };
-  "attachment.save": { params: attachment_SaveParams; result: attachment_Saved };
   "message.progress": { params: message_ProgressParams; result: message_Progress };
   "message.report": { params: message_ReportParams; result: message_ResultReport };
   "message.acceptResult": { params: message_AcceptResultParams; result: message_ResultAcceptance };

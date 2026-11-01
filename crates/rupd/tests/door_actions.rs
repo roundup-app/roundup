@@ -5,7 +5,13 @@ mod child_run;
 mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-use door_terminals::{door_terminal, idle, recorded_bytes};
+use door_terminals::recorded_bytes;
+#[path = "support/door_terminal.rs"]
+mod door_terminal;
+use door_terminal::door_terminal;
+#[path = "support/idle.rs"]
+mod idle;
+use idle::idle;
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
