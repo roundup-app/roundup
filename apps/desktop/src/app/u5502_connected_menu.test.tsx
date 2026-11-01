@@ -89,20 +89,25 @@ it("u5502_reload_reconciles_ready_results", async () => {
   const records = [publication("history")];
   const first = renderTabs(trees);
   first.app.of(path("api")).handlers["deliverable.list"] = () => [...records];
+  await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
   await waitFor(() => expect(first.app.menuBar?.mark).toBe("empty"));
   records.push(publication("unread"));
   first.app.of(path("api")).emit(event({ name: "deliverable.changed" }));
   await waitFor(() => expect(actions(first.app)).toHaveLength(1));
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:seen-publications:${path("api")}`) ?? "null")).toEqual({ history: true, unread: false }));
   cleanup();
   records.push(publication("gap"));
   const next = renderTabs(trees, true);
   next.app.of(path("api")).handlers["deliverable.list"] = () => [...records];
+  await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
   await waitFor(() => expect(actions(next.app)).toHaveLength(1));
   next.app.menuBarAction({ kind: "agent", path: path("api"), agent: "a" });
   await waitFor(() => expect(actions(next.app)).toHaveLength(0));
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(`roundup:seen-publications:${path("api")}`) ?? "null")).toEqual({ history: true, unread: true, gap: true }));
   cleanup();
   const read = renderTabs(trees, true);
   read.app.of(path("api")).handlers["deliverable.list"] = () => [...records];
+  await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
   await waitFor(() => expect(read.app.menuBar?.mark).toBe("empty"));
 });
 
