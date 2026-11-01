@@ -2,7 +2,6 @@
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
 mod actions;
-mod attachment;
 mod auto;
 #[cfg(test)]
 mod auto_tests;
@@ -116,8 +115,6 @@ pub struct Daemon {
         std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<Arc<terminal::Change>>>>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
-    /// U419: where `attachment.save` keeps a pasted image.
-    attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,

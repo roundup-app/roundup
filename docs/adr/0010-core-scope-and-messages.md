@@ -107,7 +107,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 | toasts | 984 / 449 | ui-toasts.md U410–U414, U468 | Attention | Keep blocked attention without routine-progress interruption. |
 | todos | 5,420 / 3,549 | ui-todo-row.md, todo-drawer.md, ui-edit-in-place.md, ui.md | Door, Attention | Keep usable task review; #1609 owns primitive migration. |
 
-The root App files (App/main, global styles, buttons and Tokens) add **1,189 / 0** lines/separate tests and support all surviving surfaces; they are included separately by the inventory command below. Extension declarations live in `contracts/hooks.ts` (**29** lines); `ext/*` is a workspace glob with no shipped directory. Keep the existing declarations; no Extension marketplace or runtime is recommended. `contracts/generated/` is derivative, not independent feature cost.
+The root App files (App/main, global styles, buttons and Tokens) add **1,189 / 0** lines/separate tests and support all surviving surfaces; they are included separately by the inventory command below. `ext/*` is a workspace glob with no shipped directory. The Extension host supports action registration; no Extension marketplace is recommended. `contracts/generated/` is derivative, not independent feature cost.
 
 ### Features beyond the five stages
 
