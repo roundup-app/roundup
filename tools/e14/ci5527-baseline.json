@@ -12,6 +12,12 @@
     },
     {
       "shard": 1,
+      "file": "src/bubbles/u4274_navigation.test.tsx",
+      "tests": 44,
+      "ms": 106179
+    },
+    {
+      "shard": 1,
       "file": "src/inbox/u3770_inbox.test.tsx",
       "tests": 33,
       "ms": 79861
@@ -204,6 +210,12 @@
     },
     {
       "shard": 3,
+      "file": "src/settings/u3799_app_settings.test.tsx",
+      "tests": 15,
+      "ms": 78889
+    },
+    {
+      "shard": 3,
       "file": "src/shelf/u3721_browser.test.ts",
       "tests": 3,
       "ms": 49465
@@ -216,9 +228,21 @@
     },
     {
       "shard": 3,
+      "file": "src/testing/u463_real_daemon.test.ts",
+      "tests": 6,
+      "ms": 116953
+    },
+    {
+      "shard": 3,
       "file": "src/todos/u4698e_browser.test.ts",
       "tests": 2,
       "ms": 51111
+    },
+    {
+      "shard": 4,
+      "file": "src/drawer/u3010b_rendered.test.ts",
+      "tests": 17,
+      "ms": 84758
     },
     {
       "shard": 4,
@@ -231,6 +255,18 @@
       "file": "src/settings/u3806_preferences.test.tsx",
       "tests": 27,
       "ms": 33263
+    },
+    {
+      "shard": 4,
+      "file": "src/terminal/u3517_browser.test.ts",
+      "tests": 50,
+      "ms": 51291
+    },
+    {
+      "shard": 4,
+      "file": "src/terminal/u514_browser.test.ts",
+      "tests": 22,
+      "ms": 177032
     },
     {
       "shard": 4,
@@ -330,6 +366,12 @@
     },
     {
       "shard": 6,
+      "file": "src/shelf/u3789_browser.test.ts",
+      "tests": 39,
+      "ms": 54406
+    },
+    {
+      "shard": 6,
       "file": "src/terminal/u3707_browser.test.ts",
       "tests": 1,
       "ms": 30478
@@ -345,6 +387,18 @@
       "file": "src/todos/u152_every_action.test.tsx",
       "tests": 65,
       "ms": 56101
+    },
+    {
+      "shard": 6,
+      "file": "src/todos/u461_rendered.test.ts",
+      "tests": 10,
+      "ms": 60680
+    },
+    {
+      "shard": 6,
+      "file": "src/todos/u4698d_browser.test.ts",
+      "tests": 9,
+      "ms": 132837
     },
     {
       "shard": 7,
@@ -412,5 +466,47 @@
       "tests": 15,
       "ms": 36709
     }
-  ]
+  ],
+  "executed_files": 542,
+  "all_skipped_files": 27,
+  "source_reports": [
+    {
+      "shard": 1,
+      "url": "https://github.com/roundup-app/roundup/actions/runs/41343826661/artifacts/13099202274"
+    },
+    {
+      "shard": 2,
+      "url": "https://github.com/roundup-app/roundup/actions/runs/41343826661/artifacts/13099730182"
+    },
+    {
+      "shard": 3,
+      "url": "https://github.com/roundup-app/roundup/actions/runs/41343826661/artifacts/13098704599"
+    },
+    {
+      "shard": 4,
+      "url": "https://github.com/roundup-app/roundup/actions/runs/41343826661/artifacts/13098649027"
+    },
+    {
+      "shard": 5,
+      "url": "https://github.com/roundup-app/roundup/actions/runs/41343826661/artifacts/13099710432"
+    },
+    {
+      "shard": 6,
+      "url": "https://github.com/roundup-app/roundup/actions/runs/41343826661/artifacts/13098754437"
+    },
+    {
+      "shard": 7,
+      "url": "https://github.com/roundup-app/roundup/actions/runs/41343826661/artifacts/13099545866"
+    }
+  ],
+  "job_urls": {
+    "web 2": "https://github.com/roundup-app/roundup/actions/runs/41343826661/job/124960046493",
+    "web 4": "https://github.com/roundup-app/roundup/actions/runs/41343826661/job/124960046509",
+    "web 3": "https://github.com/roundup-app/roundup/actions/runs/41343826661/job/124960046548",
+    "web 6": "https://github.com/roundup-app/roundup/actions/runs/41343826661/job/124960046563",
+    "web 5": "https://github.com/roundup-app/roundup/actions/runs/41343826661/job/124960046569",
+    "web 1": "https://github.com/roundup-app/roundup/actions/runs/41343826661/job/124960046591",
+    "web 7": "https://github.com/roundup-app/roundup/actions/runs/41343826661/job/124960046619"
+  },
+  "test_count_source": "Vitest printed total, including skipped tests; files with every test skipped are excluded"
 }
