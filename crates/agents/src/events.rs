@@ -420,6 +420,7 @@ impl Shared {
         }
         let was_kind = run.adapter.status().map(|status| status.kind);
         let was_finished = run.adapter.finished();
+        let was_final_text = run.adapter.final_text();
         let signal = matches!(observation, Observation::Signal(_));
         let changed = run.adapter.observe(observation).or_else(|| {
             if !exited || run.ended {
@@ -429,6 +430,9 @@ impl Shared {
             status.since = store::now_ms();
             Some(status)
         });
+        if was_final_text != run.adapter.final_text() {
+            self.bus.emit(actor.clone(), EventData::RailChanged);
+        }
         if signal
             && (session_start
                 || changed
